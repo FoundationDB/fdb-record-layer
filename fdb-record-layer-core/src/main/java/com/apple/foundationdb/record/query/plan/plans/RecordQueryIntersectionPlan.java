@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -49,6 +50,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -58,7 +60,7 @@ import java.util.stream.Stream;
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren {
+public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren, RecordQueryPlanWithRequiredFields {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIntersectionPlan.class);
 
     private static final String INTERSECT = "∩"; // U+2229
@@ -217,6 +219,12 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren 
     @Override
     public int getRelationalChildCount() {
         return children.size();
+    }
+
+    @Nonnull
+    @Override
+    public Set<KeyExpression> getRequiredFields() {
+        return ImmutableSet.copyOf(getComparisonKey().normalizeKeyForPositions());
     }
 
     /**

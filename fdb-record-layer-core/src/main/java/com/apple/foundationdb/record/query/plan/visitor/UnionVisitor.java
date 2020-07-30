@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans.visitor;
+package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -33,6 +33,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  *
@@ -64,7 +65,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
 
     @Nonnull
     @Override
-    public RecordQueryPlan visit(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull Set<KeyExpression> requiredFields) {
         if (recordQueryPlan instanceof RecordQueryUnionPlanBase) {
             RecordQueryUnionPlanBase unionPlan = (RecordQueryUnionPlanBase) recordQueryPlan;
 
@@ -85,7 +86,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                     }
                     plan = ((RecordQueryFilterPlan) plan).getChild();
                 }
-                @Nullable RecordQueryPlan newPlan = removeIndexFetch(plan);
+                @Nullable RecordQueryPlan newPlan = removeIndexFetch(plan, requiredFields);
                 if (newPlan == null) { // can't remove index fetch, so give up
                     return recordQueryPlan;
                 }

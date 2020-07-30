@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans.visitor;
+package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  *
@@ -64,13 +65,13 @@ public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
 
     @Nonnull
     @Override
-    public RecordQueryPlan visit(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull Set<KeyExpression> requiredFields) {
         if (recordQueryPlan instanceof RecordQueryIntersectionPlan) {
             RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan) recordQueryPlan;
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(intersectionPlan.getChildren().size());
             for (RecordQueryPlan plan : intersectionPlan.getChildren()) {
-                @Nullable RecordQueryPlan newPlan = removeIndexFetch(plan);
+                @Nullable RecordQueryPlan newPlan = removeIndexFetch(plan, requiredFields);
                 if (newPlan == null) { // can't remove index fetch, so give up
                     return recordQueryPlan;
                 }

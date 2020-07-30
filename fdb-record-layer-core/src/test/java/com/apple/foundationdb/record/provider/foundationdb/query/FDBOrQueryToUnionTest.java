@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -30,8 +31,12 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -1032,4 +1037,31 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Verify that a union visitor won't defer a record fetch if the comparison key has fields that the index
+     * entry doesn't.
+     * This sort of plan is never produced by the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner},
+     * so we have to test the visitor directly.
+     */
+    @Test
+    public void unionVisitorOnComplexComparisonKey() throws Exception {
+        complexQuerySetup(null);
+
+        RecordQueryPlan originalPlan1 = RecordQueryUnionPlan.from(
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                primaryKey("MySimpleRecord"), true);
+
+        RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan1, recordStore.getRecordMetaData(), primaryKey("MySimpleRecord"));
+        assertThat(modifiedPlan1, fetch(union(
+                coveringIndexScan(indexScan("MySimpleRecord$str_value_indexed")), coveringIndexScan(indexScan("MySimpleRecord$num_value_3_indexed")))));
+
+        RecordQueryPlan originalPlan2 = RecordQueryUnionPlan.from(
+                new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
+                concat(field("num_value_2"), primaryKey("MySimpleRecord")), true);
+        RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan2, recordStore.getRecordMetaData(), primaryKey("MySimpleRecord"));
+        // Visitor should not perform transformation because of comparison key on num_value_unique
+        assertEquals(originalPlan2, modifiedPlan2);
+    }
 }

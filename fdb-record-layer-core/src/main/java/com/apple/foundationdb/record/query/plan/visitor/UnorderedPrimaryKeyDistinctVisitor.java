@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans.visitor;
+package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 
 
 /**
@@ -58,10 +59,10 @@ public class UnorderedPrimaryKeyDistinctVisitor extends RecordQueryPlannerSubsti
 
     @Nonnull
     @Override
-    public RecordQueryPlan visit(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull Set<KeyExpression> requiredFields) {
         if (recordQueryPlan instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan) {
             RecordQueryUnorderedPrimaryKeyDistinctPlan distinctPlan = (RecordQueryUnorderedPrimaryKeyDistinctPlan) recordQueryPlan;
-            @Nullable RecordQueryPlan newPlan = removeIndexFetch(distinctPlan.getChild());
+            @Nullable RecordQueryPlan newPlan = removeIndexFetch(distinctPlan.getChild(), requiredFields);
             if (newPlan != null) {
                 return new RecordQueryFetchFromPartialRecordPlan(new RecordQueryUnorderedPrimaryKeyDistinctPlan(newPlan));
             }

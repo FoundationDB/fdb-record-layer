@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
@@ -32,6 +33,7 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,10 +45,13 @@ import java.util.TreeMap;
  */
 @API(API.Status.INTERNAL)
 public class IndexKeyValueToPartialRecord {
+    @Nullable
+    private final RecordType recordType;
     @Nonnull
     private final List<Copier> copiers;
 
-    private IndexKeyValueToPartialRecord(@Nonnull List<Copier> copiers) {
+    private IndexKeyValueToPartialRecord(@Nullable RecordType recordType, @Nonnull List<Copier> copiers) {
+        this.recordType = recordType;
         this.copiers = copiers;
     }
 
@@ -56,6 +61,11 @@ public class IndexKeyValueToPartialRecord {
             copier.copy(recordDescriptor, recordBuilder, kv);
         }
         return recordBuilder.build();
+    }
+
+    @Nullable
+    public RecordType getRecordType() {
+        return recordType;
     }
 
     @Override
@@ -209,20 +219,27 @@ public class IndexKeyValueToPartialRecord {
         }
     }
 
-    public static Builder newBuilder(@Nonnull Descriptors.Descriptor recordDescriptor) {
-        return new Builder(recordDescriptor);
+    public static Builder newBuilder(@Nonnull RecordType recordType) {
+        return new Builder(recordType);
     }
 
     /**
      * A builder for {@link IndexKeyValueToPartialRecord}.
      */
     public static class Builder {
+        @Nullable
+        private RecordType recordType;
         @Nonnull
         private final Descriptors.Descriptor recordDescriptor;
         @Nonnull
         private final Map<String, FieldCopier> fields;
         @Nonnull
         private final Map<String, Builder> nestedBuilders;
+
+        private Builder(@Nonnull RecordType recordType) {
+            this(recordType.getDescriptor());
+            this.recordType = recordType;
+        }
 
         private Builder(@Nonnull Descriptors.Descriptor recordDescriptor) {
             this.recordDescriptor = recordDescriptor;
@@ -303,7 +320,7 @@ public class IndexKeyValueToPartialRecord {
             for (Map.Entry<String, Builder> entry : nestedBuilders.entrySet()) {
                 copiers.add(new MessageCopier(entry.getKey(), entry.getValue().build()));
             }
-            return new IndexKeyValueToPartialRecord(copiers);
+            return new IndexKeyValueToPartialRecord(recordType, copiers);
         }
     }
 }

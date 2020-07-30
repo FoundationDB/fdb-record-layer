@@ -23,4 +23,4 @@
  * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan}s. These visitors are used in the
  * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} to execute certain optimizations.
  */
-package com.apple.foundationdb.record.query.plan.plans.visitor;
+package com.apple.foundationdb.record.query.plan.visitor;

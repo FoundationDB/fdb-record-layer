@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -45,6 +46,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -53,7 +55,7 @@ import java.util.stream.Collectors;
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
 @API(API.Status.MAINTAINED)
-public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
+public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements RecordQueryPlanWithRequiredFields {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlan.class);
 
     private static final StoreTimer.Count PLAN_COUNT = FDBStoreTimer.Counts.PLAN_UNION;
@@ -119,6 +121,12 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     @Nonnull
     public KeyExpression getComparisonKey() {
         return comparisonKey;
+    }
+
+    @Nonnull
+    @Override
+    public Set<KeyExpression> getRequiredFields() {
+        return ImmutableSet.copyOf(comparisonKey.normalizeKeyForPositions());
     }
 
     @Override
