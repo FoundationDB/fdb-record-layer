@@ -25,7 +25,8 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Union, intersection, and distinct operations can now be applied to index entries before fetching the primary record [(Issue #991)](https://github.com/FoundationDB/fdb-record-layer/issues/991)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -42,6 +43,10 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 
 // end next release
 -->
+
+### 2.9.134.0
+
+* **Performance** Union, intersection, and distinct operations can now be applied to index entries before fetching the primary record [(Issue #991)](https://github.com/FoundationDB/fdb-record-layer/issues/991)
 
 ### 2.9.133.0
 
