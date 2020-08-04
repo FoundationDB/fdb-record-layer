@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -30,9 +31,10 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 
 /**
- * TBD.
+ * An expression reference that wraps another expression reference.
  * @param <T> the type
  */
+@API(API.Status.EXPERIMENTAL)
 public class ExpressionRefDelegate<T extends RelationalExpression> implements ExpressionRef<T> {
     private final ExpressionRef<T> delegate;
 
@@ -109,7 +111,12 @@ public class ExpressionRefDelegate<T extends RelationalExpression> implements Ex
     }
 
     @Override
-    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        return delegate.resultEquals(other, equivalenceMap);
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        return delegate.semanticEquals(other, equivalenceMap);
+    }
+
+    @Override
+    public int semanticHashCode() {
+        return delegate.semanticHashCode();
     }
 }

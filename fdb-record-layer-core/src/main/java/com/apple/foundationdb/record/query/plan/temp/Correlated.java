@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Set;
@@ -48,7 +50,7 @@ import java.util.Set;
  * It is perfectly acceptable to return {@code this} if {@code this} is not correlated to any identifier participating
  * in the translation.
  *
- * This interface defines a {@link #resultEquals} method that also takes an equivalence map, and determines equality up
+ * This interface defines a {@link #semanticEquals} method that also takes an equivalence map, and determines equality up
  * to the equivalences defined therein. Two correlated entities are equivalent even if they use different names, as long
  * as un-bound correlations can be aligned. For example, in:
  *
@@ -64,7 +66,7 @@ import java.util.Set;
  * </pre>
  *
  * The two SELECT blocks should be considered equal even though they use different correlation names. The
- * {@link #resultEquals} introduced here considers these blocks equal using a bi-map that allows for the definition
+ * {@link #semanticEquals} introduced here considers these blocks equal using a bi-map that allows for the definition
  * of equivalences among correlation identifiers. In this case
  *
  * <pre>
@@ -86,6 +88,7 @@ import java.util.Set;
  *
  * @param <S> self type of this. Needed for rebasing to a proper constrained at-least type
  */
+@API(API.Status.EXPERIMENTAL)
 public interface Correlated<S extends Correlated<S>> {
     /**
      * Returns the set of {@link CorrelationIdentifier}s this entity is correlated to.
@@ -112,7 +115,9 @@ public interface Correlated<S extends Correlated<S>> {
     S rebase(@Nonnull AliasMap translationMap);
 
     /**
-     * Determine equality with respect to an equivalence map between {@link CorrelationIdentifier}s.
+     * Determine equality with respect to an equivalence map between {@link CorrelationIdentifier}s based on
+     * semantic equality which is usually defined as equality of the result of evaluating the plan fragment
+     * implementing this interface under the given bound correlations.
      * The contract of this variant of {@code equals()} differs from its regular Java counterpart.
      * A correlation is mostly just one part inside of composition of objects that expresses a more complicated
      * (correlated) structure, e.g. a filter. For instance {@code q1.x = 5} uses a correlation to {@code q1}.
@@ -144,5 +149,24 @@ public interface Correlated<S extends Correlated<S>> {
      * @return {@code true} if both entities are considered equal using the equivalences passed in, {@code false}
      *         otherwise
      */
-    boolean resultEquals(@Nullable Object other, @Nonnull AliasMap equivalenceMap);
+    boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap equivalenceMap);
+
+    /**
+     * Return a semantic hash code for this object. The hash code must obey the convention that for any two objects
+     * {@code o1} and {@code o2} and for every {@link AliasMap} {@code aliasMap}:
+     *
+     * <pre>
+     * {@code o1.semanticEquals(o1, aliasMap)} follows {@code o1.semanticHash() == o2.semanticHash()}
+     * </pre>
+     *
+     * If the semantic hash code of two implementing objects is equal and {@link #semanticEquals} returns {@code true}
+     * for these two objects the plan fragments are considered to produce the same result under the given bound
+     * correlations.
+     *
+     * As the right side of the follows does not include the alias map passed into {@link #semanticEquals} it is implied
+     * that this method cannot depend on a correlation mapping.
+     *
+     * @return the semantic hash code
+     */
+    int semanticHashCode();
 }

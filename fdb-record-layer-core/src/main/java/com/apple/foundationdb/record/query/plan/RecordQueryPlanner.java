@@ -1194,7 +1194,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             RecordQueryPlan filteredBasePlan;
             if (subplan.plan instanceof RecordQueryFilterPlan) {
-                filteredBasePlan = ((RecordQueryFilterPlan)subplan.plan).getInner();
+                filteredBasePlan = ((RecordQueryFilterPlan)subplan.plan).getInnerPlan();
             } else {
                 filteredBasePlan = null;
             }

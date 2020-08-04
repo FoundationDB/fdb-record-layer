@@ -28,7 +28,6 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -78,11 +77,16 @@ public class LogicalUnorderedUnionExpression implements RelationalExpressionWith
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(quantifiers);
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return 31;
     }
 }

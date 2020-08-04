@@ -62,7 +62,7 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Override
     @Nonnull
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(inner);
+        return ImmutableList.of(getInner());
     }
 
     @Override
@@ -99,12 +99,17 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getRecordTypes(), getInner());
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(getRecordTypes());
     }
 
     @Nonnull

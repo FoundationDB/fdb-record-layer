@@ -195,7 +195,7 @@ public class MemoExpressionTest {
         @Override
         public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                              @Nonnull final AliasMap equivalencesMap) {
-            if (!(otherExpression instanceof SyntheticPlannerExpression)) {
+            if (!RelationalExpression.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
                 return false;
             }
             return identity.equals(((SyntheticPlannerExpression)otherExpression).identity);
@@ -204,12 +204,17 @@ public class MemoExpressionTest {
         @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
         @Override
         public boolean equals(final Object other) {
-            return resultEquals(other);
+            return semanticEquals(other);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(identity, quantifiers);
+            return semanticHashCode();
+        }
+
+        @Override
+        public int hashCodeWithoutChildren() {
+            return Objects.hash(identity);
         }
 
         @Nonnull

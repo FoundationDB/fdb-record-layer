@@ -167,7 +167,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!(otherExpression instanceof RecordQueryScanPlan)) {
+        if (!RecordQueryPlanWithNoChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
             return false;
         }
 
@@ -180,11 +180,16 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(recordTypes, comparisons, reverse);
     }
 

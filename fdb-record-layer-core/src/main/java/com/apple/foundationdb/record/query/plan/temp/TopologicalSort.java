@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.API;
 import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -52,11 +53,13 @@ import java.util.function.Function;
  * all possible permutations of the input set that do not violate the given dependency constraints.
  *
  * The iterable {@link TopologicalOrderPermutationIterable} adheres to the following requirements:
- * 1. it does not violate the given constraints
- * 2. it produces all possible orderings under the given constraints
- * 3. it reacts appropriately to give circular dependency constraints between elements (i.e., no infinite loops)
- * 4. it iterates all orderings on the fly. That is, it stores only the position of the iteration and does not (pre)create
- *    the orderings in memory.
+ * <ol>
+ * <li>it does not violate the given constraints</li>
+ * <li>it produces all possible orderings under the given constraints</li>
+ * <li>it reacts appropriately to give circular dependency constraints between elements (i.e., no infinite loops)</li>
+ * <li>it iterates all orderings on the fly. That is, it stores only the position of the iteration and does not (pre)create
+ *    the orderings in memory.</li>
+ * </ol>
  *
  * {@link TopologicalOrderPermutationIterable} subclasses {@link Iterable} in order to provide an additional feature
  * that allows for skipping. Assume we have a set
@@ -90,6 +93,7 @@ import java.util.function.Function;
  * to allow skipping to a given prefix.
  *
  */
+@API(API.Status.EXPERIMENTAL)
 public class TopologicalSort {
     /**
      * Iterable that provides special iterators of type {@link TopologicalOrderPermutationIterator}.
@@ -447,8 +451,6 @@ public class TopologicalSort {
                         newlyEligibleElementsBuilder
                                 .addAll(eligibleElementSets.get(bound.size() - 1))
                                 .build();
-
-                        //eligibleElementSets.set(bound.size(), Sets.union(eligibleElementSets.get(bound.size() - 1), newlyEligibleElements));
                         eligibleElementSets.set(bound.size(), newlyEligibleElementsBuilder.build());
                     } else {
                         // the last round cannot possible have added new elements into the eligibility sets

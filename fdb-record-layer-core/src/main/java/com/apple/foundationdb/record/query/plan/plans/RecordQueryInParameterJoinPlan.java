@@ -120,14 +120,13 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        return otherExpression instanceof RecordQueryInParameterJoinPlan &&
-               super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
+        return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
                externalBinding.equals(((RecordQueryInParameterJoinPlan)otherExpression).externalBinding);
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), externalBinding);
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(super.hashCodeWithoutChildren(), externalBinding);
     }
 
     @Override

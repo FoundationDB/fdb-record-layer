@@ -31,6 +31,7 @@ import java.util.Set;
 /**
  * A base class for all elements that draw from exactly one source.
  */
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 abstract class ElementWithSingleSource implements Element {
     @Nonnull
     protected final Source source;
@@ -58,7 +59,12 @@ abstract class ElementWithSingleSource implements Element {
     }
 
     @Override
-    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
         return equals(other); // TODO this should be adapted
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 }

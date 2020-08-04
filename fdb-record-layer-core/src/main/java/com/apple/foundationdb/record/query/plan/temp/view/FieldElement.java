@@ -43,6 +43,7 @@ import java.util.Optional;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class FieldElement extends ElementWithSingleSource {
     @Nonnull
     private final List<String> fieldNames;
@@ -124,7 +125,7 @@ public class FieldElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         return Objects.hash(source, fieldNames);
     }
 

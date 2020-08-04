@@ -95,18 +95,23 @@ public abstract class AndOrPredicate implements QueryPredicate {
     @SuppressWarnings({"squid:S1206", "EqualsWhichDoesntCheckParameterClass"})
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     public boolean equals(final Object other) {
-        return resultEquals(other, AliasMap.empty());
+        return semanticEquals(other, AliasMap.empty());
     }
 
     @Override
     public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int semanticHashCode() {
         return Objects.hash(getChildren());
     }
 
     @SuppressWarnings("UnstableApiUsage")
     @Override
-    public boolean resultEquals(@Nullable final Object other,
-                                @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other,
+                                  @Nonnull final AliasMap equivalenceMap) {
         if (other == null) {
             return false;
         }
@@ -115,7 +120,7 @@ public abstract class AndOrPredicate implements QueryPredicate {
             return true;
         }
 
-        if (other.getClass() != getClass()) {
+        if (!(other instanceof AndOrPredicate)) {
             return false;
         }
 
@@ -131,12 +136,16 @@ public abstract class AndOrPredicate implements QueryPredicate {
         }
         return Streams
                 .zip(preds.stream(), otherPreds.stream(), Pair::of)
-                .allMatch(pair -> pair.getLeft().resultEquals(pair.getRight(), equivalenceMap));
+                .allMatch(pair -> pair.getLeft().semanticEquals(pair.getRight(), equivalenceMap));
     }
 
     @SuppressWarnings({"squid:S1172", "unused"})
     protected boolean equalsWithoutChildren(@Nonnull final AndOrPredicate other,
                                             @Nonnull final AliasMap equivalenceMap) {
-        return true;
+        if (this == other) {
+            return true;
+        }
+
+        return other.getClass() == getClass();
     }
 }

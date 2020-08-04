@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.API;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.EndpointPair;
@@ -33,12 +34,13 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * TDB.
-
+ * Utility class to provide a view on a graph given by a root expression reference (to a {@link RelationalExpression}
+ * that allows to perform traversal operations that are normally not possible on instances of {@link ExpressionRef}
+ * such as {@link #getLeaves()} and {@link FullyTraversableExpressionRef#getParentRefs()}.
  */
 @SuppressWarnings("UnstableApiUsage")
+@API(API.Status.EXPERIMENTAL)
 public class ExpressionRefTraversal {
-
     @Nonnull
     private final ExpressionRef<? extends RelationalExpression> rootRef;
     @Nonnull
@@ -64,6 +66,11 @@ public class ExpressionRefTraversal {
         return ImmutableList.of();
     }
 
+    /**
+     * Construct a traversal object using the {@code rootRef} reference passed in.
+     * @param rootRef the reference acting as the root for this traversal object
+     * @return a new traversal object
+     */
     public static ExpressionRefTraversal withRoot(final ExpressionRef<? extends RelationalExpression> rootRef) {
         final MutableNetwork<ExpressionRef<? extends RelationalExpression>, RefPath> network =
                 NetworkBuilder.directed()
@@ -89,7 +96,7 @@ public class ExpressionRefTraversal {
     }
 
     /**
-     * BLA.
+     * Case class to hold information about the path from an expression to another expression reference.
      */
     public static class RefPath {
         @Nonnull
@@ -114,7 +121,7 @@ public class ExpressionRefTraversal {
     }
 
     /**
-     * BLA.
+     * Expression reference that provides some additional functionality to navigate to parents, leaves, etc.
      * @param <T> type
      */
     public class FullyTraversableExpressionRef<T extends RelationalExpression> extends ExpressionRefDelegate<T> {
@@ -122,21 +129,24 @@ public class ExpressionRefTraversal {
             super(delegate);
         }
 
+        /**
+         * Return all expression references (as {@link FullyTraversableExpressionRef}s) that contain a path
+         * from {@code parent -> expression -> quantifier -> this reference}
+         * @return the set of references that are considered parents of this reference.
+         */
         @Nonnull
-        public Set<ExpressionRefDelegate<? extends RelationalExpression>> getParentRefs() {
+        public Set<FullyTraversableExpressionRef<? extends RelationalExpression>> getParentRefs() {
             final Set<RefPath> refPaths = network.outEdges(getDelegate());
-            final ImmutableSet.Builder<ExpressionRefDelegate<? extends RelationalExpression>> builder =
+            final ImmutableSet.Builder<FullyTraversableExpressionRef<? extends RelationalExpression>> builder =
                     ImmutableSet.builder();
 
             for (final RefPath refPath : refPaths) {
                 final EndpointPair<ExpressionRef<? extends RelationalExpression>> incidentNodes =
                         network.incidentNodes(refPath);
-
-                builder.add(new ExpressionRefDelegate<>(incidentNodes.target()));
+                builder.add(new FullyTraversableExpressionRef<>(incidentNodes.target()));
             }
 
             return builder.build();
         }
     }
-
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
@@ -58,6 +60,7 @@ import java.util.stream.Stream;
  * </p>
  */
 @SuppressWarnings("unused")
+@API(API.Status.EXPERIMENTAL)
 public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     /**
      * The alias (some identification) for this quantifier.
@@ -317,6 +320,28 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
             return "𝓅";
         }
 
+        @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+        @Override
+        public boolean equals(final Object other) {
+            return structuralEquals(other);
+        }
+
+        @Override
+        public int hashCode() {
+            return structuralHashCode();
+        }
+
+        public boolean structuralEquals(@Nullable final Object other) {
+            if (!(other instanceof Physical)) {
+                return false;
+            }
+            return getRangesOverPlan().structuralEquals(((Physical)other).getRangesOverPlan());
+        }
+
+        public int structuralHashCode() {
+            return getRangesOverPlan().structuralHashCode();
+        }
+
         @Override
         @Nonnull
         public String toString() {
@@ -404,21 +429,19 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other, AliasMap.empty());
+        return semanticEquals(other, AliasMap.empty());
     }
 
     @Override
-    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        if (!equalsOnKind(other)) {
             return false;
         }
-        final Quantifier that = (Quantifier)other;
-        return getRangesOver().resultEquals(that.getRangesOver(), equivalenceMap);
+        final Quantifier that = (Quantifier)Objects.requireNonNull(other);
+        return getRangesOver().semanticEquals(that.getRangesOver(), equivalenceMap);
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean equalsOnKind(final Object o) {
         if (this == o) {
             return true;
@@ -428,9 +451,12 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
 
     @Override
     public int hashCode() {
-        final ImmutableList<? extends RelationalExpression> relationalExpressions =
-                ImmutableList.copyOf(getRangesOver().getMembers().iterator());
-        return relationalExpressions.hashCode();
+        return semanticHashCode();
+    }
+
+    @Override
+    public int semanticHashCode() {
+        return Objects.hash(getShorthand(), getRangesOver().semanticHashCode());
     }
 
     @Override

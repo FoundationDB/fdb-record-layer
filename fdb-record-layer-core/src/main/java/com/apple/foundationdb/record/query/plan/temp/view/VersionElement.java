@@ -36,6 +36,7 @@ import java.util.Set;
  * An {@link Element} representing a serialized versionstamp in a query or index entry. Since versions are associated
  * with individual index entries rather than records <em>per se</em>, a version element does not have a source.
  */
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class VersionElement implements Element {
     @Nonnull
     @Override
@@ -88,7 +89,17 @@ public class VersionElement implements Element {
     }
 
     @Override
-    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
         return this == other; // TODO not sure what to do here
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int semanticHashCode() {
+        return 31;
     }
 }

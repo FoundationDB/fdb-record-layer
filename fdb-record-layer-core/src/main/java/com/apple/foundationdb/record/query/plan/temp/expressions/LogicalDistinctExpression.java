@@ -93,11 +93,16 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return semanticEquals(other);
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return 31;
     }
 
     @Override
     public int hashCode() {
-        return inner.hashCode();
+        return semanticHashCode();
     }
 }

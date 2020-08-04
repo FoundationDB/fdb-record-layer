@@ -100,13 +100,4 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     @Nonnull
     RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers);
-
-    @Override
-    default boolean equalsWithoutChildren(@Nonnull final RelationalExpression other,
-                                          @Nonnull final AliasMap equivalences) {
-        if (other == this) {
-            return true;
-        }
-        return other.getClass() == getClass();
-    }
 }

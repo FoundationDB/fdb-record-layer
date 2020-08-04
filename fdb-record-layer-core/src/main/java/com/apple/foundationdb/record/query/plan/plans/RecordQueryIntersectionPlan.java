@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -198,9 +197,10 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!(otherExpression instanceof RecordQueryIntersectionPlan)) {
+        if (!RecordQueryPlanWithChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
             return false;
         }
+
         final RecordQueryIntersectionPlan other = (RecordQueryIntersectionPlan) otherExpression;
         return reverse == other.reverse &&
                comparisonKey.equals(other.comparisonKey);
@@ -209,12 +209,17 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(Sets.newHashSet(getQueryPlanChildren()), getComparisonKey(), reverse);
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(getComparisonKey(), reverse);
     }
 
     @Override

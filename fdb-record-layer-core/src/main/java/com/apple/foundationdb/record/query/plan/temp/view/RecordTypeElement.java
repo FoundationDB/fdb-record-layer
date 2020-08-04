@@ -35,6 +35,7 @@ import java.util.Optional;
  * @see com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class RecordTypeElement extends ElementWithSingleSource {
     public RecordTypeElement(@Nonnull Source source) {
         super(source);
@@ -85,7 +86,7 @@ public class RecordTypeElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         return Objects.hash(source);
     }
 

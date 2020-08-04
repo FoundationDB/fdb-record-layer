@@ -168,19 +168,24 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        return otherExpression instanceof RecordQueryScoreForRankPlan &&
+        return RecordQueryPlanWithChild.super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
                ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getChild(), ranks);
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(ranks);
     }
 
     @Override

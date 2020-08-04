@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,12 +134,17 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(Sets.newHashSet(getQueryPlanChildren()), reverse); // isomorphic under re-ordering of children
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(reverse);
     }
 
     @Override

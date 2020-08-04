@@ -138,12 +138,17 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getChild(), bindingName, sortValuesNeeded, sortReverse);
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(bindingName, sortValuesNeeded, sortReverse);
     }
 
     @Override

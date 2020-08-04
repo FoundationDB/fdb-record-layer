@@ -91,12 +91,17 @@ public class LiteralElement<T> implements Element {
     }
 
     @Override
-    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
         return equals(other); // TODO this should be adapted
     }
 
     @Override
     public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int semanticHashCode() {
         return Objects.hash(value);
     }
 

@@ -112,11 +112,7 @@ public class IndexEntrySourceScanExpression implements RelationalExpression {
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (this == otherExpression) {
-            return true;
-        }
-
-        if (getClass() != otherExpression.getClass()) {
+        if (!RelationalExpression.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
             return false;
         }
 
@@ -130,11 +126,16 @@ public class IndexEntrySourceScanExpression implements RelationalExpression {
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(indexEntrySource, scanType, comparisons, reverse);
     }
 

@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
@@ -120,13 +119,6 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     @Override
     public RecordQueryUnorderedUnionPlan withChildren(@Nonnull final List<RecordQueryPlan> newChildren) {
         return from(newChildren);
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
-        return otherExpression instanceof RecordQueryUnorderedUnionPlan &&
-               isReverse() == ((RecordQueryUnorderedUnionPlan)otherExpression).isReverse();
     }
 
     @Nonnull

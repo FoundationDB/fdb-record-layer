@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,6 +29,7 @@ import java.util.UUID;
 /**
  * A correlation identifier is an immutable object that is created with a string uniquely identifying it.
  */
+@API(API.Status.EXPERIMENTAL)
 public class CorrelationIdentifier {
     @Nonnull private final String id;
 

@@ -116,14 +116,13 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        return otherExpression instanceof RecordQueryInValuesJoinPlan &&
-               super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
+        return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
                Objects.equals(values, ((RecordQueryInValuesJoinPlan)otherExpression).values);
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), values);
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(super.hashCodeWithoutChildren(), values);
     }
 
     @Override

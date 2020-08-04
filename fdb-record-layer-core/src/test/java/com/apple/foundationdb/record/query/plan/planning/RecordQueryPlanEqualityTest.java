@@ -47,6 +47,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for {@link Object#equals} of {@link RecordQueryPlan}.
@@ -106,8 +107,8 @@ public class RecordQueryPlanEqualityTest {
     private void assertSimpleEquality(Supplier<RecordQueryPlan> supplier) {
         final RecordQueryPlan plan1 = supplier.get();
         final RecordQueryPlan plan2 = supplier.get();
-        assertEquals(plan1, plan2);
         assertEquals(plan1.hashCode(), plan2.hashCode());
+        assertEquals(plan1, plan2);
     }
 
     @Test
@@ -132,12 +133,17 @@ public class RecordQueryPlanEqualityTest {
     public void childOrderDoesNotMatter() {
         final RecordQueryPlan unionPlan1 = unionPlan(2, 4);
         final RecordQueryPlan unionPlan2 = unionPlan(4, 2);
-        assertEquals(unionPlan1, unionPlan2);
-        assertEquals(unionPlan1.hashCode(), unionPlan2.hashCode());
+        assertNotEquals(unionPlan1, unionPlan2);
+        assertNotEquals(unionPlan1.hashCode(), unionPlan2.hashCode());
+        assertTrue(unionPlan1.semanticEquals(unionPlan2));
+        assertEquals(unionPlan1.semanticHashCode(), unionPlan2.semanticHashCode());
+
 
         final RecordQueryPlan intersectionPlan1 = intersectionPlan(2, 4);
         final RecordQueryPlan intersectionPlan2 = intersectionPlan(4, 2);
-        assertEquals(intersectionPlan1, intersectionPlan2);
-        assertEquals(intersectionPlan1.hashCode(), intersectionPlan2.hashCode());
+        assertNotEquals(intersectionPlan1, intersectionPlan2);
+        assertNotEquals(intersectionPlan1.hashCode(), intersectionPlan2.hashCode());
+        assertTrue(intersectionPlan1.semanticEquals(intersectionPlan2));
+        assertEquals(intersectionPlan1.semanticHashCode(), intersectionPlan2.semanticHashCode());
     }
 }

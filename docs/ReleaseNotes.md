@@ -35,9 +35,9 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** RecordQueryCoveringIndexPlan does not implement RecordQueryPlanWithChild anymore [(Issue #987)](https://github.com/FoundationDB/fdb-record-layer/issues/987)
+* **Breaking change** Removed overloaded constructor tp RecordQueryCoveringIndexPlan that implicitly creates the underlying index scan plan [(Issue #987)](https://github.com/FoundationDB/fdb-record-layer/issues/987)
+* **Breaking change** Renamed method RecordQueryFilterPlanBase.getInner() to getInnerPlan() in order to differentiate inner quantifier and the plan that the quantifier ranges over [(Issue #987)](https://github.com/FoundationDB/fdb-record-layer/issues/987)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 

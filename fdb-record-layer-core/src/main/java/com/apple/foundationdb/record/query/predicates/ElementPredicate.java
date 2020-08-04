@@ -94,11 +94,11 @@ public class ElementPredicate implements QueryPredicate {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other, AliasMap.empty());
+        return semanticEquals(other, AliasMap.empty());
     }
 
     @Override
-    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {
             return true;
         }
@@ -106,12 +106,17 @@ public class ElementPredicate implements QueryPredicate {
             return false;
         }
         ElementPredicate that = (ElementPredicate)other;
-        return element.resultEquals(that.element, equivalenceMap) &&
+        return element.semanticEquals(that.element, equivalenceMap) &&
                Objects.equals(comparison, that.comparison);
     }
 
     @Override
     public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int semanticHashCode() {
         return Objects.hash(element, comparison);
     }
 

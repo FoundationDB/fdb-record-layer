@@ -29,16 +29,24 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -156,5 +164,120 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
             }
         }
         return visitor.postVisit(this, requiredFields);
+    }
+
+    /**
+     * Return a hash code for this plan which is defined based on the structural layout of a plan. This differs from
+     * the semantic hash code defined in {@link RelationalExpression}. For instance this method would not necessarily return
+     * the same hash code for a union {@code UNION(p1, p2)} of two sub-plans {@code p1} and {@code p2} and it's reversed
+     * {@code UNION(p2, p1)}. In contrast to that the semantic hash of these two plans is the same.
+     * @return a hash code for this objects that is defined on the structural layout of the plan
+     */
+    default int structuralHashCode() {
+        return Objects.hash(getQuantifiers(), hashCodeWithoutChildren());
+    }
+
+
+    /**
+     * Overloaded method to determine structural equality between two different plans using an empty {@link AliasMap}.
+     * @param other object to compare this object with
+     * @return {@code true} if {@code this} is structurally equal to {@code other}, {@code false} otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    default boolean structuralEquals(@Nullable final Object other) {
+        return structuralEquals(other, AliasMap.empty());
+    }
+
+    /**
+     * Determine if two plans are structurally equal. This differs from the semantic equality defined in
+     * {@link RelationalExpression}. For instance this method would return false
+     * for two given plans {@code UNION(p1, p2)} and {@code UNION(p2, p1)} of two different sub-plans {@code p1} and
+     * {@code p2}. In contrast to that these plans are considered semantically equal.
+     * @param other object to compare this object with
+     * @param equivalenceMap alias map to indicate aliases that should be considered as equal when {@code other} is
+     *        compared to {@code this}. For instance {@code q1.x = 1} is only structurally equal with {@code q2.x = 1}
+     *        if there is a mapping {@code q1 -> q2} in the alias map passed in
+     * @return {@code true} if {@code this} is structurally equal to {@code other}, {@code false} otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    default boolean structuralEquals(@Nullable final Object other,
+                                     @Nonnull final AliasMap equivalenceMap) {
+        if (this == other) {
+            return true;
+        }
+
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+
+        final RelationalExpression otherExpression = (RelationalExpression)other;
+
+        Verify.verify(canCorrelate() == otherExpression.canCorrelate());
+
+        final List<Quantifier.Physical> quantifiers =
+                Quantifiers.narrow(Quantifier.Physical.class,
+                        getQuantifiers());
+        final List<Quantifier.Physical> otherQuantifiers =
+                Quantifiers.narrow(Quantifier.Physical.class,
+                        otherExpression.getQuantifiers());
+
+        if (quantifiers.size() != otherQuantifiers.size()) {
+            return false;
+        }
+
+        final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
+        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
+
+        Sets.SetView<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, equivalenceMap.sources());
+        Sets.SetView<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, equivalenceMap.targets());
+
+        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(unboundCorrelatedTo, unboundOtherCorrelatedTo);
+        final AliasMap identitiesMap = AliasMap.identitiesFor(commonUnbound);
+        unboundCorrelatedTo = Sets.difference(correlatedTo, commonUnbound);
+        unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, commonUnbound);
+
+        final Iterable<AliasMap> boundCorrelatedReferencesIterable =
+                AliasMap.empty()
+                        .match(unboundCorrelatedTo,
+                                alias -> ImmutableSet.of(),
+                                unboundOtherCorrelatedTo,
+                                otherAlias -> ImmutableSet.of(),
+                                false,
+                                (alias, otherAlias, nestedEquivalencesMap) -> true);
+
+        for (final AliasMap boundCorrelatedReferencesMap : boundCorrelatedReferencesIterable) {
+            final AliasMap.Builder boundEquivalenceMapBuilder = equivalenceMap.derived();
+
+            boundEquivalenceMapBuilder.putAll(identitiesMap);
+            boundEquivalenceMapBuilder.putAll(boundCorrelatedReferencesMap);
+
+            AliasMap boundEquivalenceMap = AliasMap.empty();
+
+            int i;
+            for (i = 0; i < quantifiers.size(); i++) {
+                boundEquivalenceMap = boundEquivalenceMapBuilder.build();
+
+                final Quantifier.Physical quantifier = quantifiers.get(i);
+                final Quantifier.Physical otherQuantifier = otherQuantifiers.get(i);
+
+                if (quantifier.structuralHashCode() != otherQuantifier.structuralHashCode()) {
+                    break;
+                }
+
+                if (!quantifier.structuralEquals(otherQuantifier)) {
+                    break;
+                }
+
+                if (canCorrelate()) {
+                    boundEquivalenceMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
+                }
+            }
+                
+            if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundEquivalenceMap))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

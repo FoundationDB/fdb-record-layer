@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -280,7 +281,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @SuppressWarnings("unchecked")
     @Override
-    public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {
             return true;
         }
@@ -296,17 +297,30 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
         while (iterator.hasNext()) {
             final T next = iterator.next();
-            expressionsMapBuilder.put(next.hashCode(), next);
+            expressionsMapBuilder.put(next.semanticHashCode(), next);
         }
 
         final ImmutableMultimap<Integer, T> expressionsMap = expressionsMapBuilder.build();
 
         for (final T otherMember : otherRef.getMembers()) {
-            if (expressionsMap.get(otherMember.hashCode()).stream().anyMatch(member -> member.resultEquals(otherMember, equivalenceMap))) {
+            if (expressionsMap.get(otherMember.semanticHashCode()).stream().anyMatch(member -> member.semanticEquals(otherMember, equivalenceMap))) {
                 return true;
             }
         }
 
         return false;
+    }
+
+    @Override
+    public int semanticHashCode() {
+        final Iterator<T> iterator = members.iterator();
+        final ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
+
+        while (iterator.hasNext()) {
+            final T next = iterator.next();
+            builder.add(next.semanticHashCode());
+        }
+
+        return Objects.hash(builder.build());
     }
 }

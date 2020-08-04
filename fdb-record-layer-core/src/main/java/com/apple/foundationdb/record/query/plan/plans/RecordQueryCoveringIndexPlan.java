@@ -158,14 +158,12 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (otherExpression == this) {
-            return true;
-        }
-        if (otherExpression.getClass() != getClass()) {
+        if (!RecordQueryPlanWithNoChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
             return false;
         }
+
         final RecordQueryCoveringIndexPlan other = (RecordQueryCoveringIndexPlan) otherExpression;
-        return indexPlan.resultEquals(other.indexPlan, equivalencesMap) &&
+        return indexPlan.semanticEquals(other.indexPlan, equivalencesMap) &&
                recordTypeName.equals(other.recordTypeName) &&
                toRecord.equals(other.toRecord);
     }
@@ -173,11 +171,16 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(indexPlan, recordTypeName, toRecord);
     }
 

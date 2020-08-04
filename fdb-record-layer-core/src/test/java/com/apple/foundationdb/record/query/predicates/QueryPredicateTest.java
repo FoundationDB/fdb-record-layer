@@ -93,8 +93,23 @@ public class QueryPredicateTest {
         }
 
         @Override
-        public boolean resultEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        public boolean equals(final Object other) {
+            return semanticEquals(other, AliasMap.empty());
+        }
+
+        @Override
+        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
             return this == other;
+        }
+
+        @Override
+        public int hashCode() {
+            return semanticHashCode();
+        }
+
+        @Override
+        public int semanticHashCode() {
+            return 31;
         }
     }
 

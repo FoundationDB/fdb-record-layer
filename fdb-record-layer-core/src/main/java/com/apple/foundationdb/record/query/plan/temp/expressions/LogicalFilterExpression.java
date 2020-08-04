@@ -127,18 +127,23 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         return RelationalExpressionWithChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
-               filter.resultEquals(((LogicalFilterExpression)otherExpression).getPredicate(), equivalencesMap);
+               filter.semanticEquals(((LogicalFilterExpression)otherExpression).getPredicate(), equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(Object other) {
-        return resultEquals(other);
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getPredicate(), getInner());
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(getPredicate());
     }
 
     @Override

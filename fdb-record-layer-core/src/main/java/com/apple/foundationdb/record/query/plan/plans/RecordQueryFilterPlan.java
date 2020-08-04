@@ -128,19 +128,23 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
             return false;
         }
         final RecordQueryFilterPlan otherPlan = (RecordQueryFilterPlan)otherExpression;
-        return getInnerPlan().equals(otherPlan.getInnerPlan()) &&
-               filter.equals(otherPlan.getFilter());
+        return filter.equals(otherPlan.getFilter());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getInnerPlan(), getFilter());
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(getFilter());
     }
 
     @Override

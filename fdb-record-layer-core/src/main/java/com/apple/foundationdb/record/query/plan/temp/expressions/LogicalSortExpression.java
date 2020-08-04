@@ -73,7 +73,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(inner);
+        return ImmutableList.of(getInner());
     }
 
     @Override
@@ -161,17 +161,22 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
 
         return Streams
                 .zip(this.sort.stream(), otherSort.stream(), Pair::of)
-                .allMatch(pair -> pair.getLeft().resultEquals(pair.getRight(), equivalencesMap));
+                .allMatch(pair -> pair.getLeft().semanticEquals(pair.getRight(), equivalencesMap));
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getSort(), isReverse(), getInner());
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(getSort(), isReverse());
     }
 }

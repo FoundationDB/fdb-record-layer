@@ -131,7 +131,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         final RecordQueryPredicateFilterPlan otherPlan = (RecordQueryPredicateFilterPlan)otherExpression;
         return getInnerPlan().equals(otherPlan.getInnerPlan()) &&
                getBaseSource().equals(otherPlan.getBaseSource()) &&
-               filter.resultEquals(otherPlan.getPredicate(), equivalencesMap);
+               filter.semanticEquals(otherPlan.getPredicate(), equivalencesMap);
     }
 
     @Override
@@ -142,12 +142,17 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getInnerPlan(), baseSource, getPredicate());
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(baseSource, getPredicate());
     }
 
     @Override

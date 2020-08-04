@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -84,21 +85,27 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
-        if (this == otherExpression) {
-            return true;
+        if (!RelationalExpression.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+            return false;
         }
-        return getClass() == otherExpression.getClass();
+
+        return recordTypes.equals(((FullUnorderedScanExpression)otherExpression).getRecordTypes());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        return resultEquals(other);
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return 0;
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(recordTypes);
     }
 
     @Override

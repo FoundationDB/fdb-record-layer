@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -148,25 +149,27 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
      * Returns if this expression can be the anchor of a correlation.
      *
      * A correlation is always formed between three entities:
-     * 1. the {@link Quantifier} that flows data
-     * 2. the anchor (which is a {@link RelationalExpression} that ranges directly over the source
-     * 3. the consumers (or dependents) of the correlation which must be a descendant of the anchor.
+     * <ol>
+     * <li>the {@link Quantifier} that flows data</li>
+     * <li>2. the anchor (which is a {@link RelationalExpression} that ranges directly over the source</li>
+     * <li>3. the consumers (or dependents) of the correlation which must be a descendant of the anchor.</li>
+     * </ol>
      *
      * In order for a correlation to be meaningful, the anchor must define how data is bound and used by all
      * dependents. For most expressions it is not meaningful or even possible to define correlation in such a way.
      *
      * For instance, a {@link com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression}
-     * cannot correlate (this method returns {@code false}) because it is not meaningful e.g. to bind a record
-     * from the left child of the union and provide bound values to the evaluation of the right child.
+     * cannot correlate (this method returns {@code false}) because it is not meaningful to bind a record from one child
+     * of the union while providing bound values to another.
      *
      * In another example, a logical select expression can correlate which means that one child of the SELECT expression
-     * can be evaluated and the resulting records can bound individually one after another. For each bound flowing
-     * record along that quantifier the other children of the SELECT expression can be evaluated, potentially causing
+     * can be evaluated and the resulting records can bound individually one after another. For each bound record
+     * flowing along that quantifier the other children of the SELECT expression can be evaluated, potentially causing
      * more correlation values to be bound, etc. These concepts follow closely to the mechanics of what SQL calls a query
      * block.
      *
-     * The existence of a correlation between source, anchor, and dependents may adversely affect planning in a way that
-     * a correlation always imposes order between the evaluated of children of e.g. a select expression. This may or may
+     * The existence of a correlation between source, anchor, and dependents may adversely affect planning because
+     * a correlation always imposes order between the evaluated of children of an expression. This may or may
      * not tie the hands of the planner to produce an optimal plan. In certain cases, queries written in a correlated
      * way can be <em>de-correlated</em> to allow for better optimization techniques.
      *
@@ -176,15 +179,29 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         return false;
     }
 
-    boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap);
+    default boolean equalsWithoutChildren(@Nonnull final RelationalExpression other,
+                                          @Nonnull final AliasMap equivalences) {
+        if (this == other) {
+            return true;
+        }
+        return other.getClass() == getClass();
+    }
 
-    default boolean resultEquals(@Nullable final Object other) {
-        return resultEquals(other, AliasMap.empty());
+    int hashCodeWithoutChildren();
+
+    /**
+     * Overloaded method to call {@link #semanticEquals} with an empty alias map.
+     * @param other object to compare to this expression
+     * @return {@code true} if this object is semantically equal to {@code other} that is {@code this} and {@code other}
+     *         produce the same result when invoked with no bindings, {@code false} otherwise.
+     */
+    default boolean semanticEquals(@Nullable final Object other) {
+        return semanticEquals(other, AliasMap.empty());
     }
 
     @Override
-    default boolean resultEquals(@Nullable final Object other,
-                                 @Nonnull final AliasMap equivalenceMap) {
+    default boolean semanticEquals(@Nullable final Object other,
+                                   @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {
             return true;
         }
@@ -229,10 +246,10 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
                             canCorrelate(),
                             boundEquivalenceMapBuilder.build(),
                             (quantifier, otherQuantifier, nestedEquivalenceMap) -> {
-                                if (quantifier.hashCode() != otherQuantifier.hashCode()) {
+                                if (quantifier.semanticHashCode() != otherQuantifier.semanticHashCode()) {
                                     return false;
                                 }
-                                return quantifier.resultEquals(otherQuantifier, nestedEquivalenceMap);
+                                return quantifier.semanticEquals(otherQuantifier, nestedEquivalenceMap);
                             });
 
             if (StreamSupport.stream(aliasMapIterable.spliterator(), false)
@@ -244,6 +261,14 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         return false;
     }
 
+    @Override
+    default int semanticHashCode() {
+        return Objects.hash(getQuantifiers()
+                        .stream()
+                        .map(Quantifier::semanticHashCode)
+                        .collect(ImmutableSet.toImmutableSet()),
+                hashCodeWithoutChildren());
+    }
 
     /**
      * Apply the given property visitor to this planner expression and its children. Returns {@code null} if

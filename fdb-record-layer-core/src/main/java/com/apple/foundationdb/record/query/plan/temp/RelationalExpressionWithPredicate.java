@@ -33,5 +33,5 @@ public interface RelationalExpressionWithPredicate extends RelationalExpression 
     QueryPredicate getPredicate();
 
     @Nonnull
-    RelationalExpression rebaseWithRebasedQuantifiers(final AliasMap translationMap, final List<Quantifier> rebasedQuantifiers);
+    RelationalExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers);
 }

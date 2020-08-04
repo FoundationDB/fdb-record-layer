@@ -39,6 +39,7 @@ import java.util.Optional;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class ValueElement extends ElementWithSingleSource {
     public ValueElement(@Nonnull Source source) {
         super(source);
@@ -99,7 +100,7 @@ public class ValueElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         return Objects.hash(source);
     }
 
