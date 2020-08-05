@@ -54,7 +54,7 @@ import java.util.Set;
 /**
  * A query plan that reconstructs records from the entries in a covering index.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
@@ -142,28 +142,27 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryCoveringIndexPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, toRecord);
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithNoChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
         final RecordQueryCoveringIndexPlan other = (RecordQueryCoveringIndexPlan) otherExpression;
-        return indexPlan.semanticEquals(other.indexPlan, equivalencesMap) &&
+        return indexPlan.structuralEquals(other.indexPlan, equivalencesMap) &&
                recordTypeName.equals(other.recordTypeName) &&
                toRecord.equals(other.toRecord);
     }
@@ -201,7 +200,6 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of();
     }

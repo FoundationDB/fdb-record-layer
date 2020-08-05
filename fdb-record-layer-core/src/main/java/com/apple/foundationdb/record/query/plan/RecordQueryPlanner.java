@@ -785,7 +785,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return ((RecordQueryScanPlan) plan).getComparisons();
         }
         if (plan instanceof RecordQueryTypeFilterPlan) {
-            return getPlanComparisons(((RecordQueryTypeFilterPlan) plan).getInner());
+            return getPlanComparisons(((RecordQueryTypeFilterPlan) plan).getInnerPlan());
         }
         return null;
     }

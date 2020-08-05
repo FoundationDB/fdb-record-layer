@@ -143,6 +143,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
             return false;
         }
 
+        // We know member and otherMember are of the same class. canCorrelate() needs to match as well.
         Verify.verify(member.canCorrelate() == otherMember.canCorrelate());
 
         final Iterable<AliasMap> quantifierMapIterable =

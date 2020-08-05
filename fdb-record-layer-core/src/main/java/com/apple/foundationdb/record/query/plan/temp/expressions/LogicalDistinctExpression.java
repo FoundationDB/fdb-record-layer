@@ -90,6 +90,14 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
         return new LogicalDistinctExpression(Iterables.getOnlyElement(rebasedChildren));
     }
 
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+        if (this == otherExpression) {
+            return true;
+        }
+        return getClass() == otherExpression.getClass();
+    }
+
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {

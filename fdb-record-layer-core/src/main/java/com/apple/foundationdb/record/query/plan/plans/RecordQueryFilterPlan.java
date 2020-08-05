@@ -52,7 +52,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A query plan that filters out records from a child plan that do not satisfy a filter component.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryFilterPlan.class);
 
@@ -107,14 +107,12 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                               @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryFilterPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
@@ -124,7 +122,10 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!(super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
         final RecordQueryFilterPlan otherPlan = (RecordQueryFilterPlan)otherExpression;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -44,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A base class for all query plans that filter based on predicates.
  */
+@API(API.Status.INTERNAL)
 abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     @Nonnull
     private final Quantifier.Physical inner;

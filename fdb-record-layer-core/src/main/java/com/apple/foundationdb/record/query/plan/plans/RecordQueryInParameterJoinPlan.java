@@ -46,7 +46,7 @@ import java.util.Set;
 /**
  * A query plan that executes a child plan once for each of the elements of an {@code IN} list taken from a parameter.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     private final String externalBinding;
@@ -100,14 +100,12 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(); // TODO this should be reconsidered when we have selects
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryInParameterJoinPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                        @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryInParameterJoinPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
@@ -120,6 +118,9 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
         return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
                externalBinding.equals(((RecordQueryInParameterJoinPlan)otherExpression).externalBinding);
     }

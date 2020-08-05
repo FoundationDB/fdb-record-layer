@@ -54,7 +54,7 @@ import java.util.Set;
  * A query plan that can scan text indexes. These work slightly differently than reqular indexes
  * in that the comparison on a query might actually be split into multiple queries.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, RecordQueryPlanWithNoChildren {
 
     @Nonnull
@@ -137,26 +137,25 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryTextIndexPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryTextIndexPlan(getIndexName(), getTextScan(), isReverse());
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithIndex.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
         final RecordQueryTextIndexPlan that = (RecordQueryTextIndexPlan)otherExpression;
         return this.reverse == that.reverse &&
                this.indexName.equals(that.indexName) &&

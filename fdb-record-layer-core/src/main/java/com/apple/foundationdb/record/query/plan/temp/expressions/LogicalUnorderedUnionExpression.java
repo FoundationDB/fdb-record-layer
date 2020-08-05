@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -72,6 +73,14 @@ public class LogicalUnorderedUnionExpression implements RelationalExpressionWith
     public LogicalUnorderedUnionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                         @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new LogicalUnorderedUnionExpression(rebasedQuantifiers);
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+        if (this == otherExpression) {
+            return true;
+        }
+        return getClass() == otherExpression.getClass();
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

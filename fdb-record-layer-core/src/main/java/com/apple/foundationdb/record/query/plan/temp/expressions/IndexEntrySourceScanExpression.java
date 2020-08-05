@@ -112,10 +112,12 @@ public class IndexEntrySourceScanExpression implements RelationalExpression {
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RelationalExpression.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
         final IndexEntrySourceScanExpression other = (IndexEntrySourceScanExpression) otherExpression;
         return indexEntrySource.equals(other.indexEntrySource) &&
                scanType.equals(other.scanType) &&

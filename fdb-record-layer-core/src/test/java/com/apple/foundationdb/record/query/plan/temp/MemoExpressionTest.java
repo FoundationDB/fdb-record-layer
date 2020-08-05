@@ -195,7 +195,10 @@ public class MemoExpressionTest {
         @Override
         public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                              @Nonnull final AliasMap equivalencesMap) {
-            if (!RelationalExpression.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+            if (this == otherExpression) {
+                return true;
+            }
+            if (getClass() != otherExpression.getClass()) {
                 return false;
             }
             return identity.equals(((SyntheticPlannerExpression)otherExpression).identity);

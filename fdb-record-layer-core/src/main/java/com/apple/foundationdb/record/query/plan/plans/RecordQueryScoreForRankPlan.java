@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
 /**
  * A query plan that converts ranks to scores and executes a child plan with the conversion results bound in named parameters.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Nonnull
     private final Quantifier.Physical inner;
@@ -150,14 +150,12 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryScoreForRankPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryScoreForRankPlan((Quantifier.Physical)Iterables.getOnlyElement(rebasedQuantifiers),
@@ -165,11 +163,15 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        return RecordQueryPlanWithChild.super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
-               ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+        return ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

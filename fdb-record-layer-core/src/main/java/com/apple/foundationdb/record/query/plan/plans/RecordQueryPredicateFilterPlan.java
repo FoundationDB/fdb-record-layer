@@ -125,7 +125,10 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!(super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
         final RecordQueryPredicateFilterPlan otherPlan = (RecordQueryPredicateFilterPlan)otherExpression;

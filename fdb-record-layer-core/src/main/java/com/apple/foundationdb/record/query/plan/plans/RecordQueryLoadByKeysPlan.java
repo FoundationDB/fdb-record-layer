@@ -53,7 +53,7 @@ import java.util.Set;
 /**
  * A query plan that returns records whose primary keys are taken from some list.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     private final KeysSource keysSource;
@@ -135,23 +135,23 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of(); // TODO this should be reconsidered when we have selects
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryLoadByKeysPlan rebase(@Nonnull final AliasMap translationMap) {
         return this;
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithNoChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
 

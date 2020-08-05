@@ -35,7 +35,6 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -105,11 +104,6 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Override
     public int hashCode() {
         return semanticHashCode();
-    }
-
-    @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(getRecordTypes());
     }
 
     @Nonnull

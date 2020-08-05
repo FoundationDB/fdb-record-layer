@@ -201,11 +201,13 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithNoChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
-        GeophileSpatialObjectQueryPlan that = (GeophileSpatialObjectQueryPlan)otherExpression;
+        final GeophileSpatialObjectQueryPlan that = (GeophileSpatialObjectQueryPlan)otherExpression;
         return indexName.equals(that.indexName) &&
                prefixComparisons.equals(that.prefixComparisons);
     }

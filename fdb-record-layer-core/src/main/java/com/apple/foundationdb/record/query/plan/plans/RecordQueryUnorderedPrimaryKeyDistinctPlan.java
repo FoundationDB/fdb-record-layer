@@ -54,7 +54,7 @@ import java.util.Set;
 /**
  * A query plan that removes duplicates by means of a hash table of primary keys already seen.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPlanWithChild {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedPrimaryKeyDistinctPlan.class);
 
@@ -107,7 +107,6 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
@@ -119,28 +118,24 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryUnorderedPrimaryKeyDistinctPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                                    @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithChild.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
-            return false;
+        if (this == otherExpression) {
+            return true;
         }
-
-        return otherExpression instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan;
+        return (getClass() == otherExpression.getClass());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

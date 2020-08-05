@@ -117,18 +117,20 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression other,
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithChildren.super.equalsWithoutChildren(other, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        return reverse == ((RecordQueryUnionPlanBase)other).reverse;
+        return reverse == ((RecordQueryUnionPlanBase)otherExpression).reverse;
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

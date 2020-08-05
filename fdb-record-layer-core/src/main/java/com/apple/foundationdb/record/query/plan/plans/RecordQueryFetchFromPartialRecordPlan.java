@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
@@ -32,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
@@ -48,6 +50,7 @@ import java.util.Set;
  * A query plan that transforms a stream of partial records (derived from index entries, as in the {@link RecordQueryCoveringIndexPlan})
  * into full records by fetching the records by primary key.
  */
+@API(API.Status.INTERNAL)
 public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWithChild {
     @Nonnull
     private final Quantifier.Physical inner;
@@ -114,6 +117,14 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Override
     public RecordQueryFetchFromPartialRecordPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+        if (this == otherExpression) {
+            return true;
+        }
+        return getClass() == otherExpression.getClass();
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

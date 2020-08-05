@@ -49,13 +49,12 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 /**
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, TypeFilterExpression {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryTypeFilterPlan.class);
 
@@ -87,7 +86,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                                                                          @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
-        final RecordCursor<FDBQueriedRecord<M>> results = getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit());
+        final RecordCursor<FDBQueriedRecord<M>> results = getInnerPlan().execute(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
                 .filterInstrumented(record -> recordTypes.contains(record.getRecordType().getName()), store.getTimer(),
@@ -97,12 +96,11 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Override
     public boolean isReverse() {
-        return getInner().isReverse();
+        return getInnerPlan().isReverse();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(this.inner);
     }
@@ -110,12 +108,11 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     @Override
     public String toString() {
-        return getInner() + " | " + recordTypes;
+        return getInnerPlan() + " | " + recordTypes;
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryTypeFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryTypeFilterPlan(
@@ -135,24 +132,19 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     }
 
     @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(recordTypes);
-    }
-
-    @Override
     public int planHash() {
-        return getInner().planHash() + PlanHashable.stringHashUnordered(recordTypes);
+        return getInnerPlan().planHash() + PlanHashable.stringHashUnordered(recordTypes);
     }
 
     @Nonnull
-    public RecordQueryPlan getInner() {
+    public RecordQueryPlan getInnerPlan() {
         return inner.getRangesOverPlan();
     }
 
     @Override
     @Nonnull
     public RecordQueryPlan getChild() {
-        return getInner();
+        return getInnerPlan();
     }
 
     @Override
@@ -164,12 +156,12 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Override
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_TYPE_FILTER);
-        getInner().logPlanStructure(timer);
+        getInnerPlan().logPlanStructure(timer);
     }
 
     @Override
     public int getComplexity() {
-        return 1 + getInner().getComplexity();
+        return 1 + getInnerPlan().getComplexity();
     }
 
     /**

@@ -60,7 +60,7 @@ import java.util.stream.Stream;
  * A query plan that executes by taking the union of records from two or more compatibly-sorted child plans.
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren, RecordQueryPlanWithRequiredFields {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIntersectionPlan.class);
 
@@ -87,7 +87,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
      * @param reverse whether both plans return results in reverse (i.e., descending) order by the comparison key
      * @deprecated in favor of {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression)}
      */
-    @API(API.Status.DEPRECATED)
     @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
@@ -106,7 +105,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
      * @param reverse whether all plans return results in reverse (i.e., descending) order by the comparison key
      * @deprecated in favor of {@link #from(List, KeyExpression)}
      */
-    @API(API.Status.DEPRECATED)
     @Deprecated
     public RecordQueryIntersectionPlan(@Nonnull List<RecordQueryPlan> plans,
                                        @Nonnull KeyExpression comparisonKey, boolean reverse) {
@@ -163,7 +161,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
     }
@@ -176,14 +173,12 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryIntersectionPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryIntersectionPlan(
@@ -194,13 +189,14 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
         final RecordQueryIntersectionPlan other = (RecordQueryIntersectionPlan) otherExpression;
         return reverse == other.reverse &&
                comparisonKey.equals(other.comparisonKey);

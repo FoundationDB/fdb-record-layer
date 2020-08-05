@@ -173,10 +173,10 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * {@code UNION(p2, p1)}. In contrast to that the semantic hash of these two plans is the same.
      * @return a hash code for this objects that is defined on the structural layout of the plan
      */
+    @API(API.Status.EXPERIMENTAL)
     default int structuralHashCode() {
         return Objects.hash(getQuantifiers(), hashCodeWithoutChildren());
     }
-
 
     /**
      * Overloaded method to determine structural equality between two different plans using an empty {@link AliasMap}.
@@ -212,6 +212,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
 
         final RelationalExpression otherExpression = (RelationalExpression)other;
 
+        // We know this and otherExpression are of the same class. canCorrelate() needs to match as well.
         Verify.verify(canCorrelate() == otherExpression.canCorrelate());
 
         final List<Quantifier.Physical> quantifiers =

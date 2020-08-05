@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -55,9 +56,18 @@ public interface TypeFilterExpression extends RelationalExpressionWithChildren {
     @Override
     default boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                           @Nonnull final AliasMap equivalencesMap) {
-        if (!(RelationalExpressionWithChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
+        if (this == otherExpression) {
+            return true;
+        }
+
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
         return ((TypeFilterExpression)otherExpression).getRecordTypes().equals(getRecordTypes());
+    }
+
+    @Override
+    default int hashCodeWithoutChildren() {
+        return Objects.hash(getRecordTypes());
     }
 }

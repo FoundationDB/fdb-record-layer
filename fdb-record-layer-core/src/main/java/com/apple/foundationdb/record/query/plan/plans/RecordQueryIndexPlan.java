@@ -55,7 +55,7 @@ import java.util.Set;
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
     @Nonnull
     protected final String indexName;
@@ -132,14 +132,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryIndexPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryIndexPlan(getIndexName(),
                 getScanType(),
@@ -148,13 +146,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithNoChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
         RecordQueryIndexPlan that = (RecordQueryIndexPlan) otherExpression;
         return reverse == that.reverse &&
                Objects.equals(indexName, that.indexName) &&

@@ -127,10 +127,12 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     @Override
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
         if (!super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
             return false;
         }
-
         GeophilePointWithinDistanceQueryPlan that = (GeophilePointWithinDistanceQueryPlan)otherExpression;
         return covering == that.covering &&
                centerLatitude.equals(that.centerLatitude) &&

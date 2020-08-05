@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -69,6 +70,14 @@ public class RecordQueryPlanEqualityTest {
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", value1),
                 indexPlanEquals("MySimpleRecord$num_value_3_indexed", value2),
                 Key.Expressions.field("num_value_3_indexed"), false);
+    }
+
+    private RecordQueryPlan distinctUnorderedUnionPlan(Object value1, Object value2) {
+        return new RecordQueryUnorderedDistinctPlan(
+                RecordQueryUnorderedUnionPlan.from(
+                        indexPlanEquals("MySimpleRecord$num_value_3_indexed", value1),
+                        indexPlanEquals("MySimpleRecord$num_value_3_indexed", value2)),
+                Key.Expressions.field("a_field"));
     }
 
     private RecordQueryPlan intersectionPlan(Object value1, Object value2) {
@@ -131,19 +140,24 @@ public class RecordQueryPlanEqualityTest {
 
     @Test
     public void childOrderDoesNotMatter() {
-        final RecordQueryPlan unionPlan1 = unionPlan(2, 4);
-        final RecordQueryPlan unionPlan2 = unionPlan(4, 2);
-        assertNotEquals(unionPlan1, unionPlan2);
-        assertNotEquals(unionPlan1.hashCode(), unionPlan2.hashCode());
-        assertTrue(unionPlan1.semanticEquals(unionPlan2));
-        assertEquals(unionPlan1.semanticHashCode(), unionPlan2.semanticHashCode());
+        RecordQueryPlan plan1 = unionPlan(2, 4);
+        RecordQueryPlan plan2 = unionPlan(4, 2);
+        assertNotEquals(plan1, plan2);
+        assertNotEquals(plan1.hashCode(), plan2.hashCode());
+        assertTrue(plan1.semanticEquals(plan2));
+        assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
 
+        plan1 = distinctUnorderedUnionPlan(2, 4);
+        plan2 = distinctUnorderedUnionPlan(4, 2);
+        assertNotEquals(plan1, plan2);
+        assertNotEquals(plan1.hashCode(), plan2.hashCode());
+        assertTrue(plan1.semanticEquals(plan2));
 
-        final RecordQueryPlan intersectionPlan1 = intersectionPlan(2, 4);
-        final RecordQueryPlan intersectionPlan2 = intersectionPlan(4, 2);
-        assertNotEquals(intersectionPlan1, intersectionPlan2);
-        assertNotEquals(intersectionPlan1.hashCode(), intersectionPlan2.hashCode());
-        assertTrue(intersectionPlan1.semanticEquals(intersectionPlan2));
-        assertEquals(intersectionPlan1.semanticHashCode(), intersectionPlan2.semanticHashCode());
+        plan1 = intersectionPlan(2, 4);
+        plan2 = intersectionPlan(4, 2);
+        assertNotEquals(plan1, plan2);
+        assertNotEquals(plan1.hashCode(), plan2.hashCode());
+        assertTrue(plan1.semanticEquals(plan2));
+        assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
     }
 }

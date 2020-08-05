@@ -116,21 +116,20 @@ public interface Correlated<S extends Correlated<S>> {
 
     /**
      * Determine equality with respect to an equivalence map between {@link CorrelationIdentifier}s based on
-     * semantic equality which is usually defined as equality of the result of evaluating the plan fragment
-     * implementing this interface under the given bound correlations.
+     * semantic equality: equality of the plan fragments implementing under the given correlation bindings.
      * The contract of this variant of {@code equals()} differs from its regular Java counterpart.
      * A correlation is mostly just one part inside of composition of objects that expresses a more complicated
-     * (correlated) structure, e.g. a filter. For instance {@code q1.x = 5} uses a correlation to {@code q1}.
-     * That entity representing the filter is correlated to {@code q1} for obvious reasons. Also obvious is that
-     * {@code q1.x = 6} is a different filter and should not be considered equal at all. The same is true if we
-     * consider {@code q2.x = 5} (i.e. a filter where everything but the correlation is equal. Without further context
-     * these two filters are not the same. However, the filters may be a part of some other entity that can express
-     * correlations:
+     * (correlated) structure such as a filter. For instance {@code q1.x = 5} uses a correlation to {@code q1}.
+     * That entity representing the filter is said to be correlated to {@code q1}. Similarly,
+     * {@code q1.x = 6} is a different filter and is not equal under any correlation mapping.
+     * In contrast, consider a predicate where everything except the correlation is the same, such as {@code q2.x = 5}.
+     * Without a binding, these two filters are not the same. However, the filters may be a part of some other entity
+     * that can express correlations:
      * {@code SELECT * FROM T as q1 WHERE q1.x = 5} is equal to
      * {@code SELECT * FROM T as q2 WHERE q2.x = 5}. It does not matter that {@code q1} and {@code q2} are named
      * differently. It is important, however, that their semantic meaning is the same. In the example both {@code q1}
      * and {@code q2} refer to a record type {@code T} which presumably is the same record type. Therefore, these two
-     * query blocks <em>are</em> the same.
+     * query blocks <em>are</em> the same, even though they are labelled differently.
      * In the context of this method, we can establish equality between {@code q1.x = 5} and {@code q2.x = 5} if
      * we know that {@code q1} and {@code q2} refer to the same underlying entity. The equivalence map passed in
      * encodes that equality between {@link CorrelationIdentifier}s.
@@ -160,11 +159,12 @@ public interface Correlated<S extends Correlated<S>> {
      * </pre>
      *
      * If the semantic hash code of two implementing objects is equal and {@link #semanticEquals} returns {@code true}
-     * for these two objects the plan fragments are considered to produce the same result under the given bound
-     * correlations.
+     * for these two objects the plan fragments are considered to produce the same result under the given
+     * correlations bindings.
      *
-     * As the right side of the follows does not include the alias map passed into {@link #semanticEquals} it is implied
-     * that this method cannot depend on a correlation mapping.
+     * The left side {@code o1.semanticEquals(o1, aliasMap)} depends on an {@link AliasMap} while
+     * {@code o1.semanticHash() == o2.semanticHash()} does not. Hence, the hash that is computed is identical regardless
+     * of possible bindings.
      *
      * @return the semantic hash code
      */

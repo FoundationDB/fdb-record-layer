@@ -151,7 +151,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
      * A correlation is always formed between three entities:
      * <ol>
      * <li>the {@link Quantifier} that flows data</li>
-     * <li>2. the anchor (which is a {@link RelationalExpression} that ranges directly over the source</li>
+     * <li>2. the anchor (which is a {@link RelationalExpression}) that ranges directly over the source</li>
      * <li>3. the consumers (or dependents) of the correlation which must be a descendant of the anchor.</li>
      * </ol>
      *
@@ -179,13 +179,8 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         return false;
     }
 
-    default boolean equalsWithoutChildren(@Nonnull final RelationalExpression other,
-                                          @Nonnull final AliasMap equivalences) {
-        if (this == other) {
-            return true;
-        }
-        return other.getClass() == getClass();
-    }
+    boolean equalsWithoutChildren(@Nonnull final RelationalExpression other,
+                                  @Nonnull final AliasMap equivalences);
 
     int hashCodeWithoutChildren();
 
@@ -212,6 +207,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
 
         final RelationalExpression otherExpression = (RelationalExpression)other;
 
+        // We know this and otherExpression are of the same class. canCorrelate() needs to match as well.
         Verify.verify(canCorrelate() == otherExpression.canCorrelate());
 
         final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();

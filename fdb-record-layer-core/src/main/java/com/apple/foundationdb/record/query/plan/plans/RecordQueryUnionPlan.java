@@ -57,7 +57,7 @@ import java.util.stream.Collectors;
  * A query plan that executes by taking the union of records from two or more compatibly-sorted child plans.
  * To work, each child cursor must order its children the same way according to the comparison key.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements RecordQueryPlanWithRequiredFields {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlan.class);
@@ -79,7 +79,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
      * @param showComparisonKey whether the comparison key should be included in string representations of the plan
      * @deprecated in favor of {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression, boolean)}
      */
-    @API(API.Status.DEPRECATED)
     @Deprecated
     public RecordQueryUnionPlan(@Nonnull final RecordQueryPlan left,
                                 @Nonnull final RecordQueryPlan right,
@@ -99,7 +98,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
      * @param showComparisonKey whether the comparison key should be included in string representations of the plan
      * @deprecated in favor of {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression, boolean)}
      */
-    @API(API.Status.DEPRECATED)
     @Deprecated
     public RecordQueryUnionPlan(@Nonnull final List<RecordQueryPlan> children,
                                 @Nonnull final KeyExpression comparisonKey,
@@ -144,7 +142,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
@@ -161,9 +158,11 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
         if (!(super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
             return false;
         }

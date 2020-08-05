@@ -46,7 +46,7 @@ import java.util.Objects;
 /**
  * A query plan that executes a child plan once for each of the elements of some {@code IN} list.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild {
     @SuppressWarnings("unchecked")
     protected static final Comparator<Object> VALUE_COMPARATOR = (o1, o2) -> ((Comparable)o1).compareTo((Comparable)o2);
@@ -108,7 +108,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
@@ -123,10 +122,12 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!(RecordQueryPlanWithChild.super.equalsWithoutChildren(otherExpression, equivalencesMap))) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
         final RecordQueryInJoinPlan other = (RecordQueryInJoinPlan) otherExpression;

@@ -47,7 +47,7 @@ import java.util.Set;
 /**
  * A query plan that executes a child plan once for each of the elements of a constant {@code IN} list.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     @Nullable
@@ -96,7 +96,6 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of(); // TODO this should be reconsidered when we have selects
     }
@@ -113,9 +112,11 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
         return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
                Objects.equals(values, ((RecordQueryInValuesJoinPlan)otherExpression).values);
     }

@@ -57,7 +57,7 @@ import java.util.Set;
 /**
  * A query plan that removes duplicates by means of a hash table of previously seen values.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChild {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedDistinctPlan.class);
 
@@ -120,7 +120,6 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
     }
@@ -132,7 +131,6 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }
@@ -146,15 +144,16 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithChild.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
 
-        return otherExpression instanceof RecordQueryUnorderedDistinctPlan &&
-               comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
+        return comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

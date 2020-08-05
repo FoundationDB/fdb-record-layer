@@ -53,7 +53,7 @@ import java.util.Set;
 /**
  * A query plan that scans records directly from the main tree within a range of primary keys.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable {
     @Nullable
     private final Set<String> recordTypes;
@@ -151,26 +151,25 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public RecordQueryScanPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryScanPlan(getComparisons(), isReverse());
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        if (!RecordQueryPlanWithNoChildren.super.equalsWithoutChildren(otherExpression, equivalencesMap)) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
         final RecordQueryScanPlan that = (RecordQueryScanPlan)otherExpression;
         return Objects.equals(recordTypes, that.recordTypes) &&
                reverse == that.reverse &&
