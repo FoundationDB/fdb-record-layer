@@ -52,7 +52,7 @@ public class IntersectionCursor<T> extends IntersectionCursorBase<T, T> {
     }
 
     @Override
-    T getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
+    protected T getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
         return cursorStates.get(0).getResult().get();
     }
 

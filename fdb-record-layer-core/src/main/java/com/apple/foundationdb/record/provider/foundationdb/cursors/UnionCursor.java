@@ -71,7 +71,7 @@ public class UnionCursor<T> extends UnionCursorBase<T, KeyedMergeCursorState<T>>
 
     @Nonnull
     @Override
-    CompletableFuture<List<KeyedMergeCursorState<T>>> computeNextResultStates() {
+    protected CompletableFuture<List<KeyedMergeCursorState<T>>> computeNextResultStates() {
         final List<KeyedMergeCursorState<T>> cursorStates = getCursorStates();
         return whenAll(cursorStates).thenApply(vignore -> {
             boolean anyHasNext = false;

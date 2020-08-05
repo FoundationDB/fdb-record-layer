@@ -57,7 +57,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
     }
 
     @Override
-    void setFirstChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setFirstChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
         if (continuation.isEnd()) {
             builder.setFirstExhausted(true);
         } else {
@@ -69,7 +69,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
     }
 
     @Override
-    void setSecondChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setSecondChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
         if (continuation.isEnd()) {
             builder.setSecondExhausted(true);
         } else {
@@ -81,7 +81,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
     }
 
     @Override
-    void addOtherChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void addOtherChild(@Nonnull RecordCursorProto.UnionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
         RecordCursorProto.UnionContinuation.CursorState cursorState;
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
@@ -100,7 +100,7 @@ class UnionCursorContinuation extends MergeCursorContinuation<RecordCursorProto.
 
     @Override
     @Nonnull
-    RecordCursorProto.UnionContinuation.Builder newProtoBuilder() {
+    protected RecordCursorProto.UnionContinuation.Builder newProtoBuilder() {
         return RecordCursorProto.UnionContinuation.newBuilder();
     }
 

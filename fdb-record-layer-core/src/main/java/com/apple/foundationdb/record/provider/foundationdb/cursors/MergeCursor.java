@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -53,8 +54,13 @@ import java.util.stream.Collectors;
  *     <li>{@link MergeCursorContinuation} with an implementation that constructs an appropriate Protobuf message.</li>
  *     <li>{@link MergeCursorState} if additional state is needed to accompany each cursor.</li>
  * </ul>
+ *
+ * @param <T> type of input elements
+ * @param <U> type of output elements
+ * @param <S> type of merge state
  */
-abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements RecordCursor<U> {
+@API(API.Status.INTERNAL)
+public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements RecordCursor<U> {
     // Maximum amount of time to wait before bailing on getting the next state.
     // Added to investigate: https://github.com/FoundationDB/fdb-record-layer/issues/546
     // This is not particularly pretty, but it is meant for some rough debugging.
@@ -75,7 +81,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
     // for detecting incorrect cursor usage
     private boolean mayGetContinuation = false;
 
-    MergeCursor(@Nonnull List<S> cursorStates, @Nullable FDBStoreTimer timer) {
+    protected MergeCursor(@Nonnull List<S> cursorStates, @Nullable FDBStoreTimer timer) {
         this.cursorStates = cursorStates;
         this.timer = timer;
         // Choose the executor from the first non-empty cursor. The executors for empty cursors are just
@@ -101,7 +107,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
     }
 
     @Nonnull
-    static <T, S extends MergeCursorState<T>> CompletableFuture<Void> whenAll(@Nonnull List<S> cursorStates) {
+    protected static <T, S extends MergeCursorState<T>> CompletableFuture<Void> whenAll(@Nonnull List<S> cursorStates) {
         return CompletableFuture.allOf(getOnNextFutures(cursorStates));
     }
 
@@ -111,7 +117,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
     // a big loss.
     @SuppressWarnings("squid:S1452")
     @Nonnull
-    static <T, S extends MergeCursorState<T>> CompletableFuture<?> whenAny(@Nonnull List<S> cursorStates) {
+    protected static <T, S extends MergeCursorState<T>> CompletableFuture<?> whenAny(@Nonnull List<S> cursorStates) {
         List<S> nonDoneCursors = new ArrayList<>(cursorStates.size());
         for (S cursorState : cursorStates) {
             if (cursorState.mightHaveNext()) {
@@ -134,7 +140,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
         }
     }
 
-    void checkNextStateTimeout(long startTime) {
+    protected void checkNextStateTimeout(long startTime) {
         long checkStateTime = System.currentTimeMillis();
         if (checkStateTime - startTime > MAX_NEXT_STATE_MILLIS) {
             KeyValueLogMessage logMessage = KeyValueLogMessage.build("time computing next state exceeded",
@@ -167,7 +173,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
      * @return the strongest reason to stop from the list of all cursors
      */
     @Nonnull
-    static <T, S extends MergeCursorState<T>> NoNextReason getStrongestNoNextReason(@Nonnull List<S> cursorStates) {
+    protected static <T, S extends MergeCursorState<T>> NoNextReason getStrongestNoNextReason(@Nonnull List<S> cursorStates) {
         NoNextReason reason = null;
         for (S cursorState : cursorStates) {
             final RecordCursorResult<T> childResult = cursorState.getResult();
@@ -200,7 +206,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
      * @return the strongest reason to stop from the list of all cursors
      */
     @Nonnull
-    static <T, S extends MergeCursorState<T>> NoNextReason getWeakestNoNextReason(@Nonnull List<S> cursorStates) {
+    protected static <T, S extends MergeCursorState<T>> NoNextReason getWeakestNoNextReason(@Nonnull List<S> cursorStates) {
         NoNextReason reason = null;
         for (S cursorState : cursorStates) {
             final RecordCursorResult<T> childResult = cursorState.getResult();
@@ -230,7 +236,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
      * @return the child cursors of this cursor
      */
     @Nonnull
-    List<S> getCursorStates() {
+    protected List<S> getCursorStates() {
         return cursorStates;
     }
 
@@ -244,7 +250,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
      * @return the list of cursors to include in the next iteration
      */
     @Nonnull
-    abstract CompletableFuture<List<S>> computeNextResultStates();
+    protected abstract CompletableFuture<List<S>> computeNextResultStates();
 
     /**
      * Determine the next result to return based on the results of the child cursors. This will
@@ -254,7 +260,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
      * @return a result somehow combining the results of the input cursors
      */
     @Nonnull
-    abstract U getNextResult(@Nonnull List<S> resultStates);
+    protected abstract U getNextResult(@Nonnull List<S> resultStates);
 
     /**
      * Merge the {@link NoNextReason}s for child cursors. This will only be called after it is
@@ -266,7 +272,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
      * @return a {@link NoNextReason} based on the child cursors' {@code NoNextReason}s
      */
     @Nonnull
-    abstract NoNextReason mergeNoNextReasons();
+    protected abstract NoNextReason mergeNoNextReasons();
 
     /**
      * Produce a {@link RecordCursorContinuation} for this cursor. The super-class itself handles
@@ -278,7 +284,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
      * @return a {@link RecordCursorContinuation} for this cursor based on the state of its child cursors
      */
     @Nonnull
-    abstract RecordCursorContinuation getContinuationObject();
+    protected abstract RecordCursorContinuation getContinuationObject();
 
     @Override
     @Nonnull
@@ -340,7 +346,7 @@ abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implements Recor
     }
 
     @Nonnull
-    List<RecordCursorContinuation> getChildContinuations() {
+    protected List<RecordCursorContinuation> getChildContinuations() {
         return cursorStates.stream().map(S::getContinuation).collect(Collectors.toList());
     }
 

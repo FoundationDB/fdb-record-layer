@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.google.protobuf.Message;
 
@@ -37,8 +39,10 @@ import java.util.List;
  * polymorphism).
  *
  * @param <B> the builder for message type of the continuation proto message
+ * @param <C> type of the continuation
  */
-abstract class MergeCursorContinuation<B extends Message.Builder, C extends RecordCursorContinuation> implements RecordCursorContinuation {
+@API(API.Status.INTERNAL)
+public abstract class MergeCursorContinuation<B extends Message.Builder, C extends RecordCursorContinuation> implements RecordCursorContinuation {
     @Nonnull
     private final List<C> continuations; // all continuations must themselves be immutable
     @Nullable
@@ -54,22 +58,22 @@ abstract class MergeCursorContinuation<B extends Message.Builder, C extends Reco
     /**
      * Fill in the Protobuf builder with the information from the first child. For backwards-compatibility reasons,
      * cursors may handle this differently than the other children. This method will be called before
-     * {@link #setSecondChild(B, C)} and all calls to {@link #addOtherChild(B, C)}.
+     * {@link #setSecondChild} and all calls to {@link #addOtherChild}.
      *
      * @param builder a builder for the Protobuf continuation
      * @param continuation the first child's continuation
      */
-    abstract void setFirstChild(@Nonnull B builder, @Nonnull C continuation);
+    protected abstract void setFirstChild(@Nonnull B builder, @Nonnull C continuation);
 
     /**
      * Fill in the Protobuf builder with the information from the second child. For backwards-compatibility reasons,
      * cursors may handle this differently than the other children. This method will be called after
-     * {@link #setFirstChild(B, C)} and before all calls to {@link #addOtherChild(B, C)}.
+     * {@link #setFirstChild} and before all calls to {@link #addOtherChild}.
      *
      * @param builder a builder for the Protobuf continuation
      * @param continuation the second child's continuation
      */
-    abstract void setSecondChild(@Nonnull B builder, @Nonnull C continuation);
+    protected abstract void setSecondChild(@Nonnull B builder, @Nonnull C continuation);
 
     /**
      * Fill in the Protobuf builder with the information for a child other than the first or second child. For
@@ -79,7 +83,7 @@ abstract class MergeCursorContinuation<B extends Message.Builder, C extends Reco
      * @param builder a builder for the Protobuf continuation
      * @param continuation a child other than the first or second child
      */
-    abstract void addOtherChild(@Nonnull B builder, @Nonnull C continuation);
+    protected abstract void addOtherChild(@Nonnull B builder, @Nonnull C continuation);
 
     /**
      * Get a new builder instance for the Protobuf message associated with this continuation. This should typically
@@ -88,10 +92,10 @@ abstract class MergeCursorContinuation<B extends Message.Builder, C extends Reco
      * @return a new builder for the underlying Protobuf message type
      */
     @Nonnull
-    abstract B newProtoBuilder();
+    protected abstract B newProtoBuilder();
 
     @Nonnull
-    Message toProto() {
+    protected Message toProto() {
         if (cachedProto == null) {
             B builder = newProtoBuilder();
             final Iterator<C> continuationIterator = continuations.iterator();
@@ -107,6 +111,7 @@ abstract class MergeCursorContinuation<B extends Message.Builder, C extends Reco
 
     @Nullable
     @Override
+    @SpotBugsSuppressWarnings("EI")
     public byte[] toBytes() {
         if (isEnd()) {
             return null;

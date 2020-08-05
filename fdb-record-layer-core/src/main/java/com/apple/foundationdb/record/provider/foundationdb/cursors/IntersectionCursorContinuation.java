@@ -58,7 +58,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
     }
 
     @Override
-    void setFirstChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setFirstChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
         byte[] asBytes = continuation.toBytes();
         if (asBytes == null && !continuation.isEnd()) { // first cursor has not started
             builder.setFirstStarted(false);
@@ -71,7 +71,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
     }
 
     @Override
-    void setSecondChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void setSecondChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
         byte[] asBytes = continuation.toBytes();
         if (asBytes == null && !continuation.isEnd()) { // second cursor not started
             builder.setSecondStarted(false);
@@ -84,7 +84,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
     }
 
     @Override
-    void addOtherChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
+    protected void addOtherChild(@Nonnull RecordCursorProto.IntersectionContinuation.Builder builder, @Nonnull RecordCursorContinuation continuation) {
         final RecordCursorProto.IntersectionContinuation.CursorState cursorState;
         if (continuation.isEnd()) {
             cursorState = EXHAUSTED_PROTO;
@@ -104,7 +104,7 @@ class IntersectionCursorContinuation extends MergeCursorContinuation<RecordCurso
 
     @Override
     @Nonnull
-    RecordCursorProto.IntersectionContinuation.Builder newProtoBuilder() {
+    protected RecordCursorProto.IntersectionContinuation.Builder newProtoBuilder() {
         return RecordCursorProto.IntersectionContinuation.newBuilder();
     }
 

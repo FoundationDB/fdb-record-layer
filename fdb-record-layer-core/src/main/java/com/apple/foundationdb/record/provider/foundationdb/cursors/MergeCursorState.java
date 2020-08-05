@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.cursors;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorEndContinuation;
@@ -38,7 +39,8 @@ import java.util.function.Function;
  *
  * @param <T> the type of elements returned by the underlying cursor
  */
-class MergeCursorState<T> implements AutoCloseable {
+@API(API.Status.INTERNAL)
+public class MergeCursorState<T> implements AutoCloseable {
     @Nonnull
     private final RecordCursor<T> cursor;
     @Nullable
@@ -48,7 +50,7 @@ class MergeCursorState<T> implements AutoCloseable {
     @Nullable
     private RecordCursorResult<T> result;
 
-    MergeCursorState(@Nonnull RecordCursor<T> cursor, @Nonnull RecordCursorContinuation continuation) {
+    protected MergeCursorState(@Nonnull RecordCursor<T> cursor, @Nonnull RecordCursorContinuation continuation) {
         this.cursor = cursor;
         this.continuation = continuation;
     }

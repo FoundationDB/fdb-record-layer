@@ -54,23 +54,23 @@ class ProbableIntersectionCursorContinuation extends MergeCursorContinuation<Pro
     }
 
     @Override
-    void setFirstChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
+    protected void setFirstChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
         addChild(builder, continuation);
     }
 
     @Override
-    void setSecondChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
+    protected void setSecondChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
         addChild(builder, continuation);
     }
 
     @Override
-    void addOtherChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
+    protected void addOtherChild(@Nonnull ProbableIntersectionContinuation.Builder builder, @Nonnull BloomFilterCursorContinuation continuation) {
         addChild(builder, continuation);
     }
 
     @Nonnull
     @Override
-    ProbableIntersectionContinuation.Builder newProtoBuilder() {
+    protected ProbableIntersectionContinuation.Builder newProtoBuilder() {
         return ProbableIntersectionContinuation.newBuilder();
     }
 

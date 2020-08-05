@@ -65,7 +65,7 @@ public class UnorderedUnionCursor<T> extends UnionCursorBase<T, MergeCursorState
 
     @Nonnull
     @Override
-    CompletableFuture<List<MergeCursorState<T>>> computeNextResultStates() {
+    protected CompletableFuture<List<MergeCursorState<T>>> computeNextResultStates() {
         final long startComputingStateTime = System.currentTimeMillis();
         final List<MergeCursorState<T>> cursorStates = getCursorStates();
         AtomicReference<MergeCursorState<T>> nextStateRef = new AtomicReference<>();
