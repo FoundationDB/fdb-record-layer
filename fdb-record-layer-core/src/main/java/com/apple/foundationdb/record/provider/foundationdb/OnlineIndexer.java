@@ -423,7 +423,7 @@ public class OnlineIndexer implements AutoCloseable {
                             handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
                         }
                         long delay = (long)(Math.random() * toWait.get());
-                        toWait.set(Math.min(delay * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
+                        toWait.set(Math.min(toWait.get() * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
                         if (LOGGER.isWarnEnabled()) {
                             final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
                                     LogMessageKeys.INDEXER_CURR_RETRY, currTries,
