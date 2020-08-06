@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.google.protobuf.MessageOrBuilder;
@@ -42,6 +43,7 @@ import java.util.Optional;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class FieldElement extends ElementWithSingleSource {
     @Nonnull
     private final List<String> fieldNames;
@@ -123,7 +125,7 @@ public class FieldElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         return Objects.hash(source, fieldNames);
     }
 
@@ -134,5 +136,11 @@ public class FieldElement extends ElementWithSingleSource {
         } else {
             return PlanHashable.iterablePlanHash(fieldNames);
         }
+    }
+
+    @Nonnull
+    @Override
+    public FieldElement rebase(@Nonnull final AliasMap translationMap) {
+        return new FieldElement(getSource(), getFieldNames()); // TODO needs to be rebased
     }
 }

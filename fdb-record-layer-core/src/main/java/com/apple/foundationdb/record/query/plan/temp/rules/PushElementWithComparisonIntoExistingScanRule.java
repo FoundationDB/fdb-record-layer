@@ -38,6 +38,27 @@ import java.util.Optional;
 /**
  * A simple rule that looks for a {@link com.apple.foundationdb.record.query.expressions.ComponentWithComparison}
  * predicate and a compatibly ordered index scan comparison down to the index scan.
+ *
+ * <pre>
+ * {@code
+ *       +-----------------------------+               +----------------------------------+
+ *       |                             |               |                                  |
+ *       |  LogicalFilterExpression    |     +------>  |  IndexEntrySourceScanExpression  |
+ *       |                elementPred  |               |  elementComparison ∪ comparisons |
+ *       |                             |               |                                  |
+ *       +-------------+---------------+               +----------------------------------+
+ *                     |
+ *                     |
+ *                     |
+ *     +---------------+------------------+
+ *     |                                  |
+ *     |  IndexEntrySourceScanExpression  |
+ *     |                     comparisons  |
+ *     |                                  |
+ *     +----------------------------------+
+ * }
+ * </pre>
+ *
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushElementWithComparisonIntoExistingScanRule extends PlannerRule<LogicalFilterExpression> {

@@ -28,12 +28,12 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,15 +60,16 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
      * be valid); if this ever changes, equals() and hashCode() must be updated.
      */
     @Nonnull
-    private final List<ExpressionRef<RecordQueryPlan>> children;
+    private final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
 
     public RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
-        this(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right)), reverse);
+        this(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))), reverse);
     }
 
-    public RecordQueryUnionPlanBase(@Nonnull List<ExpressionRef<RecordQueryPlan>> children, boolean reverse) {
-        this.children = children;
+    public RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                    final boolean reverse) {
+        this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.reverse = reverse;
     }
 
@@ -105,7 +106,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Nonnull
     private Stream<RecordQueryPlan> getChildStream() {
-        return children.stream().map(ExpressionRef::get);
+        return quantifiers.stream().map(Quantifier.Physical::getRangesOverPlan);
     }
 
     @Override
@@ -116,27 +117,36 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
-        return Quantifiers.fromPlans(children);
+        return quantifiers;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        RecordQueryUnionPlanBase that = (RecordQueryUnionPlanBase) o;
-        return reverse == that.reverse &&
-               Objects.equals(Sets.newHashSet(getQueryPlanChildren()), Sets.newHashSet(that.getQueryPlanChildren()));  // isomorphic under re-ordering of children
+        return reverse == ((RecordQueryUnionPlanBase)otherExpression).reverse;
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(Sets.newHashSet(getQueryPlanChildren()), reverse); // isomorphic under re-ordering of children
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(reverse);
     }
 
     @Override
@@ -150,7 +160,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @Nonnull
     @Override
     public String toString() {
-        return String.join(getDelimiter(), getChildStream().map(RecordQueryPlan::toString).collect(Collectors.toList()));
+        return getChildStream().map(RecordQueryPlan::toString).collect(Collectors.joining(getDelimiter()));
     }
 
     @Nonnull
@@ -159,23 +169,23 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @Override
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(getPlanCount());
-        for (ExpressionRef<RecordQueryPlan> child : children) {
-            child.get().logPlanStructure(timer);
+        for (Quantifier.Physical quantifier : quantifiers) {
+            quantifier.getRangesOverPlan().logPlanStructure(timer);
         }
     }
 
     @Override
     public int getComplexity() {
         int complexity = 1;
-        for (ExpressionRef<RecordQueryPlan> child : children) {
-            complexity += child.get().getComplexity();
+        for (Quantifier.Physical quantifier : quantifiers) {
+            complexity += quantifier.getRangesOverPlan().getComplexity();
         }
         return complexity;
     }
 
     @Override
     public int getRelationalChildCount() {
-        return children.size();
+        return quantifiers.size();
     }
 
     @Nonnull

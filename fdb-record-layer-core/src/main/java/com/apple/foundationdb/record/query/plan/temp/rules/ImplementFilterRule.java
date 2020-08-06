@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilter
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
@@ -44,12 +45,13 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
+    private static final ExpressionMatcher<RecordQueryPlan> innerPlanMatcher = TypeMatcher.of(RecordQueryPlan.class, AllChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
+    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerPlanMatcher);
     private static final ExpressionMatcher<QueryPredicate> filterMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<LogicalFilterExpression> root =
             TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
                     filterMatcher,
-                    QuantifierMatcher.forEach(innerMatcher));
+                    innerQuantifierMatcher);
 
     public ImplementFilterRule() {
         super(root);
@@ -58,10 +60,16 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalFilterExpression filterExpression = call.get(root);
-        final RecordQueryPlan inner = call.get(innerMatcher);
+        final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
+        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
         final QueryPredicate filter = call.get(filterMatcher);
 
         call.yield(GroupExpressionRef.of(
-                new RecordQueryPredicateFilterPlan(call.ref(inner), filterExpression.getBaseSource(), filter)));
+                new RecordQueryPredicateFilterPlan(
+                        Quantifier.physicalBuilder()
+                                .morphFrom(innerQuantifier)
+                                .build(call.ref(innerPlan)),
+                        filterExpression.getBaseSource(),
+                        filter)));
     }
 }

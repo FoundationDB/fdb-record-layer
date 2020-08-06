@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -64,10 +65,11 @@ public class PushElementWithComparisonIntoExistingScanRuleTest {
 
     private static LogicalFilterExpression buildLogicalFilter(@Nonnull QueryComponent queryComponent,
                                                               @Nonnull RelationalExpression inner) {
+        final Quantifier.ForEach innerQuantifier = Quantifier.forEach(GroupExpressionRef.of(inner));
         return new LogicalFilterExpression(
                 baseSource,
                 queryComponent.normalizeForPlanner(baseSource),
-                inner);
+                innerQuantifier);
     }
 
     @Test

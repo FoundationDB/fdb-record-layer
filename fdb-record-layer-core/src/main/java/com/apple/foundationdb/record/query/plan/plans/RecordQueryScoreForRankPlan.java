@@ -36,7 +36,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -44,6 +45,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -51,6 +54,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -58,15 +62,20 @@ import java.util.stream.Collectors;
 /**
  * A query plan that converts ranks to scores and executes a child plan with the conversion results bound in named parameters.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> plan;
+    private final Quantifier.Physical inner;
     @Nonnull
     private final List<ScoreForRank> ranks;
 
-    public RecordQueryScoreForRankPlan(RecordQueryPlan plan, List<ScoreForRank> ranks) {
-        this.plan = GroupExpressionRef.of(plan);
+    public RecordQueryScoreForRankPlan(@Nonnull RecordQueryPlan plan, @Nonnull List<ScoreForRank> ranks) {
+        this(Quantifier.physical(GroupExpressionRef.of(plan)), ranks);
+    }
+
+    private RecordQueryScoreForRankPlan(@Nonnull final Quantifier.Physical inner,
+                                        @Nonnull List<ScoreForRank> ranks) {
+        this.inner = inner;
         this.ranks = ranks;
     }
 
@@ -119,14 +128,14 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @Override
     @Nonnull
     public RecordQueryPlan getChild() {
-        return plan.get();
+        return inner.getRangesOverPlan();
     }
 
     @Nonnull
     @Override
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(plan));
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -139,29 +148,46 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         return getChild() + " WHERE " + ranks.stream().map(Object::toString).collect(Collectors.joining(", "));
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryScoreForRankPlan &&
-               ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryScoreForRankPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                    @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryScoreForRankPlan((Quantifier.Physical)Iterables.getOnlyElement(rebasedQuantifiers),
+                getRanks());
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        RecordQueryScoreForRankPlan that = (RecordQueryScoreForRankPlan) o;
-        return Objects.equals(getChild(), that.getChild()) &&
-                Objects.equals(ranks, that.ranks);
+        return ranks.equals(((RecordQueryScoreForRankPlan) otherExpression).ranks);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getChild(), ranks);
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(ranks);
     }
 
     @Override

@@ -33,13 +33,15 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -52,8 +54,8 @@ import java.util.Set;
 /**
  * A query plan that reconstructs records from the entries in a covering index.
  */
-@API(API.Status.MAINTAINED)
-public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
+@API(API.Status.INTERNAL)
+public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     private final RecordQueryPlanWithIndex indexPlan;
@@ -61,11 +63,6 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     private final String recordTypeName;
     @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
-
-    public RecordQueryCoveringIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse,
-                                        @Nonnull final String recordTypeName, @Nonnull IndexKeyValueToPartialRecord toRecord) {
-        this(new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse), recordTypeName, toRecord);
-    }
 
     public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex indexPlan,
                                         @Nonnull final String recordTypeName, @Nonnull IndexKeyValueToPartialRecord toRecord) {
@@ -92,6 +89,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     }
 
     @Nonnull
+    public RecordQueryPlanWithIndex getIndexPlan() {
+        return indexPlan;
+    }
+
+    @Nonnull
     public String getIndexName() {
         return indexPlan.getIndexName();
     }
@@ -103,7 +105,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     @Override
     public boolean isReverse() {
-        return getChild().isReverse();
+        return indexPlan.isReverse();
     }
 
     @Override
@@ -118,13 +120,13 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     @Override
     public boolean hasIndexScan(@Nonnull String indexName) {
-        return getChild().hasIndexScan(indexName);
+        return indexPlan.hasIndexScan(indexName);
     }
 
     @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
-        return getChild().getUsedIndexes();
+        return indexPlan.getUsedIndexes();
     }
 
     @Override
@@ -135,36 +137,50 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     public String toString() {
-        return "Covering(" + getChild() + " -> " + toRecord + ")";
+        return "Covering(" + indexPlan + " -> " + toRecord + ")";
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryCoveringIndexPlan rebase(@Nonnull final AliasMap translationMap) {
+        return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, toRecord);
     }
 
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        if (!(otherExpression instanceof RecordQueryCoveringIndexPlan)) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
         final RecordQueryCoveringIndexPlan other = (RecordQueryCoveringIndexPlan) otherExpression;
-        return recordTypeName.equals(other.recordTypeName) && toRecord.equals(other.toRecord);
+        return indexPlan.structuralEquals(other.indexPlan, equivalencesMap) &&
+               recordTypeName.equals(other.recordTypeName) &&
+               toRecord.equals(other.toRecord);
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RecordQueryCoveringIndexPlan that = (RecordQueryCoveringIndexPlan) o;
-        return Objects.equals(getChild(), that.getChild()) &&
-               Objects.equals(recordTypeName, that.recordTypeName) &&
-               Objects.equals(toRecord, that.toRecord);
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getChild(), recordTypeName, toRecord);
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(indexPlan, recordTypeName, toRecord);
     }
 
     @Override
@@ -174,22 +190,16 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithChild {
 
     @Override
     public int getComplexity() {
-        return getChild().getComplexity();
-    }
-
-    @Override
-    public RecordQueryPlan getChild() {
-        return indexPlan;
+        return indexPlan.getComplexity();
     }
 
     @Override
     public int planHash() {
-        return getChild().planHash();
+        return indexPlan.planHash();
     }
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of();
     }

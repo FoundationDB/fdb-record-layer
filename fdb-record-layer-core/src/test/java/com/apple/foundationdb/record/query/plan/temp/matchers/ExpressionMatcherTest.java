@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
@@ -88,10 +90,12 @@ public class ExpressionMatcherTest {
         // create a matcher and expression to match
         ExpressionMatcher<ExpressionRef<RelationalExpression>> matcher = ReferenceMatcher.anyRef();
         Source recordSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
-        ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(new LogicalFilterExpression(
-                recordSource,
-                Query.field("test").equalsValue(5).normalizeForPlanner(recordSource),
-                new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
+        Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
+        ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
+                new LogicalFilterExpression(
+                        recordSource,
+                        Query.field("test").equalsValue(5).normalizeForPlanner(recordSource),
+                        quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
         // check the the bindings are what we expect, and that none of the existing ones were clobbered
@@ -206,14 +210,15 @@ public class ExpressionMatcherTest {
         // build a relatively complicated expression
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
+        final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)));
         LogicalFilterExpression filterPlan = new LogicalFilterExpression(rootSource,
                 Query.and(andBranch1, andBranch2).normalizeForPlanner(rootSource),
-                new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
+                quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalUnorderedUnionExpression(
-                        ImmutableList.of(GroupExpressionRef.of(filterPlan),
-                                GroupExpressionRef.of(scanPlan))));
+                        Quantifiers.forEachQuantifiers(ImmutableList.of(GroupExpressionRef.of(filterPlan),
+                                GroupExpressionRef.of(scanPlan)))));
 
         assertTrue(filterPlan.bindTo(filterPlanMatcher).findFirst().isPresent());
 

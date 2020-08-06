@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -39,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -52,7 +55,7 @@ import java.util.Set;
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
     @Nonnull
     protected final String indexName;
@@ -127,29 +130,50 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return false;
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return equals(otherExpression);
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryIndexPlan rebase(@Nonnull final AliasMap translationMap) {
+        return new RecordQueryIndexPlan(getIndexName(),
+                getScanType(),
+                getComparisons(),
+                isReverse());
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (!(o instanceof RecordQueryIndexPlan)) {
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        RecordQueryIndexPlan that = (RecordQueryIndexPlan) o;
+        RecordQueryIndexPlan that = (RecordQueryIndexPlan) otherExpression;
         return reverse == that.reverse &&
-                Objects.equals(indexName, that.indexName) &&
-                Objects.equals(scanType, that.scanType) &&
-                Objects.equals(comparisons, that.comparisons);
+               Objects.equals(indexName, that.indexName) &&
+               Objects.equals(scanType, that.scanType) &&
+               Objects.equals(comparisons, that.comparisons);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(indexName, scanType, comparisons, reverse);
     }
 

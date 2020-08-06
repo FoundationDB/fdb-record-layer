@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,6 +36,7 @@ import java.util.Set;
  * An {@link Element} representing a serialized versionstamp in a query or index entry. Since versions are associated
  * with individual index entries rather than records <em>per se</em>, a version element does not have a source.
  */
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class VersionElement implements Element {
     @Nonnull
     @Override
@@ -70,5 +74,32 @@ public class VersionElement implements Element {
     @Override
     public int planHash() {
         return 1;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public Element rebase(@Nonnull final AliasMap translationMap) {
+        return this;
+    }
+
+    @Override
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        return this == other; // TODO not sure what to do here
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int semanticHashCode() {
+        return 31;
     }
 }

@@ -80,8 +80,10 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -245,6 +247,40 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertDiscardedNone(context);
             assertLoadRecord(60, context);
         }
+    }
+
+    /**
+     * Verify that queries with an OR of equality predicates on the same field are implemented using a union of indexes.
+     */
+    @ParameterizedTest
+    @BooleanSource
+    public void testOrQueryPlanEquals(boolean shouldDeferFetch) throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("num_value_3_indexed").equalsValue(1),
+                        Query.field("num_value_3_indexed").equalsValue(2),
+                        Query.field("num_value_3_indexed").equalsValue(4)))
+                .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+        RecordQueryPlan plan = planner.plan(query);
+
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("num_value_3_indexed").equalsValue(4),
+                        Query.field("num_value_3_indexed").equalsValue(2),
+                        Query.field("num_value_3_indexed").equalsValue(1)))
+                .build();
+        setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+        RecordQueryPlan plan2 = planner.plan(query2);
+
+        // plan is physically different but returns the same result
+        assertThat(plan.hashCode(), not(equalTo(plan2.hashCode())));
+        assertThat(plan, not(equalTo(plan2)));
+        assertTrue(plan.semanticEquals(plan2));
     }
 
     /**
@@ -745,8 +781,10 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("odd")))
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
-        assertEquals(plan1.hashCode(), plan2.hashCode());
-        assertEquals(plan1, plan2);
+        assertNotEquals(plan1.hashCode(), plan2.hashCode());
+        assertNotEquals(plan1, plan2);
+        assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
+        assertTrue(plan1.semanticEquals(plan2));
         if (shouldPushFetchAboveUnionToIntersection) {
             assertEquals(-1584186103, plan1.planHash());
             assertEquals(-91575587, plan2.planHash());
@@ -754,8 +792,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-2067012572, plan1.planHash());
             assertEquals(600484528, plan2.planHash());
         }
-
-
+        
         Set<Long> seen = new HashSet<>();
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -804,8 +841,11 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.or(Lists.reverse(((OrComponent)query1.getFilter()).getChildren())))
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
-        assertEquals(plan1.hashCode(), plan2.hashCode());
-        assertEquals(plan1, plan2);
+        assertNotEquals(plan1.hashCode(), plan2.hashCode());
+        assertNotEquals(plan1, plan2);
+        assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
+        assertTrue(plan1.semanticEquals(plan2));
+        
         if (shouldDeferFetch) {
             assertEquals(770691035, plan1.planHash());
             assertEquals(1289607451, plan2.planHash());

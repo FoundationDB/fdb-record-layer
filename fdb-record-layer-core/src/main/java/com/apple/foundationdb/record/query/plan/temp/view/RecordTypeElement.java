@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 
@@ -34,6 +35,7 @@ import java.util.Optional;
  * @see com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class RecordTypeElement extends ElementWithSingleSource {
     public RecordTypeElement(@Nonnull Source source) {
         super(source);
@@ -84,12 +86,18 @@ public class RecordTypeElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         return Objects.hash(source);
     }
 
     @Override
     public int planHash() {
-        return 2; // To match RecordTypeKeyExpression.planHas()
+        return 2; // To match RecordTypeKeyExpression.planHash()
+    }
+
+    @Nonnull
+    @Override
+    public RecordTypeElement rebase(@Nonnull final AliasMap translationMap) {
+        return new RecordTypeElement(getSource()); // TODO needs to be rebased
     }
 }

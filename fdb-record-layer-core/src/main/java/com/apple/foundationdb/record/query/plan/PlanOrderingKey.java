@@ -98,7 +98,7 @@ public class PlanOrderingKey {
             return null;
         }
         while (queryPlan instanceof RecordQueryFilterPlan) {
-            queryPlan = ((RecordQueryFilterPlan)queryPlan).getInner();
+            queryPlan = ((RecordQueryFilterPlan)queryPlan).getInnerPlan();
         }
         if (queryPlan instanceof RecordQueryPlanWithIndex) {
             final RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex)queryPlan;

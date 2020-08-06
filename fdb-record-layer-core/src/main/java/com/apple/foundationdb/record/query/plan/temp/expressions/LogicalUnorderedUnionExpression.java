@@ -21,14 +21,15 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 
 /**
  * A relational planner expression that represents an unimplemented unordered union of its children.
@@ -37,42 +38,64 @@ import java.util.Objects;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalUnorderedUnionExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private List<Quantifier.ForEach> children;
+    private List<? extends Quantifier> quantifiers;
 
-    public LogicalUnorderedUnionExpression(@Nonnull List<ExpressionRef<RelationalExpression>> expressionChildren) {
-        this.children = Quantifiers.forEachQuantifiers(expressionChildren);
+    public LogicalUnorderedUnionExpression(@Nonnull List<? extends Quantifier> quantifiers) {
+        this.quantifiers = quantifiers;
     }
 
     @Override
     public int getRelationalChildCount() {
-        return children.size();
+        return quantifiers.size();
     }
 
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return children;
+        return quantifiers;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public LogicalUnorderedUnionExpression rebase(@Nonnull final AliasMap translationMap) {
+        // we know the following is correct, just Java doesn't
+        return (LogicalUnorderedUnionExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
+    }
+
+    @Nonnull
+    @Override
+    public LogicalUnorderedUnionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                        @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new LogicalUnorderedUnionExpression(rebasedQuantifiers);
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof LogicalUnorderedUnionExpression;
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+        if (this == otherExpression) {
             return true;
         }
-        if (!(o instanceof LogicalUnorderedUnionExpression)) {
-            return false;
-        }
-        final LogicalUnorderedUnionExpression that = (LogicalUnorderedUnionExpression)o;
-        return children.equals(that.children);
+        return getClass() == otherExpression.getClass();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(children);
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return 31;
     }
 }

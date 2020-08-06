@@ -24,6 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -37,18 +41,37 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A query plan that executes a child plan once for each of the elements of an {@code IN} list taken from a parameter.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
+@SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     private final String externalBinding;
 
-    public RecordQueryInParameterJoinPlan(RecordQueryPlan plan, String bindingName, String externalBinding, boolean sortValues, boolean sortReverse) {
-        super(plan, bindingName, sortValues, sortReverse);
+    public RecordQueryInParameterJoinPlan(final RecordQueryPlan plan,
+                                          final String bindingName,
+                                          final String externalBinding,
+                                          final boolean sortValues,
+                                          final boolean sortReverse) {
+        this(Quantifier.physical(GroupExpressionRef.of(plan)),
+                bindingName,
+                externalBinding,
+                sortValues,
+                sortReverse);
+    }
+
+    public RecordQueryInParameterJoinPlan(final Quantifier.Physical inner,
+                                          final String bindingName,
+                                          final String externalBinding,
+                                          final boolean sortValues,
+                                          final boolean sortReverse) {
+        super(inner, bindingName, sortValues, sortReverse);
         this.externalBinding = externalBinding;
     }
+
 
     @Override
     @Nullable
@@ -63,7 +86,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     public String toString() {
-        StringBuilder str = new StringBuilder(getInner().toString());
+        StringBuilder str = new StringBuilder(getInnerPlan().toString());
         str.append(" WHERE ").append(bindingName)
                 .append(" IN $").append(externalBinding);
         if (sortValuesNeeded) {
@@ -75,31 +98,36 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
         return str.toString();
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryInParameterJoinPlan &&
-               super.equalsWithoutChildren(otherExpression) &&
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of(); // TODO this should be reconsidered when we have selects
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryInParameterJoinPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                       @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryInParameterJoinPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+                bindingName,
+                externalBinding,
+                sortValuesNeeded,
+                sortReverse);
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+        return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
                externalBinding.equals(((RecordQueryInParameterJoinPlan)otherExpression).externalBinding);
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        if (!super.equals(o)) {
-            return false;
-        }
-        RecordQueryInParameterJoinPlan that = (RecordQueryInParameterJoinPlan) o;
-        return Objects.equals(externalBinding, that.externalBinding);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), externalBinding);
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(super.hashCodeWithoutChildren(), externalBinding);
     }
 
     @Override
@@ -110,7 +138,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     @Override
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_IN_PARAMETER);
-        getInner().logPlanStructure(timer);
+        getInnerPlan().logPlanStructure(timer);
     }
 
     /**

@@ -25,6 +25,10 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -38,17 +42,35 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A query plan that executes a child plan once for each of the elements of a constant {@code IN} list.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
+@SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     @Nullable
     private final List<Object> values;
 
-    public RecordQueryInValuesJoinPlan(RecordQueryPlan plan, String bindingName, @Nullable List<Object> values, boolean sortValues, boolean sortReverse) {
-        super(plan, bindingName, sortValues, sortReverse);
+    public RecordQueryInValuesJoinPlan(final RecordQueryPlan plan,
+                                       final String bindingName,
+                                       final @Nullable List<Object> values,
+                                       final boolean sortValues,
+                                       final boolean sortReverse) {
+        this(Quantifier.physical(GroupExpressionRef.of(plan)),
+                bindingName,
+                values,
+                sortValues,
+                sortReverse);
+    }
+
+    public RecordQueryInValuesJoinPlan(final Quantifier.Physical inner,
+                                       final String bindingName,
+                                       final @Nullable List<Object> values,
+                                       final boolean sortValues,
+                                       final boolean sortReverse) {
+        super(inner, bindingName, sortValues, sortReverse);
         this.values = sortValues(values);
     }
 
@@ -58,10 +80,9 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
         return values;
     }
 
-
     @Override
     public String toString() {
-        StringBuilder str = new StringBuilder(getInner().toString());
+        StringBuilder str = new StringBuilder(getInnerPlan().toString());
         str.append(" WHERE ").append(bindingName)
                 .append(" IN ").append(values);
         if (sortValuesNeeded) {
@@ -73,32 +94,36 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
         return str.toString();
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryInValuesJoinPlan &&
-               super.equalsWithoutChildren(otherExpression) &&
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of(); // TODO this should be reconsidered when we have selects
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryInValuesJoinPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                    @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryInValuesJoinPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+                bindingName,
+                values,
+                sortValuesNeeded,
+                sortReverse);
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+        return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
                Objects.equals(values, ((RecordQueryInValuesJoinPlan)otherExpression).values);
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        if (!super.equals(o)) {
-            return false;
-        }
-        RecordQueryInValuesJoinPlan that = (RecordQueryInValuesJoinPlan)o;
-        return Objects.equals(values, that.values);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(super.hashCode(), values);
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(super.hashCodeWithoutChildren(), values);
     }
 
     @Override
@@ -119,7 +144,6 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
      *         joining an outer table of values in the IN clause to the correlated inner result of executing (usually)
      *         a index lookup for each bound outer value.
      */
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {

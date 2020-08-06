@@ -785,7 +785,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             return ((RecordQueryScanPlan) plan).getComparisons();
         }
         if (plan instanceof RecordQueryTypeFilterPlan) {
-            return getPlanComparisons(((RecordQueryTypeFilterPlan) plan).getInner());
+            return getPlanComparisons(((RecordQueryTypeFilterPlan) plan).getInnerPlan());
         }
         return null;
     }
@@ -1194,7 +1194,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             RecordQueryPlan filteredBasePlan;
             if (subplan.plan instanceof RecordQueryFilterPlan) {
-                filteredBasePlan = ((RecordQueryFilterPlan)subplan.plan).getInner();
+                filteredBasePlan = ((RecordQueryFilterPlan)subplan.plan).getInnerPlan();
             } else {
                 filteredBasePlan = null;
             }

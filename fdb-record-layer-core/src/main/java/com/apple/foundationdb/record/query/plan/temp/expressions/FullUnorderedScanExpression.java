@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -34,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -68,19 +71,44 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         return ImmutableList.of();
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return equals(otherExpression);
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public FullUnorderedScanExpression rebase(@Nonnull final AliasMap translationMap) {
+        return this;
     }
 
     @Override
-    public boolean equals(Object obj) {
-        return obj instanceof FullUnorderedScanExpression;
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression, @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+
+        return recordTypes.equals(((FullUnorderedScanExpression)otherExpression).getRecordTypes());
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return 0;
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(recordTypes);
     }
 
     @Override
@@ -88,7 +116,6 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         return "FullUnorderedScan";
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {

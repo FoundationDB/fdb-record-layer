@@ -1350,28 +1350,32 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash,
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash, boolean isCoveringIndexExpected,
                                                      @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
+        Matcher<RecordQueryPlan> indexMatcher = textIndexScan(allOf(indexName(indexName), textComparison(comparisonMatcher)));
+        if (isCoveringIndexExpected) {
+            indexMatcher = coveringIndexScan(indexMatcher);
+        }
         return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
-                    descendant(textIndexScan(allOf(PlanMatchers.indexName(indexName), textComparison(comparisonMatcher)))))
+                    descendant(indexMatcher))
                 .map(t -> t.getLong(0))
                 .asList()
                 .get();
     }
 
     @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash,
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash, boolean isCoveringIndexExpected,
                                                      @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
-        return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash, comparisonMatcher);
+        return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash, isCoveringIndexExpected, comparisonMatcher);
     }
 
     @Nullable
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, @Nonnull QueryComponent textFilter, int planHash) throws InterruptedException, ExecutionException {
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, @Nonnull QueryComponent textFilter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
         if (textFilter instanceof ComponentWithComparison && ((ComponentWithComparison)textFilter).getComparison() instanceof Comparisons.TextComparison) {
-            return querySimpleDocumentsWithIndex(filter, indexName, planHash, equalTo(((ComponentWithComparison)textFilter).getComparison()));
+            return querySimpleDocumentsWithIndex(filter, indexName, planHash, isCoveringIndexExpected, equalTo(((ComponentWithComparison)textFilter).getComparison()));
         } else if (textFilter instanceof AndOrComponent) {
             for (QueryComponent childFilter : ((AndOrComponent)textFilter).getChildren()) {
-                List<Long> childResults = querySimpleDocumentsWithIndex(filter, indexName, childFilter, planHash);
+                List<Long> childResults = querySimpleDocumentsWithIndex(filter, indexName, childFilter, planHash, isCoveringIndexExpected);
                 if (childResults != null) {
                     return childResults;
                 }
@@ -1381,8 +1385,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash) throws InterruptedException, ExecutionException {
-        List<Long> queryResults = querySimpleDocumentsWithIndex(filter, indexName, filter, planHash);
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
+        List<Long> queryResults = querySimpleDocumentsWithIndex(filter, indexName, filter, planHash, isCoveringIndexExpected);
         if (queryResults != null) {
             return queryResults;
         } else {
@@ -1391,8 +1395,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash) throws InterruptedException, ExecutionException {
-        return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash);
+    private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
+        return querySimpleDocumentsWithIndex(filter, TextIndexTestUtils.SIMPLE_DEFAULT_NAME, planHash, isCoveringIndexExpected);
     }
 
     @Test
@@ -1413,99 +1417,99 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
             // Contains
             assertEquals(Arrays.asList(0L, 1L, 2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("the"), 329921958));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("the"), 329921958, true));
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("angstrom"), -1859676822));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("angstrom"), -1859676822, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("Ångström"), 2028628575));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("Ångström"), 2028628575, true));
             assertEquals(Collections.singletonList(3L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("שפראך"), 1151275308));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().contains("שפראך"), 1151275308, true));
 
             // Contains all
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström"), 1999999424));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström"), 1999999424, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Collections.singletonList("Ångström")), 2028628575));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Collections.singletonList("Ångström")), 2028628575, true));
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("the angstrom"), 865061914));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("the angstrom"), 865061914, true));
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("the", "angstrom")), 4380219));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("the", "angstrom")), 4380219, true));
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("", "angstrom")), -1000802292));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("", "angstrom")), -1000802292, true));
             assertEquals(Collections.singletonList(5L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("한국어를"), -1046915537));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("한국어를"), -1046915537, true));
 
             // Contains all within a distance
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 4), -1408252035));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 4), -1408252035, true));
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 3), -1408252996));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 3), -1408252996, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 2), -1408253957));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Ångström named", 2), -1408253957, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("Ångström", "named"), 4), -2041874864));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll(Arrays.asList("Ångström", "named"), 4), -2041874864, true));
             assertEquals(Collections.singletonList(6L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("a c", 2), 2135218554));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("a c", 2), 2135218554, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("a c", 1), 2135217593));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("a c", 1), 2135217593, true));
             assertEquals(Collections.singletonList(6L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("b c", 2), -416938407));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("b c", 2), -416938407, true));
             assertEquals(Collections.singletonList(6L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("b c", 1), -416939368));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("b c", 1), -416939368, true));
 
             // Contains any
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("Ångström"), -147781547));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("Ångström"), -147781547, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny(Collections.singletonList("Ångström")), -119152396));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny(Collections.singletonList("Ångström")), -119152396, true));
             assertEquals(Arrays.asList(0L, 1L, 2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("the angstrom"), -1282719057));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("the angstrom"), -1282719057, true));
             assertEquals(Arrays.asList(0L, 1L, 2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny(Arrays.asList("the", "angstrom")), -2143400752));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny(Arrays.asList("the", "angstrom")), -2143400752, true));
 
             // Contains phrase
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("Civil blood makes. Civil hands unclean"), -993768059));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("Civil blood makes. Civil hands unclean"), -993768059, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("civil", "blood", "makes", "civil", "", "unclean")), 1855137352));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("civil", "blood", "makes", "civil", "", "unclean")), 1855137352, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("Civil", "blood", "makes", "civil", "", "unclean")), 853144168));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("Civil", "blood", "makes", "civil", "", "unclean")), 853144168, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("", "civil", "blood", "makes", "civil", "", "unclean", "")), 930039198));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase(Arrays.asList("", "civil", "blood", "makes", "civil", "", "unclean", "")), 930039198, true));
             assertEquals(Collections.singletonList(6L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("a b a b c"), -623744405));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("a b a b c"), -623744405, true));
 
             // Contains prefix
             assertEquals(Arrays.asList(2L, 0L, 1L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1067159426));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("un"), 1067159426, true));
             assertEquals(Collections.singletonList(3L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("א"), -1009839303));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("א"), -1009839303, true));
             assertEquals(Collections.singletonList(4L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("苹果"), -1529274452));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("苹果"), -1529274452, true));
             assertEquals(Collections.singletonList(5L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix(Normalizer.normalize("한국", Normalizer.Form.NFKD)), -1860545817));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix(Normalizer.normalize("한국", Normalizer.Form.NFKD)), -1860545817, true));
             assertEquals(Collections.singletonList(5L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("한구"), 1377518291)); // note that the second character is only 2 of the 3 Jamo components
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("한구"), 1377518291, true)); // note that the second character is only 2 of the 3 Jamo components
 
             // Contains any prefix
             assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L),
-                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("civ א un"), 1227233680)));
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("civ א un"), 1227233680, true)));
             assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L),
-                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("cIv ַא Un"), -794472473)));
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix("cIv ַא Un"), -794472473, true)));
             assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L),
-                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix(Arrays.asList("civ", "א", "un")), 1486849487)));
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix(Arrays.asList("civ", "א", "un")), 1486849487, true)));
             assertEquals(ImmutableSet.of(2L),
-                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix(Arrays.asList("civ", "אַ", "Un")), 1905505336)));
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAnyPrefix(Arrays.asList("civ", "אַ", "Un")), 1905505336, true)));
 
             // Contains all prefixes
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("civ un"), 1757831895));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("civ un"), 1757831895, false));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("civ un", false), -900079353));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("civ un", false), -900079353, true));
             assertEquals(ImmutableSet.of(0L, 1L),
-                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("wa th"), -1203466155)));
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("wa th"), -1203466155, false)));
             assertEquals(ImmutableSet.of(0L, 1L),
-                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("wa th", false), -433119192)));
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text().containsAllPrefixes("wa th", false), -433119192, true)));
 
             commit(context);
         }
@@ -1586,28 +1590,28 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").equalsValue(1L),
                             Query.field("text").text().contains("was")
-                    ), 661433949));
+                    ), 661433949, false));
             assertEquals(Collections.singletonList(0L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").equalsValue(0L),
                             Query.field("text").text().containsPhrase("bury their parents' strife")
-                    ), -1454788243));
+                    ), -1454788243, false));
             assertEquals(Collections.singletonList(1L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").equalsValue(1L),
                             Query.field("text").text().containsPhrase("bury their parents' strife")
-                    ), -1454788242));
+                    ), -1454788242, false));
             assertEquals(Arrays.asList(0L, 1L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").lessThanOrEquals(2L),
                             Query.field("text").text().containsAny("bury their parents' strife")
-                    ), -1259238340));
+                    ), -1259238340, false));
             // In theory, this could be an index intersection, but it is not.
             assertEquals(Collections.singletonList(2L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("text").text().contains("the"),
                             Query.field("text").text().contains("king")
-                    ), 742257848));
+                    ), 742257848, false));
 
             // Prefix text predicates
 
@@ -1616,17 +1620,17 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("group").lessThanOrEquals(2L),
                             Query.field("text").text().containsPrefix("par"),
                             Query.field("text").text().containsPrefix("blo")
-                    ), 1486418234));
+                    ), 1486418234, false));
             assertEquals(Arrays.asList(1L, 3L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").equalsValue(1L),
                             Query.field("text").text().containsPrefix("an")
-                    ), -1648947883));
+                    ), -1648947883, false));
             assertEquals(Arrays.asList(0L, 1L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("text").text().containsAll("civil unclean blood"),
                             Query.field("text").text().containsPrefix("blo")
-                    ), 912028198));
+                    ), 912028198, false));
 
             // Performs a union of the two text queries.
 
@@ -1635,7 +1639,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.or(
                                     Query.field("text").text().containsPrefix("ency"),
                                     Query.field("text").text().containsPrefix("civ")
-                    ), -792221133)));
+                    ), -792221133, false)));
 
             assertEquals(Arrays.asList(0L, 2L),
                     querySimpleDocumentsWithIndex(Query.and(
@@ -1644,7 +1648,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                                     Query.field("text").text().containsAll("civil unclean blood", 4),
                                     Query.field("text").text().containsAll("king was 1016")
                             )
-                    ), 1313228370));
+                    ), 1313228370, false));
 
             assertEquals(ImmutableSet.of(0L, 2L),
                     ImmutableSet.copyOf(querySimpleDocumentsWithIndex(Query.and(
@@ -1653,7 +1657,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                                     Query.field("text").text().containsAll("civil unclean blood", 4),
                                     Query.field("text").text().containsPrefix("ency")
                             )
-                    ), 578771303)));
+                    ), 578771303, false)));
 
             // Just a not. There's not a lot this could query could do to be performed because it can return
             // a lot of results by its very nature.
@@ -1666,7 +1670,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("text").text().contains("the"),
                             Query.not(Query.field("text").text().contains("king"))
-                    ), 742257849));
+                    ), 742257849, false));
 
             commit(context);
         }
@@ -1694,53 +1698,53 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             // Filtering tokenizer
             final String filteringTokenizerName = FILTERING_TOKENIZER.getName();
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("weltmeisterschaft"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -1172646540));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("weltmeisterschaft"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -1172646540, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("weltmeisterschaft"), SIMPLE_TEXT_FILTERING.getName(), 835135314));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("weltmeisterschaft"), SIMPLE_TEXT_FILTERING.getName(), 835135314, true));
             assertEquals(Collections.singletonList(1L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("достопримечательности"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME , -1291535616));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).contains("достопримечательности"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME , -1291535616, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("достопримечательности"), SIMPLE_TEXT_FILTERING.getName(), 716246238));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).contains("достопримечательности"), SIMPLE_TEXT_FILTERING.getName(), 716246238, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll("Weltmeisterschaft gewonnen"), SIMPLE_TEXT_FILTERING.getName(), 696188882));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll("Weltmeisterschaft gewonnen"), SIMPLE_TEXT_FILTERING.getName(), 696188882, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll(Arrays.asList("weltmeisterschaft", "gewonnen")), SIMPLE_TEXT_FILTERING.getName(), 1945779923));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll(Arrays.asList("weltmeisterschaft", "gewonnen")), SIMPLE_TEXT_FILTERING.getName(), 1945779923, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 625333664));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 625333664, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), SIMPLE_TEXT_FILTERING.getName(), -1661851778));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(filteringTokenizerName).containsAll("Weltmeisterschaft Nationalmannschaft Friedrichstraße"), SIMPLE_TEXT_FILTERING.getName(), -1661851778, true));
 
             // Prefix tokenizer
             final String prefixTokenizerName = PrefixTextTokenizer.NAME;
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAny("civic lover"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 1358697044));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAny("civic lover"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 1358697044, true));
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("civic lover"), SIMPLE_TEXT_PREFIX.getName(), 2070491434));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("civic lover"), SIMPLE_TEXT_PREFIX.getName(), 2070491434, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("못핵"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -1414597326));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAll("못핵"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -1414597326, true));
             assertEquals(Collections.singletonList(3L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("못핵"), SIMPLE_TEXT_PREFIX.getName(), 1444383389));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(prefixTokenizerName).containsAll("못핵"), SIMPLE_TEXT_PREFIX.getName(), 1444383389, true));
 
             // Suffixes tokenizer
             // Note that prefix scans using the suffixes tokenizer are equivalent to infix searches on the original tokens
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsPrefix("meister"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -2049073113));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsPrefix("meister"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, -2049073113, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_TEXT_SUFFIXES.getName(), -628393471));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsPrefix("meister"), SIMPLE_TEXT_SUFFIXES.getName(), -628393471, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAnyPrefix("meister ivi"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 279029713));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAnyPrefix("meister ivi"), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 279029713, true));
             assertEquals(ImmutableSet.of(0L, 2L),
-                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAnyPrefix("meister ivi"), SIMPLE_TEXT_SUFFIXES.getName(), 1699709355)));
+                    new HashSet<>(querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAnyPrefix("meister ivi"), SIMPLE_TEXT_SUFFIXES.getName(), 1699709355, true)));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAllPrefixes("meister won", false), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 993745490));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(DefaultTextTokenizer.NAME).containsAllPrefixes("meister won", false), TextIndexTestUtils.SIMPLE_DEFAULT_NAME, 993745490, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAllPrefixes("meister won", false), SIMPLE_TEXT_SUFFIXES.getName(), -1880542164));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAllPrefixes("meister won", false), SIMPLE_TEXT_SUFFIXES.getName(), -1880542164, true));
             assertEquals(Arrays.asList(0L, 2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAny("y e"), SIMPLE_TEXT_SUFFIXES.getName(), -1665999070));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAny("y e"), SIMPLE_TEXT_SUFFIXES.getName(), -1665999070, true));
             assertEquals(Collections.emptyList(),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAny("bloody civilize"), SIMPLE_TEXT_SUFFIXES.getName(), 1290016358));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAny("bloody civilize"), SIMPLE_TEXT_SUFFIXES.getName(), 1290016358, true));
             assertEquals(Collections.singletonList(0L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAll("ood ivil nds"), SIMPLE_TEXT_SUFFIXES.getName(), -1619880168));
+                    querySimpleDocumentsWithIndex(Query.field("text").text(AllSuffixesTextTokenizer.NAME).containsAll("ood ivil nds"), SIMPLE_TEXT_SUFFIXES.getName(), -1619880168, true));
 
             commit(context);
         }
@@ -1900,11 +1904,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
             // Queries that *don't* require position information should be planned to use the index
             assertEquals(Arrays.asList(1L, 2L, 3L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("king civil récu"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("king civil récu"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
             assertEquals(Arrays.asList(0L, 1L, 2L, 3L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("th"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("th"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
 
             // Queries that *do* require position information must be planned as scans
             assertEquals(Collections.singletonList(2L),
@@ -1929,22 +1933,22 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
 
             // Queries that *don't* require position information produce the same plan
             assertEquals(Arrays.asList(1L, 2L, 3L, 5L, 6L, 7L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("king civil récu"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAny("king civil récu"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
             assertEquals(Arrays.asList(2L, 6L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
             assertEquals(Arrays.asList(0L, 1L, 2L, 4L, 5L, 6L, 3L, 7L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("th"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPrefix("th"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
 
             // Queries that *do* require position information now use the index, but previously written documents show up in the
             // query spuriously
             assertEquals(Arrays.asList(2L, 6L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("civil blood makes civil hands unclean"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("civil blood makes civil hands unclean"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
             assertEquals(Collections.singletonList(2L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsPhrase("unclean verona"), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
             assertEquals(Arrays.asList(3L, 7L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("France Napoleons", 3), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("France Napoleons", 3), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
             assertEquals(Collections.singletonList(3L),
-                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Thiers Napoleons", 3), SIMPLE_TEXT_NO_POSITIONS.getName(), 0));
+                    querySimpleDocumentsWithIndex(Query.field("text").text().containsAll("Thiers Napoleons", 3), SIMPLE_TEXT_NO_POSITIONS.getName(), 0, true));
 
             commit(context);
         }
@@ -2329,16 +2333,20 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Nonnull
-    private List<Long> queryMapDocumentsWithIndex(@Nonnull String key, @Nonnull QueryComponent textFilter, int planHash) throws InterruptedException, ExecutionException {
+    private List<Long> queryMapDocumentsWithIndex(@Nonnull String key, @Nonnull QueryComponent textFilter, int planHash, boolean isCoveringIndexExpected) throws InterruptedException, ExecutionException {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
         final QueryComponent filter = Query.field("entry").oneOfThem().matches(Query.and(Query.field("key").equalsValue(key), textFilter));
-        final Matcher<RecordQueryPlan> planMatcher = descendant(textIndexScan(allOf(
+        Matcher<RecordQueryPlan> indexMatcher = textIndexScan(allOf(
                 indexName(MAP_ON_VALUE_INDEX.getName()),
                 groupingBounds(allOf(notNullValue(), hasTupleString("[[" + key + "],[" + key + "]]"))),
-                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
-        )));
+                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison())))
+        );
+        if (isCoveringIndexExpected) {
+            indexMatcher = coveringIndexScan(indexMatcher);
+        }
+        final Matcher<RecordQueryPlan> planMatcher = descendant(indexMatcher);
         return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash, planMatcher)
                 .map(t -> t.getLong(0))
                 .asList()
@@ -2354,10 +2362,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                 Query.field("group").equalsValue(group),
                 Query.field("entry").oneOfThem().matches(Query.and(Query.field("key").equalsValue(key), textFilter))
         );
-        final Matcher<RecordQueryPlan> planMatcher = descendant(textIndexScan(allOf(
+        final Matcher<RecordQueryPlan> planMatcher = descendant(coveringIndexScan(textIndexScan(allOf(
                 indexName(MAP_ON_VALUE_GROUPED_INDEX.getName()),
                 groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + ", " + key + "],[" + group + ", " + key + "]]"))),
-                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
+                textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison())))
         )));
         return queryDocuments(Collections.singletonList(MAP_DOC), Collections.singletonList(field("doc_id")), filter, planHash, planMatcher)
                 .map(t -> t.getLong(0))
@@ -2390,17 +2398,17 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             documents.forEach(recordStore::saveRecord);
 
             assertEquals(Collections.singletonList(2L),
-                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsAny("king unknown_token"), 1059912699));
+                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsAny("king unknown_token"), 1059912699, true));
             assertEquals(Arrays.asList(0L, 1L),
-                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"), 1085034960));
+                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"), 1085034960, true));
             assertEquals(Collections.emptyList(),
-                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"), 1085034991));
+                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsPhrase("civil blood makes civil hands unclean"), 1085034991, true));
             assertEquals(Arrays.asList(1L, 2L),
-                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsPrefix("na"), 1125182095));
+                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsPrefix("na"), 1125182095, true));
             assertEquals(Arrays.asList(0L, 1L),
-                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsAllPrefixes("civ mut ha"), 0));
+                    queryMapDocumentsWithIndex("a", Query.field("value").text().containsAllPrefixes("civ mut ha"), 0, false));
             assertEquals(Arrays.asList(1L, 2L),
-                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsAnyPrefix("civ mut na"), 0));
+                    queryMapDocumentsWithIndex("b", Query.field("value").text().containsAnyPrefix("civ mut na"), 0, true));
 
             RecordQuery queryWithAdditionalFilter = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)

@@ -30,6 +30,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -51,14 +53,14 @@ import java.util.Set;
 /**
  * A query plan that scans records directly from the main tree within a range of primary keys.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable {
     @Nullable
     private final Set<String> recordTypes;
 
     @Nonnull
     private final ScanComparisons comparisons;
-    private boolean reverse;
+    private final boolean reverse;
 
     /**
      * Overloaded constructor.
@@ -147,28 +149,46 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         return "Scan(" + range + ")";
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return equals(otherExpression);
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryScanPlan rebase(@Nonnull final AliasMap translationMap) {
+        return new RecordQueryScanPlan(getComparisons(), isReverse());
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        RecordQueryScanPlan that = (RecordQueryScanPlan) o;
+        final RecordQueryScanPlan that = (RecordQueryScanPlan)otherExpression;
         return Objects.equals(recordTypes, that.recordTypes) &&
                reverse == that.reverse &&
                Objects.equals(comparisons, that.comparisons);
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
+    }
+
     @Override
     public int hashCode() {
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(recordTypes, comparisons, reverse);
     }
 
@@ -193,7 +213,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @return the rewritten planner graph that models scanned storage as a separate node that is connected to the
      *         actual scan plan node.
      */
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {

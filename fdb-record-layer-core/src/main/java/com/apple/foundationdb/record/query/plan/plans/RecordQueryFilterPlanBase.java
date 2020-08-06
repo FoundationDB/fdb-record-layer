@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PipelineOperation;
@@ -29,7 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -45,9 +45,10 @@ import java.util.concurrent.CompletableFuture;
 /**
  * A base class for all query plans that filter based on predicates.
  */
+@API(API.Status.INTERNAL)
 abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> inner;
+    private final Quantifier.Physical inner;
 
     @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_FILTER_PLAN_GIVEN);
@@ -58,7 +59,7 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     @Nonnull
     private static final Set<StoreTimer.Count> failureCounts = Collections.singleton(FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    protected RecordQueryFilterPlanBase(@Nonnull ExpressionRef<RecordQueryPlan> inner) {
+    protected RecordQueryFilterPlanBase(@Nonnull Quantifier.Physical inner) {
         this.inner = inner;
     }
 
@@ -81,7 +82,7 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
                                                                          @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
-        final RecordCursor<FDBQueriedRecord<M>> results = getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit());
+        final RecordCursor<FDBQueriedRecord<M>> results = getInnerPlan().execute(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         if (hasAsyncFilter()) {
             return results
@@ -98,56 +99,56 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     }
 
     @Nonnull
-    public RecordQueryPlan getInner() {
-        return inner.get();
+    public RecordQueryPlan getInnerPlan() {
+        return inner.getRangesOverPlan();
     }
 
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(inner));
+        return ImmutableList.of(inner);
     }
 
     @Override
     public boolean isReverse() {
-        return getInner().isReverse();
+        return getInnerPlan().isReverse();
     }
 
     @Override
     public boolean hasRecordScan() {
-        return getInner().hasRecordScan();
+        return getInnerPlan().hasRecordScan();
     }
 
     @Override
     public boolean hasFullRecordScan() {
-        return getInner().hasFullRecordScan();
+        return getInnerPlan().hasFullRecordScan();
     }
 
     @Override
     public boolean hasIndexScan(@Nonnull String indexName) {
-        return getInner().hasIndexScan(indexName);
+        return getInnerPlan().hasIndexScan(indexName);
     }
 
     @Nonnull
     @Override
     public Set<String> getUsedIndexes() {
-        return getInner().getUsedIndexes();
+        return getInnerPlan().getUsedIndexes();
     }
 
     @Override
     @Nonnull
     public RecordQueryPlan getChild() {
-        return getInner();
+        return getInnerPlan();
     }
 
     @Override
     public void logPlanStructure(StoreTimer timer) {
         timer.increment(FDBStoreTimer.Counts.PLAN_FILTER);
-        getInner().logPlanStructure(timer);
+        getInnerPlan().logPlanStructure(timer);
     }
 
     @Override
     public int getComplexity() {
-        return 1 + getInner().getComplexity();
+        return 1 + getInnerPlan().getComplexity();
     }
 }

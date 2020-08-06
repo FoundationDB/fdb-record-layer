@@ -110,8 +110,8 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         final String launcherHtmlString =
                 CharStreams.toString(new InputStreamReader(launcherHtmlInputStream, StandardCharsets.UTF_8))
                         .replace("$DOT", dotString);
-        final String launcherFile = System.getProperty("java.io.tmpdir") + "local_launcher.html";
-        final File launcherTempFile = new File(launcherFile);
+        final File launcherTempFile = File.createTempFile("local_launcher-", ".html", new File(System.getProperty("java.io.tmpdir")));
+        final String launcherTempFileName = launcherTempFile.toString();
         final PrintWriter writer;
         try {
             writer = new PrintWriter(launcherTempFile, "UTF-8");
@@ -120,7 +120,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         }
         writer.print(launcherHtmlString);
         writer.close();
-        return new URI("file:///" + launcherFile.replace("\\", "/"));
+        return new URI("file:///" + launcherTempFileName.replace("\\", "/"));
     }
 
     /**

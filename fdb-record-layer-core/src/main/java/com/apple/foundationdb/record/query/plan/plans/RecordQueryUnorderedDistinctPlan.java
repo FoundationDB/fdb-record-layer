@@ -30,7 +30,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -40,6 +41,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,12 +57,12 @@ import java.util.Set;
 /**
  * A query plan that removes duplicates by means of a hash table of previously seen values.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChild {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedDistinctPlan.class);
 
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> inner;
+    private final Quantifier.Physical inner;
     @Nonnull
     private final KeyExpression comparisonKey;
     @Nonnull
@@ -71,9 +73,14 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     private static final Set<StoreTimer.Count> duplicateCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_DISTINCT_PLAN_DUPLICATES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    public RecordQueryUnorderedDistinctPlan(@Nonnull RecordQueryPlan inner,
-                                            @Nonnull KeyExpression comparisonKey) {
-        this.inner = GroupExpressionRef.of(inner);
+    public RecordQueryUnorderedDistinctPlan(@Nonnull final RecordQueryPlan plan,
+                                            @Nonnull final KeyExpression comparisonKey) {
+        this(Quantifier.physical(GroupExpressionRef.of(plan)), comparisonKey);
+    }
+
+    private RecordQueryUnorderedDistinctPlan(@Nonnull final Quantifier.Physical inner,
+                                             @Nonnull KeyExpression comparisonKey) {
+        this.inner = inner;
         this.comparisonKey = comparisonKey;
     }
 
@@ -97,7 +104,7 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     private RecordQueryPlan getInner() {
-        return inner.get();
+        return inner.getRangesOverPlan();
     }
 
     @Override
@@ -113,9 +120,8 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(inner));
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -123,29 +129,47 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
         return getInner() + " | UnorderedDistinct(" + getComparisonKey() + ")";
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryUnorderedDistinctPlan &&
-               comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryUnorderedDistinctPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                         @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryUnorderedDistinctPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+                getComparisonKey());
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        RecordQueryUnorderedDistinctPlan that = (RecordQueryUnorderedDistinctPlan) o;
-        return Objects.equals(getInner(), that.getInner()) &&
-                Objects.equals(getComparisonKey(), that.getComparisonKey());
+
+        return comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getInner(), getComparisonKey());
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(getComparisonKey());
     }
 
     @Override

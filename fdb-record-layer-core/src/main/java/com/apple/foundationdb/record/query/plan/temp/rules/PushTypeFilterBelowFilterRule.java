@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
@@ -44,18 +46,46 @@ import java.util.Collection;
  * A rule that moves a {@link RecordQueryTypeFilterPlan} below a {@link RecordQueryFilterPlan}. While this doesn't make
  * a difference in terms of plan semantics it ensures that the generated plans have the same form as those produced by
  * the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}.
+ *
+ * <pre>
+ * {@code
+ *             +-----------------------------+                +----------------------------------+
+ *             |                             |                |                                  |
+ *             |  RecordQueryTypeFilterPlan  |                |  RecordQueryPredicateFilterPlan  |
+ *             |                             |                |                           pred'  |
+ *             +-------------+---------------+                |                                  |
+ *                           |                                +-----------------+----------------+
+ *                           |                      +----->                     |
+ *                           |                                                  | newQun
+ *           +---------------+------------------+                               |
+ *           |                                  |             +-----------------+---------------+
+ *           |  RecordQueryPredicateFilterPlan  |             |                                 |
+ *           |                            pred  |             |  RecordQueryTypeFilterPlanPlan  |
+ *           |                                  |             |                                 |
+ *           +---------------+------------------+             +-----------------+---------------+
+ *                           |                                                  /
+ *                           | qun                                             /
+ *                           |                                                /
+ *                    +------+------+                                        /
+ *                    |             |                                       /
+ *                    |   any ref   | -------------------------------------+
+ *                    |             |
+ *                    +-------------+
+ * }
+ * </pre>
+ *
+ * where pred' is rebased along the translation from qun to newQun.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFilterPlan> {
     private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<QueryPredicate> filterMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static ExpressionMatcher<Quantifier.Physical> qunMatcher = QuantifierMatcher.physical(innerMatcher);
+    private static final ExpressionMatcher<QueryPredicate> predMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
-            TypeWithPredicateMatcher.ofPredicate(RecordQueryPredicateFilterPlan.class,
-                    filterMatcher,
-                    QuantifierMatcher.physical(innerMatcher));
+            TypeWithPredicateMatcher.ofPredicate(RecordQueryPredicateFilterPlan.class, predMatcher, qunMatcher);
+    private static QuantifierMatcher<Quantifier.Physical> filterPlanQuantifierMatcher = QuantifierMatcher.physical(filterPlanMatcher);
     private static final ExpressionMatcher<RecordQueryTypeFilterPlan> root =
-            TypeMatcher.of(RecordQueryTypeFilterPlan.class,
-                    QuantifierMatcher.physical(filterPlanMatcher));
+            TypeMatcher.of(RecordQueryTypeFilterPlan.class, filterPlanQuantifierMatcher);
 
     public PushTypeFilterBelowFilterRule() {
         super(root);
@@ -63,12 +93,20 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
-        final QueryPredicate filter = call.get(filterMatcher);
+        final Quantifier.Physical qun = call.get(qunMatcher);
+        final QueryPredicate pred = call.get(predMatcher);
+        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final Collection<String> recordTypes = call.get(root).getRecordTypes();
 
-        call.yield(GroupExpressionRef.of(new RecordQueryPredicateFilterPlan(
-                GroupExpressionRef.of(new RecordQueryTypeFilterPlan(inner, recordTypes)), filterPlan.getBaseSource(), filter)));
+        final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes);
+        final Quantifier.Physical newQun = Quantifier.physical(call.ref(newTypeFilterPlan));
+        final QueryPredicate rebasedPred = pred.rebase(Quantifiers.translate(qun, newQun));
+
+        call.yield(GroupExpressionRef.of(
+                new RecordQueryPredicateFilterPlan(
+                        newQun,
+                        filterPlan.getBaseSource(),
+                        rebasedPred)));
     }
 }

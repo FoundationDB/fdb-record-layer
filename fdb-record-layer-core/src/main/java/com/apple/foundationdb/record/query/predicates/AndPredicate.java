@@ -23,13 +23,13 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * A {@link QueryPredicate} that is satisfied when all of its child components are;
@@ -68,24 +68,12 @@ public class AndPredicate extends AndOrPredicate {
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (o == this) {
-            return true;
-        }
-        if (o == null || o.getClass() != getClass()) {
-            return false;
-        }
-        AndPredicate that = (AndPredicate) o;
-        return Objects.equals(getChildren(), that.getChildren());
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(getChildren());
-    }
-
-    @Override
     public int planHash() {
         return PlanHashable.planHash(getChildren());
+    }
+
+    @Override
+    public AndPredicate rebaseWithRebasedChildren(final AliasMap translationMap, final List<QueryPredicate> rebasedChildren) {
+        return new AndPredicate(rebasedChildren);
     }
 }

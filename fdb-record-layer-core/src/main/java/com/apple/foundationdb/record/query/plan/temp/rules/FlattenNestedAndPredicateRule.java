@@ -21,11 +21,10 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
@@ -64,13 +63,13 @@ import java.util.List;
 public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpression> {
     private static final ExpressionMatcher<QueryPredicate> andChildrenMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<QueryPredicate> otherInnerComponentsMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<ExpressionRef<RelationalExpression>> inner = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(ReferenceMatcher.anyRef());
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
             TypeMatcher.of(AndPredicate.class,
                     AnyChildWithRestMatcher.anyMatchingWithRest(
                             TypeMatcher.of(AndPredicate.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
                     otherInnerComponentsMatcher)),
-            QuantifierMatcher.forEach(inner));
+            innerQuantifierMatcher);
 
 
     public FlattenNestedAndPredicateRule() {
@@ -79,13 +78,16 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        LogicalFilterExpression rootFilter = call.getBindings().get(root);
-        ExpressionRef<RelationalExpression> innerPlan = call.getBindings().get(inner);
-        List<QueryPredicate> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
-        List<QueryPredicate> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
+        final List<QueryPredicate> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
+        final List<QueryPredicate> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
+        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
+        final LogicalFilterExpression rootFilter = call.get(root);
         List<QueryPredicate> allConjuncts = new ArrayList<>(innerAndChildren);
         allConjuncts.addAll(otherOuterAndChildren);
 
-        call.yield(call.ref(new LogicalFilterExpression(rootFilter.getBaseSource(), new AndPredicate(allConjuncts), innerPlan)));
+        call.yield(call.ref(new LogicalFilterExpression(
+                rootFilter.getBaseSource(),
+                new AndPredicate(allConjuncts),
+                innerQuantifier)));
     }
 }

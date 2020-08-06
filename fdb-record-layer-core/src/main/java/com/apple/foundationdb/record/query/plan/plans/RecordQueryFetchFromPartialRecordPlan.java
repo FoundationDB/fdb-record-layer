@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
@@ -28,33 +29,37 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 
 /**
  * A query plan that transforms a stream of partial records (derived from index entries, as in the {@link RecordQueryCoveringIndexPlan})
  * into full records by fetching the records by primary key.
  */
+@API(API.Status.INTERNAL)
 public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWithChild {
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> inner;
+    private final Quantifier.Physical inner;
 
     public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner) {
-        this(GroupExpressionRef.of(inner));
+        this(Quantifier.physical(GroupExpressionRef.of(inner)));
     }
 
-    public RecordQueryFetchFromPartialRecordPlan(@Nonnull final ExpressionRef<RecordQueryPlan> inner) {
+    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner) {
         this.inner = inner;
     }
 
@@ -71,15 +76,20 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
+    public RecordQueryPlan getInner() {
+        return inner.getRangesOverPlan();
+    }
+
+    @Nonnull
     @Override
     public RecordQueryPlan getChild() {
-        return inner.get();
+        return inner.getRangesOverPlan();
     }
 
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(inner));
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -97,26 +107,40 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
         return 1 + getChild().getComplexity();
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryFetchFromPartialRecordPlan;
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryFetchFromPartialRecordPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
     @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        final RecordQueryFetchFromPartialRecordPlan that = (RecordQueryFetchFromPartialRecordPlan)o;
-        return getChild().equals(that.getChild());
+        return getClass() == otherExpression.getClass();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object o) {
+        return structuralEquals(o);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getChild());
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return 31;
     }
 
     @Override

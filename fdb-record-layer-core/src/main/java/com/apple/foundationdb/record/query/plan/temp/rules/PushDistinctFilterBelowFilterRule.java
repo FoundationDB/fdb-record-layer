@@ -26,10 +26,13 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimar
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 
@@ -38,15 +41,43 @@ import javax.annotation.Nonnull;
  * below a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan}. While this doesn't make a
  * difference in terms of plan semantics it ensures that the generated plans have the same form as those produced by
  * the {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner}.
+ *
+ * <pre>
+ * {@code
+ *     +----------------------------------------------+             +----------------------------------+
+ *     |                                              |             |                                  |
+ *     |  RecordQueryUnorderedPrimaryKeyDistinctPlan  |             |  RecordQueryPredicateFilterPlan  |
+ *     |                                              |             |                           pred'  |
+ *     +---------------------+------------------------+             |                                  |
+ *                           |                                      +---------------+------------------+
+ *                           |                        +----->                       |
+ *                           |                                                      | newQun
+ *           +---------------+------------------+                                   |
+ *           |                                  |             +---------------------+------------------------+
+ *           |  RecordQueryPredicateFilterPlan  |             |                                              |
+ *           |                            pred  |             |  RecordQueryUnorderedPrimaryKeyDistinctPlan  |
+ *           |                                  |             |                                              |
+ *           +---------------+------------------+             +---------------------+------------------------+
+ *                           |                                                    /
+ *                           | qun                                               /
+ *                           |                                                  /
+ *                    +------+------+                                          /
+ *                    |             |                                         /
+ *                    |   any ref   | ---------------------------------------+
+ *                    |             |
+ *                    +-------------+
+ * }
+ * </pre>
+ *
+ * where pred' is rebased along the translation from qun to newQun.
  */
 public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<Quantifier.Physical> innerQuantifierMatcher = QuantifierMatcher.physical(innerMatcher);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
-            TypeMatcher.of(RecordQueryPredicateFilterPlan.class,
-                    QuantifierMatcher.physical(innerMatcher));
+            TypeMatcher.of(RecordQueryPredicateFilterPlan.class, innerQuantifierMatcher);
     private static final ExpressionMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
-            TypeMatcher.of(RecordQueryUnorderedPrimaryKeyDistinctPlan.class,
-                    QuantifierMatcher.physical(filterPlanMatcher));
+            TypeMatcher.of(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, QuantifierMatcher.physical(filterPlanMatcher));
 
     public PushDistinctFilterBelowFilterRule() {
         super(root);
@@ -54,10 +85,19 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
+        final Quantifier.Physical qun = call.get(innerQuantifierMatcher);
+        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
 
-        call.yield(call.ref(new RecordQueryPredicateFilterPlan(
-                call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)), filterPlan.getBaseSource(), filterPlan.getPredicate())));
+        final RecordQueryUnorderedPrimaryKeyDistinctPlan newDistinctPlan =
+                new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(inner));
+        final Quantifier.Physical newQun = Quantifier.physical(call.ref(newDistinctPlan));
+        final QueryPredicate rebasedPred =
+                filterPlan.getPredicate()
+                        .rebase(Quantifiers.translate(qun, newQun));
+        call.yield(call.ref(
+                new RecordQueryPredicateFilterPlan(newQun,
+                        filterPlan.getBaseSource(),
+                        rebasedPred)));
     }
 }

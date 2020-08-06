@@ -36,8 +36,14 @@ import java.util.stream.Stream;
  * @param <T> the type of planner expression that is contained in this reference
  */
 @API(API.Status.EXPERIMENTAL)
-public interface ExpressionRef<T extends RelationalExpression> extends Bindable {
-    void insert(@Nonnull T newValue);
+public interface ExpressionRef<T extends RelationalExpression> extends Bindable, Correlated<ExpressionRef<T>> {
+    /**
+     * Insert a new expression into this reference.
+     * @param newValue the value to be inserted
+     * @return {@code true} if the value was not already part of the reference and was inserted, {@code false} if
+     *         the given value was already contained in the reference and was therefore not inserted.
+     */
+    boolean insert(@Nonnull T newValue);
 
     /**
      * Return the expression contained in this reference. If the reference does not support getting its expresssion
@@ -91,7 +97,8 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable 
     @Nonnull
     ExpressionRef<T> getNewRefWith(@Nonnull T expression);
 
-    boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef);
+    boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef,
+                              @Nonnull AliasMap equivalenceMap);
 
     RelationalExpressionPointerSet<T> getMembers();
 

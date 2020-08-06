@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -31,10 +31,10 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -47,21 +47,21 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
-    private final Quantifier.ForEach inner;
+    private final Quantifier inner;
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner) {
-        this(recordTypes, GroupExpressionRef.of(inner));
+        this(recordTypes, Quantifier.forEach(GroupExpressionRef.of(inner)));
     }
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull ExpressionRef<RelationalExpression> inner) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner) {
         this.recordTypes = recordTypes;
-        this.inner = Quantifier.forEach(inner);
+        this.inner = inner;
     }
 
     @Override
     @Nonnull
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(inner);
+        return ImmutableList.of(getInner());
     }
 
     @Override
@@ -80,31 +80,32 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         return inner;
     }
 
+    @Nonnull
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof LogicalTypeFilterExpression &&
-               ((LogicalTypeFilterExpression)otherExpression).getRecordTypes().equals(getRecordTypes());
+    public LogicalTypeFilterExpression rebase(@Nonnull final AliasMap translationMap) {
+        // we know the following is correct, just Java doesn't
+        return (LogicalTypeFilterExpression)TypeFilterExpression.super.rebase(translationMap);
     }
 
     @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof LogicalTypeFilterExpression)) {
-            return false;
-        }
-        final LogicalTypeFilterExpression that = (LogicalTypeFilterExpression)o;
-        return getRecordTypes().equals(that.getRecordTypes()) &&
-               getInner().equals(that.getInner());
+    @Nonnull
+    public LogicalTypeFilterExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                    @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new LogicalTypeFilterExpression(getRecordTypes(),
+                Iterables.getOnlyElement(rebasedQuantifiers));
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getRecordTypes(), getInner());
+        return semanticHashCode();
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {

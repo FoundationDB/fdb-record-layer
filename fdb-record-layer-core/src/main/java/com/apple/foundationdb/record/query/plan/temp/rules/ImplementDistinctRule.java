@@ -23,8 +23,10 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -51,11 +53,12 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression> {
     @Nonnull
-    private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<RecordQueryPlan> innerPlanMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
+    @Nonnull
+    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerPlanMatcher);
     @Nonnull
     private static final ExpressionMatcher<LogicalDistinctExpression> root =
-            TypeMatcher.of(LogicalDistinctExpression.class,
-                    QuantifierMatcher.forEach(innerMatcher));
+            TypeMatcher.of(LogicalDistinctExpression.class, innerQuantifierMatcher);
 
     public ImplementDistinctRule() {
         super(root);
@@ -63,12 +66,16 @@ public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        RecordQueryPlan inner = call.get(innerMatcher);
-        boolean createsDuplicates = CreatesDuplicatesProperty.evaluate(inner, call.getContext());
+        final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
+        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
+        final boolean createsDuplicates = CreatesDuplicatesProperty.evaluate(innerPlan, call.getContext());
         if (createsDuplicates) {
-            call.yield(call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(inner)));
+            call.yield(call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(
+                    Quantifier.physicalBuilder()
+                            .morphFrom(innerQuantifier)
+                            .build(GroupExpressionRef.of(innerPlan)))));
         } else {
-            call.yield(call.ref(inner));
+            call.yield(call.ref(innerPlan));
         }
     }
 }

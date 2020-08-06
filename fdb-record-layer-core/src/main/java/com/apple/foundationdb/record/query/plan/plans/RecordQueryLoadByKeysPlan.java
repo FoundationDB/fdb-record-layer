@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -38,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -50,7 +53,7 @@ import java.util.Set;
 /**
  * A query plan that returns records whose primary keys are taken from some list.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     private final KeysSource keysSource;
@@ -130,26 +133,44 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         return "ByKeys(" + getKeysSource() + ")";
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryLoadByKeysPlan;
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of(); // TODO this should be reconsidered when we have selects
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryLoadByKeysPlan rebase(@Nonnull final AliasMap translationMap) {
+        return this;
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        RecordQueryLoadByKeysPlan that = (RecordQueryLoadByKeysPlan) o;
-        return Objects.equals(getKeysSource(), that.getKeysSource());
+
+        return Objects.equals(getKeysSource(), ((RecordQueryLoadByKeysPlan)otherExpression).getKeysSource());
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(getKeysSource());
     }
 

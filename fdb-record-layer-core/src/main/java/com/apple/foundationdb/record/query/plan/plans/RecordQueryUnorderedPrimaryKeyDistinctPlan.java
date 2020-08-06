@@ -28,7 +28,8 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,12 +54,12 @@ import java.util.Set;
 /**
  * A query plan that removes duplicates by means of a hash table of primary keys already seen.
  */
-@API(API.Status.MAINTAINED)
+@API(API.Status.INTERNAL)
 public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPlanWithChild {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedPrimaryKeyDistinctPlan.class);
 
     @Nonnull
-    private final ExpressionRef<RecordQueryPlan> inner;
+    private final Quantifier.Physical inner;
     @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_PK_DISTINCT);
     @Nonnull
@@ -66,11 +68,11 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     private static final Set<StoreTimer.Count> duplicateCounts =
             ImmutableSet.of(FDBStoreTimer.Counts.QUERY_PK_DISTINCT_PLAN_DUPLICATES, FDBStoreTimer.Counts.QUERY_DISCARDED);
 
-    public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryPlan inner) {
-        this(GroupExpressionRef.of(inner));
+    public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull RecordQueryPlan innerPlan) {
+        this(Quantifier.physical(GroupExpressionRef.of(innerPlan)));
     }
 
-    public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner) {
+    public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull Quantifier.Physical inner) {
         this.inner = inner;
     }
 
@@ -94,7 +96,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     private RecordQueryPlan getInner() {
-        return inner.get();
+        return inner.getRangesOverPlan();
     }
 
     @Override
@@ -105,9 +107,8 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(Quantifier.physical(inner));
+        return ImmutableList.of(inner);
     }
 
     @Override
@@ -115,26 +116,41 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
         return getInner() + " | UnorderedPrimaryKeyDistinct()";
     }
 
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan;
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryUnorderedPrimaryKeyDistinctPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RecordQueryUnorderedPrimaryKeyDistinctPlan that = (RecordQueryUnorderedPrimaryKeyDistinctPlan) o;
-        return Objects.equals(getInner(), that.getInner());
+        return (getClass() == otherExpression.getClass());
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
+        return structuralHashCode();
+    }
+    
+    @Override
+    public int hashCodeWithoutChildren() {
         return Objects.hash(getInner());
     }
 

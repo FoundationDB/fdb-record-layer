@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
@@ -56,10 +57,11 @@ public class CombineFilterRuleTest {
 
     private static LogicalFilterExpression buildLogicalFilter(@Nonnull QueryComponent queryComponent,
                                                               @Nonnull RelationalExpression inner) {
+        final Quantifier.ForEach innerQuantifier = Quantifier.forEach(GroupExpressionRef.of(inner));
         return new LogicalFilterExpression(
                 baseSource,
                 queryComponent.normalizeForPlanner(baseSource),
-                inner);
+                innerQuantifier);
     }
 
     @Test

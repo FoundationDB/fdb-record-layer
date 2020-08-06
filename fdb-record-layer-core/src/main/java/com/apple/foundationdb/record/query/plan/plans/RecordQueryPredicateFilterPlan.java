@@ -24,8 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -43,6 +45,7 @@ import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -55,13 +58,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     @Nonnull
     private final QueryPredicate filter;
 
-    public RecordQueryPredicateFilterPlan(@Nonnull RecordQueryPlan inner,
-                                          @Nonnull Source baseSource,
-                                          @Nonnull QueryPredicate filter) {
-        this(GroupExpressionRef.of(inner), baseSource, filter);
-    }
-
-    public RecordQueryPredicateFilterPlan(@Nonnull ExpressionRef<RecordQueryPlan> inner,
+    public RecordQueryPredicateFilterPlan(@Nonnull Quantifier.Physical inner,
                                           @Nonnull Source baseSource,
                                           @Nonnull QueryPredicate filter) {
         super(inner);
@@ -110,41 +107,63 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         return filter;
     }
 
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return filter.getCorrelatedTo();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPredicateFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                       @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryPredicateFilterPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
+                getBaseSource(),
+                getPredicate().rebase(translationMap));
+    }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression) {
-        return otherExpression instanceof RecordQueryPredicateFilterPlan;
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+        final RecordQueryPredicateFilterPlan otherPlan = (RecordQueryPredicateFilterPlan)otherExpression;
+        return getInnerPlan().equals(otherPlan.getInnerPlan()) &&
+               getBaseSource().equals(otherPlan.getBaseSource()) &&
+               filter.semanticEquals(otherPlan.getPredicate(), equivalencesMap);
     }
 
     @Override
     public String toString() {
-        return getInner() + " | " + getPredicate();
+        return getInnerPlan() + " | " + getPredicate();
     }
 
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        RecordQueryPredicateFilterPlan that = (RecordQueryPredicateFilterPlan)o;
-        return Objects.equals(getInner(), that.getInner()) &&
-               Objects.equals(baseSource, that.baseSource) &&
-               Objects.equals(getPredicate(), that.getPredicate());
+    public boolean equals(final Object other) {
+        return structuralEquals(other);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getInner(), baseSource, getPredicate());
+        return structuralHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(baseSource, getPredicate());
     }
 
     @Override
     public int planHash() {
-        return getInner().planHash() + getPredicate().planHash();
+        return getInnerPlan().planHash() + getPredicate().planHash();
     }
 
+    @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(

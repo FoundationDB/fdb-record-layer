@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -88,7 +91,17 @@ public class LiteralElement<T> implements Element {
     }
 
     @Override
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        return equals(other); // TODO this should be adapted
+    }
+
+    @Override
     public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int semanticHashCode() {
         return Objects.hash(value);
     }
 
@@ -97,6 +110,19 @@ public class LiteralElement<T> implements Element {
         return hashCode();
     }
 
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of(); // TODO we may want to claim that literals are correlated to an expression containing all literals in the graph
+    }
 
+    @Nonnull
+    @Override
+    public Element rebase(@Nonnull final AliasMap translationMap) {
+        // TODO we may want to claim that literals are correlated to an expression containing all literals in the graph
+        // TODO in which case we may want to be able to rewrite this
+        return this;
+
+    }
 }
 

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 
@@ -38,6 +39,7 @@ import java.util.Optional;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class ValueElement extends ElementWithSingleSource {
     public ValueElement(@Nonnull Source source) {
         super(source);
@@ -98,12 +100,18 @@ public class ValueElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         return Objects.hash(source);
     }
 
     @Override
     public int planHash() {
         return 0;
+    }
+
+    @Nonnull
+    @Override
+    public ValueElement rebase(@Nonnull final AliasMap translationMap) {
+        return new ValueElement(getSource()); // TODO needs to be rebased
     }
 }

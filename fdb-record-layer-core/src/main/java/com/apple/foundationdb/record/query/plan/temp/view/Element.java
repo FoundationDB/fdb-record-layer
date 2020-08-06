@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.view;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 
 import javax.annotation.Nonnull;
@@ -43,7 +44,7 @@ import java.util.Set;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Element extends PlanHashable {
+public interface Element extends PlanHashable, Correlated<Element> {
     /**
      * Determine whether this element can be used to satisfy the given {@link ElementPredicate}, under the assumption
      * that this element is already being used to satisfy the given {@link ComparisonRange}. Note that this method

@@ -20,12 +20,18 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.google.common.collect.ImmutableSet;
+
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
  * A base class for all elements that draw from exactly one source.
  */
+@SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 abstract class ElementWithSingleSource implements Element {
     @Nonnull
     protected final Source source;
@@ -42,5 +48,23 @@ abstract class ElementWithSingleSource implements Element {
     @Override
     public Set<Source> getAncestralSources() {
         return source.getSources();
+    }
+
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        // TODO create the correlation identifier
+        return ImmutableSet.of();
+    }
+
+    @Override
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        return equals(other); // TODO this should be adapted
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 }

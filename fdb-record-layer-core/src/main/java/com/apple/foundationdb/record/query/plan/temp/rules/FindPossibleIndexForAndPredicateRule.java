@@ -23,9 +23,12 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
@@ -43,22 +46,44 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * A rule that finds all indexes that could implement one of the {@link ComponentWithComparison} conjuncts of an AND
  * filter, leaving all the other filters (of any type, including other fields) as a residual filter.
+ *
+ * <pre>
+ * {@code
+ *                                                     index 1:                                        index n:
+ *      +----------------------------+                     +------------------------------+               +------------------------------+
+ *      |                            |                     |                              |               |                              |
+ *      |  LogicalFilterExpression   |                     |  LogicalFilterExpression     |               |  LogicalFilterExpression     |
+ *      |          element <>= val   |                     |              residual preds  |               |              residual preds  |
+ *      |                            |                     |                              |               |                              |
+ *      +-------------+--------------+                     +---------------+--------------+               +---------------+--------------+
+ *                    |                    +-------->                      |                    ...                       |
+ *                    |  qun                                               |                                              |
+ *                    |                                                    |                                              |
+ *     +--------------+----------------+               +-------------------+-----------------+        +-------------------+-----------------+
+ *     |                               |               |                                     |        |                                     |
+ *     |  FullUnorderedScanExpression  |               |  IndexEntrySourceScanExpression     |        |  IndexEntrySourceScanExpression     |
+ *     |                               |               |                        scan ranges  |        |                        scan ranges  |
+ *     +-------------------------------+               |                                     |        |                                     |
+ * }                                                   +-------------------------------------+        +-------------------------------------+
+ * </pre>
+ *
  */
 @API(API.Status.EXPERIMENTAL)
 public class FindPossibleIndexForAndPredicateRule extends PlannerRule<LogicalFilterExpression> {
-    private static ExpressionMatcher<ElementPredicate> fieldMatcher = TypeMatcher.of(ElementPredicate.class);
-    private static ExpressionMatcher<QueryPredicate> residualFieldsMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static ExpressionMatcher<AndPredicate> andFilterMatcher = TypeMatcher.of(AndPredicate.class,
-            AnyChildWithRestMatcher.anyMatchingWithRest(fieldMatcher, residualFieldsMatcher));
-    private static ExpressionMatcher<FullUnorderedScanExpression> scanMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
-    private static ExpressionMatcher<LogicalFilterExpression> root =
+    private static final ExpressionMatcher<ElementPredicate> elementPredMatcher = TypeMatcher.of(ElementPredicate.class);
+    private static final ExpressionMatcher<QueryPredicate> residualPredMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<AndPredicate> andFilterMatcher =
+            TypeMatcher.of(AndPredicate.class, AnyChildWithRestMatcher.anyMatchingWithRest(elementPredMatcher, residualPredMatcher));
+    private static final ExpressionMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatcher.forEach(TypeMatcher.of(FullUnorderedScanExpression.class));
+    private static final ExpressionMatcher<LogicalFilterExpression> root =
             TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
                     andFilterMatcher,
-                    QuantifierMatcher.forEach(scanMatcher));
+                    qunMatcher);
 
     public FindPossibleIndexForAndPredicateRule() {
         super(root);
@@ -67,21 +92,37 @@ public class FindPossibleIndexForAndPredicateRule extends PlannerRule<LogicalFil
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalFilterExpression filterExpression = call.get(root);
-        ElementPredicate field = call.getBindings().get(fieldMatcher);
+        final ElementPredicate field = call.get(elementPredMatcher);
+        final Quantifier.ForEach qun = call.get(qunMatcher);
+
         for (IndexEntrySource indexEntrySource : call.getContext().getIndexEntrySources()) {
             final ViewExpressionComparisons comparisons = indexEntrySource.getEmptyComparisons();
             final Optional<ViewExpressionComparisons> matchedKeyComparisons = comparisons.matchWith(field);
+
+            // TODO revisit later -- this is too restrictive
+            if (!field.getCorrelatedTo().isEmpty()) {
+                continue;
+            }
+
             if (matchedKeyComparisons.isPresent()) {
-                final List<QueryPredicate> otherFields = call.getBindings().getAll(residualFieldsMatcher);
+                final List<QueryPredicate> residualPreds = call.getBindings().getAll(residualPredMatcher);
+                final Quantifier.ForEach newQun =
+                        Quantifier.forEach(
+                                call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE, matchedKeyComparisons.get(), false)));
+                final AliasMap translationMap = Quantifiers.translate(qun, newQun);
                 final QueryPredicate residualFilter;
-                if (otherFields.size() == 1) {
-                    residualFilter = otherFields.get(0);
+                if (residualPreds.size() == 1) {
+                    residualFilter = residualPreds.get(0).rebase(translationMap);
                 } else {
-                    residualFilter = new AndPredicate(otherFields);
+                    residualFilter = new AndPredicate(
+                            residualPreds.stream()
+                                    .map(pred -> pred.rebase(translationMap))
+                                    .collect(Collectors.toList()));
                 }
-                call.yield(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), residualFilter,
-                        call.ref(new IndexEntrySourceScanExpression(indexEntrySource, IndexScanType.BY_VALUE,
-                                matchedKeyComparisons.get(), false)))));
+                call.yield(call.ref(new LogicalFilterExpression(
+                        filterExpression.getBaseSource(),
+                        residualFilter,
+                        newQun)));
             }
         }
     }
