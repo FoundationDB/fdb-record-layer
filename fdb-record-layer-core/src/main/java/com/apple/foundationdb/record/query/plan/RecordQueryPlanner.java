@@ -1530,7 +1530,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
     
     @Nullable
-    public RecordQueryPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull String indexName) {
+    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull String indexName) {
         final Index index = metaData.getIndex(indexName);
         KeyExpression indexExpr = index.getRootExpression();
         if (indexExpr instanceof GroupingKeyExpression) {
@@ -1542,7 +1542,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nullable
-    public RecordQueryPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
+    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
