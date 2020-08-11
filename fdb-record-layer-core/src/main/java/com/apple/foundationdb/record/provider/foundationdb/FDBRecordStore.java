@@ -3423,7 +3423,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         if (useOldVersionFormat()) {
             throw recordCoreException("attempted to convert record versions when still using older format");
         }
-        final Subspace legacyVersionSubspace = getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY));
+        final Subspace legacyVersionSubspace = getLegacyVersionSubspace();
 
         // Read all of the keys in the old record version location. For each
         // record, copy its version to the new location within the primary record
@@ -3440,6 +3440,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             ensureContextActive().set(newKeyBytes, newValueBytes);
         }).thenAccept(ignore -> ensureContextActive().clear(legacyVersionSubspace.range()));
         work.add(workFuture);
+    }
+
+    @API(API.Status.INTERNAL)
+    @VisibleForTesting
+    public Subspace getLegacyVersionSubspace() {
+        return getSubspace().subspace(Tuple.from(RECORD_VERSION_KEY));
     }
 
     @Nonnull

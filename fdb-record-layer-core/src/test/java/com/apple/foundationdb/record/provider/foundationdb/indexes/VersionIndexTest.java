@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.provider.foundationdb;
+package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
@@ -46,7 +46,19 @@ import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase.RecordMetaDataHook;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -2190,7 +2202,7 @@ public class VersionIndexTest extends FDBTestBase {
 
     private <M extends Message> void validateUsingOlderVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
         // Make sure all of the records have versions in the old keyspace
-        final Subspace legacyVersionSubspace = recordStore.getSubspace().subspace(Tuple.from(FDBRecordStore.RECORD_VERSION_KEY));
+        final Subspace legacyVersionSubspace = recordStore.getLegacyVersionSubspace();
         RecordCursorIterator<Pair<Tuple, FDBRecordVersion>> versionKeyPairs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
                 .setContext(recordStore.getRecordContext())
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
@@ -2217,7 +2229,7 @@ public class VersionIndexTest extends FDBTestBase {
 
     private <M extends Message> void validateUsingNewerVersionFormat(@Nonnull List<FDBStoredRecord<M>> storedRecords) {
         // Make sure the old keyspace doesn't have anything in it
-        final Subspace legacyVersionSubspace = recordStore.getSubspace().subspace(Tuple.from(FDBRecordStore.RECORD_VERSION_KEY));
+        final Subspace legacyVersionSubspace = recordStore.getLegacyVersionSubspace();
         KeyValueCursor legacyKvs = KeyValueCursor.Builder.withSubspace(legacyVersionSubspace)
                 .setContext(recordStore.getRecordContext())
                 .setScanProperties(ScanProperties.FORWARD_SCAN)
