@@ -142,6 +142,11 @@ public class IndexTypes {
      */
     public static final String TEXT = "text";
 
+    /**
+     * An index storing bitmaps of which records meet a specific condition.
+     */
+    public static final String BITMAP_VALUE = "bitmap_value";
+
     private IndexTypes() {
     }
 }

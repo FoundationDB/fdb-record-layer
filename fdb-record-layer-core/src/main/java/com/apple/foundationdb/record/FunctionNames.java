@@ -58,6 +58,9 @@ public class FunctionNames {
     public static final String RANK_FOR_SCORE = "rank_for_score";
     public static final String TIME_WINDOW_RANK_FOR_SCORE = "time_window_rank_for_score";
 
+    /* Bitmap of matching positions */
+    public static final String BITMAP_VALUE = "bitmap_value";
+
     private FunctionNames() {
     }
 }
