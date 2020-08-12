@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TupleRange;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -51,6 +53,7 @@ import java.util.stream.IntStream;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for {@code BITMAP_VALUE} type indexes.
@@ -142,6 +145,100 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     equalTo(IntStream.range(1000, 1100).boxed()
                             .filter(i -> (i % 5) == 2)
                             .collect(Collectors.toList())));
+        }
+    }
+
+    @Test
+    public void uniquenessViolationChecked() {
+        final RecordMetaDataHook num_by_num3_hook_not_unique = metadata -> {
+            metadata.removeIndex("MySimpleRecord$num_value_unique");
+            metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
+                    new Index("num_by_num3",
+                            concatenateFields("num_value_3_indexed", "num_value_unique").group(1),
+                            IndexTypes.BITMAP_VALUE, ImmutableMap.of(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, "16", IndexOptions.UNIQUE_OPTION, "true")));
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            saveRecords(0, 10);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            assertThrows(RecordIndexUniquenessViolation.class, () -> {
+                // This is a duplicate of record #2.
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1002)
+                        .setStrValueIndexed("even")
+                        .setNumValueUnique(1002)
+                        .setNumValue3Indexed(2)
+                        .build());
+            });
+        }
+    }
+
+    @Test
+    public void uniquenessViolationNotChecked() {
+        final RecordMetaDataHook num_by_num3_hook_not_unique = metadata -> {
+            metadata.removeIndex("MySimpleRecord$num_value_unique");
+            metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
+                    new Index("num_by_num3",
+                            concatenateFields("num_value_3_indexed", "num_value_unique").group(1),
+                            IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            saveRecords(0, 10);
+            commit(context);
+        }
+        final List<Integer> expected = IntStream.range(1000, 1010).boxed()
+                .filter(i -> (i % 5) == 2)
+                .collect(Collectors.toList());
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            assertThat(
+                    collectOnBits(recordStore.scanIndex(
+                            recordStore.getRecordMetaData().getIndex("num_by_num3"), IndexScanType.BY_GROUP,
+                            TupleRange.allOf(Tuple.from(2)),
+                            null, ScanProperties.FORWARD_SCAN)),
+                    equalTo(expected));
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            // This is a duplicate of record #2.
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1002)
+                    .setStrValueIndexed("even")
+                    .setNumValueUnique(1002)
+                    .setNumValue3Indexed(2)
+                    .build());
+            commit(context);
+        }
+        // Bitmap unchanged.
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            assertThat(
+                    collectOnBits(recordStore.scanIndex(
+                            recordStore.getRecordMetaData().getIndex("num_by_num3"), IndexScanType.BY_GROUP,
+                            TupleRange.allOf(Tuple.from(2)),
+                            null, ScanProperties.FORWARD_SCAN)),
+                    equalTo(expected));
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            // Removing the duplicate removes the shared bit.
+            recordStore.deleteRecord(Tuple.from(1002));
+            commit(context);
+        }
+        final List<Integer> expected2 = new ArrayList<>(expected);
+        expected2.remove(Integer.valueOf(1002));
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, num_by_num3_hook_not_unique);
+            assertThat(
+                    collectOnBits(recordStore.scanIndex(
+                            recordStore.getRecordMetaData().getIndex("num_by_num3"), IndexScanType.BY_GROUP,
+                            TupleRange.allOf(Tuple.from(2)),
+                            null, ScanProperties.FORWARD_SCAN)),
+                    equalTo(expected2));
         }
     }
 
