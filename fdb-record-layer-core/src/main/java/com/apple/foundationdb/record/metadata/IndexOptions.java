@@ -103,6 +103,13 @@ public class IndexOptions {
      */
     public static final String RANK_COUNT_DUPLICATES = "rankCountDuplicates";
 
+    /**
+     * Size of each position bitmap for {@link IndexTypes#BITMAP_VALUE} indexes.
+     *
+     * The default is {@code 10,000}.
+     */
+    public static final String BITMAP_VALUE_ENTRY_SIZE_OPTION = "bitmapValueEntrySize";
+
     private IndexOptions() {
     }
 }
