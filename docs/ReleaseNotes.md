@@ -20,7 +20,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** OnlineIndexer does not backoff properly when it retries [(Issue #1007)](https://github.com/FoundationDB/fdb-record-layer/issues/1007)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -34,8 +34,8 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Bitmap value indexes [(Issue #1010)](https://github.com/FoundationDB/fdb-record-layer/issues/1010)
-* **Breaking change** Several API changes in `RecordQueryPlan` implementors, which are also now `INTERNAL` APIs. [(Issue #987)](https://github.com/FoundationDB/fdb-record-layer/issues/987)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -43,6 +43,12 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 
 // end next release
 -->
+
+### 2.10.135.0
+
+* **Bug fix** OnlineIndexer does not backoff properly when it retries [(Issue #1007)](https://github.com/FoundationDB/fdb-record-layer/issues/1007)
+* **Feature** Bitmap value indexes [(Issue #1010)](https://github.com/FoundationDB/fdb-record-layer/issues/1010)
+* **Breaking change** Several API changes in `RecordQueryPlan` implementors, which are also now `INTERNAL` APIs. [(Issue #987)](https://github.com/FoundationDB/fdb-record-layer/issues/987)
 
 ### 2.9.134.0
 
