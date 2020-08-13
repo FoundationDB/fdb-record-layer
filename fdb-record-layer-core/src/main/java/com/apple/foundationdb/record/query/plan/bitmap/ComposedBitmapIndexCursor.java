@@ -41,7 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
- * A {@link RecordCursor} doing as bit-wise merge of bitmaps from two or more {@code BITMAP_VALUE} indexes.
+ * A {@link RecordCursor} doing a bit-wise merge of bitmaps from two or more {@code BITMAP_VALUE} indexes.
  *
  * The bit operations can correspond to a Boolean expression over those indexes' rightmost grouping keys.
  *
