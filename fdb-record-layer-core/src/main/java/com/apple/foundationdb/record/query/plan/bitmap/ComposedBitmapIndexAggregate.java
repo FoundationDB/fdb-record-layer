@@ -274,10 +274,10 @@ public class ComposedBitmapIndexAggregate {
         Optional<Node> indexScan(@Nonnull QueryComponent indexFilter) {
             if (bitmapIndexes == null) {
                 bitmapIndexes = findBitmapIndexes(indexAggregateFunction.getName());
-                indexNodes = new HashMap<>();
                 if (bitmapIndexes.isEmpty()) {
                     return Optional.empty();
                 }
+                indexNodes = new HashMap<>();
             }
             IndexNode existing = indexNodes.get(indexFilter);
             if (existing != null) {
