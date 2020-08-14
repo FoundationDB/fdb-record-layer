@@ -149,7 +149,7 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
                                                    @Nullable byte[] byteContinuation,
                                                    @Nullable FDBStoreTimer timer) {
         if (cursorFunctions.size() < 2) {
-            throw new RecordCoreArgumentException("not enough child cursors provided to UnionCursor")
+            throw new RecordCoreArgumentException("not enough child cursors provided to ComposedBitmapIndexCursor")
                     .addLogInfo(LogMessageKeys.CHILD_COUNT, cursorFunctions.size());
         }
         final List<MergeCursorState<IndexEntry>> cursorStates = new ArrayList<>(cursorFunctions.size());
