@@ -20,14 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.bitmap;
 
-import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.IndexAggregateGroupKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
@@ -48,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -74,6 +74,39 @@ public class ComposedBitmapIndexAggregate {
     }
 
     /**
+     * Try to build a composed bitmap plan for the given query and aggregate function.
+     * @param planner a query planner to use to construct the plans
+     * @param query a query providing target record type, filter, and required fields
+     * @param indexAggregateFunction the function giving the desired position and grouping
+     * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
+     */
+    @Nonnull
+    public static Optional<ComposedBitmapIndexQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
+                                                                 @Nonnull RecordQuery query,
+                                                                 @Nonnull IndexAggregateFunction indexAggregateFunction) {
+        if (query.getFilter() == null) {
+            return Optional.empty();
+        }
+        return tryBuild(planner, query.getRecordTypes(), indexAggregateFunction, query.getFilter())
+                .flatMap(p -> p.tryPlan(planner, query.toBuilder()));
+    }
+
+    /**
+     * Try to turn this composed bitmap into an executable plan.
+     * @param planner a query planner to use to construct the plans
+     * @param queryBuilder a prototype query providing target record types and required fields
+     * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
+     */
+    @Nonnull
+    public Optional<ComposedBitmapIndexQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
+                                                          @Nonnull RecordQuery.Builder queryBuilder) {
+        final List<RecordQueryCoveringIndexPlan> indexScans = new ArrayList<>();
+        final Map<IndexNode, ComposedBitmapIndexQueryPlan.IndexComposer> indexComposers = new IdentityHashMap<>();
+        return Optional.ofNullable(plan(root, queryBuilder, planner, indexScans, indexComposers))
+                .map(composer -> new ComposedBitmapIndexQueryPlan(indexScans, composer));
+    }
+
+    /**
      * Try to build a composed bitmap for the given aggregate function and filters.
      * <p>
      * The function should use a supported aggregate function (currently {@value BitmapValueIndexMaintainer#AGGREGATE_FUNCTION_NAME})
@@ -83,47 +116,36 @@ public class ComposedBitmapIndexAggregate {
      * expression that will be transformed into a set the corresponding bit operations on the bitmaps.
      * The filter can also include range conditions on the position field.
      * </p>
-     * @param recordStore the record store containing the indexed data
+     * @param planner a query planner to use to construct the plans
      * @param recordTypeNames the record types on which the indexes are defined
      * @param indexAggregateFunction the function giving the desired position and grouping
      * @param filter conditions on the groups and position
      * @return an {@code Optional} composed bitmap or {@code Optional.empty} if there conditions could not be satisfied
      */
     @Nonnull
-    public static Optional<ComposedBitmapIndexAggregate> tryBuild(@Nonnull FDBRecordStore recordStore,
-                                                                  @Nonnull List<String> recordTypeNames,
+    public static Optional<ComposedBitmapIndexAggregate> tryBuild(@Nonnull RecordQueryPlanner planner,
+                                                                  @Nonnull Collection<String> recordTypeNames,
                                                                   @Nonnull IndexAggregateFunction indexAggregateFunction,
                                                                   @Nonnull QueryComponent filter) {
-        List<QueryComponent> groupFilters = new ArrayList<>();
+        // The filters that are common to all the composed index queries.
+        // They can be equality conditions on the common group prefix (as specified by indexAggregateFunction)
+        // or inequalities on the position.
+        List<QueryComponent> commonFilters = new ArrayList<>();
+        // The filters that are specific to a single index. At present, each comparison must be accomplished by a single
+        // index. It would be possible, though, to have indexes with multiple grouping fields after the common prefix
+        // and to pick any complete covering of indexFilters.
         List<QueryComponent> indexFilters = new ArrayList<>();
-        if (!separateGroupFilters(filter, indexAggregateFunction, groupFilters, indexFilters) || indexFilters.isEmpty()) {
+        if (!separateGroupFilters(filter, indexAggregateFunction, commonFilters, indexFilters) || indexFilters.isEmpty()) {
             return Optional.empty();
         }
-        Builder builder = new Builder(recordStore, recordTypeNames, groupFilters, indexAggregateFunction);
+        Builder builder = new Builder(planner, recordTypeNames, commonFilters, indexAggregateFunction);
         return builder.tryBuild(indexFilters.size() > 1 ? Query.and(indexFilters) : indexFilters.get(0))
             .map(ComposedBitmapIndexAggregate::new);
     }
 
-    /**
-     * Try to turn this composed bitmap into an executable plan.
-     * @param query a base query over the target record types
-     * @param recordMetaData the record meta-data for planning
-     * @param planner a query planner to use to construct the plans
-     * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
-     */
-    @Nonnull
-    public Optional<ComposedBitmapIndexQueryPlan> tryPlan(@Nonnull RecordQuery.Builder query,
-                                                          @Nonnull RecordMetaData recordMetaData,
-                                                          @Nonnull RecordQueryPlanner planner) {
-        final List<RecordQueryCoveringIndexPlan> indexScans = new ArrayList<>();
-        final Map<IndexNode, ComposedBitmapIndexQueryPlan.IndexComposer> indexComposers = new IdentityHashMap<>();
-        return Optional.ofNullable(plan(root, query, recordMetaData, planner, indexScans, indexComposers))
-                .map(composer -> new ComposedBitmapIndexQueryPlan(indexScans, composer));
-    }
-
     private static boolean separateGroupFilters(@Nonnull QueryComponent filter,
                                                 @Nonnull IndexAggregateFunction indexAggregateFunction,
-                                                @Nonnull List<QueryComponent> groupFilters,
+                                                @Nonnull List<QueryComponent> commonFilters,
                                                 @Nonnull List<QueryComponent> indexFilters) {
         QueryToKeyMatcher matcher = new QueryToKeyMatcher(filter);
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
@@ -137,8 +159,12 @@ public class ComposedBitmapIndexAggregate {
             return false;   // Not enough conditions left over.
         }
         for (FilterSatisfiedMask child : filterMask.getChildren()) {
+            // A child filter will be satisfied if it matches one of the subkeys given to matchesCoveringKey,
+            // either the common group prefix for equality on the first pass,
+            // or the position on the second pass.
+            // Any left-over filter not matching either of those must match some per-index key.
             if (child.allSatisfied()) {
-                groupFilters.add(child.getFilter());
+                commonFilters.add(child.getFilter());
             } else {
                 indexFilters.add(child.getFilter());
             }
@@ -147,15 +173,15 @@ public class ComposedBitmapIndexAggregate {
     }
 
     @Nullable
-    private ComposedBitmapIndexQueryPlan.ComposerBase plan(@Nonnull Node node, @Nonnull RecordQuery.Builder query,
-                                                           @Nonnull RecordMetaData recordMetaData, @Nonnull RecordQueryPlanner planner,
+    private ComposedBitmapIndexQueryPlan.ComposerBase plan(@Nonnull Node node, @Nonnull RecordQuery.Builder queryBuilder,
+                                                           @Nonnull RecordQueryPlanner planner,
                                                            @Nonnull List<RecordQueryCoveringIndexPlan> indexScans,
                                                            @Nonnull Map<IndexNode, ComposedBitmapIndexQueryPlan.IndexComposer> indexComposers) {
         if (node instanceof OperatorNode) {
             final OperatorNode operatorNode = (OperatorNode) node;
             final List<ComposedBitmapIndexQueryPlan.ComposerBase> children = new ArrayList<>();
             for (Node n : operatorNode.operands) {
-                ComposedBitmapIndexQueryPlan.ComposerBase plan = plan(n, query, recordMetaData, planner, indexScans, indexComposers);
+                ComposedBitmapIndexQueryPlan.ComposerBase plan = plan(n, queryBuilder, planner, indexScans, indexComposers);
                 if (plan == null) {
                     return null;
                 }
@@ -173,10 +199,11 @@ public class ComposedBitmapIndexAggregate {
             }
         } else if (node instanceof IndexNode) {
             return indexComposers.computeIfAbsent((IndexNode)node, indexNode -> {
-                query.setFilter(indexNode.filter);
-                final Index index = recordMetaData.getIndex(indexNode.indexName);
+                // We change the filter of the supplied builder and then immediately build it.
+                queryBuilder.setFilter(indexNode.filter);
+                final Index index = planner.getRecordMetaData().getIndex(indexNode.indexName);
                 final KeyExpression wholeKey = ((GroupingKeyExpression)index.getRootExpression()).getWholeKey();
-                final RecordQueryCoveringIndexPlan indexScan = planner.planCoveringAggregateIndex(query.build(), index, wholeKey);
+                final RecordQueryCoveringIndexPlan indexScan = planner.planCoveringAggregateIndex(queryBuilder.build(), index, wholeKey);
                 if (indexScan == null) {
                     return null;
                 }
@@ -225,9 +252,9 @@ public class ComposedBitmapIndexAggregate {
 
     static class Builder {
         @Nonnull
-        private final FDBRecordStore recordStore;
+        private final RecordQueryPlanner planner;
         @Nonnull
-        private final List<String> recordTypeNames;
+        private final Collection<String> recordTypeNames;
         @Nonnull
         private final List<QueryComponent> groupFilters;
         @Nonnull
@@ -237,9 +264,9 @@ public class ComposedBitmapIndexAggregate {
         @Nullable
         private Map<QueryComponent, IndexNode> indexNodes;
 
-        Builder(@Nonnull final FDBRecordStore recordStore, @Nonnull List<String> recordTypeNames,
+        Builder(@Nonnull final RecordQueryPlanner planner, @Nonnull Collection<String> recordTypeNames,
                 @Nonnull List<QueryComponent> groupFilters, @Nonnull IndexAggregateFunction indexAggregateFunction) {
-            this.recordStore = recordStore;
+            this.planner = planner;
             this.recordTypeNames = recordTypeNames;
             this.groupFilters = groupFilters;
             this.indexAggregateFunction = indexAggregateFunction;
@@ -283,16 +310,17 @@ public class ComposedBitmapIndexAggregate {
             if (existing != null) {
                 return Optional.of(existing);
             }
-            final KeyExpression additionalKey;
+            final KeyExpression indexKey;
             if (indexFilter instanceof FieldWithComparison) {
-                additionalKey = Key.Expressions.field(((FieldWithComparison) indexFilter).getFieldName());
+                indexKey = Key.Expressions.field(((FieldWithComparison) indexFilter).getFieldName());
             } else if (indexFilter instanceof QueryKeyExpressionWithComparison) {
-                additionalKey = ((QueryKeyExpressionWithComparison) indexFilter).getKeyExpression();
+                indexKey = ((QueryKeyExpressionWithComparison) indexFilter).getKeyExpression();
             } else {
                 return Optional.empty();
             }
+            // Splice the index's key between the common grouping key and the position.
             GroupingKeyExpression groupKeyExpression = (GroupingKeyExpression)indexAggregateFunction.getOperand();
-            GroupingKeyExpression fullKey = Key.Expressions.concat(groupKeyExpression.getGroupingSubKey(), additionalKey, groupKeyExpression.getGroupedSubKey())
+            GroupingKeyExpression fullKey = Key.Expressions.concat(groupKeyExpression.getGroupingSubKey(), indexKey, groupKeyExpression.getGroupedSubKey())
                     .group(groupKeyExpression.getGroupedCount());
             Index index = bitmapIndexes.get(fullKey);
             if (index == null) {
@@ -325,9 +353,10 @@ public class ComposedBitmapIndexAggregate {
             } else {
                 return Collections.emptyMap();
             }
-            return IndexFunctionHelper.indexesForRecordTypes(recordStore, recordTypeNames)
+            final RecordStoreState recordStoreState = planner.getRecordStoreState();
+            return IndexFunctionHelper.indexesForRecordTypes(planner.getRecordMetaData(), recordTypeNames)
                     .filter(index -> index.getType().equals(indexType))
-                    .filter(recordStore::isIndexReadable)
+                    .filter(recordStoreState::isReadable)
                     .collect(Collectors.toMap(Index::getRootExpression, Function.identity()));
         }
 

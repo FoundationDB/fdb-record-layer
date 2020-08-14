@@ -209,6 +209,24 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     /**
+     * Get the {@link RecordMetaData} for this planner.
+     * @return the meta-data
+     */
+    @Nonnull
+    public RecordMetaData getRecordMetaData() {
+        return metaData;
+    }
+
+    /**
+     * Get the {@link RecordStoreState} for this planner.
+     * @return the record store state
+     */
+    @Nonnull
+    public RecordStoreState getRecordStoreState() {
+        return recordStoreState;
+    }
+
+    /**
      * Create a plan to get the results of the provided query.
      *
      * @param query a query for records on this planner's metadata

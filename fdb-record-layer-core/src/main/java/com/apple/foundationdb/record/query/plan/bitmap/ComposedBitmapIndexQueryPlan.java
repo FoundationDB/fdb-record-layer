@@ -327,6 +327,10 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
     }
 
+    // The specific binary operators are mostly the same, except that AND bails out early on empty and they use a different
+    // bit operator in the inner loop. There could be an abstract method for that operation, but it would be invoked
+    // inside the loop, which seems to less the chances for the whole being compiled well.
+
     static class AndComposer extends OperatorComposer {
         public AndComposer(@Nonnull List<ComposerBase> children) {
             super(children);

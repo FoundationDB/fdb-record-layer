@@ -99,7 +99,6 @@ message ComposedBitmapIndexContinuation {
     message CursorState {
         optional bytes continuation = 1;
         optional bool exhausted = 2;
-        optional bytes bloom_filter = 3;
     }
     repeated CursorState child_state = 1;
 }

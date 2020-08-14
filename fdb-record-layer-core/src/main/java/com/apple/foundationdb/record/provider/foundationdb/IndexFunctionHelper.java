@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -114,15 +115,25 @@ public class IndexFunctionHelper {
      */
     public static Stream<Index> indexesForRecordTypes(@Nonnull FDBRecordStore store,
                                                       @Nonnull List<String> recordTypeNames) {
-        final RecordMetaData metaData = store.getRecordMetaData();
+        return indexesForRecordTypes(store.getRecordMetaData(), recordTypeNames);
+    }
+
+    /**
+     * The indexes that apply to <em>exactly</em> the given types, no more, no less.
+     * @param metaData the meta-data containing the record types
+     * @param recordTypeNames the names of the record types for which indexes are needed
+     * @return a stream of indexes
+     */
+    public static Stream<Index> indexesForRecordTypes(@Nonnull RecordMetaData metaData,
+                                                      @Nonnull Collection<String> recordTypeNames) {
         if (recordTypeNames.isEmpty()) {
             return metaData.getUniversalIndexes().stream();
         } else if (recordTypeNames.size() == 1) {
-            return metaData.getRecordType(recordTypeNames.get(0)).getIndexes().stream();
+            return metaData.getRecordType(recordTypeNames.iterator().next()).getIndexes().stream();
         } else {
             final Set<RecordType> asSet = recordTypeNames.stream().map(metaData::getRecordType).collect(Collectors.toSet());
             return asSet.iterator().next().getMultiTypeIndexes().stream()
-                    .filter(i -> asSet.equals(new HashSet<>(store.getRecordMetaData().recordTypesForIndex(i))));
+                    .filter(i -> asSet.equals(new HashSet<>(metaData.recordTypesForIndex(i))));
         }
     }
 
