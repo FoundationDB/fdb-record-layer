@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -59,15 +60,16 @@ import java.util.Set;
  *
  */
 public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
-    public IntersectionVisitor(@Nonnull final RecordMetaData recordMetadata, @Nullable final KeyExpression commonPrimaryKey) {
-        super(recordMetadata, commonPrimaryKey);
+    public IntersectionVisitor(@Nonnull final RecordMetaData recordMetadata, @Nonnull final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
+        super(recordMetadata, indexTypes, commonPrimaryKey);
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull Set<KeyExpression> requiredFields) {
+    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryIntersectionPlan) {
             RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan) recordQueryPlan;
+            Set<KeyExpression> requiredFields = ((RecordQueryIntersectionPlan)recordQueryPlan).getRequiredFields();
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(intersectionPlan.getChildren().size());
             for (RecordQueryPlan plan : intersectionPlan.getChildren()) {

@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
@@ -124,6 +125,12 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     @Override
     public boolean hasLoadBykeys() {
         return false;
+    }
+
+    @Nonnull
+    @Override
+    public AvailableFields getAvailableFields() {
+        return AvailableFields.ALL_FIELDS;
     }
 
     @Override

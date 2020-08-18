@@ -24,16 +24,18 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
-import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithRequiredFields;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -43,49 +45,70 @@ import java.util.Set;
 public abstract class RecordQueryPlannerSubstitutionVisitor {
     @Nonnull
     protected final RecordMetaData recordMetadata;
+    @Nonnull
+    private final PlannableIndexTypes indexTypes;
     @Nullable
     private final KeyExpression commonPrimaryKey;
 
-    public RecordQueryPlannerSubstitutionVisitor(@Nonnull RecordMetaData recordMetadata, @Nullable KeyExpression commonPrimaryKey) {
+    public RecordQueryPlannerSubstitutionVisitor(@Nonnull RecordMetaData recordMetadata,
+                                                 @Nonnull PlannableIndexTypes indexTypes,
+                                                 @Nullable KeyExpression commonPrimaryKey) {
         this.recordMetadata = recordMetadata;
+        this.indexTypes = indexTypes;
         this.commonPrimaryKey = commonPrimaryKey;
     }
 
-    public static RecordQueryPlan applyVisitors(@Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nullable KeyExpression commonPrimaryKey) {
-        return plan.accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, commonPrimaryKey))
-                .accept(new UnionVisitor(recordMetaData, commonPrimaryKey))
-                .accept(new IntersectionVisitor(recordMetaData, commonPrimaryKey))
-                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, commonPrimaryKey));
+    public static RecordQueryPlan applyVisitors(@Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nonnull PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
+        return plan.accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new IntersectionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey));
     }
 
     @Nonnull
-    public Set<KeyExpression> preVisitForRequiredFields(@Nonnull RecordQueryPlan plan, @Nonnull Set<KeyExpression> requiredFields) {
-        if (plan instanceof RecordQueryPlanWithRequiredFields) {
-            Set<KeyExpression> allRequiredFields = new HashSet<>(requiredFields);
-            allRequiredFields.addAll(((RecordQueryPlanWithRequiredFields)plan).getRequiredFields());
-            return allRequiredFields;
-        } else {
-            return requiredFields;
-        }
-    }
-
-    @Nonnull
-    public abstract RecordQueryPlan postVisit(@Nonnull RecordQueryPlan recordQueryPlan, @Nonnull Set<KeyExpression> requiredFields);
+    public abstract RecordQueryPlan postVisit(@Nonnull RecordQueryPlan recordQueryPlan);
 
     @Nullable
-    protected RecordQueryPlan removeIndexFetch(@Nonnull RecordQueryPlan plan, @Nonnull Set<KeyExpression> requiredFields) {
+    public RecordQueryPlan removeIndexFetch(@Nonnull RecordQueryPlan plan, @Nonnull Set<KeyExpression> requiredFields) {
+        return removeIndexFetch(recordMetadata, indexTypes, commonPrimaryKey, plan, requiredFields);
+    }
+
+    @Nullable
+    public static RecordQueryPlan removeIndexFetch(@Nonnull RecordMetaData recordMetaData,
+                                                   @Nonnull PlannableIndexTypes indexTypes,
+                                                   @Nullable KeyExpression commonPrimaryKey,
+                                                   @Nonnull RecordQueryPlan plan,
+                                                   @Nonnull Set<KeyExpression> requiredFields) {
         if (plan instanceof RecordQueryPlanWithIndex) {
             RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex) plan;
-            Index index = recordMetadata.getIndex(indexPlan.getIndexName());
-            final IndexKeyValueToPartialRecord keyValueToPartialRecord = RecordQueryPlanner.buildIndexKeyValueToPartialRecord(recordMetadata, index, commonPrimaryKey, requiredFields);
-            if (keyValueToPartialRecord != null) {
-                @Nullable RecordType recordType = keyValueToPartialRecord.getRecordType();
-                if (recordType != null) {
-                    return new RecordQueryCoveringIndexPlan(indexPlan, recordType.getName(), keyValueToPartialRecord);
+            Index index = recordMetaData.getIndex(indexPlan.getIndexName());
+
+            final Collection<RecordType> recordTypes = recordMetaData.recordTypesForIndex(index);
+            if (recordTypes.size() != 1) {
+                return null;
+            }
+            final RecordType recordType = Iterables.getOnlyElement(recordTypes);
+            AvailableFields fieldsFromIndex = AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey);
+
+
+            Set<KeyExpression> fields = new HashSet<>(requiredFields);
+            if (commonPrimaryKey != null) {
+                // Need the primary key, even if it wasn't one of the explicit result fields.
+                fields.addAll(commonPrimaryKey.normalizeKeyForPositions());
+            }
+
+            if (fieldsFromIndex.containsAll(fields)) {
+                final IndexKeyValueToPartialRecord keyValueToPartialRecord = fieldsFromIndex.buildIndexKeyValueToPartialRecord(recordType).build();
+                if (keyValueToPartialRecord != null) {
+                    return new RecordQueryCoveringIndexPlan(indexPlan, recordType.getName(), fieldsFromIndex, keyValueToPartialRecord);
                 }
             }
         } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
-            return ((RecordQueryFetchFromPartialRecordPlan)plan).getChild();
+            RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan) plan;
+            if (fetchPlan.getChild().getAvailableFields().containsAll(requiredFields)) {
+                return ((RecordQueryFetchFromPartialRecordPlan)plan).getChild();
+            }
         }
         return null;
     }

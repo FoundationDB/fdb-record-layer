@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -119,6 +120,14 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return quantifiers;
+    }
+
+    @Nonnull
+    @Override
+    public AvailableFields getAvailableFields() {
+        return AvailableFields.intersection(quantifiers.stream()
+                .map(child -> child.getRangesOverPlan().getAvailableFields())
+                .collect(Collectors.toList()));
     }
 
     @Override

@@ -22,13 +22,14 @@ package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Set;
+import java.util.Collections;
 
 
 /**
@@ -53,16 +54,16 @@ import java.util.Set;
  *
  */
 public class UnorderedPrimaryKeyDistinctVisitor extends RecordQueryPlannerSubstitutionVisitor {
-    public UnorderedPrimaryKeyDistinctVisitor(@Nonnull final RecordMetaData recordMetadata, @Nullable final KeyExpression commonPrimaryKey) {
-        super(recordMetadata, commonPrimaryKey);
+    public UnorderedPrimaryKeyDistinctVisitor(@Nonnull final RecordMetaData recordMetadata, @Nonnull final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
+        super(recordMetadata, indexTypes, commonPrimaryKey);
     }
 
     @Nonnull
     @Override
-    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull Set<KeyExpression> requiredFields) {
+    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan) {
             RecordQueryUnorderedPrimaryKeyDistinctPlan distinctPlan = (RecordQueryUnorderedPrimaryKeyDistinctPlan) recordQueryPlan;
-            @Nullable RecordQueryPlan newPlan = removeIndexFetch(distinctPlan.getChild(), requiredFields);
+            @Nullable RecordQueryPlan newPlan = removeIndexFetch(distinctPlan.getChild(), Collections.emptySet());
             if (newPlan != null) {
                 return new RecordQueryFetchFromPartialRecordPlan(new RecordQueryUnorderedPrimaryKeyDistinctPlan(newPlan));
             }

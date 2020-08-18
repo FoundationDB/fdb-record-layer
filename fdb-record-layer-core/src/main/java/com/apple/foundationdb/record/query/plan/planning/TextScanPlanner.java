@@ -37,12 +37,14 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.TextScan;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 /**
  * A utility class for choosing a {@link TextScan} object to satisfy a
@@ -237,6 +239,34 @@ public class TextScanPlanner {
             return foundScan;
         }
         return null;
+    }
+
+    @Nonnull
+    public static KeyExpression getTokenizedField(@Nonnull KeyExpression indexExpression) {
+        final KeyExpression groupedKey;
+
+        if (indexExpression instanceof GroupingKeyExpression) {
+            // Grouping expression present. Make sure this is satisfied.
+            groupedKey = ((GroupingKeyExpression)indexExpression).getGroupedSubKey();
+        } else {
+            groupedKey = indexExpression;
+        }
+        return groupedKey.getSubKey(0, 1);
+    }
+
+    @Nonnull
+    public static List<KeyExpression> getOtherFields(@Nonnull KeyExpression indexExpression) {
+        ImmutableList.Builder<KeyExpression> otherFields = ImmutableList.builder();
+        if (indexExpression instanceof GroupingKeyExpression) {
+            final GroupingKeyExpression groupingIndexExpression = (GroupingKeyExpression) indexExpression;
+            final KeyExpression groupedKey = groupingIndexExpression.getGroupedSubKey();
+            final KeyExpression groupingKey = groupingIndexExpression.getGroupingSubKey();
+            otherFields.addAll(groupingKey.normalizeKeyForPositions());
+            otherFields.addAll(groupedKey.getSubKey(1, groupedKey.getColumnSize()).normalizeKeyForPositions());
+        } else {
+            otherFields.addAll(indexExpression.getSubKey(1, indexExpression.getColumnSize()).normalizeKeyForPositions());
+        }
+        return otherFields.build();
     }
 
     private TextScanPlanner() {

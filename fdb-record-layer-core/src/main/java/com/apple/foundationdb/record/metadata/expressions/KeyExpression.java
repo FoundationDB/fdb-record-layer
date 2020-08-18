@@ -254,8 +254,8 @@ public interface KeyExpression extends PlanHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     static List<KeyExpression> getValueFields(@Nonnull KeyExpression rootExpression) {
-        final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
         if (rootExpression instanceof KeyWithValueExpression) {
+            final List<KeyExpression> normalizedKeys = rootExpression.normalizeKeyForPositions();
             final KeyWithValueExpression keyWithValue = (KeyWithValueExpression) rootExpression;
             return new ArrayList<>(normalizedKeys.subList(keyWithValue.getSplitPoint(), normalizedKeys.size()));
         } else {

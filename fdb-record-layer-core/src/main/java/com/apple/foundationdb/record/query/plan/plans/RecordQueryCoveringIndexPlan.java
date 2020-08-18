@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
@@ -64,11 +65,16 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     private final String recordTypeName;
     @Nonnull
+    private final AvailableFields availableFields;
+    @Nonnull
     private final IndexKeyValueToPartialRecord toRecord;
 
     public RecordQueryCoveringIndexPlan(@Nonnull RecordQueryPlanWithIndex indexPlan,
-                                        @Nonnull final String recordTypeName, @Nonnull IndexKeyValueToPartialRecord toRecord) {
+                                        @Nonnull final String recordTypeName,
+                                        @Nonnull AvailableFields availableFields,
+                                        @Nonnull IndexKeyValueToPartialRecord toRecord) {
         this.indexPlan = indexPlan;
+        this.availableFields = availableFields;
         this.recordTypeName = recordTypeName;
         this.toRecord = toRecord;
     }
@@ -137,6 +143,12 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return indexPlan.getUsedIndexes();
     }
 
+    @Nonnull
+    @Override
+    public AvailableFields getAvailableFields() {
+        return availableFields;
+    }
+
     @Override
     public boolean hasLoadBykeys() {
         return false;
@@ -157,7 +169,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Nonnull
     @Override
     public RecordQueryCoveringIndexPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, toRecord);
+        return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, availableFields, toRecord);
     }
 
     @Override

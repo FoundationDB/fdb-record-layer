@@ -145,6 +145,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.groupingBounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
@@ -1352,9 +1353,10 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
     @Nonnull
     private List<Long> querySimpleDocumentsWithIndex(@Nonnull QueryComponent filter, @Nonnull String indexName, int planHash, boolean isCoveringIndexExpected,
                                                      @Nonnull Matcher<? super Comparisons.TextComparison> comparisonMatcher) throws InterruptedException, ExecutionException {
-        Matcher<RecordQueryPlan> indexMatcher = textIndexScan(allOf(indexName(indexName), textComparison(comparisonMatcher)));
+        Matcher<RecordQueryPlan> textMatcher = textIndexScan(allOf(indexName(indexName), textComparison(comparisonMatcher)));
+        Matcher<RecordQueryPlan> indexMatcher = anyOf(textMatcher, coveringIndexScan(textMatcher));
         if (isCoveringIndexExpected) {
-            indexMatcher = coveringIndexScan(indexMatcher);
+            indexMatcher = allOf(indexMatcher, not(descendant(fetch(any(RecordQueryPlan.class)))));
         }
         return queryDocuments(Collections.singletonList(SIMPLE_DOC), Collections.singletonList(field("doc_id")), filter, planHash,
                     descendant(indexMatcher))
@@ -1620,12 +1622,12 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("group").lessThanOrEquals(2L),
                             Query.field("text").text().containsPrefix("par"),
                             Query.field("text").text().containsPrefix("blo")
-                    ), 1486418234, false));
+                    ), -416906621, false));
             assertEquals(Arrays.asList(1L, 3L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("group").equalsValue(1L),
                             Query.field("text").text().containsPrefix("an")
-                    ), -1648947883, false));
+                    ), 1318510566, false));
             assertEquals(Arrays.asList(0L, 1L),
                     querySimpleDocumentsWithIndex(Query.and(
                             Query.field("text").text().containsAll("civil unclean blood"),
@@ -1639,7 +1641,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.or(
                                     Query.field("text").text().containsPrefix("ency"),
                                     Query.field("text").text().containsPrefix("civ")
-                    ), -792221133, false)));
+                    ), -1250585991, false)));
 
             assertEquals(Arrays.asList(0L, 2L),
                     querySimpleDocumentsWithIndex(Query.and(
@@ -1657,7 +1659,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                                     Query.field("text").text().containsAll("civil unclean blood", 4),
                                     Query.field("text").text().containsPrefix("ency")
                             )
-                    ), 578771303, false)));
+                    ), 873750052, false)));
 
             // Just a not. There's not a lot this could query could do to be performed because it can return
             // a lot of results by its very nature.
@@ -1833,8 +1835,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             System.out.println(plan.planHash());
             assertThat(plan, filter(Query.field("group").equalsValue(0L),
-                    primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
-            assertEquals(-1110535141, plan.planHash());
+                    fetch(primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))))));
+            assertEquals(792432470, plan.planHash());
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 2L), primaryKeys);
 
@@ -1850,7 +1852,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter1)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
+            assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
             assertEquals(814602491, plan.planHash());
             List<Tuple> idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
@@ -1860,7 +1862,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     })
                     .asList()
                     .get();
-            assertEquals(Collections.singletonList(Tuple.from(2L, "civil")), idTextTuples);
+            assertEquals(Collections.singletonList(Tuple.from(2L, TextSamples.ROMEO_AND_JULIET_PROLOGUE)), idTextTuples);
 
             query = RecordQuery.newBuilder()
                     .setRecordType(SIMPLE_DOC)
@@ -1868,8 +1870,8 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter2)
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
-            assertEquals(1032989149, plan.planHash());
+            assertThat(plan, fetch(primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))));
+            assertEquals(-1359010536, plan.planHash());
             idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
                         final Object docId = record.getRecord().getField(docIdDescriptor);
@@ -1878,7 +1880,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     })
                     .asList()
                     .get();
-            assertEquals(Arrays.asList(Tuple.from(0L, "the"), Tuple.from(1L, "the"), Tuple.from(2L, "the"), Tuple.from(3L, "thiers")), idTextTuples);
+            assertEquals(Arrays.asList(
+                    Tuple.from(0L, TextSamples.ANGSTROM),
+                    Tuple.from(1L, TextSamples.AETHELRED),
+                    Tuple.from(2L, TextSamples.ROMEO_AND_JULIET_PROLOGUE),
+                    Tuple.from(3L, TextSamples.FRENCH)), idTextTuples);
 
 
             commit(context);
@@ -1973,11 +1979,13 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         if (!(textFilter instanceof ComponentWithComparison)) {
             throw new RecordCoreArgumentException("filter without comparison provided as text filter");
         }
-        final Matcher<RecordQueryPlan> textPlanMatcher = textIndexScan(allOf(
+        final Matcher<RecordQueryPlan> textScanMatcher = textIndexScan(allOf(
                 indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                 groupingBounds(allOf(notNullValue(), hasTupleString("[[" + group + "],[" + group + "]]"))),
                 textComparison(equalTo(((ComponentWithComparison)textFilter).getComparison()))
         ));
+        // Don't care whether it's covering or not
+        final Matcher<RecordQueryPlan> textPlanMatcher = anyOf(textScanMatcher, coveringIndexScan(textScanMatcher));
         final Matcher<RecordQueryPlan> planMatcher;
         final QueryComponent filter;
         if (additionalFilter != null) {
@@ -1988,7 +1996,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             }
             filter = Query.and(textFilter, additionalFilter, Query.field("group").equalsValue(group));
         } else {
-            planMatcher = descendant(coveringIndexScan(textPlanMatcher));
+            planMatcher = descendant(textPlanMatcher);
             filter = Query.and(textFilter, Query.field("group").equalsValue(group));
         }
         return queryComplexDocumentsWithPlan(filter, planHash, planMatcher);
@@ -2153,7 +2161,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     queryComplexDocumentsWithIndex(
                             Query.field("text").text().containsAllPrefixes("fear pass love", false),
                             Query.field("tag").oneOfThem().equalsValue("3:2"),
-                            false, 1, 260746939));
+                            false, 1, -1902024530));
 
             assertEquals(Collections.singletonList(Tuple.from(1L, 1L)),
                     queryComplexDocumentsWithIndex(

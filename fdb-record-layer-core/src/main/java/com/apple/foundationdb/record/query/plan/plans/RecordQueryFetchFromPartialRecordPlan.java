@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -105,6 +106,12 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Override
     public int getComplexity() {
         return 1 + getChild().getComplexity();
+    }
+
+    @Nonnull
+    @Override
+    public AvailableFields getAvailableFields() {
+        return AvailableFields.ALL_FIELDS;
     }
 
     @Nonnull
