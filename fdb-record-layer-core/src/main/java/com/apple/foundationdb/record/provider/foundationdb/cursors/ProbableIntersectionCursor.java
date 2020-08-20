@@ -118,7 +118,7 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
 
     @Override
     @Nonnull
-    CompletableFuture<List<ProbableIntersectionCursorState<T>>> computeNextResultStates() {
+    protected CompletableFuture<List<ProbableIntersectionCursorState<T>>> computeNextResultStates() {
         final long startComputingStateTime = System.currentTimeMillis();
         final AtomicReference<ProbableIntersectionCursorState<T>> resultStateRef = new AtomicReference<>();
         return AsyncUtil.whileTrue(() -> whenAny(getCursorStates()).thenApply(vignore -> {
@@ -171,19 +171,19 @@ public class ProbableIntersectionCursor<T> extends MergeCursor<T, T, ProbableInt
 
     @Override
     @Nonnull
-    T getNextResult(@Nonnull List<ProbableIntersectionCursorState<T>> resultStates) {
+    protected T getNextResult(@Nonnull List<ProbableIntersectionCursorState<T>> resultStates) {
         return resultStates.get(0).getResult().get();
     }
 
     @Override
     @Nonnull
-    NoNextReason mergeNoNextReasons() {
+    protected NoNextReason mergeNoNextReasons() {
         return getStrongestNoNextReason(getCursorStates());
     }
 
     @Override
     @Nonnull
-    ProbableIntersectionCursorContinuation getContinuationObject() {
+    protected ProbableIntersectionCursorContinuation getContinuationObject() {
         return ProbableIntersectionCursorContinuation.from(this);
     }
 

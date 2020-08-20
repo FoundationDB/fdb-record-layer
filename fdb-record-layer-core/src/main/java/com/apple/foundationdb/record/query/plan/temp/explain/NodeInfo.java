@@ -144,7 +144,11 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Union All",
             "A union all operator processes its two or more inputs and returns the unioned multiset of all input records (duplicates are preserved). The operator does not required its inputs to be compatible ordered.");
-
+    public static final NodeInfo COMPOSED_BITMAP_OPERATOR = new NodeInfo(
+            "ComposedBitmapOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "Composed Bitmap",
+            "A set of Boolean conditions on BITMAP_VALUE indexed bitmaps which are combined into a single bitmap by bitwise operations.");
 
     private final String id;
     private final String iconId;

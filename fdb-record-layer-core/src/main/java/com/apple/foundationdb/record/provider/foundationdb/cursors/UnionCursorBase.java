@@ -52,7 +52,7 @@ abstract class UnionCursorBase<T, S extends MergeCursorState<T>> extends MergeCu
 
     @Override
     @Nonnull
-    UnionCursorContinuation getContinuationObject() {
+    protected UnionCursorContinuation getContinuationObject() {
         return UnionCursorContinuation.from(this);
     }
 
@@ -67,7 +67,7 @@ abstract class UnionCursorBase<T, S extends MergeCursorState<T>> extends MergeCu
      */
     @Override
     @Nonnull
-    T getNextResult(@Nonnull List<S> chosenStates) {
+    protected T getNextResult(@Nonnull List<S> chosenStates) {
         return chosenStates.get(0).getResult().get();
     }
 

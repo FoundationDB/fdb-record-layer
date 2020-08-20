@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
@@ -224,5 +225,10 @@ public class PlanMatchers {
 
     public static Matcher<RecordQueryPlan> hasNoDescendant(@Nonnull Matcher<RecordQueryPlan> matcher) {
         return not(descendant(matcher));
+    }
+
+    public static Matcher<RecordQueryPlan> compositeBitmap(@Nonnull Matcher<ComposedBitmapIndexQueryPlan.ComposerBase> composerMatcher,
+                                                           @Nonnull List<Matcher<RecordQueryPlan>> childMatchers) {
+        return new ComposedBitmapIndexMatcher(composerMatcher, childMatchers);
     }
 }

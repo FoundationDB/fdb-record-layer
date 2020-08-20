@@ -50,7 +50,7 @@ public class IntersectionMultiCursor<T> extends IntersectionCursorBase<T, List<T
 
     @Override
     @Nonnull
-    List<T> getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
+    protected List<T> getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
         List<T> result = new ArrayList<>(cursorStates.size());
         cursorStates.forEach(cursorState -> result.add(cursorState.getResult().get()));
         return result;

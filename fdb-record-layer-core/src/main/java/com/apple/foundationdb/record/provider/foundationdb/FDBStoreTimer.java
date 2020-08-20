@@ -532,6 +532,8 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_PK_DISTINCT("number of unordered distinct plans by primary key", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan}. */
         PLAN_FETCH("number of fetch from partial record plans", false),
+        /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.bitmap.ComposedBitmapIndexQueryPlan}. */
+        PLAN_COMPOSED_BITMAP_INDEX("number of composed bitmap plans", false),
         /** The number of records given given to any filter within any plan. */
         QUERY_FILTER_GIVEN("number of records given to any filter within any plan", false),
         /** The number of records passed by any filter within any plan. */

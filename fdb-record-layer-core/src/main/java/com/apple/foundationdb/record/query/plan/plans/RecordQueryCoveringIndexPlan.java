@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -50,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A query plan that reconstructs records from the entries in a covering index.
@@ -73,19 +75,25 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    @SuppressWarnings("unchecked")
     public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
                                                                          @Nonnull EvaluationContext context,
                                                                          @Nullable byte[] continuation,
                                                                          @Nonnull ExecuteProperties executeProperties) {
+        return indexPlan
+                .executeEntries(store, context, continuation, executeProperties)
+                .map(indexEntryToQueriedRecord(store));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    @API(API.Status.INTERNAL)
+    public <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> indexEntryToQueriedRecord(final @Nonnull FDBRecordStoreBase<M> store) {
         final RecordMetaData metaData = store.getRecordMetaData();
         final RecordType recordType = metaData.getRecordType(recordTypeName);
         final Index index = metaData.getIndex(getIndexName());
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
         boolean hasPrimaryKey = getScanType() != IndexScanType.BY_GROUP;
-        return indexPlan
-                .executeEntries(store, context, continuation, executeProperties)
-                .map(indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey));
+        return indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey);
     }
 
     @Nonnull
