@@ -21,6 +21,7 @@
 package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.ErrorCodes;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.FDBTestBase;
@@ -84,8 +85,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class BunchedMapTest extends FDBTestBase {
     private static final BunchedTupleSerializer serializer = BunchedTupleSerializer.instance();
     private static final BunchedMap<Tuple,Tuple> map;
-    protected static final int NOT_COMMITTED_CODE = 1020;
-    protected static final int TRANSACTION_TOO_OLD_CODE = 1007;
     private static Subspace bmSubspace;
     private static Database db;
 
@@ -144,7 +143,7 @@ public class BunchedMapTest extends FDBTestBase {
                     done = true;
                 } catch (RuntimeException e) {
                     FDBException fdbE = unwrapException(e);
-                    if (fdbE == null || fdbE.getCode() != TRANSACTION_TOO_OLD_CODE) {
+                    if (fdbE == null || fdbE.getCode() != ErrorCodes.TRANSACTION_TOO_OLD) {
                         throw e;
                     } else {
                         // Timed out. Restart transaction and keep going.
@@ -293,7 +292,7 @@ public class BunchedMapTest extends FDBTestBase {
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
                 FDBException fdbE = (FDBException)e.getCause();
-                assertEquals(NOT_COMMITTED_CODE, fdbE.getCode());
+                assertEquals(ErrorCodes.NOT_COMMITTED, fdbE.getCode());
             }
         }
         verifyBoundaryKeys(boundaryKeys);
@@ -590,7 +589,7 @@ public class BunchedMapTest extends FDBTestBase {
                     if (err != null) {
                         FDBException fdbE = unwrapException(err);
                         if (fdbE != null) {
-                            if (fdbE.getCode() != NOT_COMMITTED_CODE && fdbE.getCode() != TRANSACTION_TOO_OLD_CODE) {
+                            if (fdbE.getCode() != ErrorCodes.NOT_COMMITTED && fdbE.getCode() != ErrorCodes.TRANSACTION_TOO_OLD) {
                                 throw fdbE;
                             }
                         } else {
@@ -643,7 +642,7 @@ public class BunchedMapTest extends FDBTestBase {
                     })).handle((res, err) -> {
                         // Report error information unless it was just a transaction timeout (in which case we'll retry).
                         FDBException fdbE = unwrapException(err);
-                        if (err != null && (fdbE == null || fdbE.getCode() != TRANSACTION_TOO_OLD_CODE)) {
+                        if (err != null && (fdbE == null || fdbE.getCode() != ErrorCodes.TRANSACTION_TOO_OLD)) {
                             System.err.println("Error verifying consistency: " + err);
                             err.printStackTrace();
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.ErrorCodes;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.TaskNotifyingExecutor;
@@ -74,7 +75,6 @@ public class FDBRecordContextTest extends FDBTestBase {
     // sanitized ID. It is a list of pairs rather than a map to support null as the expected value.
     @Nonnull
     private static final List<Pair<String, String>> trIds;
-    private static final int ERR_CODE_READ_VERSION_ALREADY_SET = 2010;
     @Nonnull
     private static final FDBDatabase.WeakReadSemantics UNLIMITED_STALE_READ = new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true);
     protected FDBDatabase fdb;
@@ -212,7 +212,7 @@ public class FDBRecordContextTest extends FDBTestBase {
                         // Error from the FDB native code if an operation is cancelled
                         // This is the probable error if latency is not injected
                         FDBException fdbException = (FDBException)currentErr;
-                        assertEquals(1025, fdbException.getCode()); // transaction_cancelled
+                        assertEquals(ErrorCodes.TRANSACTION_CANCELLED, fdbException.getCode());
                     } else if (currentErr instanceof IllegalStateException) {
                         // This is the error the FDB Java bindings throw if one closes a transaction and then tries to use it.
                         // This error can happen if the exact order of events is (1) injected latency completes then
@@ -301,7 +301,7 @@ public class FDBRecordContextTest extends FDBTestBase {
             assertNotNull(err.getCause());
             assertThat(err.getCause(), instanceOf(FDBException.class));
             FDBException fdbE = (FDBException)err.getCause();
-            assertEquals(ERR_CODE_READ_VERSION_ALREADY_SET, fdbE.getCode());
+            assertEquals(ErrorCodes.READ_VERSION_ALREADY_SET, fdbE.getCode());
         }
     }
 

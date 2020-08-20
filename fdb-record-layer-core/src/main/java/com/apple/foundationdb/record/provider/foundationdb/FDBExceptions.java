@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.ErrorCodes;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -169,17 +170,17 @@ public class FDBExceptions {
         if (ex instanceof FDBException) {
             FDBException fdbex = (FDBException)ex;
             switch (fdbex.getCode()) {
-                case 1007:    // transaction_too_old
+                case ErrorCodes.TRANSACTION_TOO_OLD:
                     return new FDBStoreTransactionIsTooOldException(fdbex).addLogInfo(logInfo);
-                case 1020:    // not_committed
+                case ErrorCodes.NOT_COMMITTED:
                     return new FDBStoreTransactionConflictException(fdbex).addLogInfo(logInfo);
-                case 1031: // transaction_timed_out
+                case ErrorCodes.TRANSACTION_TIMED_OUT:
                     return new FDBStoreTransactionTimeoutException(fdbex).addLogInfo(logInfo);
-                case 2101:    // transaction_too_large
+                case ErrorCodes.TRANSACTION_TOO_LARGE:
                     return new FDBStoreTransactionSizeException(fdbex).addLogInfo(logInfo);
-                case 2102:    // key_too_large
+                case ErrorCodes.KEY_TOO_LARGE:
                     return new FDBStoreKeySizeException(fdbex).addLogInfo(logInfo);
-                case 2103:    // value_too_large
+                case ErrorCodes.VALUE_TOO_LARGE:
                     return new FDBStoreValueSizeException(fdbex).addLogInfo(logInfo);
                 default:
                     if (fdbex.isRetryable()) {

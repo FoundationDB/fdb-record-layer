@@ -983,7 +983,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 return val;
             } else {
                 FDBException fdbCause = FDBExceptions.getFDBCause(err);
-                if (fdbCause != null && fdbCause.getCode() == 1036) {
+                if (fdbCause != null && fdbCause.getCode() == ErrorCodes.ACCESSED_UNREADABLE) {
                     // This is the error code that results from reading a key written with a versionstamp,
                     // and in this case, it indicates that the meta-data version key was written prior to the
                     // read being done. This means the store state might be dirty, so return null.

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.ErrorCodes;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -287,7 +288,7 @@ public class OnlineIndexerUniqueIndexTest extends OnlineIndexerTest {
                         assertNotNull(runE.getCause());
                         assertThat(runE.getCause(), instanceOf(FDBException.class));
                         FDBException fdbE = (FDBException)runE.getCause();
-                        assertEquals(1020, fdbE.getCode()); // not_committed
+                        assertEquals(ErrorCodes.NOT_COMMITTED, fdbE.getCode());
                         return null;
                     }).join();
                 }
