@@ -84,7 +84,7 @@ public class ComposedBitmapIndexAggregate {
     public static Optional<ComposedBitmapIndexQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
                                                                  @Nonnull RecordQuery query,
                                                                  @Nonnull IndexAggregateFunction indexAggregateFunction) {
-        if (query.getFilter() == null) {
+        if (query.getFilter() == null || query.getSort() != null) {
             return Optional.empty();
         }
         return tryBuild(planner, query.getRecordTypes(), indexAggregateFunction, query.getFilter())

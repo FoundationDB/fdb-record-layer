@@ -86,6 +86,8 @@ class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, Merg
                 }
             }
             if (anyHasNext) {
+                // Result states are all those that share the minimum next position,
+                // whose bitmaps need to be merged to produce the next stream element.
                 final List<MergeCursorState<IndexEntry>> resultStates = new ArrayList<>();
                 long nextPosition = Long.MAX_VALUE;
                 for (MergeCursorState<IndexEntry> cursorState : cursorStates) {
