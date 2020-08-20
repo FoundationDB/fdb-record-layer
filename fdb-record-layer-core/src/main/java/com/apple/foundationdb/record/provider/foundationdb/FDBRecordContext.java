@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.ErrorCodes;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
@@ -1082,7 +1083,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         if (timer != null) {
             CompletableFuture<Void> future = instrument(FDBStoreTimer.Events.READ_SAMPLE_KEY, ensureActive().get(key))
                     .handle((bytes, ex) -> {
-                        if (ex != null) {
+                        if (ex != null
+                                && (!(ex instanceof FDBException) || ((FDBException) ex).getCode() != ErrorCodes.TRANSACTION_CANCELLED)) {
                             LOGGER.warn(KeyValueLogMessage.of("error reading sample key",
                                             LogMessageKeys.KEY, ByteArrayUtil2.loggable(key)),
                                     ex);
