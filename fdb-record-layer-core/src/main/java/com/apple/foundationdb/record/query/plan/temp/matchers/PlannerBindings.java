@@ -115,6 +115,17 @@ public class PlannerBindings {
     }
 
     /**
+     * Return the bindings as multimap for callers that need reason about all bindings in a generic manner, e.g. this
+     * can be used by implementations of {@link com.apple.foundationdb.record.query.plan.temp.debug.Debugger} to
+     * show the contents of all bindings without the knowledge of the existence of particular matchers.
+     * @return the backing immutable multi map
+     */
+    @Nonnull
+    public ImmutableListMultimap<ExpressionMatcher<? extends Bindable>, Bindable> asMultiMap() {
+        return bindings;
+    }
+
+    /**
      * Build a new set of bindings containing a single binding from the given key to the given bindable.
      * @param key an expression matcher
      * @param bindable a bindable object

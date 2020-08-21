@@ -90,11 +90,11 @@ public class NotPredicate implements QueryPredicate {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.empty());
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -102,7 +102,7 @@ public class NotPredicate implements QueryPredicate {
             return false;
         }
         final NotPredicate that = (NotPredicate)other;
-        return getChild().semanticEquals(that.getChild(), equivalenceMap);
+        return getChild().semanticEquals(that.getChild(), aliasMap);
     }
 
     @Override

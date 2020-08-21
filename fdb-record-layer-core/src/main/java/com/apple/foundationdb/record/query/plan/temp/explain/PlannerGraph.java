@@ -22,7 +22,10 @@ package com.apple.foundationdb.record.query.plan.temp.explain;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.Network;
@@ -49,18 +52,41 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         // Traverse results from children and create graph edges. Hand in the directly preceding edge
         // in the dependsOn set. That in turn causes the dot exporter to render the graph left to right which
         // is important for join order, among other things.
+        final List<? extends Quantifier> quantifiers = tryGetQuantifiers(node);
+
         Edge previousEdge = null;
+        int i = 0;
         for (final PlannerGraph childGraph : childGraphs) {
+            @Nullable final String label;
+            if (i < quantifiers.size()) {
+                final Quantifier quantifier = quantifiers.get(i);
+                label = Debugger.mapDebugger(debugger -> debugger.nameForObject(quantifier)).orElse(null);
+            } else {
+                label = null;
+            }
             final GroupExpressionRefEdge edge =
-                    new GroupExpressionRefEdge(previousEdge == null
-                                                            ? ImmutableSet.of()
-                                                            : ImmutableSet.of(previousEdge));
+                    new GroupExpressionRefEdge(label,
+                            previousEdge == null
+                            ? ImmutableSet.of()
+                            : ImmutableSet.of(previousEdge));
+            
             plannerGraphBuilder
                     .addGraph(childGraph)
                     .addEdge(childGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
             previousEdge = edge;
+            i += 1;
         }
         return plannerGraphBuilder.build();
+    }
+
+    private static List<? extends Quantifier> tryGetQuantifiers(@Nonnull final Node node) {
+        if (node instanceof WithExpression) {
+            @Nullable final RelationalExpression expression = ((WithExpression)node).getExpression();
+            if (expression != null) {
+                return expression.getQuantifiers();
+            }
+        }
+        return ImmutableList.of();
     }
 
     /**
@@ -69,6 +95,10 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     public static class InternalPlannerGraphBuilder extends PlannerGraphBuilder<Node, Edge, PlannerGraph> {
         public InternalPlannerGraphBuilder(final Node root) {
             super(root);
+        }
+
+        public InternalPlannerGraphBuilder(@Nonnull final AbstractPlannerGraph<Node, Edge> original) {
+            super(original);
         }
 
         @Nonnull
@@ -164,13 +194,21 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     }
 
     /**
+     * Interface to be implemented by all node classes that represent an {@link RelationalExpression}.
+     */
+    public interface WithExpression {
+        @Nullable
+        RelationalExpression getExpression();
+    }
+
+    /**
      * Node class that additionally captures a reference to a {@link NodeInfo}. {@code NodeInfo}s are used to provide
      * names, descriptions, and other cues to the exporter that are specific to the kind of node, not the node itself.
      */
     @SuppressWarnings("squid:S2160")
     public static class NodeWithInfo extends Node implements WithInfoId {
         @Nonnull
-        private NodeInfo nodeInfo;
+        private final NodeInfo nodeInfo;
 
         @SuppressWarnings("unused")
         public NodeWithInfo(@Nonnull final Object identity, @Nonnull final NodeInfo nodeInfo) {
@@ -191,6 +229,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             return nodeInfo;
         }
 
+        @Nonnull
         @Override
         public String getInfoId() {
             return getNodeInfo().getId();
@@ -259,8 +298,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      * Node class for actual plan operators.
      */
     @SuppressWarnings("squid:S2160")
-    public static class OperatorNodeWithInfo extends NodeWithInfo {
-        public OperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan, @Nonnull final NodeInfo nodeInfo) {
+    public static class OperatorNodeWithInfo extends NodeWithInfo implements WithExpression {
+        @Nullable
+        private final RecordQueryPlan expression;
+
+        public OperatorNodeWithInfo(@Nonnull final RecordQueryPlan recordQueryPlan,
+                                    @Nonnull final NodeInfo nodeInfo) {
             this(recordQueryPlan, nodeInfo, null);
         }
 
@@ -274,7 +317,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                                     @Nonnull final NodeInfo nodeInfo,
                                     @Nullable final List<String> details,
                                     @Nonnull final Map<String, Attribute> additionalAttributes) {
-            super(recordQueryPlan, nodeInfo, details, additionalAttributes);
+            super(new Object(), nodeInfo, details, additionalAttributes);
+            this.expression = recordQueryPlan;
         }
         
         @Nonnull
@@ -287,30 +331,28 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .put("classifier", Attribute.gml("operator"))
                     .build();
         }
+
+        @Nullable
+        @Override
+        public RecordQueryPlan getExpression() {
+            return expression;
+        }
     }
 
     /**
      * Node class for logical operators.
      */
     @SuppressWarnings("squid:S2160")
-    public static class LogicalOperatorNode extends Node {
-        public LogicalOperatorNode(final String name) {
-            this(name, null);
-        }
+    public static class LogicalOperatorNode extends Node implements WithExpression {
+        @Nullable
+        private final RelationalExpression expression;
 
-        public LogicalOperatorNode(final String name, @Nullable final List<String> details) {
-            this(name, details, ImmutableMap.of());
-        }
-
-        public LogicalOperatorNode(final String name, @Nullable final List<String> details, final Map<String, Attribute> additionalAttributes) {
-            super(new Object(), name, details, additionalAttributes);
-        }
-
-        public LogicalOperatorNode(final RelationalExpression relationalExpression,
+        public LogicalOperatorNode(@Nullable final RelationalExpression expression,
                                    final String name,
                                    @Nullable final List<String> details,
                                    final Map<String, Attribute> additionalAttributes) {
-            super(relationalExpression, name, details, additionalAttributes);
+            super(new Object(), name, details, additionalAttributes);
+            this.expression = expression;
         }
 
         @Nonnull
@@ -334,6 +376,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         public String getFillColor() {
             return "darkseagreen2";
+        }
+
+        @Nullable
+        @Override
+        public RelationalExpression getExpression() {
+            return expression;
         }
     }
 
@@ -341,24 +389,16 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      * Node class for logical operators that also have a {@link NodeInfo}.
      */
     @SuppressWarnings("squid:S2160")
-    public static class LogicalOperatorNodeWithInfo extends NodeWithInfo {
-        public LogicalOperatorNodeWithInfo(final NodeInfo nodeInfo) {
-            this(nodeInfo, null);
-        }
+    public static class LogicalOperatorNodeWithInfo extends NodeWithInfo implements WithExpression {
+        @Nullable
+        private final RelationalExpression expression;
 
-        public LogicalOperatorNodeWithInfo(final NodeInfo nodeInfo, @Nullable final List<String> details) {
-            this(nodeInfo, details, ImmutableMap.of());
-        }
-
-        public LogicalOperatorNodeWithInfo(final NodeInfo nodeInfo, @Nullable final List<String> details, final Map<String, Attribute> additionalAttributes) {
-            super(new Object(), nodeInfo, details, additionalAttributes);
-        }
-
-        public LogicalOperatorNodeWithInfo(final RelationalExpression relationalExpression,
+        public LogicalOperatorNodeWithInfo(@Nullable final RelationalExpression expression,
                                            final NodeInfo nodeInfo,
                                            @Nullable final List<String> details,
                                            final Map<String, Attribute> additionalAttributes) {
-            super(relationalExpression, nodeInfo, details, additionalAttributes);
+            super(new Object(), nodeInfo, details, additionalAttributes);
+            this.expression = expression;
         }
 
         @Nonnull
@@ -382,6 +422,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Override
         public String getFillColor() {
             return "darkseagreen2";
+        }
+
+        @Nullable
+        @Override
+        public RelationalExpression getExpression() {
+            return expression;
         }
     }
 
@@ -391,7 +437,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
     public static class ExpressionRefHeadNode extends Node {
 
         public ExpressionRefHeadNode(final ExpressionRef<? extends RelationalExpression> ref) {
-            super(ref.getMembers(), ExpressionRef.class.getSimpleName());
+            super(ref, ExpressionRef.class.getSimpleName());
         }
 
         @Nonnull
@@ -408,6 +454,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .build();
         }
 
+        @Nonnull
         @Override
         public String getName() {
             return "r";
@@ -442,8 +489,12 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
      * Node class for GroupExpressionRefs - member.
      */
     public static class ExpressionRefMemberNode extends Node {
+        public ExpressionRefMemberNode(final String name) {
+            super(new Object(), name);
+        }
+
         public ExpressionRefMemberNode() {
-            super(new Object(), ExpressionRef.class.getSimpleName());
+            super(new Object(), "m");
         }
 
         @Nonnull
@@ -458,11 +509,6 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .put("height", Attribute.dot("0"))
                     .put("width", Attribute.dot("0"))
                     .build();
-        }
-
-        @Override
-        public String getName() {
-            return "m";
         }
 
         @Nonnull
@@ -506,7 +552,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             this(null, dependsOn);
         }
 
-        public Edge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+        public Edge(@Nullable final String label, @Nonnull final Set<? extends AbstractEdge> dependsOn) {
             super(label, dependsOn);
         }
 
@@ -557,7 +603,11 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         }
 
         public GroupExpressionRefEdge(final Set<? extends AbstractEdge> dependsOn) {
-            super(dependsOn);
+            this(null, dependsOn);
+        }
+
+        public GroupExpressionRefEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+            super(label, dependsOn);
         }
 
         @Nonnull
@@ -589,11 +639,47 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         }
     }
 
+    /**
+     * Edge class for matches that connect a query reference to a match candidate reference.
+     */
+    public static class PartialMatchEdge extends Edge {
+        public PartialMatchEdge() {
+            this(null);
+        }
+        
+        public PartialMatchEdge(@Nullable final String label) {
+            super(label);
+        }
+
+        @Nonnull
+        @Override
+        public Map<String, Attribute> getAttributes() {
+            final Map<String, Attribute> attributes = super.getAttributes();
+            return ImmutableMap
+                    .<String, Attribute>builder()
+                    .putAll(attributes)
+                    .put("constraint", Attribute.dot("false"))
+                    .build();
+        }
+
+        @Nonnull
+        @Override
+        public String getStyle() {
+            return "dashed";
+        }
+
+    }
+
+
     public static InternalPlannerGraphBuilder builder(final Node root) {
         return new InternalPlannerGraphBuilder(root);
     }
 
     protected PlannerGraph(final Node root, final Network<Node, Edge> network) {
         super(root, network);
+    }
+
+    public InternalPlannerGraphBuilder derived() {
+        return new InternalPlannerGraphBuilder(this);
     }
 }

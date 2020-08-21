@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -102,5 +103,11 @@ public class FakePlanContext implements PlanContext {
     @Override
     public Set<String> getRecordTypes() {
         return Collections.emptySet();
+    }
+
+    @Nonnull
+    @Override
+    public Set<MatchCandidate> getMatchCandidates() {
+        return ImmutableSet.of();
     }
 }

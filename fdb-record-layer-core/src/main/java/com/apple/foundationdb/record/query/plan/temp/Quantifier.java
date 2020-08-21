@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Suppliers;
@@ -381,6 +382,8 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
         this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
+        // Call debugger hook for this new quantifier.
+        Debugger.registerQuantifier(this);
     }
 
     @Nonnull
@@ -429,16 +432,16 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.empty());
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (!equalsOnKind(other)) {
             return false;
         }
         final Quantifier that = (Quantifier)Objects.requireNonNull(other);
-        return getRangesOver().semanticEquals(that.getRangesOver(), equivalenceMap);
+        return getRangesOver().semanticEquals(that.getRangesOver(), aliasMap);
     }
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")

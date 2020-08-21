@@ -20,12 +20,20 @@
 
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRefTraversal;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ClusterProvider;
-import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ComponentAttributeProvider;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.Cluster;
 import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.ComponentIdProvider;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph.Edge;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph.Node;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph.PartialMatchEdge;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -33,9 +41,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.graph.ImmutableNetwork;
+import com.google.common.graph.Network;
 import com.google.common.io.CharStreams;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.awt.Desktop;
 import java.io.File;
 import java.io.InputStream;
@@ -45,9 +56,13 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -57,6 +72,7 @@ import java.util.stream.Collectors;
 public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     private final boolean isForExplain;
     private final boolean renderSingleGroups;
+    private final boolean removePlansIfPossible;
 
     /**
      * Helper class to provide an incrementing integer identifier per use.
@@ -80,10 +96,87 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      */
     @Nonnull
     public static String show(final boolean renderSingleGroups, @Nonnull final RelationalExpression relationalExpression) {
+        final PlannerGraph plannerGraph =
+                Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(forInternalShow(renderSingleGroups)));
+        final String dotString = exportToDot(plannerGraph);
+        return show(dotString);
+    }
+
+    /**
+     * Show the planner expression that is passed in as a graph rendered in your default browser.
+     * @param renderSingleGroups iff true group references with just one member are not rendered
+     * @param rootReference the planner expression to be rendered.
+     * @return the word "done" (IntelliJ really likes a return of String).
+     */
+    @Nonnull
+    public static String show(final boolean renderSingleGroups, @Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference) {
+        final PlannerGraph plannerGraph =
+                Objects.requireNonNull(rootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups)));
+        final String dotString = exportToDot(plannerGraph);
+        return show(dotString);
+    }
+
+    /**
+     * Show the planner expression that and all the match candidates rendered in your default browser. This also
+     * shows {@link PartialMatch}es between references if they exist.
+     * @param renderSingleGroups iff true group references with just one member are not rendered
+     * @param queryPlanRootReference the planner expression to be rendered.
+     * @param matchCandidates a set of candidates for matching which should also be shown
+     * @return the word "done" (IntelliJ really likes a return of String).
+     */
+    @Nonnull
+    public static String show(final boolean renderSingleGroups,
+                              @Nonnull final GroupExpressionRef<? extends RelationalExpression> queryPlanRootReference,
+                              @Nonnull final Set<MatchCandidate> matchCandidates) {
+        final PlannerGraph queryPlannerGraph =
+                Objects.requireNonNull(queryPlanRootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups, true)));
+
+        final PlannerGraph.InternalPlannerGraphBuilder graphBuilder = queryPlannerGraph.derived();
+
+        final Map<MatchCandidate, PlannerGraph> matchCandidateMap = matchCandidates.stream()
+                .collect(ImmutableMap.toImmutableMap(Function.identity(), matchCandidate -> Objects.requireNonNull(
+                        matchCandidate.getTraversal().getRootRef().acceptPropertyVisitor(forInternalShow(renderSingleGroups)))));
+
+        matchCandidateMap.forEach((matchCandidate, matchCandidateGraph) -> graphBuilder.addGraph(matchCandidateGraph));
+
+        final ExpressionRefTraversal queryGraphTraversal = ExpressionRefTraversal.withRoot(queryPlanRootReference);
+        final Set<ExpressionRef<? extends RelationalExpression>> queryGraphRefs = queryGraphTraversal.getRefs();
+
+        queryGraphRefs
+                .forEach(queryGraphRef -> {
+                    for (final MatchCandidate matchCandidate : queryGraphRef.getMatchCandidates()) {
+                        final Set<PartialMatch> partialMatchesForCandidate = queryGraphRef.getPartialMatchesForCandidate(matchCandidate);
+                        final PlannerGraph matchCandidatePlannerGraph = Objects.requireNonNull(matchCandidateMap.get(matchCandidate));
+                        final Node queryRefNode = Objects.requireNonNull(queryPlannerGraph.getNodeForIdentity(queryGraphRef));
+                        for (final PartialMatch partialMatchForCandidate : partialMatchesForCandidate) {
+                            @Nullable final Node matchCandidateNode = matchCandidatePlannerGraph.getNodeForIdentity(partialMatchForCandidate.getCandidateRef());
+                            // should always be true but we don't want to bail out for corrupt graphs
+                            if (matchCandidateNode != null) {
+                                graphBuilder.addEdge(queryRefNode, matchCandidateNode, new PartialMatchEdge());
+                            }
+                        }
+                    }
+                });
+
+        final String dotString = exportToDot(graphBuilder.build(),
+                queryPlannerGraph.getNetwork().nodes(),
+                nestedClusterProvider -> matchCandidateMap
+                        .entrySet()
+                        .stream()
+                        .map(entry -> new NamedCluster(entry.getKey().getName(), entry.getValue().getNetwork().nodes(), nestedClusterProvider))
+                        .collect(Collectors.toList()));
+        return show(dotString);
+    }
+
+    /**
+     * Show the planner expression that is passed in as a graph rendered in your default browser.
+     * @param dotString graph serialized as dot-compatible string
+     * @return the word "done" (IntelliJ really likes a return of String).
+     */
+    @Nonnull
+    private static String show(final String dotString) {
         try {
-            final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph =
-                    Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(forInternalShow(renderSingleGroups)));
-            final URI uri = PlannerGraphProperty.createHtmlLauncher(Objects.requireNonNull(plannerGraph));
+            final URI uri = PlannerGraphProperty.createHtmlLauncher(dotString);
             Desktop.getDesktop().browse(uri);
             return "done";
         } catch (final Exception ex) {
@@ -97,16 +190,15 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      * specific launcher html file into a temp directory. If wanted the caller can open the html in a browser of
      * choice.
      *
-     * @param plannerGraph -- the planner graph we should create the launcher for
+     * @param dotString -- a serialized planner graph
      * @return a URI pointing to an html file in a temp location which renders the graph
      * @throws Exception -- thrown from methods called in here.
      */
     @Nonnull
-    public static URI createHtmlLauncher(@Nonnull final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph) throws Exception {
+    public static URI createHtmlLauncher(@Nonnull final String dotString) throws Exception {
         final InputStream launcherHtmlInputStream =
-                plannerGraph.getClass()
+                PlannerGraphProperty.class
                         .getResourceAsStream("/showPlannerExpression.html");
-        final String dotString = exportToDot(plannerGraph);
         final String launcherHtmlString =
                 CharStreams.toString(new InputStreamReader(launcherHtmlInputStream, StandardCharsets.UTF_8))
                         .replace("$DOT", dotString);
@@ -130,50 +222,107 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      * @return the graph as string in dot format.
      */
     @Nonnull
-    public static String exportToDot(@Nonnull final AbstractPlannerGraph<PlannerGraph.Node, PlannerGraph.Edge> plannerGraph) {
-        final GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> exporter = createDotExporter();
+    public static String exportToDot(@Nonnull final AbstractPlannerGraph<Node, Edge> plannerGraph) {
+        final ImmutableNetwork<Node, Edge> network = plannerGraph.getNetwork();
+        return exportToDot(plannerGraph, network.nodes(), clusterProvider -> ImmutableList.of());
+    }
+
+    /**
+     * Creates a serialized format of this graph as a dot-compatible definition.
+     * @param plannerGraph the planner graph we should export to dot
+     * @param queryPlannerNodes set of nodes which is a subset of nodes of {@code plannerGraph} which represents the
+     *        actual query graph
+     * @param clusteringFunction function to partition the planner graph into clusters. Clusters are not isolated
+     *        sub-graphs in this context. It is possible and often desirable for a use case to define edges between
+     *        nodes of clusters. Clusters are used by the dot exporter to
+     *        <ul>
+     *            <li>assign common attributes to all nodes and edges, e.g. like a common gray background</li>
+     *            <li>assign a name that is displayed displayed</li>
+     *            <li>cause the layout algorithm to pack the nodes in a cluster if they were one big node</li>
+     *        </ul>
+     * @return the graph as string in dot format.
+     */
+    @Nonnull
+    public static String exportToDot(@Nonnull final AbstractPlannerGraph<Node, Edge> plannerGraph,
+                                     @Nonnull final Set<Node> queryPlannerNodes,
+                                     @Nonnull final Function<GraphExporter.ClusterProvider<Node, Edge>, Collection<Cluster<Node, Edge>>> clusteringFunction) {
+        final GraphExporter<Node, Edge> exporter = new DotExporter<>(new CountingIdProvider<>(),
+                Node::getAttributes,
+                Edge::getAttributes,
+                ImmutableMap.of("fontname", Attribute.dot("courier"),
+                        "rankdir", Attribute.dot("BT"),
+                        "splines", Attribute.dot("false")),
+                (network, nodes) -> {
+                    final ImmutableList.Builder<Cluster<Node, Edge>> clusterBuilder = ImmutableList.builder();
+                    clusterBuilder.addAll(clustersForGroups(plannerGraph.getNetwork(), queryPlannerNodes));
+                    clusterBuilder.addAll(clusteringFunction.apply(PlannerGraphProperty::clustersForGroups));
+                    return clusterBuilder.build();
+                });
         // export as string
         final Writer writer = new StringWriter();
         exporter.exportGraph(plannerGraph.getNetwork(), writer);
         return writer.toString();
     }
 
-    @Nonnull
-    private static GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> createDotExporter() {
-        final ClusterProvider<PlannerGraph.Node, PlannerGraph.Edge> clusterProvider =
-                n -> n.nodes()
-                        .stream()
-                        .filter(node -> node instanceof PlannerGraph.ExpressionRefHeadNode || node instanceof PlannerGraph.ExpressionRefMemberNode)
-                        .collect(Collectors.groupingBy(node -> {
-                            if (node instanceof PlannerGraph.ExpressionRefHeadNode) {
-                                return node;
-                            }
-                            if (node instanceof PlannerGraph.ExpressionRefMemberNode) {
-                                final PlannerGraph.Node head =
-                                        n.incidentNodes(Iterables.getOnlyElement(n.outEdges(node)))
-                                                .nodeV();
-                                Verify.verify(head instanceof PlannerGraph.ExpressionRefHeadNode);
-                                return head;
-                            }
-                            throw new IllegalArgumentException("impossible case");
-                        }, Collectors.toSet()));
+    private static class GroupCluster extends Cluster<Node, Edge> {
+        public GroupCluster(@Nonnull String label, @Nonnull final Set<Node> nodes) {
+            super(nodes,
+                    node -> ImmutableMap.<String, Attribute>builder()
+                            .put("style", Attribute.dot("filled"))
+                            .put("fillcolor", Attribute.dot("lightgrey"))
+                            .put("fontsize", Attribute.dot("6"))
+                            .put("rank", Attribute.dot("same"))
+                            .put("label", Attribute.dot(label))
+                            .build(),
+                    (network, nestedNodes) -> ImmutableList.of());
+        }
+    }
 
-        final ComponentAttributeProvider<PlannerGraph.Node> clusterAttributeProvider =
-                node -> ImmutableMap.<String, Attribute>builder()
-                        .put("style", Attribute.dot("filled"))
-                        .put("fillcolor", Attribute.dot("lightgrey"))
-                        .put("fontsize", Attribute.dot("6"))
-                        .put("rank", Attribute.dot("same"))
-                        .put("label", Attribute.dot("group"))
-                        .build();
+    /**
+     * Class to represent an actual sub cluster of inside the planner graph.
+     */
+    public static class NamedCluster extends Cluster<Node, Edge> {
+        public NamedCluster(@Nonnull String label,
+                            @Nonnull final Set<Node> nodes,
+                            @Nonnull GraphExporter.ClusterProvider<Node, Edge> nestedClusterProvider) {
+            super(nodes,
+                    node -> ImmutableMap.<String, Attribute>builder()
+                            .put("style", Attribute.dot("filled"))
+                            .put("fillcolor", Attribute.dot("gray95"))
+                            .put("pencolor", Attribute.dot("gray95"))
+                            .put("rank", Attribute.dot("same"))
+                            .put("label", Attribute.dot(label))
+                            .build(),
+                    nestedClusterProvider);
+        }
+    }
 
-        return new DotExporter<>(new CountingIdProvider<>(),
-                PlannerGraph.Node::getAttributes,
-                PlannerGraph.Edge::getAttributes,
-                ImmutableMap.of("fontname", Attribute.dot("courier"),
-                        "rankdir", Attribute.dot("BT")),
-                clusterProvider,
-                clusterAttributeProvider);
+    private static Collection<Cluster<Node, Edge>> clustersForGroups(final Network<Node, Edge> network, Set<Node> nodes) {
+        final Map<PlannerGraph.ExpressionRefHeadNode, Set<Node>> clusterMap = nodes
+                .stream()
+                .filter(node -> node instanceof PlannerGraph.ExpressionRefHeadNode || node instanceof PlannerGraph.ExpressionRefMemberNode)
+                .collect(Collectors.groupingBy(node -> {
+                    if (node instanceof PlannerGraph.ExpressionRefHeadNode) {
+                        return (PlannerGraph.ExpressionRefHeadNode)node;
+                    }
+                    if (node instanceof PlannerGraph.ExpressionRefMemberNode) {
+                        final Node head =
+                                network.incidentNodes(Iterables.getOnlyElement(network.outEdges(node)))
+                                        .nodeV();
+                        Verify.verify(head instanceof PlannerGraph.ExpressionRefHeadNode);
+                        return (PlannerGraph.ExpressionRefHeadNode)head;
+                    }
+                    throw new IllegalArgumentException("impossible case");
+                }, Collectors.toSet()));
+
+        return clusterMap.entrySet()
+                .stream()
+                .map(entry -> {
+                    final String label = Debugger.mapDebugger(debugger -> debugger.nameForObject(entry.getKey().getIdentity()))
+                            .orElse("group");
+                    return new GroupCluster(label, entry.getValue());
+                })
+                .collect(Collectors.toList());
     }
 
     /**
@@ -230,7 +379,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         infoMapBuilder.putAll(Maps.filterEntries(additionalInfoMap, e -> usedInfoIds.contains(Objects.requireNonNull(e).getKey())));
         final ImmutableMap<String, Attribute> infoMap = infoMapBuilder.build();
 
-        final GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> exporter =
+        final GraphExporter<Node, Edge> exporter =
                 createGmlExporter(infoMap);
         // export as string
         final Writer writer = new StringWriter();
@@ -239,20 +388,24 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     }
 
     @Nonnull
-    private static GraphExporter<PlannerGraph.Node, PlannerGraph.Edge> createGmlExporter(@Nonnull final Map<String, Attribute> infoMap) {
+    private static GraphExporter<Node, Edge> createGmlExporter(@Nonnull final Map<String, Attribute> infoMap) {
         return new GmlExporter<>(new CountingIdProvider<>(),
-                PlannerGraph.Node::getAttributes,
+                Node::getAttributes,
                 new CountingIdProvider<>(),
-                PlannerGraph.Edge::getAttributes,
+                Edge::getAttributes,
                 ImmutableMap.of("infos", Attribute.gml(infoMap)));
     }
 
     public static PlannerGraphProperty forExplain() {
-        return new PlannerGraphProperty(true, false);
+        return new PlannerGraphProperty(true, false, false);
     }
 
     public static PlannerGraphProperty forInternalShow(final boolean renderSingleGroups) {
-        return new PlannerGraphProperty(false, renderSingleGroups);
+        return forInternalShow(renderSingleGroups, false);
+    }
+
+    public static PlannerGraphProperty forInternalShow(final boolean renderSingleGroups, final boolean removePlansIfPossible) {
+        return new PlannerGraphProperty(false, renderSingleGroups, removePlansIfPossible);
     }
 
     /**
@@ -267,9 +420,11 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      *        are rendered.
      */
     private PlannerGraphProperty(final boolean isForExplain,
-                                 final boolean renderSingleGroups) {
+                                 final boolean renderSingleGroups,
+                                 final boolean removePlansIfPossible) {
         this.isForExplain = isForExplain;
         this.renderSingleGroups = renderSingleGroups;
+        this.removePlansIfPossible = removePlansIfPossible;
     }
 
     @Nonnull
@@ -293,13 +448,25 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
 
     @Nonnull
     @Override
-    public PlannerGraph evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<PlannerGraph> memberResults) {
+    public PlannerGraph evaluateAtRef(@Nonnull final ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<PlannerGraph> memberResults) {
         if (memberResults.isEmpty()) {
-            // should not happen
+            // should not happen -- but we don't want to bail
             return PlannerGraph.builder(new PlannerGraph.ExpressionRefHeadNode(ref)).build();
         }
+
+        if (removePlansIfPossible) {
+            final List<PlannerGraph> filteredMemberResults = memberResults.stream()
+                    .filter(graph -> !(graph.getRoot().getIdentity() instanceof RecordQueryPlan))
+                    .collect(Collectors.toList());
+
+            // if we filtered down to empty it is better to just show the physical plan, otherwise try to avoid it
+            if (!filteredMemberResults.isEmpty()) {
+                memberResults = filteredMemberResults;
+            }
+        }
+
         if (renderSingleGroups || memberResults.size() > 1) {
-            final PlannerGraph.Node head = new PlannerGraph.ExpressionRefHeadNode(ref);
+            final Node head = new PlannerGraph.ExpressionRefHeadNode(ref);
             final PlannerGraph.InternalPlannerGraphBuilder plannerGraphBuilder =
                     PlannerGraph.builder(head);
 
@@ -307,10 +474,23 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
                     memberResults
                             .stream()
                             .map(childGraph -> {
-                                final PlannerGraph.Node member = new PlannerGraph.ExpressionRefMemberNode();
+                                final Node root = childGraph.getRoot();
+                                final Optional<String> debugNameOptional =
+                                        Debugger.mapDebugger(debugger -> {
+                                            if (root instanceof PlannerGraph.WithExpression) {
+                                                final PlannerGraph.WithExpression withExpression = (PlannerGraph.WithExpression)root;
+                                                @Nullable final RelationalExpression expression = withExpression.getExpression();
+                                                return expression == null ? null : debugger.nameForObject(expression);
+                                            }
+                                            return null;
+                                        });
+
+                                final Node member =
+                                        debugNameOptional.map(PlannerGraph.ExpressionRefMemberNode::new)
+                                                .orElse(new PlannerGraph.ExpressionRefMemberNode());
                                 return PlannerGraph.builder(member)
                                         .addGraph(childGraph)
-                                        .addEdge(childGraph.getRoot(), member, new PlannerGraph.GroupExpressionRefEdge())
+                                        .addEdge(root, member, new PlannerGraph.GroupExpressionRefEdge())
                                         .build();
                             })
                             .collect(Collectors.toList());

@@ -55,4 +55,7 @@ public interface PlanContext {
 
     @Nonnull
     RecordMetaData getMetaData();
+
+    @Nonnull
+    Set<MatchCandidate> getMatchCandidates();
 }

@@ -20,12 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.query.plan.temp.TopologicalSort.TopologicalOrderPermutationIterable;
-import com.apple.foundationdb.record.query.plan.temp.TopologicalSort.TopologicalOrderPermutationIterator;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -62,7 +58,7 @@ public class MemoExpressionTest {
 
         // Middle expressions with one child
         for (int childMemberCount = 1; childMemberCount <= 4; childMemberCount++) {
-            GroupExpressionRef<SyntheticPlannerExpression> middleChildGroup = new GroupExpressionRef<>();
+            GroupExpressionRef<SyntheticPlannerExpression> middleChildGroup = GroupExpressionRef.empty();
             for (int i = 1; i <= childMemberCount; i++) {
                 middleChildGroup.insert(leafExpressions.get("leaf" + i));
             }
@@ -71,8 +67,8 @@ public class MemoExpressionTest {
         }
         // Middle expressions with two children
         for (int childSplitPosition = 1; childSplitPosition <= 3; childSplitPosition++) {
-            GroupExpressionRef<SyntheticPlannerExpression> leftGroup = new GroupExpressionRef<>();
-            GroupExpressionRef<SyntheticPlannerExpression> rightGroup = new GroupExpressionRef<>();
+            GroupExpressionRef<SyntheticPlannerExpression> leftGroup = GroupExpressionRef.empty();
+            GroupExpressionRef<SyntheticPlannerExpression> rightGroup = GroupExpressionRef.empty();
             for (int i = 1; i <= childSplitPosition; i++) {
                 leftGroup.insert(leafExpressions.get("leaf" + i));
             }
@@ -89,28 +85,28 @@ public class MemoExpressionTest {
     public void identicalSets() {
         GroupExpressionRef<SyntheticPlannerExpression> justALeaf1 = GroupExpressionRef.of(leafExpressions.get("leaf1"));
         GroupExpressionRef<SyntheticPlannerExpression> justALeaf2 = GroupExpressionRef.of(leafExpressions.get("leaf2"));
-        assertTrue(justALeaf1.containsAllInMemo(justALeaf1, AliasMap.empty()));
-        assertFalse(justALeaf1.containsAllInMemo(justALeaf2, AliasMap.empty()));
+        assertTrue(justALeaf1.containsAllInMemo(justALeaf1, AliasMap.emptyMap()));
+        assertFalse(justALeaf1.containsAllInMemo(justALeaf2, AliasMap.emptyMap()));
 
         GroupExpressionRef<SyntheticPlannerExpression> multipleLeaves1 = GroupExpressionRef.of(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
         GroupExpressionRef<SyntheticPlannerExpression> multipleLeaves2 = GroupExpressionRef.of(leafExpressions.get("leaf3"), leafExpressions.get("leaf4"));
-        assertTrue(multipleLeaves1.containsAllInMemo(multipleLeaves1, AliasMap.empty()));
-        assertFalse(multipleLeaves1.containsAllInMemo(multipleLeaves2, AliasMap.empty()));
+        assertTrue(multipleLeaves1.containsAllInMemo(multipleLeaves1, AliasMap.emptyMap()));
+        assertFalse(multipleLeaves1.containsAllInMemo(multipleLeaves2, AliasMap.emptyMap()));
 
         GroupExpressionRef<SyntheticPlannerExpression> complexExpression = GroupExpressionRef.of(middleExpressions.get("middle1-3"), middleExpressions.get("middle2"));
-        assertTrue(complexExpression.containsAllInMemo(complexExpression, AliasMap.empty()));
+        assertTrue(complexExpression.containsAllInMemo(complexExpression, AliasMap.emptyMap()));
     }
 
     @Test
     public void flatSets() {
         GroupExpressionRef<SyntheticPlannerExpression> allLeaves = GroupExpressionRef.from(leafExpressions.values());
         GroupExpressionRef<SyntheticPlannerExpression> justALeaf = GroupExpressionRef.of(leafExpressions.get("leaf1"));
-        assertTrue(allLeaves.containsAllInMemo(justALeaf, AliasMap.empty()));
-        assertFalse(justALeaf.containsAllInMemo(allLeaves, AliasMap.empty()));
+        assertTrue(allLeaves.containsAllInMemo(justALeaf, AliasMap.emptyMap()));
+        assertFalse(justALeaf.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
 
         GroupExpressionRef<SyntheticPlannerExpression> multipleLeaves = GroupExpressionRef.of(leafExpressions.get("leaf1"), leafExpressions.get("leaf2"));
-        assertTrue(allLeaves.containsAllInMemo(multipleLeaves, AliasMap.empty()));
-        assertFalse(multipleLeaves.containsAllInMemo(allLeaves, AliasMap.empty()));
+        assertTrue(allLeaves.containsAllInMemo(multipleLeaves, AliasMap.emptyMap()));
+        assertFalse(multipleLeaves.containsAllInMemo(allLeaves, AliasMap.emptyMap()));
     }
 
     @Test
@@ -128,24 +124,24 @@ public class MemoExpressionTest {
         GroupExpressionRef<SyntheticPlannerExpression> allRoots = GroupExpressionRef.of(root1, root2, root1copy);
         assertEquals(3, allRoots.getMembers().size());
 
-        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1), AliasMap.empty()));
-        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1, root2), AliasMap.empty()));
-        assertTrue(allRoots.containsAllInMemo(firstTwoRoots, AliasMap.empty()));
-        assertFalse(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1copy), AliasMap.empty()));
-        assertFalse(firstTwoRoots.containsAllInMemo(allRoots, AliasMap.empty()));
+        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1), AliasMap.emptyMap()));
+        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1, root2), AliasMap.emptyMap()));
+        assertTrue(allRoots.containsAllInMemo(firstTwoRoots, AliasMap.emptyMap()));
+        assertFalse(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(root1copy), AliasMap.emptyMap()));
+        assertFalse(firstTwoRoots.containsAllInMemo(allRoots, AliasMap.emptyMap()));
 
         SyntheticPlannerExpression singleRefExpression = new SyntheticPlannerExpression("root1",
                 ImmutableList.of(GroupExpressionRef.of(middleExpressions.get("middle1")), // has only a single member in its child group
                         GroupExpressionRef.of(leafExpressions.get("leaf1"))));
-        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(singleRefExpression), AliasMap.empty()));
+        assertTrue(firstTwoRoots.containsAllInMemo(GroupExpressionRef.of(singleRefExpression), AliasMap.emptyMap()));
     }
 
     @ParameterizedTest
     @ValueSource(longs = { 2L, 3L, 5L })
     public void memoInsertionAtRoot(long seed) {
         Set<SyntheticPlannerExpression> trackingSet = new HashSet<>();
-        GroupExpressionRef<SyntheticPlannerExpression> groupExpression = new GroupExpressionRef<>();
-        GroupExpressionRef<SyntheticPlannerExpression> sample = new GroupExpressionRef<>(); // will contain every 5th expression
+        GroupExpressionRef<SyntheticPlannerExpression> groupExpression = GroupExpressionRef.empty();
+        GroupExpressionRef<SyntheticPlannerExpression> sample = GroupExpressionRef.empty(); // will contain every 5th expression
 
         final Random random = new Random(seed);
         for (int i = 0; i < 100; i++) {
@@ -163,7 +159,7 @@ public class MemoExpressionTest {
         for (SyntheticPlannerExpression expression : trackingSet) {
             assertTrue(groupExpression.containsInMemo(expression));
         }
-        assertTrue(groupExpression.containsAllInMemo(sample, AliasMap.empty()));
+        assertTrue(groupExpression.containsAllInMemo(sample, AliasMap.emptyMap()));
     }
 
     /**
@@ -245,198 +241,5 @@ public class MemoExpressionTest {
         public SyntheticPlannerExpression rebase(@Nonnull final AliasMap translationMap) {
             return this;
         }
-    }
-
-    @Test
-    public void testTopologicalSortImpossibleDependencies() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
-        final CorrelationIdentifier c = CorrelationIdentifier.of("c");
-
-        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies =
-                ImmutableMap.of(b, ImmutableSet.of(a), c, ImmutableSet.of(b), a, ImmutableSet.of(c));
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutations =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c),
-                        id -> dependencies.getOrDefault(id, ImmutableSet.of()));
-
-        final TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator =
-                topologicalPermutations.iterator();
-
-        assertFalse(iterator.hasNext());
-    }
-
-    @Test
-    public void testTopologicalSortFullDependencies() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
-        final CorrelationIdentifier c = CorrelationIdentifier.of("c");
-
-        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies =
-                ImmutableMap.of(b, ImmutableSet.of(a), c, ImmutableSet.of(b));
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutationIterable =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c),
-                        id -> dependencies.getOrDefault(id, ImmutableSet.of()));
-
-        final ImmutableList<List<CorrelationIdentifier>> topologicalPermutations = ImmutableList.copyOf(topologicalPermutationIterable);
-
-        assertEquals(1, topologicalPermutations.size());
-
-        assertEquals(ImmutableList.of(a, b, c), topologicalPermutations.get(0));
-    }
-
-    @Test
-    public void testTopologicalSortNoDependencies() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
-        final CorrelationIdentifier c = CorrelationIdentifier.of("c");
-
-        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies =
-                ImmutableMap.of();
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutationIterable =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c),
-                        id -> dependencies.getOrDefault(id, ImmutableSet.of()));
-
-        final ImmutableList<List<CorrelationIdentifier>> topologicalPermutations = ImmutableList.copyOf(topologicalPermutationIterable);
-
-        assertEquals(6, topologicalPermutations.size());
-
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, b, c)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, c, b)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, a, c)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, c, a)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, a, b)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, b, a)));
-    }
-
-    @Test
-    public void testTopologicalSortSomeDependencies() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
-        final CorrelationIdentifier c = CorrelationIdentifier.of("c");
-
-        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies =
-                ImmutableMap.of(c, ImmutableSet.of(a));
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutationIterable =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c),
-                        id -> dependencies.getOrDefault(id, ImmutableSet.of()));
-
-        final ImmutableList<List<CorrelationIdentifier>> topologicalPermutations = ImmutableList.copyOf(topologicalPermutationIterable);
-
-        assertEquals(3, topologicalPermutations.size());
-
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, b, c)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, c, b)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, a, c)));
-    }
-    
-    @Test
-    public void testTopologicalSortSkip() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
-        final CorrelationIdentifier c = CorrelationIdentifier.of("c");
-
-        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies =
-                ImmutableMap.of();
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutationIterable =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c),
-                        id -> dependencies.getOrDefault(id, ImmutableSet.of()));
-
-        final TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator = topologicalPermutationIterable.iterator();
-        final ImmutableList.Builder<List<CorrelationIdentifier>> builder = ImmutableList.builder();
-
-        while (iterator.hasNext()) {
-            final List<CorrelationIdentifier> next = iterator.next();
-
-            builder.add(next);
-
-            if (next.get(0).equals(b) && next.get(1).equals(a)) {
-                iterator.skip(0);
-            }
-        }
-
-        final ImmutableList<List<CorrelationIdentifier>> topologicalPermutations = builder.build();
-
-        assertEquals(5, topologicalPermutations.size());
-
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, b, c)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, c, b)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, a, c)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, a, b)));
-        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, b, a)));
-    }
-
-    @Test
-    public void testTopologicalSortEmpty() {
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutations =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(), id -> ImmutableSet.of());
-
-        final TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator =
-                topologicalPermutations.iterator();
-
-        assertFalse(iterator.hasNext());
-    }
-
-    @Test
-    public void testTopologicalSortSingle() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutationIterable =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a), id -> ImmutableSet.of());
-
-        final ImmutableList<List<CorrelationIdentifier>> topologicalPermutations = ImmutableList.copyOf(topologicalPermutationIterable);
-
-        assertEquals(1, topologicalPermutations.size());
-    }
-
-    @Test
-    public void testTopologicalSortSkipEmptyError() {
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutations =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(), id -> ImmutableSet.of());
-
-        final TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator =
-                topologicalPermutations.iterator();
-        Assertions.assertThrows(UnsupportedOperationException.class, () -> iterator.skip(0));
-    }
-
-    @Test
-    public void testTopologicalSortSkipSingleError() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutations =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a), id -> ImmutableSet.of());
-
-        final TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator =
-                topologicalPermutations.iterator();
-        Assertions.assertThrows(UnsupportedOperationException.class, () -> iterator.skip(0));
-    }
-
-    @Test
-    public void testTopologicalSortSkipComplexError1() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutations =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b), id -> ImmutableSet.of());
-
-        final TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator =
-                topologicalPermutations.iterator();
-        Assertions.assertThrows(UnsupportedOperationException.class, () -> iterator.skip(0));
-    }
-
-    @Test
-    public void testTopologicalSortSkipComplexError2() {
-        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
-        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
-
-        final TopologicalOrderPermutationIterable<CorrelationIdentifier> topologicalPermutations =
-                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b), id -> ImmutableSet.of());
-
-        final TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator =
-                topologicalPermutations.iterator();
-        Assertions.assertThrows(IndexOutOfBoundsException.class, () -> iterator.skip(2));
     }
 }

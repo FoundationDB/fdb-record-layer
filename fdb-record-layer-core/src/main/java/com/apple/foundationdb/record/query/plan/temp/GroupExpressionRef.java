@@ -21,11 +21,15 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Verify;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -63,23 +67,22 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.EXPERIMENTAL)
 public class GroupExpressionRef<T extends RelationalExpression> implements ExpressionRef<T> {
-    static final GroupExpressionRef<RelationalExpression> EMPTY = new GroupExpressionRef<>();
-
     @Nonnull
     private final RelationalExpressionPointerSet<T> members;
     private boolean explored = false;
 
-    public GroupExpressionRef() {
-        members = new RelationalExpressionPointerSet<>();
-    }
+    @Nonnull
+    private final SetMultimap<MatchCandidate, PartialMatch> partialMatchMap;
 
-    protected GroupExpressionRef(@Nonnull T expression) {
-        members = new RelationalExpressionPointerSet<>();
-        members.add(expression);
+    private GroupExpressionRef() {
+        this(new RelationalExpressionPointerSet<>());
     }
 
     private GroupExpressionRef(@Nonnull RelationalExpressionPointerSet<T> members) {
-        this.members =  members;
+        this.members = members;
+        this.partialMatchMap = HashMultimap.create();
+        // Call debugger hook for this new reference.
+        Debugger.registerReference(this);
     }
 
     @Nonnull
@@ -104,8 +107,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         }
         return false;
     }
-    
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
+
     public boolean containsExactly(@Nonnull T expression) {
         return members.contains(expression);
     }
@@ -151,21 +153,31 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         // We know member and otherMember are of the same class. canCorrelate() needs to match as well.
         Verify.verify(member.canCorrelate() == otherMember.canCorrelate());
 
-        final Iterable<AliasMap> quantifierMapIterable =
-                Quantifiers.match(
+        // Bind all unbound correlated aliases in this member and otherMember that refer to the same
+        // quantifier by alias.
+        final AliasMap identitiesMap = member.bindIdentities(otherMember, equivalenceMap);
+
+        // Use match the contained quantifier list against the quantifier list of other in order to find
+        // a correspondence between quantifiers and otherQuantifiers. While we match we recursively call
+        // containsAllInMemo() and early out on that map if such such a correspondence cannot be established
+        // on the given pair of quantifiers. The result of this method is an iterable of matches. While it's
+        // possible that there is more than one match, this iterable should mostly contain at most one
+        // match.
+        final Iterable<AliasMap> aliasMapIterable =
+                Quantifiers.findMatches(
+                        equivalenceMap.combine(identitiesMap),
                         member.getQuantifiers(),
                         otherMember.getQuantifiers(),
-                        member.canCorrelate(),
-                        equivalenceMap,
                         ((quantifier, otherQuantifier, nestedEquivalencesMap) -> {
                             final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
                             final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
                             return rangesOver.containsAllInMemo(otherRangesOver, nestedEquivalencesMap);
                         }));
 
-        return StreamSupport.stream(quantifierMapIterable.spliterator(), false)
-                .anyMatch(quantifierMap -> member.equalsWithoutChildren(otherMember,
-                        equivalenceMap.compose(quantifierMap)));
+        // if there is more than one match we only need one such match that also satisfies the equality condition between
+        // member and otherMember (no children considered).
+        return StreamSupport.stream(aliasMapIterable.spliterator(), false)
+                .anyMatch(aliasMap -> member.equalsWithoutChildren(otherMember, aliasMap));
     }
 
     @Nonnull
@@ -178,7 +190,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return builder.build();
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings({"unchecked", "java:S1905"})
     @Nonnull
     @Override
     public GroupExpressionRef<T> rebase(@Nonnull final AliasMap translationMap) {
@@ -214,7 +226,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Nonnull
     @Override
     public ExpressionRef<T> getNewRefWith(@Nonnull T expression) {
-        return new GroupExpressionRef<>(expression);
+        return of(expression);
     }
 
     @Nonnull
@@ -270,8 +282,14 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return "ExpressionRef@" + hashCode() + "(" + "explored=" + explored + ")";
     }
 
+    public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {
+        return new GroupExpressionRef<>();
+    }
+
     public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
-        return new GroupExpressionRef<>(expression);
+        RelationalExpressionPointerSet<T> members = new RelationalExpressionPointerSet<>();
+        members.add(expression);
+        return new GroupExpressionRef<>(members);
     }
 
     @SuppressWarnings("unchecked")
@@ -287,7 +305,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @SuppressWarnings("unchecked")
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -309,7 +327,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         final ImmutableMultimap<Integer, T> expressionsMap = expressionsMapBuilder.build();
 
         for (final T otherMember : otherRef.getMembers()) {
-            if (expressionsMap.get(otherMember.semanticHashCode()).stream().anyMatch(member -> member.semanticEquals(otherMember, equivalenceMap))) {
+            if (expressionsMap.get(otherMember.semanticHashCode()).stream().anyMatch(member -> member.semanticEquals(otherMember, aliasMap))) {
                 return true;
             }
         }
@@ -328,5 +346,35 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         }
 
         return Objects.hash(builder.build());
+    }
+
+    @Nonnull
+    @Override
+    public Set<MatchCandidate> getMatchCandidates() {
+        return partialMatchMap.keySet();
+    }
+
+    @Nonnull
+    @Override
+    public Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate) {
+        return partialMatchMap.get(candidate);
+    }
+
+    @Override
+    public boolean addAllPartialMatchesForCandidate(final MatchCandidate candidate, final Iterable<PartialMatch> partialMatches) {
+        return partialMatchMap.putAll(candidate, partialMatches);
+    }
+
+    /**
+     * Method to render the graph rooted at this reference. This is needed for graph integration into IntelliJ as
+     * IntelliJ only ever evaluates selfish methods. Add this method as a custom renderer for the type
+     * {@link GroupExpressionRef}. During debugging you can then click show() on an instance and enjoy the query graph
+     * it represents rendered in your standard browser.
+     * @param renderSingleGroups whether to render group references with just one member
+     * @return the String "done"
+     */
+    @Nonnull
+    public String show(final boolean renderSingleGroups) {
+        return PlannerGraphProperty.show(renderSingleGroups, this);
     }
 }

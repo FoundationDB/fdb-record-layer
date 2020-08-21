@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+
 import javax.annotation.Nonnull;
 import java.util.AbstractCollection;
 import java.util.HashSet;
@@ -46,6 +48,8 @@ public class RelationalExpressionPointerSet<T extends RelationalExpression> exte
 
     @Override
     public boolean add(@Nonnull T expression) {
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(expression);
         return members.add(new Wrapper<>(expression));
     }
 
