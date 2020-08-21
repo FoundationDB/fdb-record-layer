@@ -25,11 +25,11 @@ import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimaps;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -37,14 +37,13 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Utility class to provide helpers related to topological sorts.
@@ -52,7 +51,7 @@ import java.util.function.Function;
  * The main purpose on this class is to provide a specific iterable that can efficiently traverse
  * all possible permutations of the input set that do not violate the given dependency constraints.
  *
- * The iterable {@link TopologicalOrderPermutationIterable} adheres to the following requirements:
+ * The iterable {@link EnumeratingIterable} adheres to the following requirements:
  * <ol>
  * <li>it does not violate the given constraints</li>
  * <li>it produces all possible orderings under the given constraints</li>
@@ -61,7 +60,7 @@ import java.util.function.Function;
  *    the orderings in memory.</li>
  * </ol>
  *
- * {@link TopologicalOrderPermutationIterable} subclasses {@link Iterable} in order to provide an additional feature
+ * {@link EnumeratingIterable} subclasses {@link Iterable} in order to provide an additional feature
  * that allows for skipping. Assume we have a set
  * <pre>
  * {@code
@@ -88,57 +87,30 @@ import java.util.function.Function;
  * beneficial to skip the rest of the {@code (b, a, ...)} orderings after the first one was returned
  * ({@code (b, a, c, d}). In this case we would like to instruct the iterator to skip all such orderings and continue
  * iteration at {@code (b, c, a, d)}. Similarly, we want to skip all orderings starting with {@code (b, ...)} once we
- * encountered the first such ordering. This the iterators created by the provided {@link TopologicalOrderPermutationIterable}
- * of type {@link TopologicalOrderPermutationIterator} provide a method {@link TopologicalOrderPermutationIterator#skip}
+ * encountered the first such ordering. This the iterators created by the provided {@link EnumeratingIterable}
+ * of type {@link EnumeratingIterator} provide a method {@link EnumeratingIterator#skip}
  * to allow skipping to a given prefix.
  *
  */
 @API(API.Status.EXPERIMENTAL)
 public class TopologicalSort {
-    /**
-     * Iterable that provides special iterators of type {@link TopologicalOrderPermutationIterator}.
-     * @param <T> type
-     */
-    public interface TopologicalOrderPermutationIterable<T> extends Iterable<List<T>> {
-        @Nonnull
-        @Override
-        TopologicalOrderPermutationIterator<T> iterator();
+
+    private TopologicalSort() {
+        // prevent instantiation
     }
 
     /**
-     * An iterator extending {@link Iterator} providing the ability to skip a certain prefix.
-     * @param <T> type
-     */
-    public interface TopologicalOrderPermutationIterator<T> extends Iterator<List<T>> {
-        /**
-         * Instructs the iterator to advance to the next possible ordering using the given zero-indexed level.
-         *
-         * Example 1: If the last returned ordering of the iterator {@code it} is {@code (e0, e1, e2, e3)} and
-         *            {@code it.skip(2)} is called, the state of the iterator is advanced in a way that either
-         *            reaches the end of iteration or the next item that is returned is {@code (e0', e1', e3', e4')}
-         *            where the prefix {@code (e1', e2', e3')} is not equal to {code (e1, e2, e3)}.
-         * Example 2: If the last returned ordering of the iterator {@code it} is {@code (e1, e2, e3, e4)} and
-         *            {@code it.skip(1)} is called, the state of the iterator is advanced in a way that either reaches
-         *            the end of iteration or the next item that is returned is {@code (e1', e2', e3', e4')} where
-         *            the prefix {@code (e1', e2')} is not equal to {code (e1, e2)}.
-         *
-         * @param level skip level
-         */
-        void skip(int level);
-    }
-
-    /**
-     * A complex iterable implementing {@link TopologicalOrderPermutationIterable} that is used for sets of cardinality greater
+     * A complex iterable implementing {@link EnumeratingIterable} that is used for sets of cardinality greater
      * than 1 (i.e., the regular case).
      * @param <T> type
      */
-    private static class BacktrackIterable<T> implements TopologicalOrderPermutationIterable<T> {
+    private static class BacktrackIterable<T> implements EnumeratingIterable<T> {
         @Nonnull
         private final ImmutableSet<T> set;
         @Nonnull
         private final SetMultimap<T, T> dependsOnMap;
 
-        private class BacktrackIterator extends AbstractIterator<List<T>> implements TopologicalSort.TopologicalOrderPermutationIterator<T> {
+        private class BacktrackIterator extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
             // state
             private final Set<T> bound;
             private final List<PeekingIterator<T>> state;
@@ -206,7 +178,7 @@ public class TopologicalSort {
                     // level the current level). If we reach level -1 (i.e., we reach the end of the iterator at level 0
                     // we are done.
                     // If we do find an element not violating any constraints on the current level we conceptually
-                    // bind it the element we found and continue on downward.
+                    // bind the element we found and continue on downward.
                     //
                     final boolean isDown = searchLevel(currentIterator);
                     if (!isDown) {
@@ -303,23 +275,23 @@ public class TopologicalSort {
 
         @Nonnull
         @Override
-        public TopologicalOrderPermutationIterator<T> iterator() {
+        public EnumeratingIterator<T> iterator() {
             return new BacktrackIterator();
         }
     }
 
     /**
-     * A complex iterable implementing a {@link TopologicalOrderPermutationIterable} that is used for sets of cardinality greater
+     * A complex iterable implementing a {@link EnumeratingIterable} that is used for sets of cardinality greater
      * than 1 (i.e., the regular case).
      * @param <T> type
      */
-    private static class KahnIterable<T> implements TopologicalOrderPermutationIterable<T> {
+    private static class KahnIterable<T> implements EnumeratingIterable<T> {
         @Nonnull
         private final ImmutableSet<T> set;
         @Nonnull
         private final SetMultimap<T, T> usedByMap;
 
-        private class KahnIterator extends AbstractIterator<List<T>> implements TopologicalOrderPermutationIterator<T> {
+        private class KahnIterator extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
             // state
             private final Set<T> bound;
             private final Map<T, Integer> inDegreeMap;
@@ -520,7 +492,7 @@ public class TopologicalSort {
 
         @Nonnull
         @Override
-        public TopologicalOrderPermutationIterator<T> iterator() {
+        public EnumeratingIterator<T> iterator() {
             return new KahnIterator();
         }
 
@@ -536,62 +508,31 @@ public class TopologicalSort {
             return result;
         }
 
-        private static <T> SetMultimap<T, T> computeUsedByMap(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
+        private static <T> ImmutableSetMultimap<T, T> computeUsedByMap(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
             // invert the dependencies
-            final SetMultimap<T, T> result = Multimaps.newSetMultimap(Maps.newHashMap(), Sets::newHashSet);
+            final ImmutableSetMultimap.Builder<T, T> builder = ImmutableSetMultimap.builder();
 
             for (final T element : set) {
                 final Set<T> dependsOnElements = dependsOnFn.apply(element);
                 for (final T dependsOnElement : dependsOnElements) {
                     if (set.contains(dependsOnElement)) {
-                        result.put(dependsOnElement, element);
+                        builder.put(dependsOnElement, element);
                     }
                 }
             }
-
-            // normally we should make an immutable copy here; due to performance reasons and the fact that this
-            // map is private we don't
-            return result;
+            return builder.build();
         }
     }
 
     /**
-     * An implementation of {@link TopologicalOrderPermutationIterable} that is optimized to work for empty
-     * input sets. The case where the input set is empty is trivial and also properly handled by {@link BacktrackIterable}.
-     * Iterators created by this class, however, avoid to build complex state objects during their lifecycle.
-     *
-     * @param <T> type
-     */
-    private static class EmptyIterable<T> implements TopologicalOrderPermutationIterable<T> {
-        private class EmptyIterator extends AbstractIterator<List<T>> implements TopologicalOrderPermutationIterator<T> {
-            @Override
-            public void skip(final int level) {
-                throw new UnsupportedOperationException("cannot skip on empty iterator");
-            }
-
-            @Nullable
-            @Override
-            protected List<T> computeNext() {
-                return endOfData();
-            }
-        }
-
-        @Nonnull
-        @Override
-        public TopologicalOrderPermutationIterator<T> iterator() {
-            return new EmptyIterator();
-        }
-    }
-
-    /**
-     * An implementation of {@link TopologicalOrderPermutationIterable} that is optimized to work for single item
+     * An implementation of {@link EnumeratingIterable} that is optimized to work for single item
      * input sets. The case where the input set is exactly one item is trivial and also properly handled by
      * {@link BacktrackIterable}. Iterators created by this class, however, avoid to build complex state objects
      * during their lifecycle.
      *
      * @param <T> type
      */
-    private static class SingleIterable<T> implements TopologicalOrderPermutationIterable<T> {
+    private static class SingleIterable<T> implements EnumeratingIterable<T> {
         @Nonnull
         private final T singleElement;
 
@@ -599,7 +540,7 @@ public class TopologicalSort {
             this.singleElement = singleElement;
         }
 
-        private class SingleIterator extends AbstractIterator<List<T>> implements TopologicalOrderPermutationIterator<T> {
+        private class SingleIterator extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
             boolean atFirst = true;
 
             @Override
@@ -624,13 +565,13 @@ public class TopologicalSort {
 
         @Nonnull
         @Override
-        public TopologicalOrderPermutationIterator<T> iterator() {
+        public EnumeratingIterator<T> iterator() {
             return new SingleIterator();
         }
     }
 
     /**
-     * Create a {@link TopologicalOrderPermutationIterable} based on a set and a function describing
+     * Create an {@link EnumeratingIterable} based on a set and a function describing
      * the depends-on relationships between items in the given set.
      * @param set the set to create the iterable over
      * @param dependsOnFn a function from {@code T} to {@code Set<T>} that can be called during the lifecycle of all
@@ -639,19 +580,55 @@ public class TopologicalSort {
      *        to contain elements of type {@code T} that are not in {@code set}. These items are ignored by the
      *        underlying algorithm (that is, they are satisfied by every ordering).
      * @param <T> type
-     * @return a new {@link TopologicalOrderPermutationIterable} that obeys the constraints as expressed in
+     * @return a new {@link EnumeratingIterable} that obeys the constraints as expressed in
      *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
      *         orderings that violate the given depends-on constraints
      */
-    public static <T> TopologicalOrderPermutationIterable<T> topologicalOrderPermutations(@Nonnull final Set<T> set,
-                                                                                          @Nonnull final Function<T, Set<T>> dependsOnFn) {
+    public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final Set<T> set,
+                                                                          @Nonnull final Function<T, Set<T>> dependsOnFn) {
+        return topologicalOrderPermutations(set, () -> complexIterable(set, KahnIterable.computeUsedByMap(set, dependsOnFn)));
+    }
+
+    /**
+     * Create an {@link EnumeratingIterable} based on a set and a function describing
+     * the depends-on relationships between items in the given set.
+     * @param set the set to create the iterable over
+     * @param dependsOnMap a set-based multimap from {@code T} to {@code T} describing the dependencies between entities.
+     *        The key entity of the map depends on each entity in the set of values for that key.
+     * @param <T> type
+     * @return a new {@link EnumeratingIterable} that obeys the constraints as expressed in
+     *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
+     *         orderings that violate the given depends-on constraints
+     */
+    public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final Set<T> set,
+                                                                          @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
+        return topologicalOrderPermutations(set, () -> complexIterable(set, dependsOnMap.inverse()));
+    }
+
+    /**
+     * Create an {@link EnumeratingIterable} based on a set and a function describing
+     * the depends-on relationships between items in the given set.
+     * @param set the set to create the iterable over
+     * @param complexIterableSupplier a supplier to provide an instance of {@link EnumeratingIterable} which is invoked
+     *        when a non-trivial iterable is needed.
+     * @param <T> type
+     * @return a new {@link EnumeratingIterable} that obeys the constraints as expressed in
+     *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
+     *         orderings that violate the given depends-on constraints
+     */
+    private static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final Set<T> set,
+                                                                           final Supplier<? extends EnumeratingIterable<T>> complexIterableSupplier) {
         // try simple
         @Nullable
-        final TopologicalOrderPermutationIterable<T> maybeSimpleIterable = trySimpleIterable(set);
+        final EnumeratingIterable<T> maybeSimpleIterable = trySimpleIterable(set);
         if (maybeSimpleIterable != null) {
             return maybeSimpleIterable;
         }
 
+        return complexIterableSupplier.get();
+    }
+
+    private static <T> EnumeratingIterable<T> complexIterable(final Set<T> set, final ImmutableSetMultimap<T, T> usedByMap) {
         //
         // We can use two implementations to deal with the complex case. If there are quite a few dependencies,
         // we should use Kahn's algorithm, as finding a topological ordering is linear and there hopefully are not too
@@ -660,25 +637,21 @@ public class TopologicalSort {
         // sound topological ordering is balanced out by the work to enumerate all such orderings making
         // Kahn's algorithm inefficient as it creates more objects (churn) than the backtracking algorithm.
         // We just use a naive way of making the decision for now.
-        // TODO revisit later
         //
 
         // try Kahn's algorithm
-        final SetMultimap<T, T> usedByMap = KahnIterable.computeUsedByMap(set, dependsOnFn);
         if ((double)usedByMap.size() / (double) set.size() > 0.5d) {
             return new KahnIterable<>(set, usedByMap);
         }
 
         // use backtracking
-        final SetMultimap<T, T> dependsOnMap = Multimaps.newSetMultimap(Maps.newHashMap(), HashSet::new);
-        Multimaps.invertFrom(usedByMap, dependsOnMap);
-        return new BacktrackIterable<>(set, dependsOnMap);
+        return new BacktrackIterable<>(set, usedByMap.inverse());
     }
 
     @Nullable
-    private static <T> TopologicalOrderPermutationIterable<T> trySimpleIterable(@Nonnull final Set<T> set) {
+    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final Set<T> set) {
         if (set.isEmpty()) {
-            return new EmptyIterable<>();
+            return EnumeratingIterable.emptyIterable();
         } else if (set.size() == 1) {
             return new SingleIterable<>(Iterables.getOnlyElement(set));
         }
@@ -698,17 +671,45 @@ public class TopologicalSort {
      * @return a permutation of the set that is topologically correctly ordered with respect to {@code dependsOnFn}
      */
     public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
-        final TopologicalOrderPermutationIterator<T> iterator;
+        return anyTopologicalOrderPermutation(set,
+                () -> new KahnIterable<>(set, KahnIterable.computeUsedByMap(set, dependsOnFn)));
+    }
+
+    /**
+     * Create a correct topological ordering based on a set and a function describing
+     * the depends-on relationships between items in the given set.
+     * @param set the set to create the iterable over
+     * @param dependsOnMap a set-based multimap from {@code T} to {@code T} describing the dependencies between entities.
+     *        The key entity of the map depends on each entity in the set of values for that key.
+     * @param <T> type
+     * @return a permutation of the set that is topologically correctly ordered with respect to {@code dependsOnFn}
+     */
+    public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final Set<T> set, @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
+        return anyTopologicalOrderPermutation(set,
+                () -> new KahnIterable<>(set, dependsOnMap.inverse()));
+    }
+
+    /**
+     * Create a correct topological ordering based on a set and a function describing
+     * the depends-on relationships between items in the given set.
+     * @param set the set to create the iterable over
+     * @param complexIterableSupplier a supplier to provide an instance of {@link EnumeratingIterable} which is invoked
+     *        when a non-trivial iterable is needed.
+     * @param <T> type
+     * @return a permutation of the set that is topologically correctly ordered with respect to {@code dependsOnMap}
+     */
+    private static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final Set<T> set, final Supplier<? extends EnumeratingIterable<T>> complexIterableSupplier) {
+        final EnumeratingIterator<T> iterator;
 
         // try simple
         @Nullable
-        final TopologicalOrderPermutationIterable<T> maybeSimpleIterable = trySimpleIterable(set);
+        final EnumeratingIterable<T> maybeSimpleIterable = trySimpleIterable(set);
         if (maybeSimpleIterable != null) {
             iterator = maybeSimpleIterable.iterator();
         }  else {
             // no simple iterable -> use Kahn's algorithm which is superior to backtracking if we only look for
             // one permutation.
-            iterator = new KahnIterable<>(set, KahnIterable.computeUsedByMap(set, dependsOnFn)).iterator();
+            iterator = complexIterableSupplier.get().iterator();
         }
         if (iterator.hasNext()) {
             return Optional.of(iterator.next());

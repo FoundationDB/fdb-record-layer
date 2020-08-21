@@ -61,7 +61,10 @@ public class MetaDataPlanContext implements PlanContext {
     private final KeyExpression commonPrimaryKey;
     private final int greatestPrimaryKeyWidth;
 
-    public MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull RecordQuery query) {
+    @Nonnull
+    private final Set<MatchCandidate> matchCandidates;
+
+    public MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull RecordQuery query, @Nonnull final Set<MatchCandidate> matchCandidates) {
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.indexes = HashBiMap.create();
@@ -114,12 +117,15 @@ public class MetaDataPlanContext implements PlanContext {
             builder.add(IndexEntrySource.fromIndex(metaData.recordTypesForIndex(index), index));
         }
         indexEntrySources = builder.build();
+
+        this.matchCandidates = ImmutableSet.copyOf(matchCandidates);
     }
 
     private MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull Set<String> recordTypes,
                                 @Nonnull RecordStoreState recordStoreState, @Nonnull BiMap<Index, String> indexes,
                                 @Nonnull ImmutableSet<IndexEntrySource> indexEntrySources,
-                                @Nonnull KeyExpression commonPrimaryKey, int greatestPrimaryKeyWidth) {
+                                @Nonnull KeyExpression commonPrimaryKey, int greatestPrimaryKeyWidth,
+                                @Nonnull final Set<MatchCandidate> matchCandidates) {
         this.metaData = metaData;
         this.recordTypes = recordTypes;
         this.recordStoreState = recordStoreState;
@@ -128,6 +134,7 @@ public class MetaDataPlanContext implements PlanContext {
         this.indexEntrySources = indexEntrySources;
         this.commonPrimaryKey = commonPrimaryKey;
         this.greatestPrimaryKeyWidth = greatestPrimaryKeyWidth;
+        this.matchCandidates = matchCandidates;
     }
 
     @Nullable
@@ -188,6 +195,12 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     public RecordMetaData getMetaData() {
         return metaData;
+    }
+
+    @Nonnull
+    @Override
+    public Set<MatchCandidate> getMatchCandidates() {
+        return matchCandidates;
     }
 
     @Nonnull

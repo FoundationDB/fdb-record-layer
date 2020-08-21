@@ -21,16 +21,19 @@
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.ImmutableNetwork;
+import com.google.common.graph.Network;
 
 import javax.annotation.Nonnull;
 import java.io.PrintWriter;
 import java.io.Writer;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /**
@@ -50,7 +53,6 @@ public abstract class GraphExporter<N, E> {
     @Nonnull private final Map<N, String> vertexIds;
     @Nonnull private final Map<E, String> edgeIds;
     @Nonnull private final ClusterProvider<N, E> clusterProvider;
-    @Nonnull private final ComponentAttributeProvider<N> clusterAttributeProvider;
 
     /**
      * Shorthand-type for the extended functional interface.
@@ -67,11 +69,45 @@ public abstract class GraphExporter<N, E> {
     }
 
     /**
+     * This class represents a cluster with the additional ability to further subdivide the cluster into sub-clusters.
+     * @param <N> node class
+     * @param <E> edge class
+     */
+    public static class Cluster<N, E> {
+        @Nonnull private final ImmutableSet<N> nodes;
+        @Nonnull final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider;
+        @Nonnull private final ClusterProvider<N, E> nestedClusterProvider;
+
+        public Cluster(@Nonnull final Set<N> nodes,
+                       @Nonnull final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider,
+                       @Nonnull final ClusterProvider<N, E> nestedClusterProvider) {
+            this.nodes = ImmutableSet.copyOf(nodes);
+            this.clusterAttributeProvider = clusterAttributeProvider;
+            this.nestedClusterProvider = nestedClusterProvider;
+        }
+
+        @Nonnull
+        public ImmutableSet<N> getNodes() {
+            return nodes;
+        }
+
+        @Nonnull
+        public ComponentAttributeProvider<Cluster<N, E>> getClusterAttributeProvider() {
+            return clusterAttributeProvider;
+        }
+
+        @Nonnull
+        public ClusterProvider<N, E> getNestedClusterProvider() {
+            return nestedClusterProvider;
+        }
+    }
+
+    /**
      * Shorthand-type for the extended functional interface.
      * @param <N> node type of network
      * @param <E> edge type of network
      */
-    public interface ClusterProvider<N, E> extends Function<ImmutableNetwork<N, E>, Map<N, Set<N>>> {
+    public interface ClusterProvider<N, E> extends BiFunction<Network<N, E>, Set<N>, Collection<Cluster<N, E>>> {
     }
 
     /**
@@ -117,15 +153,13 @@ public abstract class GraphExporter<N, E> {
      *        not be written to the file.
      * @param graphAttributes map of global graph-wide attributes
      * @param clusterProvider for partitioning the graph into clusters if warranted
-     * @param clusterAttributeProvider for providing attributes to clusters
      */
     protected GraphExporter(@Nonnull final ComponentIdProvider<N> vertexIDProvider,
                             @Nonnull final ComponentAttributeProvider<N> vertexAttributeProvider,
                             @Nonnull final ComponentIdProvider<E> edgeIDProvider,
                             @Nonnull final ComponentAttributeProvider<E> edgeAttributeProvider,
                             @Nonnull final Map<String, Attribute> graphAttributes,
-                            @Nonnull final ClusterProvider<N, E> clusterProvider,
-                            @Nonnull final ComponentAttributeProvider<N> clusterAttributeProvider) {
+                            @Nonnull final ClusterProvider<N, E> clusterProvider) {
         this.vertexIDProvider = vertexIDProvider;
         this.vertexAttributeProvider = vertexAttributeProvider;
         this.edgeIDProvider = edgeIDProvider;
@@ -134,7 +168,6 @@ public abstract class GraphExporter<N, E> {
         this.vertexIds = new HashMap<>();
         this.edgeIds = new HashMap<>();
         this.clusterProvider = clusterProvider;
-        this.clusterAttributeProvider = clusterAttributeProvider;
     }
 
     @Nonnull
@@ -172,11 +205,6 @@ public abstract class GraphExporter<N, E> {
         return clusterProvider;
     }
 
-    @Nonnull
-    protected ComponentAttributeProvider<N> getClusterAttributeProvider() {
-        return clusterAttributeProvider;
-    }
-
     /**
      * Exports a network in DOT format.
      *
@@ -194,7 +222,7 @@ public abstract class GraphExporter<N, E> {
         renderGraphAttributes(context, graphAttributes);
         renderNodes(context);
         renderEdges(context);
-        renderClusters(context);
+        renderClusters(context, clusterProvider.apply(network, network.nodes()));
         renderFooter(context);
 
         context.getPrintWriter().flush();
@@ -323,36 +351,10 @@ public abstract class GraphExporter<N, E> {
     /**
      * Render all sub clusters in a given network.
      * @param context the context to use
+     * @param clusters the clusters on this level
      */
-    protected void renderClusters(@Nonnull final ExporterContext context) {
-        final ImmutableNetwork<N, E> network = context.getNetwork();
-        // render clusters
-        final Map<N, Set<N>> clusterMap = clusterProvider.apply(network);
-        int i = 1;
-        for (final Entry<N, Set<N>> cluster : clusterMap.entrySet()) {
-            renderCluster(context,
-                    String.valueOf(i),
-                    cluster.getKey(),
-                    cluster.getValue(),
-                    clusterAttributeProvider.apply(cluster.getKey()));
-            i ++;
-        }
-    }
-    
-    /**
-     * Render a sub cluster. To be implemented by subclass.
-     *
-     * @param context the context
-     * @param clusterId id of the cluster, can be used for naming purposes
-     * @param head head node representative of the cluster
-     * @param nodeSet set of nodes making up the cluster
-     * @param attributes the attributes of the sub cluster
-     */
-    protected abstract void renderCluster(@Nonnull ExporterContext context,
-                                          @Nonnull String clusterId,
-                                          @Nonnull N head,
-                                          @Nonnull Set<N> nodeSet,
-                                          @Nonnull Map<String, Attribute> attributes);
+    protected abstract void renderClusters(@Nonnull final ExporterContext context,
+                                           @Nonnull final Collection<Cluster<N, E>> clusters);
 
     /**
      * Render the footer.

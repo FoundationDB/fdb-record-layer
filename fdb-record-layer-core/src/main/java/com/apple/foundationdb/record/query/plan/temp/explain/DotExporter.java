@@ -88,21 +88,18 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
      *        not be written to the file.
      * @param graphAttributes map of global attributes
      * @param clusterProvider for partitioning the graph into clusters if warranted
-     * @param clusterAttributeProvider for providing attributes to clusters
      */
     public DotExporter(@Nonnull final ComponentIdProvider<N> vertexIDProvider,
                        @Nonnull final ComponentAttributeProvider<N> vertexAttributeProvider,
                        @Nonnull final ComponentAttributeProvider<E> edgeAttributeProvider,
                        @Nonnull final Map<String, Attribute> graphAttributes,
-                       @Nonnull final ClusterProvider<N, E> clusterProvider,
-                       @Nonnull final ComponentAttributeProvider<N> clusterAttributeProvider) {
+                       @Nonnull final ClusterProvider<N, E> clusterProvider) {
         super(vertexIDProvider,
                 vertexAttributeProvider,
                 ignored -> null, // dot does not support ids for edges
                 edgeAttributeProvider,
                 graphAttributes,
-                clusterProvider,
-                clusterAttributeProvider);
+                clusterProvider);
     }
 
     /**
@@ -316,18 +313,52 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
-    protected void renderCluster(@Nonnull final ExporterContext context,
-                                 @Nonnull final String clusterId,
-                                 @Nonnull final N head,
-                                 @Nonnull final Set<N> nodeSet,
-                                 @Nonnull final Map<String, Attribute> attributes) {
+    protected void renderClusters(@Nonnull final ExporterContext context, @Nonnull final Collection<Cluster<N, E>> clusters) {
+        renderClusters(context, clusters, "cluster", INDENT);
+    }
+
+    protected void renderClusters(@Nonnull final ExporterContext context, @Nonnull final Collection<Cluster<N, E>> clusters, @Nonnull final String prefix, @Nonnull String indentation) {
+        int i = 1;
+        for (final Cluster<N, E> cluster : clusters) {
+            final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider = cluster.getClusterAttributeProvider();
+            renderCluster(context,
+                    prefix + "_" + i,
+                    cluster,
+                    clusterAttributeProvider.apply(cluster),
+                    indentation);
+            i ++;
+        }
+    }
+
+    /**
+     * Render a sub cluster. To be implemented by subclass.
+     *
+     * @param context the context
+     * @param clusterId id of the cluster, can be used for naming purposes
+     * @param cluster the cluster to be serialized
+     * @param attributes the attributes of the sub cluster
+     * @param indentation indentation
+     */
+    protected void renderCluster(@Nonnull ExporterContext context,
+                                 @Nonnull String clusterId,
+                                 @Nonnull Cluster<N, E> cluster,
+                                 @Nonnull Map<String, Attribute> attributes,
+                                 @Nonnull String indentation) {
         final PrintWriter out = context.getPrintWriter();
-        out.print(INDENT);
-        out.print("subgraph cluster_" + clusterId + " { ");
+        out.print(indentation);
+        out.print("subgraph " + clusterId + " { ");
 
         renderClusterAttributes(context, attributes);
-        for (final N n : nodeSet) {
+        for (final N n : cluster.getNodes()) {
             out.print(getVertexID(n) + "; ");
+        }
+
+        final ClusterProvider<N, E> nestedClusterProvider = cluster.getNestedClusterProvider();
+        final Collection<Cluster<N, E>> nestedClusters = nestedClusterProvider.apply(context.getNetwork(), cluster.getNodes());
+        if (!nestedClusters.isEmpty()) {
+            out.println();
+            renderClusters(context, nestedClusters, clusterId, indentation + INDENT);
+            out.print(indentation);
         }
         out.println("}");
     }

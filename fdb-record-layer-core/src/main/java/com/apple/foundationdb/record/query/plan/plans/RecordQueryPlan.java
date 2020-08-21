@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
@@ -38,15 +37,12 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * An executable query plan for producing records.
@@ -181,7 +177,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      */
     @API(API.Status.EXPERIMENTAL)
     default boolean structuralEquals(@Nullable final Object other) {
-        return structuralEquals(other, AliasMap.empty());
+        return structuralEquals(other, AliasMap.emptyMap());
     }
 
     /**
@@ -222,37 +218,17 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
             return false;
         }
 
-        final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
-        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
-
-        Sets.SetView<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, equivalenceMap.sources());
-        Sets.SetView<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, equivalenceMap.targets());
-
-        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(unboundCorrelatedTo, unboundOtherCorrelatedTo);
-        final AliasMap identitiesMap = AliasMap.identitiesFor(commonUnbound);
-        unboundCorrelatedTo = Sets.difference(correlatedTo, commonUnbound);
-        unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, commonUnbound);
-
         final Iterable<AliasMap> boundCorrelatedReferencesIterable =
-                AliasMap.empty()
-                        .match(unboundCorrelatedTo,
-                                alias -> ImmutableSet.of(),
-                                unboundOtherCorrelatedTo,
-                                otherAlias -> ImmutableSet.of(),
-                                false,
-                                (alias, otherAlias, nestedEquivalencesMap) -> true);
+                enumerateUnboundCorrelatedTo(equivalenceMap, otherExpression);
 
         for (final AliasMap boundCorrelatedReferencesMap : boundCorrelatedReferencesIterable) {
-            final AliasMap.Builder boundEquivalenceMapBuilder = equivalenceMap.derived();
+            final AliasMap.Builder boundCorrelatedToBuilder = boundCorrelatedReferencesMap.derived();
 
-            boundEquivalenceMapBuilder.putAll(identitiesMap);
-            boundEquivalenceMapBuilder.putAll(boundCorrelatedReferencesMap);
-
-            AliasMap boundEquivalenceMap = AliasMap.empty();
+            AliasMap boundCorrelatedToMap = AliasMap.emptyMap();
 
             int i;
             for (i = 0; i < quantifiers.size(); i++) {
-                boundEquivalenceMap = boundEquivalenceMapBuilder.build();
+                boundCorrelatedToMap = boundCorrelatedToBuilder.build();
 
                 final Quantifier.Physical quantifier = quantifiers.get(i);
                 final Quantifier.Physical otherQuantifier = otherQuantifiers.get(i);
@@ -266,11 +242,11 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                 }
 
                 if (canCorrelate()) {
-                    boundEquivalenceMapBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
+                    boundCorrelatedToBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
                 }
             }
                 
-            if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundEquivalenceMap))) {
+            if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundCorrelatedToMap))) {
                 return true;
             }
         }

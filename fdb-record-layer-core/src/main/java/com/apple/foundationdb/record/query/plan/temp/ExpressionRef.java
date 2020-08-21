@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -101,6 +102,32 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable,
                               @Nonnull AliasMap equivalenceMap);
 
     RelationalExpressionPointerSet<T> getMembers();
+
+    /**
+     * Return all match candidates that partially match this reference. This set must be a subset of all {@link MatchCandidate}s
+     * in the {@link PlanContext} during planning. Note that it is possible that a particular match candidate matches this
+     * reference more than once.
+     * @return a set of match candidates that partially match this reference.
+     */
+    @Nonnull
+    Set<MatchCandidate> getMatchCandidates();
+
+    /**
+     * Return all partial matches for the {@link MatchCandidate} passed in.
+     * @param candidate match candidate
+     * @return a set of partial matches for {@code candidate}
+     */
+    @Nonnull
+    Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate);
+
+    /**
+     * Add the {@link PartialMatch}es passed in to this reference for the {@link MatchCandidate} passed in.
+     * @param candidate match candidate this partial match relates to
+     * @param partialMatches a set of partial matches.
+     * @return {@code true} if this call added new partial matches, {@code false} if all partial matches were already
+     *         contained in this reference
+     */
+    boolean addAllPartialMatchesForCandidate(final MatchCandidate candidate, final Iterable<PartialMatch> partialMatches);
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

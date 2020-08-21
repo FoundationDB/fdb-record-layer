@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Set;
@@ -86,6 +88,7 @@ import java.util.Set;
  *
  * @param <S> self type of this. Needed for rebasing to a proper constrained at-least type
  */
+@API(API.Status.EXPERIMENTAL)
 public interface Correlated<S extends Correlated<S>> {
     /**
      * Returns the set of {@link CorrelationIdentifier}s this entity is correlated to.
@@ -138,14 +141,14 @@ public interface Correlated<S extends Correlated<S>> {
      *       {@code e1.equals(e2, ...) => e1.hashCode() == e2.hashCode()}
      *
      * @param other the other object to establish equality with
-     * @param equivalenceMap a map of {@link CorrelationIdentifier}s {@code ids} to {@code ids'}. A correlation
+     * @param aliasMap a map of {@link CorrelationIdentifier}s {@code ids} to {@code ids'}. A correlation
      *        identifier {@code id} used in {@code this} should be considered equal to another correlation identifier
      *        {@code id'} used in {@code other} if either they are the same by {@link Object#equals}
      *        of if there is a mapping from {@code id} to {@code id'}.
      * @return {@code true} if both entities are considered equal using the equivalences passed in, {@code false}
      *         otherwise
      */
-    boolean resultEquals(@Nullable Object other, @Nonnull AliasMap equivalenceMap);
+    boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap);
 
     /**
      * Return a semantic hash code for this object. The hash code must obey the convention that for any two objects

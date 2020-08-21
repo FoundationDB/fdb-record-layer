@@ -27,6 +27,10 @@ if (!hasProperty('coreNotStrict')) {
     apply from: rootProject.file('gradle/strict.gradle')
 }
 
+configurations {
+    repl.extendsFrom testRuntime
+}
+
 dependencies {
     compile project(':fdb-extensions')
 
@@ -48,10 +52,13 @@ dependencies {
     testRuntime "org.apache.logging.log4j:log4j-slf4j-impl:${log4jVersion}" // binding
     testCompile "org.apache.logging.log4j:log4j-core:${log4jVersion}" // library
 
-    testImplementation "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
+    testCompile "org.junit.jupiter:junit-jupiter-api:${junitVersion}"
     testCompile "org.junit.jupiter:junit-jupiter-params:${junitVersion}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
     testAnnotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
+    testCompile "org.jline:jline:${jlineVersion}"
+    testCompile "org.junit.platform:junit-platform-launcher:${junitPlatformVersion}"
+    repl "org.junit.jupiter:junit-jupiter-engine:${junitVersion}"
 }
 
 sourceSets {
@@ -116,6 +123,18 @@ task testShadowJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     }
     mergeServiceFiles()
     exclude 'log4j.properties'
+}
+
+task replJar(type: com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar) {
+    classifier = 'repl'
+    from sourceSets.main.output
+    from sourceSets.test.output
+    configurations = [ project.configurations.repl ]
+    manifest {
+        inheritFrom project.tasks.jar.manifest
+        attributes 'Main-Class': 'com.apple.foundationdb.record.query.plan.debug.ReplRunner'
+    }
+    mergeServiceFiles()
 }
 
 publishing {
