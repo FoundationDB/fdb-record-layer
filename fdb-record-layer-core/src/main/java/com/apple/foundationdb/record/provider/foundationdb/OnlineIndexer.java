@@ -1025,8 +1025,10 @@ public class OnlineIndexer implements AutoCloseable {
         boolean isIdempotent = store.getIndexMaintainer(index).isIdempotent();
         final IsolationLevel isolationLevel =
                 isIdempotent ?
-                // if idempotent: since double indexing is harmless, we can skip the range conflict protection. At worse,
-                // some records will be re-indexed.
+                // If idempotent: since double indexing is harmless, we can use individual records protection instead of
+                // a range conflict one - which means that new records, added to the range while indexing the SNAPSHOT,
+                // will not cause a conflict during the commit. At worse, few records (if added after marking WRITE_ONLY but
+                // before this method's query) will be re-indexed.
                 IsolationLevel.SNAPSHOT :
                 IsolationLevel.SERIALIZABLE;
         final ExecuteProperties limit1 = ExecuteProperties.newBuilder()
