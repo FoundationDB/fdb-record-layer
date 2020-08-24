@@ -126,7 +126,7 @@ public class OnlineIndexer implements AutoCloseable {
     /**
      * Default number of records to attempt to run in a single transaction.
      */
-    public static final int DEFAULT_LIMIT = 100;
+    public static final int DEFAULT_REC_NUM_LIMIT = 800;
     /**
      * Default transaction write size limit. Note that the actual write might be "a little" bigger.
      */
@@ -1546,7 +1546,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         @API(API.Status.UNSTABLE)
         public static class Builder {
-            private int maxLimit = DEFAULT_LIMIT;
+            private int maxLimit = DEFAULT_REC_NUM_LIMIT;
             private int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
             private int maxRetries = DEFAULT_MAX_RETRIES;
             private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
@@ -1560,7 +1560,7 @@ public class OnlineIndexer implements AutoCloseable {
             /**
              * Set the maximum number of records to process in one transaction.
              *
-             * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
+             * The default limit is {@link #DEFAULT_REC_NUM_LIMIT} = {@value #DEFAULT_REC_NUM_LIMIT}.
              * @param limit the maximum number of records to process in one transaction
              * @return this builder
              */
@@ -1673,7 +1673,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         @Nonnull
         protected Function<Config, Config> configLoader = old -> old;
-        protected int limit = DEFAULT_LIMIT;
+        protected int limit = DEFAULT_REC_NUM_LIMIT;
         protected int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
         protected int maxRetries = DEFAULT_MAX_RETRIES;
         protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
@@ -1857,7 +1857,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set the maximum number of records to process in one transaction.
          *
-         * The default limit is {@link #DEFAULT_LIMIT} = {@value #DEFAULT_LIMIT}.
+         * The default limit is {@link #DEFAULT_REC_NUM_LIMIT} = {@value #DEFAULT_REC_NUM_LIMIT}.
          * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param limit the maximum number of records to process in one transaction
