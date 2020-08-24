@@ -538,8 +538,12 @@ public class OnlineIndexer implements AutoCloseable {
             throw new MetaDataException("Store does not have the same metadata");
         }
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final boolean isIdempotent = maintainer.isIdempotent();
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SERIALIZABLE);
+                .setIsolationLevel(
+                        isIdempotent ?
+                        IsolationLevel.SNAPSHOT :
+                        IsolationLevel.SERIALIZABLE);
         if (respectLimit) {
             executeProperties.setReturnedRowLimit(limit);
         }
@@ -588,6 +592,9 @@ public class OnlineIndexer implements AutoCloseable {
                 return AsyncUtil.READY_TRUE;
             }
             // add this index to the transaction
+            if (isIdempotent) {
+                store.addRecordReadConflict(rec.getPrimaryKey());
+            }
             if (timer != null) {
                 timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
             }
@@ -1015,11 +1022,21 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private CompletableFuture<TupleRange> buildEndpoints(@Nonnull FDBRecordStore store, @Nonnull RangeSet rangeSet,
                                                          @Nullable AtomicLong recordsScanned) {
+        boolean isIdempotent = store.getIndexMaintainer(index).isIdempotent();
+        final IsolationLevel isolationLevel =
+                isIdempotent ?
+                // If idempotent: since double indexing is harmless, we can use individual records protection instead of
+                // a range conflict one - which means that new records, added to the range while indexing the SNAPSHOT,
+                // will not cause a conflict during the commit. At worse, few records (if added after marking WRITE_ONLY but
+                // before this method's query) will be re-indexed.
+                IsolationLevel.SNAPSHOT :
+                IsolationLevel.SERIALIZABLE;
         final ExecuteProperties limit1 = ExecuteProperties.newBuilder()
                 .setReturnedRowLimit(1)
-                .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                .setIsolationLevel(isolationLevel)
                 .build();
         final ScanProperties forward = new ScanProperties(limit1);
+
         RecordCursor<FDBStoredRecord<Message>> beginCursor = store.scanRecords(recordsRange, null, forward);
         CompletableFuture<Tuple> begin = beginCursor.onNext().thenCompose(result -> {
             if (result.hasNext()) {
