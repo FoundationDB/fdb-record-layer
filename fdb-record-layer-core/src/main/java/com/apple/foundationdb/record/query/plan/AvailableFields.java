@@ -193,7 +193,7 @@ public class AvailableFields {
     }
 
     /**
-     * A pair of a representing a tuple source (key or value) and an index within that tuple source.
+     * A pair of a tuple source (key or value) and an index within that tuple source.
      */
     @API(API.Status.INTERNAL)
     public static class FieldData {
