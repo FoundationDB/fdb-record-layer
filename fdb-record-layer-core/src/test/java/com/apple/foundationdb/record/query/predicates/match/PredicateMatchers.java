@@ -65,7 +65,7 @@ public class PredicateMatchers {
     }
 
     public static Matcher<QueryPredicate> equivalentTo(@Nonnull QueryComponent component) {
-        return Matchers.equalTo(component.normalizeForPlanner(BlankSource.INSTANCE));
+        return Matchers.equalTo(component.normalizeForPlannerOld(BlankSource.INSTANCE));
     }
 
     /**

@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -87,12 +89,12 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
     }
 
     @Nonnull
-    protected List<QueryPredicate> normalizeChildrenForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    protected List<QueryPredicate> normalizeChildrenForPlannerOld(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
         ImmutableList.Builder<QueryPredicate> children = ImmutableList.builder();
 
         // Maybe do with refs instead?
         for (QueryComponent child : getChildren()) {
-            children.add(child.normalizeForPlanner(rootSource, fieldNamePrefix));
+            children.add(child.normalizeForPlannerOld(rootSource, fieldNamePrefix));
         }
         return children.build();
     }

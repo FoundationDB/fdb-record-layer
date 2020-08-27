@@ -170,7 +170,7 @@ public class KeyComparisonsTest {
         intKeys.add(Key.Evaluated.NULL);
         testKeyComparator(intKeys);
 
-        // Type 2: Int-Strings
+        // Type 2: KeyExpressionWithValue-Strings
         List<Key.Evaluated> intStringKeys = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             intStringKeys.add(Key.Evaluated.concatenate(r.nextInt(5), randomString(r)));
@@ -178,7 +178,7 @@ public class KeyComparisonsTest {
         intStringKeys.add(Key.Evaluated.NULL);
         testKeyComparator(intStringKeys);
 
-        // Type 3: Int-String lists
+        // Type 3: KeyExpressionWithValue-String lists
         List<Key.Evaluated> intStringListKeys = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             int length = (int)(Math.abs(r.nextGaussian() + 0.2) * 10);
@@ -196,7 +196,7 @@ public class KeyComparisonsTest {
         intStringListKeys.add(Key.Evaluated.NULL);
         testKeyComparator(intStringListKeys);
 
-        // Type 4: Int-Byte arrays
+        // Type 4: KeyExpressionWithValue-Byte arrays
         List<Key.Evaluated> intByteArraysKeys = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             int length = (int)(Math.abs(r.nextGaussian() + 0.2) * 10);

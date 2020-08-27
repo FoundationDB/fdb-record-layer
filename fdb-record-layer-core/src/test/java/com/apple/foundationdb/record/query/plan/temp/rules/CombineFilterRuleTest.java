@@ -60,7 +60,7 @@ public class CombineFilterRuleTest {
         final Quantifier.ForEach innerQuantifier = Quantifier.forEach(GroupExpressionRef.of(inner));
         return new LogicalFilterExpression(
                 baseSource,
-                queryComponent.normalizeForPlanner(baseSource),
+                queryComponent.normalizeForPlannerOld(baseSource),
                 innerQuantifier);
     }
 

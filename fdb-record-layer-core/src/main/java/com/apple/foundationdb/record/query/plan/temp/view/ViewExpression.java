@@ -23,6 +23,9 @@ package com.apple.foundationdb.record.query.plan.temp.view;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -98,20 +101,20 @@ public class ViewExpression {
                 builder.addRecordType(recordType);
             }
 
-            final KeyExpression normalizedForPlanner = rootExpression.normalizeForPlanner(builder.buildBaseSource(),
+            final KeyExpression normalizedForPlanner = rootExpression.normalizeForPlannerOld(builder.buildBaseSource(),
                     Collections.emptyList());
 
             if (normalizedForPlanner instanceof KeyWithValueExpression) { // Handle covering indexes.
                 final KeyWithValueExpression keyWithValueExpression = (KeyWithValueExpression) normalizedForPlanner;
                 keyWithValueExpression.getKeyExpression()
-                        .flattenForPlanner()
+                        .flattenForPlannerOld()
                         .forEach(builder::addTupleElement);
                 keyWithValueExpression.getValueExpression()
-                        .flattenForPlanner()
+                        .flattenForPlannerOld()
                         .forEach(builder::addSelectElement);
                 // TODO add other branches to handle other special cases, such as grouping key expressions.
             } else {
-                normalizedForPlanner.flattenForPlanner().forEach(builder::addTupleElement);
+                normalizedForPlanner.flattenForPlannerOld().forEach(builder::addTupleElement);
             }
         }
 
@@ -173,6 +176,12 @@ public class ViewExpression {
         public Source buildBaseSource() {
             rootSource = new RecordTypeSource(recordTypeNames.build());
             return rootSource;
+        }
+
+        @Nonnull
+        public Quantifier buildBase() {
+            return Quantifier.forEach(GroupExpressionRef.of(
+                    new FullUnorderedScanExpression(recordTypeNames.build())));
         }
 
         public Builder addRecordType(@Nonnull String recordTypeName) {

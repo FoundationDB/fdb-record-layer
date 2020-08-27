@@ -43,7 +43,7 @@ import javax.annotation.Nonnull;
  * <p>
  * Note that this matcher must store a {@link QueryComponent} rather than a {@link QueryPredicate} or
  * {@code Matcher<QueryComponent>} because it must be able to convert it to an equivalent {@code QueryPredicate} using
- * the {@link QueryComponent#normalizeForPlanner(Source, java.util.List)} method.
+ * the {@link QueryComponent#normalizeForPlannerOld(Source, java.util.List)} method.
  * </p>
  */
 public class FilterMatcherWithComponent extends PlanMatcherWithChild {
@@ -61,7 +61,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
             return component.equals(((RecordQueryFilterPlan)plan).getFilter()) && super.matchesSafely(plan);
         } else if (plan instanceof RecordQueryPredicateFilterPlan) {
             QueryPredicate predicate = ((RecordQueryPredicateFilterPlan)plan).getPredicate();
-            return predicate.equals(component.normalizeForPlanner(((RecordQueryPredicateFilterPlan)plan).getBaseSource()))
+            return predicate.equals(component.normalizeForPlannerOld(((RecordQueryPredicateFilterPlan)plan).getBaseSource()))
                     && super.matchesSafely(plan);
         } else {
             return false;

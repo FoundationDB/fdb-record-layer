@@ -26,8 +26,11 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -185,7 +188,15 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public List<Element> flattenForPlanner() {
+    public List<Element> flattenForPlannerOld() {
+        return children.stream()
+                .flatMap(k -> k.flattenForPlannerOld().stream())
+                .collect(Collectors.toList());
+    }
+
+    @Nonnull
+    @Override
+    public List<Value> flattenForPlanner() {
         return children.stream()
                 .flatMap(k -> k.flattenForPlanner().stream())
                 .collect(Collectors.toList());
@@ -193,12 +204,22 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
         for (KeyExpression child : children) {
-            normalizedChildren.add(child.normalizeForPlanner(source, fieldNamePrefix));
+            normalizedChildren.add(child.normalizeForPlannerOld(source, fieldNamePrefix));
         }
         return new ThenKeyExpression(normalizedChildren.build());
+    }
+
+    @Nonnull
+    @Override
+    public List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+        final ImmutableList.Builder<ValueComparisonRangePredicate> normalizedChildren = ImmutableList.builder();
+        for (KeyExpression child : children) {
+            normalizedChildren.addAll(child.normalizeForPlanner(baseBuilder, fieldNamePrefix));
+        }
+        return normalizedChildren.build();
     }
 
     @Nonnull

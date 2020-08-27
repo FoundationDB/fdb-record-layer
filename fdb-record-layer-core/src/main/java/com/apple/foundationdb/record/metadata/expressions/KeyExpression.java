@@ -26,8 +26,11 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -197,12 +200,12 @@ public interface KeyExpression extends PlanHashable {
      * By default, this method throws an exception because most key expressions cannot be flattened to a list of
      * elements without prior adjustment. This method is only overriden by key expressions that can be flattened.
      * @return a list of elements representing this key expression in unnested form
-     * @see ElementKeyExpression#flattenForPlanner()
-     * @see ThenKeyExpression#flattenForPlanner()
+     * @see ElementKeyExpression#flattenForPlannerOld()
+     * @see ThenKeyExpression#flattenForPlannerOld()
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    default List<Element> flattenForPlanner() {
+    default List<Element> flattenForPlannerOld() {
         throw new RecordCoreException("illegal non-element expression");
     }
 
@@ -229,7 +232,30 @@ public interface KeyExpression extends PlanHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+    KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    default List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull SelectExpression.Builder baseBuilder) {
+        return normalizeForPlanner(baseBuilder, Collections.emptyList());
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull SelectExpression.Builder baseBuilder, @Nonnull List<String> fieldNamePrefix);
+
+    /**
+     * Flatten this key expression into a list of {@link Value}s, much like {@link #normalizeKeyForPositions()}.
+     * By default, this method throws an exception because most key expressions cannot be flattened to a list of
+     * elements without prior adjustment. This method is only overriden by key expressions that can be flattened.
+     * @return a list of elements representing this key expression in unnested form
+     * @see ThenKeyExpression#flattenForPlanner()
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    default List<Value> flattenForPlanner() {
+        throw new RecordCoreException("illegal non-value expression");
+    }
 
     /**
      * Return the key fields for an expression.

@@ -25,8 +25,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -40,10 +42,10 @@ import java.util.List;
  *
  * <p>
  * This key expression is only used in the "planner normalized" key expressions produced by
- * {@link KeyExpression#normalizeForPlanner(Source, List)} and is meant to make it easy for methods such as
+ * {@link KeyExpression#normalizeForPlannerOld(Source, List)} and is meant to make it easy for methods such as
  * {@link com.apple.foundationdb.record.query.plan.temp.view.ViewExpression#fromIndexDefinition}
  * to interpret a key expression without dealing with complex rules for nesting and fan-out.
- * @see KeyExpression#normalizeForPlanner(Source, List)
+ * @see KeyExpression#normalizeForPlannerOld(Source, List)
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
@@ -62,13 +64,19 @@ public class ElementKeyExpression extends BaseKeyExpression implements KeyExpres
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         throw new RecordCoreException("element key expression is already normalized");
     }
 
     @Nonnull
     @Override
-    public List<Element> flattenForPlanner() {
+    public List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+        throw new RecordCoreException("element key expression is already normalized");
+    }
+
+    @Nonnull
+    @Override
+    public List<Element> flattenForPlannerOld() {
         return Collections.singletonList(element);
     }
 

@@ -174,6 +174,13 @@ public class AliasMap {
         return map.containsValue(alias);
     }
 
+    public CorrelationIdentifier translate(@Nonnull CorrelationIdentifier alias) {
+        if (map.containsKey(alias)) {
+            return map.get(alias);
+        }
+        return alias;
+    }
+
     /**
      * Returns the set of {@link CorrelationIdentifier}s that are mapped by this {@code AliasMap}.
      * @return a set of {@link CorrelationIdentifier}s that this map contains mappings for.
@@ -228,6 +235,10 @@ public class AliasMap {
             }
         });
         return builder.build();
+    }
+
+    public boolean identifiesCorrelations(@Nonnull CorrelationIdentifier alias1, @Nonnull CorrelationIdentifier alias2) {
+        return translate(alias1).equals(translate(alias2));
     }
 
     /**
