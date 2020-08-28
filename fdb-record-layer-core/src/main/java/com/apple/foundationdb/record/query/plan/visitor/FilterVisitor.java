@@ -1,0 +1,116 @@
+/*
+ * FilterVisitor.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.plan.visitor;
+
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.query.expressions.AndOrComponent;
+import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.HashSet;
+import java.util.Set;
+
+/**
+ * A substitution visitor that pushes a filter below a record fetch if all of the (non-repeated) field are available
+ * in a covering scan.
+ */
+public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
+    public FilterVisitor(@Nonnull final RecordMetaData recordMetadata, @Nonnull final PlannableIndexTypes indexTypes, @Nullable final KeyExpression commonPrimaryKey) {
+        super(recordMetadata, indexTypes, commonPrimaryKey);
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
+        if (recordQueryPlan instanceof RecordQueryFilterPlan) {
+            final RecordQueryFilterPlan filterPlan = (RecordQueryFilterPlan)recordQueryPlan;
+            final QueryComponent filter = filterPlan.getFilter();
+            final Set<KeyExpression> filterFields = new HashSet<>();
+            boolean canCollectFilterFields = findFilterCoveredFields(filter, filterFields);
+
+            if (canCollectFilterFields) {
+                @Nullable RecordQueryPlan newPlan = removeIndexFetch(filterPlan.getChild(), filterFields);
+                if (newPlan != null) {
+                    return new RecordQueryFetchFromPartialRecordPlan(new RecordQueryFilterPlan(newPlan, filter));
+                }
+            }
+        }
+        return recordQueryPlan;
+    }
+
+    // Find equivalent key expressions for fields used by the given filter.
+    // Does not attempt to deal with OneOfThemWithComponent, as the repeated nested field will be spread across multiple
+    // index entries. Reconstituting that as a singleton in a partial record might work for the simplest case, but
+    // could not for multiple such filter conditions.
+    private static boolean findFilterCoveredFields(@Nonnull QueryComponent filter, @Nonnull Set<KeyExpression> filterFields) {
+        if (filter instanceof FieldWithComparison) {
+            filterFields.add(Key.Expressions.field(((FieldWithComparison)filter).getFieldName()));
+            return true;
+        }
+        if (filter instanceof AndOrComponent) {
+            for (QueryComponent child : ((AndOrComponent)filter).getChildren()) {
+                if (!findFilterCoveredFields(child, filterFields)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (filter instanceof QueryKeyExpressionWithComparison) {
+            final QueryableKeyExpression keyExpression = ((QueryKeyExpressionWithComparison)filter).getKeyExpression();
+            return findFilterCoveredFields(keyExpression, filterFields);
+        }
+        return false;
+    }
+
+    private static boolean findFilterCoveredFields(@Nonnull KeyExpression expression, @Nonnull Set<KeyExpression> filterFields) {
+        if (expression instanceof ThenKeyExpression) {
+            for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
+                if (!findFilterCoveredFields(child, filterFields)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        // TODO: This isn't quite optimal, since an index might just as well have f(x) as a indexed field as x itself.
+        //   But that isn't expressible with the current partial record implementation.
+        if (expression instanceof FunctionKeyExpression) {
+            return findFilterCoveredFields(((FunctionKeyExpression)expression).getArguments(), filterFields);
+        }
+        if (expression instanceof LiteralKeyExpression) {
+            return true;
+        }
+        filterFields.add(expression);
+        return true;
+    }
+}

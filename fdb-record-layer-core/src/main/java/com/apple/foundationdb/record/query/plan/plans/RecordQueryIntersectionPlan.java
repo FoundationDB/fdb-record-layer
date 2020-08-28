@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.IntersectionCursor;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -202,8 +203,16 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
                comparisonKey.equals(other.comparisonKey);
     }
 
-    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Nonnull
     @Override
+    public AvailableFields getAvailableFields() {
+        return AvailableFields.intersection(quantifiers.stream()
+                .map(child -> child.getRangesOverPlan().getAvailableFields())
+                .collect(Collectors.toList()));
+    }
+
+    @Override
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(final Object other) {
         return structuralEquals(other);
     }

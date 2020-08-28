@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
@@ -133,6 +134,12 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     @Override
     public int getComplexity() {
         return 1;
+    }
+
+    @Nonnull
+    @Override
+    public AvailableFields getAvailableFields() {
+        return AvailableFields.ALL_FIELDS;
     }
 
     @Nonnull

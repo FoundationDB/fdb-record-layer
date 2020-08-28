@@ -35,8 +35,11 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
@@ -45,6 +48,7 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
@@ -126,6 +130,43 @@ public class FDBFullTextQueryTest extends FDBRecordStoreQueryTestBase {
             } else {
                 assertLoadRecord(8, context);
             }
+        }
+    }
+
+    @Test
+    public void fullTextCovering() throws Exception {
+        final List<TestRecordsTextProto.SimpleDocument> documents = TextIndexTestUtils.toSimpleDocuments(Arrays.asList(
+                TextSamples.ANGSTROM,
+                TextSamples.AETHELRED,
+                TextSamples.ROMEO_AND_JULIET_PROLOGUE,
+                TextSamples.FRENCH
+        ));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            documents.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.field("text").text().contains("civil"))
+                    .setRequiredResults(ImmutableList.of(field("text")))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            // No covering index scan
+            assertThat(plan, textIndexScan(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME)));
+
+            Descriptors.FieldDescriptor textFieldDescriptor = recordStore.getRecordMetaData()
+                    .getRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .getDescriptor()
+                    .findFieldByName("text");
+            List<String> texts = recordStore.executeQuery(plan).map(FDBQueriedRecord::getRecord)
+                    .map(record -> (String) record.getField(textFieldDescriptor)).asList().get();
+            assertEquals(ImmutableList.of(TextSamples.ROMEO_AND_JULIET_PROLOGUE), texts);
         }
     }
 }

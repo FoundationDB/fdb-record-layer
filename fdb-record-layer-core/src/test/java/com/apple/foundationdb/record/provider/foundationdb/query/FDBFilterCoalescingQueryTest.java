@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
@@ -64,7 +65,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  */
 @Tag(Tags.RequiresFDB)
 public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
-
     /**
      * Validate that a query for all values within a given range on an indexed field will be coalesced
      * into a single query on that field.
@@ -168,8 +168,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, descendant(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]"))))));
-        assertEquals(-109457345, plan.planHash());
+        assertThat(plan, descendant(coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))))));
+        assertEquals(-766201402, plan.planHash());
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

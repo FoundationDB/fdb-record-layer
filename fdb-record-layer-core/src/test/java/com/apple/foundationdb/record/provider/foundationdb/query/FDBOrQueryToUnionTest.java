@@ -25,12 +25,14 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
@@ -40,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubsti
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
@@ -1092,7 +1095,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
                 primaryKey("MySimpleRecord"), true);
 
-        RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan1, recordStore.getRecordMetaData(), primaryKey("MySimpleRecord"));
+        RecordQueryPlan modifiedPlan1 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan1, recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         assertThat(modifiedPlan1, fetch(union(
                 coveringIndexScan(indexScan("MySimpleRecord$str_value_indexed")), coveringIndexScan(indexScan("MySimpleRecord$num_value_3_indexed")))));
 
@@ -1100,8 +1103,38 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
                 new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
                 concat(field("num_value_2"), primaryKey("MySimpleRecord")), true);
-        RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan2, recordStore.getRecordMetaData(), primaryKey("MySimpleRecord"));
+        RecordQueryPlan modifiedPlan2 = RecordQueryPlannerSubstitutionVisitor.applyVisitors(originalPlan2,  recordStore.getRecordMetaData(), PlannableIndexTypes.DEFAULT, primaryKey("MySimpleRecord"));
         // Visitor should not perform transformation because of comparison key on num_value_unique
         assertEquals(originalPlan2, modifiedPlan2);
+    }
+
+    @Test
+    public void deferFetchOnUnionWithInnerFilter() throws Exception {
+        complexQuerySetup(metaData -> {
+            // We don't prefer covering indexes over other indexes yet.
+            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+            metaData.addIndex("MySimpleRecord", "coveringIndex", new KeyWithValueExpression(concat(field("num_value_2"), field("num_value_3_indexed")), 1));
+        });
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("str_value_indexed").startsWith("foo"),
+                        Query.and(
+                                Query.field("num_value_2").greaterThanOrEquals(2),
+                                Query.field("num_value_2").lessThanOrEquals(4)),
+                        Query.and(
+                                Query.field("num_value_3_indexed").lessThanOrEquals(18),
+                                Query.field("num_value_2").greaterThanOrEquals(26))
+                        ))
+                .build();
+        setDeferFetchAfterUnionAndIntersection(true);
+        RecordQueryPlan plan = planner.plan(query);
+
+        assertThat(plan, fetch(primaryKeyDistinct(unorderedUnion(ImmutableList.of(
+                coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("{[foo],[foo]}"))))),
+                coveringIndexScan(indexScan(allOf(indexName("coveringIndex"), bounds(hasTupleString("[[2],[4]]"))))),
+                filter(Query.field("num_value_3_indexed").lessThanOrEquals(18),
+                        coveringIndexScan(indexScan(allOf(indexName("coveringIndex"), bounds(hasTupleString("[[26],>")))))))))));
     }
 }

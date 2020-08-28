@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -69,5 +70,11 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     @Override
     default boolean hasLoadBykeys() {
         return getChild().hasLoadBykeys();
+    }
+
+    @Nonnull
+    @Override
+    default AvailableFields getAvailableFields() {
+        return getChild().getAvailableFields();
     }
 }

@@ -33,14 +33,11 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
-import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
@@ -48,7 +45,6 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowRecordFunction;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
-import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
@@ -70,18 +66,18 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
+import com.apple.foundationdb.record.query.plan.visitor.UnorderedPrimaryKeyDistinctVisitor;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -264,9 +260,6 @@ public class RecordQueryPlanner implements QueryPlanner {
                 throw new RecordCoreException("Cannot sort without appropriate index: " + sort);
             }
         }
-        if (query.getRequiredResults() != null) {
-            plan = tryToConvertToCoveringPlan(planContext, plan);
-        }
 
         if (timer != null) {
             plan.logPlanStructure(timer);
@@ -281,8 +274,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                     "explain", PlannerGraphProperty.explain(plan)));
         }
         if (configuration.shouldDeferFetchAfterUnionAndIntersection()) {
-            return RecordQueryPlannerSubstitutionVisitor.applyVisitors(plan, metaData, planContext.commonPrimaryKey);
+            plan = RecordQueryPlannerSubstitutionVisitor.applyVisitors(plan, metaData, indexTypes, planContext.commonPrimaryKey);
+        } else {
+            // Always do filter pushdown
+            plan = plan.accept(new FilterVisitor(metaData, indexTypes, planContext.commonPrimaryKey));
         }
+        if (query.getRequiredResults() != null) {
+            plan = tryToConvertToCoveringPlan(planContext, plan);
+        }
+
         return plan;
     }
 
@@ -1404,149 +1404,22 @@ public class RecordQueryPlanner implements QueryPlanner {
     @Nonnull
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     private RecordQueryPlan tryToConvertToCoveringPlan(@Nonnull PlanContext planContext, @Nonnull RecordQueryPlan chosenPlan) {
-        if (chosenPlan instanceof RecordQueryPlanWithIndex) {
-            // Check if the index scan covers, then convert it to a covering plan.
-            return tryToConvertToCoveringPlan(planContext, (RecordQueryPlanWithIndex) chosenPlan, null);
-        } else if (chosenPlan instanceof RecordQueryUnorderedPrimaryKeyDistinctPlan) {
-            // If possible, push down the covering index transformation so that
-            // it happens before checking for distinct primary keys
-            final RecordQueryUnorderedPrimaryKeyDistinctPlan distinctPlan = (RecordQueryUnorderedPrimaryKeyDistinctPlan) chosenPlan;
-            if (distinctPlan.getChild() instanceof RecordQueryPlanWithIndex) {
-                final RecordQueryPlan newChildPlan = tryToConvertToCoveringPlan(planContext, (RecordQueryPlanWithIndex) distinctPlan.getChild(), null);
-                if (newChildPlan != distinctPlan.getChild()) {
-                    return new RecordQueryUnorderedPrimaryKeyDistinctPlan(newChildPlan);
-                }
-            }
-        } else if (chosenPlan instanceof RecordQueryFilterPlan) {
-            final RecordQueryFilterPlan filterPlan = (RecordQueryFilterPlan)chosenPlan;
-            if (filterPlan.getChild() instanceof RecordQueryPlanWithIndex) {
-                final RecordQueryPlanWithIndex filteredIndexPlan = (RecordQueryPlanWithIndex) filterPlan.getChild();
-                final Index index = metaData.getIndex(filteredIndexPlan.getIndexName());
-                // A TEXT index, in particular, does not have the actual indexed text in the entry.
-                if (indexTypes.getValueTypes().contains(index.getType())) {
-                    final QueryComponent filter = filterPlan.getFilter();
-                    final Set<KeyExpression> filterFields = new HashSet<>();
-                    if (findFilterCoveredFields(filter, filterFields)) {
-                        final RecordQueryPlan newChildPlan = tryToConvertToCoveringPlan(planContext, filteredIndexPlan, filterFields);
-                        if (newChildPlan != filteredIndexPlan) {
-                            return new RecordQueryFilterPlan(newChildPlan, filter);
-                        }
-                    }
-                }
-            }
-        }
-        // No valid transformations could be applied. Just return the original plan.
-        return chosenPlan;
-    }
-
-    @Nonnull
-    private RecordQueryPlan tryToConvertToCoveringPlan(@Nonnull PlanContext context, @Nonnull RecordQueryPlanWithIndex chosenPlan, @Nullable Set<KeyExpression> filterFields) {
-        if (context.query.getRequiredResults() == null) {
+        if (planContext.query.getRequiredResults() == null) {
             // This should already be true when calling, but as a safety precaution, check here anyway.
             return chosenPlan;
         }
 
-        final Index index = metaData.getIndex(chosenPlan.getIndexName());
-
-        final Set<KeyExpression> resultFields = new HashSet<>(context.query.getRequiredResults().size());
-        for (KeyExpression resultField : context.query.getRequiredResults()) {
+        final Set<KeyExpression> resultFields = new HashSet<>(planContext.query.getRequiredResults().size());
+        for (KeyExpression resultField : planContext.query.getRequiredResults()) {
             resultFields.addAll(resultField.normalizeKeyForPositions());
         }
-        if (filterFields != null) {
-            for (KeyExpression filterField : filterFields) {
-                resultFields.addAll(filterField.normalizeKeyForPositions());
-            }
-        }
 
-        @Nullable IndexKeyValueToPartialRecord indexKeyValueToPartialRecord =
-                buildIndexKeyValueToPartialRecord(metaData, index, context.commonPrimaryKey, resultFields);
-
-        if (indexKeyValueToPartialRecord != null) {
-            final RecordType recordType = indexKeyValueToPartialRecord.getRecordType();
-            if (recordType != null) {
-                return new RecordQueryCoveringIndexPlan(chosenPlan, recordType.getName(), indexKeyValueToPartialRecord);
-            }
-        }
-        return chosenPlan;
+        chosenPlan = chosenPlan.accept(new UnorderedPrimaryKeyDistinctVisitor(metaData, indexTypes, planContext.commonPrimaryKey));
+        @Nullable RecordQueryPlan withoutFetch = RecordQueryPlannerSubstitutionVisitor.removeIndexFetch(
+                metaData, indexTypes, planContext.commonPrimaryKey, chosenPlan, resultFields);
+        return withoutFetch == null ? chosenPlan : withoutFetch;
     }
 
-    @Nullable
-    public static IndexKeyValueToPartialRecord buildIndexKeyValueToPartialRecord(@Nonnull RecordMetaData metaData,
-                                                                                 @Nonnull Index index,
-                                                                                 @Nullable KeyExpression commonPrimaryKey,
-                                                                                 @Nonnull Set<KeyExpression> requiredFields) {
-        final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
-        if (recordTypes.size() != 1) {
-            return null;
-        }
-        final RecordType recordType = Iterables.getOnlyElement(recordTypes);
-
-        final KeyExpression rootExpression = index.getRootExpression();
-        final List<KeyExpression> keyFields = KeyExpression.getKeyFields(rootExpression);
-        final List<KeyExpression> valueFields = KeyExpression.getValueFields(rootExpression);
-
-        // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
-        final List<KeyExpression> primaryKeys = commonPrimaryKey == null
-                                                ? Collections.emptyList()
-                                                : commonPrimaryKey.normalizeKeyForPositions();
-        index.trimPrimaryKey(primaryKeys);
-        keyFields.addAll(primaryKeys);
-
-        final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
-
-        Set<KeyExpression> fields = new HashSet<>(requiredFields);
-        if (commonPrimaryKey != null) {
-            // Need the primary key, even if it wasn't one of the explicit result fields.
-            fields.addAll(commonPrimaryKey.normalizeKeyForPositions());
-        }
-        for (KeyExpression field: fields) {
-            if (!addCoveringField(field, builder, keyFields, valueFields)) {
-                return null;
-            }
-        }
-
-        // Validity check ensures that we don't attempt this transformation if there are any repeated fields..
-        if (!builder.isValid()) {
-            return null;
-        }
-        return builder.build();
-    }
-
-    private static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
-                                     @Nonnull IndexKeyValueToPartialRecord.Builder builder,
-                                     @Nonnull List<KeyExpression> keyFields,
-                                     @Nonnull List<KeyExpression> valueFields) {
-        final IndexKeyValueToPartialRecord.TupleSource source;
-        final int index;
-        int i = keyFields.indexOf(requiredExpr);
-        if (i >= 0) {
-            source = IndexKeyValueToPartialRecord.TupleSource.KEY;
-            index = i;
-        } else {
-            i = valueFields.indexOf(requiredExpr);
-            if (i >= 0) {
-                source = IndexKeyValueToPartialRecord.TupleSource.VALUE;
-                index = i;
-            } else {
-                return false;
-            }
-        }
-
-        while (requiredExpr instanceof NestingKeyExpression) {
-            NestingKeyExpression nesting = (NestingKeyExpression)requiredExpr;
-            String fieldName = nesting.getParent().getFieldName();
-            requiredExpr = nesting.getChild();
-            builder = builder.getFieldBuilder(fieldName);
-        }
-        if (requiredExpr instanceof FieldKeyExpression) {
-            String fieldName = ((FieldKeyExpression)requiredExpr).getFieldName();
-            builder.addField(fieldName, source, index);
-            return true;
-        } else {
-            return false;
-        }
-    }
-    
     @Nullable
     public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull String indexName) {
         final Index index = metaData.getIndex(indexName);
@@ -1592,52 +1465,30 @@ public class RecordQueryPlanner implements QueryPlanner {
 
         RecordQueryIndexPlan plan = (RecordQueryIndexPlan)scoredPlan.plan;
         plan = new RecordQueryIndexPlan(plan.getIndexName(), IndexScanType.BY_GROUP, plan.getComparisons(), plan.isReverse());
-        return new RecordQueryCoveringIndexPlan(plan, recordType.getName(), builder.build());
+        return new RecordQueryCoveringIndexPlan(plan, recordType.getName(), AvailableFields.NO_FIELDS, builder.build());
     }
 
-    // Find equivalent key expressions for fields used by the given filter.
-    // Does not attempt to deal with OneOfThemWithComponent, as the repeated nested field will be spread across multiple
-    // index entries. Reconstituting that as a singleton in a partial record might work for the simplest case, but
-    // could not for multiple such filter conditions.
-    private boolean findFilterCoveredFields(@Nonnull QueryComponent filter, @Nonnull Set<KeyExpression> filterFields) {
-        if (filter instanceof FieldWithComparison) {
-            filterFields.add(Key.Expressions.field(((FieldWithComparison)filter).getFieldName()));
-            return true;
-        }
-        if (filter instanceof AndOrComponent) {
-            for (QueryComponent child : ((AndOrComponent)filter).getChildren()) {
-                if (!findFilterCoveredFields(child, filterFields)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        if (filter instanceof QueryKeyExpressionWithComparison) {
-            final QueryableKeyExpression keyExpression = ((QueryKeyExpressionWithComparison)filter).getKeyExpression();
-            return findFilterCoveredFields(keyExpression, filterFields);
-        }
-        return false;
-    }
+    private static boolean addCoveringField(@Nonnull KeyExpression requiredExpr,
+                                            @Nonnull IndexKeyValueToPartialRecord.Builder builder,
+                                            @Nonnull List<KeyExpression> keyFields,
+                                            @Nonnull List<KeyExpression> valueFields) {
+        final IndexKeyValueToPartialRecord.TupleSource source;
+        final int index;
 
-    private boolean findFilterCoveredFields(@Nonnull KeyExpression expression, @Nonnull Set<KeyExpression> filterFields) {
-        if (expression instanceof ThenKeyExpression) {
-            for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
-                if (!findFilterCoveredFields(child, filterFields)) {
-                    return false;
-                }
+        int i = keyFields.indexOf(requiredExpr);
+        if (i >= 0) {
+            source = IndexKeyValueToPartialRecord.TupleSource.KEY;
+            index = i;
+        } else {
+            i = valueFields.indexOf(requiredExpr);
+            if (i >= 0) {
+                source = IndexKeyValueToPartialRecord.TupleSource.VALUE;
+                index = i;
+            } else {
+                return false;
             }
-            return true;
         }
-        // TODO: This isn't quite optimal, since an index might just as well have f(x) as a indexed field as x itself.
-        //   But that isn't expressible with the current partial record implementation.
-        if (expression instanceof FunctionKeyExpression) {
-            return findFilterCoveredFields(((FunctionKeyExpression)expression).getArguments(), filterFields);
-        }
-        if (expression instanceof LiteralKeyExpression) {
-            return true;
-        }
-        filterFields.add(expression);
-        return true;
+        return AvailableFields.addCoveringField(requiredExpr, AvailableFields.FieldData.of(source, index), builder);
     }
 
     private static class PlanContext {
