@@ -44,6 +44,9 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 // end next release
 -->
 
+### 2.10.138.0
+
+
 ### 2.10.137.0
 
 * **Bug fix** Requested full text fields always contain the full text, not just a single token [(Issue #1017)](https://github.com/FoundationDB/fdb-record-layer/issues/1017)
