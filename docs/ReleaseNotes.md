@@ -4,17 +4,11 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the master release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 2.9
+## 2.10
 
 ### Breaking Changes
 
-This version of the Record Layer requires a FoundationDB server version of at least version 6.2. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
-
-Additionally, builds for the project now require JDK 11. The project is still targetting JDK 1.8 for both source and binary compatibility, so projects importing the library that have not yet upgraded to the newer JDK should still be able to import the project as before, but developers may need to update their local development environment if they have not already done so. 
-
-`FDBRecordStore` does not have `addUniquenessCheck` anymore, which is replaced by `checkUniqueness` in `StandardIndexMaintainer` now; `IndexMaintainer` does not have `updateUniquenessViolations` anymore, which is replaced by `addUniquenessViolation` and `removeUniquenessViolationsAsync` in `StandardIndexMaintainer` now; `StandardIndexMaintainer` now has `updateOneKeyAsync` in place of `updateOneKey` .
-
-`OrElseCursor` now uses a structured continuation instead of the previous pass-through style. This breaks the continuations of all `OrElseCursor`s from previous builds. Furthermore, the fluent `RecordCursor.orElse()` method is deprecated in favor of a static method that also takes a continuation.
+In this realase, the various implementations of the `RecordQueryPlan` interface have  moved to API stability level `INTERNAL`. This means that individual implementations may change without notice. Clients that are not creating `RecordQueryPlan` objects directly (but instead using the planner to create plans) should not be affected.
 
 <!--
 // begin next release
@@ -46,6 +40,7 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 
 ### 2.10.138.0
 
+* **Bug fix** Resolves concurrency issue in executing plans with delayed record fetches in multi-threaded environments [(Issue #1024)](https://github.com/FoundationDB/fdb-record-layer/issues/1024)
 
 ### 2.10.137.0
 
@@ -63,6 +58,18 @@ Additionally, builds for the project now require JDK 11. The project is still ta
 * **Bug fix** OnlineIndexer does not backoff properly when it retries [(Issue #1007)](https://github.com/FoundationDB/fdb-record-layer/issues/1007)
 * **Feature** Bitmap value indexes [(Issue #1010)](https://github.com/FoundationDB/fdb-record-layer/issues/1010)
 * **Breaking change** Several API changes in `RecordQueryPlan` implementors, which are also now `INTERNAL` APIs. [(Issue #987)](https://github.com/FoundationDB/fdb-record-layer/issues/987)
+
+## 2.9
+
+### Breaking Changes
+
+This version of the Record Layer requires a FoundationDB server version of at least version 6.2. Attempting to connect to older versions may result in the client hanging when attempting to connect to the database.
+
+Additionally, builds for the project now require JDK 11. The project is still targetting JDK 1.8 for both source and binary compatibility, so projects importing the library that have not yet upgraded to the newer JDK should still be able to import the project as before, but developers may need to update their local development environment if they have not already done so.
+
+`FDBRecordStore` does not have `addUniquenessCheck` anymore, which is replaced by `checkUniqueness` in `StandardIndexMaintainer` now; `IndexMaintainer` does not have `updateUniquenessViolations` anymore, which is replaced by `addUniquenessViolation` and `removeUniquenessViolationsAsync` in `StandardIndexMaintainer` now; `StandardIndexMaintainer` now has `updateOneKeyAsync` in place of `updateOneKey` .
+
+`OrElseCursor` now uses a structured continuation instead of the previous pass-through style. This breaks the continuations of all `OrElseCursor`s from previous builds. Furthermore, the fluent `RecordCursor.orElse()` method is deprecated in favor of a static method that also takes a continuation.
 
 ### 2.9.134.0
 
