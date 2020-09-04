@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -29,6 +31,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
@@ -46,6 +49,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import static com.apple.foundationdb.record.ExecuteProperties.newBuilder;
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
@@ -62,6 +67,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasNoDescendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.inParameter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.intersection;
@@ -71,6 +77,7 @@ import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.in;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -131,6 +138,61 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             assertDiscardedExactly(50, context);
             if (shouldDeferFetch) {
                 assertLoadRecord(10, context);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexQueryAndWithTwoChildrenAndIn(boolean shouldDeferFetch) throws Exception {
+        for (int itr = 0; itr < 500; itr++) {
+            RecordMetaDataHook hook = complexQuerySetupHook();
+            complexQuerySetup(hook);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.and(
+                            Query.field("str_value_indexed").equalsParameter("str_value_param"),
+                            Query.field("num_value_3_indexed").in("num_value_3_param")))
+                    .build();
+
+            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            RecordQueryPlan plan = planner.plan(query);
+
+            if (shouldDeferFetch) {
+                assertThat(plan, inParameter(equalTo("num_value_3_param"), fetch(intersection(
+                        coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[EQUALS $str_value_param]"))))),
+                        coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))),
+                        equalTo(field("rec_no"))))));
+                assertEquals(-70064914, plan.planHash());
+            } else {
+                assertThat(plan, inParameter(equalTo("num_value_3_param"), intersection(
+                        indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[EQUALS $str_value_param]")))),
+                        indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]")))),
+                        equalTo(field("rec_no")))));
+                assertEquals(725023827, plan.planHash());
+            }
+
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context, hook);
+                int i = 0;
+                EvaluationContext paramBindings = EvaluationContext.forBindings(Bindings.newBuilder()
+                        .set("str_value_param", "even")
+                        .set("num_value_3_param", Arrays.asList(1, 3, 4))
+                        .build());
+                CompletableFuture<List<FDBQueriedRecord<Message>>> future = plan.execute(recordStore, paramBindings).asList();
+                List<FDBQueriedRecord<Message>> records = context.asyncToSync(FDBStoreTimer.Waits.WAIT_EXECUTE_QUERY, future);
+                for (FDBQueriedRecord<Message> rec : records) {
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertEquals("even", myrec.getStrValueIndexed());
+                    assertThat(myrec.getNumValue3Indexed(), in(new Integer[]{1, 3, 4}));
+                    i++;
+                }
+                assertEquals(30, i);
+                assertDiscardedExactly(148, context);
+                if (shouldDeferFetch) {
+                    assertLoadRecord(i, context);
+                }
             }
         }
     }
