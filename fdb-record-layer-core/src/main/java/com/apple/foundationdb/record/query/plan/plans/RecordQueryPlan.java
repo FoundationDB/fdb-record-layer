@@ -155,7 +155,8 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
 
             RecordQueryPlan modifiedChild = child.accept(visitor);
             if (child != modifiedChild) { // intentional use of reference equality, since equals() might not be conservative enough for plans
-                childGroup.replace(modifiedChild);
+                childGroup.clear();
+                childGroup.insert(modifiedChild);
             }
         }
 

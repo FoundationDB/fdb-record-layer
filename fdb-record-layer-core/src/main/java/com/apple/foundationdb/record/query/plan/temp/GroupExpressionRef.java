@@ -91,11 +91,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         throw new UngettableReferenceException("tried to dereference GroupExpressionRef with " + members.size() + " members");
     }
 
-    public synchronized boolean replace(@Nonnull T newValue) {
-        clear();
-        return insert(newValue);
-    }
-
     @Override
     public boolean insert(@Nonnull T newValue) {
         if (!containsInMemo(newValue)) {
