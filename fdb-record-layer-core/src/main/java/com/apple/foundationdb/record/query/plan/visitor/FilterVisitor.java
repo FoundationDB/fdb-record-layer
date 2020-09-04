@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.visitor;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
@@ -89,6 +91,18 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
         if (filter instanceof QueryKeyExpressionWithComparison) {
             final QueryableKeyExpression keyExpression = ((QueryKeyExpressionWithComparison)filter).getKeyExpression();
             return findFilterCoveredFields(keyExpression, filterFields);
+        }
+        if (filter instanceof NestedField) {
+            final Set<KeyExpression> childFilterFields = new HashSet<>();
+            if (findFilterCoveredFields(((NestedField)filter).getChild(), childFilterFields)) {
+                final FieldKeyExpression parent = Key.Expressions.field(((NestedField)filter).getFieldName());
+                for (KeyExpression childFilterField : childFilterFields) {
+                    filterFields.add(parent.nest(childFilterField));
+                }
+                return true;
+            } else {
+                return false;
+            }
         }
         return false;
     }

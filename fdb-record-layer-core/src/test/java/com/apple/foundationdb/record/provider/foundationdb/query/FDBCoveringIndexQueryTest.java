@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -49,11 +51,13 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasNoDescendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
@@ -205,6 +209,29 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([null],[1])")))))));
         assertEquals(-1374002128, plan.planHash());
+    }
+
+    /**
+     * Verify that an extra covering filter can use a nested field.
+     */
+    @Test
+    public void coveringWithAdditionalNestedFilter() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
+            builder.getRecordType("MyRecord").setPrimaryKey(field("header").nest(field("rec_no")));
+            builder.addIndex("MyRecord", "multi", concat(field("str_value"), field("header").nest(concatenateFields("path", "num"))));
+            RecordMetaData metaData = builder.getRecordMetaData();
+            createOrOpenRecordStore(context, metaData);
+
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType("MyRecord")
+                    .setFilter(Query.and(Query.field("str_value").equalsValue("abc"), Query.field("header").matches(Query.field("num").equalsValue(1))))
+                    .build();
+            RecordQueryPlan plan = planner.plan(query);
+            assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("num").equalsValue(1)),
+                    coveringIndexScan(indexScan(allOf(indexName("multi"), bounds(hasTupleString("[[abc],[abc]]"))))))));
+            assertEquals(-1536005152, plan.planHash());
+        }
     }
 
     /**
