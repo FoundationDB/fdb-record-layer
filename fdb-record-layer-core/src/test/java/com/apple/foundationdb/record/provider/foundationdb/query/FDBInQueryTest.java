@@ -267,6 +267,22 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 context -> TestHelpers.assertDiscardedAtMost(40, context)));
     }
 
+    private RecordMetaDataHook setupInQueryWithCompoundIndexTest(boolean shouldAttemptInAsOr) throws Exception {
+        RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", "compoundIndex",
+                        concat(field("num_value_3_indexed"), field("str_value_indexed")));
+        complexQuerySetup(hook);
+
+        assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+                .build());
+
+        return hook;
+    }
+
+
     /**
      * Verify that an IN query with a sort can be implemented as an ordered union of compound indexes that can satisfy
      * the sort once the equality predicates from the IN have been pushed onto the indexes.
@@ -275,23 +291,14 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     @BooleanSource
     public void inQueryWithSortBySecondFieldOfCompoundIndex(boolean shouldAttemptInAsOr) throws Exception {
-        RecordMetaDataHook hook = metaData ->
-                metaData.addIndex("MySimpleRecord", "compoundIndex",
-                        concat(field("num_value_3_indexed"), field("str_value_indexed")));
-        complexQuerySetup(hook);
+        RecordMetaDataHook hook = setupInQueryWithCompoundIndexTest(shouldAttemptInAsOr);
+
         final List<Integer> inList = asList(1, 4, 2);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").in(inList))
                 .setSort(field("str_value_indexed"))
                 .build();
-
-        assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
-        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
-        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
-                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
-                .build());
-
         RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
@@ -317,10 +324,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     @BooleanSource
     public void inQueryWithSortAndRangePredicateOnSecondFieldOfCompoundIndex(boolean shouldAttemptInAsOr) throws Exception {
-        RecordMetaDataHook hook = metaData ->
-                metaData.addIndex("MySimpleRecord", "compoundIndex",
-                        concat(field("num_value_3_indexed"), field("str_value_indexed")));
-        complexQuerySetup(hook);
+        RecordMetaDataHook hook = setupInQueryWithCompoundIndexTest(shouldAttemptInAsOr);
+
         final List<Integer> inList = asList(1, 4, 2);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -329,12 +334,6 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").lessThan("foo")))
                 .setSort(field("str_value_indexed"))
                 .build();
-
-        assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
-        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
-        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
-                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
-                .build());
 
         RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
