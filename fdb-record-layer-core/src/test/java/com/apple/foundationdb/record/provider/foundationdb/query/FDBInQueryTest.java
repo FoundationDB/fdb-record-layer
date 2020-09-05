@@ -282,7 +282,6 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         return hook;
     }
 
-
     /**
      * Verify that an IN query with a sort can be implemented as an ordered union of compound indexes that can satisfy
      * the sort once the equality predicates from the IN have been pushed onto the indexes.
@@ -350,6 +349,28 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(30, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 context -> { }));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void inQueryWithParametersOnCompoundIndex(boolean shouldAttemptInAsOr) throws Exception {
+        RecordMetaDataHook hook = setupInQueryWithCompoundIndexTest(shouldAttemptInAsOr);
+
+        final String numValue3Param = "num_value_3_indexed_param";
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_3_indexed").in(numValue3Param))
+                .setSort(field("str_value_indexed"))
+                .build();
+
+        RecordQueryPlan plan = planner.plan(query);
+        // Unfortunately, parameter bound IN clauses cannot be normalized in OR queries (yet), but if they could,
+        // then this test would replan as a union (when shouldAttemptInAsOr is true)
+        assertThat(plan, filter(Query.field("num_value_3_indexed").in(numValue3Param), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed")))));
+        assertEquals(-834056903, plan.planHash());
+
+        assertEquals(60, querySimpleRecordStore(hook, plan, () -> EvaluationContext.forBinding(numValue3Param, Arrays.asList(1, 4, 2)),
+                record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4)))));
     }
 
     /**

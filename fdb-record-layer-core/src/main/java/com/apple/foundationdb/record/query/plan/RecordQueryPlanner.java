@@ -410,7 +410,11 @@ public class RecordQueryPlanner implements QueryPlanner {
             boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
             if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
                 // Can't implement as an in join because of the sort order. Try as an OR instead.
-                withInAsOr = planFilter(planContext, normalizeAndOrForInAsOr(inExtractor.asOr()));
+                // Only try if extracting the OR actually changes the filter to avoid recursing infinitely.
+                final QueryComponent asOr = normalizeAndOrForInAsOr(inExtractor.asOr());
+                if (!filter.equals(asOr)) {
+                    withInAsOr = planFilter(planContext, asOr);
+                }
             }
         } else if (needOrdering) {
             inExtractor.sortByClauses();
