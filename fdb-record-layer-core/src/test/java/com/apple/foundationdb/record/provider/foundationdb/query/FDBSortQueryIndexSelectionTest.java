@@ -677,9 +677,9 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         .setSort(field("header").nest("num"))
                         .build();
                 RecordQueryPlan plan = planner.plan(query);
-                assertThat(plan, filter(query.getFilter(),
-                        indexScan(allOf(indexName("MyRecord$header_num"), unbounded()))));
-                assertEquals(1936972136, plan.planHash());
+                assertThat(plan, fetch(filter(query.getFilter(),
+                        coveringIndexScan(indexScan(allOf(indexName("MyRecord$header_num"), unbounded()))))));
+                assertEquals(673903077, plan.planHash());
 
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
@@ -707,9 +707,9 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                         .setSort(field("header").nest("num"))
                         .build();
                 RecordQueryPlan plan = planner.plan(query);
-                assertThat(plan, filter(Query.field("header").matches(Query.field("rec_no").greaterThan(10L)),
-                        indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])"))))));
-                assertEquals(824137289, plan.planHash());
+                assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("rec_no").greaterThan(10L)),
+                        coveringIndexScan(indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])"))))))));
+                assertEquals(1473993740, plan.planHash());
 
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
