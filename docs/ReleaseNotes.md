@@ -38,6 +38,9 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // end next release
 -->
 
+### 2.10.139.0
+
+
 ### 2.10.138.0
 
 * **Bug fix** Resolves concurrency issue in executing plans with delayed record fetches in multi-threaded environments [(Issue #1024)](https://github.com/FoundationDB/fdb-record-layer/issues/1024)
