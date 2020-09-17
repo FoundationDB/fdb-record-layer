@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * A {@link QueryComponent} that is satisfied when any of its child components is satisfied.
@@ -67,8 +69,15 @@ public class OrComponent extends AndOrComponent {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new OrPredicate(normalizeChildrenForPlanner(source, fieldNamePrefix));
+    public QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new OrPredicate(normalizeChildrenForPlannerOld(source, fieldNamePrefix));
+    }
+
+    @Override
+    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder base, @Nonnull final List<String> fieldNamePrefix) {
+        return new OrPredicate(getChildren().stream()
+                .map(child -> child.normalizeForPlanner(base, fieldNamePrefix))
+                .collect(Collectors.toList()));
     }
 
     @Override

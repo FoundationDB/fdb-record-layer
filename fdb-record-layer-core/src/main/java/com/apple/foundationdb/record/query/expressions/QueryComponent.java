@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -153,8 +154,8 @@ public interface QueryComponent extends PlanHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    default QueryPredicate normalizeForPlanner(@Nonnull Source rootSource) {
-        return normalizeForPlanner(rootSource, Collections.emptyList());
+    default QueryPredicate normalizeForPlannerOld(@Nonnull Source rootSource) {
+        return normalizeForPlannerOld(rootSource, Collections.emptyList());
     }
 
     /**
@@ -173,5 +174,13 @@ public interface QueryComponent extends PlanHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+    QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+
+    @API(API.Status.EXPERIMENTAL)
+    default QueryPredicate normalizeForPlanner(@Nonnull SelectExpression.Builder base) {
+        return normalizeForPlanner(base, Collections.emptyList());
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    QueryPredicate normalizeForPlanner(@Nonnull SelectExpression.Builder base, @Nonnull List<String> fieldNamePrefix);
 }

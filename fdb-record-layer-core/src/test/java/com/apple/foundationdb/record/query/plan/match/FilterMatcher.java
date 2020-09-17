@@ -47,7 +47,7 @@ public class FilterMatcher extends PlanMatcherWithChild {
         final QueryPredicate predicate;
         if (plan instanceof RecordQueryFilterPlan) {
             predicate = ((RecordQueryFilterPlan)plan).getFilter()
-                    .normalizeForPlanner(PredicateMatchers.BlankSource.INSTANCE);
+                    .normalizeForPlannerOld(PredicateMatchers.BlankSource.INSTANCE);
         } else if (plan instanceof RecordQueryPredicateFilterPlan) {
             predicate = ((RecordQueryPredicateFilterPlan)plan).getPredicate();
         } else {

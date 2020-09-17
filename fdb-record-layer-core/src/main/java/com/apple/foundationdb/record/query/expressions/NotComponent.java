@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -129,7 +130,12 @@ public class NotComponent implements ComponentWithSingleChild {
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new NotPredicate(child.normalizeForPlanner(source, fieldNamePrefix));
+    public QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        return new NotPredicate(child.normalizeForPlannerOld(source, fieldNamePrefix));
+    }
+
+    @Override
+    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder base, @Nonnull final List<String> fieldNamePrefix) {
+        return new NotPredicate(child.normalizeForPlanner(base, fieldNamePrefix));
     }
 }

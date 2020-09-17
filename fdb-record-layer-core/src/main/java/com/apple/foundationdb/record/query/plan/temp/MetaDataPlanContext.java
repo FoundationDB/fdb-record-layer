@@ -112,13 +112,20 @@ public class MetaDataPlanContext implements PlanContext {
         if (commonPrimaryKey != null) {
             builder.add(IndexEntrySource.fromCommonPrimaryKey(recordTypes, commonPrimaryKey));
         }
+
+        final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
             indexes.put(index, index.getName());
+            // TODO remove
             builder.add(IndexEntrySource.fromIndex(metaData.recordTypesForIndex(index), index));
+            final Collection<MatchCandidate> candidatesForIndex =
+                    RelationalExpression.fromIndexDefinition(metaData.recordTypesForIndex(index), index);
+            matchCandidatesBuilder.addAll(candidatesForIndex);
+
         }
         indexEntrySources = builder.build();
 
-        this.matchCandidates = ImmutableSet.copyOf(matchCandidates);
+        this.matchCandidates = matchCandidatesBuilder.build();
     }
 
     private MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull Set<String> recordTypes,

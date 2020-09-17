@@ -113,6 +113,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
         final PlannerGraph plannerGraph =
                 Objects.requireNonNull(rootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups)));
         final String dotString = exportToDot(plannerGraph);
+        System.out.println(dotString);
         return show(dotString);
     }
 
@@ -135,7 +136,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
 
         final Map<MatchCandidate, PlannerGraph> matchCandidateMap = matchCandidates.stream()
                 .collect(ImmutableMap.toImmutableMap(Function.identity(), matchCandidate -> Objects.requireNonNull(
-                        matchCandidate.getTraversal().getRootRef().acceptPropertyVisitor(forInternalShow(renderSingleGroups)))));
+                        matchCandidate.getTraversal().getRootReference().acceptPropertyVisitor(forInternalShow(renderSingleGroups)))));
 
         matchCandidateMap.forEach((matchCandidate, matchCandidateGraph) -> graphBuilder.addGraph(matchCandidateGraph));
 

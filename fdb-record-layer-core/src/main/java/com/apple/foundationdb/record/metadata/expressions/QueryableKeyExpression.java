@@ -42,7 +42,7 @@ import java.util.function.Function;
  * with an optional conversion of any comparison operand.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryableKeyExpression extends KeyExpression {
+public interface QueryableKeyExpression extends KeyExpression, KeyExpressionWithValue {
     @Nonnull
     String getName();
 

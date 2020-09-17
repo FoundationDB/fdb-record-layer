@@ -25,10 +25,13 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeElement;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
 import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.RecordTypeValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -53,7 +56,7 @@ import java.util.List;
  * @see com.apple.foundationdb.record.RecordMetaData#primaryKeyHasRecordTypePrefix
  */
 @API(API.Status.MAINTAINED)
-public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
+public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
     public static final RecordTypeKeyExpression RECORD_TYPE_KEY = new RecordTypeKeyExpression();
     public static final RecordMetaDataProto.KeyExpression RECORD_TYPE_KEY_PROTO =
             RecordMetaDataProto.KeyExpression.newBuilder().setRecordTypeKey(RECORD_TYPE_KEY.toProto()).build();
@@ -114,7 +117,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         // We need the actual record type, rather than the type of the current message.
         // Walk through all of the RepeatedFieldSources until we find a RecordTypeSource.
         // This *will* break when we add more source types. :(
@@ -128,6 +131,13 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
         }
 
         return new ElementKeyExpression(new RecordTypeElement(recordTypeSource));
+    }
+
+    @Nonnull
+    @Override
+    public Value toValue(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+        // TODO might need to add pointer to root
+        return new RecordTypeValue(baseBuilder.getCorrelationBase());
     }
 
     @Override

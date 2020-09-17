@@ -213,6 +213,11 @@ public class AliasMap {
         return map.containsValue(alias);
     }
 
+    public boolean containsMapping(@Nonnull final CorrelationIdentifier source,
+                                   @Nonnull final CorrelationIdentifier target) {
+        return containsSource(source) && containsTarget(target) && getTargetOrThrow(source).equals(target);
+    }
+
     /**
      * Returns the set of {@link CorrelationIdentifier}s that are mapped by this {@code AliasMap}.
      * @return a set of {@link CorrelationIdentifier}s that this map contains mappings for
@@ -283,6 +288,13 @@ public class AliasMap {
         return map.get(source);
     }
 
+    /**
+     * Get the target for a source passed in or a default in case there is no mapping for the source alias.
+     * @param source the source to return the target for
+     * @param defaultValue default value to return is there is no mapping in this map for {@code source}
+     * @return the target that source is bound to in this alias map or {@code null} if there is no binding
+     *         from {@code source} in this alias map
+     */
     @Nonnull
     public CorrelationIdentifier getTargetOrDefault(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier defaultValue) {
         @Nullable final CorrelationIdentifier target = getTarget(source);
@@ -290,6 +302,18 @@ public class AliasMap {
             return defaultValue;
         }
         return target;
+    }
+
+    /**
+     * Get the target for a source passed in or throw an exception in case there is no mapping for the source alias.
+     * @param source the source to return the target for
+     * @return the target that source is bound to in this alias map or {@code null} if there is no binding
+     *         from {@code source} in this alias map
+     */
+    @Nonnull
+    public CorrelationIdentifier getTargetOrThrow(@Nonnull final CorrelationIdentifier source) {
+        @Nullable final CorrelationIdentifier target = getTarget(source);
+        return Objects.requireNonNull(target);
     }
 
     /**

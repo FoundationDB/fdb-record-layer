@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
@@ -41,6 +42,8 @@ public class CascadesRuleCall implements PlannerRuleCall {
     @Nonnull
     private final GroupExpressionRef<RelationalExpression> root;
     @Nonnull
+    private final AliasResolver aliasResolver;
+    @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
     private final PlanContext context;
@@ -48,18 +51,26 @@ public class CascadesRuleCall implements PlannerRuleCall {
     private final RelationalExpressionPointerSet<RelationalExpression> newExpressions;
 
     public CascadesRuleCall(@Nonnull PlanContext context,
-                             @Nonnull PlannerRule<? extends RelationalExpression> rule,
-                             @Nonnull GroupExpressionRef<RelationalExpression> root,
-                             @Nonnull PlannerBindings bindings) {
+                            @Nonnull PlannerRule<? extends RelationalExpression> rule,
+                            @Nonnull GroupExpressionRef<RelationalExpression> root,
+                            @Nonnull AliasResolver aliasResolver,
+                            @Nonnull PlannerBindings bindings) {
         this.context = context;
         this.rule = rule;
         this.root = root;
+        this.aliasResolver = aliasResolver;
         this.bindings = bindings;
         this.newExpressions = new RelationalExpressionPointerSet<>();
     }
 
     public void run() {
         rule.onMatch(this);
+    }
+
+    @Nonnull
+    @Override
+    public AliasResolver getAliasResolver() {
+        return aliasResolver;
     }
 
     @Override

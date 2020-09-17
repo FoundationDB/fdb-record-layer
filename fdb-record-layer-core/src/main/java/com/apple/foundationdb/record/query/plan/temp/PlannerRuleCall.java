@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -39,6 +40,13 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerRuleCall {
+    /**
+     * Returns the alias resolver that is currently in use and maintained by the planner.
+     * @return the alias resolver
+     */
+    @Nonnull
+    AliasResolver getAliasResolver();
+
     /**
      * Return the map of bindings that this rule's matcher expression produced, which includes (by contract) all of the
      * bindings specified by the rule associated with this call.

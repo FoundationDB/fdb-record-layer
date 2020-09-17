@@ -87,12 +87,12 @@ public abstract class AndOrComponent extends SimpleComponentWithChildren impleme
     }
 
     @Nonnull
-    protected List<QueryPredicate> normalizeChildrenForPlanner(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    protected List<QueryPredicate> normalizeChildrenForPlannerOld(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
         ImmutableList.Builder<QueryPredicate> children = ImmutableList.builder();
 
         // Maybe do with refs instead?
         for (QueryComponent child : getChildren()) {
-            children.add(child.normalizeForPlanner(rootSource, fieldNamePrefix));
+            children.add(child.normalizeForPlannerOld(rootSource, fieldNamePrefix));
         }
         return children.build();
     }

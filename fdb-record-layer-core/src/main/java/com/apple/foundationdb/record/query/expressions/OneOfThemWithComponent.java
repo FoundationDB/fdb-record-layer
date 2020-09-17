@@ -24,8 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
@@ -95,13 +100,28 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
 
     @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+    public QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
         final RepeatedFieldSource repeatedSource = new RepeatedFieldSource(source, fieldNames);
-        return child.normalizeForPlanner(repeatedSource, Collections.emptyList()); // reset field name prefix since we just added a source
+        return child.normalizeForPlannerOld(repeatedSource, Collections.emptyList()); // reset field name prefix since we just added a source
+    }
+
+    @Override
+    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder base, @Nonnull final List<String> fieldNamePrefix) {
+        List<String> fieldNames = ImmutableList.<String>builder()
+                .addAll(fieldNamePrefix)
+                .add(getFieldName())
+                .build();
+        SelectExpression.Builder childBuilder = new SelectExpression.Builder(
+                Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(base.getCorrelationBase(), fieldNames))));
+        childBuilder.addPredicate(getChild().normalizeForPlanner(childBuilder, Collections.emptyList()));
+
+        Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(childBuilder.build()));
+        base.addChild(childQuantifier);
+        return new ExistsPredicate(childQuantifier.getAlias());
     }
 
     @Override

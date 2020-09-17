@@ -94,7 +94,7 @@ public class ExpressionMatcherTest {
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
                         recordSource,
-                        Query.field("test").equalsValue(5).normalizeForPlanner(recordSource),
+                        Query.field("test").equalsValue(5).normalizeForPlannerOld(recordSource),
                         quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
@@ -212,7 +212,7 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)));
         LogicalFilterExpression filterPlan = new LogicalFilterExpression(rootSource,
-                Query.and(andBranch1, andBranch2).normalizeForPlanner(rootSource),
+                Query.and(andBranch1, andBranch2).normalizeForPlannerOld(rootSource),
                 quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(

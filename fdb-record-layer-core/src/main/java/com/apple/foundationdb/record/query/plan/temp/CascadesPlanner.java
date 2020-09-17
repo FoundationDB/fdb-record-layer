@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
@@ -129,6 +130,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private GroupExpressionRef<RelationalExpression> currentRoot;
     @Nonnull
+    private AliasResolver aliasResolver;
+    @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
@@ -141,6 +144,7 @@ public class CascadesPlanner implements QueryPlanner {
         this.ruleSet = ruleSet;
         // Placeholders until we get a query.
         this.currentRoot = GroupExpressionRef.empty();
+        this.aliasResolver = AliasResolver.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
     }
 
@@ -174,6 +178,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     public GroupExpressionRef<RelationalExpression> planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
+        aliasResolver = AliasResolver.withRoot(currentRoot);
+        PlannerGraphProperty.show(true, currentRoot);
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         while (!taskStack.isEmpty()) {
@@ -400,7 +406,7 @@ public class CascadesPlanner implements QueryPlanner {
             if (logger.isTraceEnabled()) {
                 logger.trace("Bindings: " +  expression.bindTo(rule.getMatcher()).count());
             }
-            expression.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(context, rule, group, bindings))
+            expression.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(context, rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, expression, rule, ruleCall)));
                         executeRuleCall(ruleCall);
@@ -456,7 +462,7 @@ public class CascadesPlanner implements QueryPlanner {
             if (rangesOverRefs.isEmpty()) {
                 for (final MatchCandidate matchCandidate : context.getMatchCandidates()) {
                     final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
-                    final Set<ExpressionRef<? extends RelationalExpression>> leafRefs = traversal.getLeafRefs();
+                    final Set<ExpressionRef<? extends RelationalExpression>> leafRefs = traversal.getLeafReferences();
                     for (final ExpressionRef<? extends RelationalExpression> leafRef : leafRefs) {
                         for (final RelationalExpression leafMember : leafRef.getMembers()) {
                             if (leafMember.getQuantifiers().isEmpty()) {
@@ -484,13 +490,13 @@ public class CascadesPlanner implements QueryPlanner {
                     for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : rangesOverRefs) {
                         final Set<PartialMatch> partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(matchCandidate);
                         for (final PartialMatch partialMatch : partialMatchesForCandidate) {
-                            for (final ExpressionRefTraversal.RefPath parentRefPath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
+                            for (final ExpressionRefTraversal.ReferencePath parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
                                 taskStack.push(new MatchExpressionWithCandidate(context,
                                         group,
                                         expression,
                                         matchCandidate,
-                                        parentRefPath.getRef(),
-                                        parentRefPath.getExpression()));
+                                        parentReferencePath.getReference(),
+                                        parentReferencePath.getExpression()));
                             }
                         }
                     }

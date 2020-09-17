@@ -21,6 +21,10 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
@@ -31,12 +35,14 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinct
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -95,8 +101,7 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 public interface RelationalExpression extends Bindable, Correlated<RelationalExpression> {
     @Nonnull
-    static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
-
+    static RelationalExpression fromRecordQueryOld(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
         final ViewExpression.Builder builder = ViewExpression.builder();
         for (String recordType : context.getRecordTypes()) {
@@ -105,13 +110,13 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         final Source baseSource = builder.buildBaseSource();
         if (query.getSort() != null) {
             List<Element> normalizedSort = query.getSort()
-                    .normalizeForPlanner(baseSource, Collections.emptyList())
-                    .flattenForPlanner();
+                    .normalizeForPlannerOld(baseSource, Collections.emptyList())
+                    .flattenForPlannerOld();
             quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(Collections.emptyList(), normalizedSort, query.isSortReverse(), quantifier)));
         }
 
         if (query.getFilter() != null) {
-            final QueryPredicate normalized = query.getFilter().normalizeForPlanner(baseSource);
+            final QueryPredicate normalized = query.getFilter().normalizeForPlannerOld(baseSource);
             quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalFilterExpression(baseSource, normalized, quantifier)));
         }
 
@@ -124,7 +129,90 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         return Iterables.getOnlyElement(quantifier.getRangesOver().getMembers());
     }
 
+    @Nonnull
+    static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
+        Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
 
+        final ViewExpression.Builder builder = ViewExpression.builder();
+        for (String recordType : context.getRecordTypes()) {
+            builder.addRecordType(recordType);
+        }
+        final Source baseSource = builder.buildBaseSource();
+        if (query.getSort() != null) {
+            List<Element> normalizedSort = query.getSort()
+                    .normalizeForPlannerOld(baseSource, Collections.emptyList())
+                    .flattenForPlannerOld();
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(Collections.emptyList(), normalizedSort, query.isSortReverse(), quantifier)));
+        }
+
+        SelectExpression.Builder base = new SelectExpression.Builder(quantifier);
+        if (query.getFilter() != null) {
+            QueryPredicate predicate = query.getFilter().normalizeForPlanner(base);
+            base.addPredicate(predicate);
+        }
+
+        final SelectExpression selectExpression = base.build();
+        quantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+
+        if (!query.getRecordTypes().isEmpty()) {
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(query.getRecordTypes()), quantifier)));
+        }
+        if (query.removesDuplicates()) {
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalDistinctExpression(quantifier)));
+        }
+        return quantifier.getRangesOver().get();
+    }
+
+    @Nonnull
+    static Collection<MatchCandidate> fromIndexDefinition(@Nonnull Collection<RecordType> recordTypes,
+                                                          @Nonnull Index index) {
+
+        // create base fuse and type filter
+        final Set<String> recordTypeSet =
+                recordTypes.stream()
+                        .map(RecordType::getName)
+                        .collect(ImmutableSet.toImmutableSet());
+        Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(recordTypeSet)));
+        quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypeSet, quantifier)));
+
+        final String name = index.getName();
+        final String type = index.getType();
+        final KeyExpression rootExpression = index.getRootExpression();
+        if (type.equals(IndexTypes.VALUE)) {
+            ImmutableList.Builder<MatchCandidate> matchCandidateBuilder = ImmutableList.builder();
+
+            matchCandidateForEmptyComparisons(quantifier, name, rootExpression, matchCandidateBuilder);
+
+            // TODO add equality-only ones
+            for (int inequalityIndex = 0; inequalityIndex < rootExpression.getColumnSize(); inequalityIndex++) {
+                SelectExpression.Builder baseBuilder = new SelectExpression.Builder(quantifier);
+                List<ValueComparisonRangePredicate> predicates = rootExpression.normalizeForPlanner(baseBuilder);
+                Verify.verify(inequalityIndex < predicates.size());
+                for (int ix = 0; ix < predicates.size(); ix++) {
+                    ValueComparisonRangePredicate predicate = predicates.get(ix);
+                    if (ix < inequalityIndex) {
+                        predicate.freezeToType(ComparisonRange.Type.EQUALITY);
+                    } else if (ix == inequalityIndex) {
+                        predicate.freezeToType(ComparisonRange.Type.INEQUALITY);
+                    } else {
+                        predicate.freezeToType(ComparisonRange.Type.EMPTY);
+                    }
+                }
+                matchCandidateBuilder.add(new MatchCandidate(name, ExpressionRefTraversal.withRoot(GroupExpressionRef.of(baseBuilder.build()))));
+            }
+
+            return matchCandidateBuilder.build();
+        }
+
+        return ImmutableList.of();
+    }
+
+    static void matchCandidateForEmptyComparisons(final Quantifier.ForEach quantifier, final String name, final KeyExpression rootExpression, final ImmutableList.Builder<MatchCandidate> matchCandidateBuilder) {
+        // Completely empty scan with no comparisons at all
+        SelectExpression.Builder baseBuilder = new SelectExpression.Builder(quantifier);
+        rootExpression.normalizeForPlanner(baseBuilder).forEach(pred -> pred.freezeToType(ComparisonRange.Type.EMPTY));
+        matchCandidateBuilder.add(new MatchCandidate(name, ExpressionRefTraversal.withRoot(GroupExpressionRef.of(baseBuilder.build()))));
+    }
 
     /**
      * Matches a matcher expression to an expression tree rooted at this node, adding to some existing bindings.

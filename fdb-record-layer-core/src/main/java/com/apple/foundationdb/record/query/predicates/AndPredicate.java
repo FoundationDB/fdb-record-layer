@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
+import com.google.common.base.Verify;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -75,5 +77,14 @@ public class AndPredicate extends AndOrPredicate {
     @Override
     public AndPredicate rebaseWithRebasedChildren(final AliasMap translationMap, final List<QueryPredicate> rebasedChildren) {
         return new AndPredicate(rebasedChildren);
+    }
+
+    public static QueryPredicate and(@Nonnull List<QueryPredicate> children) {
+        Verify.verify(!children.isEmpty());
+        if (children.size() == 1) {
+            return Iterables.getOnlyElement(children);
+        }
+
+        return new AndPredicate(children);
     }
 }

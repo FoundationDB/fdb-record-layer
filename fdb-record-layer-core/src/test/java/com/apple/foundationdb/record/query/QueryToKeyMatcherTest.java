@@ -32,8 +32,10 @@ import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
@@ -703,7 +705,13 @@ public class QueryToKeyMatcherTest {
         @Nonnull
         @Override
         public Element toElement(@Nonnull final Source rootSource) {
-            return normalizeForPlanner(rootSource, Collections.emptyList()).flattenForPlanner().get(0);
+            return normalizeForPlannerOld(rootSource, Collections.emptyList()).flattenForPlannerOld().get(0);
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+            throw new UnsupportedOperationException();
         }
     }
 }
