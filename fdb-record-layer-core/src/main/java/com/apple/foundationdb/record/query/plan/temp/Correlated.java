@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.common.base.Equivalence;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -169,4 +170,27 @@ public interface Correlated<S extends Correlated<S>> {
      * @return the semantic hash code
      */
     int semanticHashCode();
+
+    /**
+     * Helper class to wrap extenders of {@link Correlated} to provide standard equivalence and hash code
+     * functionality under a given {@link AliasMap}.
+     */
+    class BoundEquivalence extends Equivalence<Correlated<?>> {
+        @Nonnull
+        private final AliasMap aliasMap;
+
+        public BoundEquivalence(@Nonnull final AliasMap aliasMap) {
+            this.aliasMap = aliasMap;
+        }
+
+        @Override
+        protected boolean doEquivalent(final Correlated<?> a, final Correlated<?> b) {
+            return a.semanticEquals(b, aliasMap);
+        }
+
+        @Override
+        protected int doHash(final Correlated<?> correlated) {
+            return correlated.semanticHashCode();
+        }
+    }
 }

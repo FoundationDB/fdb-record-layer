@@ -27,7 +27,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.protobuf.Descriptors;
@@ -126,7 +127,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     }
 
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder base, @Nonnull final List<String> fieldNamePrefix) {
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException("not yet implemented");
     }
 

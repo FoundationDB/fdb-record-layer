@@ -24,7 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -158,6 +160,7 @@ public class ComparisonRange {
         } else if (isEquality() && getEqualityComparison().equals(comparison)) {
             return Optional.of(this);
         } else if (isInequality()) {
+            Objects.requireNonNull(inequalityComparisons);
             switch (ScanComparisons.getComparisonType(comparison)) {
                 case INEQUALITY:
                     if (inequalityComparisons.contains(comparison)) {
@@ -180,11 +183,122 @@ public class ComparisonRange {
         return Optional.empty();
     }
 
+    @Nonnull
+    public MergeResult merge(@Nonnull Comparisons.Comparison comparison) {
+        final ScanComparisons.ComparisonType comparisonType = ScanComparisons.getComparisonType(comparison);
+        if (comparisonType == ScanComparisons.ComparisonType.NONE) {
+            return MergeResult.of(this, comparison);
+        }
+
+        if (isEmpty()) {
+            return MergeResult.of(from(comparison).orElseThrow(() -> new RecordCoreException("expected non-empty comparison")));
+        } else if (isEquality()) {
+            switch (comparisonType) {
+                case INEQUALITY:
+                    return MergeResult.of(this, comparison);
+                case EQUALITY:
+                    if (getEqualityComparison().equals(comparison)) {
+                        return MergeResult.of(this);
+                    } else {
+                        return MergeResult.of(this, comparison);
+                    }
+                default:
+                    break;
+            }
+        } else if (isInequality()) {
+            Objects.requireNonNull(inequalityComparisons);
+            switch (comparisonType) {
+                case INEQUALITY:
+                    if (inequalityComparisons.contains(comparison)) {
+                        return MergeResult.of(this);
+                    } else {
+                        return MergeResult.of(
+                                new ComparisonRange(ImmutableList.<Comparisons.Comparison>builder()
+                                        .addAll(inequalityComparisons)
+                                        .add(comparison)
+                                        .build()));
+                    }
+                case EQUALITY:
+                    return MergeResult.of(from(comparison).orElseThrow(() -> new RecordCoreException("expected non-empty comparison")),
+                            inequalityComparisons);
+                default:
+                    break;
+            }
+        }
+        return MergeResult.of(this, comparison);
+    }
+
+    @Nonnull
+    public MergeResult merge(@Nonnull ComparisonRange comparisonRange) {
+        final ImmutableList.Builder<Comparisons.Comparison> residualPredicatesBuilder = ImmutableList.builder();
+        if (comparisonRange.isEmpty()) {
+            return MergeResult.of(this);
+        }
+
+        if (isEquality()) {
+            return merge(comparisonRange.getEqualityComparison());
+        }
+
+        Verify.verify(isInequality());
+        final List<Comparisons.Comparison> comparisons =
+                Objects.requireNonNull(comparisonRange.getInequalityComparisons());
+
+        ComparisonRange resultRange = this;
+        for (final Comparisons.Comparison comparison : comparisons) {
+            MergeResult mergeResult = comparisonRange.merge(comparison);
+            resultRange = mergeResult.getComparisonRange();
+            residualPredicatesBuilder.addAll(mergeResult.getResidualComparisons());
+        }
+
+        return MergeResult.of(resultRange, residualPredicatesBuilder.build());
+    }
+
+    /**
+     * Class to represent the outcome of a merge operation.
+     */
+    public static class MergeResult {
+        @Nonnull
+        private final ComparisonRange comparisonRange;
+        @Nonnull
+        private final List<Comparisons.Comparison> residualComparisons;
+
+        private MergeResult(@Nonnull final ComparisonRange comparisonRange,
+                            @Nonnull final List<Comparisons.Comparison> residualComparison) {
+            this.comparisonRange = comparisonRange;
+            this.residualComparisons = ImmutableList.copyOf(residualComparison);
+        }
+
+        @Nonnull
+        public ComparisonRange getComparisonRange() {
+            return comparisonRange;
+        }
+
+        @NonNull
+        public List<Comparisons.Comparison> getResidualComparisons() {
+            return residualComparisons;
+        }
+
+        public static MergeResult of(@Nonnull final ComparisonRange comparisonRange) {
+            return of(comparisonRange, ImmutableList.of());
+        }
+
+        public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
+                                     @Nonnull final Comparisons.Comparison residualComparison) {
+            return new MergeResult(comparisonRange, ImmutableList.of(residualComparison));
+        }
+
+        public static MergeResult of(@Nonnull final ComparisonRange comparisonRange,
+                                     @NonNull final List<Comparisons.Comparison> residualComparisons) {
+            return new MergeResult(comparisonRange, residualComparisons);
+        }
+    }
+
     @Override
     public String toString() {
         if (isEquality()) {
             return getEqualityComparison().toString();
         } else if (isInequality()) {
+            Objects.requireNonNull(inequalityComparisons);
             return inequalityComparisons.stream().map(Comparisons.Comparison::toString)
                             .collect(Collectors.joining(" && ", "[", "]"));
         } else {

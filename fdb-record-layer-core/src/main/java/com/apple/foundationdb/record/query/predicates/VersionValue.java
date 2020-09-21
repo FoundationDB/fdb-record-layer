@@ -30,7 +30,7 @@ import java.util.Collections;
 import java.util.Set;
 
 /**
- * A value representing a versionstamp.
+ * A value representing a version stamp.
  */
 @API(API.Status.EXPERIMENTAL)
 public class VersionValue implements Value {
@@ -62,5 +62,16 @@ public class VersionValue implements Value {
     @Override
     public int semanticHashCode() {
         return 51;
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 }

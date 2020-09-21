@@ -43,7 +43,7 @@ import java.util.stream.Stream;
  * A predicate consisting of a {@link Value} and a {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValuePredicate implements QueryPredicate {
+public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nonnull

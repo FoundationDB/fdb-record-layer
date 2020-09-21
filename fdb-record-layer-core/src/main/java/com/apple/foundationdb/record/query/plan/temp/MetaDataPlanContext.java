@@ -119,7 +119,7 @@ public class MetaDataPlanContext implements PlanContext {
             // TODO remove
             builder.add(IndexEntrySource.fromIndex(metaData.recordTypesForIndex(index), index));
             final Collection<MatchCandidate> candidatesForIndex =
-                    RelationalExpression.fromIndexDefinition(metaData.recordTypesForIndex(index), index);
+                    RelationalExpression.fromIndexDefinition(metaData, index);
             matchCandidatesBuilder.addAll(candidatesForIndex);
 
         }

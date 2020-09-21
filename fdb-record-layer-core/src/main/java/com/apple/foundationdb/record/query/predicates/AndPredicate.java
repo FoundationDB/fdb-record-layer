@@ -26,11 +26,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -79,12 +81,12 @@ public class AndPredicate extends AndOrPredicate {
         return new AndPredicate(rebasedChildren);
     }
 
-    public static QueryPredicate and(@Nonnull List<QueryPredicate> children) {
+    public static QueryPredicate and(@Nonnull Collection<QueryPredicate> children) {
         Verify.verify(!children.isEmpty());
         if (children.size() == 1) {
             return Iterables.getOnlyElement(children);
         }
 
-        return new AndPredicate(children);
+        return new AndPredicate(ImmutableList.copyOf(children));
     }
 }

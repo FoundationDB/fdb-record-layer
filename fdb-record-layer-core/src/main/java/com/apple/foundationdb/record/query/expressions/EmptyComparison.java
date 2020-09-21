@@ -24,7 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
@@ -94,12 +95,12 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
     }
 
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder base, @Nonnull final List<String> fieldNamePrefix) {
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return new ValuePredicate(new FieldValue(base.getCorrelationBase(), fieldNames), Comparisons.LIST_EMPTY);
+        return ExpandedPredicates.withPredicate(new ValuePredicate(new FieldValue(baseAlias, fieldNames), Comparisons.LIST_EMPTY));
     }
 
     @Override

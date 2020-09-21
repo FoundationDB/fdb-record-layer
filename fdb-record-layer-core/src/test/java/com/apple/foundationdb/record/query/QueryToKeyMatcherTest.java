@@ -32,7 +32,8 @@ import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -44,6 +45,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -710,7 +712,8 @@ public class QueryToKeyMatcherTest {
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
+                             @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }

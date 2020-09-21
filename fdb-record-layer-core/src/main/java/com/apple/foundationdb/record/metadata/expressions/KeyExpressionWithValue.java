@@ -21,13 +21,15 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * A key expression that can be represented as a single {@link Value} because it meets both of the following criteria:
@@ -40,13 +42,14 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public interface KeyExpressionWithValue extends KeyExpression {
     @Nonnull
-    Value toValue(@Nonnull SelectExpression.Builder baseBuilder, @Nonnull List<String> fieldNamePrefix);
+    Value toValue(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
 
     @Nonnull
     @Override
-    default List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull SelectExpression.Builder baseBuilder, @Nonnull List<String> fieldNamePrefix) {
-        ValueComparisonRangePredicate predicate = toValue(baseBuilder, fieldNamePrefix).unknown();
-        baseBuilder.addPredicate(predicate);
-        return Collections.singletonList(predicate);
+    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias,
+                                                   @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                   @Nonnull List<String> fieldNamePrefix) {
+        ValueComparisonRangePredicate predicate = toValue(baseAlias, fieldNamePrefix).withType(typeSupplier.get());
+        return ExpandedPredicates.withPredicate(predicate);
     }
 }

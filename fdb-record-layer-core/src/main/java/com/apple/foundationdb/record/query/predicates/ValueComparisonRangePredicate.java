@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
@@ -37,7 +35,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -45,21 +42,32 @@ import java.util.stream.Stream;
 /**
  * A special predicate used to represent a parameterized tuple range.
  * Notably, it is mutable until "frozen" with a particular comparison range type.
- * @see com.apple.foundationdb.record.query.plan.temp.RelationalExpression#fromIndexDefinition(String, Collection, KeyExpression)
+ * @see com.apple.foundationdb.record.query.plan.temp.RelationalExpression#fromIndexDefinition
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValueComparisonRangePredicate implements QueryPredicate {
+public class ValueComparisonRangePredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nullable
-    private ComparisonRange.Type type;
+    private final ComparisonRange.Type type;
     @Nullable
-    private ComparisonRange comparisonRange;
+    private final ComparisonRange comparisonRange;
 
     public ValueComparisonRangePredicate(@Nonnull final Value value, @Nullable final ComparisonRange.Type type, @Nullable final ComparisonRange comparisonRange) {
         this.value = value;
         this.type = type;
         this.comparisonRange = comparisonRange;
+    }
+
+    @Override
+    @Nonnull
+    public Value getValue() {
+        return value;
+    }
+
+    @Nullable
+    public ComparisonRange getComparisonRange() {
+        return comparisonRange;
     }
 
     @Nullable
@@ -86,18 +94,6 @@ public class ValueComparisonRangePredicate implements QueryPredicate {
         return matcher.matchWith(this);
     }
 
-    public void freezeToType(@Nonnull ComparisonRange.Type type) {
-        if (!isFrozen()) {
-            this.type = type;
-        } else {
-            throw new RecordCoreException("TODO");
-        }
-    }
-
-    private boolean isFrozen() {
-        return type != null;
-    }
-
     @Override
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
         if (this == other) {
@@ -122,7 +118,16 @@ public class ValueComparisonRangePredicate implements QueryPredicate {
         return Objects.hash(PlanHashable.planHash(value), type);
     }
 
-    public static ValueComparisonRangePredicate withUnknownType(@Nonnull Value value) {
-        return new ValueComparisonRangePredicate(value, null, null);
+    public static ValueComparisonRangePredicate withRequiredType(@Nonnull Value value, @Nonnull ComparisonRange.Type type) {
+        return new ValueComparisonRangePredicate(value, type, null);
+    }
+
+    public static ValueComparisonRangePredicate withComparisonRange(@Nonnull Value value, @Nonnull ComparisonRange comparisonRange) {
+        return new ValueComparisonRangePredicate(value, null, comparisonRange);
+    }
+
+    @Override
+    public String toString() {
+        return value + " " + type + " " + comparisonRange;
     }
 }

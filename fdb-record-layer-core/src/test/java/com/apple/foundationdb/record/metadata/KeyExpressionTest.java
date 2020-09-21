@@ -39,7 +39,8 @@ import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression
 import com.apple.foundationdb.record.metadata.expressions.SplitKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -58,6 +59,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin.NULL;
@@ -992,7 +994,7 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public Value toValue(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }

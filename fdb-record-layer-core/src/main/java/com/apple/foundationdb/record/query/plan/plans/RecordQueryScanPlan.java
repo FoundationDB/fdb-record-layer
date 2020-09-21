@@ -143,7 +143,6 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         return AvailableFields.ALL_FIELDS;
     }
 
-
     @Override
     public boolean hasLoadBykeys() {
         return false;
@@ -166,7 +165,7 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Nonnull
     @Override
     public RecordQueryScanPlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryScanPlan(getComparisons(), isReverse());
+        return new RecordQueryScanPlan(getRecordTypes(), getComparisons(), isReverse());
     }
 
     @Override

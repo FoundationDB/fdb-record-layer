@@ -24,7 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.ElementPredicate;
@@ -107,12 +108,12 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     }
 
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder builder, @Nonnull final List<String> fieldNamePrefix) {
-        List<String> fieldNames = ImmutableList.<String>builder()
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return new ValuePredicate(new FieldValue(builder.getCorrelationBase(), fieldNames), comparison);
+        return ExpandedPredicates.withPredicate(new ValuePredicate(new FieldValue(baseAlias, fieldNames), comparison));
     }
 
     @Override

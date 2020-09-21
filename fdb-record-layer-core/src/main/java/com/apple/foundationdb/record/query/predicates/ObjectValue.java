@@ -23,11 +23,11 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -72,11 +72,6 @@ public class ObjectValue implements Value {
     }
 
     @Override
-    public int hashCode() {
-        return Objects.hash(identifier);
-    }
-
-    @Override
     public int semanticHashCode() {
         return 39;
     }
@@ -89,5 +84,16 @@ public class ObjectValue implements Value {
     @Override
     public String toString() {
         return "$" + identifier;
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(identifier)));
     }
 }

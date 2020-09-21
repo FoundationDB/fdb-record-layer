@@ -43,10 +43,10 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class ExistsPredicate implements QueryPredicate {
     @Nonnull
-    private final CorrelationIdentifier existential;
+    private final CorrelationIdentifier existentialAlias;
 
-    public ExistsPredicate(@Nonnull final CorrelationIdentifier existential) {
-        this.existential = existential;
+    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias) {
+        this.existentialAlias = existentialAlias;
     }
 
     @Nullable
@@ -57,16 +57,21 @@ public class ExistsPredicate implements QueryPredicate {
     }
 
     @Nonnull
+    public CorrelationIdentifier getExistentialAlias() {
+        return existentialAlias;
+    }
+
+    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.singleton(existential);
+        return Collections.singleton(existentialAlias);
     }
 
     @Nonnull
     @Override
     public ExistsPredicate rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(existential)) {
-            return new ExistsPredicate(translationMap.getTargetOrThrow(existential));
+        if (translationMap.containsSource(existentialAlias)) {
+            return new ExistsPredicate(translationMap.getTargetOrThrow(existentialAlias));
         } else {
             return this;
         }
@@ -87,7 +92,7 @@ public class ExistsPredicate implements QueryPredicate {
             return false;
         }
         final ExistsPredicate that = (ExistsPredicate)other;
-        return aliasMap.containsMapping(existential, that.existential);
+        return aliasMap.containsMapping(existentialAlias, that.existentialAlias);
     }
 
     @Override
@@ -102,6 +107,6 @@ public class ExistsPredicate implements QueryPredicate {
 
     @Override
     public String toString() {
-        return "∃" + existential;
+        return "∃" + existentialAlias;
     }
 }

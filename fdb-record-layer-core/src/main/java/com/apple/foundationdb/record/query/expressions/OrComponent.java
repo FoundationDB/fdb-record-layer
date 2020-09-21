@@ -22,7 +22,8 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -74,10 +75,15 @@ public class OrComponent extends AndOrComponent {
     }
 
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder base, @Nonnull final List<String> fieldNamePrefix) {
-        return new OrPredicate(getChildren().stream()
-                .map(child -> child.normalizeForPlanner(base, fieldNamePrefix))
-                .collect(Collectors.toList()));
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        final ExpandedPredicates childrenExpandedPredicates =
+                ExpandedPredicates.fromOthers(getChildren().stream()
+                        .map(child -> child.normalizeForPlanner(baseAlias, fieldNamePrefix))
+                        .map(expanded -> ExpandedPredicates.fromOtherWithPredicate(expanded.asAndPredicate(), expanded.getQuantifiers()))
+                        .collect(Collectors.toList()));
+
+        return ExpandedPredicates.fromOtherWithPredicate(OrPredicate.or(childrenExpandedPredicates.getPredicates()),
+                childrenExpandedPredicates.getQuantifiers());
     }
 
     @Override

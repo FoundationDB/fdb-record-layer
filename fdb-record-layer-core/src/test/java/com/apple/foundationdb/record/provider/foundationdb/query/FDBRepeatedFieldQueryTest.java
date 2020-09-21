@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
-import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -480,15 +479,17 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
-        RecordQueryPlan plan1 = planner.plan(query1);
-        assertThat(plan1, filter(anything(), typeFilter(anything(), scan(unbounded()))));
-        assertEquals(913370523, plan1.planHash());
+        //RecordQueryPlan plan1 = planner.plan(query1);
+        //assertThat(plan1, filter(anything(), typeFilter(anything(), scan(unbounded()))));
+        //assertEquals(913370523, plan1.planHash());
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(
-                        Query.field("num_value_2").equalsValue(1),
-                        Query.field("repeater").oneOfThem().equalsValue(1)))
+                        //Query.field("num_value_2").equalsValue(1),
+                        Query.field("num_value_2").greaterThan(2),
+                        Query.field("num_value_2").lessThan(5),
+                        Query.field("repeater").oneOfThem().equalsValue(10)))
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, primaryKeyDistinct(indexScan(allOf(indexName("prefix_repeated"),
@@ -497,13 +498,13 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            List<Long> recnos = recordStore.executeQuery(plan1)
-                    .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
-                    .asList().join();
-            assertEquals(Arrays.asList(1L, 3L), recnos);
-            assertDiscardedAtMost(1, context);
+            //  List<Long> recnos = recordStore.executeQuery(plan1)
+            //          .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
+            //          .asList().join();
+            //  assertEquals(Arrays.asList(1L, 3L), recnos);
+            //  assertDiscardedAtMost(1, context);
             clearStoreCounter(context);
-            recnos = recordStore.executeQuery(plan2)
+            List<Long> recnos = recordStore.executeQuery(plan2)
                     .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
                     .asList().join();
             assertEquals(Arrays.asList(1L), recnos);

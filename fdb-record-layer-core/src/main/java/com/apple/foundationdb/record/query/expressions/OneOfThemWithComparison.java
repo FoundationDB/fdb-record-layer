@@ -24,6 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
@@ -113,19 +115,17 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     }
 
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull final SelectExpression.Builder base, @Nonnull final List<String> fieldNamePrefix) {
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        SelectExpression.Builder childBuilder = new SelectExpression.Builder(
-                Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(base.getCorrelationBase(), fieldNames))));
-        childBuilder.addPredicate(new ValuePredicate(
-                        new ObjectValue(childBuilder.getCorrelationBase()), comparison));
-
-        Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(childBuilder.build()));
-        base.addChild(childQuantifier);
-        return new ExistsPredicate(childQuantifier.getAlias());
+        final Quantifier childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(baseAlias, fieldNames)));
+        final SelectExpression selectExpression = ExpandedPredicates.withPredicate(new ValuePredicate(
+                new ObjectValue(childBase.getAlias()), comparison))
+                .buildSelectWithBase(childBase);
+        final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
+        return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias()), childQuantifier);
     }
 
     @Override

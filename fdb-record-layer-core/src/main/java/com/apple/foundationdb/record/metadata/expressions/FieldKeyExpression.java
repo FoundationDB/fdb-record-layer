@@ -26,6 +26,9 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
@@ -34,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
 import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ValueElement;
+import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.ObjectValue;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -45,6 +49,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Take keys from a record field.
@@ -228,22 +233,26 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
+                                                  @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                  @Nonnull final List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
                 .build();
-        ValueComparisonRangePredicate predicate;
+        final ValueComparisonRangePredicate predicate;
         switch (fanType) {
             case FanOut:
-                SelectExpression.Builder childBuilder = getFieldSelectBuilder(baseBuilder, fieldNamePrefix);
-                predicate = new ObjectValue(childBuilder.getCorrelationBase()).unknown();
-                childBuilder.addPredicate(predicate);
-                return Collections.singletonList(predicate);
+                final Quantifier childBase = getBase(baseAlias, fieldNamePrefix);
+                predicate = new ObjectValue(childBase.getAlias()).withType(typeSupplier.get());
+                final SelectExpression selectExpression = ExpandedPredicates.withPredicate(predicate)
+                        .buildSelectWithBase(childBase);
+                Quantifier childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
+                return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias()), childQuantifier);
+
             case None:
-                predicate = new FieldValue(baseBuilder.getCorrelationBase(), fieldNames).unknown();
-                baseBuilder.addPredicate(predicate);
-                return Collections.singletonList(predicate);
+                predicate = new FieldValue(baseAlias, fieldNames).withType(typeSupplier.get());
+                return ExpandedPredicates.withPredicate(predicate);
             case Concatenate: // TODO collect/concatenate function
             default:
         }
@@ -268,19 +277,15 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Nonnull
-    SelectExpression.Builder getFieldSelectBuilder(@Nonnull SelectExpression.Builder baseBuilder, @Nonnull List<String> fieldNamePrefix) {
+    Quantifier getBase(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
                 .build();
         switch (fanType) {
             case FanOut:
-                return new SelectExpression.Builder(
-                        Quantifier.forEach(GroupExpressionRef.of(
-                                new ExplodeExpression(baseBuilder.getCorrelationBase(), fieldNames))));
-            case Concatenate:
-            case None:
-                return baseBuilder;
+                return Quantifier.forEach(GroupExpressionRef.of(
+                        new ExplodeExpression(baseAlias, fieldNames)));
             default:
                 throw new RecordCoreException("unrecognized fan type");
         }

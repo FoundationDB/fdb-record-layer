@@ -170,7 +170,9 @@ public interface Debugger {
     enum Location {
         ANY,
         BEGIN,
-        END
+        END,
+        SUCCESS,
+        FAILURE
     }
 
     /**

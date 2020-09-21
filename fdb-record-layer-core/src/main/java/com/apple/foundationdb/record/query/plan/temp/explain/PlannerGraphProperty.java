@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 import com.google.common.io.CharStreams;
@@ -145,7 +146,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
 
         queryGraphRefs
                 .forEach(queryGraphRef -> {
-                    for (final MatchCandidate matchCandidate : queryGraphRef.getMatchCandidates()) {
+                    for (final MatchCandidate matchCandidate : Sets.intersection(matchCandidates, queryGraphRef.getMatchCandidates())) {
                         final Set<PartialMatch> partialMatchesForCandidate = queryGraphRef.getPartialMatchesForCandidate(matchCandidate);
                         final PlannerGraph matchCandidatePlannerGraph = Objects.requireNonNull(matchCandidateMap.get(matchCandidate));
                         final Node queryRefNode = Objects.requireNonNull(queryPlannerGraph.getNodeForIdentity(queryGraphRef));
@@ -166,6 +167,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
                         .stream()
                         .map(entry -> new NamedCluster(entry.getKey().getName(), entry.getValue().getNetwork().nodes(), nestedClusterProvider))
                         .collect(Collectors.toList()));
+        System.out.println(dotString);
         return show(dotString);
     }
 

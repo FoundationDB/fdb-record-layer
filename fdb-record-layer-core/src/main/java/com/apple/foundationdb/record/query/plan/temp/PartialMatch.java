@@ -20,8 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.google.common.collect.ImmutableList;
+
 import javax.annotation.Nonnull;
-import java.util.function.UnaryOperator;
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * Case class to represent a partial match. A partial match is stored in a multi map in {@link GroupExpressionRef}s that
@@ -61,16 +64,16 @@ public class PartialMatch {
      * Compensation operator that can be applied to the scan of the materialized version of the match candidate.
      */
     @Nonnull
-    private final UnaryOperator<ExpressionRef<? extends RelationalExpression>> compensationOperator;
+    private final MatchWithCompensation matchWithCompensation;
 
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> queryRef,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
-                        @Nonnull final UnaryOperator<ExpressionRef<? extends RelationalExpression>> compensationOperator) {
+                        @Nonnull final MatchWithCompensation matchWithCompensation) {
         this.boundAliasMap = boundAliasMap;
         this.queryRef = queryRef;
         this.candidateRef = candidateRef;
-        this.compensationOperator = compensationOperator;
+        this.matchWithCompensation = matchWithCompensation;
     }
 
     @Nonnull
@@ -89,7 +92,15 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public UnaryOperator<ExpressionRef<? extends RelationalExpression>> getCompensationOperator() {
-        return compensationOperator;
+    public MatchWithCompensation getMatchResult() {
+        return matchWithCompensation;
+    }
+
+    @Nonnull
+    public static Collection<MatchWithCompensation> matchesFromMap(@Nonnull Map<Quantifier, PartialMatch> partialMatchMap) {
+        return partialMatchMap.values()
+                .stream()
+                .map(PartialMatch::getMatchResult)
+                .collect(ImmutableList.toImmutableList());
     }
 }

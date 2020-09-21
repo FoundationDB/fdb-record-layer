@@ -96,6 +96,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
             for (RelationalExpression member : groupExpressionRef.getMembers()) {
                 if (root.insert(member)) {
                     newExpressions.add(member);
+                    aliasResolver.addExpression(expression, member);
                 }
             }
         } else {

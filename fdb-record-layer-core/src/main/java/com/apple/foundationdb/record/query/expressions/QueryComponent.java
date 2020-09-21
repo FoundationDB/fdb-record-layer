@@ -25,7 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -177,10 +178,10 @@ public interface QueryComponent extends PlanHashable {
     QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
 
     @API(API.Status.EXPERIMENTAL)
-    default QueryPredicate normalizeForPlanner(@Nonnull SelectExpression.Builder base) {
-        return normalizeForPlanner(base, Collections.emptyList());
+    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias) {
+        return normalizeForPlanner(baseAlias, Collections.emptyList());
     }
 
     @API(API.Status.EXPERIMENTAL)
-    QueryPredicate normalizeForPlanner(@Nonnull SelectExpression.Builder base, @Nonnull List<String> fieldNamePrefix);
+    ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
 }

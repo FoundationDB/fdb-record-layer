@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -92,5 +93,16 @@ public class FieldValue implements Value {
     @Override
     public String toString() {
         return "$" + identifier + "/" + fieldNames.get(fieldNames.size() - 1);
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(identifier)));
     }
 }

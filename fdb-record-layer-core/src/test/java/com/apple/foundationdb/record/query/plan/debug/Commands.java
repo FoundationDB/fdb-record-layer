@@ -120,7 +120,21 @@ public class Commands {
                     }
                 }
 
-                if ("YIELD".equals(word1.toUpperCase())) {
+                if ("MATCH".equals(word1)) {
+                    if (words.size() >= 3) {
+                        final String candidateMatchPrefix = words.get(2);
+                        final Debugger.Location location =
+                                words.size() == 4
+                                ? Enums.getIfPresent(Debugger.Location.class, words.get(3).toUpperCase()).or(Debugger.Location.BEGIN)
+                                : Debugger.Location.BEGIN;
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnMatchBreakPoint(candidateMatchPrefix.toLowerCase(), location));
+                        return false;
+                    }
+                    plannerRepl.printlnError("usage: break match matchCandidate [begin|end]");
+                    return false;
+                }
+
+                if ("YIELD".equals(word1)) {
                     if (words.size() == 3) {
                         final String word2 = words.get(2);
                         if (!plannerRepl.isValidEntityName(word2)) {
@@ -134,7 +148,7 @@ public class Commands {
                     return false;
                 }
 
-                if ("REMOVE".equals(word1.toUpperCase())) {
+                if ("REMOVE".equals(word1)) {
                     if (words.size() == 3) {
                         final String word2 = words.get(2);
                         @Nullable final Integer index = PlannerRepl.getIdFromIdentifier(word2, "");
@@ -447,7 +461,7 @@ public class Commands {
                 return false;
             }
 
-            plannerRepl.processIdentifiers(words.get(1),
+            if (!plannerRepl.processIdentifiers(words.get(1),
                     expression -> expression.show(true),
                     reference -> {
                         if (reference instanceof GroupExpressionRef) {
@@ -456,7 +470,9 @@ public class Commands {
                             plannerRepl.println("show is not supported for non-group references.");
                         }
                     },
-                    quantifier -> plannerRepl.println("show is not supported for quantifiers."));
+                    quantifier -> plannerRepl.println("show is not supported for quantifiers."))) {
+                plannerRepl.printlnError("unknown entity");
+            }
             return false;
         }
 

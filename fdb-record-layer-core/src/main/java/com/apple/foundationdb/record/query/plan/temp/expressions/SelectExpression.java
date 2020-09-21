@@ -21,8 +21,12 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
@@ -30,17 +34,24 @@ import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGrap
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
+import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
+import com.apple.foundationdb.record.query.predicates.ValuePredicate;
+import com.google.common.base.Equivalence;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimaps;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -54,12 +65,14 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     private final List<QueryPredicate> predicates;
 
     public SelectExpression(@Nonnull List<Quantifier> children) {
-        this(children, Collections.singletonList(ConstantPredicate.TRUE));
+        this(children, ImmutableList.of());
     }
 
     public SelectExpression(@Nonnull List<Quantifier> children, @Nonnull List<QueryPredicate> predicates) {
         this.children = children;
-        this.predicates = predicates;
+        this.predicates = predicates.isEmpty()
+                          ? ImmutableList.of(ConstantPredicate.TRUE)
+                          : groupPredicates(predicates);
     }
 
     @Nonnull
@@ -117,12 +130,39 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
+
         return getPredicate().semanticEquals(((SelectExpression)otherExpression).getPredicate(), equivalencesMap);
     }
 
     @Override
     public int hashCodeWithoutChildren() {
         return Objects.hash(getPredicate());
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MatchWithCompensation> subsumedBy(@Nonnull final RelationalExpression otherExpression,
+                                                      @Nonnull final AliasMap aliasMap,
+                                                      @Nonnull final Map<Quantifier, PartialMatch> partialMatchMap) {
+        if (this == otherExpression) {
+            return ImmutableList.of(MatchWithCompensation.fromOthers(PartialMatch.matchesFromMap(partialMatchMap)));
+        }
+        if (getClass() != otherExpression.getClass()) {
+            return ImmutableList.of();
+        }
+
+        final Map<? extends Class<?>, List<QueryPredicate>> collect =
+                getPredicates()
+                        .stream()
+                        .collect(Collectors.groupingBy(Object::getClass, Collectors.toList()));
+
+        
+
+        if (equalsWithoutChildren(otherExpression, aliasMap)) {
+            return ImmutableList.of(MatchWithCompensation.from());
+        } else {
+            return ImmutableList.of();
+        }
     }
 
     @Nonnull
@@ -141,49 +181,94 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return "WHERE " + getPredicate();
     }
 
-    /**
-     * Builder for {@link SelectExpression}.
-     */
-    public static class Builder {
-        @Nonnull
-        private final List<Quantifier> children;
-        @Nonnull
-        private final List<QueryPredicate> predicates;
+    @SuppressWarnings("UnstableApiUsage")
+    private static List<QueryPredicate> groupPredicates(final List<QueryPredicate> predicates) {
+        final ImmutableList<QueryPredicate> flattenedAndPredicates =
+                predicates.stream()
+                        .flatMap(predicate -> flattenAndPredicate(predicate).stream())
+                        .collect(ImmutableList.toImmutableList());
 
-        public Builder(@Nonnull Quantifier firstChild) {
-            this(Lists.newArrayList(firstChild), new ArrayList<>());
+        // partition predicates in value-based predicates and non-value-based predicates
+        final ImmutableList.Builder<PredicateWithValue> predicateWithValuesBuilder = ImmutableList.builder();
+        final ImmutableList.Builder<QueryPredicate> resultPredicatesBuilder = ImmutableList.builder();
+
+        for (final QueryPredicate flattenedAndPredicate : flattenedAndPredicates) {
+            if (flattenedAndPredicate instanceof PredicateWithValue) {
+                predicateWithValuesBuilder.add((PredicateWithValue)flattenedAndPredicate);
+            } else {
+                resultPredicatesBuilder.add(flattenedAndPredicate);
+            }
         }
 
-        public Builder(@Nonnull List<Quantifier> children, @Nonnull List<QueryPredicate> predicates) {
-            this.children = children;
-            this.predicates = predicates;
-        }
+        final ImmutableList<PredicateWithValue> predicateWithValues = predicateWithValuesBuilder.build();
 
-        @Nonnull
-        public Builder addChild(@Nonnull Quantifier quantifier) {
-            children.add(quantifier);
-            return this;
-        }
+        final AliasMap boundIdentitiesMap = AliasMap.identitiesFor(
+                flattenedAndPredicates.stream()
+                        .flatMap(predicate -> predicate.getCorrelatedTo().stream())
+                        .collect(ImmutableSet.toImmutableSet()));
 
-        @Nonnull
-        public Builder addPredicate(@Nonnull QueryPredicate predicate) {
-            predicates.add(predicate);
-            return this;
-        }
+        final BoundEquivalence boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
 
-        @Nonnull
-        public CorrelationIdentifier getCorrelationBase() {
-            return children.get(0).getAlias();
-        }
+        final HashMultimap<Equivalence.Wrapper<Value>, PredicateWithValue> groupedPredicatesWithValues =
+                predicateWithValues
+                        .stream()
+                        .collect(Multimaps.toMultimap(
+                                predicate -> boundEquivalence.wrap(predicate.getValue()), Function.identity(), HashMultimap::create));
 
-        @Nonnull
-        public Builder copy() {
-            return new Builder(new ArrayList<>(children), new ArrayList<>(predicates));
-        }
+        groupedPredicatesWithValues
+                .asMap()
+                .forEach((valueWrapper, predicatesOnValue) -> {
+                    final Value value = Objects.requireNonNull(valueWrapper.get());
+                    ComparisonRange resultRange = ComparisonRange.EMPTY;
+                    for (final PredicateWithValue predicateOnValue : predicatesOnValue) {
+                        if (predicateOnValue instanceof ValuePredicate) {
+                            final Comparisons.Comparison comparison = ((ValuePredicate)predicateOnValue).getComparison();
 
-        @Nonnull
-        public SelectExpression build() {
-            return new SelectExpression(children, predicates);
+                            final ComparisonRange.MergeResult mergeResult =
+                                    resultRange.merge(comparison);
+
+                            resultRange = mergeResult.getComparisonRange();
+
+                            mergeResult.getResidualComparisons()
+                                    .forEach(residualComparison ->
+                                            resultPredicatesBuilder.add(new ValuePredicate(value, residualComparison)));
+                        } else if (predicateOnValue instanceof ValueComparisonRangePredicate) {
+                            final ValueComparisonRangePredicate valueComparisonRangePredicate = (ValueComparisonRangePredicate)predicateOnValue;
+                            if (valueComparisonRangePredicate.getComparisonRange() != null) {
+                                final ComparisonRange comparisonRange = valueComparisonRangePredicate.getComparisonRange();
+
+                                final ComparisonRange.MergeResult mergeResult =
+                                        resultRange.merge(comparisonRange);
+
+                                resultRange = mergeResult.getComparisonRange();
+
+                                mergeResult.getResidualComparisons()
+                                        .forEach(residualComparison ->
+                                                resultPredicatesBuilder.add(new ValuePredicate(value, residualComparison)));
+                            } else {
+                                resultPredicatesBuilder.add(predicateOnValue);
+                            }
+                        } else {
+                            resultPredicatesBuilder.add(predicateOnValue);
+                        }
+                    }
+                    if (!resultRange.isEmpty()) {
+                        resultPredicatesBuilder.add(ValueComparisonRangePredicate.withComparisonRange(value, resultRange));
+                    }
+                });
+
+        return resultPredicatesBuilder.build();
+    }
+
+    private static List<QueryPredicate> flattenAndPredicate(final QueryPredicate predicate) {
+        final ImmutableList.Builder<QueryPredicate> result = ImmutableList.builder();
+
+        if (predicate instanceof AndPredicate) {
+            for (final QueryPredicate child : ((AndPredicate)predicate).getChildren()) {
+                result.addAll(flattenAndPredicate(child));
+            }
+            return result.build();
         }
+        return result.add(predicate).build();
     }
 }

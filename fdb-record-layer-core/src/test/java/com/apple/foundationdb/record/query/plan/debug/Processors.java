@@ -33,13 +33,17 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeGrou
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeInputsEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformRuleCallEvent;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import org.jline.reader.ParsedLine;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Class containing all implementations of {@link Processor}
@@ -57,7 +61,7 @@ public class Processors {
         }
 
         default void onCommand(final PlannerRepl plannerRepl, final E event, final ParsedLine parsedLine) {
-            plannerRepl.printlnError("unknown command or syntax error: " + parsedLine.words().get(0));
+            plannerRepl.printlnError("unknown command or syntax error: " + parsedLine.toString());
             onList(plannerRepl, event);
             plannerRepl.println();
         }
@@ -316,6 +320,34 @@ public class Processors {
      */
     @AutoService(Processor.class)
     public static class MatchExpressionWithCandidateProcessor implements Processor<MatchExpressionWithCandidateEvent> {
+
+        public void onCommand(final PlannerRepl plannerRepl, final MatchExpressionWithCandidateEvent event, final ParsedLine parsedLine) {
+            final List<String> words = parsedLine.words();
+
+            if (words.size() >= 1) {
+                final String word0 = words.get(0).toUpperCase();
+                if ("MATCH".equals(word0)) {
+                    if (words.size() >= 2) {
+                        final String word1 = words.get(1).toUpperCase();
+                        if ("SHOW".equals(word1)) {
+                            if (words.size() == 3) {
+                                final String word2 = words.get(1).toUpperCase();
+                                if ("ALL".equals(word2)) {
+                                    PlannerGraphProperty.show(true, event.getRootReference(), Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
+                                    return;
+                                }
+                            } else {
+                                PlannerGraphProperty.show(true, event.getRootReference(), ImmutableSet.of(event.getMatchCandidate()));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Processor.super.onCommand(plannerRepl, event, parsedLine);
+        }
+
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final MatchExpressionWithCandidateEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
@@ -344,7 +376,7 @@ public class Processors {
             plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(event.getExpression()) + "; ");
             plannerRepl.printKeyValue("match candidate", event.getMatchCandidate().getName() + "; ");
             plannerRepl.printKeyValue("candidate reference", plannerRepl.nameForObjectOrNotInCache(event.getCandidateRef()) + "; ");
-            plannerRepl.printlnKeyValue("candidate expression", plannerRepl.nameForObjectOrNotInCache(event.getCandidateExpression()));
+            plannerRepl.printKeyValue("candidate expression", plannerRepl.nameForObjectOrNotInCache(event.getCandidateExpression()));
         }
 
         @Override

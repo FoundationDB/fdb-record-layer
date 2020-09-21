@@ -58,28 +58,18 @@ public class LiteralValue<T> implements Value {
 
     @Override
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        return equals(other);
-    }
-
-    @Override
-    public int semanticHashCode() {
-        return hashCode();
-    }
-
-    @Override
-    public boolean equals(final Object o) {
-        if (this == o) {
+        if (this == other) {
             return true;
         }
-        if (o == null || getClass() != o.getClass()) {
+        if (other == null || getClass() != other.getClass()) {
             return false;
         }
-        final LiteralValue<?> that = (LiteralValue<?>)o;
+        final LiteralValue<?> that = (LiteralValue<?>)other;
         return Objects.equals(value, that.value);
     }
 
     @Override
-    public int hashCode() {
+    public int semanticHashCode() {
         return Objects.hash(value);
     }
 
@@ -91,5 +81,16 @@ public class LiteralValue<T> implements Value {
     @Override
     public String toString() {
         return String.valueOf(value);
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 }

@@ -122,6 +122,11 @@ public class PlannerRepl implements Debugger {
         return Objects.requireNonNull(stateStack.peek());
     }
 
+    @Nullable
+    public PlanContext getPlanContext() {
+        return planContext;
+    }
+
     @Override
     public void onRegisterExpression(final RelationalExpression expression) {
         getCurrentState().registerExpression(expression);
@@ -782,6 +787,66 @@ public class PlannerRepl implements Debugger {
         @Override
         public int hashCode() {
             return Objects.hash(expressionName);
+        }
+    }
+
+    /**
+     * Breakpoint that breaks when the planner attempts to match an expression against a match candidate.
+     */
+    public static class OnMatchBreakPoint extends BreakPoint {
+
+        @Nonnull
+        private final String candidateNamePrefix;
+
+        @Nonnull
+        private final Location location;
+
+        public OnMatchBreakPoint(@Nonnull final String candidateNamePrefix, @Nonnull final Location location) {
+            super(event -> event.getShorthand() == Shorthand.MATCHEXPCAND &&
+                           event.getLocation() == location &&
+                           event instanceof MatchExpressionWithCandidateEvent);
+            this.candidateNamePrefix = candidateNamePrefix;
+            this.location = location;
+        }
+
+        @Override
+        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
+            if (super.onCallback(plannerRepl, event)) {
+                final MatchExpressionWithCandidateEvent matchExpressionWithCandidateEvent =
+                        (MatchExpressionWithCandidateEvent)event;
+                return (Location.ANY == location || event.getLocation() == location) &&
+                       matchExpressionWithCandidateEvent
+                               .getMatchCandidate()
+                               .getName()
+                               .startsWith(candidateNamePrefix);
+            }
+            return false;
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl) {
+            super.onList(plannerRepl);
+            plannerRepl.print("; ");
+            plannerRepl.printKeyValue("candidateNamePrefix", candidateNamePrefix + "; ");
+            plannerRepl.printKeyValue("location", location.name());
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final OnMatchBreakPoint that = (OnMatchBreakPoint)o;
+            return candidateNamePrefix.equals(that.candidateNamePrefix) &&
+                   location == that.location;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(candidateNamePrefix, location);
         }
     }
 }

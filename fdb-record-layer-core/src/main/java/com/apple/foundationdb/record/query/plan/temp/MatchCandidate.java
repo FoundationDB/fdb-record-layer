@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.google.common.collect.ImmutableList;
+
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * Case class to represent a match candidate. A match candidate on code level is just a name and a data flow graph
@@ -34,6 +37,13 @@ public class MatchCandidate {
     @Nonnull
     private final String name;
 
+
+    /**
+     * Holds the parameter names for all necessary parameters that need to be bound during matching.
+     */
+    @Nonnull
+    private final List<CorrelationIdentifier> parameters;
+
     /**
      * Traversal object.
      */
@@ -41,8 +51,15 @@ public class MatchCandidate {
     private final ExpressionRefTraversal traversal;
 
     public MatchCandidate(@Nonnull String name, @Nonnull final ExpressionRefTraversal traversal) {
+        this(name, traversal, ImmutableList.of());
+    }
+
+    public MatchCandidate(@Nonnull String name,
+                          @Nonnull final ExpressionRefTraversal traversal,
+                          @Nonnull final List<CorrelationIdentifier> parameters) {
         this.name = name;
         this.traversal = traversal;
+        this.parameters = ImmutableList.copyOf(parameters);
     }
 
     @Nonnull
@@ -53,5 +70,10 @@ public class MatchCandidate {
     @Nonnull
     public ExpressionRefTraversal getTraversal() {
         return traversal;
+    }
+
+    @Nonnull
+    public List<CorrelationIdentifier> getParameters() {
+        return parameters;
     }
 }

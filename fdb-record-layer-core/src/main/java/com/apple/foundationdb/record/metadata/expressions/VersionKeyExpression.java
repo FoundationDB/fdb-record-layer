@@ -25,7 +25,8 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.VersionElement;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -37,6 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * A key expression that indicates that a serialized {@link FDBRecordVersion} should
@@ -111,7 +113,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         return new VersionValue();
     }
 

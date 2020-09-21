@@ -26,11 +26,12 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -39,6 +40,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Interface for expressions that evaluate to keys.
@@ -236,13 +238,13 @@ public interface KeyExpression extends PlanHashable {
 
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    default List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull SelectExpression.Builder baseBuilder) {
-        return normalizeForPlanner(baseBuilder, Collections.emptyList());
+    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<ComparisonRange.Type> typeSupplier) {
+        return normalizeForPlanner(baseAlias, typeSupplier, Collections.emptyList());
     }
 
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    List<ValueComparisonRangePredicate> normalizeForPlanner(@Nonnull SelectExpression.Builder baseBuilder, @Nonnull List<String> fieldNamePrefix);
+    ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<ComparisonRange.Type> typeSupplier, @Nonnull List<String> fieldNamePrefix);
 
     /**
      * Flatten this key expression into a list of {@link Value}s, much like {@link #normalizeKeyForPositions()}.

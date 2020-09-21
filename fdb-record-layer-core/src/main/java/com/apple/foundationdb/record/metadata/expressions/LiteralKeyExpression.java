@@ -25,7 +25,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.view.LiteralElement;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
@@ -39,6 +40,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Expression to allow a static value to be utilized in a key expression.  This primary use case for this
@@ -105,7 +107,8 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public Value toValue(@Nonnull final SelectExpression.Builder baseBuilder, @Nonnull final List<String> fieldNamePrefix) {
+    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
+                         @Nonnull final List<String> fieldNamePrefix) {
         return new LiteralValue<>(value);
     }
 

@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphPropert
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
@@ -47,8 +48,9 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -515,6 +517,36 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
+    /**
+     * Partial match with a quantifier pulled up along with the partial match during matching.
+     */
+    public static class PartialMatchWithQuantifier {
+        @Nonnull
+        private final PartialMatch partialMatch;
+        @Nonnull
+        private final Quantifier quantifier;
+
+        private PartialMatchWithQuantifier(@Nonnull final PartialMatch partialMatch, @Nonnull final Quantifier quantifier) {
+            this.partialMatch = partialMatch;
+            this.quantifier = quantifier;
+        }
+
+        @Nonnull
+        public static PartialMatchWithQuantifier of(@Nonnull final PartialMatch partialMatch, @Nonnull final Quantifier quantifier) {
+            return new PartialMatchWithQuantifier(partialMatch, quantifier);
+        }
+
+        @Nonnull
+        public PartialMatch getPartialMatch() {
+            return partialMatch;
+        }
+
+        @Nonnull
+        public Quantifier getQuantifier() {
+            return quantifier;
+        }
+    }
+
     private class MatchExpressionWithCandidate implements Task {
         @Nonnull
         private final PlanContext context;
@@ -548,10 +580,14 @@ public class CascadesPlanner implements QueryPlanner {
             final Iterable<PartialMatch> partialMatches =
                     expression.match(candidateExpression,
                             AliasMap.emptyMap(),
+                            expression.getQuantifiers(),
+                            candidateExpression.getQuantifiers(),
                             this::constraintsForQuantifier,
                             this::matchQuantifiers,
                             this::combineMatches);
-            group.addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
+
+            final boolean hasNewMatches = group.addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
+            Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(hasNewMatches ? Location.SUCCESS : Location.FAILURE)));
         }
 
         private Collection<AliasMap> constraintsForQuantifier(final Quantifier quantifier) {
@@ -561,30 +597,48 @@ public class CascadesPlanner implements QueryPlanner {
                     .collect(ImmutableSet.toImmutableSet());
         }
 
-        private Iterable<PartialMatch> matchQuantifiers(final Quantifier quantifier,
-                                                        final Quantifier otherQuantifier,
-                                                        final AliasMap aliasMap) {
+        private Iterable<PartialMatchWithQuantifier> matchQuantifiers(final Quantifier quantifier,
+                                                                      final Quantifier otherQuantifier,
+                                                                      final AliasMap aliasMap) {
             final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
             final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
 
             final Set<PartialMatch> partialMatchesForCandidate = rangesOver.getPartialMatchesForCandidate(matchCandidate);
             return partialMatchesForCandidate.stream()
                     .filter(partialMatch -> partialMatch.getCandidateRef() == otherRangesOver && partialMatch.getBoundAliasMap().isCompatible(aliasMap))
+                    .map(partialMatch -> PartialMatchWithQuantifier.of(partialMatch, quantifier))
                     .collect(Collectors.toList());
         }
 
         @Nonnull
         private Iterable<PartialMatch> combineMatches(final AliasMap boundCorrelatedToMap,
-                                                      final Iterable<BoundMatch<EnumeratingIterable<PartialMatch>>> boundMatches) {
-            final Optional<BoundMatch<EnumeratingIterable<PartialMatch>>> anyMatch =
+                                                      final Iterable<BoundMatch<EnumeratingIterable<PartialMatchWithQuantifier>>> boundMatches) {
+            return () ->
                     StreamSupport.stream(boundMatches.spliterator(), false)
-                            // TODO call actual matching function instead of equalsWithoutChildren()
-                            .filter(boundMatch -> expression.equalsWithoutChildren(candidateExpression, boundMatch.getAliasMap()))
-                            .findAny();
-            if (anyMatch.isPresent()) {
-                return ImmutableList.of(new PartialMatch(boundCorrelatedToMap, group, candidateRef, ref -> ref));
-            }
-            return ImmutableList.of();
+                            .flatMap(boundMatch -> {
+                                final Iterable<MatchWithCompensation> matchesWithCompensation = boundMatch.getMatchResultOptional()
+                                        .map(matchResultIterable ->
+                                                IterableHelpers.flatMap(matchResultIterable, matchResult -> {
+                                                    final Map<Quantifier, PartialMatch> partialMatchMap = partialMatchMap(matchResult);
+                                                    return expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), partialMatchMap);
+                                                }))
+                                        .orElseGet(() ->
+                                                expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), ImmutableMap.of()));
+                                return StreamSupport.stream(matchesWithCompensation.spliterator(), false);
+                            })
+                            .map(matchWithCompensation -> new PartialMatch(boundCorrelatedToMap, group, candidateRef, matchWithCompensation))
+                            .iterator();
+        }
+
+        @Nonnull
+        private IdentityHashMap<Quantifier, PartialMatch> partialMatchMap(final java.util.List<PartialMatchWithQuantifier> matchResult) {
+            return matchResult.stream()
+                    .collect(Collectors.toMap(PartialMatchWithQuantifier::getQuantifier,
+                            PartialMatchWithQuantifier::getPartialMatch,
+                            (v1, v2) -> {
+                                throw new RecordCoreException("matching produced duplicate quantifiers");
+                            },
+                            IdentityHashMap::new));
         }
 
         @Override
