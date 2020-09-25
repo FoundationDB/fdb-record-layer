@@ -61,7 +61,7 @@ public class Processors {
         }
 
         default void onCommand(final PlannerRepl plannerRepl, final E event, final ParsedLine parsedLine) {
-            plannerRepl.printlnError("unknown command or syntax error: " + parsedLine.toString());
+            plannerRepl.printlnError("unknown command or syntax error: " + String.join(" ", parsedLine.words()));
             onList(plannerRepl, event);
             plannerRepl.println();
         }
@@ -331,7 +331,7 @@ public class Processors {
                         final String word1 = words.get(1).toUpperCase();
                         if ("SHOW".equals(word1)) {
                             if (words.size() == 3) {
-                                final String word2 = words.get(1).toUpperCase();
+                                final String word2 = words.get(2).toUpperCase();
                                 if ("ALL".equals(word2)) {
                                     PlannerGraphProperty.show(true, event.getRootReference(), Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
                                     return;

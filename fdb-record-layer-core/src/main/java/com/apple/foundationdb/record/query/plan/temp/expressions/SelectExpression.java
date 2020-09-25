@@ -151,15 +151,15 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableList.of();
         }
 
-        final Map<? extends Class<?>, List<QueryPredicate>> collect =
-                getPredicates()
-                        .stream()
-                        .collect(Collectors.groupingBy(Object::getClass, Collectors.toList()));
+        //        final Map<? extends Class<?>, List<QueryPredicate>> collect =
+        //                getPredicates()
+        //                        .stream()
+        //                        .collect(Collectors.groupingBy(Object::getClass, Collectors.toList()));
 
         
 
         if (equalsWithoutChildren(otherExpression, aliasMap)) {
-            return ImmutableList.of(MatchWithCompensation.from());
+            return ImmutableList.of(MatchWithCompensation.fromOthers(PartialMatch.matchesFromMap(partialMatchMap)));
         } else {
             return ImmutableList.of();
         }
