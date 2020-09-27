@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp.matching;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
-import com.apple.foundationdb.record.query.plan.temp.TransitiveClosure;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,7 +67,7 @@ import static com.apple.foundationdb.record.query.plan.temp.TopologicalSort.topo
  *
  * @param <T> the type representing the domain of matching
  */
-public class BaseMatcher<T> {
+public abstract class BaseMatcher<T> {
     /**
      * Map with previously-bound aliases. Any match that is computed and passed back to the client is an amendment of
      * this map, i.e., every resulting match's {@link AliasMap} always contains at least the bindings in this map.
@@ -370,7 +369,7 @@ public class BaseMatcher<T> {
                 }
             }
         }
-        return TransitiveClosure.transitiveClosure(aliases, builder.build());
+        return builder.build();
     }
 
     /**
@@ -399,6 +398,6 @@ public class BaseMatcher<T> {
                 }
             }
         }
-        return TransitiveClosure.transitiveClosure(aliases, builder.build());
+        return builder.build();
     }
 }

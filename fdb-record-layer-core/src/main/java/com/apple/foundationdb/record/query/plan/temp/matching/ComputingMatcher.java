@@ -25,12 +25,15 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.CrossProduct;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterator;
+import com.apple.foundationdb.record.query.plan.temp.TransitiveClosure;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -42,6 +45,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 /**
  * This class implements a {@link GenericMatcher} which matches two sets of elements of type {@code T} to compute
@@ -149,29 +153,46 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
                 while (iterator.hasNext()) {
                     final List<CorrelationIdentifier> ordered = iterator.next();
                     final AliasMap.Builder aliasMapBuilder = AliasMap.builder(aliases.size());
+                    final Set<CorrelationIdentifier> failedAliases = Sets.newHashSetWithExpectedSize(ordered.size());
                     final MatchAccumulator<M, R> accumulatedMatchResult = matchAccumulatorSupplier.get();
 
                     int i;
-                    for (i = 0; i < aliases.size(); i++) {
+                    for (i = 0; i < Math.min(aliases.size(), otherOrdered.size()); i++) {
                         final AliasMap aliasMap = aliasMapBuilder.build();
 
                         final CorrelationIdentifier alias = ordered.get(i);
                         final CorrelationIdentifier otherAlias = otherOrdered.get(i);
 
-                        final Optional<AliasMap> dependsOnMapOptional = mapDependenciesToOther(aliasMap, alias, otherAlias);
-                        if (!dependsOnMapOptional.isPresent()) {
-                            break;
-                        }
-                        final AliasMap dependsOnMap = dependsOnMapOptional.get();
 
-                        final T entity = Objects.requireNonNull(getAliasToElementMap().get(alias));
-                        final T otherEntity = Objects.requireNonNull(getOtherAliasToElementMap().get(otherAlias));
+                        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = getDependsOnMap();
+                        if (!Sets.intersection(failedAliases, dependsOnMap.get(alias)).isEmpty()) {
+                            failedAliases.add(alias);
+                            continue;
+                        }
+
+                        final Map<CorrelationIdentifier, T> aliasToElementMap = getAliasToElementMap();
+                        if (!aliasToElementMap.containsKey(alias)) {
+                            failedAliases.add(alias);
+                            continue;
+                        }
+
+                        final Optional<AliasMap> locallyBoundMapOptional = mapDependenciesToOther(aliasMap, alias, otherAlias);
+                        if (!locallyBoundMapOptional.isPresent()) {
+                            failedAliases.add(alias);
+                            continue;
+                        }
+
+                        final AliasMap locallyBoundMap = locallyBoundMapOptional.get();
+
+                        final T entity = Objects.requireNonNull(aliasToElementMap.get(alias));
+                            final T otherEntity = Objects.requireNonNull(getOtherAliasToElementMap().get(otherAlias));
 
                         final Iterable<M> matchResults =
-                                matchFunction.apply(entity, otherEntity, boundAliasesMap.combine(dependsOnMap));
+                                matchFunction.apply(entity, otherEntity, boundAliasesMap.combine(locallyBoundMap));
 
                         if (Iterables.isEmpty(matchResults)) {
-                            break;
+                            failedAliases.add(alias);
+                            continue;
                         }
 
                         accumulatedMatchResult.accumulate(matchResults);
@@ -183,14 +204,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
                     final R result = accumulatedMatchResult.finish();
 
-                    if (i == aliases.size()) {
-                        return BoundMatch.withAliasMapAndMatchResult(
-                                boundAliasesMap.derived(aliases.size()).zip(ordered, otherOrdered).build(),
-                                result);
-                    } else {
-                        // we can skip all permutations where the i-th value is bound the way it currently is
-                        iterator.skip(i);
-                    }
+                    return BoundMatch.withAliasMapAndMatchResult(aliasMapBuilder.build(), result);
                 }
 
                 return endOfData();
@@ -232,24 +246,80 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
                                                                               @Nonnull final Function<T, Set<CorrelationIdentifier>> otherDependsOnFn,
                                                                               @Nonnull final MatchFunction<T, M> matchFunction,
                                                                               @Nonnull final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier) {
-        final ImmutableSet<CorrelationIdentifier> aliases = BaseMatcher.computeAliases(elements, elementToAliasFn);
+        ImmutableSet<CorrelationIdentifier> aliases = BaseMatcher.computeAliases(elements, elementToAliasFn);
         final ImmutableMap<CorrelationIdentifier, T> aliasToElementMap = BaseMatcher.computeAliasToElementMap(elements, elementToAliasFn);
 
         final ImmutableSet<CorrelationIdentifier> otherAliases = BaseMatcher.computeAliases(otherElements, otherElementToAliasFn);
         final ImmutableMap<CorrelationIdentifier, T> otherAliasToElementMap = BaseMatcher.computeAliasToElementMap(otherElements, otherElementToAliasFn);
-        return new ComputingMatcher<>(
+
+        ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap = BaseMatcher.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn);
+        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = BaseMatcher.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn);
+
+        return of(
                 boundAliasesMap,
                 aliases,
                 elementToAliasFn,
                 aliasToElementMap,
-                BaseMatcher.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn),
+                dependsOnMap,
                 otherAliases,
                 otherElementToAliasFn,
                 otherAliasToElementMap,
-                BaseMatcher.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn),
+                otherDependsOnMap,
                 matchFunction,
                 matchAccumulatorSupplier);
     }
+
+    private static <T, M, R> ComputingMatcher<T, M, R> of(@Nonnull final AliasMap boundAliasesMap,
+                                                          @Nonnull Set<CorrelationIdentifier> aliases,
+                                                          @Nonnull final Function<T, CorrelationIdentifier> elementToAliasFn,
+                                                          @Nonnull final Map<CorrelationIdentifier, T> aliasToElementMap,
+                                                          @Nonnull ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> dependsOnMap,
+                                                          @Nonnull final Set<CorrelationIdentifier> otherAliases,
+                                                          @Nonnull final Function<T, CorrelationIdentifier> otherElementToAliasFn,
+                                                          @Nonnull final Map<CorrelationIdentifier, ? extends T> otherAliasToElementMap,
+                                                          @Nonnull final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap,
+                                                          @Nonnull final MatchFunction<T, M> matchFunction,
+                                                          @Nonnull final Supplier<MatchAccumulator<M, R>> matchAccumulatorSupplier) {
+
+        // for inexact matching we add place holder aliases to the aliases on this side if it has fewer elements than
+        // the other side
+        int numToFill = otherAliases.size() - aliases.size();
+        if (numToFill > 0) {
+            final ImmutableList<CorrelationIdentifier> additionalAliases =
+                    Stream.generate(CorrelationIdentifier::randomID)
+                            .limit(numToFill)
+                            .collect(ImmutableList.toImmutableList());
+            aliases =
+                    Streams.concat(aliases.stream(), additionalAliases.stream())
+                            .collect(ImmutableSet.toImmutableSet());
+
+            final ImmutableSetMultimap.Builder<CorrelationIdentifier, CorrelationIdentifier> dependsOnMapBuilder =
+                    ImmutableSetMultimap.builder();
+            dependsOnMapBuilder.putAll(dependsOnMap);
+
+            CorrelationIdentifier lastAlias = additionalAliases.get(0);
+            for (int i = 1; i < additionalAliases.size(); i++) {
+                final CorrelationIdentifier currentAlias = additionalAliases.get(i);
+                dependsOnMapBuilder.put(currentAlias, lastAlias);
+                lastAlias = currentAlias;
+            }
+
+            dependsOnMap = dependsOnMapBuilder.build();
+        }
+
+        return new ComputingMatcher<>(boundAliasesMap,
+                aliases,
+                elementToAliasFn,
+                aliasToElementMap,
+                TransitiveClosure.transitiveClosure(aliases, dependsOnMap),
+                otherAliases,
+                otherElementToAliasFn,
+                otherAliasToElementMap,
+                TransitiveClosure.transitiveClosure(otherAliases, otherDependsOnMap),
+                matchFunction,
+                matchAccumulatorSupplier);
+    }
+
 
     /**
      * Method that returns an {@link MatchAccumulator} that accumulates {@link Iterable}s of type {@code M} and finally
