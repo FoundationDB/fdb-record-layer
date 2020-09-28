@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matching;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
+import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -228,10 +229,6 @@ public abstract class BaseMatcher<T> {
      */
     @Nonnull
     protected <R> Iterable<R> match(@Nonnull final EnumerationFunction<R> enumerationFunction) {
-        if (aliases.size() != otherAliases.size()) {
-            return ImmutableList.of();
-        }
-
         //
         // We do not know which id in "this" maps to which in "other". In fact, we cannot know as it is
         // intentionally modeled this way. We need to find a feasible ordering that matches. In reality, the
@@ -249,15 +246,25 @@ public abstract class BaseMatcher<T> {
         // There should always be a topologically sound ordering that we can use.
         Verify.verify(aliases.isEmpty() || otherOrderedOptional.isPresent());
 
-        final List<CorrelationIdentifier> otherOrdered = otherOrderedOptional.orElse(ImmutableList.of());
+        final List<CorrelationIdentifier> otherPermutation = otherOrderedOptional.orElse(ImmutableList.of());
 
-        final EnumeratingIterable<CorrelationIdentifier> iterable =
-                topologicalOrderPermutations(
-                        getAliases(),
-                        dependsOnMap);
+        final Iterable<List<CorrelationIdentifier>> otherCombinationsIterable =
+                otherCombinations(otherPermutation,
+                        Math.min(aliases.size(), otherPermutation.size()));
 
-        return () -> enumerationFunction.apply(iterable.iterator(), otherOrdered);
+        return IterableHelpers
+                .flatMap(otherCombinationsIterable,
+                        otherCombination -> {
+                            final EnumeratingIterable<CorrelationIdentifier> permutationsIterable =
+                                    topologicalOrderPermutations(
+                                            getAliases(),
+                                            dependsOnMap);
+                            return () -> enumerationFunction.apply(permutationsIterable.iterator(), otherCombination);
+                        });
     }
+
+    @Nonnull
+    protected abstract Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive);
 
     /**
      * Helper to determine whether this {@code set} is equals to {@code otherSet} after translation using the given

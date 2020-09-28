@@ -64,14 +64,14 @@ public class ComputingMatcherTest {
 
         final Iterable<BoundMatch<EnumeratingIterable<String>>> matches = matcher.match();
 
+
+        matches.forEach(boundMatch -> System.out.println(boundMatch.getAliasMap()));
+
+        System.out.println("================");
+
         final Set<AliasMap> distinctMatches = StreamSupport.stream(matches.spliterator(), false)
                 .map(BoundMatch::getAliasMap)
                 .collect(Collectors.toSet());
-
-        matches.forEach(boundMatch -> {
-            System.out.println(boundMatch.getAliasMap());
-        //    System.out.println("  " + ImmutableSet.copyOf(boundMatch.getMatchResultOptional().get()));
-        });
 
         distinctMatches.forEach(System.out::println);
     }
@@ -100,14 +100,13 @@ public class ComputingMatcherTest {
 
         final Iterable<BoundMatch<EnumeratingIterable<String>>> matches = matcher.match();
 
+        matches.forEach(boundMatch -> System.out.println(boundMatch.getAliasMap()));
+
+        System.out.println("================");
+
         final Set<AliasMap> distinctMatches = StreamSupport.stream(matches.spliterator(), false)
                 .map(BoundMatch::getAliasMap)
                 .collect(Collectors.toSet());
-
-        //matches.forEach(boundMatch -> {
-        //    System.out.println(boundMatch.getAliasMap());
-        //    //    System.out.println("  " + ImmutableSet.copyOf(boundMatch.getMatchResultOptional().get()));
-        //});
 
         distinctMatches.forEach(System.out::println);
     }

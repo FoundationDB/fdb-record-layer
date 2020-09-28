@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.query.plan.temp.matching.ComputingMatcher;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -32,25 +31,26 @@ import java.util.Set;
  */
 public class ChooseKTest {
     @Test
-    void testChooseK() {
+    void testChooseK1() {
         final Set<String> elements = ImmutableSet.of("a", "b", "c", "d");
 
-        final EnumeratingIterable<String> combinations = ChooseK.chooseK(elements, 2);
+        final EnumeratingIterable<String> combinations = ChooseK.chooseK(elements, 3);
+        combinations.forEach(System.out::println);
 
-        for (EnumeratingIterator<String> iterator = combinations.iterator(); iterator.hasNext(); ) {
-            final List<String> combination = iterator.next();
-            System.out.println(combination);
-            if (combination.get(0).equals("b")) {
-                iterator.skip(0);
-            }
-        }
+        //        for (EnumeratingIterator<String> iterator = combinations.iterator(); iterator.hasNext(); ) {
+        //            final List<String> combination = iterator.next();
+        //            System.out.println(combination);
+        //            if (combination.get(0).equals("b")) {
+        //                iterator.skip(0);
+        //            }
+        //        }
     }
     
     @Test
-    void testChoose2() {
+    void testChooseK2() {
         final Set<String> elements = ImmutableSet.of("a", "b", "c", "d", "c", "d", "e");
 
-        for (int k = 1; k < elements.size() + 1; k ++) {
+        for (int k = 0; k < elements.size() + 1; k ++) {
             System.out.println("=== " + elements.size() + " choose " + k + " ======================");
             final EnumeratingIterable<String> combinations = ChooseK.chooseK(elements, k);
 

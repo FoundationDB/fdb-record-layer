@@ -105,12 +105,7 @@ public class ChooseK {
                     //
                     final PeekingIterator<Integer> currentIterator;
                     if (state.get(currentLevel) == null) {
-                        if (currentOffset == elements.size()) {
-                            currentLevel -= 1;
-                            continue;
-                        }
-                        
-                        currentIterator = Iterators.peekingIterator(IntStream.range(0, elements.size() - currentOffset).iterator());
+                        currentIterator = Iterators.peekingIterator(IntStream.range(1, elements.size() - currentOffset + 1).iterator());
                         state.set(currentLevel, currentIterator);
                         lastOffset = 0;
                     } else {
@@ -137,7 +132,7 @@ public class ChooseK {
                     } else {
                         // back tracking -- need to clear out the current iterator
                         state.set(currentLevel, null);
-                        currentOffset -= (lastOffset + 1);
+                        currentOffset -= lastOffset;
                         currentLevel -= 1;
                     }
 
@@ -152,8 +147,7 @@ public class ChooseK {
                 for (final PeekingIterator<Integer> iterator : state) {
                     resultOffset += iterator.peek();
                     // System.out.print("[" + iterator.peek() + " " + resultOffset + "]");
-                    resultBuilder.add(elements.get(resultOffset));
-                    resultOffset += 1;
+                    resultBuilder.add(elements.get(resultOffset - 1));
                 }
                 // System.out.println();
 
@@ -196,7 +190,7 @@ public class ChooseK {
                     final PeekingIterator<Integer> currentIterator = state.get(i);
                     if (currentIterator != null) {
                         bound -= 1;
-                        currentOffset -= (currentIterator.peek() + 1);
+                        currentOffset -= currentIterator.peek();
                         state.set(i, null);
                     } else {
                         break;
@@ -227,9 +221,9 @@ public class ChooseK {
      */
     private static class SingleIterable<T> implements EnumeratingIterable<T> {
         @Nonnull
-        private final T singleElement;
+        private final List<T> singleElement;
 
-        private SingleIterable(@Nonnull final T singleElement) {
+        private SingleIterable(@Nonnull final List<T> singleElement) {
             this.singleElement = singleElement;
         }
 
@@ -249,7 +243,7 @@ public class ChooseK {
             protected List<T> computeNext() {
                 if (atFirst) {
                     atFirst = false;
-                    return ImmutableList.of(singleElement);
+                    return singleElement;
                 }
 
                 return endOfData();
@@ -288,10 +282,10 @@ public class ChooseK {
     @Nullable
     private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final Collection<T> elements, final int numberOfElementsToChoose) {
         if (elements.isEmpty() || numberOfElementsToChoose == 0) {
-            return EnumeratingIterable.emptyIterable();
+            return new SingleIterable<>(ImmutableList.of());
         } else if (elements.size() == 1) {
             final T onlyElement = Iterables.getOnlyElement(elements);
-            return new SingleIterable<>(onlyElement);
+            return new SingleIterable<>(ImmutableList.of(onlyElement));
         }
         return null;
     }

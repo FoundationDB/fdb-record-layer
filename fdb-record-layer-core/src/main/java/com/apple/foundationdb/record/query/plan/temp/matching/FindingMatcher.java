@@ -96,7 +96,17 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
     @Nonnull
     @Override
     public Iterable<AliasMap> findMatches() {
+        if (getAliases().size() != getOtherAliases().size()) {
+            return ImmutableList.of();
+        }
+
         return match(this::enumerate);
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive) {
+        return ImmutableList.of(otherPermutation);
     }
 
     /**
