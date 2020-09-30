@@ -131,11 +131,14 @@ public class SynchronizedSession {
                     // The old lease was outdated, can get the lock.
                     takeSessionLock(tr);
                 } else {
-                    throw new SynchronizedSessionLockedException("Failed to initialize the session because of an existing session in progress")
-                            .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()))
-                            .addLogInfo(LogMessageKeys.SESSION_ID, sessionId)
-                            .addLogInfo(LogMessageKeys.EXISTING_SESSION, lockSessionId)
-                            .addLogInfo(LogMessageKeys.EXISTING_SESSION_EXPIRE_TIME, sessionTime);
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info("Failed to initialize the session because of an existing session in progress",
+                                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()),
+                                LogMessageKeys.SESSION_ID, sessionId,
+                                LogMessageKeys.EXISTING_SESSION, lockSessionId,
+                                LogMessageKeys.EXISTING_SESSION_EXPIRE_TIME, sessionTime);
+                    }
+                    throw new SynchronizedSessionLockedException();
                 }
             }
         });
@@ -165,10 +168,13 @@ public class SynchronizedSession {
         return getLockSessionId(tr)
                 .thenCompose(lockSessionId -> {
                     if (!sessionId.equals(lockSessionId)) { // Note sessionId is nonnull and lockSessionId is nullable.
-                        throw new SynchronizedSessionLockedException("Failed to continue the session")
-                                .addLogInfo(LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()))
-                                .addLogInfo(LogMessageKeys.SESSION_ID, sessionId)
-                                .addLogInfo(LogMessageKeys.EXISTING_SESSION, lockSessionId);
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info("Failed to continue the session",
+                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(lockSubspace.getKey()),
+                                    LogMessageKeys.SESSION_ID, sessionId,
+                                    LogMessageKeys.EXISTING_SESSION, lockSessionId);
+                        }
+                        throw new SynchronizedSessionLockedException();
                     }
                     return AsyncUtil.DONE;
                 });
