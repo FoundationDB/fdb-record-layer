@@ -490,6 +490,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").greaterThan(2),
                         Query.field("num_value_2").lessThan(5),
                         Query.field("repeater").oneOfThem().equalsValue(10)))
+                //Query.field("repeater").oneOfThem().matches(Query.field("repeated").equalsValue(20))))
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, primaryKeyDistinct(indexScan(allOf(indexName("prefix_repeated"),

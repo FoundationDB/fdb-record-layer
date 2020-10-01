@@ -61,7 +61,11 @@ public class ReplRunner {
         Launcher launcher = LauncherFactory.create();
         launcher.discover(request);
         launcher.registerTestExecutionListeners(listener);
-        launcher.execute(request);
+        try {
+            launcher.execute(request);
+        } catch (final Throwable t) {
+            t.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {

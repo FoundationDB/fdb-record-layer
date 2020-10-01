@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
@@ -149,7 +148,7 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     @Nonnull
     @Override
     public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
                                                   @Nonnull final List<String> fieldNamePrefix) {
         switch (parent.getFanType()) {
             case None:
@@ -157,11 +156,11 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
                         .addAll(fieldNamePrefix)
                         .add(parent.getFieldName())
                         .build();
-                return child.normalizeForPlanner(baseAlias, typeSupplier, newPrefix);
+                return child.normalizeForPlanner(baseAlias, parameterAliasSupplier, newPrefix);
             case FanOut:
                 final Quantifier childBase = parent.getBase(baseAlias, fieldNamePrefix);
                 final SelectExpression selectExpression = child.normalizeForPlanner(childBase.getAlias(),
-                        typeSupplier,
+                        parameterAliasSupplier,
                         Collections.emptyList())
                         .buildSelectWithBase(childBase);
                 final Quantifier childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));

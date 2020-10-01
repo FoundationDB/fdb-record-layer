@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
@@ -238,13 +237,13 @@ public interface KeyExpression extends PlanHashable {
 
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<ComparisonRange.Type> typeSupplier) {
-        return normalizeForPlanner(baseAlias, typeSupplier, Collections.emptyList());
+    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier) {
+        return normalizeForPlanner(baseAlias, parameterAliasSupplier, Collections.emptyList());
     }
 
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<ComparisonRange.Type> typeSupplier, @Nonnull List<String> fieldNamePrefix);
+    ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier, @Nonnull List<String> fieldNamePrefix);
 
     /**
      * Flatten this key expression into a list of {@link Value}s, much like {@link #normalizeKeyForPositions()}.

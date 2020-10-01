@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.expressions.BaseKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
@@ -82,7 +81,7 @@ public class UnknownKeyExpression extends BaseKeyExpression {
     @Nonnull
     @Override
     public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
                                                   @Nonnull final List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException();
     }

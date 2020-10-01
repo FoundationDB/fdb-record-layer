@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
@@ -217,11 +216,11 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     @Override
     public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
                                                   @Nonnull final List<String> fieldNamePrefix) {
         final ImmutableList.Builder<ExpandedPredicates> expandedPredicatesBuilder = ImmutableList.builder();
         for (KeyExpression child : children) {
-            expandedPredicatesBuilder.add(child.normalizeForPlanner(baseAlias, typeSupplier, fieldNamePrefix));
+            expandedPredicatesBuilder.add(child.normalizeForPlanner(baseAlias, parameterAliasSupplier, fieldNamePrefix));
         }
         return ExpandedPredicates.fromOthers(expandedPredicatesBuilder.build());
     }

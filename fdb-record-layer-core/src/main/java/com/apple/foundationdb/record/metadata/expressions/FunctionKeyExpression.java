@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
@@ -256,7 +255,7 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     @Nonnull
     @Override
     public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
                                                   @Nonnull final List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException(); // must be implemented by each extender
     }

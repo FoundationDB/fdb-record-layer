@@ -92,7 +92,7 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public MatchWithCompensation getMatchResult() {
+    public MatchWithCompensation getMatchWithCompensation() {
         return matchWithCompensation;
     }
 
@@ -100,7 +100,7 @@ public class PartialMatch {
     public static Collection<MatchWithCompensation> matchesFromMap(@Nonnull Map<Quantifier, PartialMatch> partialMatchMap) {
         return partialMatchMap.values()
                 .stream()
-                .map(PartialMatch::getMatchResult)
+                .map(PartialMatch::getMatchWithCompensation)
                 .collect(ImmutableList.toImmutableList());
     }
 }

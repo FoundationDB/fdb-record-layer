@@ -244,10 +244,9 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
 
                     final R result = accumulatedMatchResult.finish();
 
-
                     if (i == size) {
                         iterator.skip(i - 1);
-                        return BoundMatch.withAliasMapAndMatchResult(aliasMapBuilder.build(), result);
+                        return BoundMatch.withAliasMapAndMatchResult(boundAliasesMap.combine(aliasMapBuilder.build()), result);
                     } else {
                         iterator.skip(i);
                     }

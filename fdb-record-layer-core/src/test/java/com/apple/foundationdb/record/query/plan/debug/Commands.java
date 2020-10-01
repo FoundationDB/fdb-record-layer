@@ -127,7 +127,7 @@ public class Commands {
                                 words.size() == 4
                                 ? Enums.getIfPresent(Debugger.Location.class, words.get(3).toUpperCase()).or(Debugger.Location.BEGIN)
                                 : Debugger.Location.BEGIN;
-                        plannerRepl.addBreakPoint(new PlannerRepl.OnMatchBreakPoint(candidateMatchPrefix.toLowerCase(), location));
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnMatchBreakPoint(candidateMatchPrefix, location));
                         return false;
                     }
                     plannerRepl.printlnError("usage: break match matchCandidate [begin|end]");

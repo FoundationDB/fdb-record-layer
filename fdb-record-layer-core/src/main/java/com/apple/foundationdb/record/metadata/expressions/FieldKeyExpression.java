@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
@@ -234,7 +233,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     @Nonnull
     @Override
     public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
                                                   @Nonnull final List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
@@ -244,14 +243,14 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         switch (fanType) {
             case FanOut:
                 final Quantifier childBase = getBase(baseAlias, fieldNamePrefix);
-                predicate = new ObjectValue(childBase.getAlias()).withType(typeSupplier.get());
+                predicate = new ObjectValue(childBase.getAlias()).withParameterAlias(parameterAliasSupplier.get());
                 final SelectExpression selectExpression = ExpandedPredicates.withPredicate(predicate)
                         .buildSelectWithBase(childBase);
                 Quantifier childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
                 return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias()), childQuantifier);
 
             case None:
-                predicate = new FieldValue(baseAlias, fieldNames).withType(typeSupplier.get());
+                predicate = new FieldValue(baseAlias, fieldNames).withParameterAlias(parameterAliasSupplier.get());
                 return ExpandedPredicates.withPredicate(predicate);
             case Concatenate: // TODO collect/concatenate function
             default:

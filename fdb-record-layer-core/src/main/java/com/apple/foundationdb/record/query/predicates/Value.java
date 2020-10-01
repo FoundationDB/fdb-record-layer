@@ -3,8 +3,8 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 
 import javax.annotation.Nonnull;
 
@@ -19,7 +19,7 @@ public interface Value extends Correlated<Value>, PlanHashable {
     }
 
     @Nonnull
-    default ValueComparisonRangePredicate withType(@Nonnull final ComparisonRange.Type type) {
-        return ValueComparisonRangePredicate.withRequiredType(this, type);
+    default ValueComparisonRangePredicate withParameterAlias(@Nonnull final CorrelationIdentifier parameterAlias) {
+        return ValueComparisonRangePredicate.placeholder(this, parameterAlias);
     }
 }

@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.base.Strings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -168,7 +167,6 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     @Nonnull
     static Collection<MatchCandidate> fromIndexDefinition(@Nonnull RecordMetaData metaData,
                                                           @Nonnull Index index) {
-
         final ImmutableSet<String> recordTypesForIndex =
                 metaData.recordTypesForIndex(index)
                         .stream()
@@ -182,19 +180,21 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         if (type.equals(IndexTypes.VALUE)) {
             ImmutableList.Builder<MatchCandidate> matchCandidateBuilder = ImmutableList.builder();
 
-            matchCandidateBuilder.add(createMatchCandidateForEmptyComparisons(
-                    createBaseQuantifier(allAvailableRecordTypes, recordTypesForIndex),
-                    name,
-                    rootExpression));
-
-            // TODO add equality-only ones
-            for (int inequalityIndex = 0; inequalityIndex < rootExpression.getColumnSize(); inequalityIndex++) {
-                matchCandidateBuilder.add(fromIndexDefinitionWithInequalityIndex(
-                        createBaseQuantifier(allAvailableRecordTypes, recordTypesForIndex),
-                        name,
-                        rootExpression,
-                        inequalityIndex));
-            }
+            final List<CorrelationIdentifier> parameters = Lists.newArrayListWithCapacity(rootExpression.getColumnSize());
+            final Quantifier baseQuantifier = createBaseQuantifier(allAvailableRecordTypes, recordTypesForIndex);
+            final ExpandedPredicates expandedPredicates =
+                    rootExpression.normalizeForPlanner(baseQuantifier.getAlias(),
+                            () -> {
+                                final CorrelationIdentifier parameterAlias = CorrelationIdentifier.of("p" + parameters.size());
+                                parameters.add(parameterAlias);
+                                return parameterAlias;
+                            });
+            final MatchCandidate matchCandidate =
+                    new MatchCandidate(
+                            name,
+                            ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expandedPredicates.buildSelectWithBase(baseQuantifier))),
+                            parameters);
+            matchCandidateBuilder.add(matchCandidate);
             return matchCandidateBuilder.build();
         }
 
@@ -204,38 +204,19 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     @Nonnull
     static MatchCandidate fromIndexDefinitionWithInequalityIndex(@Nonnull Quantifier quantifier,
                                                                  @Nonnull final String name,
-                                                                 @Nonnull final KeyExpression rootExpression,
-                                                                 final int inequalityIndex) {
+                                                                 @Nonnull final KeyExpression rootExpression) {
         final List<CorrelationIdentifier> parameters = Lists.newArrayListWithCapacity(rootExpression.getColumnSize());
         final ExpandedPredicates expandedPredicates =
                 rootExpression.normalizeForPlanner(quantifier.getAlias(),
                         () -> {
-                            int size = parameters.size();
-                            parameters.add(CorrelationIdentifier.randomID());
-                            if (size < inequalityIndex) {
-                                return ComparisonRange.Type.EQUALITY;
-                            } else if (size == inequalityIndex) {
-                                return ComparisonRange.Type.INEQUALITY;
-                            } else {
-                                return ComparisonRange.Type.EMPTY;
-                            }
+                            final CorrelationIdentifier parameterAlias = CorrelationIdentifier.of("p" + parameters.size());
+                            parameters.add(parameterAlias);
+                            return parameterAlias;
                         });
-        final String nameWithParameters = name + "[" + Strings.repeat("=", inequalityIndex) + "{<>}" + "]";
         return new MatchCandidate(
-                nameWithParameters,
+                name,
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expandedPredicates.buildSelectWithBase(quantifier))),
                 parameters);
-    }
-
-    @Nonnull
-    static MatchCandidate createMatchCandidateForEmptyComparisons(@Nonnull final Quantifier quantifier,
-                                                                  @Nonnull final String name,
-                                                                  @Nonnull final KeyExpression rootExpression) {
-        // Completely empty scan with no comparisons at all
-        final SelectExpression selectExpression =
-                rootExpression.normalizeForPlanner(quantifier.getAlias(), () -> ComparisonRange.Type.EMPTY)
-                        .buildSelectWithBase(quantifier);
-        return new MatchCandidate(name + "[]", ExpressionRefTraversal.withRoot(GroupExpressionRef.of(selectExpression)));
     }
 
     @Nonnull
@@ -691,11 +672,24 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     default Iterable<MatchWithCompensation> subsumedBy(@Nonnull final RelationalExpression otherExpression,
                                                        @Nonnull final AliasMap aliasMap,
                                                        @Nonnull final Map<Quantifier, PartialMatch> partialMatchMap) {
+        if (containsUnboundQuantifiers(aliasMap)) {
+            return ImmutableList.of();
+        }
+
         if (equalsWithoutChildren(otherExpression, aliasMap)) {
-            return ImmutableList.of(MatchWithCompensation.fromOthers(PartialMatch.matchesFromMap(partialMatchMap)));
+            return MatchWithCompensation.tryFromOthers(PartialMatch.matchesFromMap(partialMatchMap))
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
         } else {
             return ImmutableList.of();
         }
+    }
+
+    default boolean containsUnboundQuantifiers(final AliasMap aliasMap) {
+        return getQuantifiers()
+                .stream()
+                .map(Quantifier::getAlias)
+                .anyMatch(alias -> !aliasMap.containsSource(alias));
     }
 
     /**

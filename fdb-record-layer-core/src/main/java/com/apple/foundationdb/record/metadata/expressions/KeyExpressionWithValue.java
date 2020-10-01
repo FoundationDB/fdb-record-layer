@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -47,9 +46,9 @@ public interface KeyExpressionWithValue extends KeyExpression {
     @Nonnull
     @Override
     default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias,
-                                                   @Nonnull final Supplier<ComparisonRange.Type> typeSupplier,
+                                                   @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
                                                    @Nonnull List<String> fieldNamePrefix) {
-        ValueComparisonRangePredicate predicate = toValue(baseAlias, fieldNamePrefix).withType(typeSupplier.get());
+        ValueComparisonRangePredicate predicate = toValue(baseAlias, fieldNamePrefix).withParameterAlias(parameterAliasSupplier.get());
         return ExpandedPredicates.withPredicate(predicate);
     }
 }

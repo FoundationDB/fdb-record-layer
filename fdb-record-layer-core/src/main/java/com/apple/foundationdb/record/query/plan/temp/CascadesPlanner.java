@@ -40,6 +40,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimaps;
+import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -479,28 +481,36 @@ public class CascadesPlanner implements QueryPlanner {
                     }
                 }
             } else {
-                // form intersection of all possible match candidates
-                final ExpressionRef<? extends RelationalExpression> firstRangesOverRef = rangesOverRefs.get(0);
-                final Set<MatchCandidate> commonMatchCandidates = Sets.newHashSet(firstRangesOverRef.getMatchCandidates());
+                // form union of all possible match candidates
+                final Set<MatchCandidate> participatingMatchCandidates = Sets.newHashSet();
                 for (int i = 0; i < rangesOverRefs.size(); i++) {
                     final ExpressionRef<? extends RelationalExpression> rangesOverGroup = rangesOverRefs.get(i);
-                    commonMatchCandidates.retainAll(rangesOverGroup.getMatchCandidates());
+                    participatingMatchCandidates.addAll(rangesOverGroup.getMatchCandidates());
                 }
 
-                for (final MatchCandidate matchCandidate : commonMatchCandidates) {
+                for (final MatchCandidate matchCandidate : participatingMatchCandidates) {
                     final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
+
+                    final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
+                            Multimaps.newSetMultimap(new IdentityHashMap<>(), Sets::newIdentityHashSet);
+
+                    // going up may yield duplicates -- dedup with this set multimap
                     for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : rangesOverRefs) {
                         final Set<PartialMatch> partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(matchCandidate);
                         for (final PartialMatch partialMatch : partialMatchesForCandidate) {
                             for (final ExpressionRefTraversal.ReferencePath parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
-                                taskStack.push(new MatchExpressionWithCandidate(context,
-                                        group,
-                                        expression,
-                                        matchCandidate,
-                                        parentReferencePath.getReference(),
-                                        parentReferencePath.getExpression()));
+                                refToExpressionMap.put(parentReferencePath.getReference(), parentReferencePath.getExpression());
                             }
                         }
+                    }
+
+                    for (final Map.Entry<ExpressionRef<? extends RelationalExpression>, RelationalExpression> entry : refToExpressionMap.entries()) {
+                        taskStack.push(new MatchExpressionWithCandidate(context,
+                                group,
+                                expression,
+                                matchCandidate,
+                                entry.getKey(),
+                                entry.getValue()));
                     }
                 }
             }
@@ -592,6 +602,9 @@ public class CascadesPlanner implements QueryPlanner {
 
         private Collection<AliasMap> constraintsForQuantifier(final Quantifier quantifier) {
             final Set<PartialMatch> partialMatchesForCandidate = quantifier.getRangesOver().getPartialMatchesForCandidate(matchCandidate);
+            if (partialMatchesForCandidate.isEmpty()) {
+                return ImmutableList.of(AliasMap.emptyMap());
+            }
             return partialMatchesForCandidate.stream()
                     .map(PartialMatch::getBoundAliasMap)
                     .collect(ImmutableSet.toImmutableSet());

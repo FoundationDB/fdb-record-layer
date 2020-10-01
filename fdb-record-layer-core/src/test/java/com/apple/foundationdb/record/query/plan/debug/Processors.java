@@ -22,6 +22,10 @@ package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExecutingTaskEvent;
@@ -44,6 +48,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Class containing all implementations of {@link Processor}
@@ -356,14 +361,33 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            final GroupExpressionRef<? extends RelationalExpression> currentGroupReference = event.getCurrentGroupReference();
+            plannerRepl.printlnReference(currentGroupReference, "  ");
             plannerRepl.printlnKeyValue("expression", "");
             plannerRepl.printlnExpression(event.getExpression(), "  ");
-            plannerRepl.printlnKeyValue("match candidate", event.getMatchCandidate().getName());
+            final MatchCandidate matchCandidate = event.getMatchCandidate();
+            plannerRepl.printlnKeyValue("match candidate", matchCandidate.getName());
             plannerRepl.printlnKeyValue("candidate reference", "");
             plannerRepl.printlnReference(event.getCandidateRef(), "  ");
             plannerRepl.printlnKeyValue("candidate expression", "");
             plannerRepl.printlnExpression(event.getCandidateExpression(), "  ");
+            final Set<PartialMatch> partialMatchesForCandidate = currentGroupReference.getPartialMatchesForCandidate(matchCandidate);
+            if (partialMatchesForCandidate.isEmpty()) {
+                plannerRepl.printlnKeyValue("partial matches for candidate", "empty");
+            } else {
+                plannerRepl.printlnKeyValue("partial matches for candidate", "");
+                for (final PartialMatch partialMatch : partialMatchesForCandidate) {
+                    plannerRepl.printlnKeyValue("  bound alias", partialMatch.getBoundAliasMap().toString());
+                    plannerRepl.printlnKeyValue("  group reference", "");
+                    plannerRepl.printlnReference(partialMatch.getQueryRef(), "    ");
+                    plannerRepl.printlnKeyValue("  candidate reference", "");
+                    plannerRepl.printlnReference(partialMatch.getCandidateRef(), "    ");
+                    final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
+                    plannerRepl.printlnKeyValue("  parameter bindings:", "");
+                    matchWithCompensation.getParameterBindingMap().forEach((parameterAlias, comparisonRange) ->
+                            plannerRepl.printlnKeyValue("    " + parameterAlias, comparisonRange.toString()));
+                }
+            }
         }
 
         @Override

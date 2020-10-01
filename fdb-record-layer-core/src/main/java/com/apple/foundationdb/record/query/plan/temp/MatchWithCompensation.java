@@ -20,16 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.UnaryOperator;
-import java.util.stream.Collectors;
 
 /**
  * This class represents the result of matching one expression against a candidate.
@@ -64,7 +64,7 @@ public class MatchWithCompensation {
     }
 
     @Nonnull
-    public static MatchWithCompensation fromOthers(@Nonnull final Collection<MatchWithCompensation> matchWithCompensations) {
+    public static Optional<MatchWithCompensation> tryFromOthers(@Nonnull final Collection<MatchWithCompensation> matchWithCompensations) {
         final ImmutableList.Builder<UnaryOperator<ExpressionRef<RelationalExpression>>> compensationOperatorsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<Map<CorrelationIdentifier, ComparisonRange>> parameterMapsBuilder = ImmutableList.builder();
 
@@ -72,25 +72,36 @@ public class MatchWithCompensation {
             compensationOperatorsBuilder.add(matchWithCompensation.getCompensationOperator());
             parameterMapsBuilder.add(matchWithCompensation.getParameterBindingMap());
         });
-        return new MatchWithCompensation(
-                applySequentially(compensationOperatorsBuilder.build()),
-                mergeParameterBindings(parameterMapsBuilder.build()));
+
+        final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator =
+                applySequentially(compensationOperatorsBuilder.build());
+        final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
+                tryMergeParameterBindings(parameterMapsBuilder.build());
+        return mergedParameterBindingsOptional
+                .map(mergedParameterBindings -> new MatchWithCompensation(compensationOperator,
+                        mergedParameterBindings));
     }
 
     public static MatchWithCompensation perfectWithParameters(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap) {
         return new MatchWithCompensation(UnaryOperator.identity(), parameterBindingMap);
     }
 
-    private static Map<CorrelationIdentifier, ComparisonRange> mergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {
-        return parameterBindingMaps
-                .stream()
-                .flatMap(m -> m.entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (left, right) -> {
-                            Preconditions.checkArgument(left.equals(right));
-                            return left;
-                        }));
+    public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {
+        final Map<CorrelationIdentifier, ComparisonRange> resultMap = Maps.newHashMap();
+
+        for (final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap : parameterBindingMaps) {
+            for (final Map.Entry<CorrelationIdentifier, ComparisonRange> entry : parameterBindingMap.entrySet()) {
+                if (resultMap.containsKey(entry.getKey())) {
+                    if (!resultMap.get(entry.getKey()).equals(entry.getValue())) {
+                        return Optional.empty();
+                    }
+                } else {
+                    resultMap.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
+        return Optional.of(resultMap);
     }
 
     private static UnaryOperator<ExpressionRef<RelationalExpression>> applySequentially(final Collection<UnaryOperator<ExpressionRef<RelationalExpression>>> compensationOperators) {

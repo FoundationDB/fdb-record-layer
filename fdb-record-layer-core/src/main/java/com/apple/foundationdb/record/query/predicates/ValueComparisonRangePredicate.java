@@ -45,29 +45,18 @@ import java.util.stream.Stream;
  * @see com.apple.foundationdb.record.query.plan.temp.RelationalExpression#fromIndexDefinition
  */
 @API(API.Status.EXPERIMENTAL)
-public class ValueComparisonRangePredicate implements PredicateWithValue {
+public abstract class ValueComparisonRangePredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
-    @Nullable
-    private final ComparisonRange.Type type;
-    @Nullable
-    private final ComparisonRange comparisonRange;
 
-    public ValueComparisonRangePredicate(@Nonnull final Value value, @Nullable final ComparisonRange.Type type, @Nullable final ComparisonRange comparisonRange) {
+    public ValueComparisonRangePredicate(@Nonnull final Value value) {
         this.value = value;
-        this.type = type;
-        this.comparisonRange = comparisonRange;
     }
 
     @Override
     @Nonnull
     public Value getValue() {
         return value;
-    }
-
-    @Nullable
-    public ComparisonRange getComparisonRange() {
-        return comparisonRange;
     }
 
     @Nullable
@@ -84,18 +73,12 @@ public class ValueComparisonRangePredicate implements PredicateWithValue {
 
     @Nonnull
     @Override
-    public QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
-        return new ValueComparisonRangePredicate(value.rebase(translationMap), type, comparisonRange);
-    }
-
-    @Nonnull
-    @Override
     public Stream<PlannerBindings> bindTo(@Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
         return matcher.matchWith(this);
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         if (this == other) {
             return true;
         }
@@ -103,31 +86,115 @@ public class ValueComparisonRangePredicate implements PredicateWithValue {
             return false;
         }
         final ValueComparisonRangePredicate that = (ValueComparisonRangePredicate)other;
-        return value.semanticEquals(that.value, equivalenceMap) &&
-               type == that.type &&
-               Objects.equals(comparisonRange, that.comparisonRange);
+        return value.semanticEquals(that.value, aliasMap);
     }
 
     @Override
     public int semanticHashCode() {
-        return Objects.hash(value.semanticHashCode(), type, comparisonRange);
+        return Objects.hash(value.semanticHashCode());
     }
 
     @Override
     public int planHash() {
-        return Objects.hash(PlanHashable.planHash(value), type);
+        return Objects.hash(PlanHashable.planHash(value));
     }
 
-    public static ValueComparisonRangePredicate withRequiredType(@Nonnull Value value, @Nonnull ComparisonRange.Type type) {
-        return new ValueComparisonRangePredicate(value, type, null);
+    public static ValueComparisonRangePredicate placeholder(@Nonnull Value value, @Nonnull CorrelationIdentifier parameterAlias) {
+        return new Placeholder(value, parameterAlias);
     }
 
-    public static ValueComparisonRangePredicate withComparisonRange(@Nonnull Value value, @Nonnull ComparisonRange comparisonRange) {
-        return new ValueComparisonRangePredicate(value, null, comparisonRange);
+    public static ValueComparisonRangePredicate sargable(@Nonnull Value value, @Nonnull ComparisonRange comparisonRange) {
+        return new Sargable(value, comparisonRange);
     }
 
-    @Override
-    public String toString() {
-        return value + " " + type + " " + comparisonRange;
+    /**
+     * A place holder predicate solely used for index matching.
+     */
+    public static class Placeholder extends ValueComparisonRangePredicate {
+        private final CorrelationIdentifier parameterAlias;
+
+        public Placeholder(@Nonnull final Value value, @Nonnull CorrelationIdentifier parameterAlias) {
+            super(value);
+            this.parameterAlias = parameterAlias;
+        }
+
+        public CorrelationIdentifier getParameterAlias() {
+            return parameterAlias;
+        }
+
+        @Override
+        @SuppressWarnings({"ConstantConditions", "java:S2259"})
+        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+            if (!super.semanticEquals(other, aliasMap)) {
+                return false;
+            }
+
+            return Objects.equals(parameterAlias, ((Placeholder)other).parameterAlias);
+        }
+
+        @Nonnull
+        @Override
+        public Placeholder rebase(@Nonnull final AliasMap translationMap) {
+            return new Placeholder(getValue().rebase(translationMap), parameterAlias);
+        }
+
+        @Override
+        public int semanticHashCode() {
+            return Objects.hash(super.semanticHashCode(), parameterAlias);
+        }
+
+        @Override
+        public String toString() {
+            return "(" + getValue() + " -> " + parameterAlias.toString() + ")";
+        }
+    }
+
+    /**
+     * A query predicate that can be used as a (s)earch (arg)ument for an index scan.
+     */
+    public static class Sargable extends ValueComparisonRangePredicate {
+        @Nonnull
+        private final ComparisonRange comparisonRange;
+
+        public Sargable(@Nonnull final Value value, @Nonnull final ComparisonRange comparisonRange) {
+            super(value);
+            this.comparisonRange = comparisonRange;
+        }
+
+        @Nonnull
+        public ComparisonRange getComparisonRange() {
+            return comparisonRange;
+        }
+
+        @Override
+        public int planHash() {
+            return Objects.hash(super.planHash(), comparisonRange.getRangeType());
+        }
+
+        @Override
+        @SuppressWarnings({"ConstantConditions", "java:S2259"})
+        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+            if (!super.semanticEquals(other, aliasMap)) {
+                return false;
+            }
+
+            return Objects.equals(comparisonRange, ((Sargable)other).comparisonRange);
+        }
+
+        @Nonnull
+        @Override
+        public Sargable rebase(@Nonnull final AliasMap translationMap) {
+            return new Sargable(getValue().rebase(translationMap), comparisonRange);
+        }
+
+        @Override
+        public int semanticHashCode() {
+            return Objects.hash(super.semanticHashCode(), comparisonRange);
+        }
+
+        @Override
+        public String toString() {
+            return getValue() + " " + comparisonRange;
+        }
     }
 }
