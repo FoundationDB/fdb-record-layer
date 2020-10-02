@@ -29,10 +29,6 @@ There are a few settings that we use for consistency that are saved in the user-
 
 * Preferences > Editor > General > Auto Import > Optimize imports on the fly (for current project)
 
-* Preferences > Build, Execution, and Deployment > Build Tools > Gradle > Runner > Delegate IDE build/run actions to gradle
-
-* Preferences > Build, Execution, and Deployment > Build Tools > Gradle > Runner > Run tests using: > Gradle Test Runner
-
 * (optional, but useful) Preferences > Build, Execution, and Deployment > Build Tools > Maven > Importing > Automatically download > Sources
 
 Before attempting to build anything, exit IntelliJ and build once from the command line. This will generate the protobuf files.
