@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
+import com.apple.foundationdb.record.query.plan.temp.TopologicalSort;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
@@ -35,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -150,6 +153,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         }
     }
 
+    @SuppressWarnings("unchecked")
     private void renderInvisibleEdges(@Nonnull final ExporterContext context, final N n, final String indentation) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
@@ -180,28 +184,14 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         // on the same level but left to right.
         final Set<E> childrenEdges = network.inEdges(n);
 
-        // We sort the childrenEdges topologically insertion sort-style O(N^2).
-        final List<E> orderedChildrenEdges = new ArrayList<>(childrenEdges.size());
+        final boolean needsInvisibleEdges = childrenEdges.stream().anyMatch(edge -> !edge.getDependsOn().isEmpty());
 
-        boolean needsInvisibleEdges = false;
-        for (final E toBeInsertedEdge : childrenEdges) {
-            final Set<? extends AbstractPlannerGraph.AbstractEdge> dependsOn = toBeInsertedEdge.getDependsOn();
-
-            if (!dependsOn.isEmpty()) {
-                needsInvisibleEdges = true;
-            }
-
-            int index = 0;
-            while (index < orderedChildrenEdges.size()) {
-                final E currentEdge = orderedChildrenEdges.get(index);
-                if (!dependsOn.contains(currentEdge)) {
-                    break;
-                }
-                index ++;
-            }
-            orderedChildrenEdges.add(index, toBeInsertedEdge);
-        }
         if (needsInvisibleEdges) {
+            final Optional<List<E>> orderedChildrenEdgesOptional =
+                    TopologicalSort.anyTopologicalOrderPermutation(childrenEdges, edge -> (Set<E>)edge.getDependsOn());
+            Verify.verify(orderedChildrenEdgesOptional.isPresent());
+            final List<E> orderedChildrenEdges = orderedChildrenEdgesOptional.get();
+
             final ArrayList<N> childrenOperatorList = new ArrayList<>();
             for (final E currentEdge : orderedChildrenEdges) {
                 final N currentChildNode = network.incidentNodes(currentEdge).nodeU();

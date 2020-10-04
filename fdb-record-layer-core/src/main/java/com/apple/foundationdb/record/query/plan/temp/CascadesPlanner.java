@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -258,6 +259,8 @@ public class CascadesPlanner implements QueryPlanner {
                 // Explore the group, then come back here to pick an optimal expression.
                 taskStack.push(this);
                 for (RelationalExpression member : group.getMembers()) {
+                    // invoke matching after all transformations have been applied and the groups underneath have been explored
+                    taskStack.push(new MatchExpression(context, group, member));
                     taskStack.push(new ExploreExpression(context, group, member));
                 }
                 group.setExplored();
@@ -310,19 +313,19 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         protected void addTransformTask(@Nonnull PlannerRule<? extends RelationalExpression> rule) {
-            taskStack.push(new Transform(context, group, expression, rule));
+            taskStack.push(new TransformExpression(context, group, rule, expression));
         }
 
         @Override
         public void execute() {
-            // invoke matching after all transformations have been applied and the groups underneath have been explored
-            taskStack.push(new MatchExpression(context, group, expression));
+              // invoke matching after all transformations have been applied and the groups underneath have been explored
+            //            taskStack.push(new MatchExpression(context, group, expression));
 
             // This is closely tied to the way that rule finding works _now_. Specifically, rules are indexed only
             // by the type of their _root_, not any of the stuff lower down. As a result, we have enough information
             // right here to determine the set of all possible rules that could ever be applied here, regardless of
             // what happens towards the leaves of the tree.
-            getRules().getRulesMatching(expression).forEachRemaining(this::addTransformTask);
+            getRules().getExpressionRulesMatching(expression).forEach(this::addTransformTask);
 
             for (final Quantifier quantifier : expression.getQuantifiers()) {
                 final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
@@ -364,6 +367,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
 
             for (final RelationalExpression expression : group.getMembers()) {
+                taskStack.push(new MatchExpression(context, group, expression));
                 taskStack.push(new ExploreExpression(context, group, expression));
             }
 
@@ -382,43 +386,38 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private class Transform implements Task {
+    private abstract class Transform implements Task {
         @Nonnull
         private final PlanContext context;
         @Nonnull
         private final GroupExpressionRef<RelationalExpression> group;
         @Nonnull
-        private final RelationalExpression expression;
-        @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
 
         public Transform(@Nonnull PlanContext context,
                          @Nonnull GroupExpressionRef<RelationalExpression> group,
-                         @Nonnull RelationalExpression expression,
-                         @Nonnull PlannerRule<? extends RelationalExpression> rule) {
+                         @Nonnull PlannerRule<? extends Bindable> rule) {
             this.context = context;
             this.group = group;
-            this.expression = expression;
             this.rule = rule;
         }
 
-        @Override
-        public void execute() {
-            if (!group.containsExactly(expression)) { // expression is gone
-                return;
-            }
-            if (logger.isTraceEnabled()) {
-                logger.trace("Bindings: " +  expression.bindTo(rule.getMatcher()).count());
-            }
-            expression.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(context, rule, group, aliasResolver, bindings))
-                    .forEach(ruleCall -> {
-                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, expression, rule, ruleCall)));
-                        executeRuleCall(ruleCall);
-                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, expression, rule, ruleCall)));
-                    });
+        @Nonnull
+        public PlanContext getContext() {
+            return context;
         }
 
-        private void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
+        @Nonnull
+        public GroupExpressionRef<RelationalExpression> getGroup() {
+            return group;
+        }
+
+        @Nonnull
+        public PlannerRule<? extends Bindable> getRule() {
+            return rule;
+        }
+
+        protected void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
             ruleCall.run();
             for (RelationalExpression newExpression : ruleCall.getNewExpressions()) {
                 if (newExpression instanceof QueryPlan) {
@@ -431,13 +430,73 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Override
-        public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.TransformEvent(currentRoot, taskStack, location, group, expression, rule);
+        public String toString() {
+            return "Transform(" + rule.getClass().getSimpleName() + ")";
+        }
+    }
+
+    private class TransformExpression extends Transform {
+        @Nonnull
+        private final RelationalExpression expression;
+
+        public TransformExpression(@Nonnull PlanContext context,
+                                   @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                   @Nonnull PlannerRule<? extends RelationalExpression> rule,
+                                   @Nonnull RelationalExpression expression) {
+            super(context, group, rule);
+            this.expression = expression;
         }
 
         @Override
-        public String toString() {
-            return "Transform(" + rule.getClass().getSimpleName() + ")";
+        public void execute() {
+            final GroupExpressionRef<RelationalExpression> group = getGroup();
+            final PlannerRule<? extends Bindable> rule = getRule();
+            if (!group.containsExactly(expression)) { // expression is gone
+                return;
+            }
+            if (logger.isTraceEnabled()) {
+                logger.trace("Bindings: " +  expression.bindTo(rule.getMatcher()).count());
+            }
+            expression.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
+                    .forEach(ruleCall -> {
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, expression, rule, ruleCall)));
+                        executeRuleCall(ruleCall);
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, expression, rule, ruleCall)));
+                    });
+        }
+
+        @Override
+        public Debugger.Event toTaskEvent(final Location location) {
+            return new Debugger.TransformEvent(currentRoot, taskStack, location, getGroup(), expression, getRule());
+        }
+    }
+
+    private class TransformGroup extends Transform {
+
+        public TransformGroup(@Nonnull PlanContext context,
+                              @Nonnull GroupExpressionRef<RelationalExpression> group,
+                              @Nonnull PlannerRule<? extends ExpressionRef<? extends RelationalExpression>> rule) {
+            super(context, group, rule);
+        }
+
+        @Override
+        public void execute() {
+            final GroupExpressionRef<RelationalExpression> group = getGroup();
+            final PlannerRule<? extends Bindable> rule = getRule();
+            if (logger.isTraceEnabled()) {
+                logger.trace("Bindings: " +  group.bindTo(rule.getMatcher()).count());
+            }
+            group.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
+                    .forEach(ruleCall -> {
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, rule, ruleCall)));
+                        executeRuleCall(ruleCall);
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, rule, ruleCall)));
+                    });
+        }
+
+        @Override
+        public Debugger.Event toTaskEvent(final Location location) {
+            return new Debugger.TransformEvent(currentRoot, taskStack, location, getGroup(), getRule());
         }
     }
 
@@ -456,7 +515,10 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Override
+        @SuppressWarnings("java:S4276")
         public void execute() {
+            final Supplier<Boolean> lazyPushIndexMatchReplaceRules = Suppliers.memoize(this::pushIndexMatchReplaceRules);
+
             final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> rangesOverRefs =
                     expression.getQuantifiers()
                             .stream()
@@ -470,6 +532,7 @@ public class CascadesPlanner implements QueryPlanner {
                     for (final ExpressionRef<? extends RelationalExpression> leafRef : leafRefs) {
                         for (final RelationalExpression leafMember : leafRef.getMembers()) {
                             if (leafMember.getQuantifiers().isEmpty()) {
+                                lazyPushIndexMatchReplaceRules.get();
                                 taskStack.push(new MatchExpressionWithCandidate(context,
                                         group,
                                         expression,
@@ -505,6 +568,7 @@ public class CascadesPlanner implements QueryPlanner {
                     }
 
                     for (final Map.Entry<ExpressionRef<? extends RelationalExpression>, RelationalExpression> entry : refToExpressionMap.entries()) {
+                        lazyPushIndexMatchReplaceRules.get();
                         taskStack.push(new MatchExpressionWithCandidate(context,
                                 group,
                                 expression,
@@ -514,6 +578,12 @@ public class CascadesPlanner implements QueryPlanner {
                     }
                 }
             }
+        }
+
+        private boolean pushIndexMatchReplaceRules() {
+            ruleSet.getIndexMatchReplaceRules()
+                    .forEach(rule -> taskStack.push(new TransformGroup(context, group, rule)));
+            return true;
         }
 
         @Override

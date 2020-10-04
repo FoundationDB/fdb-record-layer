@@ -207,9 +207,9 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.and(
                         Query.field("name").equalsValue("something"),
                         Query.field("rest_no").equalsValue(1L),
-                        Query.field("reviews").oneOfThem().matches(Query.field("reviewer").equalsValue(10L))))
+                        //Query.field("reviews").oneOfThem().matches(Query.field("reviewer").equalsValue(10L))))
                         //Query.field("reviews").oneOfThem().matches(Query.field("rating").equalsValue(20))))
-                        //Query.field("reviews").oneOfThem().matches(Query.and(Query.field("reviewer").equalsValue(10L), Query.field("rating").equalsValue(20)))))
+                        Query.field("reviews").oneOfThem().matches(Query.and(Query.field("reviewer").equalsValue(10L), Query.field("rating").equalsValue(20)))))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         System.out.println(plan.toString());

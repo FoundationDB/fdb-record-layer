@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -672,7 +673,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     default Iterable<MatchWithCompensation> subsumedBy(@Nonnull final RelationalExpression otherExpression,
                                                        @Nonnull final AliasMap aliasMap,
                                                        @Nonnull final Map<Quantifier, PartialMatch> partialMatchMap) {
-        if (containsUnboundQuantifiers(aliasMap)) {
+        if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, otherExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
 
@@ -685,11 +686,23 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         }
     }
 
-    default boolean containsUnboundQuantifiers(final AliasMap aliasMap) {
+    default boolean hasUnboundQuantifiers(final AliasMap aliasMap) {
         return getQuantifiers()
                 .stream()
                 .map(Quantifier::getAlias)
                 .anyMatch(alias -> !aliasMap.containsSource(alias));
+    }
+
+    default boolean hasIncompatibleBoundQuantifiers(final AliasMap aliasMap, final Collection<? extends Quantifier> otherQuantifiers) {
+        final BiMap<CorrelationIdentifier, Quantifier> otherAliasToQuantifierMap = Quantifiers.toBiMap(otherQuantifiers);
+        return getQuantifiers()
+                .stream()
+                .filter(quantifier -> aliasMap.containsSource(quantifier.getAlias())) // must be bound on this side
+                .anyMatch(quantifier -> {
+                    final Quantifier otherQuantifier =
+                            Objects.requireNonNull(otherAliasToQuantifierMap.get(aliasMap.getTarget(quantifier.getAlias())));
+                    return !quantifier.equalsOnKind(otherQuantifier);
+                });
     }
 
     /**

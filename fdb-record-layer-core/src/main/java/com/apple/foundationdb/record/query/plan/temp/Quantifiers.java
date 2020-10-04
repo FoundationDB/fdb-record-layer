@@ -128,11 +128,25 @@ public class Quantifiers {
      * @return a new {@link AliasMap} mapping from {@code from.getAlias()} to {@code to.getAlias()}
      */
     @Nonnull
-    public static AliasMap toIDMap(@Nonnull final BiMap<Quantifier, Quantifier> map) {
+    public static AliasMap toAliasMap(@Nonnull final BiMap<Quantifier, Quantifier> map) {
         return AliasMap.copyOf(map.entrySet()
                 .stream()
                 .collect(ImmutableBiMap.toImmutableBiMap(entry -> entry.getKey().getAlias(),
                         entry -> entry.getValue().getAlias())));
+    }
+
+    /**
+     * Convenience helper to create an alias to quantifier map using a collection of quantifiers.
+     * @param quantifiers collection of quantifiers
+     * @return a new {@link BiMap} mapping from {@code q.getAlias()} to {@code q} for every {@code q} in {@code quantifiers}
+     */
+    @Nonnull
+    public static BiMap<CorrelationIdentifier, Quantifier> toBiMap(@Nonnull final Collection<? extends Quantifier> quantifiers) {
+        return quantifiers
+                .stream()
+                .collect(ImmutableBiMap
+                        .toImmutableBiMap(Quantifier::getAlias,
+                                Function.identity()));
     }
 
     @Nonnull
@@ -272,14 +286,11 @@ public class Quantifiers {
                                                                          @Nonnull final Collection<? extends Quantifier> quantifiers,
                                                                          @Nonnull final Collection<? extends Quantifier> otherQuantifiers,
                                                                          @Nonnull final MatchFunction<Quantifier, M> matchFunction) {
-        final MatchPredicate<Quantifier> quantifierMatchPredicate =
-                (quantifier, otherQuantifier, eM) -> quantifier.equalsOnKind(otherQuantifier);
-
         return genericMatcher(
                 boundAliasesMap,
                 quantifiers,
                 otherQuantifiers,
-                quantifierMatchPredicate.andThen(matchFunction)).match();
+                matchFunction).match();
     }
 
     /**

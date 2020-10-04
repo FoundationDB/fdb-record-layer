@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
 import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ValueElement;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.ObjectValue;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -246,8 +245,8 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 predicate = new ObjectValue(childBase.getAlias()).withParameterAlias(parameterAliasSupplier.get());
                 final SelectExpression selectExpression = ExpandedPredicates.withPredicate(predicate)
                         .buildSelectWithBase(childBase);
-                Quantifier childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
-                return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias()), childQuantifier);
+                Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+                return ExpandedPredicates.withQuantifier(childQuantifier);
 
             case None:
                 predicate = new FieldValue(baseAlias, fieldNames).withParameterAlias(parameterAliasSupplier.get());

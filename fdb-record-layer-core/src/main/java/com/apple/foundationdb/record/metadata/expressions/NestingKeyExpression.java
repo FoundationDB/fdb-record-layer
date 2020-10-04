@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -163,8 +162,8 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
                         parameterAliasSupplier,
                         Collections.emptyList())
                         .buildSelectWithBase(childBase);
-                final Quantifier childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
-                return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias()), childQuantifier);
+                final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
+                return ExpandedPredicates.withQuantifier(childQuantifier);
             case Concatenate:
             default:
                 throw new RecordCoreException("unknown fan type");

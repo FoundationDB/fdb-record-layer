@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRuleOld;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -46,7 +46,7 @@ import java.util.Set;
  * rules, a planner rule should generally prefer to produce and consume {@code IndexEntrySourceScanExpression}s so that
  * important information about the index key expression is retained.
  *
- * @see LogicalToPhysicalScanRule which converts this to a {@code RecordQueryIndexPlan}
+ * @see LogicalToPhysicalScanRuleOld which converts this to a {@code RecordQueryIndexPlan}
  */
 public class IndexEntrySourceScanExpression implements RelationalExpression {
     @Nonnull

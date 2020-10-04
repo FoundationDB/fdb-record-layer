@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.debug;
 
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -426,17 +427,25 @@ public interface Debugger {
     class TransformEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
-        @Nonnull
+        @Nullable
         private final RelationalExpression expression;
         @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
 
         public TransformEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
                               @Nonnull final Deque<Task> taskStack,
                               @Nonnull final Location location,
                               @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                              @Nonnull final RelationalExpression expression,
-                              @Nonnull final PlannerRule<? extends RelationalExpression> rule) {
+                              @Nonnull final PlannerRule<? extends Bindable> rule) {
+            this(rootReference, taskStack, location, currentGroupReference, null, rule);
+        }
+
+        public TransformEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+                              @Nonnull final Deque<Task> taskStack,
+                              @Nonnull final Location location,
+                              @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                              @Nullable final RelationalExpression expression,
+                              @Nonnull final PlannerRule<? extends Bindable> rule) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.expression = expression;
@@ -461,13 +470,13 @@ public interface Debugger {
             return currentGroupReference;
         }
 
-        @Nonnull
+        @Nullable
         public RelationalExpression getExpression() {
             return expression;
         }
 
         @Nonnull
-        public PlannerRule<? extends RelationalExpression> getRule() {
+        public PlannerRule<? extends Bindable> getRule() {
             return rule;
         }
     }
@@ -478,10 +487,10 @@ public interface Debugger {
     class TransformRuleCallEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
-        @Nonnull
+        @Nullable
         private final RelationalExpression expression;
         @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
         @Nonnull
         private final CascadesRuleCall ruleCall;
 
@@ -489,8 +498,18 @@ public interface Debugger {
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
                                       @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                                      @Nonnull final RelationalExpression expression,
-                                      @Nonnull final PlannerRule<? extends RelationalExpression> rule,
+                                      @Nonnull final PlannerRule<? extends Bindable> rule,
+                                      @Nonnull final CascadesRuleCall ruleCall) {
+            this(rootReference, taskStack, location, currentGroupReference, null, rule, ruleCall);
+        }
+
+
+        public TransformRuleCallEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+                                      @Nonnull final Deque<Task> taskStack,
+                                      @Nonnull final Location location,
+                                      @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                                      @Nullable final RelationalExpression expression,
+                                      @Nonnull final PlannerRule<? extends Bindable> rule,
                                       @Nonnull final CascadesRuleCall ruleCall) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
@@ -517,13 +536,13 @@ public interface Debugger {
             return currentGroupReference;
         }
 
-        @Nonnull
+        @Nullable
         public RelationalExpression getExpression() {
             return expression;
         }
 
         @Nonnull
-        public PlannerRule<? extends RelationalExpression> getRule() {
+        public PlannerRule<? extends Bindable> getRule() {
             return rule;
         }
 

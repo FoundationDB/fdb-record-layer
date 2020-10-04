@@ -217,6 +217,10 @@ public class Processors {
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
             plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            final RelationalExpression expression = event.getExpression();
+            if (expression != null) {
+                plannerRepl.printlnExpression(expression);
+            }
             plannerRepl.printlnKeyValue("rule", event.getRule().toString());
         }
 
@@ -227,6 +231,10 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            final RelationalExpression expression = event.getExpression();
+            if (expression != null) {
+                plannerRepl.printKeyValue("expression", expression.toString() + "; ");
+            }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
 
@@ -372,11 +380,13 @@ public class Processors {
             plannerRepl.printlnKeyValue("candidate expression", "");
             plannerRepl.printlnExpression(event.getCandidateExpression(), "  ");
             final Set<PartialMatch> partialMatchesForCandidate = currentGroupReference.getPartialMatchesForCandidate(matchCandidate);
+            plannerRepl.println();
             if (partialMatchesForCandidate.isEmpty()) {
                 plannerRepl.printlnKeyValue("partial matches for candidate", "empty");
             } else {
                 plannerRepl.printlnKeyValue("partial matches for candidate", "");
                 for (final PartialMatch partialMatch : partialMatchesForCandidate) {
+                    plannerRepl.println();
                     plannerRepl.printlnKeyValue("  bound alias", partialMatch.getBoundAliasMap().toString());
                     plannerRepl.printlnKeyValue("  group reference", "");
                     plannerRepl.printlnReference(partialMatch.getQueryRef(), "    ");

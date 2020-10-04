@@ -25,31 +25,33 @@ import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithElementWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndPredicateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndPredicateRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.IndexMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushElementWithComparisonIntoExistingScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRuleOld;
+import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctElementWithComparisonIntoExistingScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctFilterBelowFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushElementWithComparisonIntoExistingScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushSortIntoExistingIndexRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.SortToIndexRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * A set of rules for use by a planner that supports quickly finding rules that could match a given planner expression.
@@ -74,6 +76,7 @@ public class PlannerRuleSet {
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
+            new LogicalToPhysicalScanRuleOld(),
             new LogicalToPhysicalScanRule(),
             new FullUnorderedExpressionToScanPlanRule(),
             new ImplementUnorderedUnionRule(),
@@ -85,6 +88,9 @@ public class PlannerRuleSet {
                     .addAll(NORMALIZATION_RULES)
                     .addAll(REWRITE_RULES)
                     .build();
+    private static final List<PlannerRule<ExpressionRef<RelationalExpression>>> GRAPH_MATCHING_RULES = ImmutableList.of(
+            new IndexMatchRule()
+    );
     private static final List<PlannerRule<? extends RelationalExpression>> ALL_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()
                     .addAll(EXPLORATION_RULES)
@@ -112,7 +118,12 @@ public class PlannerRuleSet {
     }
 
     @Nonnull
-    public Iterator<PlannerRule<? extends RelationalExpression>> getRulesMatching(@Nonnull RelationalExpression expression) {
-        return Iterators.concat(ruleIndex.get(expression.getClass()).iterator(), alwaysRules.iterator());
+    public Stream<PlannerRule<? extends RelationalExpression>> getExpressionRulesMatching(@Nonnull RelationalExpression expression) {
+        return Streams.concat(ruleIndex.get(expression.getClass()).stream(), alwaysRules.stream());
+    }
+
+    @Nonnull
+    public Stream<PlannerRule<ExpressionRef<RelationalExpression>>> getIndexMatchReplaceRules() {
+        return GRAPH_MATCHING_RULES.stream();
     }
 }
