@@ -328,6 +328,7 @@ public class RankedSetIndexHelper {
             final int hash = super.getKeyHash(key);
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace(KeyValueLogMessage.of("Ranked set key hash",
+                        LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.getKey()),
                         LogMessageKeys.KEY, ByteArrayUtil2.loggable(key),
                         LogMessageKeys.HASH_FUNCTION, RankedSetHashFunctions.getHashFunctionName(config.getHashFunction()),
                         LogMessageKeys.HASH, String.format("%08X", hash)));
