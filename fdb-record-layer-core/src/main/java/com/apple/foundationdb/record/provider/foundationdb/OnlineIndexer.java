@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.ErrorCodes;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
@@ -168,12 +168,12 @@ public class OnlineIndexer implements AutoCloseable {
     // These error codes represent a list of errors that can occur if there is too much work to be done
     // in a single transaction.
     private static final Set<Integer> lessenWorkCodes = new HashSet<>(Arrays.asList(
-            ErrorCodes.TIMED_OUT,
-            ErrorCodes.TRANSACTION_TOO_OLD,
-            ErrorCodes.NOT_COMMITTED,
-            ErrorCodes.TRANSACTION_TIMED_OUT,
-            ErrorCodes.COMMIT_READ_INCOMPLETE,
-            ErrorCodes.TRANSACTION_TOO_LARGE));
+            FDBError.TIMED_OUT.code(),
+            FDBError.TRANSACTION_TOO_OLD.code(),
+            FDBError.NOT_COMMITTED.code(),
+            FDBError.TRANSACTION_TIMED_OUT.code(),
+            FDBError.COMMIT_READ_INCOMPLETE.code(),
+            FDBError.TRANSACTION_TOO_LARGE.code()));
 
     private static final Object INDEX_BUILD_LOCK_KEY = 0L;
     private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;

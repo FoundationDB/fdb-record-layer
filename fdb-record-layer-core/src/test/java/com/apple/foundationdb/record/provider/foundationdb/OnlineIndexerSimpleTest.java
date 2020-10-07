@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.ErrorCodes;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -403,7 +403,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 assertEquals("Retriable", e.getMessage());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
                 assertEquals("commit_unknown_result", e.getCause().getMessage());
-                assertEquals(ErrorCodes.COMMIT_UNKNOWN_RESULT, ((FDBException)e.getCause()).getCode());
+                assertEquals(FDBError.COMMIT_UNKNOWN_RESULT.code(), ((FDBException)e.getCause()).getCode());
                 assertEquals(2, attempts.get());
                 assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
@@ -421,7 +421,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 assertNotNull(e.getCause());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
                 assertEquals("transaction_too_large", e.getCause().getMessage());
-                assertEquals(ErrorCodes.TRANSACTION_TOO_LARGE, ((FDBException)e.getCause()).getCode());
+                assertEquals(FDBError.TRANSACTION_TOO_LARGE.code(), ((FDBException)e.getCause()).getCode());
                 assertEquals(4, attempts.get()); // lessenWorkCodes is maxRetries
                 assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;
@@ -439,7 +439,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 assertNotNull(e.getCause());
                 assertThat(e.getCause(), instanceOf(FDBException.class));
                 assertEquals("not_committed", e.getCause().getMessage());
-                assertEquals(ErrorCodes.NOT_COMMITTED, ((FDBException)e.getCause()).getCode());
+                assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)e.getCause()).getCode());
                 assertEquals(8, attempts.get());
                 assertEquals("my cool mdc value", ThreadContext.get("mdcKey"));
                 return null;

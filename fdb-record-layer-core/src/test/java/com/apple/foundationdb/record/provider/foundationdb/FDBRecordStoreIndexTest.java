@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.ErrorCodes;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -976,7 +976,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             commit(context1);
             fail("Able to commit transaction after index state is modified.");
         } catch (FDBExceptions.FDBStoreRetriableException e) {
-            assertThat(((FDBException)e.getCause()).getCode(), equalTo(ErrorCodes.NOT_COMMITTED));
+            assertThat(((FDBException)e.getCause()).getCode(), equalTo(FDBError.NOT_COMMITTED.code()));
         }
 
         commit(context2); // context2 didn't need index, so this should succeed

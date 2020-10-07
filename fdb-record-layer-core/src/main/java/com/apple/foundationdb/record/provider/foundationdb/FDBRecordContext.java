@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.ErrorCodes;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.ReadTransaction;
@@ -983,7 +983,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 return val;
             } else {
                 FDBException fdbCause = FDBExceptions.getFDBCause(err);
-                if (fdbCause != null && fdbCause.getCode() == ErrorCodes.ACCESSED_UNREADABLE) {
+                if (fdbCause != null && fdbCause.getCode() == FDBError.ACCESSED_UNREADABLE.code()) {
                     // This is the error code that results from reading a key written with a versionstamp,
                     // and in this case, it indicates that the meta-data version key was written prior to the
                     // read being done. This means the store state might be dirty, so return null.
@@ -1084,7 +1084,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             CompletableFuture<Void> future = instrument(FDBStoreTimer.Events.READ_SAMPLE_KEY, ensureActive().get(key))
                     .handle((bytes, ex) -> {
                         if (ex != null
-                                && (!(ex instanceof FDBException) || ((FDBException) ex).getCode() != ErrorCodes.TRANSACTION_CANCELLED)) {
+                                && (!(ex instanceof FDBException) ||
+                                    ((FDBException) ex).getCode() != FDBError.TRANSACTION_CANCELLED.code())) {
                             LOGGER.warn(KeyValueLogMessage.of("error reading sample key",
                                             LogMessageKeys.KEY, ByteArrayUtil2.loggable(key)),
                                     ex);

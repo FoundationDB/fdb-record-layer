@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.ErrorCodes;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -204,7 +204,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             assertNotNull(e.getCause());
             assertThat(e.getCause(), instanceOf(FDBException.class));
             FDBException fdbE = (FDBException)e.getCause();
-            assertEquals(ErrorCodes.TRANSACTION_CANCELLED, fdbE.getCode());
+            assertEquals(FDBError.TRANSACTION_CANCELLED.code(), fdbE.getCode());
         }
     }
 
@@ -230,7 +230,7 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
             assertNotNull(e.getCause());
             assertThat(e.getCause(), instanceOf(FDBException.class));
             FDBException fdbE = (FDBException)e.getCause();
-            assertEquals(ErrorCodes.TRANSACTION_CANCELLED, fdbE.getCode());
+            assertEquals(FDBError.TRANSACTION_CANCELLED.code(), fdbE.getCode());
         }
     }
 

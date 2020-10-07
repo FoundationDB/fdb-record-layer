@@ -21,7 +21,7 @@
 package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.ErrorCodes;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.FDBTestBase;
@@ -143,7 +143,7 @@ public class BunchedMapTest extends FDBTestBase {
                     done = true;
                 } catch (RuntimeException e) {
                     FDBException fdbE = unwrapException(e);
-                    if (fdbE == null || fdbE.getCode() != ErrorCodes.TRANSACTION_TOO_OLD) {
+                    if (fdbE == null || fdbE.getCode() != FDBError.TRANSACTION_TOO_OLD.code()) {
                         throw e;
                     } else {
                         // Timed out. Restart transaction and keep going.
@@ -292,7 +292,7 @@ public class BunchedMapTest extends FDBTestBase {
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
                 FDBException fdbE = (FDBException)e.getCause();
-                assertEquals(ErrorCodes.NOT_COMMITTED, fdbE.getCode());
+                assertEquals(FDBError.NOT_COMMITTED.code(), fdbE.getCode());
             }
         }
         verifyBoundaryKeys(boundaryKeys);
@@ -589,7 +589,7 @@ public class BunchedMapTest extends FDBTestBase {
                     if (err != null) {
                         FDBException fdbE = unwrapException(err);
                         if (fdbE != null) {
-                            if (fdbE.getCode() != ErrorCodes.NOT_COMMITTED && fdbE.getCode() != ErrorCodes.TRANSACTION_TOO_OLD) {
+                            if (fdbE.getCode() != FDBError.NOT_COMMITTED.code() && fdbE.getCode() != FDBError.TRANSACTION_TOO_OLD.code()) {
                                 throw fdbE;
                             }
                         } else {
@@ -642,7 +642,7 @@ public class BunchedMapTest extends FDBTestBase {
                     })).handle((res, err) -> {
                         // Report error information unless it was just a transaction timeout (in which case we'll retry).
                         FDBException fdbE = unwrapException(err);
-                        if (err != null && (fdbE == null || fdbE.getCode() != ErrorCodes.TRANSACTION_TOO_OLD)) {
+                        if (err != null && (fdbE == null || fdbE.getCode() != FDBError.TRANSACTION_TOO_OLD.code())) {
                             System.err.println("Error verifying consistency: " + err);
                             err.printStackTrace();
 
