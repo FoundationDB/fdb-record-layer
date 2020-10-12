@@ -251,9 +251,13 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .build();
         setupPlanner(indexTypes);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(PredicateMatchers.equivalentTo(query.getFilter()),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
-        assertEquals(735933204, plan.planHash());
+        assertThat(plan,
+                filter(PredicateMatchers.equivalentTo(Query.field("num_value_2").equalsValue(0)),
+                        fetch(
+                                filter(PredicateMatchers.equivalentTo(Query.field("num_value_3_indexed").notEquals(1)),
+                                        coveringIndexScan(
+                                                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded())))))));
+        assertEquals(-2013739934, plan.planHash());
 
         AtomicInteger lastNumValue3 = new AtomicInteger(Integer.MIN_VALUE);
         int returned = querySimpleRecordStore(hook, plan, EvaluationContext::empty,

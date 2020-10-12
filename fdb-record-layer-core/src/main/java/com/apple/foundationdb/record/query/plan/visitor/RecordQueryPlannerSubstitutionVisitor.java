@@ -59,11 +59,13 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
     }
 
     public static RecordQueryPlan applyVisitors(@Nonnull RecordQueryPlan plan, @Nonnull RecordMetaData recordMetaData, @Nonnull PlannableIndexTypes indexTypes, @Nullable KeyExpression commonPrimaryKey) {
-        return plan.accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+        return plan
+                .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new UnionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
                 .accept(new IntersectionVisitor(recordMetaData, indexTypes, commonPrimaryKey))
-                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey));
+                .accept(new UnorderedPrimaryKeyDistinctVisitor(recordMetaData, indexTypes, commonPrimaryKey))
+                .accept(new FilterVisitor(recordMetaData, indexTypes, commonPrimaryKey));
     }
 
     @Nonnull
@@ -91,7 +93,6 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             final RecordType recordType = Iterables.getOnlyElement(recordTypes);
             AvailableFields fieldsFromIndex = AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey);
 
-
             Set<KeyExpression> fields = new HashSet<>(requiredFields);
             if (commonPrimaryKey != null) {
                 // Need the primary key, even if it wasn't one of the explicit result fields.
@@ -111,5 +112,33 @@ public abstract class RecordQueryPlannerSubstitutionVisitor {
             }
         }
         return null;
+    }
+
+    @Nonnull
+    public AvailableFields availableFields(@Nonnull RecordQueryPlan plan) {
+        return availableFields(recordMetadata, indexTypes, commonPrimaryKey, plan);
+    }
+
+    @Nonnull
+    public static AvailableFields availableFields(@Nonnull RecordMetaData recordMetaData,
+                                                  @Nonnull PlannableIndexTypes indexTypes,
+                                                  @Nullable KeyExpression commonPrimaryKey,
+                                                  @Nonnull RecordQueryPlan plan) {
+        if (plan instanceof RecordQueryPlanWithIndex) {
+            RecordQueryPlanWithIndex indexPlan = (RecordQueryPlanWithIndex)plan;
+            Index index = recordMetaData.getIndex(indexPlan.getIndexName());
+
+            final Collection<RecordType> recordTypes = recordMetaData.recordTypesForIndex(index);
+            if (recordTypes.size() != 1) {
+                return AvailableFields.NO_FIELDS;
+            }
+            final RecordType recordType = Iterables.getOnlyElement(recordTypes);
+            return AvailableFields.fromIndex(recordType, index, indexTypes, commonPrimaryKey);
+
+        } else if (plan instanceof RecordQueryFetchFromPartialRecordPlan) {
+            RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan) plan;
+            return fetchPlan.getChild().getAvailableFields();
+        }
+        return AvailableFields.NO_FIELDS;
     }
 }

@@ -1116,8 +1116,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .build();
         planner.setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_SCAN);
         RecordQueryPlan plan = planner.plan(query);
-        assertEquals("Scan(([buffaloes, 100],[buffaloes]]) | [HeaderRankedRecord]" +
-                        " | score LESS_THAN $__rank_0 WHERE __rank_0 = score_by_nested_id.score_for_rank_else_skip(buffaloes, 2)",
+        assertEquals("Scan(([buffaloes, 100],[buffaloes]]) | [HeaderRankedRecord] | score LESS_THAN $__rank_0 WHERE __rank_0 = score_by_nested_id.score_for_rank_else_skip(buffaloes, 2)",
                 plan.toString());
 
         try (FDBRecordContext context = openContext()) {

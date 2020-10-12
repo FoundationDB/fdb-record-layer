@@ -100,7 +100,7 @@ public class RankComparisons {
     }
 
     @Nullable
-    public List<QueryComponent> planComparisonSubsitutes(@Nullable List<QueryComponent> components) {
+    public List<QueryComponent> planComparisonSubstitutes(@Nullable List<QueryComponent> components) {
         if (components == null || comparisons.isEmpty()) {
             return components;
         }

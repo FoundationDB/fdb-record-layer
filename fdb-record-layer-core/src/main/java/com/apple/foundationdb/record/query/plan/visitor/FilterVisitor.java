@@ -33,14 +33,18 @@ import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -54,35 +58,78 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
 
     @Nonnull
     @Override
-    public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
+    public RecordQueryPlan postVisit(@Nonnull RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryFilterPlan) {
             final RecordQueryFilterPlan filterPlan = (RecordQueryFilterPlan)recordQueryPlan;
-            final QueryComponent filter = filterPlan.getFilter();
-            final Set<KeyExpression> filterFields = new HashSet<>();
-            boolean canCollectFilterFields = findFilterCoveredFields(filter, filterFields);
 
-            if (canCollectFilterFields) {
-                @Nullable RecordQueryPlan newPlan = removeIndexFetch(filterPlan.getChild(), filterFields);
-                if (newPlan != null) {
-                    return new RecordQueryFetchFromPartialRecordPlan(new RecordQueryFilterPlan(newPlan, filter));
-                }
+            final List<QueryComponent> filters = filterPlan.getFilters();
+            final AvailableFields availableFields = availableFields(((RecordQueryFilterPlan)recordQueryPlan).getInnerPlan());
+
+            // Partition the filters according to whether they can be evaluated using just the fields from the index or
+            // if they need a full record.
+            final List<QueryComponent> indexFilters = Lists.newArrayListWithCapacity(filters.size());
+            final List<QueryComponent> residualFilters = Lists.newArrayListWithCapacity(filters.size());
+            final Set<KeyExpression> allReferencedFields = new HashSet<>();
+
+            partitionFilters(filters, availableFields, indexFilters, residualFilters, allReferencedFields);
+
+            Verify.verify(indexFilters.size() + residualFilters.size() == filters.size());
+
+            // We now know the set of index filters and true residuals. Create a plan:
+            // a) if there are no index filters: filter(index_scan(...), residuals) (leave plan unchanged)
+            // b) if there are index filters but no residuals: fetch(filter(covering_index_scan(...), index_filters))
+            // c) if there are index filters and residuals: filter(fetch(filter(covering_index_scan(...), index_filters)), residuals)
+
+            if (indexFilters.isEmpty()) {
+                return recordQueryPlan;
+            }
+
+            @Nullable RecordQueryPlan removedFetchPlan = removeIndexFetch(filterPlan.getChild(), allReferencedFields);
+            if (removedFetchPlan == null) {
+                return recordQueryPlan;
+            }
+
+            recordQueryPlan = new RecordQueryFetchFromPartialRecordPlan(new RecordQueryFilterPlan(removedFetchPlan, indexFilters));
+
+            if (!residualFilters.isEmpty()) {
+                recordQueryPlan = new RecordQueryFilterPlan(recordQueryPlan, residualFilters);
             }
         }
         return recordQueryPlan;
+    }
+
+    public static void partitionFilters(@Nonnull final List<QueryComponent> filters,
+                                        @Nonnull final AvailableFields availableFields,
+                                        @Nonnull final List<QueryComponent> indexFilters,
+                                        @Nonnull final List<QueryComponent> residualFilters,
+                                        @Nullable final Set<KeyExpression> allReferencedFields) {
+        for (final QueryComponent filter : filters) {
+            final Set<KeyExpression> referencedFields = new HashSet<>();
+            if (findFilterReferencedFields(filter, referencedFields)) {
+                if (availableFields.containsAll(referencedFields)) {
+                    indexFilters.add(filter);
+                    if (allReferencedFields != null) {
+                        allReferencedFields.addAll(referencedFields);
+                    }
+                    continue;
+                }
+            }
+            residualFilters.add(filter);
+        }
     }
 
     // Find equivalent key expressions for fields used by the given filter.
     // Does not attempt to deal with OneOfThemWithComponent, as the repeated nested field will be spread across multiple
     // index entries. Reconstituting that as a singleton in a partial record might work for the simplest case, but
     // could not for multiple such filter conditions.
-    private static boolean findFilterCoveredFields(@Nonnull QueryComponent filter, @Nonnull Set<KeyExpression> filterFields) {
+    public static boolean findFilterReferencedFields(@Nonnull QueryComponent filter, @Nonnull Set<KeyExpression> filterFields) {
         if (filter instanceof FieldWithComparison) {
             filterFields.add(Key.Expressions.field(((FieldWithComparison)filter).getFieldName()));
             return true;
         }
         if (filter instanceof AndOrComponent) {
             for (QueryComponent child : ((AndOrComponent)filter).getChildren()) {
-                if (!findFilterCoveredFields(child, filterFields)) {
+                if (!findFilterReferencedFields(child, filterFields)) {
                     return false;
                 }
             }
@@ -90,11 +137,11 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
         }
         if (filter instanceof QueryKeyExpressionWithComparison) {
             final QueryableKeyExpression keyExpression = ((QueryKeyExpressionWithComparison)filter).getKeyExpression();
-            return findFilterCoveredFields(keyExpression, filterFields);
+            return findFilterReferencedFields(keyExpression, filterFields);
         }
         if (filter instanceof NestedField) {
             final Set<KeyExpression> childFilterFields = new HashSet<>();
-            if (findFilterCoveredFields(((NestedField)filter).getChild(), childFilterFields)) {
+            if (findFilterReferencedFields(((NestedField)filter).getChild(), childFilterFields)) {
                 final FieldKeyExpression parent = Key.Expressions.field(((NestedField)filter).getFieldName());
                 for (KeyExpression childFilterField : childFilterFields) {
                     filterFields.add(parent.nest(childFilterField));
@@ -107,10 +154,10 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
         return false;
     }
 
-    private static boolean findFilterCoveredFields(@Nonnull KeyExpression expression, @Nonnull Set<KeyExpression> filterFields) {
+    private static boolean findFilterReferencedFields(@Nonnull KeyExpression expression, @Nonnull Set<KeyExpression> filterFields) {
         if (expression instanceof ThenKeyExpression) {
             for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
-                if (!findFilterCoveredFields(child, filterFields)) {
+                if (!findFilterReferencedFields(child, filterFields)) {
                     return false;
                 }
             }
@@ -119,7 +166,7 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
         // TODO: This isn't quite optimal, since an index might just as well have f(x) as a indexed field as x itself.
         //   But that isn't expressible with the current partial record implementation.
         if (expression instanceof FunctionKeyExpression) {
-            return findFilterCoveredFields(((FunctionKeyExpression)expression).getArguments(), filterFields);
+            return findFilterReferencedFields(((FunctionKeyExpression)expression).getArguments(), filterFields);
         }
         if (expression instanceof LiteralKeyExpression) {
             return true;
