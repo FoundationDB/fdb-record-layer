@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.record.EvaluationContext;
@@ -692,7 +693,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
             fail("should have gotten failure");
         } catch (FDBExceptions.FDBStoreRetriableException ex) {
             assertTrue(ex.getCause() instanceof FDBException);
-            assertThat(((FDBException)ex.getCause()).getCode(), equalTo(1020)); // not_committed
+            assertThat(((FDBException)ex.getCause()).getCode(), equalTo(FDBError.NOT_COMMITTED.code()));
         }
     }
 

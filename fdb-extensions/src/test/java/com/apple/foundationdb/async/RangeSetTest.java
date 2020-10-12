@@ -21,6 +21,7 @@
 package com.apple.foundationdb.async;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.FDBTestBase;
@@ -281,7 +282,7 @@ public class RangeSetTest extends FDBTestBase {
             assertNotNull(e, "No error thrown from commit");
             assertTrue(e instanceof FDBException, "Non-FDBException " + e.toString());
             FDBException fdbe = (FDBException)e;
-            assertEquals(1020, fdbe.getCode(), "Did not get not-committed error.");
+            assertEquals(FDBError.NOT_COMMITTED.code(), fdbe.getCode(), "Did not get not-committed error.");
             return vignore;
         }).join();
         ranges.add(r1);
@@ -327,7 +328,7 @@ public class RangeSetTest extends FDBTestBase {
                     assertNotNull(e, "No error from commit when key is " + repr);
                     assertTrue(e instanceof FDBException, "Non-FDBException " + e.toString() + " with key " + repr);
                     FDBException fdbe = (FDBException)e;
-                    assertEquals(1020, fdbe.getCode(), "Did not get non-committed error when key is " + repr);
+                    assertEquals(FDBError.NOT_COMMITTED.code(), fdbe.getCode(), "Did not get non-committed error when key is " + repr);
                 } else {
                     assertNull(e, "Error when key is " + repr);
                 }

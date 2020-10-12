@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -96,7 +97,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             assertNotNull(e.getCause());
             assertTrue(e.getCause() instanceof FDBException);
             assertEquals("io_error", e.getCause().getMessage());
-            assertEquals(1510, ((FDBException)e.getCause()).getCode());
+            assertEquals(FDBError.IO_ERROR.code(), ((FDBException)e.getCause()).getCode());
         }
 
         try (FDBDatabaseRunner runner = database.newRunner()) {
@@ -198,7 +199,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
                 assertEquals("not_committed", e.getCause().getMessage());
-                assertEquals(1020, ((FDBException)e.getCause()).getCode());
+                assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)e.getCause()).getCode());
             }
             assertEquals(runner.getMaxAttempts(), iteration.get());
         }
@@ -230,7 +231,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
                 assertEquals("io_error", e.getCause().getMessage());
-                assertEquals(1510, ((FDBException)e.getCause()).getCode());
+                assertEquals(FDBError.IO_ERROR.code(), ((FDBException)e.getCause()).getCode());
                 return null;
             }).join();
         }
@@ -332,7 +333,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
                 assertEquals("not_committed", e.getCause().getMessage());
-                assertEquals(1020, ((FDBException)e.getCause()).getCode());
+                assertEquals(FDBError.NOT_COMMITTED.code(), ((FDBException)e.getCause()).getCode());
                 return null;
             }).join();
             assertEquals(runner.getMaxAttempts(), iteration.get());

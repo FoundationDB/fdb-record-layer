@@ -21,6 +21,7 @@
 package com.apple.foundationdb.map;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.FDBTestBase;
@@ -273,7 +274,7 @@ public class BunchedMapScanTest extends FDBTestBase {
             assertNotNull(e.getCause());
             assertTrue(e.getCause() instanceof FDBException);
             FDBException fdbE = (FDBException)e.getCause();
-            assertEquals(BunchedMapTest.NOT_COMMITTED_CODE, fdbE.getCode());
+            assertEquals(FDBError.NOT_COMMITTED.code(), fdbE.getCode());
         }
         byte[] continuation = null;
         for (int i = 0; i < keys.size(); i++) {
