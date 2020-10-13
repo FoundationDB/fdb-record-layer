@@ -114,6 +114,7 @@ public class FDBDatabaseFactory {
     private long reverseDirectoryMaxMillisPerTransaction = FDBReverseDirectoryCache.MAX_MILLIS_PER_TRANSACTION;
     private long stateRefreshTimeMillis = TimeUnit.SECONDS.toMillis(FDBDatabase.DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS);
     private long transactionTimeoutMillis = DEFAULT_TR_TIMEOUT_MILLIS;
+    private boolean runLoopProfilingEnabled;
 
     /**
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
@@ -154,6 +155,10 @@ public class FDBDatabaseFactory {
             }
             if (traceLogGroup != null) {
                 options.setTraceLogGroup(traceLogGroup);
+            }
+            if (runLoopProfilingEnabled) {
+                // Note: will be renamed to "run loop profiling" in FDB 6.3
+                options.setEnableSlowTaskProfiling();
             }
             if (networkExecutor == null) {
                 fdb.startNetwork();
@@ -342,6 +347,34 @@ public class FDBDatabaseFactory {
         for (FDBDatabase database : databases.values()) {
             database.setDatacenterId(datacenterId);
         }
+    }
+
+    /**
+     * Set whether additional run-loop profiling of the FDB client is enabled. This can be useful for debugging
+     * certain performance problems, but the profiling is also fairly heavy-weight, and so it is not generally
+     * recommended when performance is critical. This method should be set prior to the first {@link FDBDatabase}
+     * is returned by this factory, as otherwise, it will have no effect (i.e., run-loop profiling will not actually
+     * be enabled). Enabling run-loop profiling also places its output in the FDB client trace logs, so it only makes
+     * sense to call this method if one also calls {@link #setTrace(String, String)}.
+     *
+     * @param runLoopProfilingEnabled whether run-loop profiling should be enabled
+     * @see NetworkOptions#setEnableSlowTaskProfiling()
+     */
+    public synchronized void setRunLoopProfilingEnabled(boolean runLoopProfilingEnabled) {
+        if (inited) {
+            throw new RecordCoreException("run loop profiling can not be enabled as the client has already started");
+        }
+        this.runLoopProfilingEnabled = runLoopProfilingEnabled;
+    }
+
+    /**
+     * Get whether additional run-loop profiling has been been enabled.
+     *
+     * @return whether additional run-loop profiling has been enabled
+     * @see #setRunLoopProfilingEnabled(boolean)
+     */
+    public boolean isRunLoopProfilingEnabled() {
+        return runLoopProfilingEnabled;
     }
 
     /**
