@@ -57,20 +57,24 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryFilterPlan.class);
 
     @Nonnull
+    private final List<QueryComponent> filters;
+
+    @Nonnull
     private final QueryComponent filter;
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
-        this(inner, filters.size() == 1 ? filters.get(0) : Query.and(filters));
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), filters);
     }
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull QueryComponent filter) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)), filter);
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), ImmutableList.of(filter));
     }
 
     public RecordQueryFilterPlan(@Nonnull Quantifier.Physical inner,
-                                 @Nonnull QueryComponent filter) {
+                                 @Nonnull List<QueryComponent> filters) {
         super(inner);
-        this.filter = filter;
+        this.filters = ImmutableList.copyOf(filters);
+        this.filter = this.filters.size() == 1 ? Iterables.getOnlyElement(this.filters) : Query.and(this.filters);
     }
 
     @Override
@@ -116,7 +120,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     public RecordQueryFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                               @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryFilterPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                getFilter());
+                getFilters());
     }
 
     @Override
@@ -151,6 +155,11 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Override
     public int planHash() {
         return getInnerPlan().planHash() + getFilter().planHash();
+    }
+
+    @Nonnull
+    public List<QueryComponent> getFilters() {
+        return filters;
     }
 
     @Nonnull

@@ -28,10 +28,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,7 +42,9 @@ import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
@@ -65,8 +69,9 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
      * Verify that a returned record limit works properly against a query with a filter on one field and a sort on another,
      * when the filter field is un-indexed and the sort is in reverse order.
      */
-    @DualPlannerTest
-    public void testComplexLimits2() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexLimits2(final boolean shouldOptimizeForIndexFilters) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -74,11 +79,20 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .setFilter(Query.field("num_value_2").equalsValue(0))
                 .setSort(field("str_value_indexed"), true)
                 .build();
+        setOptimizeForIndexFilters(shouldOptimizeForIndexFilters);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(query.getFilter(),
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
-        assertTrue(plan.isReverse());
-        assertEquals(-384998859, plan.planHash());
+
+        if (shouldOptimizeForIndexFilters) {
+            assertThat(plan, fetch(filter(query.getFilter(),
+                    coveringIndexScan(indexScan(allOf(indexName("multi_index"), unbounded()))))));
+            assertTrue(plan.isReverse());
+            assertEquals(-1143466156, plan.planHash());
+        } else {
+            assertThat(plan, filter(query.getFilter(),
+                    indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+            assertTrue(plan.isReverse());
+            assertEquals(-384998859, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -88,13 +102,13 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
                     myrec.mergeFrom(rec.getRecord());
-                    assertEquals("odd", myrec.getStrValueIndexed());
                     assertEquals(0, myrec.getNumValue2());
+                    assertEquals("odd", myrec.getStrValueIndexed());
                     i += 1;
                 }
             }
             assertEquals(10, i);
-            assertDiscardedAtMost(18, context);
+            assertDiscardedAtMost(34, context);
         }
     }
 

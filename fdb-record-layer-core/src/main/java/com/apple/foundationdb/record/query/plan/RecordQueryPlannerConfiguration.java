@@ -34,19 +34,22 @@ public class RecordQueryPlannerConfiguration {
     private final QueryPlanner.IndexScanPreference indexScanPreference;
     private final boolean attemptFailedInJoinAsOr;
     private final int complexityThreshold;
-    private boolean checkForDuplicateConditions;
-    private boolean deferFetchAfterUnionAndIntersection;
+    private final boolean checkForDuplicateConditions;
+    private final boolean deferFetchAfterUnionAndIntersection;
+    private final boolean optimizeForIndexFilters;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
                                             int complexityThreshold,
                                             boolean checkForDuplicateConditions,
-                                            boolean deferFetchAfterUnionAndIntersection) {
+                                            boolean deferFetchAfterUnionAndIntersection,
+                                            boolean optimizeForIndexFilters) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.complexityThreshold = complexityThreshold;
         this.checkForDuplicateConditions = checkForDuplicateConditions;
         this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
+        this.optimizeForIndexFilters = optimizeForIndexFilters;
     }
 
     /**
@@ -94,13 +97,23 @@ public class RecordQueryPlannerConfiguration {
         return checkForDuplicateConditions;
     }
 
-    /*
+    /**
      * Get whether the query planner should attempt to delay the fetch of the whole record until after union,
-     * intersection, and primary key distinct operators, as implemented in the various {@link RecordQueryPlannerSubstitutionVisitor}s.
+     * intersection, and primary key distinct operators, as implemented in the various
+     * {@link com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor}s.
      * @return whether the planner should delay the fetch of the whole record until after union, intersection, and primary key distinct operators
      */
     public boolean shouldDeferFetchAfterUnionAndIntersection() {
         return deferFetchAfterUnionAndIntersection;
+    }
+
+    /**
+     * Get whether the query planner should attempt to consider the applicability of filters that could then be
+     * evaluated on index entries into the planning process.
+     * @return whether the planner should optimize for index filters
+     */
+    public boolean shouldOptimizeForIndexFilters() {
+        return optimizeForIndexFilters;
     }
 
     @Nonnull
@@ -123,12 +136,15 @@ public class RecordQueryPlannerConfiguration {
         private int complexityThreshold = RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD;
         private boolean checkForDuplicateConditions = false;
         private boolean deferFetchAfterUnionAndIntersection = false;
+        private boolean optimizeForIndexFilters = false;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
             this.attemptFailedInJoinAsOr = configuration.attemptFailedInJoinAsOr;
             this.complexityThreshold = configuration.complexityThreshold;
             this.checkForDuplicateConditions = configuration.checkForDuplicateConditions;
+            this.deferFetchAfterUnionAndIntersection = configuration.deferFetchAfterUnionAndIntersection;
+            this.optimizeForIndexFilters = configuration.optimizeForIndexFilters;
         }
 
         public Builder() {
@@ -159,8 +175,13 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        public Builder setOptimizeForIndexFilters(final boolean optimizeForIndexFilters) {
+            this.optimizeForIndexFilters = optimizeForIndexFilters;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters);
         }
     }
 }

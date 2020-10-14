@@ -386,6 +386,15 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 .build());
     }
 
+    protected void setOptimizeForIndexFilters(boolean shouldOptimizeForIndexFilters) {
+        assertTrue(planner instanceof RecordQueryPlanner);
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner) planner;
+        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
+                .asBuilder()
+                .setOptimizeForIndexFilters(shouldOptimizeForIndexFilters)
+                .build());
+    }
+
     protected static class Holder<T> {
         public T value;
     }

@@ -200,8 +200,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that a complex query with an AND of fields that are _not_ compatibly ordered generates a plan without
      * an intersection (uses filter instead).
      */
-    @Test
-    public void testComplexQueryAndWithIncompatibleFilters() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testComplexQueryAndWithIncompatibleFilters(final boolean shouldOptimizeForIndexFilters) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -210,13 +211,22 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").startsWith("e"),
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
+        setOptimizeForIndexFilters(shouldOptimizeForIndexFilters);
         RecordQueryPlan plan = planner.plan(query);
         // Not an intersection plan, since not compatibly ordered.
-        assertThat(plan, allOf(
-                hasNoDescendant(intersection(anything(), anything())),
-                descendant(indexScan(anyOf(indexName("MySimpleRecord$str_value_indexed"), indexName("MySimpleRecord$num_value_3_indexed"))))));
-        assertFalse(plan.hasRecordScan(), "should not use record scan");
-        assertEquals(746853985, plan.planHash());
+        if (shouldOptimizeForIndexFilters) {
+            assertThat(plan, allOf(
+                    hasNoDescendant(intersection(anything(), anything())),
+                    descendant(filter(Query.field("num_value_3_indexed").equalsValue(3), coveringIndexScan(indexScan(anyOf(indexName("multi_index"), bounds(hasTupleString("[[e],[e]]")))))))));
+            assertFalse(plan.hasRecordScan(), "should not use record scan");
+            assertEquals(-1810430840, plan.planHash());
+        } else {
+            assertThat(plan, allOf(
+                    hasNoDescendant(intersection(anything(), anything())),
+                    descendant(indexScan(anyOf(indexName("MySimpleRecord$str_value_indexed"), indexName("MySimpleRecord$num_value_3_indexed"))))));
+            assertFalse(plan.hasRecordScan(), "should not use record scan");
+            assertEquals(746853985, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

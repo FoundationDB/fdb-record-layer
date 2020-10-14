@@ -35,10 +35,12 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -52,6 +54,8 @@ import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
@@ -178,8 +182,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that sorts on repeated fields are implemented with fanout indexes.
      * Verify that they include distinctness filters and value filters where necessary.
      */
-    @Test
-    public void sortRepeated() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void sortRepeated(final boolean shouldOptimizeForIndexFilters) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openNestedRecordStore(context);
 
@@ -330,23 +335,40 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     context -> assertDiscardedAtMost(2, context)));
         }
         {
+            setOptimizeForIndexFilters(shouldOptimizeForIndexFilters);
             RecordQuery.Builder builder = RecordQuery.newBuilder()
                     .setRecordType("RestaurantRecord")
                     .setSort(field("customer", FanType.FanOut))
                     .setFilter(Query.field("name").greaterThan("A"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("customers"), unbounded()))));
-            assertEquals(1833106833, plan.planHash());
-            assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
-                    this::openNestedRecordStore,
-                    TestHelpers::assertDiscardedNone));
+            if (shouldOptimizeForIndexFilters) {
+                assertThat(plan, fetch(filter(query.getFilter(), coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded()))))));
+                assertEquals(-505715770, plan.planHash());
+                assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1001L, 1000L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                        this::openNestedRecordStore,
+                        TestHelpers::assertDiscardedNone));
+            } else {
+                assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("customers"), unbounded()))));
+                assertEquals(1833106833, plan.planHash());
+                assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                        this::openNestedRecordStore,
+                        TestHelpers::assertDiscardedNone));
+            }
 
+            setOptimizeForIndexFilters(shouldOptimizeForIndexFilters);
+            setDeferFetchAfterUnionAndIntersection(true);
             query = builder.setRemoveDuplicates(true).build();
             plan = planner.plan(query);
-            assertThat(plan, filter(query.getFilter(), primaryKeyDistinct(
-                    indexScan(allOf(indexName("customers"), unbounded())))));
-            assertEquals(1833106834, plan.planHash());
+            if (shouldOptimizeForIndexFilters) {
+                assertThat(plan, fetch(filter(query.getFilter(), primaryKeyDistinct(
+                        coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded())))))));
+                assertEquals(-505715763, plan.planHash());
+            } else {
+                assertThat(plan, filter(query.getFilter(), fetch(primaryKeyDistinct(
+                        coveringIndexScan(indexScan(allOf(indexName("customers"), unbounded())))))));
+                assertEquals(-1611344673, plan.planHash());
+            }
             assertEquals(Arrays.asList(1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> assertDiscardedAtMost(5, context)));
