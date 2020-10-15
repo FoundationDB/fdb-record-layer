@@ -1119,15 +1119,31 @@ public class OnlineIndexer implements AutoCloseable {
         SynchronizedSession.endAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
     }
 
-    @VisibleForTesting
-    CompletableFuture<Void> checkNoOngoingOnlineIndexBuildsAsync() {
-        return runner
-                .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
-                .thenCompose(lockSubspace ->
-                        // It will throw {@link com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedException}
-                        // if there are ongoing online index builds.
-                        runner.startSynchronizedSessionAsync(lockSubspace, leaseLengthMills))
-                .thenCompose(SynchronizedSessionRunner::endSessionAsync);
+    /**
+     * Synchronous/blocking version of {@link #checkAnyOngoingOnlineIndexBuildsAsync()}.
+     * @return <code>true</code> if the index is being built and <code>false</code> otherwise
+     */
+    public boolean checkAnyOngoingOnlineIndexBuilds() {
+        return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_CHECK_ONGOING_ONLINE_INDEX_BUILD, checkAnyOngoingOnlineIndexBuildsAsync());
+    }
+
+    /**
+     * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s).
+     * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
+     */
+    public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
+        return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
+                checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)));
+    }
+
+    /**
+     * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s).
+     * @param recordStore record store whose index builds need to be checked
+     * @param index the index whose builds need to be stopped
+     * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
+     */
+    public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
+        return SynchronizedSession.checkAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
     }
 
     /**
