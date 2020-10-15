@@ -19,7 +19,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Covering filter optimizations and index-applicable filters are now considered as advantageous during planning [(Issue #1039)](https://github.com/FoundationDB/fdb-record-layer/issues/1039)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,10 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.141.0
+
+* **Performance** Covering filter optimizations and index-applicable filters are now considered as advantageous during planning [(Issue #1039)](https://github.com/FoundationDB/fdb-record-layer/issues/1039)
 
 ### 2.10.140.0
 
