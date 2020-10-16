@@ -162,6 +162,126 @@ public class TopologicalSortTest {
     }
 
     @Test
+    public void testTopologicalSortSkip2() {
+        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
+        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
+        final CorrelationIdentifier c = CorrelationIdentifier.of("c");
+        final CorrelationIdentifier d = CorrelationIdentifier.of("d");
+
+        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies =
+                ImmutableMap.of();
+
+        final EnumeratingIterable<CorrelationIdentifier> topologicalPermutationIterable =
+                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c, d),
+                        id -> dependencies.getOrDefault(id, ImmutableSet.of()));
+
+        final EnumeratingIterator<CorrelationIdentifier> iterator = topologicalPermutationIterable.iterator();
+        final ImmutableList.Builder<List<CorrelationIdentifier>> builder = ImmutableList.builder();
+
+        while (iterator.hasNext()) {
+            final List<CorrelationIdentifier> next = iterator.next();
+
+            builder.add(next);
+
+            if (next.get(0).equals(b) && next.get(1).equals(a)) {
+                iterator.skip(1);
+            }
+        }
+
+        final ImmutableList<List<CorrelationIdentifier>> topologicalPermutations = builder.build();
+
+        assertEquals(23, topologicalPermutations.size());
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, b, c, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, b, d, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, c, b, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, c, d, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, d, b, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, d, c, b)));
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, a, c, d)));
+        assertFalse(topologicalPermutations.contains(ImmutableList.of(b, a, d, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, c, a, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, c, d, a)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, d, a, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, d, c, a)));
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, a, b, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, a, d, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, b, a, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, b, d, a)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, d, a, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, d, b, a)));
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, a, b, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, a, c, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, b, a, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, b, c, a)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, c, a, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, c, b, a)));
+    }
+
+    @Test
+    public void testTopologicalSortSkip3() {
+        final CorrelationIdentifier a = CorrelationIdentifier.of("a");
+        final CorrelationIdentifier b = CorrelationIdentifier.of("b");
+        final CorrelationIdentifier c = CorrelationIdentifier.of("c");
+        final CorrelationIdentifier d = CorrelationIdentifier.of("d");
+
+        final Map<CorrelationIdentifier, Set<CorrelationIdentifier>> dependencies =
+                ImmutableMap.of();
+
+        final EnumeratingIterable<CorrelationIdentifier> topologicalPermutationIterable =
+                TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(a, b, c, d),
+                        id -> dependencies.getOrDefault(id, ImmutableSet.of()));
+
+        final EnumeratingIterator<CorrelationIdentifier> iterator = topologicalPermutationIterable.iterator();
+        final ImmutableList.Builder<List<CorrelationIdentifier>> builder = ImmutableList.builder();
+
+        while (iterator.hasNext()) {
+            final List<CorrelationIdentifier> next = iterator.next();
+
+            builder.add(next);
+
+            if (next.get(0).equals(b) && next.get(1).equals(a)) {
+                iterator.skip(0);
+            }
+        }
+
+        final ImmutableList<List<CorrelationIdentifier>> topologicalPermutations = builder.build();
+
+        assertEquals(19, topologicalPermutations.size());
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, b, c, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, b, d, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, c, b, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, c, d, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, d, b, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(a, d, c, b)));
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(b, a, c, d)));
+        assertFalse(topologicalPermutations.contains(ImmutableList.of(b, a, d, c)));
+        assertFalse(topologicalPermutations.contains(ImmutableList.of(b, c, a, d)));
+        assertFalse(topologicalPermutations.contains(ImmutableList.of(b, c, d, a)));
+        assertFalse(topologicalPermutations.contains(ImmutableList.of(b, d, a, c)));
+        assertFalse(topologicalPermutations.contains(ImmutableList.of(b, d, c, a)));
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, a, b, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, a, d, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, b, a, d)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, b, d, a)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, d, a, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(c, d, b, a)));
+
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, a, b, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, a, c, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, b, a, c)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, b, c, a)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, c, a, b)));
+        assertTrue(topologicalPermutations.contains(ImmutableList.of(d, c, b, a)));
+    }
+
+    @Test
     public void testTopologicalSortEmpty() {
         final EnumeratingIterable<CorrelationIdentifier> topologicalPermutations =
                 TopologicalSort.topologicalOrderPermutations(ImmutableSet.of(), id -> ImmutableSet.of());

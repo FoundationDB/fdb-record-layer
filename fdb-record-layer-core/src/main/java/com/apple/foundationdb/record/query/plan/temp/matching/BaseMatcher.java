@@ -45,11 +45,9 @@ import static com.apple.foundationdb.record.query.plan.temp.TopologicalSort.topo
 
 /**
  * Abstract base class for all matchers. Matching is an algorithm that <em>matches</em> two collections of things of type
- * {@code T} resulting in a bijective mapping (injective and surjective) between the elements of the respective
- * collections.
+ * {@code T} resulting in a reversible mapping between the elements of the respective collections.
  *
- * Trivially that means that collections of different sizes cannot match. By definition two empty collections of elements
- * match with an empty bijective mapping.
+ * By definition two empty collections of elements match with an empty bijective mapping.
  *
  * The bijective mapping that is produced by matching is always encoded in instances of the class {@link AliasMap}.
  *

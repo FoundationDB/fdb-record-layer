@@ -31,14 +31,24 @@ public interface EnumeratingIterator<T> extends Iterator<List<T>> {
     /**
      * Instructs the iterator to advance to the next possible ordering using the given zero-indexed level.
      *
-     * Example 1: If the last returned ordering of the iterator {@code it} is {@code (e0, e1, e2, e3)} and
-     *            {@code it.skip(2)} is called, the state of the iterator is advanced in a way that either
-     *            reaches the end of iteration or the next item that is returned is {@code (e0', e1', e3', e4')}
-     *            where the prefix {@code (e1', e2', e3')} is not equal to {code (e1, e2, e3)}.
-     * Example 2: If the last returned ordering of the iterator {@code it} is {@code (e1, e2, e3, e4)} and
-     *            {@code it.skip(1)} is called, the state of the iterator is advanced in a way that either reaches
-     *            the end of iteration or the next item that is returned is {@code (e1', e2', e3', e4')} where
-     *            the prefix {@code (e1', e2')} is not equal to {code (e1, e2)}.
+     * Example 1: Consider the last returned ordering of the iterator {@code it} is {@code (e0, e1, e2, e3)}.
+     *            If {@code it.skip(1)} is called, the state of the iterator is advanced in a way that it either
+     *            <ul>
+     *                <li> reaches the end of iteration and a subsequent call to {@code it.hasNext()} returns {@code false} or</li>
+     *                <li> the item being returned upon a subsequent call to {@code it.next()} denoted as
+     *                     {@code (e0', e1', e2', e3')} is the next item occurring in the enumeration
+     *                     where {@code (e0', e1')} is greater than {@code (e0, e1)}.
+     *                </li>
+     *            </ul>
+     * Example 2: Consider the last returned ordering of the iterator {@code it} is {@code (e0, e1, e2, e3)}.
+     *            If {@code it.skip(2)} is called, the state of the iterator is advanced in a way that it either
+     *            <ul>
+     *                <li> reaches the end of iteration and a subsequent call to {@code it.hasNext()} returns {@code false} or</li>
+     *                <li> the item being returned upon a subsequent call to {@code it.next()} denoted as
+     *                     {@code (e0', e1', e2', e3')} is the next item occurring in the enumeration
+     *                     where {@code (e0', e1', e2')} is greater than {@code (e0, e1, e2)}.
+     *                </li>
+     *            </ul>
      *
      * @param level skip level
      */

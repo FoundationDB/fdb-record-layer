@@ -148,7 +148,7 @@ public class CrossProduct {
             }
 
             /**
-             * Method that skips advances to the next element on the given zero-indexed level.
+             * Method that advances to the next element on the given zero-indexed level.
              * @param level level to advance
              */
             @Override
@@ -189,7 +189,7 @@ public class CrossProduct {
     /**
      * An implementation of {@link EnumeratingIterable} that is optimized to work for single item
      * input sets. The case where the input set is exactly one item is trivial and also properly handled by
-     * {@link ComplexIterable}. Iterators created by this class, however, avoid to build complex state objects
+     * {@link ComplexIterable}. Iterators created by this class, however, avoid building complex state objects
      * during their lifecycle.
      *
      * @param <T> type

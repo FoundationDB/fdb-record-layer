@@ -28,11 +28,9 @@ import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -188,7 +186,7 @@ public class AliasMap {
             return false;
         }
         final AliasMap aliasMap = (AliasMap)o;
-        return Objects.equals(map, aliasMap.map);
+        return map.equals(aliasMap.map);
     }
 
     /**
@@ -197,7 +195,7 @@ public class AliasMap {
      */
     @Override
     public int hashCode() {
-        return Objects.hash(map);
+        return map.hashCode();
     }
 
     @Override
@@ -266,10 +264,7 @@ public class AliasMap {
      */
     @Nonnull
     public Set<Map.Entry<CorrelationIdentifier, CorrelationIdentifier>> entrySet() {
-        return map.entrySet()
-                .stream()
-                .map(e -> new AbstractMap.SimpleImmutableEntry<>(e.getKey(), e.getValue()))
-                .collect(ImmutableSet.toImmutableSet());
+        return map.entrySet();
     }
 
     /**

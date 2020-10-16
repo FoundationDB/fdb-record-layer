@@ -26,7 +26,7 @@ package com.apple.foundationdb.record.query.plan.temp.matching;
  * {@link java.util.stream.Collector}. Instances of this class, however, are meant to be mutable while collectors
  * are essentially stateless lambda factories.
  *
- * The life cycle of an accumulator (after it's creation) spans multiple calls to {@link #accumulate} which cause the
+ * The life cycle of an accumulator (after its creation) spans multiple calls to {@link #accumulate} which cause the
  * accumulator instance to update it's internal and hidden state followed by one or more calls to {@link #finish}
  * which produce a final result of type {@code R}.
  *

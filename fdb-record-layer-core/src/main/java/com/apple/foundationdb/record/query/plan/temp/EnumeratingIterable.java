@@ -42,7 +42,7 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
     /**
      * An implementation of {@link EnumeratingIterable} that is optimized to work for empty
      * input sets.
-     * Iterators created by this class, avoid to build complex state objects during their lifecycle.
+     * Iterators created by this class, avoid building complex state objects during their lifecycle.
      *
      * @param <T> type
      */

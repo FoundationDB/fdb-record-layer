@@ -24,7 +24,7 @@ import javax.annotation.Nonnull;
 
 /**
  * Case class to represent a match candidate. A match candidate on code level is just a name and a data flow graph
- * that can be matches against a query graph. The match candidate does not keep the root to the graph to be matched but
+ * that can be matched against a query graph. The match candidate does not keep the root to the graph to be matched but
  * rather an instance of {@link ExpressionRefTraversal} to allow for navigation of references within the candidate.
  */
 public class MatchCandidate {
