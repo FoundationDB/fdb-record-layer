@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanLimitReachedException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
+import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -52,6 +53,7 @@ import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
@@ -78,9 +80,13 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for scan limits in {@link FDBRecordStore}.
@@ -378,6 +384,70 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                 }
             } while (continuation != null);
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void testWithVersionsAndTimeLimit(boolean splitLongRecords) {
+        final RecordMetaDataHook hook = metaDataBuilder -> {
+            metaDataBuilder.setSplitLongRecords(splitLongRecords);
+            metaDataBuilder.setStoreRecordVersions(true);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+            for (int i = 0; i < 100; i++) {
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(i)
+                        .setNumValue2(i % 5)
+                        .setNumValue3Indexed(i % 3)
+                        .setStrValueIndexed(i % 2 == 0 ? "even" : "odd")
+                        .build());
+            }
+            commit(context);
+        }
+        for (int i = 0; i < 100; i++) {
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context, hook);
+                assertScansUntilTimeLimit(recordStore, false);
+                assertScansUntilTimeLimit(recordStore, true);
+            }
+        }
+    }
+
+    private static void assertScansUntilTimeLimit(@Nonnull FDBRecordStore recordStore,
+                                                  boolean reverse) {
+        try (RecordCursor<FDBStoredRecord<Message>> cursor = veryShortTimeLimitedScan(recordStore, reverse)) {
+            RecordCursorResult<FDBStoredRecord<Message>> result;
+            Tuple lastPrimaryKey = null;
+            do {
+                result = cursor.getNext();
+                if (result.hasNext()) {
+                    FDBStoredRecord<Message> storedRecord = result.get();
+                    assertNotNull(storedRecord);
+                    assertTrue(storedRecord.hasVersion());
+                    assertNotNull(storedRecord.getVersion());
+                    Tuple primaryKey = storedRecord.getPrimaryKey();
+                    if (lastPrimaryKey != null) {
+                        if (reverse) {
+                            assertThat(primaryKey, lessThan(lastPrimaryKey));
+                        } else {
+                            assertThat(primaryKey, greaterThan(lastPrimaryKey));
+                        }
+                    }
+                    lastPrimaryKey = primaryKey;
+                }
+            } while (result.hasNext());
+
+            assertEquals(RecordCursor.NoNextReason.TIME_LIMIT_REACHED, result.getNoNextReason());
+        }
+    }
+
+    private static RecordCursor<FDBStoredRecord<Message>> veryShortTimeLimitedScan(@Nonnull FDBRecordStore recordStore, boolean reverse) {
+        final ExecuteProperties executeProperties = ExecuteProperties.newBuilder()
+                .setTimeLimit(1L)
+                .build();
+        return recordStore.scanRecords(TupleRange.ALL, null, new ScanProperties(executeProperties, reverse));
     }
 
     private static class BaseCursorCountVisitor implements RecordCursorVisitor {
