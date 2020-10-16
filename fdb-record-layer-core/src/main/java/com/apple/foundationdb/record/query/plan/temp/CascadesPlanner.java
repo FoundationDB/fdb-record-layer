@@ -318,9 +318,6 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-              // invoke matching after all transformations have been applied and the groups underneath have been explored
-            //            taskStack.push(new MatchExpression(context, group, expression));
-
             // This is closely tied to the way that rule finding works _now_. Specifically, rules are indexed only
             // by the type of their _root_, not any of the stuff lower down. As a result, we have enough information
             // right here to determine the set of all possible rules that could ever be applied here, regardless of
