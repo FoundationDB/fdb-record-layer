@@ -96,8 +96,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -248,7 +246,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private Subspace cachedRecordsSubspace;
 
     @Nonnull
-    private final Cache<Tuple, FDBRawRecord> preloadCache;
+    private final FDBPreloadRecordCache preloadCache;
 
     private boolean recordsReadConflict;
 
@@ -276,7 +274,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         this.pipelineSizer = pipelineSizer;
         this.storeStateCache = storeStateCache;
         this.omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
-        this.preloadCache = CacheBuilder.newBuilder().maximumSize(PRELOAD_CACHE_SIZE).build();
+        this.preloadCache = new FDBPreloadRecordCache(PRELOAD_CACHE_SIZE);
     }
 
     @Override
@@ -1027,11 +1025,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Override
     @Nonnull
     public CompletableFuture<Void> preloadRecordAsync(@Nonnull final Tuple primaryKey) {
-        return loadRawRecordAsync(primaryKey, null, false).thenAccept(fdbRawRecord -> {
-            if (fdbRawRecord != null) {
-                preloadCache.put(primaryKey, fdbRawRecord);
-            }
-        });
+        FDBPreloadRecordCache.Future futureRecord = preloadCache.beginPrefetch(primaryKey);
+        return loadRawRecordAsync(primaryKey, null, false)
+                .whenComplete((rawRecord, ex) -> {
+                    if (ex != null) {
+                        futureRecord.cancel();
+                    } else {
+                        futureRecord.complete(rawRecord);
+                    }
+                })
+                .thenApply(rawRecord -> null);
     }
 
     @Override
@@ -1071,10 +1074,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     private CompletableFuture<FDBRawRecord> loadRawRecordAsync(@Nonnull final Tuple primaryKey,
                                                                @Nullable final SplitHelper.SizeInfo sizeInfo,
                                                                final boolean snapshot) {
-        final FDBRawRecord recordFromCache = preloadCache.getIfPresent(primaryKey);
-        if (recordFromCache != null) {
-            return CompletableFuture.completedFuture(recordFromCache);
+        final FDBPreloadRecordCache.Entry entry = preloadCache.get(primaryKey);
+        if (entry != null) {
+            return CompletableFuture.completedFuture(entry.orElse(null));
         }
+
         final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
         final ReadTransaction tr = snapshot ? ensureContextActive().snapshot() : ensureContextActive();
         return SplitHelper.loadWithSplit(tr, context, recordsSubspace(),

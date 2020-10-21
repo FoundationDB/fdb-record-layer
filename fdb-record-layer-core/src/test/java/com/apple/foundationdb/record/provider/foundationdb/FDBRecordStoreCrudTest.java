@@ -209,6 +209,25 @@ public class FDBRecordStoreCrudTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void readMissingPreloaded() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            // 4488 does not exist
+            recordStore.preloadRecordAsync(Tuple.from(4488L)).get();  // ensure loaded in context
+            context.ensureActive().cancel(); // ensure no more I/O done through the transaction
+
+            FDBStoredRecord<Message> record = recordStore.loadRecord(Tuple.from(4488L));
+            assertNull(record);
+
+            FDBExceptions.FDBStoreException e = assertThrows(FDBExceptions.FDBStoreException.class, context::commit);
+            assertNotNull(e.getCause());
+            assertThat(e.getCause(), instanceOf(FDBException.class));
+            FDBException fdbE = (FDBException)e.getCause();
+            assertEquals(FDBError.TRANSACTION_CANCELLED.code(), fdbE.getCode());
+        }
+    }
+
+    @Test
     public void readYourWritesPreloaded() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
