@@ -38,6 +38,9 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // end next release
 -->
 
+### 2.10.142.0
+
+
 ### 2.10.141.0
 
 * **Performance** Covering filter optimizations and index-applicable filters are now considered as advantageous during planning [(Issue #1039)](https://github.com/FoundationDB/fdb-record-layer/issues/1039)
