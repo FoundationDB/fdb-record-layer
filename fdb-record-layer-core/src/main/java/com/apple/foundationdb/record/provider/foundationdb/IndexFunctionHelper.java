@@ -31,9 +31,11 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -145,6 +147,9 @@ public class IndexFunctionHelper {
      * @return {@code true} if the operand is compatible with the index
      */
     public static boolean isGroupPrefix(@Nonnull KeyExpression functionOperand, @Nonnull KeyExpression indexRoot) {
+        if (functionOperand.equals(indexRoot)) {
+            return true;
+        }
         return getGroupedKey(functionOperand).equals(getGroupedKey(indexRoot)) &&
             getGroupingKey(functionOperand).isPrefixKey(getGroupingKey(indexRoot));
     }
@@ -154,7 +159,7 @@ public class IndexFunctionHelper {
             return key;
         }
         GroupingKeyExpression grouping = (GroupingKeyExpression) key;
-        return getGroupingSubkey(grouping, grouping.getGroupingCount(), grouping.getColumnSize());
+        return getSubKey(grouping.getWholeKey(), grouping.getGroupingCount(), grouping.getColumnSize());
     }
 
     public static KeyExpression getGroupingKey(@Nonnull KeyExpression key) {
@@ -162,26 +167,64 @@ public class IndexFunctionHelper {
             return EmptyKeyExpression.EMPTY;
         }
         GroupingKeyExpression grouping = (GroupingKeyExpression) key;
-        return getGroupingSubkey(grouping, 0, grouping.getGroupingCount());
+        return getSubKey(grouping.getWholeKey(), 0, grouping.getGroupingCount());
     }
 
-    protected static KeyExpression getGroupingSubkey(GroupingKeyExpression grouping, int start, int end) {
+    protected static KeyExpression getSubKey(KeyExpression key, int start, int end) {
         if (start == end) {
             return EmptyKeyExpression.EMPTY;
         }
-        final KeyExpression key = grouping.getWholeKey();
-        if (!(key instanceof ThenKeyExpression)) {
-            if (start == 0 && end == 1) {
-                return key;
+        if (start == 0 && end == key.getColumnSize()) {
+            return key;
+        }
+        if (key instanceof ThenKeyExpression) {
+            return getThenSubKey((ThenKeyExpression)key, start, end);
+        }
+        if (key instanceof NestingKeyExpression) {
+            final NestingKeyExpression nesting = (NestingKeyExpression)key;
+            return new NestingKeyExpression(nesting.getParent(), getSubKey(nesting.getChild(), start, end));
+        }
+        throw new RecordCoreException("grouping breaks apart key other than Then");
+    }
+
+    protected static KeyExpression getThenSubKey(ThenKeyExpression then, int columnStart, int columnEnd) {
+        final List<KeyExpression> children = then.getChildren();
+        int columnPosition = 0;
+        int startChildPosition = -1;
+        int startChildStart = -1;
+        int startChildEnd = -1;
+        for (int childPosition = 0; childPosition < children.size(); childPosition++) {
+            final KeyExpression child = children.get(childPosition);
+            final int childColumns = child.getColumnSize();
+            if (startChildPosition < 0 && columnPosition + childColumns > columnStart) {
+                startChildPosition = childPosition;
+                startChildStart = columnStart - columnPosition;
+                startChildEnd = childColumns;
             }
-            throw new RecordCoreException("grouping breaks apart key other than Then");
+            if (columnPosition + childColumns >= columnEnd) {
+                int endChildEnd = columnEnd - columnPosition;
+                if (childPosition == startChildPosition) {
+                    // Just one child spans column start, end.
+                    if (startChildPosition == 0 && endChildEnd == childColumns) {
+                        return child;
+                    } else {
+                        return getSubKey(child, startChildStart, endChildEnd);
+                    }
+                }
+                if (startChildStart == 0 && endChildEnd == childColumns) {
+                    return new ThenKeyExpression(children.subList(startChildPosition, childPosition + 1));
+                }
+                final List<KeyExpression> keys = new ArrayList<>(childPosition - startChildPosition + 1);
+                keys.add(getSubKey(children.get(startChildPosition), startChildStart, startChildEnd));
+                if (childPosition > startChildPosition + 1) {
+                    keys.addAll(children.subList(startChildPosition + 1, childPosition));
+                }
+                keys.add(getSubKey(child, 0, endChildEnd));
+                return new ThenKeyExpression(keys);
+            }
+            columnPosition += childColumns;
         }
-        ThenKeyExpression then = (ThenKeyExpression)key;
-        List<KeyExpression> children = then.getChildren();
-        if (end == start + 1) {
-            return children.get(start);
-        }
-        return new ThenKeyExpression(children.subList(start, end));
+        throw new RecordCoreException("column counts are not consistent");
     }
 
     public static IndexAggregateFunction count(@Nonnull KeyExpression by) {
