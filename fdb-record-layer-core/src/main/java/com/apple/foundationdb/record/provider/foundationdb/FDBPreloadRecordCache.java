@@ -1,5 +1,5 @@
 /*
- * FDBRecordCache.java
+ * FDBPreloadRecordCache.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -42,7 +42,27 @@ class FDBPreloadRecordCache {
 
     /**
      * Called prior to performing a prefetch for a given {@code Tuple}, returning a future holder that must
-     * be filled in with the record when it has completed.
+     * be filled in with the record when the read has been completed.
+     *
+     * <p>The {@code Future} acts to protect against race conditions such as:
+     *
+     * <pre>
+     *    Thread 1                    Thread 2
+     *    -----------------           ------------------
+     *    begin pre-fetch
+     *    read record
+     *                                invalidate (non-existent) cache entry
+     *                                replace record
+     *    put record in cache
+     *    act on out-of-date record
+     * </pre>
+     *
+     * The {@code Future} effectively reserves an entry in the cache to be replaced by the future record. Under normal
+     * circumstances, completing the future ({@link Future#complete(FDBRawRecord)}) will replace that reserved
+     * entry with the record that was read.  However, in scenarios such as the one depicted above, when
+     * another operation invalidates ({@link #invalidate(Tuple)}), it will eject the uncompleted {@code Future}
+     * from the cache, ensuring that even when it does complete the result of the stale read will not be
+     * made visible by the cache.
      *
      * @param tuple the tuple to be have prefetched
      * @return a holder with which to set the fetched value when it has completed
