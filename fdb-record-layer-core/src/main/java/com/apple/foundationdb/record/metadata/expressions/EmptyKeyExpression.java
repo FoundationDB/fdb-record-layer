@@ -86,6 +86,11 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
         return EMPTY_PROTO;
     }
 
+    @Nonnull
+    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+        return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
+    }
+
     @Override
     public String toString() {
         return "Empty";
