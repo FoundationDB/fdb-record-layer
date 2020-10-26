@@ -14,12 +14,12 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Need grouping / grouped key canonical form [(Issue #1052)](https://github.com/FoundationDB/fdb-record-layer/issues/1052)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** preloadRecordAsync() caches negative results [(Issue #1048)](https://github.com/FoundationDB/fdb-record-layer/issues/1048)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,11 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.144.0
+
+* **Bug fix** Need grouping / grouped key canonical form [(Issue #1052)](https://github.com/FoundationDB/fdb-record-layer/issues/1052)
+* **Performance** preloadRecordAsync() caches negative results [(Issue #1048)](https://github.com/FoundationDB/fdb-record-layer/issues/1048)
 
 ### 2.10.142.0
 
