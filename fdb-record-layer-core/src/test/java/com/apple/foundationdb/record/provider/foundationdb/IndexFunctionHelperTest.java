@@ -88,4 +88,11 @@ public class IndexFunctionHelperTest {
                 IndexFunctionHelper.getGroupedKey(group4));
     }
 
+    @Test
+    public void groupingKeyEmpty() {
+        final KeyExpression count = empty().groupBy(field("x")); // Like COUNT(*) GROUP BY x
+        final KeyExpression sum = field("y").groupBy(field("x"));  // Like SUM(y) GROUP BY x
+        assertEquals(IndexFunctionHelper.getGroupingKey(count), IndexFunctionHelper.getGroupingKey(sum));
+    }
+
 }

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -159,7 +160,7 @@ public class IndexFunctionHelper {
             return key;
         }
         GroupingKeyExpression grouping = (GroupingKeyExpression) key;
-        return getSubKey(grouping.getWholeKey(), grouping.getGroupingCount(), grouping.getColumnSize());
+        return groupKey(getSubKey(grouping.getWholeKey(), grouping.getGroupingCount(), grouping.getColumnSize()));
     }
 
     public static KeyExpression getGroupingKey(@Nonnull KeyExpression key) {
@@ -167,7 +168,25 @@ public class IndexFunctionHelper {
             return EmptyKeyExpression.EMPTY;
         }
         GroupingKeyExpression grouping = (GroupingKeyExpression) key;
-        return getSubKey(grouping.getWholeKey(), 0, grouping.getGroupingCount());
+        return groupKey(getSubKey(grouping.getWholeKey(), 0, grouping.getGroupingCount()));
+    }
+
+    protected static KeyExpression groupKey(@Nonnull KeyExpression key) {
+        if (key instanceof ThenKeyExpression) {
+            final List<KeyExpression> children = ((ThenKeyExpression) key).getChildren();
+            int n = children.size();
+            while (n > 0 && children.get(n - 1) instanceof EmptyKeyExpression) {
+                n--;
+            }
+            if (n == 0) {
+                return Key.Expressions.empty();
+            } else if (n == 1) {
+                return children.get(0);
+            } else if (n < children.size()) {
+                return new ThenKeyExpression(children.subList(0, n));
+            }
+        }
+        return key;
     }
 
     protected static KeyExpression getSubKey(KeyExpression key, int start, int end) {

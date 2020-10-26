@@ -14,7 +14,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Need grouping / grouped key canonical form [(Issue #1052)](https://github.com/FoundationDB/fdb-record-layer/issues/1052)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -40,6 +40,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 ### 2.10.142.0
 
+* **Bug fix** IndexFunctionHelper.getGroupedKey / getGroupingKey can get array bounds error [(Issue #1050)](https://github.com/FoundationDB/fdb-record-layer/issues/1050)
 
 ### 2.10.141.0
 
