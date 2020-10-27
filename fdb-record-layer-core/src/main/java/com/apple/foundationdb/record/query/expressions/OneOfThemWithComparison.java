@@ -116,16 +116,17 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
 
     @Override
     public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        final String fieldName = getFieldName();
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
-                .add(getFieldName())
+                .add(fieldName)
                 .build();
         final Quantifier childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(baseAlias, fieldNames)));
         final SelectExpression selectExpression = ExpandedPredicates.withPredicate(new ValuePredicate(
                 new ObjectValue(childBase.getAlias()), comparison))
                 .buildSelectWithBase(childBase);
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
-        return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias()), childQuantifier);
+        return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), this), childQuantifier);
     }
 
     @Override

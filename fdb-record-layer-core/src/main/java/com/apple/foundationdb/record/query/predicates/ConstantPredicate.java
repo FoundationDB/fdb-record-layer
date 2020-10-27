@@ -55,6 +55,11 @@ public class ConstantPredicate implements QueryPredicate {
         this.value = value;
     }
 
+    @Nonnull
+    public boolean getValue() {
+        return value;
+    }
+
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final SourceEntry sourceEntry) {

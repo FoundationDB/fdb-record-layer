@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -44,8 +45,6 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -156,11 +155,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public Iterable<MatchWithCompensation> subsumedBy(@Nonnull final RelationalExpression otherExpression,
                                                       @Nonnull final AliasMap aliasMap,
-                                                      @Nonnull final Map<Quantifier, PartialMatch> partialMatchMap) {
+                                                      @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         final Collection<MatchWithCompensation> matchWithCompensations = PartialMatch.matchesFromMap(partialMatchMap);
 
         if (this == otherExpression) {
-            return MatchWithCompensation.tryFromOthers(matchWithCompensations)
+            return MatchWithCompensation.tryFromMatchMapWithAllPredicates(partialMatchMap, getPredicates())
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         }
@@ -228,7 +227,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         unmappedOtherPredicates.addAll(otherSelectExpression.getPredicates());
 
         final Equivalence<Object> identity = Equivalence.identity();
-        final BiMap<Equivalence.Wrapper<QueryPredicate>, Equivalence.Wrapper<QueryPredicate>> mappedPredicatesMap = HashBiMap.create();
+        final IdentityBiMap<QueryPredicate, QueryPredicate> mappedPredicatesMap = IdentityBiMap.create();
         final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap = Maps.newHashMap();
 
         final ImmutableListMultimap.Builder<CorrelationIdentifier, QueryPredicate> aliasToOtherPredicatesMapBuilder =
@@ -310,7 +309,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // from the unmapped other set now. The reasoning is that this predicate is not filtering (i.e. false) if there is
         // input for the matched quantifier quantifier, meaning the range is unlimited and the the predicate is a tautology.
         unmappedOtherPredicates
-                .removeIf(predicate -> predicate instanceof Placeholder);
+                .removeIf(predicate -> predicate instanceof Placeholder ||
+                                       (predicate instanceof ConstantPredicate && ((ConstantPredicate)predicate).getValue()));
 
         if (!unmappedOtherPredicates.isEmpty()) {
             return ImmutableSet.of();
@@ -326,7 +326,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 MatchWithCompensation.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
 
         return allParameterBindingMapOptional
-                .map(allParameterBindingMap -> ImmutableList.of(MatchWithCompensation.perfectWithParameters(allParameterBindingMap)))
+                .flatMap(allParameterBindingMap -> MatchWithCompensation.tryMerge(partialMatchMap, allParameterBindingMap, mappedPredicatesMap))
+                .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }
 

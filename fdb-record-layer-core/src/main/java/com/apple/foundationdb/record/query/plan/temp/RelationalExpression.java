@@ -59,7 +59,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
@@ -672,13 +671,13 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     @Nonnull
     default Iterable<MatchWithCompensation> subsumedBy(@Nonnull final RelationalExpression otherExpression,
                                                        @Nonnull final AliasMap aliasMap,
-                                                       @Nonnull final Map<Quantifier, PartialMatch> partialMatchMap) {
+                                                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, otherExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
 
         if (equalsWithoutChildren(otherExpression, aliasMap)) {
-            return MatchWithCompensation.tryFromOthers(PartialMatch.matchesFromMap(partialMatchMap))
+            return MatchWithCompensation.tryFromMatchMap(partialMatchMap)
                     .map(ImmutableList::of)
                     .orElse(ImmutableList.of());
         } else {

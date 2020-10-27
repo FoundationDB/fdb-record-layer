@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
@@ -45,8 +46,12 @@ public class ExistsPredicate implements QueryPredicate {
     @Nonnull
     private final CorrelationIdentifier existentialAlias;
 
-    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias) {
+    @Nonnull
+    private final QueryComponent alternativeComponent;
+
+    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias, @Nonnull final QueryComponent alternativeComponent) {
         this.existentialAlias = existentialAlias;
+        this.alternativeComponent = alternativeComponent;
     }
 
     @Nullable
@@ -71,7 +76,7 @@ public class ExistsPredicate implements QueryPredicate {
     @Override
     public ExistsPredicate rebase(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(existentialAlias)) {
-            return new ExistsPredicate(translationMap.getTargetOrThrow(existentialAlias));
+            return new ExistsPredicate(translationMap.getTargetOrThrow(existentialAlias), alternativeComponent);
         } else {
             return this;
         }

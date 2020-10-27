@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -52,6 +51,7 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -699,11 +699,11 @@ public class CascadesPlanner implements QueryPlanner {
                                 final Iterable<MatchWithCompensation> matchesWithCompensation = boundMatch.getMatchResultOptional()
                                         .map(matchResultIterable ->
                                                 IterableHelpers.flatMap(matchResultIterable, matchResult -> {
-                                                    final Map<Quantifier, PartialMatch> partialMatchMap = partialMatchMap(matchResult);
+                                                    final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap = partialMatchMap(matchResult);
                                                     return expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), partialMatchMap);
                                                 }))
                                         .orElseGet(() ->
-                                                expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), ImmutableMap.of()));
+                                                expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), IdentityBiMap.create()));
                                 return StreamSupport.stream(matchesWithCompensation.spliterator(), false);
                             })
                             .map(matchWithCompensation -> new PartialMatch(boundCorrelatedToMap, group, candidateRef, matchWithCompensation))
@@ -711,14 +711,13 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        private IdentityHashMap<Quantifier, PartialMatch> partialMatchMap(final java.util.List<PartialMatchWithQuantifier> matchResult) {
+        private IdentityBiMap<Quantifier, PartialMatch> partialMatchMap(final List<PartialMatchWithQuantifier> matchResult) {
             return matchResult.stream()
-                    .collect(Collectors.toMap(PartialMatchWithQuantifier::getQuantifier,
+                    .collect(IdentityBiMap.toImmutableIdentityBiMap(PartialMatchWithQuantifier::getQuantifier,
                             PartialMatchWithQuantifier::getPartialMatch,
                             (v1, v2) -> {
                                 throw new RecordCoreException("matching produced duplicate quantifiers");
-                            },
-                            IdentityHashMap::new));
+                            }));
         }
 
         @Override

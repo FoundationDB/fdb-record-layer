@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Map;
+import java.util.Objects;
 
 /**
  * Case class to represent a partial match. A partial match is stored in a multi map in {@link GroupExpressionRef}s that
@@ -97,9 +97,11 @@ public class PartialMatch {
     }
 
     @Nonnull
-    public static Collection<MatchWithCompensation> matchesFromMap(@Nonnull Map<Quantifier, PartialMatch> partialMatchMap) {
+    public static Collection<MatchWithCompensation> matchesFromMap(@Nonnull IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         return partialMatchMap.values()
                 .stream()
+                .map(IdentityBiMap::unwrap)
+                .map(Objects::requireNonNull)
                 .map(PartialMatch::getMatchWithCompensation)
                 .collect(ImmutableList.toImmutableList());
     }

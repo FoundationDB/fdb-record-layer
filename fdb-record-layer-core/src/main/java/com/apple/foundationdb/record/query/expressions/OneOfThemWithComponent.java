@@ -123,7 +123,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                         .buildSelectWithBase(childBase);
 
         Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
-        return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias()), childQuantifier);
+        return ExpandedPredicates.withPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), this), childQuantifier);
     }
 
     @Override
