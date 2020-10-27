@@ -1128,7 +1128,8 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s).
+     * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s),
+     * including <i>this</i> {@link OnlineIndexer}.
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
@@ -1137,13 +1138,13 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Check if the index is being built by any of the {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s).
+     * Check if the index is being built by any of {@link OnlineIndexer}s (only if they use {@link SynchronizedSession}s).
      * @param recordStore record store whose index builds need to be checked
-     * @param index the index whose builds need to be stopped
+     * @param index the index to check for ongoing index builds
      * @return a future that will complete to <code>true</code> if the index is being built and <code>false</code> otherwise
      */
     public static CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync(@Nonnull FDBRecordStore recordStore, @Nonnull Index index) {
-        return SynchronizedSession.checkAnySession(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
+        return SynchronizedSession.checkActiveSessionExists(recordStore.ensureContextActive(), indexBuildLockSubspace(recordStore, index));
     }
 
     /**

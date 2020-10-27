@@ -231,7 +231,7 @@ public class SynchronizedSession {
      * @param lockSubspace the lock whose active session needs to be checked
      * @return {@code true} if there is any active session, otherwise {@code false}
      */
-    public static CompletableFuture<Boolean> checkAnySession(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+    public static CompletableFuture<Boolean> checkActiveSessionExists(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
         // It is false in the situations where initializeSessionAsync of a new session ID would takeSessionLock.
         return getLockSessionId(tr, lockSubspace).thenCombineAsync(getLockSessionTime(tr.snapshot(), lockSubspace), (lockSessionId, sessionTime) -> {
             if (lockSessionId == null) {
