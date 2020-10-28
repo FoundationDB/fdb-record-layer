@@ -204,7 +204,8 @@ public class ComposedBitmapIndexAggregate {
                 queryBuilder.setFilter(indexNode.filter);
                 final Index index = planner.getRecordMetaData().getIndex(indexNode.indexName);
                 final KeyExpression wholeKey = ((GroupingKeyExpression)index.getRootExpression()).getWholeKey();
-                final RecordQueryCoveringIndexPlan indexScan = planner.planCoveringAggregateIndex(queryBuilder.build(), index, wholeKey);
+                final RecordQueryCoveringIndexPlan indexScan = planner.planCoveringAggregateIndex(queryBuilder.build(), index,
+                        wholeKey, true); // Partial view of repeated field is okay for composition.
                 if (indexScan == null) {
                     return null;
                 }

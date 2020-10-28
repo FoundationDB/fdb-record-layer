@@ -192,7 +192,12 @@ public class IndexKeyValueToPartialRecord {
                 default:
                     throw new RecordCoreException("only nested message should be handled by MessageCopier");
             }
-            recordBuilder.setField(fieldDescriptor, nested.toRecord(fieldDescriptor.getMessageType(), kv));
+            final Message message = nested.toRecord(fieldDescriptor.getMessageType(), kv);
+            if (fieldDescriptor.isRepeated()) {
+                recordBuilder.addRepeatedField(fieldDescriptor, message);
+            } else {
+                recordBuilder.setField(fieldDescriptor, message);
+            }
         }
 
         @Override
@@ -298,16 +303,20 @@ public class IndexKeyValueToPartialRecord {
          * @return whether this is a valid use
          */
         public boolean isValid() {
+            return isValid(false);
+        }
+
+        public boolean isValid(boolean allowRepeated) {
             for (Descriptors.FieldDescriptor fieldDescriptor : recordDescriptor.getFields()) {
                 if (fieldDescriptor.isRequired() && !hasField(fieldDescriptor.getName())) {
                     return false;
                 }
-                if (fieldDescriptor.isRepeated() && hasField(fieldDescriptor.getName())) {
+                if (!allowRepeated && fieldDescriptor.isRepeated() && hasField(fieldDescriptor.getName())) {
                     return false;
                 }
                 if (fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE) {
                     Builder builder = nestedBuilders.get(fieldDescriptor.getName());
-                    if (builder != null && !builder.isValid()) {
+                    if (builder != null && !builder.isValid(allowRepeated)) {
                         return false;
                     }
                 }

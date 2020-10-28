@@ -73,6 +73,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
@@ -1527,6 +1528,12 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
+        return planCoveringAggregateIndex(query, index, indexExpr, false);
+    }
+
+    @Nullable
+    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index,
+                                                                   @Nonnull KeyExpression indexExpr, Boolean allowRepeated) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
@@ -1552,7 +1559,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         builder.addRequiredMessageFields();
-        if (!builder.isValid()) {
+        if (!builder.isValid(allowRepeated)) {
             return null;
         }
 
