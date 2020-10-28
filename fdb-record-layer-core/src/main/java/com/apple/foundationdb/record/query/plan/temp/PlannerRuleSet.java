@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.DataAccessMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithElementWithComparisonRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndPredicateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndPredicateRule;
@@ -30,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.IndexMatchRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRuleOld;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
@@ -77,6 +78,7 @@ public class PlannerRuleSet {
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
             new LogicalToPhysicalScanRuleOld(),
+            new LogicalToPhysicalIndexScanRule(),
             new LogicalToPhysicalScanRule(),
             new FullUnorderedExpressionToScanPlanRule(),
             new ImplementUnorderedUnionRule(),
@@ -89,7 +91,7 @@ public class PlannerRuleSet {
                     .addAll(REWRITE_RULES)
                     .build();
     private static final List<PlannerRule<ExpressionRef<RelationalExpression>>> GRAPH_MATCHING_RULES = ImmutableList.of(
-            new IndexMatchRule()
+            new DataAccessMatchRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> ALL_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()

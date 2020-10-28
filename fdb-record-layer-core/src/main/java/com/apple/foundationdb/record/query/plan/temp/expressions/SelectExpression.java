@@ -226,7 +226,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         final Set<QueryPredicate> unmappedOtherPredicates = Sets.newIdentityHashSet();
         unmappedOtherPredicates.addAll(otherSelectExpression.getPredicates());
 
-        final Equivalence<Object> identity = Equivalence.identity();
+        final Set<QueryPredicate> needCompensationPredicates = Sets.newIdentityHashSet();
+
         final IdentityBiMap<QueryPredicate, QueryPredicate> mappedPredicatesMap = IdentityBiMap.create();
         final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap = Maps.newHashMap();
 
@@ -247,6 +248,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 aliasToOtherPredicatesMapBuilder.build();
 
         for (final QueryPredicate predicate : getPredicates()) {
+            boolean foundMatch = false;
             if (predicate instanceof Sargable) {
                 final Sargable sargablePredicate = (Sargable)predicate;
                 final Set<CorrelationIdentifier> correlatedTo =
@@ -274,15 +276,12 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                                 }
 
                                 parameterBindingMap.put(parameterAlias, sargablePredicate.getComparisonRange());
-                                mappedPredicatesMap.put(identity.wrap(sargablePredicate),
-                                        identity.wrap(placeHolderPredicate));
+                                mappedPredicatesMap.putUnwrapped(sargablePredicate, placeHolderPredicate);
                                 unmappedOtherPredicates.remove(placeHolderPredicate);
+                                foundMatch = true;
                             }
                         }
                     }
-                    // TODO if the previous loop didn't at least find one matching predicate on the other side, we need
-                    // TODO to reapply the filter
-                    unmappedPredicates.remove(sargablePredicate);
                 }
             } else if (predicate instanceof ExistsPredicate) {
                 // We do know that this predicate may refer to a matched or unmatched quantifier.
@@ -290,20 +289,25 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 final CorrelationIdentifier existentialAlias =
                         existsPredicate.getExistentialAlias();
                 final ImmutableList<QueryPredicate> otherPredicates = aliasToOtherPredicatesMap.get(existentialAlias);
-
                 for (final QueryPredicate otherPredicate : otherPredicates) {
                     if (otherPredicate instanceof ExistsPredicate) {
                         final ExistsPredicate otherExistsPredicate = (ExistsPredicate)otherPredicate;
                         Verify.verify(otherExistsPredicate.getExistentialAlias().equals(aliasMap.getTarget(existentialAlias)));
-                        mappedPredicatesMap.put(identity.wrap(existsPredicate), identity.wrap(otherExistsPredicate));
+                        mappedPredicatesMap.putUnwrapped(existsPredicate, otherExistsPredicate);
                         unmappedOtherPredicates.remove(otherExistsPredicate);
+                        foundMatch = true;
+
+                        // we found another exists() on the other side ranging over a matching subquery
                     }
                 }
-                // TODO if the previous loop didn't at least find one matching predicate on the other side, we need
-                // TODO to reapply the filter
-                unmappedPredicates.remove(existsPredicate);
+            }
+
+            if (foundMatch) {
+                unmappedPredicates.remove(predicate);
             }
         }
+
+        needCompensationPredicates.addAll(unmappedOtherPredicates);
 
         // Last chance for unmapped predicates - if there is a placeholder on the other side, we can (and should) remove it
         // from the unmapped other set now. The reasoning is that this predicate is not filtering (i.e. false) if there is
@@ -319,14 +323,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         final List<QueryPredicate> predicatesOnUnmatchedQuantifiers = predicatesOnQuantifiers.get(false);
         // TODO reapply all unmatched predicates
 
-        // at this moment there shouldn't be any unmapped predicates left on this side
-        Verify.verify(unmappedPredicates.isEmpty());
-
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
                 MatchWithCompensation.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
 
         return allParameterBindingMapOptional
-                .flatMap(allParameterBindingMap -> MatchWithCompensation.tryMerge(partialMatchMap, allParameterBindingMap, mappedPredicatesMap))
+                .flatMap(allParameterBindingMap -> MatchWithCompensation.tryMerge(partialMatchMap, allParameterBindingMap, mappedPredicatesMap, needCompensationPredicates))
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }

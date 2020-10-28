@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -118,12 +119,14 @@ public class MetaDataPlanContext implements PlanContext {
             indexes.put(index, index.getName());
             // TODO remove
             builder.add(IndexEntrySource.fromIndex(metaData.recordTypesForIndex(index), index));
-            final Collection<MatchCandidate> candidatesForIndex =
+            final Optional<MatchCandidate> candidateForIndexOptional =
                     RelationalExpression.fromIndexDefinition(metaData, index);
-            matchCandidatesBuilder.addAll(candidatesForIndex);
-
+            candidateForIndexOptional.ifPresent(matchCandidatesBuilder::add);
         }
         indexEntrySources = builder.build();
+
+        RelationalExpression.fromPrimaryDefinition(this)
+                .ifPresent(matchCandidatesBuilder::add);
 
         this.matchCandidates = matchCandidatesBuilder.build();
     }

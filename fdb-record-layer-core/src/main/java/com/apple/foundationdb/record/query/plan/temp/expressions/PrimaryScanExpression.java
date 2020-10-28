@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
@@ -31,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
-import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRuleOld;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -45,23 +43,21 @@ import java.util.Set;
 /**
  * A logical version of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan}.
  *
- * @see LogicalToPhysicalScanRuleOld which converts this to a {@code RecordQueryIndexPlan}
+ * @see com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule which converts this
+ *      to a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}
  */
-public class IndexScanExpression implements RelationalExpression, PlannerGraphRewritable {
+public class PrimaryScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
-    private final String indexName;
-    @Nonnull
-    private final IndexScanType scanType;
+    private final Set<String> recordTypes;
+
     @Nonnull
     private final List<ComparisonRange> comparisonRanges;
     private final boolean reverse;
 
-    public IndexScanExpression(@Nonnull final String indexName,
-                               @Nonnull IndexScanType scanType,
-                               @Nonnull final List<ComparisonRange> comparisonRanges,
-                               final boolean reverse) {
-        this.indexName = indexName;
-        this.scanType = scanType;
+    public PrimaryScanExpression(@Nonnull final Set<String> recordTypes,
+                                 @Nonnull final List<ComparisonRange> comparisonRanges,
+                                 final boolean reverse) {
+        this.recordTypes = ImmutableSet.copyOf(recordTypes);
         this.comparisonRanges = ImmutableList.copyOf(comparisonRanges);
         this.reverse = reverse;
     }
@@ -73,13 +69,8 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
     }
 
     @Nonnull
-    public String getIndexName() {
-        return indexName;
-    }
-
-    @Nonnull
-    public IndexScanType getScanType() {
-        return scanType;
+    public Set<String> getRecordTypes() {
+        return recordTypes;
     }
 
     @Nonnull
@@ -103,7 +94,7 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
 
     @Nonnull
     @Override
-    public IndexScanExpression rebase(@Nonnull final AliasMap translationMap) {
+    public PrimaryScanExpression rebase(@Nonnull final AliasMap translationMap) {
         return this;
     }
 
@@ -116,11 +107,10 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final IndexScanExpression otherIndexScanExpression = (IndexScanExpression) otherExpression;
-        return indexName.equals(otherIndexScanExpression.indexName) &&
-               scanType.equals(otherIndexScanExpression.scanType) &&
-               comparisonRanges.equals(otherIndexScanExpression.comparisonRanges) &&
-               reverse == otherIndexScanExpression.reverse;
+        final PrimaryScanExpression otherPrimaryScanExpression = (PrimaryScanExpression) otherExpression;
+        return recordTypes.equals(otherPrimaryScanExpression.recordTypes) &&
+               comparisonRanges.equals(otherPrimaryScanExpression.comparisonRanges) &&
+               reverse == otherPrimaryScanExpression.reverse;
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -136,17 +126,14 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexName, scanType, comparisonRanges, reverse);
+        return Objects.hash(recordTypes, comparisonRanges, reverse);
     }
 
     @Override
     public String toString() {
-        StringBuilder str = new StringBuilder("IndexScan(");
-        str.append(indexName).append(" ");
+        StringBuilder str = new StringBuilder("Scan(");
+        str.append("[").append(String.join(", ", recordTypes)).append("] ");
         str.append(scanComparisons()).append(" ");
-        if (scanType != IndexScanType.BY_VALUE) {
-            str.append(scanType);
-        }
         if (reverse) {
             str.append(" REVERSE");
         }
@@ -164,9 +151,9 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
         Verify.verify(childGraphs.isEmpty());
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
-        dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA,
-                ImmutableList.of("index name: {{indexName}}"),
-                ImmutableMap.of("indexName", Attribute.gml(getIndexName())));
+        dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
+                ImmutableList.of("record types: {{recordTypes}}"),
+                ImmutableMap.of("recordTypes", Attribute.gml(String.join(", ", recordTypes))));
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,

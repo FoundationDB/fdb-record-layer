@@ -23,13 +23,16 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.UnaryOperator;
 
 /**
@@ -54,14 +57,20 @@ public class MatchWithCompensation {
     @Nonnull
     private final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap;
 
+    @Nonnull
+    private final Set<QueryPredicate> needCompensationPredicates;
+
     private MatchWithCompensation(@Nonnull final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator,
                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                   @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierPartialMatchMap,
-                                  @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap) {
+                                  @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap,
+                                  @Nonnull final Set<QueryPredicate> needCompensationPredicates) {
         this.compensationOperator = compensationOperator;
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierPartialMatchMap = quantifierPartialMatchMap.toImmutable();
         this.predicateMap = predicateMap.toImmutable();
+        this.needCompensationPredicates = Sets.newIdentityHashSet();
+        this.needCompensationPredicates.addAll(needCompensationPredicates);
     }
 
     @Nonnull
@@ -86,13 +95,14 @@ public class MatchWithCompensation {
 
     @Nonnull
     public static Optional<MatchWithCompensation> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return tryMerge(partialMatchMap, ImmutableMap.of(), IdentityBiMap.create());
+        return tryMerge(partialMatchMap, ImmutableMap.of(), IdentityBiMap.create(), ImmutableSet.of());
     }
 
     @Nonnull
     public static Optional<MatchWithCompensation> tryMerge(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                            @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
-                                                           @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap) {
+                                                           @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap,
+                                                           @Nonnull final Set<QueryPredicate> needCompensationPredicates) {
         final ImmutableList.Builder<UnaryOperator<ExpressionRef<RelationalExpression>>> compensationOperatorsBuilder = ImmutableList.builder();
         final ImmutableList.Builder<Map<CorrelationIdentifier, ComparisonRange>> parameterMapsBuilder = ImmutableList.builder();
 
@@ -113,14 +123,15 @@ public class MatchWithCompensation {
                 .map(mergedParameterBindings -> new MatchWithCompensation(compensationOperator,
                         mergedParameterBindings,
                         partialMatchMap,
-                        predicateMap));
+                        predicateMap,
+                        needCompensationPredicates));
     }
 
     @Nonnull
     public static Optional<MatchWithCompensation> tryFromMatchMapWithAllPredicates(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap, @Nonnull Collection<QueryPredicate> predicates) {
         final IdentityBiMap<QueryPredicate, QueryPredicate> predicatesMap = IdentityBiMap.create();
         predicates.forEach(queryPredicate -> predicatesMap.putUnwrapped(queryPredicate, queryPredicate));
-        return tryMerge(partialMatchMap, ImmutableMap.of(), predicatesMap.toImmutable());
+        return tryMerge(partialMatchMap, ImmutableMap.of(), predicatesMap.toImmutable(), ImmutableSet.of());
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

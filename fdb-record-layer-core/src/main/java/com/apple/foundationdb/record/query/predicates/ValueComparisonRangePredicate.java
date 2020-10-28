@@ -41,8 +41,6 @@ import java.util.stream.Stream;
 
 /**
  * A special predicate used to represent a parameterized tuple range.
- * Notably, it is mutable until "frozen" with a particular comparison range type.
- * @see com.apple.foundationdb.record.query.plan.temp.RelationalExpression#fromIndexDefinition
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class ValueComparisonRangePredicate implements PredicateWithValue {

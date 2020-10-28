@@ -20,60 +20,75 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Case class to represent a match candidate. A match candidate on code level is just a name and a data flow graph
  * that can be matches against a query graph. The match candidate does not keep the root to the graph to be matched but
  * rather an instance of {@link ExpressionRefTraversal} to allow for navigation of references within the candidate.
  */
-public class MatchCandidate {
+public interface MatchCandidate {
     /**
-     * Name of the match candidate. If this candidate represents and index, it will be the name of the index.
+     * Returns the name of the match candidate. If this candidate represents and index, it will be the name of the index.
      */
     @Nonnull
-    private final String name;
-
-
-    /**
-     * Holds the parameter names for all necessary parameters that need to be bound during matching.
-     */
-    @Nonnull
-    private final List<CorrelationIdentifier> parameters;
+    String getName();
 
     /**
-     * Traversal object.
+     * Returns the traversal object for this candidate.
      */
     @Nonnull
-    private final ExpressionRefTraversal traversal;
+    ExpressionRefTraversal getTraversal();
 
-    public MatchCandidate(@Nonnull String name, @Nonnull final ExpressionRefTraversal traversal) {
-        this(name, traversal, ImmutableList.of());
-    }
+    /**
+     * Returns the parameter names for all necessary parameters that need to be bound during matching.
+     */
+    @Nonnull
+    List<CorrelationIdentifier> getParameters();
 
-    public MatchCandidate(@Nonnull String name,
-                          @Nonnull final ExpressionRefTraversal traversal,
-                          @Nonnull final List<CorrelationIdentifier> parameters) {
-        this.name = name;
-        this.traversal = traversal;
-        this.parameters = ImmutableList.copyOf(parameters);
+    @SuppressWarnings("java:S135")
+    default RelationalExpression toScanExpression(@Nonnull final MatchWithCompensation matchWithCompensation) {
+        // this match is complete
+        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
+                matchWithCompensation.getParameterBindingMap();
+
+        final ImmutableList.Builder<ComparisonRange> comparisonRangesForScanBuilder =
+                ImmutableList.builder();
+
+        // iterate through the parameters in order -- stop:
+        // 1. if the current mapping does not exist
+        // 2. the current mapping is EMPTY
+        // 3. after the current mapping if the mapping is an INEQUALITY
+        for (final CorrelationIdentifier parameterAlias : getParameters()) {
+            // get the mapped side
+            if (!parameterBindingMap.containsKey(parameterAlias)) {
+                break;
+            }
+            final ComparisonRange comparisonRange = parameterBindingMap.get(parameterAlias);
+            switch (comparisonRange.getRangeType()) {
+                case EMPTY:
+                    break;
+                case EQUALITY:
+                case INEQUALITY:
+                    comparisonRangesForScanBuilder.add(comparisonRange);
+                    break;
+                default:
+                    throw new RecordCoreException("unknown range comparison type");
+            }
+
+            if (!comparisonRange.isEquality()) {
+                break;
+            }
+        }
+
+        return toScanExpression(comparisonRangesForScanBuilder.build());
     }
 
     @Nonnull
-    public String getName() {
-        return name;
-    }
-
-    @Nonnull
-    public ExpressionRefTraversal getTraversal() {
-        return traversal;
-    }
-
-    @Nonnull
-    public List<CorrelationIdentifier> getParameters() {
-        return parameters;
-    }
+    RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges);
 }

@@ -38,7 +38,9 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.Sets;
 
@@ -82,7 +84,7 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
         } else if (expression instanceof IndexEntrySourceScanExpression) {
-            String indexName = ((IndexEntrySourceScanExpression)expression).getIndexName();
+            final String indexName = ((IndexEntrySourceScanExpression)expression).getIndexName();
             if (indexName == null) {
                 // TODO: This isn't quite right, because we might have matched a common prefix of the (non-common)
                 // primary key and thus restricted the set of types that could be returned. Getting it right seems tricky.
@@ -92,6 +94,13 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
                 return context.getMetaData().recordTypesForIndex(index).stream()
                         .map(RecordType::getName).collect(Collectors.toSet());
             }
+        } else if (expression instanceof IndexScanExpression) {
+            final String indexName = ((IndexScanExpression)expression).getIndexName();
+            Index index = context.getIndexByName(indexName);
+            return context.getMetaData().recordTypesForIndex(index).stream()
+                    .map(RecordType::getName).collect(Collectors.toSet());
+        } else if (expression instanceof PrimaryScanExpression) {
+            return ((PrimaryScanExpression)expression).getRecordTypes();
         } else if (childResults.isEmpty()) {
             // try to see if the leaf expression is correlated and follow up the correlations
             final Set<String> recordTypes = Sets.newHashSet();

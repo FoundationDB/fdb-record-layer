@@ -60,6 +60,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -134,7 +135,6 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
-
         final ViewExpression.Builder builder = ViewExpression.builder();
         for (String recordType : context.getRecordTypes()) {
             builder.addRecordType(recordType);
@@ -165,23 +165,21 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     }
 
     @Nonnull
-    static Collection<MatchCandidate> fromIndexDefinition(@Nonnull RecordMetaData metaData,
-                                                          @Nonnull Index index) {
+    static Optional<MatchCandidate> fromIndexDefinition(@Nonnull RecordMetaData metaData,
+                                                        @Nonnull Index index) {
         final ImmutableSet<String> recordTypesForIndex =
                 metaData.recordTypesForIndex(index)
                         .stream()
                         .map(RecordType::getName)
                         .collect(ImmutableSet.toImmutableSet());
-        final Set<String> allAvailableRecordTypes = metaData.getRecordTypes().keySet();
+        final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
 
         final String name = index.getName();
         final String type = index.getType();
         final KeyExpression rootExpression = index.getRootExpression();
         if (type.equals(IndexTypes.VALUE)) {
-            ImmutableList.Builder<MatchCandidate> matchCandidateBuilder = ImmutableList.builder();
-
             final List<CorrelationIdentifier> parameters = Lists.newArrayListWithCapacity(rootExpression.getColumnSize());
-            final Quantifier baseQuantifier = createBaseQuantifier(allAvailableRecordTypes, recordTypesForIndex);
+            final Quantifier baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypesForIndex);
             final ExpandedPredicates expandedPredicates =
                     rootExpression.normalizeForPlanner(baseQuantifier.getAlias(),
                             () -> {
@@ -190,33 +188,42 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
                                 return parameterAlias;
                             });
             final MatchCandidate matchCandidate =
-                    new MatchCandidate(
+                    new IndexScanMatchCandidate(
                             name,
                             ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expandedPredicates.buildSelectWithBase(baseQuantifier))),
                             parameters);
-            matchCandidateBuilder.add(matchCandidate);
-            return matchCandidateBuilder.build();
+            return Optional.of(matchCandidate);
         }
 
-        return ImmutableList.of();
+        return Optional.empty();
     }
 
     @Nonnull
-    static MatchCandidate fromIndexDefinitionWithInequalityIndex(@Nonnull Quantifier quantifier,
-                                                                 @Nonnull final String name,
-                                                                 @Nonnull final KeyExpression rootExpression) {
-        final List<CorrelationIdentifier> parameters = Lists.newArrayListWithCapacity(rootExpression.getColumnSize());
-        final ExpandedPredicates expandedPredicates =
-                rootExpression.normalizeForPlanner(quantifier.getAlias(),
-                        () -> {
-                            final CorrelationIdentifier parameterAlias = CorrelationIdentifier.of("p" + parameters.size());
-                            parameters.add(parameterAlias);
-                            return parameterAlias;
-                        });
-        return new MatchCandidate(
-                name,
-                ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expandedPredicates.buildSelectWithBase(quantifier))),
-                parameters);
+    static Optional<MatchCandidate> fromPrimaryDefinition(@Nonnull PlanContext context) {
+        final RecordMetaData metaData = context.getMetaData();
+        final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
+
+        final KeyExpression primaryKeyExpression = context.getCommonPrimaryKey();
+        if (primaryKeyExpression != null) {
+            final List<CorrelationIdentifier> parameters = Lists.newArrayListWithCapacity(primaryKeyExpression.getColumnSize());
+            final Quantifier baseQuantifier = createBaseQuantifier(availableRecordTypes, context.getRecordTypes());
+            final ExpandedPredicates expandedPredicates =
+                    primaryKeyExpression.normalizeForPlanner(baseQuantifier.getAlias(),
+                            () -> {
+                                final CorrelationIdentifier parameterAlias = CorrelationIdentifier.of("p" + parameters.size());
+                                parameters.add(parameterAlias);
+                                return parameterAlias;
+                            });
+            final MatchCandidate matchCandidate =
+                    new PrimaryScanMatchCandidate(
+                            ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expandedPredicates.buildSelectWithBase(baseQuantifier))),
+                            parameters,
+                            availableRecordTypes,
+                            context.getRecordTypes());
+            return Optional.of(matchCandidate);
+        }
+
+        return Optional.empty();
     }
 
     @Nonnull
