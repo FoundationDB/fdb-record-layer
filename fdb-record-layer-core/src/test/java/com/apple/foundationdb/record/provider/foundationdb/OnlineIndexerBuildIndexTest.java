@@ -36,6 +36,7 @@ import com.apple.foundationdb.synchronizedsession.SynchronizedSessionLockedExcep
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.Assertions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -233,7 +234,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             if (safeBuild) {
                 buildFuture = MoreAsyncUtil.composeWhenComplete(
                         buildFuture,
-                        (result, ex) -> indexBuilder.checkNoOngoingOnlineIndexBuildsAsync(),
+                        (result, ex) -> indexBuilder.checkAnyOngoingOnlineIndexBuildsAsync().thenAccept(Assertions::assertFalse),
                         fdb::mapAsyncToSyncException);
             }
 

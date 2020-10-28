@@ -98,8 +98,16 @@ public class SynchronizedSession {
         this.lockSubspace = lockSubspace;
         this.sessionId = sessionId;
         this.leaseLengthMillis = leaseLengthMillis;
-        lockSessionIdSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_ID_KEY)).pack();
-        lockSessionLeaseEndTimeSubspaceKey = lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
+        lockSessionIdSubspaceKey = lockSessionIdSubspaceKey(lockSubspace);
+        lockSessionLeaseEndTimeSubspaceKey = lockSessionLeaseEndTimeSubspaceKey(lockSubspace);
+    }
+
+    private static byte[] lockSessionIdSubspaceKey(@Nonnull Subspace lockSubspace) {
+        return lockSubspace.subspace(Tuple.from(LOCK_SESSION_ID_KEY)).pack();
+    }
+
+    private static byte[] lockSessionLeaseEndTimeSubspaceKey(@Nonnull Subspace lockSubspace) {
+        return lockSubspace.subspace(Tuple.from(LOCK_SESSION_TIME_KEY)).pack();
     }
 
     /**
@@ -216,13 +224,46 @@ public class SynchronizedSession {
         tr.clear(lockSubspace.range());
     }
 
-    private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {
-        return tr.get(lockSessionIdSubspaceKey)
+
+    /**
+     * Check if there is any active session on the given lock subspace, so that a new session would not able to be initialized.
+     * @param tr transaction to use
+     * @param lockSubspace the lock whose active session needs to be checked
+     * @return {@code true} if there is any active session, otherwise {@code false}
+     */
+    public static CompletableFuture<Boolean> checkActiveSessionExists(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+        // It is false in the situations where initializeSessionAsync of a new session ID would takeSessionLock.
+        return getLockSessionId(tr, lockSubspace).thenCombineAsync(getLockSessionTime(tr.snapshot(), lockSubspace), (lockSessionId, sessionTime) -> {
+            if (lockSessionId == null) {
+                return false;
+            } else {
+                if (sessionTime == null) {
+                    return false;
+                } else if (sessionTime < System.currentTimeMillis()) {
+                    return false;
+                } else {
+                    return true;
+                }
+            }
+        });
+    }
+
+    private static CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr, @Nonnull Subspace lockSubspace) {
+        return tr.get(lockSessionIdSubspaceKey(lockSubspace))
                 .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getUUID(0));
+    }
+
+    private CompletableFuture<UUID> getLockSessionId(@Nonnull Transaction tr) {
+        return getLockSessionId(tr, lockSubspace);
     }
 
     private void setLockSessionId(@Nonnull Transaction tr) {
         tr.set(lockSessionIdSubspaceKey, Tuple.from(sessionId).pack());
+    }
+
+    private static CompletableFuture<Long> getLockSessionTime(@Nonnull ReadTransaction tr, @Nonnull Subspace lockSubspace) {
+        return tr.get(lockSessionLeaseEndTimeSubspaceKey(lockSubspace))
+                .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getLong(0));
     }
 
     // There may be multiple threads working in a same session, in which case the session time is being written
@@ -234,8 +275,7 @@ public class SynchronizedSession {
     // - When the session time is read during session initialization, it should be a snapshot read so it will not have
     //   conflicts with working transactions (which write to session time).
     private CompletableFuture<Long> getLockSessionTime(@Nonnull ReadTransaction tr) {
-        return tr.get(lockSessionLeaseEndTimeSubspaceKey)
-                .thenApply(value -> value == null ? null : Tuple.fromBytes(value).getLong(0));
+        return getLockSessionTime(tr, lockSubspace);
     }
 
     /**
