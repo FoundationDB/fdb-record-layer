@@ -2536,6 +2536,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
      */
     @Nonnull
     public CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index) {
+        return markIndexReadable(index, false);
+    }
+
+    /**
+     * When <code>force</code> is <code>true</code>, it checks unbuilt range and uniqueness violation and logs them,
+     * but it marks the index as readable regardless. This option is provided because the subspace might have been used
+     * by another index earlier and there is reason to not {@link #clearIndexData(Index)}. This is preferred in production
+     * comparing to {@link #uncheckedMarkIndexReadable(String)} which does not verify at all.
+     */
+    @Nonnull
+    private CompletableFuture<Boolean> markIndexReadable(@Nonnull Index index, boolean force) {
         if (recordStoreStateRef.get() == null) {
             return preloadRecordStoreStateAsync().thenCompose(vignore -> markIndexReadable(index));
         }
@@ -2552,26 +2563,17 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
                     CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = scanUniquenessViolations(index, 1).first();
                     return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
-                        Optional<Range> firstUnbuilt = context.join(builtFuture);
-                        Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
-                        if (firstUnbuilt.isPresent()) {
-                            throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
-                                    "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context),
-                                    LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
-                        } else if (uniquenessViolation.isPresent()) {
-                            RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
-                                                                                                        uniquenessViolation.get());
-                            wrapped.addLogInfo(
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                            throw wrapped;
-                        } else {
-                            updateIndexState(index.getName(), indexKey, IndexState.READABLE);
-                            return true;
+                        try {
+                            verifyIndexReadable(index, builtFuture, uniquenessFuture);
+                        } catch (Exception e) {
+                            if (force) {
+                                logExceptionAsWarn("force marking index readable with exception", e);
+                            } else {
+                                throw e;
+                            }
                         }
+                        updateIndexState(index.getName(), indexKey, IndexState.READABLE);
+                        return true;
                     });
                 } else {
                     return AsyncUtil.READY_FALSE;
@@ -2606,12 +2608,45 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return markIndexReadable(getRecordMetaData().getIndex(indexName));
     }
 
+    private void logExceptionAsWarn(String message, Throwable exception) {
+        if (exception instanceof LoggableException) {
+            LoggableException loggable = (LoggableException) exception;
+            LOGGER.warn(KeyValueLogMessage.build(message)
+                            .addKeysAndValues(loggable.getLogInfo()).toString(),
+                    loggable);
+        } else {
+            LOGGER.warn(message, exception);
+        }
+    }
+
+    private void verifyIndexReadable(final @Nonnull Index index,
+                                     final CompletableFuture<Optional<Range>> builtFuture,
+                                     final CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture)
+            throws RecordCoreException {
+        Optional<Range> firstUnbuilt = context.join(builtFuture);
+        Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
+        if (firstUnbuilt.isPresent()) {
+            throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    "unbuiltRangeBegin", ByteArrayUtil2.loggable(firstUnbuilt.get().begin),
+                    "unbuiltRangeEnd", ByteArrayUtil2.loggable(firstUnbuilt.get().end),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context),
+                    LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey());
+        } else if (uniquenessViolation.isPresent()) {
+            RecordIndexUniquenessViolation wrapped = new RecordIndexUniquenessViolation("Uniqueness violation when making index readable",
+                    uniquenessViolation.get());
+            wrapped.addLogInfo(
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+            throw wrapped;
+        }
+    }
+
     /**
      * Marks the index with the given name as readable without checking to see if it is
      * ready. This is dangerous to do if one has not first verified that the
      * index is ready to be readable as it can cause half-built indexes to be
      * used within queries and can thus produce inconsistent results.
-     *
      * @param indexName the name of the index to mark readable
      * @return a future that will contain <code>true</code> if the store was modified
      * and <code>false</code> otherwise
@@ -3057,7 +3092,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
                     IndexState indexState = newStates.getOrDefault(index, IndexState.READABLE);
-                    work.add(rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion));
+                    final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion),
+                            exception -> {
+                                // If there is anything issue, simply mark the index as disabled without blocking checkVersion
+                                logExceptionAsWarn("unable build index", exception);
+                                return markIndexDisabled(index).thenApply(b -> null);
+                            });
+                    work.add(rebuildOrMarkIndexSafely);
                 } else {
                     break;
                 }
@@ -3119,7 +3161,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
         }
 
-        return markIndexReadable(index).thenApply(b -> null);
+        // The index states is supposed to be empty (i.e. readable) because this is a new index. But unfortunately, the
+        // index state is keyed by index name which can be reused. So we need to mark the index readable. In such case,
+        // the built range is unlikely to be full so we should force it.
+        return markIndexReadable(index, true).thenApply(b -> null);
     }
 
     /**
