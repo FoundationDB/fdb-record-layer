@@ -732,7 +732,7 @@ public class FDBClientLogEvents {
      * @return the encoded key
      */
     @Nonnull
-    public static byte[] eventKeyForVersion(@Nonnull long version) {
+    public static byte[] eventKeyForVersion(long version) {
         // Do not include the two bytes for the transaction number at this version.
         final byte[] result = new byte[EVENT_KEY_VERSION_END_INDEX - 2];
         final ByteBuffer buffer = ByteBuffer.wrap(result);

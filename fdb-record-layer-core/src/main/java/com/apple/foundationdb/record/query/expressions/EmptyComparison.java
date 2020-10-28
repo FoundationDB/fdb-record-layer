@@ -42,7 +42,6 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class EmptyComparison extends BaseRepeatedField implements ComponentWithNoChildren {
-    @Nonnull
     private final boolean isEmpty;
 
     public EmptyComparison(@Nonnull String fieldName, boolean isEmpty) {
@@ -75,7 +74,6 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
         return getFieldName() + (isEmpty ? " IS_EMPTY" : " IS_NOT_EMPTY");
     }
 
-    @Nonnull
     public boolean isEmpty() {
         return isEmpty;
     }

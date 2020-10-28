@@ -87,7 +87,6 @@ public class MockedLocalityUtil implements FDBLocalityProvider {
      * @param keys a sorted list of keys
      * @param rangeCount the number of ranges to return.
      */
-    @Nonnull
     public static void init(@Nonnull List<byte[]> keys, int rangeCount) {
         if (keys.size() < rangeCount) {
             throw new IllegalArgumentException("rangeCount must be less than (or equal) the size of keys");

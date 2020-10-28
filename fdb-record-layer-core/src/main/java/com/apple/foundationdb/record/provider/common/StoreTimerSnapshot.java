@@ -108,7 +108,6 @@ public final class StoreTimerSnapshot {
      *
      * @return true if a counter exists for the event of interest
      */
-    @Nonnull
     public boolean containsCounter(@Nonnull StoreTimer.Event event) {
         return counters.containsKey(event);
     }
@@ -132,7 +131,6 @@ public final class StoreTimerSnapshot {
      *
      * @return true if a timeout counter exists for the event of interest
      */
-    @Nonnull
     public boolean containsTimeoutCounter(@Nonnull StoreTimer.Event event) {
         return timeoutCounters.containsKey(event);
     }
@@ -205,7 +203,6 @@ public final class StoreTimerSnapshot {
          *
          * @return the number of occurrences of the associated event
          */
-        @Nonnull
         public int getCount() {
             return count;
         }

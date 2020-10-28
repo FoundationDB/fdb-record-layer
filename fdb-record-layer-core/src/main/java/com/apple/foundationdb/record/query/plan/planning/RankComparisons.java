@@ -229,7 +229,7 @@ public class RankComparisons {
         private final Index index;
         @Nonnull
         private final List<QueryComponent> groupFilters;
-        @Nullable
+        @Nonnull
         private final List<Comparisons.Comparison> groupComparisons;
         @Nullable
         private final QueryComponent substitute;

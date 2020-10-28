@@ -1343,7 +1343,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      *
      * @param component the query filter for records to delete efficiently
      */
-    @Nonnull
     default void deleteRecordsWhere(@Nonnull QueryComponent component) {
         getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordsWhereAsync(component));
     }
@@ -1359,7 +1358,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param recordType the type of records to delete
      * @param component the query filter for records to delete efficiently or {@code null} to delete all records of the given type
      */
-    @Nonnull
     default void deleteRecordsWhere(@Nonnull String recordType, @Nullable QueryComponent component) {
         getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_DELETE_RECORD, deleteRecordsWhereAsync(recordType, component));
     }

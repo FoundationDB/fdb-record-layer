@@ -132,7 +132,6 @@ public class ViewExpressionComparisons {
         }
     }
 
-    @Nonnull
     public boolean hasComparison(@Nonnull Source source) {
         return sourcesWithComparisons.contains(source);
     }

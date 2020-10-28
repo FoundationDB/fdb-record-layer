@@ -838,9 +838,7 @@ public class KeySpaceDirectory {
         @Nullable
         final Object anyValue;
 
-        @Nonnull
         final byte typeLowBounds;
-        @Nonnull
         final byte typeHighBounds;
 
         KeyType(@Nonnull Class<?> expectedType, byte typeLowBounds, byte typeHighBounds) {
@@ -872,12 +870,10 @@ public class KeySpaceDirectory {
             return anyValue;
         }
 
-        @Nonnull
         public byte getTypeLowBounds() {
             return typeLowBounds;
         }
 
-        @Nonnull
         public byte getTypeHighBounds() {
             return typeHighBounds;
         }

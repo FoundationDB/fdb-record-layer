@@ -70,7 +70,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
     private RecordCursorResult<T> nextResult;
     @Nullable
     private byte[] currentCursorContinuation;
-    @Nonnull
     private int rowLimit;
 
     // for detecting incorrect cursor usage
@@ -226,7 +225,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         return context.getExecutor();
     }
 
-    @Nonnull
     @Override
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         if (visitor.visitEnter(this)) {
@@ -245,14 +243,12 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         private final RecordCursorResult<T> nextResult;
         @Nonnull
         private final Function<byte[], RecordCursorProto.ConcatContinuation> continuationFunction;
-        @Nonnull
         private final boolean isEnd;
         @Nullable
         private byte[] cachedBytes;
-        @Nonnull
         private boolean secondFunction;
 
-        private ConcatCursorContinuation(@Nonnull boolean secondCursor, @Nonnull RecordCursorResult<T> nextResult) {
+        private ConcatCursorContinuation(boolean secondCursor, @Nonnull RecordCursorResult<T> nextResult) {
             this.nextResult = nextResult;
             cachedBytes = null;
             isEnd = secondCursor && nextResult.getContinuation().isEnd() ? true : false;
@@ -275,7 +271,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         }
 
         @Override
-        @Nonnull
         public boolean isEnd() {
             return isEnd;
         }

@@ -41,7 +41,6 @@ import java.util.List;
 public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     @Nonnull
     private final KeyExpression wholeKey;
-    @Nullable
     private final int groupedCount;
 
     public GroupingKeyExpression(@Nonnull KeyExpression wholeKey, int groupedCount) {
@@ -147,7 +146,6 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
      * @return the number of leading columns that select the group
      * @see #getGroupedCount()
      */
-    @Nonnull
     public int getGroupingCount() {
         return getColumnSize() - groupedCount;
     }
