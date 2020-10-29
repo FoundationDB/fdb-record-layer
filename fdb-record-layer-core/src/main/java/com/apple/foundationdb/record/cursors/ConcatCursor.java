@@ -246,7 +246,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         private final boolean isEnd;
         @Nullable
         private byte[] cachedBytes;
-        private boolean secondFunction;
 
         private ConcatCursorContinuation(boolean secondCursor, @Nonnull RecordCursorResult<T> nextResult) {
             this.nextResult = nextResult;
