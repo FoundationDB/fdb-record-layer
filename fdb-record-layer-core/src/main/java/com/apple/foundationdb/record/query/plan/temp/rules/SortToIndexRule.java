@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpressionOld;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -45,26 +45,26 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * A rule for implementing a {@link LogicalSortExpression} as a scan of any appropriately-ordered index.
+ * A rule for implementing a {@link LogicalSortExpressionOld} as a scan of any appropriately-ordered index.
  * The rule's logic mirrors {@link FilterWithElementWithComparisonRule}, but applied to sorts rather than filters.
  *
  * <pre>
  * {@code
- *       +-----------------------------+                 +---------------------------+
- *       |                             |                 |                           |
- *       |  LogicalSortExpression      |                 |  LogicalSortExpression    |
- *       |            prefix, suffix   |                 |                  suffix   |
- *       |                             |                 |                           |
- *       +-------------+---------------+                 +-------------+-------------+
- *                     |                     +------>                  |
- *                     | qun                                           | newQun
- *                     |                                               |
- *     +---------------+------------------+            +---------------+------------------+
- *     |                                  |            |                                  |
- *     |  FullUnorderedScanExpression     |            |  IndexEntrySourceScanExpression  |
- *     |                                  |            |                     order|prefix |
- *     +----------------------------------+            |                                  |
- *                                                     +----------------------------------+
+ *       +--------------------------------+                 +------------------------------+
+ *       |                                |                 |                              |
+ *       |  LogicalSortExpressionOld      |                 |  LogicalSortExpressionOld    |
+ *       |            prefix, suffix      |                 |                  suffix      |
+ *       |                                |                 |                              |
+ *       +-------------+------------------+                 +-------------+----------------+
+ *                     |                     +------>                     |
+ *                     | qun                                              | newQun
+ *                     |                                                  |
+ *     +---------------+------------------+               +---------------+------------------+
+ *     |                                  |               |                                  |
+ *     |  FullUnorderedScanExpression     |               |  IndexEntrySourceScanExpression  |
+ *     |                                  |               |                     order|prefix |
+ *     +----------------------------------+               |                                  |
+ *                                                        +----------------------------------+
  * }
  * </pre>
  *
@@ -72,12 +72,12 @@ import java.util.stream.Collectors;
  *
  * <pre>
  * {@code
- *       +-----------------------------+               +----------------------------------+
- *       |                             |               |                                  |
- *       |    LogicalSortExpression    |     +------>  |  IndexEntrySourceScanExpression  |
- *       |                     prefix  |               |                           orders |
- *       |                             |               |                                  |
- *       +-------------+---------------+               +----------------------------------+
+ *       +--------------------------------+               +----------------------------------+
+ *       |                                |               |                                  |
+ *       |    LogicalSortExpressionOld    |     +------>  |  IndexEntrySourceScanExpression  |
+ *       |                     prefix     |               |                           orders |
+ *       |                                |               |                                  |
+ *       +-------------+------------------+               +----------------------------------+
  *                     |
  *                     | qun
  *                     |
@@ -90,11 +90,11 @@ import java.util.stream.Collectors;
  * </pre>
  */
 @API(API.Status.EXPERIMENTAL)
-public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
+public class SortToIndexRule extends PlannerRule<LogicalSortExpressionOld> {
     private static final ExpressionMatcher<FullUnorderedScanExpression> innerMatcher = TypeMatcher.of(FullUnorderedScanExpression.class);
     private static final QuantifierMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatcher.forEach(innerMatcher);
-    private static final ExpressionMatcher<LogicalSortExpression> root =
-            TypeMatcher.of(LogicalSortExpression.class, qunMatcher);
+    private static final ExpressionMatcher<LogicalSortExpressionOld> root =
+            TypeMatcher.of(LogicalSortExpressionOld.class, qunMatcher);
 
     public SortToIndexRule() {
         super(root);
@@ -102,7 +102,7 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final LogicalSortExpression sortExpression = call.get(root);
+        final LogicalSortExpressionOld sortExpression = call.get(root);
         final Quantifier.ForEach qun = call.get(qunMatcher);
         final boolean reverse = call.get(root).isReverse();
 
@@ -134,7 +134,7 @@ public class SortToIndexRule extends PlannerRule<LogicalSortExpression> {
                                     .map(element -> element.rebase(translationMap))
                                     .collect(Collectors.toList());
 
-                    call.yield(call.ref(new LogicalSortExpression(
+                    call.yield(call.ref(new LogicalSortExpressionOld(
                             rebasedPrefix,
                             rebasedSuffix,
                             reverse,

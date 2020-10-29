@@ -130,7 +130,7 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
     }
 
     @Nullable
-    public V getValueUnwrapped(@Nullable final Object key) {
+    public V getUnwrapped(@Nullable final Object key) {
         return unwrap(getDelegate().get(identity.wrap(key)));
     }
 

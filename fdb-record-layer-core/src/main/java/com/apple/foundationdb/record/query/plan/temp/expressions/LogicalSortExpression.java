@@ -1,5 +1,5 @@
 /*
- * LogicalSortExpression.java
+ * LogicalSortExpressionOld.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,50 +21,57 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.BoundOrderingKey;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A relational planner expression that represents an unimplemented sort on the records produced by its inner
  * relational planner expression.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalSortExpression implements RelationalExpressionWithChildren {
+public class LogicalSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     @Nonnull
-    private final List<Element> grouping;
-    @Nonnull
-    private final List<Element> sort;
+    private final KeyExpression sort;
+
     private final boolean reverse;
+
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalSortExpression(@Nonnull final List<Element> grouping,
-                                 @Nonnull final List<Element> sort,
+    public LogicalSortExpression(@Nonnull final KeyExpression sort,
                                  final boolean reverse,
                                  @Nonnull final RelationalExpression inner) {
-        this(grouping, sort, reverse, Quantifier.forEach(GroupExpressionRef.of(inner)));
+        this(sort, reverse, Quantifier.forEach(GroupExpressionRef.of(inner)));
     }
 
-    public LogicalSortExpression(@Nonnull final List<Element> grouping,
-                                 @Nonnull final List<Element> sort,
+    public LogicalSortExpression(@Nonnull final KeyExpression sort,
                                  final boolean reverse,
                                  @Nonnull final Quantifier inner) {
-        this.grouping = grouping;
         this.sort = sort;
         this.reverse = reverse;
         this.inner = inner;
@@ -82,25 +89,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     }
 
     @Nonnull
-    public List<Element> getSortPrefix() {
-        return ImmutableList.<Element>builderWithExpectedSize(grouping.size() + 1)
-                .addAll(grouping)
-                .add(sort.get(0))
-                .build();
-    }
-
-    @Nonnull
-    public List<Element> getSortSuffix() {
-        return sort.subList(1, sort.size());
-    }
-
-    @Nonnull
-    public List<Element> getGrouping() {
-        return grouping;
-    }
-
-    @Nonnull
-    public List<Element> getSort() {
+    public KeyExpression getSort() {
         return sort;
     }
 
@@ -130,22 +119,47 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     @Override
     public LogicalSortExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                               @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new LogicalSortExpression(
-                getGrouping()
-                        .stream()
-                        .map(element -> element.rebase(translationMap))
-                        .collect(Collectors.toList()),
-                getSort()
-                        .stream()
-                        .map(element -> element.rebase(translationMap))
-                        .collect(Collectors.toList()),
+        return new LogicalSortExpression(getSort(),
                 isReverse(),
                 Iterables.getOnlyElement(rebasedQuantifiers));
     }
 
-    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
     @Override
-    @API(API.Status.EXPERIMENTAL)
+    public Optional<MatchWithCompensation> adjustMatch(@Nonnull final RelationalExpression expression, @Nonnull final PartialMatch partialMatch) {
+        final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
+        return Optional.of(matchWithCompensation.pullUpWithBoundOrderingKeys(getInner(), partialMatch, forCandidate(partialMatch)));
+    }
+
+    @Nonnull
+    public List<BoundOrderingKey> forCandidate(@Nonnull PartialMatch partialMatch) {
+        final List<KeyExpression> normalizedKeys = sort.normalizeKeyForPositions();
+
+        final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
+        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
+                partialMatch.getMatchWithCompensation().getParameterBindingMap();
+
+        final ImmutableList.Builder<BoundOrderingKey> builder = ImmutableList.builder();
+
+        boolean seenNonEquality = false;
+        final List<CorrelationIdentifier> parameters = matchCandidate.getParameters();
+        for (int i = 0; i < parameters.size(); i++) {
+            final CorrelationIdentifier parameter = parameters.get(i);
+            final KeyExpression normalizedKey = normalizedKeys.get(i);
+            Objects.requireNonNull(parameter);
+            Objects.requireNonNull(normalizedKey);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameter);
+            if (comparisonRange == null || comparisonRange.getRangeType() != ComparisonRange.Type.EQUALITY) {
+                seenNonEquality = true;
+            }
+
+            builder.add(BoundOrderingKey.of(normalizedKey, seenNonEquality ? ComparisonRange.Type.EMPTY : ComparisonRange.Type.EQUALITY));
+        }
+
+        return builder.build();
+    }
+
+    @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
         if (this == otherExpression) {
@@ -158,14 +172,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
 
         final LogicalSortExpression other = (LogicalSortExpression) otherExpression;
 
-        final List<Element> otherSort = other.sort;
-        if (reverse != other.reverse || otherSort.size() != this.sort.size()) {
-            return false;
-        }
-
-        return Streams
-                .zip(this.sort.stream(), otherSort.stream(), Pair::of)
-                .allMatch(pair -> pair.getLeft().semanticEquals(pair.getRight(), equivalencesMap));
+        return reverse == other.reverse && !sort.equals(other.sort);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -182,5 +189,16 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren {
     @Override
     public int hashCodeWithoutChildren() {
         return Objects.hash(getSort(), isReverse());
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.SORT_OPERATOR,
+                        ImmutableList.of("BY {{expression}}"),
+                        ImmutableMap.of("expression", Attribute.gml(sort.toString()))),
+                childGraphs);
     }
 }

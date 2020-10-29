@@ -37,9 +37,10 @@ import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -54,9 +55,11 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -260,7 +263,7 @@ public class CascadesPlanner implements QueryPlanner {
                 taskStack.push(this);
                 for (RelationalExpression member : group.getMembers()) {
                     // invoke matching after all transformations have been applied and the groups underneath have been explored
-                    taskStack.push(new MatchExpression(context, group, member));
+                    taskStack.push(new IsomorphicMatchExpression(context, group, member));
                     taskStack.push(new ExploreExpression(context, group, member));
                 }
                 group.setExplored();
@@ -364,7 +367,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
 
             for (final RelationalExpression expression : group.getMembers()) {
-                taskStack.push(new MatchExpression(context, group, expression));
+                taskStack.push(new IsomorphicMatchExpression(context, group, expression));
                 taskStack.push(new ExploreExpression(context, group, expression));
             }
 
@@ -497,24 +500,70 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private class MatchExpression implements Task {
+    private abstract class MatchExpression implements Task {
         @Nonnull
-        private final PlanContext context;
+        protected final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
+        protected final GroupExpressionRef<RelationalExpression> group;
         @Nonnull
-        private final RelationalExpression expression;
+        protected final RelationalExpression expression;
 
-        public MatchExpression(@Nonnull final PlanContext context, @Nonnull final GroupExpressionRef<RelationalExpression> group, @Nonnull final RelationalExpression expression) {
+        protected MatchExpression(@Nonnull final PlanContext context, @Nonnull final GroupExpressionRef<RelationalExpression> group, @Nonnull final RelationalExpression expression) {
             this.context = context;
             this.group = group;
             this.expression = expression;
         }
 
+        @Nonnull
+        protected SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references,
+                                                                                                                              @Nonnull final MatchCandidate matchCandidate) {
+            final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
+
+            final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
+                    Multimaps.newSetMultimap(new IdentityHashMap<>(), Sets::newIdentityHashSet);
+
+            // going up may yield duplicates -- dedup with this multimap
+            for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : references) {
+                final Set<PartialMatch> partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(matchCandidate);
+                for (final PartialMatch partialMatch : partialMatchesForCandidate) {
+                    for (final ExpressionRefTraversal.ReferencePath parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
+                        refToExpressionMap.put(parentReferencePath.getReference(), parentReferencePath.getExpression());
+                    }
+                }
+            }
+            return refToExpressionMap;
+        }
+
+        protected boolean pushIndexMatchReplaceRules() {
+            ruleSet.getIndexMatchReplaceRules()
+                    .forEach(rule -> taskStack.push(new TransformGroup(context, group, rule)));
+            return true;
+        }
+
+        @Override
+        public Debugger.Event toTaskEvent(final Location location) {
+            return new Debugger.MatchExpressionEvent(currentRoot, taskStack, location, group, expression);
+        }
+
+        @Override
+        public String toString() {
+            return "MatchExpression(" + group + "; " + expression + ")";
+        }
+    }
+
+    private class IsomorphicMatchExpression extends MatchExpression {
+
+        public IsomorphicMatchExpression(@Nonnull final PlanContext context,
+                                         @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                                         @Nonnull final RelationalExpression expression) {
+            super(context, group, expression);
+        }
+
         @Override
         @SuppressWarnings("java:S4276")
         public void execute() {
-            final Supplier<Boolean> lazyPushIndexMatchReplaceRules = Suppliers.memoize(this::pushIndexMatchReplaceRules);
+            pushIndexMatchReplaceRules();
+            final Supplier<Boolean> lazyPushIndexMatchReplaceRules = () -> true; //Suppliers.memoize(this::pushIndexMatchReplaceRules);
 
             final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> rangesOverRefs =
                     expression.getQuantifiers()
@@ -530,7 +579,7 @@ public class CascadesPlanner implements QueryPlanner {
                         for (final RelationalExpression leafMember : leafRef.getMembers()) {
                             if (leafMember.getQuantifiers().isEmpty()) {
                                 lazyPushIndexMatchReplaceRules.get();
-                                taskStack.push(new MatchExpressionWithCandidate(context,
+                                taskStack.push(new MatchExpressionLeaves(context,
                                         group,
                                         expression,
                                         matchCandidate,
@@ -542,31 +591,19 @@ public class CascadesPlanner implements QueryPlanner {
                 }
             } else {
                 // form union of all possible match candidates
-                final Set<MatchCandidate> participatingMatchCandidates = Sets.newHashSet();
+                final Set<MatchCandidate> childMatchCandidates = Sets.newHashSet();
                 for (int i = 0; i < rangesOverRefs.size(); i++) {
                     final ExpressionRef<? extends RelationalExpression> rangesOverGroup = rangesOverRefs.get(i);
-                    participatingMatchCandidates.addAll(rangesOverGroup.getMatchCandidates());
+                    childMatchCandidates.addAll(rangesOverGroup.getMatchCandidates());
                 }
 
-                for (final MatchCandidate matchCandidate : participatingMatchCandidates) {
-                    final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
-
+                for (final MatchCandidate matchCandidate : childMatchCandidates) {
                     final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
-                            Multimaps.newSetMultimap(new IdentityHashMap<>(), Sets::newIdentityHashSet);
-
-                    // going up may yield duplicates -- dedup with this set multimap
-                    for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : rangesOverRefs) {
-                        final Set<PartialMatch> partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(matchCandidate);
-                        for (final PartialMatch partialMatch : partialMatchesForCandidate) {
-                            for (final ExpressionRefTraversal.ReferencePath parentReferencePath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
-                                refToExpressionMap.put(parentReferencePath.getReference(), parentReferencePath.getExpression());
-                            }
-                        }
-                    }
+                            findReferencingExpressions(rangesOverRefs, matchCandidate);
 
                     for (final Map.Entry<ExpressionRef<? extends RelationalExpression>, RelationalExpression> entry : refToExpressionMap.entries()) {
                         lazyPushIndexMatchReplaceRules.get();
-                        taskStack.push(new MatchExpressionWithCandidate(context,
+                        taskStack.push(new IsomorphicMatchExpressionWithCandidate(context,
                                 group,
                                 expression,
                                 matchCandidate,
@@ -576,11 +613,54 @@ public class CascadesPlanner implements QueryPlanner {
                 }
             }
         }
+    }
 
-        private boolean pushIndexMatchReplaceRules() {
-            ruleSet.getIndexMatchReplaceRules()
-                    .forEach(rule -> taskStack.push(new TransformGroup(context, group, rule)));
-            return true;
+    private class HomomorphicMatchExpression extends MatchExpression {
+        @Nonnull
+        private final Set<MatchCandidate> interestingMatchCandidates;
+
+        public HomomorphicMatchExpression(@Nonnull final PlanContext context, @Nonnull final GroupExpressionRef<RelationalExpression> group, @Nonnull final RelationalExpression expression) {
+            this(context, group, expression, ImmutableSet.of());
+        }
+
+        public HomomorphicMatchExpression(@Nonnull final PlanContext context,
+                                          @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                                          @Nonnull final RelationalExpression expression,
+                                          @Nonnull final Set<MatchCandidate> interestingMatchCandidates) {
+            super(context, group, expression);
+            this.interestingMatchCandidates = ImmutableSet.copyOf(interestingMatchCandidates);
+        }
+
+        @Override
+        @SuppressWarnings("java:S4276")
+        public void execute() {
+            final Set<MatchCandidate> inScopeMatchCandidates =
+                    interestingMatchCandidates.isEmpty()
+                    ? group.getMatchCandidates()
+                    : Sets.intersection(group.getMatchCandidates(), interestingMatchCandidates);
+
+            for (final MatchCandidate matchCandidate : inScopeMatchCandidates) {
+                // for the already matching candidates
+                final Set<ExpressionRef<? extends RelationalExpression>> matchedRefsForCandidate =
+                        group.getPartialMatchesForCandidate(matchCandidate)
+                                .stream()
+                                .map(PartialMatch::getCandidateRef)
+                                .collect(ImmutableSet.toImmutableSet());
+
+                final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
+                        findReferencingExpressions(ImmutableList.of(group), matchCandidate);
+
+                for (final Map.Entry<ExpressionRef<? extends RelationalExpression>, RelationalExpression> entry : refToExpressionMap.entries()) {
+                    if (!matchedRefsForCandidate.contains(entry.getKey())) {
+                        taskStack.push(new HomomorphicMatchExpressionWithCandidate(context,
+                                group,
+                                expression,
+                                matchCandidate,
+                                entry.getKey(),
+                                entry.getValue()));
+                    }
+                }
+            }
         }
 
         @Override
@@ -624,26 +704,26 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private class MatchExpressionWithCandidate implements Task {
+    private abstract class MatchExpressionWithCandidate implements Task {
         @Nonnull
-        private final PlanContext context;
+        protected final PlanContext context;
         @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
+        protected final GroupExpressionRef<RelationalExpression> group;
         @Nonnull
-        private final RelationalExpression expression;
+        protected final RelationalExpression expression;
         @Nonnull
-        private final MatchCandidate matchCandidate;
+        protected final MatchCandidate matchCandidate;
         @Nonnull
-        private final ExpressionRef<? extends RelationalExpression> candidateRef;
+        protected final ExpressionRef<? extends RelationalExpression> candidateRef;
         @Nonnull
-        private final RelationalExpression candidateExpression;
+        protected final RelationalExpression candidateExpression;
 
-        public MatchExpressionWithCandidate(@Nonnull final PlanContext context,
-                                            @Nonnull final GroupExpressionRef<RelationalExpression> group,
-                                            @Nonnull final RelationalExpression expression,
-                                            @Nonnull final MatchCandidate matchCandidate,
-                                            @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
-                                            @Nonnull final RelationalExpression candidateExpression) {
+        protected MatchExpressionWithCandidate(@Nonnull final PlanContext context,
+                                               @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                                               @Nonnull final RelationalExpression expression,
+                                               @Nonnull final MatchCandidate matchCandidate,
+                                               @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
+                                               @Nonnull final RelationalExpression candidateExpression) {
             this.context = context;
             this.group = group;
             this.expression = expression;
@@ -652,8 +732,84 @@ public class CascadesPlanner implements QueryPlanner {
             this.candidateExpression = candidateExpression;
         }
 
+        protected void addAllPartialMatchesForCandidate(@Nonnull final MatchCandidate matchCandidate,
+                                                        @Nonnull final Iterable<PartialMatch> partialMatches) {
+            final boolean hasNewMatches = group.addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
+            if (hasNewMatches) {
+                taskStack.push(new HomomorphicMatchExpression(context, group, expression, ImmutableSet.of(matchCandidate)));
+            }
+
+            Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(hasNewMatches ? Location.SUCCESS : Location.FAILURE)));
+        }
+
+        @Override
+        public Debugger.Event toTaskEvent(final Location location) {
+            return new Debugger.MatchExpressionWithCandidateEvent(currentRoot, taskStack, location, group, expression, matchCandidate, candidateRef, candidateExpression);
+        }
+
+        public String show() {
+            return PlannerGraphProperty.show(true, currentRoot, ImmutableSet.of(matchCandidate));
+        }
+    }
+
+    private class HomomorphicMatchExpressionWithCandidate extends MatchExpressionWithCandidate {
+        public HomomorphicMatchExpressionWithCandidate(@Nonnull final PlanContext context,
+                                                       @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                                                       @Nonnull final RelationalExpression expression,
+                                                       @Nonnull final MatchCandidate matchCandidate,
+                                                       @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
+                                                       @Nonnull final RelationalExpression candidateExpression) {
+            super(context, group, expression, matchCandidate, candidateRef, candidateExpression);
+        }
+
         @Override
         public void execute() {
+            Verify.verify(!candidateExpression.getQuantifiers().isEmpty());
+
+            if (candidateExpression.getQuantifiers().size() > 1) {
+                return;
+            }
+
+            final ExpressionRef<? extends RelationalExpression> otherRangesOver = Iterables.getOnlyElement(candidateExpression.getQuantifiers()).getRangesOver();
+
+            if (!candidateExpression.getCorrelatedTo().equals(otherRangesOver.getCorrelatedTo())) {
+                return;
+            }
+            
+            final Set<PartialMatch> partialMatchesForCandidate = group.getPartialMatchesForCandidate(matchCandidate);
+            final ImmutableList<PartialMatch> partialMatches = partialMatchesForCandidate.stream()
+                    .filter(partialMatch -> partialMatch.getCandidateRef() == otherRangesOver)
+                    .map(partialMatch ->
+                            candidateExpression.adjustMatch(expression, partialMatch)
+                                    .map(matchWithCompensation ->
+                                            new PartialMatch(partialMatch.getBoundAliasMap(),
+                                                    matchCandidate,
+                                                    group,
+                                                    candidateRef,
+                                                    matchWithCompensation)))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(ImmutableList.toImmutableList());
+
+            addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
+        }
+    }
+
+    private class IsomorphicMatchExpressionWithCandidate extends MatchExpressionWithCandidate {
+        public IsomorphicMatchExpressionWithCandidate(@Nonnull final PlanContext context,
+                                                      @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                                                      @Nonnull final RelationalExpression expression,
+                                                      @Nonnull final MatchCandidate matchCandidate,
+                                                      @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
+                                                      @Nonnull final RelationalExpression candidateExpression) {
+            super(context, group, expression, matchCandidate, candidateRef, candidateExpression);
+        }
+
+        @Override
+        public void execute() {
+            Verify.verify(!expression.getQuantifiers().isEmpty());
+            Verify.verify(!candidateExpression.getQuantifiers().isEmpty());
+
             final Iterable<PartialMatch> partialMatches =
                     expression.match(candidateExpression,
                             AliasMap.emptyMap(),
@@ -663,8 +819,7 @@ public class CascadesPlanner implements QueryPlanner {
                             this::matchQuantifiers,
                             this::combineMatches);
 
-            final boolean hasNewMatches = group.addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
-            Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(hasNewMatches ? Location.SUCCESS : Location.FAILURE)));
+            addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
         }
 
         private Collection<AliasMap> constraintsForQuantifier(final Quantifier quantifier) {
@@ -695,18 +850,21 @@ public class CascadesPlanner implements QueryPlanner {
                                                       final Iterable<BoundMatch<EnumeratingIterable<PartialMatchWithQuantifier>>> boundMatches) {
             return () ->
                     StreamSupport.stream(boundMatches.spliterator(), false)
-                            .flatMap(boundMatch -> {
-                                final Iterable<MatchWithCompensation> matchesWithCompensation = boundMatch.getMatchResultOptional()
-                                        .map(matchResultIterable ->
-                                                IterableHelpers.flatMap(matchResultIterable, matchResult -> {
-                                                    final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap = partialMatchMap(matchResult);
-                                                    return expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), partialMatchMap);
-                                                }))
-                                        .orElseGet(() ->
-                                                expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), IdentityBiMap.create()));
-                                return StreamSupport.stream(matchesWithCompensation.spliterator(), false);
-                            })
-                            .map(matchWithCompensation -> new PartialMatch(boundCorrelatedToMap, group, candidateRef, matchWithCompensation))
+                            .flatMap(boundMatch ->
+                                    boundMatch.getMatchResultOptional()
+                                            .map(matchResultIterable ->
+                                                    IterableHelpers.flatMap(matchResultIterable, matchResult -> {
+                                                        final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap = partialMatchMap(matchResult);
+                                                        return expression.subsumedBy(candidateExpression, boundMatch.getAliasMap(), partialMatchMap);
+                                                    }))
+                                            .map(matchesWithCompensation -> StreamSupport.stream(matchesWithCompensation.spliterator(), false))
+                                            .orElseGet(Stream::empty))
+                            .map(matchWithCompensation ->
+                                    new PartialMatch(boundCorrelatedToMap,
+                                            matchCandidate,
+                                            group,
+                                            candidateRef,
+                                            matchWithCompensation))
                             .iterator();
         }
 
@@ -719,14 +877,36 @@ public class CascadesPlanner implements QueryPlanner {
                                 throw new RecordCoreException("matching produced duplicate quantifiers");
                             }));
         }
+    }
 
-        @Override
-        public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.MatchExpressionWithCandidateEvent(currentRoot, taskStack, location, group, expression, matchCandidate, candidateRef, candidateExpression);
+    private class MatchExpressionLeaves extends MatchExpressionWithCandidate {
+        public MatchExpressionLeaves(@Nonnull final PlanContext context,
+                                     @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                                     @Nonnull final RelationalExpression expression,
+                                     @Nonnull final MatchCandidate matchCandidate,
+                                     @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
+                                     @Nonnull final RelationalExpression candidateExpression) {
+            super(context, group, expression, matchCandidate, candidateRef, candidateExpression);
         }
 
-        public String show() {
-            return PlannerGraphProperty.show(true, currentRoot, ImmutableSet.of(matchCandidate));
+        @Override
+        public void execute() {
+            final Iterable<AliasMap> boundCorrelatedIterable =
+                    expression.enumerateUnboundCorrelatedTo(AliasMap.emptyMap(), candidateExpression);
+
+            final Iterable<PartialMatch> partialMatches =
+                    IterableHelpers.flatMap(boundCorrelatedIterable,
+                            boundAliasMap ->
+                                    IterableHelpers.map(expression.subsumedBy(candidateExpression, boundAliasMap, IdentityBiMap.create()),
+                                            matchWithCompensation ->
+                                                    new PartialMatch(boundAliasMap,
+                                                            matchCandidate,
+                                                            group,
+                                                            candidateRef,
+                                                            matchWithCompensation)));
+
+            final boolean hasNewMatches = group.addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
+            Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(hasNewMatches ? Location.SUCCESS : Location.FAILURE)));
         }
     }
 

@@ -158,11 +158,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                                                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         final Collection<MatchWithCompensation> matchWithCompensations = PartialMatch.matchesFromMap(partialMatchMap);
 
-        if (this == otherExpression) {
-            return MatchWithCompensation.tryFromMatchMapWithAllPredicates(partialMatchMap, getPredicates())
-                    .map(ImmutableList::of)
-                    .orElse(ImmutableList.of());
-        }
+        Verify.verify(this != otherExpression);
+
         if (getClass() != otherExpression.getClass()) {
             return ImmutableList.of();
         }

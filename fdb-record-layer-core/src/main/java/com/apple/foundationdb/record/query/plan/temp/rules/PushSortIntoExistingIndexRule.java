@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpressionOld;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
  * {@code
  *       +-----------------------------+                 +---------------------------+
  *       |                             |                 |                           |
- *       |  LogicalSortExpression      |                 |  LogicalSortExpression    |
+ *       |  LogicalSortExpressionOld   |                 |  LogicalSortExpressionOld |
  *       |            prefix, suffix   |                 |                 suffix    |
  *       |                             |                 |                           |
  *       +-------------+---------------+                 +-------------+-------------+
@@ -71,7 +71,7 @@ import java.util.stream.Collectors;
  * {@code
  *       +-----------------------------+               +----------------------------------+
  *       |                             |               |                                  |
- *       |    LogicalSortExpression    |     +------>  |  IndexEntrySourceScanExpression  |
+ *       |  LogicalSortExpressionOld   |     +------>  |  IndexEntrySourceScanExpression  |
  *       |                     prefix  |               |                           orders |
  *       |                             |               |                                  |
  *       +-------------+---------------+               +----------------------------------+
@@ -88,11 +88,11 @@ import java.util.stream.Collectors;
  * </pre>
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushSortIntoExistingIndexRule extends PlannerRule<LogicalSortExpression> {
+public class PushSortIntoExistingIndexRule extends PlannerRule<LogicalSortExpressionOld> {
     private static final ExpressionMatcher<IndexEntrySourceScanExpression> indexScanMatcher = TypeMatcher.of(IndexEntrySourceScanExpression.class);
     private static final QuantifierMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatcher.forEach(indexScanMatcher);
-    private static final ExpressionMatcher<LogicalSortExpression> root =
-            TypeMatcher.of(LogicalSortExpression.class, qunMatcher);
+    private static final ExpressionMatcher<LogicalSortExpressionOld> root =
+            TypeMatcher.of(LogicalSortExpressionOld.class, qunMatcher);
 
     public PushSortIntoExistingIndexRule() {
         super(root);
@@ -102,7 +102,7 @@ public class PushSortIntoExistingIndexRule extends PlannerRule<LogicalSortExpres
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final IndexEntrySourceScanExpression scan = call.get(indexScanMatcher);
         final Quantifier.ForEach qun = call.get(qunMatcher);
-        final LogicalSortExpression sortExpression = call.get(root);
+        final LogicalSortExpressionOld sortExpression = call.get(root);
 
         final Optional<ViewExpressionComparisons> matchedViewExpression = scan.getComparisons()
                 .matchWithSort(sortExpression.getSortPrefix());
@@ -131,8 +131,8 @@ public class PushSortIntoExistingIndexRule extends PlannerRule<LogicalSortExpres
                                 .map(element -> element.rebase(translationMap))
                                 .collect(Collectors.toList());
 
-                final LogicalSortExpression newSortExpression =
-                        new LogicalSortExpression(
+                final LogicalSortExpressionOld newSortExpression =
+                        new LogicalSortExpressionOld(
                                 rebasedPrefix,
                                 rebasedSuffix,
                                 sortExpression.isReverse(),

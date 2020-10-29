@@ -120,12 +120,12 @@ public class MetaDataPlanContext implements PlanContext {
             // TODO remove
             builder.add(IndexEntrySource.fromIndex(metaData.recordTypesForIndex(index), index));
             final Optional<MatchCandidate> candidateForIndexOptional =
-                    RelationalExpression.fromIndexDefinition(metaData, index);
+                    RelationalExpression.fromIndexDefinition(metaData, commonPrimaryKey, index);
             candidateForIndexOptional.ifPresent(matchCandidatesBuilder::add);
         }
         indexEntrySources = builder.build();
 
-        RelationalExpression.fromPrimaryDefinition(this)
+        RelationalExpression.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey)
                 .ifPresent(matchCandidatesBuilder::add);
 
         this.matchCandidates = matchCandidatesBuilder.build();

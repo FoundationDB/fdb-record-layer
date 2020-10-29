@@ -54,6 +54,11 @@ public class NodeInfo {
             NodeIcon.IN_MEMORY_TEMPORARY_DATA,
             "Values",
             "A constant list of values.");
+    public static final NodeInfo COMPOSED_BITMAP_OPERATOR = new NodeInfo(
+            "ComposedBitmapOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "Composed Bitmap",
+            "A set of Boolean conditions on BITMAP_VALUE indexed bitmaps which are combined into a single bitmap by bitwise operations.");
     public static final NodeInfo COVERING_INDEX_SCAN_OPERATOR = new NodeInfo(
             "CoveringIndexScanOperator",
             NodeIcon.DATA_ACCESS_OPERATOR,
@@ -104,6 +109,11 @@ public class NodeInfo {
             NodeIcon.DATA_ACCESS_OPERATOR,
             "Score For Rank",
             "A score for rank operator converts ranks to scores and executes its input plan with the conversion results bound in named parameters.");
+    public static final NodeInfo SORT_OPERATOR = new NodeInfo(
+            "SortOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "Sort",
+            "A sort operation reordering the stream of records according to a given expression.");
     public static final NodeInfo SPATIAL_INDEX_SCAN_OPERATOR = new NodeInfo(
             "SpatialIndexScanOperator",
             NodeIcon.DATA_ACCESS_OPERATOR,
@@ -144,11 +154,6 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Union All",
             "A union all operator processes its two or more inputs and returns the unioned multiset of all input records (duplicates are preserved). The operator does not required its inputs to be compatible ordered.");
-    public static final NodeInfo COMPOSED_BITMAP_OPERATOR = new NodeInfo(
-            "ComposedBitmapOperator",
-            NodeIcon.COMPUTATION_OPERATOR,
-            "Composed Bitmap",
-            "A set of Boolean conditions on BITMAP_VALUE indexed bitmaps which are combined into a single bitmap by bitwise operations.");
 
     private final String id;
     private final String iconId;
