@@ -411,9 +411,18 @@ public class ExecuteProperties {
         }
 
         @Nonnull
+        public IsolationLevel getIsolationLevel() {
+            return isolationLevel;
+        }
+
+        @Nonnull
         public Builder setSkip(int skip) {
             this.skip = skip;
             return this;
+        }
+
+        public int getSkip() {
+            return skip;
         }
 
         @Nonnull
@@ -423,9 +432,42 @@ public class ExecuteProperties {
         }
 
         @Nonnull
+        public Builder clearReturnedRowLimit() {
+            return setReturnedRowLimit(Integer.MAX_VALUE);
+        }
+
+        public int getReturnedRowLimit() {
+            return rowLimit;
+        }
+
+        public int getReturnedRowLimitOrMax() {
+            return rowLimit == ReadTransaction.ROW_LIMIT_UNLIMITED ? Integer.MAX_VALUE : rowLimit;
+        }
+
+        @Nonnull
+        public Builder clearSkipAndAdjustLimit() {
+            if (skip != 0) {
+                if (rowLimit != ReadTransaction.ROW_LIMIT_UNLIMITED) {
+                    setReturnedRowLimit(rowLimit + skip);
+                }
+                setSkip(0);
+            }
+            return this;
+        }
+
+        @Nonnull
         public Builder setTimeLimit(long timeLimit) {
             this.timeLimit = validateAndNormalizeTimeLimit(timeLimit);
             return this;
+        }
+
+        @Nonnull
+        public Builder clearTimeLimit() {
+            return setTimeLimit(UNLIMITED_TIME);
+        }
+
+        public long getTimeLimit() {
+            return timeLimit;
         }
 
         /**

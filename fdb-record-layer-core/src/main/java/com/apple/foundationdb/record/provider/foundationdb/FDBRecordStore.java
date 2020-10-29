@@ -1127,16 +1127,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     return new FDBRawRecord(primaryKey, kv.getValue(), null, sizeInfo);
                 });
             } else {
-                // Adjust limit to twice the supplied limit in case there are versions in the records
                 final ScanProperties finalScanProperties = scanProperties
                         .with(executeProperties -> {
-                            final ExecuteProperties adjustedExecuteProperties = executeProperties.clearSkipAndAdjustLimit().clearState();
-                            int returnedRowLimit = adjustedExecuteProperties.getReturnedRowLimitOrMax();
+                            final ExecuteProperties.Builder builder = executeProperties.toBuilder()
+                                    .clearTimeLimit()
+                                    .clearSkipAndAdjustLimit()
+                                    .clearState();
+                            int returnedRowLimit = builder.getReturnedRowLimitOrMax();
                             if (returnedRowLimit != Integer.MAX_VALUE) {
-                                return adjustedExecuteProperties.setReturnedRowLimit(2 * returnedRowLimit);
-                            } else {
-                                return adjustedExecuteProperties;
+                                // Adjust limit to twice the supplied limit in case there are versions in the records
+                                builder.setReturnedRowLimit(2 * returnedRowLimit);
                             }
+                            return builder.build();
                         });
                 rawRecords = new SplitHelper.KeyValueUnsplitter(context, recordsSubspace, keyValuesBuilder
                         .setScanProperties(finalScanProperties).build(),
