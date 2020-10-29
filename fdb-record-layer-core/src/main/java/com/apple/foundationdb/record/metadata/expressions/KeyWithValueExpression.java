@@ -42,7 +42,6 @@ import java.util.List;
 public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpressionWithChild {
     @Nonnull
     private final KeyExpression innerKey;
-    @Nullable
     private final int splitPoint;
 
     @Nullable

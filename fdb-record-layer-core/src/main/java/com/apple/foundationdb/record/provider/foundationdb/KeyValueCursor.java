@@ -53,7 +53,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.MAINTAINED)
 public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements BaseCursor<KeyValue> {
-    @Nullable
+    @Nonnull
     private final FDBRecordContext context;
     private final int prefixLength;
     @Nonnull

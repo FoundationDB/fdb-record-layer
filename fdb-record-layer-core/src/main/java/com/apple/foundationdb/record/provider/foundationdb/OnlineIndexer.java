@@ -1314,7 +1314,6 @@ public class OnlineIndexer implements AutoCloseable {
      * Synchronous version of {@link #buildIndexAsync}.
      * @param markReadable whether to mark the index as readable after building the index
      */
-    @Nonnull
     public void buildIndex(boolean markReadable) {
         asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsync(markReadable));
     }
@@ -1323,7 +1322,6 @@ public class OnlineIndexer implements AutoCloseable {
      * Builds an index across multiple transactions.
      * Synchronous version of {@link #buildIndexAsync}.
      */
-    @Nonnull
     public void buildIndex() {
         asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexAsync());
     }
@@ -1916,7 +1914,6 @@ public class OnlineIndexer implements AutoCloseable {
          * they exceed this size, and a new transaction will be started.
          * @return the max write size
          */
-        @Nonnull
         public int getMaxWriteLimitBytes() {
             return maxWriteLimitBytes;
         }

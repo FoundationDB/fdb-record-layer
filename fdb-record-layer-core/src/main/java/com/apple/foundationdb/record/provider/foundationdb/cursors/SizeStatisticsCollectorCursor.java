@@ -78,7 +78,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     private CompletableFuture<Boolean> hasNextFuture;
     @Nullable
     private RecordCursorResult<SizeStatisticsResults> nextStatsResult;
-    @Nonnull
     private boolean finalResultsEmitted;
     @Nullable
     private byte[] kvCursorContinuation;
@@ -155,7 +154,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         return context.getExecutor();
     }
 
-    @Nonnull
     @Override
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
@@ -238,7 +236,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         }
 
         @Override
-        @Nonnull
         public boolean isEnd() {
             // instances of this class are NOT meant to represent end continuations
             return false;
@@ -469,7 +466,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @param sizeBuckets an array with a distribution of the sizes of key-value pairs
          */
-        @Nonnull
         private void setSizeBuckets(long[] sizeBuckets) {
             // Defensively copy this array. It is only 8 * 32 = 256 bytes anyway and this
             // is not performance critical.
@@ -481,7 +477,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return keyCount the total number of keys in the requested key range.
          */
-        @Nonnull
         public long getKeyCount() {
             return keyCount;
         }
@@ -491,7 +486,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the size (in bytes) of the requested keys
          */
-        @Nonnull
         public long getKeySize() {
             return keySize;
         }
@@ -501,7 +495,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the size (in bytes) of the largest key
          */
-        @Nonnull
         public long getMaxKeySize() {
             return maxKeySize;
         }
@@ -511,7 +504,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the size (in bytes) of the requested values
          */
-        @Nonnull
         public long getValueSize() {
             return valueSize;
         }
@@ -521,7 +513,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the size (in bytes) of the largest value
          */
-        @Nonnull
         public long getMaxValueSize() {
             return maxValueSize;
         }
@@ -531,7 +522,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the size (in bytes) of the requested keys and values
          */
-        @Nonnull
         public long getTotalSize() {
             return keySize + valueSize;
         }
@@ -541,7 +531,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the mean size (in bytes) of all keys
          */
-        @Nonnull
         public double getAverageKeySize() {
             return keySize * 1.0 / keyCount;
         }
@@ -551,7 +540,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the mean size (in bytes) of all values
          */
-        @Nonnull
         public double getAverageValueSize() {
             return valueSize * 1.0 / keyCount;
         }
@@ -561,7 +549,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
          *
          * @return the mean size (in bytes) of all key-value pairs
          */
-        @Nonnull
         public double getAverage() {
             return getTotalSize() * 1.0 / keyCount;
         }

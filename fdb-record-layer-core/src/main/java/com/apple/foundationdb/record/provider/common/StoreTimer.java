@@ -428,7 +428,6 @@ public class StoreTimer {
          *
          * @return the number of occurrences of the associated event
          */
-        @Nonnull
         public int getCount() {
             return count.get();
         }

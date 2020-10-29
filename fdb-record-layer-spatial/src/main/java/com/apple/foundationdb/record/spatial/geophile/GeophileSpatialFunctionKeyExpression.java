@@ -95,7 +95,6 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         return 1;
     }
 
-    @Nonnull
     protected boolean shouldSwapLatLong(@Nonnull Key.Evaluated arguments) {
         return arguments.size() > 1 && arguments.getObject(1, Boolean.class);
     }

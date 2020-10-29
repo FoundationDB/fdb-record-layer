@@ -199,7 +199,6 @@ public class AvailableFields {
     public static class FieldData {
         @Nonnull
         private final IndexKeyValueToPartialRecord.TupleSource source;
-        @Nonnull
         private final int index;
 
         private FieldData(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source, final int index) {

@@ -141,12 +141,10 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         }
 
 
-        @Nonnull
         public void setDataArray(@Nonnull byte[] data) {
             setDataArray(data, 0, data.length);
         }
 
-        @Nonnull
         public void setDataArray(@Nonnull byte[] data, int offset, int length) {
             this.data = data;
             this.offset = offset;

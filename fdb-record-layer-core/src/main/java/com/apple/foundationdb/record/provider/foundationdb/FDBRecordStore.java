@@ -3424,7 +3424,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return recordType;
     }
 
-    @Nonnull
     private void addConvertRecordVersions(@Nonnull List<CompletableFuture<Void>> work) {
         if (useOldVersionFormat()) {
             throw recordCoreException("attempted to convert record versions when still using older format");
