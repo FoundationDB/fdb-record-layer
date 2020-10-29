@@ -1533,7 +1533,7 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index,
-                                                                   @Nonnull KeyExpression indexExpr, Boolean allowRepeated) {
+                                                                   @Nonnull KeyExpression indexExpr, boolean allowRepeated) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
