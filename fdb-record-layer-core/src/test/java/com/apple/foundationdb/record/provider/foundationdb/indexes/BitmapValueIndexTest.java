@@ -82,6 +82,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasToString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@code BITMAP_VALUE} type indexes.
@@ -529,7 +530,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     .setRequiredResults(Collections.singletonList(field("nested").nest(field("entry", FanOut).nest("num_value"))))
                     .build();
             final RecordQueryPlan queryPlan =  ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, bitmap_value_nested_num_by_str)
-                    .orElseThrow(() -> new IllegalStateException("Cannot plan query"));
+                    .orElseGet(() -> fail("Cannot plan query"));
             assertThat(queryPlan, compositeBitmap(hasToString("[0] BITAND [1]"), Arrays.asList(
                     coveringIndexScan(indexScan(allOf(indexName("nested_num_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[1, 3, odd],[1, 3, odd]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("nested_num_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[1, 4, odd],[1, 4, odd]]"))))))));
@@ -605,7 +606,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                 .setRequiredResults(Collections.singletonList(field("rec_no")))
                 .build();
         return ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, function)
-                .orElseThrow(() -> new IllegalStateException("Cannot plan query"));
+                .orElseGet(() -> fail("Cannot plan query"));
     }
 
 }
