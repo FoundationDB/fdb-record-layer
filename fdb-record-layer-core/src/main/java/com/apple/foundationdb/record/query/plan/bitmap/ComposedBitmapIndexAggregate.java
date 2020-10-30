@@ -323,24 +323,35 @@ public class ComposedBitmapIndexAggregate {
             // Splice the index's key between the common grouping key and the position.
             // The simplest place is directly before the position.
             // But if part of the group is a nested concat, breaking that up would need support in QueryToKeyMatcher.
-            // Moreover, the caller needs to have arranged for a compatible index to exist, which requires new support.
+            // Moreover, the caller needs to have arranged for a compatible index to exist, which requires new support to define.
             // (https://github.com/FoundationDB/fdb-record-layer/issues/1056)
             final GroupingKeyExpression groupKey = (GroupingKeyExpression)indexAggregateFunction.getOperand();
-            int lastKeySize = 1;
+            final int groupedCount = groupKey.getGroupedCount();
+            final int wholeCount = groupKey.getColumnSize();
+            int afterSpliceCount = groupedCount;
             if (groupKey.getWholeKey() instanceof ThenKeyExpression) {
-                ThenKeyExpression thenKey = (ThenKeyExpression)groupKey.getWholeKey();
-                lastKeySize = thenKey.getChildren().get(thenKey.getChildren().size() - 1).getColumnSize();
+                final List<KeyExpression> thenChildren = ((ThenKeyExpression)groupKey.getWholeKey()).getChildren();
+                int childPosition = thenChildren.size();
+                // Compute the minimum number that includes all grouped fields and keeps involved children intact.
+                afterSpliceCount = 0;
+                while (afterSpliceCount < groupedCount) {
+                    afterSpliceCount += thenChildren.get(--childPosition).getColumnSize();
+                }
             }
             final ThenKeyExpression splicedKey;
-            if (lastKeySize > groupKey.getGroupedCount()) {
-                final KeyExpression wholeKey = groupKey.getWholeKey();
-                final int wholeSize = wholeKey.getColumnSize();
-                final int splicePoint = wholeSize - lastKeySize;
-                splicedKey = Key.Expressions.concat(wholeKey.getSubKey(0, splicePoint), indexKey, wholeKey.getSubKey(splicePoint, wholeSize));
-            } else {
+            if (afterSpliceCount == groupedCount) {
+                // Preferred position at end of grouping keys.
                 splicedKey = Key.Expressions.concat(groupKey.getGroupingSubKey(), indexKey, groupKey.getGroupedSubKey());
+            } else {
+                final KeyExpression wholeKey = groupKey.getWholeKey();
+                final int splicePoint = wholeCount - afterSpliceCount;
+                if (splicePoint == 0) {
+                    splicedKey = Key.Expressions.concat(indexKey, wholeKey);
+                } else {
+                    splicedKey = Key.Expressions.concat(wholeKey.getSubKey(0, splicePoint), indexKey, wholeKey.getSubKey(splicePoint, wholeCount));
+                }
             }
-            GroupingKeyExpression fullKey = splicedKey.group(groupKey.getGroupedCount());
+            GroupingKeyExpression fullKey = splicedKey.group(groupedCount);
             Index index = bitmapIndexes.get(fullKey);
             if (index == null) {
                 return Optional.empty();
