@@ -25,7 +25,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Composed bitmaps from map-like fields [(Issue #1057)](https://github.com/FoundationDB/fdb-record-layer/issues/1057)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,10 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.146.0
+
+* **Feature** Composed bitmaps from map-like fields [(Issue #1057)](https://github.com/FoundationDB/fdb-record-layer/issues/1057)
 
 ### 2.10.145.0
 
