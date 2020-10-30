@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexAggregateGroupKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
@@ -203,7 +204,8 @@ public class ComposedBitmapIndexAggregate {
                 queryBuilder.setFilter(indexNode.filter);
                 final Index index = planner.getRecordMetaData().getIndex(indexNode.indexName);
                 final KeyExpression wholeKey = ((GroupingKeyExpression)index.getRootExpression()).getWholeKey();
-                final RecordQueryCoveringIndexPlan indexScan = planner.planCoveringAggregateIndex(queryBuilder.build(), index, wholeKey);
+                final RecordQueryCoveringIndexPlan indexScan = planner.planCoveringAggregateIndex(queryBuilder.build(), index,
+                        wholeKey, true); // Partial view of repeated field is okay for composition.
                 if (indexScan == null) {
                     return null;
                 }
@@ -319,9 +321,37 @@ public class ComposedBitmapIndexAggregate {
                 return Optional.empty();
             }
             // Splice the index's key between the common grouping key and the position.
-            GroupingKeyExpression groupKeyExpression = (GroupingKeyExpression)indexAggregateFunction.getOperand();
-            GroupingKeyExpression fullKey = Key.Expressions.concat(groupKeyExpression.getGroupingSubKey(), indexKey, groupKeyExpression.getGroupedSubKey())
-                    .group(groupKeyExpression.getGroupedCount());
+            // The simplest place is directly before the position.
+            // But if part of the group is a nested concat, breaking that up would need support in QueryToKeyMatcher.
+            // Moreover, the caller needs to have arranged for a compatible index to exist, which requires new support to define.
+            // (https://github.com/FoundationDB/fdb-record-layer/issues/1056)
+            final GroupingKeyExpression groupKey = (GroupingKeyExpression)indexAggregateFunction.getOperand();
+            final int groupedCount = groupKey.getGroupedCount();
+            final int wholeCount = groupKey.getColumnSize();
+            int afterSpliceCount = groupedCount;
+            if (groupKey.getWholeKey() instanceof ThenKeyExpression) {
+                final List<KeyExpression> thenChildren = ((ThenKeyExpression)groupKey.getWholeKey()).getChildren();
+                int childPosition = thenChildren.size();
+                // Compute the minimum number that includes all grouped fields and keeps involved children intact.
+                afterSpliceCount = 0;
+                while (afterSpliceCount < groupedCount) {
+                    afterSpliceCount += thenChildren.get(--childPosition).getColumnSize();
+                }
+            }
+            final ThenKeyExpression splicedKey;
+            if (afterSpliceCount == groupedCount) {
+                // Preferred position at end of grouping keys.
+                splicedKey = Key.Expressions.concat(groupKey.getGroupingSubKey(), indexKey, groupKey.getGroupedSubKey());
+            } else {
+                final KeyExpression wholeKey = groupKey.getWholeKey();
+                final int splicePoint = wholeCount - afterSpliceCount;
+                if (splicePoint == 0) {
+                    splicedKey = Key.Expressions.concat(indexKey, wholeKey);
+                } else {
+                    splicedKey = Key.Expressions.concat(wholeKey.getSubKey(0, splicePoint), indexKey, wholeKey.getSubKey(splicePoint, wholeCount));
+                }
+            }
+            GroupingKeyExpression fullKey = splicedKey.group(groupedCount);
             Index index = bitmapIndexes.get(fullKey);
             if (index == null) {
                 return Optional.empty();
