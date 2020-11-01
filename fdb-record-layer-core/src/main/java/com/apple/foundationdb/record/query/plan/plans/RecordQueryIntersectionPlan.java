@@ -228,8 +228,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getQueryPlanChildren()) + getComparisonKey().planHash() + (reverse ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + getComparisonKey().planHash(hashKind) + (reverse ? 1 : 0);
     }
 
     @Override

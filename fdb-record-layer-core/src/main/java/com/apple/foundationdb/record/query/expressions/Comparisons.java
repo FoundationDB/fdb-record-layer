@@ -808,8 +808,13 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return type.name().hashCode() + PlanHashable.objectPlanHash(comparand);
+        public int planHash(PlanHashKind hashKind) {
+            switch (hashKind) {
+                case STANDARD:
+                    return type.name().hashCode() + PlanHashable.objectPlanHash(hashKind, comparand);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -924,8 +929,13 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return type.name().hashCode() + parameter.hashCode();
+        public int planHash(PlanHashKind hashKind) {
+            switch (hashKind) {
+                case STANDARD:
+                    return type.name().hashCode() + parameter.hashCode();
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -1058,8 +1068,8 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return type.name().hashCode() + PlanHashable.iterablePlanHash(comparand) + PlanHashable.objectPlanHash(javaType);
+        public int planHash(PlanHashKind hashKind) {
+            return type.name().hashCode() + PlanHashable.iterablePlanHash(hashKind, comparand) + PlanHashable.objectPlanHash(hashKind, javaType);
         }
     }
 
@@ -1133,7 +1143,7 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
+        public int planHash(PlanHashKind hashKind) {
             return type.name().hashCode();
         }
     }
@@ -1298,8 +1308,13 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return PlanHashable.objectsPlanHash(type, getComparand(), tokenizerName, fallbackTokenizerName);
+        public int planHash(PlanHashKind hashKind) {
+            switch (hashKind) {
+                case STANDARD:
+                    return PlanHashable.objectsPlanHash(hashKind, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override
@@ -1354,8 +1369,9 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() * 31 + maxDistance;
+        public int planHash(PlanHashKind hashKind) {
+            // Right?
+            return super.planHash(hashKind) * 31 + maxDistance;
         }
 
         @Override
@@ -1454,8 +1470,8 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() * (strict ? -1 : 1);
+        public int planHash(PlanHashKind hashKind) {
+            return super.planHash(hashKind) * (strict ? -1 : 1);
         }
 
         @Override
@@ -1499,8 +1515,9 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return inner.planHash();
+        // TODO: Anything for the type itself?
+        public int planHash(PlanHashKind hashKind) {
+            return inner.planHash(hashKind);
         }
 
         @Nullable

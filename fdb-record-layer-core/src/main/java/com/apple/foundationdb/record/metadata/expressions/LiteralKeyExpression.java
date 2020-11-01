@@ -195,8 +195,13 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Override
-    public int planHash() {
-        return proto.hashCode();
+    public int planHash(PlanHashKind hashKind) {
+        switch (hashKind) {
+            case STANDARD:
+                return proto.hashCode();
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind + " is not supported");
+        }
     }
 
     @Override

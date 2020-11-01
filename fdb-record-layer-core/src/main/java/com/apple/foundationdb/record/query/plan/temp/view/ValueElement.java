@@ -105,7 +105,7 @@ public class ValueElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
         return 0;
     }
 

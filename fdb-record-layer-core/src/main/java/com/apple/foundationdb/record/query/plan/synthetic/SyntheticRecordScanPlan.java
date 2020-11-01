@@ -91,7 +91,7 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
     }
 
     @Override
-    public int planHash() {
-        return recordPlan.planHash() + syntheticRecordPlan.planHash() + (needDistinct ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        return recordPlan.planHash(hashKind) + syntheticRecordPlan.planHash(hashKind) + (needDistinct ? 1 : 0);
     }
 }

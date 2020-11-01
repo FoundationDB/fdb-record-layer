@@ -131,8 +131,13 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
-    public int planHash() {
-        return super.planHash() + externalBinding.hashCode();
+    public int planHash(PlanHashKind hashKind) {
+        switch (hashKind) {
+            case STANDARD:
+                return super.planHash(hashKind) + externalBinding.hashCode();
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supporrted");
+        }
     }
 
     @Override

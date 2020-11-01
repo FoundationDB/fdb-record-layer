@@ -205,8 +205,8 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     @Override
-    public int planHash() {
-        return parent.planHash() + getChild().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return parent.planHash(hashKind) + getChild().planHash(hashKind);
     }
 
     @Override

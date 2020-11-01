@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -109,7 +110,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
-        assertEquals(-1139367278, plan.planHash());
+        assertEquals(-1139367278, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(67, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), anyOf(is(0), is(2))),
                 context -> assertDiscardedAtMost(33, context)));
@@ -127,7 +128,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
-        assertEquals(-1677754212, plan.planHash());
+        assertEquals(-1677754212, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(33, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valuesThree", asList(1, 3)),
                 record -> assertThat(record.getNumValue2(), anyOf(is(1), is(3))),
@@ -148,7 +149,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
-        assertEquals(-2004060310, plan.planHash());
+        assertEquals(-2004060310, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 TestHelpers::assertDiscardedNone));
@@ -167,7 +168,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
-        assertEquals(883815022, plan.planHash());
+        assertEquals(883815022, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         int count = querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valueThrees", asList(1, 3, 4)),
                 myrec -> assertThat(myrec.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
@@ -188,7 +189,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
-        assertEquals(883815022, plan.planHash());
+        assertEquals(883815022, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(0, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valueThrees", Collections.emptyList()),
                 myrec -> fail("There should be no results")));
@@ -214,7 +215,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
-        assertEquals(1667070490, plan.planHash());
+        assertEquals(1667070490, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(100, querySimpleRecordStore(NO_HOOK, plan,
                 () -> EvaluationContext.forBinding("valueThrees", Collections.emptyList()),
                 myrec -> {
@@ -240,7 +241,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(asList(1, 2, 4)), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
-        assertEquals(-2004060309, plan.planHash());
+        assertEquals(-2004060309, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 TestHelpers::assertDiscardedNone));
@@ -261,7 +262,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         // IN join is cancelled on account of incompatible sorting.
         assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
-        assertEquals(1775865786, plan.planHash());
+        assertEquals(1775865786, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(60, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(2), is(4))),
                 context -> TestHelpers.assertDiscardedAtMost(40, context)));
@@ -298,10 +299,10 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
                     bounds(hasTupleString(String.format("[[%d],[%d]]", number, number)))))).collect(Collectors.toList()),
                     equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
-            assertEquals(-1813975352, plan.planHash());
+            assertEquals(-1813975352, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         } else {
             assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
-            assertEquals(1775865786, plan.planHash());
+            assertEquals(1775865786, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         }
 
         assertEquals(60, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
@@ -342,10 +343,10 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
                     bounds(hasTupleString(String.format("([%d, bar],[%d, foo])", number, number)))))).collect(Collectors.toList()),
                     equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
-            assertEquals(651476052, plan.planHash());
+            assertEquals(651476052, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         } else {
             assertThat(plan, filter(Query.field("num_value_3_indexed").in(inList), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([bar],[foo])"))))));
-            assertEquals(-1681846586, plan.planHash());
+            assertEquals(-1681846586, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         }
 
         assertEquals(30, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
@@ -407,7 +408,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"),
                 bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
-        assertEquals(1075889283, plan.planHash());
+        assertEquals(1075889283, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         queryRecordsWithHeader(recordMetaDataHook, plan, cursor ->
                         assertEquals(asList( "_56", "_6", "_1", "_51", "_11", "_61"),
                                 cursor.map(m -> m.getStrValue()).asList().get()),
@@ -444,7 +445,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, anyOf(
                 inValues(equalTo(longList), inValues(equalTo(stringList), indexMatcher)),
                 inValues(equalTo(stringList), inValues(equalTo(longList), indexMatcher))));
-        assertEquals(-1869764109, plan.planHash());
+        assertEquals(-1869764109, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         queryRecordsWithHeader(recordMetaDataHook, plan, cursor ->
                         assertEquals(asList("_56", "_6", "_1", "_51", "_34", "_84"),
                                 cursor.map(m -> m.getStrValue()).asList().get()),
@@ -480,7 +481,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         List<Long> sortedLongList = asList(1L, 4L);
         assertThat(plan, inValues(equalTo(sortedLongList), inValues(equalTo(sortedStringList),
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_rec_no__1, EQUALS $__in_path__0]")))))));
-        assertEquals(303286809, plan.planHash());
+        assertEquals(303286809, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         queryRecordsWithHeader(recordMetaDataHook, plan, cursor ->
                         assertEquals(asList("1:String1", "1:String1", "1:String6", "1:String6", "4:String34", "4:String34"),
                                 cursor.map(m -> m.getHeader().getRecNo() + ":" + m.getHeader().getPath()).asList().get()),
@@ -512,7 +513,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
-        assertEquals(1075889283, plan.planHash());
+        assertEquals(1075889283, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         queryRecordsWithHeader(recordMetaDataHook, plan, null, 3, cursor ->
                         assertEquals(asList( "_56", "_6", "_1"),
                                 cursor.map(m -> m.getStrValue()).asList().get()),
@@ -544,7 +545,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
-        assertEquals(1075745133, plan.planHash());
+        assertEquals(1075745133, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         // result: [ "_1", "_51", "_56", "_6", "_11", "_61"]
         final Holder<byte[]> continuation = new Holder<>();
         queryRecordsWithHeader(recordMetaDataHook, plan, null, 10,
@@ -605,7 +606,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), primaryKeyDistinct(
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
-        assertEquals(503365581, plan.planHash());
+        assertEquals(503365581, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
                 record -> assertThat(record.getRecNo() % 4, anyOf(is(3L), is(2L))),
                 TestHelpers::assertDiscardedNone));
@@ -627,7 +628,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("values"), primaryKeyDistinct(
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
-        assertEquals(-320448635, plan.planHash());
+        assertEquals(-320448635, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan,
                 () -> EvaluationContext.forBinding("values", Arrays.asList(13L, 11L)),
                 record -> assertThat(record.getRecNo() % 4, anyOf(is(3L), is(1L))),
@@ -656,7 +657,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("rank_by_string"), indexScanType(IndexScanType.BY_RANK)))));
-        assertEquals(-778840248, plan.planHash());
+        assertEquals(-778840248, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         List<Long> recNos = new ArrayList<>();
         querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
                 record -> recNos.add(record.getRecNo()),
@@ -682,7 +683,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("rank"), indexScanType(IndexScanType.BY_RANK)))));
-        assertEquals(1518925028, plan.planHash());
+        assertEquals(1518925028, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         List<Long> recNos = new ArrayList<>();
         querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
                 record -> recNos.add(record.getRecNo()),
@@ -709,7 +710,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 inValues(equalTo(Arrays.asList(901, 903, 905)),
                         indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[EQUALS $__in_num_value_unique__0]"))))),
                 equalTo(concat(field("num_value_unique"), primaryKey("MySimpleRecord")))));
-        assertEquals(1116661716, plan.planHash());
+        assertEquals(1116661716, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(53, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> assertThat(record.getNumValueUnique(), anyOf(is(901), is(903), is(905), greaterThan(950))),
                 TestHelpers::assertDiscardedNone));
@@ -736,7 +737,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[EQUALS $__in_num_value_unique__0]"))))),
                 inValues(equalTo(Arrays.asList(904, 905, 906)),
                         indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("[EQUALS $__in_num_value_unique__0]")))))));
-        assertEquals(218263868, plan.planHash());
+        assertEquals(218263868, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         Set<Long> dupes = new HashSet<>();
         assertEquals(5, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty,
                 record -> {
@@ -798,7 +799,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 inValues(equalTo(Arrays.asList(1, 3)),
                         indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[EQUALS odd, EQUALS 0, EQUALS $__in_num_value_3_indexed__0]"))))),
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[odd, 0, 4],[odd, 0]]"))))));
-        assertEquals(468569345, plan.planHash());
+        assertEquals(468569345, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(3 + 4 + 4, querySimpleRecordStore(hook, plan, EvaluationContext::empty,
                 record -> {
                     assertThat(record.getStrValueIndexed(), is("odd"));
@@ -859,7 +860,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(indexScan("color")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
-        assertEquals(-520431454, plan.planHash());
+        assertEquals(-520431454, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
@@ -891,7 +892,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
-        assertEquals(-1139440895, plan.planHash());
+        assertEquals(-1139440895, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         assertEquals(0, querySimpleRecordStore(NO_HOOK, plan, EvaluationContext::empty, (rec) -> {
         }));
     }

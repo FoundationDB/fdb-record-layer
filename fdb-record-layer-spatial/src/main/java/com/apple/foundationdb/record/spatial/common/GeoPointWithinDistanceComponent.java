@@ -125,8 +125,9 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.objectsPlanHash(centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
+    public int planHash(PlanHashKind hashKind) {
+        // TODO Right?
+        return PlanHashable.objectsPlanHash(hashKind, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
     }
 
     @Override

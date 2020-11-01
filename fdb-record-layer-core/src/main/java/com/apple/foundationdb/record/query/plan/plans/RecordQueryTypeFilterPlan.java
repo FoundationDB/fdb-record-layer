@@ -132,8 +132,9 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     }
 
     @Override
-    public int planHash() {
-        return getInnerPlan().planHash() + PlanHashable.stringHashUnordered(recordTypes);
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Right?
+        return getInnerPlan().planHash(hashKind) + PlanHashable.stringHashUnordered(recordTypes);
     }
 
     @Nonnull

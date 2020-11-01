@@ -182,8 +182,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     }
 
     @Override
-    public int planHash() {
-        return getKeysSource().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return getKeysSource().planHash(hashKind);
     }
 
     @Override
@@ -242,7 +242,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public int planHash() {
+        public int planHash(PlanHashKind hashKind) {
             return hashCode();
         }
     }
@@ -290,7 +290,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public int planHash() {
+        // Right?
+        public int planHash(PlanHashKind hashKind) {
             return hashCode();
         }
     }

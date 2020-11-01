@@ -106,7 +106,7 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
         return isEmpty ? 1 : 0;
     }
 }

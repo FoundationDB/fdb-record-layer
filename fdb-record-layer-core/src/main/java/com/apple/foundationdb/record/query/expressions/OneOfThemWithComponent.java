@@ -138,7 +138,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
-    public int planHash() {
-        return super.planHash() + getChild().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return super.planHash(hashKind) + getChild().planHash(hashKind);
     }
 }

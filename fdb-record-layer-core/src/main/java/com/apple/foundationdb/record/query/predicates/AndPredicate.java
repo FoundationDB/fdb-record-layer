@@ -68,8 +68,9 @@ public class AndPredicate extends AndOrPredicate {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getChildren());
+    public int planHash(@Nonnull PlanHashKind hashKind) {
+        // TODO: Shouldn't there be anything for the "AND" part too?
+        return PlanHashable.planHash(hashKind, getChildren());
     }
 
     @Override

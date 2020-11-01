@@ -225,7 +225,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     }
 
     @Override
-    public int planHash() {
-        return getInnerKey().planHash() + splitPoint;
+    public int planHash(PlanHashKind hashKind) {
+        return getInnerKey().planHash(hashKind) + splitPoint;
     }
 }

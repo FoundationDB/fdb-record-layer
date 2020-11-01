@@ -103,9 +103,8 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         }
 
         @Override
-        public int planHash() {
-            return constituent.getName().hashCode() +
-                   PlanHashable.planHash(bindingPlans);
+        public int planHash(@Nonnull PlanHashKind hashKind) {
+            return constituent.getName().hashCode() + PlanHashable.planHash(hashKind, bindingPlans);
         }
     }
 
@@ -167,8 +166,8 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         }
 
         @Override
-        public int planHash() {
-            return name.hashCode() + expression.planHash() + (singleton ? 1 : 0);
+        public int planHash(@Nonnull PlanHashKind hashKind) {
+            return name.hashCode() + expression.planHash(hashKind) + (singleton ? 1 : 0);
         }
     }
 
@@ -295,7 +294,7 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.objectsPlanHash(joinedRecordType.getName(), joinedTypes, queries);
+    public int planHash(@Nonnull PlanHashKind hashKind) {
+        return PlanHashable.objectsPlanHash(hashKind, joinedRecordType.getName(), joinedTypes, queries);
     }
 }

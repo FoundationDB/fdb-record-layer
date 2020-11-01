@@ -288,8 +288,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getChildren());
+    public int planHash(PlanHashKind hashKind) {
+        return PlanHashable.planHash(hashKind, getChildren());
     }
 
     private static int splitGroupingKeys(List<KeyExpression> keys, int pos) {

@@ -74,7 +74,8 @@ class SortComparison implements Comparisons.Comparison {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
+        // Right?
         return 0;
     }
 }

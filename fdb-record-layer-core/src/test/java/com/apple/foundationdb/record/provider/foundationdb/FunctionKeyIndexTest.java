@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -296,13 +297,13 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
         if (functionQuery) {
             assertThat(plan, indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
-            assertEquals(316561162, plan.planHash());
+            assertEquals(316561162, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         } else {
             // Here I'm really just making sure that (a) the substr_index is not selected, because the
             // function call doesn't appear in the query anyway and (b) that the planner doesn't throw
             // an exception or do something wonky as a result of the presence of this index.
             assertThat(plan, indexScan(allOf(indexName(normalIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
-            assertEquals(1189784448, plan.planHash());
+            assertEquals(1189784448, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         }
 
         try (FDBRecordContext context = openContext()) {

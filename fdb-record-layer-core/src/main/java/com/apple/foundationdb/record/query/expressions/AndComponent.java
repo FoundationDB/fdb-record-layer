@@ -96,7 +96,7 @@ public class AndComponent extends AndOrComponent {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getChildren());
+    public int planHash(@Nonnull PlanHashKind hashKind) {
+        return PlanHashable.planHash(hashKind, getChildren());
     }
 }

@@ -153,8 +153,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     }
 
     @Override
-    public int planHash() {
-        return getInnerPlan().planHash() + bindingName.hashCode() + (sortValuesNeeded ? 1 : 0) + (sortReverse ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        return getInnerPlan().planHash(hashKind) + bindingName.hashCode() + (sortValuesNeeded ? 1 : 0) + (sortReverse ? 1 : 0);
     }
 
     @Nullable

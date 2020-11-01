@@ -166,8 +166,13 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     }
 
     @Override
-    public int planHash() {
-        return getInnerPlan().planHash() + getPredicate().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        switch (hashKind) {
+            case STANDARD:
+                return getInnerPlan().planHash(hashKind) + getPredicate().planHash(hashKind);
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

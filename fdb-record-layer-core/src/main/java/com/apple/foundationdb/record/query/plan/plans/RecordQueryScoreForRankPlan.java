@@ -198,8 +198,8 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
-    public int planHash() {
-        return getChild().planHash() + PlanHashable.planHash(ranks);
+    public int planHash(PlanHashKind hashKind) {
+        return getChild().planHash(hashKind) + PlanHashable.planHash(hashKind, ranks);
     }
 
     @Override
@@ -273,8 +273,8 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         }
 
         @Override
-        public int planHash() {
-            return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(comparisons);
+        public int planHash(PlanHashKind hashKind) {
+            return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(hashKind, comparisons);
         }
     }
 }

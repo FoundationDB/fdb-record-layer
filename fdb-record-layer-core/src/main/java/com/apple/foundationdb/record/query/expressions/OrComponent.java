@@ -89,7 +89,8 @@ public class OrComponent extends AndOrComponent {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getChildren());
+    public int planHash(PlanHashKind hashKind) {
+        // Todo: Type of op?
+        return PlanHashable.planHash(hashKind, getChildren());
     }
 }

@@ -72,7 +72,7 @@ public class VersionElement implements Element {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
         return 1;
     }
 

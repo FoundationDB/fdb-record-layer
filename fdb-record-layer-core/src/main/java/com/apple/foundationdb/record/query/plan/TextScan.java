@@ -542,7 +542,8 @@ public class TextScan implements PlanHashable {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Right?
+        return PlanHashable.planHash(hashKind, textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();
     }
 }

@@ -52,7 +52,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A query plan that can scan text indexes. These work slightly differently than reqular indexes
+ * A query plan that can scan text indexes. These work slightly differently than regular indexes
  * in that the comparison on a query might actually be split into multiple queries.
  */
 @API(API.Status.INTERNAL)
@@ -186,8 +186,8 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     }
 
     @Override
-    public int planHash() {
-        return indexName.hashCode() + textScan.planHash() + (reverse ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        return indexName.hashCode() + textScan.planHash(hashKind) + (reverse ? 1 : 0);
     }
 
     @Nonnull

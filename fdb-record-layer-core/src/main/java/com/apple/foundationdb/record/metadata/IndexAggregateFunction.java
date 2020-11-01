@@ -122,7 +122,8 @@ public class IndexAggregateFunction implements PlanHashable {
     }
 
     @Override
-    public int planHash() {
-        return name.hashCode() + operand.planHash() + Objects.hashCode(index);
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Is this right?
+        return name.hashCode() + operand.planHash(hashKind) + Objects.hashCode(index);
     }
 }

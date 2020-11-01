@@ -185,8 +185,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Override
-    public int planHash() {
-        return indexName.hashCode() + scanType.planHash() + comparisons.planHash() + (reverse ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        return indexName.hashCode() + scanType.planHash(hashKind) + comparisons.planHash(hashKind) + (reverse ? 1 : 0);
     }
 
     @Nonnull

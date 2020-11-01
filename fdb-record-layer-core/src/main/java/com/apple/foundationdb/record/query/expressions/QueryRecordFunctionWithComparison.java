@@ -130,7 +130,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     }
 
     @Override
-    public int planHash() {
-        return function.planHash() + getComparison().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return function.planHash(hashKind) + getComparison().planHash(hashKind);
     }
 }
