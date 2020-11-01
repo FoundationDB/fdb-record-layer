@@ -103,10 +103,10 @@ class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
         int hash = 1;
         for (Map.Entry<String, SyntheticRecordFromStoredRecordPlan> entry : subPlans.entrySet()) {
-            hash += entry.getKey().hashCode() * 31 + entry.getValue().planHash();
+            hash += entry.getKey().hashCode() * 31 + entry.getValue().planHash(hashKind);
         }
         return hash;
     }

@@ -31,7 +31,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Implemention of {@link CollateFunctionKeyExpression} using {@link TextCollatorRegistryICU}.
+ * Implementation of {@link CollateFunctionKeyExpression} using {@link TextCollatorRegistryICU}.
  *
  */
 @AutoService(FunctionKeyExpression.Factory.class)

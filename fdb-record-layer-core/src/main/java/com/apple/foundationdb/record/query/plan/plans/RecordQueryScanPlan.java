@@ -201,8 +201,9 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     }
 
     @Override
-    public int planHash() {
-        return comparisons.planHash() + (reverse ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Is this right?
+        return comparisons.planHash(hashKind) + (reverse ? 1 : 0);
     }
 
     @Override

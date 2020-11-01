@@ -82,7 +82,7 @@ abstract class BaseRepeatedField extends BaseField {
     }
 
     @Override
-    public int planHash() {
-        return super.planHash() + emptyMode.ordinal();
+    public int planHash(PlanHashKind hashKind) {
+        return super.planHash(hashKind) + emptyMode.ordinal();
     }
 }

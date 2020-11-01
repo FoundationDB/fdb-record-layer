@@ -130,11 +130,11 @@ public class FieldElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
         if (fieldNames.size() == 1) {
             return fieldNames.get(0).hashCode();
         } else {
-            return PlanHashable.iterablePlanHash(fieldNames);
+            return PlanHashable.iterablePlanHash(hashKind, fieldNames);
         }
     }
 

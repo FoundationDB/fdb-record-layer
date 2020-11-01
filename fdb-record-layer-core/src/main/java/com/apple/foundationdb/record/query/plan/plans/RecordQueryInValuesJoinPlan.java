@@ -127,8 +127,13 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
-    public int planHash() {
-        return super.planHash() + PlanHashable.iterablePlanHash(values);
+    public int planHash(PlanHashKind hashKind) {
+        switch (hashKind) {
+            case STANDARD:
+                return super.planHash(hashKind) + PlanHashable.iterablePlanHash(hashKind, values);
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supporrted");
+        }
     }
 
     @Override

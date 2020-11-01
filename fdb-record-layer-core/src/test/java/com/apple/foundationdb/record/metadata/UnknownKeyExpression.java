@@ -88,7 +88,7 @@ public class UnknownKeyExpression extends BaseKeyExpression {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
         return 1066;
     }
 }

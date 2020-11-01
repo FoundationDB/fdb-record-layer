@@ -114,7 +114,7 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
         return 0;
     }
 }

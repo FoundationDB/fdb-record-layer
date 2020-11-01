@@ -215,8 +215,9 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public int planHash() {
-        return indexPlan.planHash();
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Is this right?
+        return indexPlan.planHash(hashKind);
     }
 
     @Nonnull

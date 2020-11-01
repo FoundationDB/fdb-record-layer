@@ -170,8 +170,8 @@ public class QueryRecordFunction<T> implements PlanHashable {
     }
 
     @Override
-    public int planHash() {
-        return function.planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return function.planHash(hashKind);
     }
 
     @Override

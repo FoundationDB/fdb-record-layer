@@ -125,7 +125,7 @@ class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(subPlans) + (needDistinct ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        return PlanHashable.planHash(hashKind, subPlans) + (needDistinct ? 1 : 0);
     }
 }

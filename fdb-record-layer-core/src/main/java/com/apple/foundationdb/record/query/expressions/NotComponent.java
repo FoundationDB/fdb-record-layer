@@ -123,8 +123,8 @@ public class NotComponent implements ComponentWithSingleChild {
     }
 
     @Override
-    public int planHash() {
-        return getChild().planHash() + 1;
+    public int planHash(PlanHashKind hashKind) {
+        return getChild().planHash(hashKind) + 1;
     }
 
     @Nonnull

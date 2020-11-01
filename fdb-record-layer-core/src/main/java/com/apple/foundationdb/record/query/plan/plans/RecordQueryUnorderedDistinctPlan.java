@@ -172,8 +172,8 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     }
 
     @Override
-    public int planHash() {
-        return getInner().planHash() + getComparisonKey().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return getInner().planHash(hashKind) + getComparisonKey().planHash(hashKind);
     }
 
     @Override

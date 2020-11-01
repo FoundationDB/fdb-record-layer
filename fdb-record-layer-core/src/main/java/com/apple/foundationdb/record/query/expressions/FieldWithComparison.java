@@ -124,8 +124,8 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     }
 
     @Override
-    public int planHash() {
-        return super.planHash() + getComparison().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return super.planHash(hashKind) + getComparison().planHash(hashKind);
     }
 
     @Override

@@ -103,8 +103,8 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
     }
 
     @Override
-    public int planHash() {
-        return keyExpression.planHash() + getComparison().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return keyExpression.planHash(hashKind) + getComparison().planHash(hashKind);
     }
 
     @Override

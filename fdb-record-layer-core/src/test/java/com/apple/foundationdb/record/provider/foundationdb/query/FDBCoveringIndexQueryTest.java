@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -94,7 +95,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))));
-        assertEquals(-158312359, plan.planHash());
+        assertEquals(-158312359, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -128,7 +129,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
-        assertEquals(413789395, plan.planHash());
+        assertEquals(413789395, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**
@@ -149,7 +150,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
         assertTrue(plan.isReverse());
-        assertEquals(-158312358, plan.planHash());
+        assertEquals(-158312358, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**
@@ -165,7 +166,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
-        assertEquals(324762954, plan.planHash());
+        assertEquals(324762954, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**
@@ -185,7 +186,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
         assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))));
-        assertEquals(-1408807323, plan.planHash());
+        assertEquals(-1408807323, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**
@@ -208,7 +209,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([null],[1])")))))));
-        assertEquals(-1374002128, plan.planHash());
+        assertEquals(-1374002128, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**
@@ -230,7 +231,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("num").equalsValue(1)),
                     coveringIndexScan(indexScan(allOf(indexName("multi"), bounds(hasTupleString("[[abc],[abc]]"))))))));
-            assertEquals(-1536005152, plan.planHash());
+            assertEquals(-1536005152, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
         }
     }
 
@@ -255,7 +256,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([990],>"))))));
-        assertEquals(291429560, plan.planHash());
+        assertEquals(291429560, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -301,7 +302,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index_value"), bounds(hasTupleString("([990],>"))))));
-        assertEquals(-782505942, plan.planHash());
+        assertEquals(-782505942, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -344,7 +345,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
-        assertEquals(-629018945, plan.planHash());
+        assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**
@@ -370,7 +371,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[leopard],[leopard]]"))))));
-        assertEquals(-568702564, plan.planHash());
+        assertEquals(-568702564, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**
@@ -405,7 +406,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
-        assertEquals(-629018945, plan.planHash());
+        assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
@@ -428,7 +429,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("{[l],[l]}"))))));
-        assertEquals(-1471907004, plan.planHash());
+        assertEquals(-1471907004, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
@@ -467,7 +468,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$2+3"), bounds(hasTupleString("([0],[10])"))))));
-        assertEquals(1722836804, plan.planHash());
+        assertEquals(1722836804, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -511,7 +512,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
-        assertEquals(-629018945, plan.planHash());
+        assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
     }
 
     /**

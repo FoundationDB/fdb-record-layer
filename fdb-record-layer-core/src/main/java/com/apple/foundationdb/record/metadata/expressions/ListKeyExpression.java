@@ -212,8 +212,8 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getChildren());
+    public int planHash(PlanHashKind hashKind) {
+        return PlanHashable.planHash(hashKind, getChildren());
     }
 
 }

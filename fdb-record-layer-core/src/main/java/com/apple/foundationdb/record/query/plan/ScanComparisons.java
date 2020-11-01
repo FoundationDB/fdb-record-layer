@@ -313,8 +313,8 @@ public class ScanComparisons implements PlanHashable {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(equalityComparisons) + PlanHashable.planHashUnordered(inequalityComparisons);
+    public int planHash(PlanHashKind hashKind) {
+        return PlanHashable.planHash(hashKind, equalityComparisons) + PlanHashable.planHashUnordered(hashKind, inequalityComparisons);
     }
 
     @Override

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
@@ -116,12 +117,12 @@ public class FDBFullTextQueryTest extends FDBRecordStoreQueryTestBase {
                 assertThat(plan, fetch(primaryKeyDistinct(unorderedUnion(
                         coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))),
                         primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))))));
-                assertEquals(-683922391, plan.planHash());
+                assertEquals(-683922391, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
             } else {
                 assertThat(plan, primaryKeyDistinct(unorderedUnion(
                         textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))),
                         primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))));
-                assertEquals(515863556, plan.planHash());
+                assertEquals(515863556, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
             }
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L), ImmutableSet.copyOf(primaryKeys));

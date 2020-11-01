@@ -112,7 +112,8 @@ public class ElementKeyExpression extends BaseKeyExpression implements KeyExpres
     }
 
     @Override
-    public int planHash() {
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Is this correct?
         return 0;
     }
 }

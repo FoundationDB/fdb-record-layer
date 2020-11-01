@@ -159,8 +159,9 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getQueryPlanChildren()) + (reverse ? 1 : 0);
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Should we include the concrete subtype type?
+        return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + (reverse ? 1 : 0);
     }
 
     @Nonnull

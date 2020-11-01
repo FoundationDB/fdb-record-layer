@@ -151,8 +151,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(indexPlans) + composer.planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return PlanHashable.planHash(hashKind, indexPlans) + composer.planHash(hashKind);
     }
 
     @Nonnull
@@ -258,7 +258,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
 
         @Override
-        public int planHash() {
+        public int planHash(PlanHashKind hashKind) {
             return position;
         }
 
@@ -311,8 +311,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         abstract byte[] operate(@Nonnull List<byte[]> operands, @Nonnull byte[] result);
 
         @Override
-        public int planHash() {
-            return PlanHashable.planHash(children) + operator().hashCode();
+        public int planHash(PlanHashKind hashKind) {
+            return PlanHashable.planHash(hashKind, children) + operator().hashCode();
         }
 
         @Override
@@ -482,8 +482,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
 
         @Override
-        public int planHash() {
-            return child.planHash();
+        public int planHash(PlanHashKind hashKind) {
+            return child.planHash(hashKind);
         }
 
         @Override

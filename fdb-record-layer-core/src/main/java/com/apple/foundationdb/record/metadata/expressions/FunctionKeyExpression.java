@@ -272,8 +272,8 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     }
 
     @Override
-    public int planHash() {
-        return getName().hashCode() + getArguments().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return getName().hashCode() + getArguments().planHash(hashKind);
     }
 
     @Override

@@ -211,8 +211,9 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() + getKeyExpression().planHash();
+        public int planHash(PlanHashKind hashKind) {
+            // Right?
+            return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
         }
     }
 
@@ -274,8 +275,13 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() + getKeyExpression().planHash();
+        public int planHash(PlanHashKind hashKind) {
+            switch (hashKind) {
+                case STANDARD:
+                    return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 

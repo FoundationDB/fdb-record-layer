@@ -116,8 +116,8 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     }
 
     @Override
-    public int planHash() {
-        return getComparison().planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return getComparison().planHash(hashKind);
     }
 
     @Override
@@ -168,8 +168,8 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         }
 
         @Override
-        public int planHash() {
-            return PlanHashable.objectPlanHash(recordTypeName);
+        public int planHash(PlanHashKind hashKind) {
+            return PlanHashable.objectPlanHash(hashKind, recordTypeName);
         }
 
         @Override

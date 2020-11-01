@@ -121,8 +121,8 @@ public class ElementPredicate implements QueryPredicate {
     }
 
     @Override
-    public int planHash() {
-        return element.planHash() + comparison.planHash();
+    public int planHash(PlanHashKind hashKind) {
+        return element.planHash(hashKind) + comparison.planHash(hashKind);
     }
 
     @Nonnull

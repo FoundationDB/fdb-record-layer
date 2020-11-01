@@ -106,8 +106,13 @@ public class LiteralElement<T> implements Element {
     }
 
     @Override
-    public int planHash() {
-        return hashCode();
+    public int planHash(PlanHashKind hashKind) {
+        switch (hashKind) {
+            case STANDARD:
+                return hashCode();
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

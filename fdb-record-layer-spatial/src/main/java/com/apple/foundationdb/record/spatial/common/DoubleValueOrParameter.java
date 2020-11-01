@@ -72,8 +72,13 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
         }
 
         @Override
-        public int planHash() {
-            return Double.hashCode(value);
+        public int planHash(PlanHashKind hashKind) {
+            switch (hashKind) {
+                case STANDARD:
+                    return Double.hashCode(value);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+            }
         }
 
         @Override
@@ -113,7 +118,8 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
         }
 
         @Override
-        public int planHash() {
+        public int planHash(PlanHashKind hashKind) {
+            // TODO: Is that OK to always hash here?
             return parameter.hashCode();
         }
 

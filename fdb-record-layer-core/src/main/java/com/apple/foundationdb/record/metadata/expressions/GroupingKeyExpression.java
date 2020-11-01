@@ -189,7 +189,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     }
 
     @Override
-    public int planHash() {
-        return getWholeKey().planHash() + groupedCount;
+    public int planHash(PlanHashKind hashKind) {
+        return getWholeKey().planHash(hashKind) + groupedCount;
     }
 }

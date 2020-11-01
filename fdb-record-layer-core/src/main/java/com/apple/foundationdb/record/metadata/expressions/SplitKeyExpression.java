@@ -184,8 +184,9 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public int planHash() {
-        return getJoined().planHash() + splitSize;
+    public int planHash(PlanHashKind hashKind) {
+        // TODO: Ignore splitSize?
+        return getJoined().planHash(hashKind) + splitSize;
     }
 
     @Override

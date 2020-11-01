@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
@@ -82,7 +83,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[1]]")))));
-        assertEquals(1869980849, plan.planHash());
+        assertEquals(1869980849, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -169,7 +170,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))))));
-        assertEquals(-766201402, plan.planHash());
+        assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -215,7 +216,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 bounds(anyOf(combinations.stream()
                         .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
                         .collect(Collectors.toList()))))));
-        assertEquals(241654378, plan.planHash());
+        assertEquals(241654378, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
