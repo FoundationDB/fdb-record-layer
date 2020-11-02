@@ -501,7 +501,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         RecordQuery query1 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_2").equalsValue(3))
+                .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, filter(anything(), typeFilter(anything(), scan(unbounded()))));
