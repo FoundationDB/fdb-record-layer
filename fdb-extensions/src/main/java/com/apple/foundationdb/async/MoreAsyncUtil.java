@@ -914,11 +914,11 @@ public class MoreAsyncUtil {
     }
 
     /**
-     * Handle when <code>futureSupplier</code> has exception when supplying a future, or the future is completed
+     * Handle when <code>futureSupplier</code> encounters an exception when supplying a future, or the future is completed
      * exceptionally. Unlike the "handle" in CompletableFuture, <code>handlerOnException</code> is not executed if
      * the future is successful.
-     * @param futureSupplier the supplier of future which need to be handled
-     * @param handlerOnException the hanlder when the future has
+     * @param futureSupplier the supplier of future which needs to be handled
+     * @param handlerOnException the handler when the future encounters an exception
      * @param <V> the result type of the future
      * @return future that completes exceptionally if the handler has exception
      */
