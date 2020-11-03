@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
@@ -52,6 +53,13 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class ReferenceMatcher<T extends RelationalExpression> implements ExpressionMatcher<ExpressionRef<T>> {
     @Nonnull
+    private final ExpressionChildrenMatcher childrenMatcher;
+
+    public ReferenceMatcher(@Nonnull final ExpressionChildrenMatcher childrenMatcher) {
+        this.childrenMatcher = childrenMatcher;
+    }
+
+    @Nonnull
     @Override
     public Class<? extends Bindable> getRootClass() {
         return RelationalExpression.class;
@@ -60,13 +68,15 @@ public class ReferenceMatcher<T extends RelationalExpression> implements Express
     @Nonnull
     @Override
     public ExpressionChildrenMatcher getChildrenMatcher() {
-        return ListChildrenMatcher.empty();
+        return childrenMatcher;
     }
 
     @Nonnull
     @Override
     public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return Stream.of(PlannerBindings.from(this, ref));
+        return Stream.of(PlannerBindings.from(this, ref))
+                .flatMap(outerBindings -> getChildrenMatcher().matches(ImmutableList.copyOf(ref.getMembers()))
+                        .map(outerBindings::mergedWith));
     }
 
     @Nonnull
@@ -96,7 +106,21 @@ public class ReferenceMatcher<T extends RelationalExpression> implements Express
      */
     public static <U extends RelationalExpression> ReferenceMatcher<U> anyRef() {
         // This must return a new matcher so that it is distinct from other ReferenceMatchers according to pointer comparison.
-        return new ReferenceMatcher<>();
+        return new ReferenceMatcher<>(AnyChildrenMatcher.ANY);
+    }
+
+    /**
+     * Return a new {@code ReferenceMatcher} instance. The returned matcher is guaranteed to be distinct (according to
+     * pointer comparison) from the matchers returned by other calls to {@code anyRef()}, so that multiple such matchers
+     * may be used in a single {@link PlannerBindings} object.
+     * @param <U> the type of {@link RelationalExpression} that is guaranteed (by programmer knowledge) to be behind the references that this matcher will bind to
+     * @param membersMatcher a matcher that is applied to the members of this reference
+     * @return a new, distinct matcher that matches to the cross product of references and their respective members matching
+     *         the {@code membersMatcher}.
+     */
+    public static <U extends RelationalExpression> ReferenceMatcher<U> of(@Nonnull ExpressionMatcher<? extends Bindable> membersMatcher) {
+        // This must return a new matcher so that it is distinct from other ReferenceMatchers according to pointer comparison.
+        return new ReferenceMatcher<>(AnyChildMatcher.anyMatching(membersMatcher));
     }
 }
 

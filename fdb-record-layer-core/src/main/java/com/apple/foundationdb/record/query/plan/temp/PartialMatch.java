@@ -61,6 +61,12 @@ public class PartialMatch {
     private final ExpressionRef<? extends RelationalExpression> queryRef;
 
     /**
+     * Expression in query graph.
+     */
+    @Nonnull
+    private final RelationalExpression queryExpression;
+
+    /**
      * Expression reference in match candidate graph.
      */
     @Nonnull
@@ -75,11 +81,13 @@ public class PartialMatch {
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> queryRef,
+                        @Nonnull final RelationalExpression queryExpression,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
                         @Nonnull final MatchWithCompensation matchWithCompensation) {
         this.boundAliasMap = boundAliasMap;
         this.matchCandidate = matchCandidate;
         this.queryRef = queryRef;
+        this.queryExpression = queryExpression;
         this.candidateRef = candidateRef;
         this.matchWithCompensation = matchWithCompensation;
     }
@@ -97,6 +105,11 @@ public class PartialMatch {
     @Nonnull
     public ExpressionRef<? extends RelationalExpression> getQueryRef() {
         return queryRef;
+    }
+
+    @Nonnull
+    public RelationalExpression getQueryExpression() {
+        return queryExpression;
     }
 
     @Nonnull

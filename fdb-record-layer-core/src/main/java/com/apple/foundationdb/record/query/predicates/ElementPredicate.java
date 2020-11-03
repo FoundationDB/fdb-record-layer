@@ -82,7 +82,7 @@ public class ElementPredicate implements QueryPredicate {
     @Override
     @Nonnull
     public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return  matcher.matchWith(this);
+        return matcher.matchWith(this);
     }
 
     @Override

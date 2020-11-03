@@ -785,6 +785,7 @@ public class CascadesPlanner implements QueryPlanner {
                                             new PartialMatch(partialMatch.getBoundAliasMap(),
                                                     matchCandidate,
                                                     group,
+                                                    expression,
                                                     candidateRef,
                                                     matchWithCompensation)))
                     .filter(Optional::isPresent)
@@ -863,6 +864,7 @@ public class CascadesPlanner implements QueryPlanner {
                                     new PartialMatch(boundCorrelatedToMap,
                                             matchCandidate,
                                             group,
+                                            expression,
                                             candidateRef,
                                             matchWithCompensation))
                             .iterator();
@@ -902,6 +904,7 @@ public class CascadesPlanner implements QueryPlanner {
                                                     new PartialMatch(boundAliasMap,
                                                             matchCandidate,
                                                             group,
+                                                            expression,
                                                             candidateRef,
                                                             matchWithCompensation)));
 

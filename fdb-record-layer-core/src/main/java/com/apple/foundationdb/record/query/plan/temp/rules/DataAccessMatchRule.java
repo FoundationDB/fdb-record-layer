@@ -29,7 +29,9 @@ import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
 
@@ -40,16 +42,18 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExpression>> {
-    private static final ReferenceMatcher<RelationalExpression> root = ReferenceMatcher.anyRef();
-
+    private static final ExpressionMatcher<RelationalExpression> expressionMatcher = TypeMatcher.of(RelationalExpression.class);
+    private static final ReferenceMatcher<RelationalExpression> rootMatcher = ReferenceMatcher.of(expressionMatcher);
+    
     public DataAccessMatchRule() {
-        super(root);
+        super(rootMatcher);
     }
 
     @Override
     @SuppressWarnings("java:S135")
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RelationalExpression> ref = call.get(root);
+        final ExpressionRef<RelationalExpression> ref = call.get(rootMatcher);
+        final RelationalExpression expression = call.get(expressionMatcher);
 
         // go through all the match candidates
         for (final MatchCandidate matchCandidate : ref.getMatchCandidates()) {
