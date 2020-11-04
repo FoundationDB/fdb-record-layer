@@ -76,9 +76,7 @@ public class NotPredicate implements QueryPredicate {
     @Override
     @Nonnull
     public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        Stream<PlannerBindings> bindings = matcher.matchWith(this);
-        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(ImmutableList.of(getChild()))
-                .map(outerBindings::mergedWith));
+        return matcher.matchWith(this, ImmutableList.of(getChild()));
     }
 
     @Override

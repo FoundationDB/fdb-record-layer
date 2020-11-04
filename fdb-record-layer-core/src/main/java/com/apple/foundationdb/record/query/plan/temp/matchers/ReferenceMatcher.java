@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -73,27 +73,28 @@ public class ReferenceMatcher<T extends RelationalExpression> implements Express
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+    public Stream<PlannerBindings> matchWith(@Nonnull final ExpressionRef<? extends RelationalExpression> ref,
+                                             @Nonnull List<? extends Bindable> children) {
         return Stream.of(PlannerBindings.from(this, ref))
-                .flatMap(outerBindings -> getChildrenMatcher().matches(ImmutableList.copyOf(ref.getMembers()))
+                .flatMap(outerBindings -> getChildrenMatcher().matches(children)
                         .map(outerBindings::mergedWith));
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
+    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression, @Nonnull final List<? extends Bindable> children) {
         return Stream.empty();
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
+    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate, @Nonnull final List<? extends Bindable> children) {
         return Stream.empty();
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier) {
+    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier, @Nonnull final List<? extends Bindable> children) {
         return Stream.empty();
     }
 

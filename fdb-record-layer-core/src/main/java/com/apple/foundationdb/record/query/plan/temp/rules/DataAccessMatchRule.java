@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -42,7 +43,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExpression>> {
-    private static final ExpressionMatcher<RelationalExpression> expressionMatcher = TypeMatcher.of(RelationalExpression.class);
+    private static final ExpressionMatcher<RelationalExpression> expressionMatcher = TypeMatcher.of(RelationalExpression.class, AnyChildrenMatcher.ANY);
     private static final ReferenceMatcher<RelationalExpression> rootMatcher = ReferenceMatcher.of(expressionMatcher);
     
     public DataAccessMatchRule() {
@@ -58,7 +59,8 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
         // go through all the match candidates
         for (final MatchCandidate matchCandidate : ref.getMatchCandidates()) {
             for (final PartialMatch partialMatch : ref.getPartialMatchesForCandidate(matchCandidate)) {
-                if (partialMatch.getCandidateRef() == matchCandidate.getTraversal().getRootReference()) {
+                if (partialMatch.getQueryExpression() == expression &&
+                    partialMatch.getCandidateRef() == matchCandidate.getTraversal().getRootReference()) {
                     // this match is complete
                     final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
                     call.yield(call.ref(matchCandidate.toScanExpression(matchWithCompensation)));

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -75,7 +76,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable,
     @Nonnull
     @Override
     default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(this);
+        return matcher.matchWith(this, ImmutableList.copyOf(getMembers()));
     }
 
     /**

@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -47,11 +48,11 @@ public class TypeWithPredicateMatcher<T extends RelationalExpressionWithPredicat
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
+    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression, @Nonnull final List<? extends Bindable> children) {
         if (!(expression instanceof RelationalExpressionWithPredicate)) {
             return Stream.empty();
         }
-        Stream<PlannerBindings> bindings = super.matchWith(expression);
+        Stream<PlannerBindings> bindings = super.matchWith(expression, children);
         QueryPredicate predicate = ((RelationalExpressionWithPredicate)expression).getPredicate();
         return bindings.flatMap(outerBindings -> predicate.bindTo(predicateMatcher).map(outerBindings::mergedWith));
     }

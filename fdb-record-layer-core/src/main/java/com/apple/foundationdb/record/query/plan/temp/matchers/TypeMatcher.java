@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -83,27 +84,34 @@ public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+    public Stream<PlannerBindings> matchWith(@Nonnull final ExpressionRef<? extends RelationalExpression> ref,
+                                             @Nonnull final List<? extends Bindable> children) {
         // A type matcher will never match a reference. Ask the reference whether its contents match properly.
         return ref.bindWithin(this);
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
-        return matchClassWith(expression);
+    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(expression)
+                .flatMap(outerBindings -> getChildrenMatcher().matches(children)
+                        .map(outerBindings::mergedWith));
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
-        return matchClassWith(predicate);
+    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(predicate)
+                .flatMap(outerBindings -> getChildrenMatcher().matches(children)
+                        .map(outerBindings::mergedWith));
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier) {
-        return matchClassWith(quantifier);
+    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(quantifier)
+                .flatMap(outerBindings -> getChildrenMatcher().matches(children)
+                        .map(outerBindings::mergedWith));
     }
 
     @Nonnull

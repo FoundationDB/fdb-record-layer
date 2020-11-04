@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.Element;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -82,7 +83,7 @@ public class ElementPredicate implements QueryPredicate {
     @Override
     @Nonnull
     public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(this);
+        return matcher.matchWith(this, ImmutableList.of());
     }
 
     @Override

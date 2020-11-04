@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -36,7 +37,7 @@ import java.util.stream.Stream;
  * The bindings can be retrieved from the rule call once the binding is matched.
  *
  * <p>
- * An {@code ExpressionMatcher} interacts with a {@code PlannerExpression} tree using its {@link #matchWith(RelationalExpression)}
+ * An {@code ExpressionMatcher} interacts with a {@code PlannerExpression} tree using its {@link #matchWith(RelationalExpression, List)}
  * and {@link #matchWith(ExpressionRef)} methods. At a high level, the {@code matchWith()} methods are responsible for
  * determining whether this matcher matches the root expression or reference passed to {@code matchWith()}. Although
  * {@code ExpressionMatcher}s are themselves hierarchical structures, an {@code ExpressionMatcher} must not try to
@@ -80,10 +81,11 @@ public interface ExpressionMatcher<T extends Bindable> {
      * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
      * or attempt to access the members of the given reference.
      * @param ref a reference to match with
+     * @param children the conceptual children of {@code ref}, i.e. the memmbers of the group reference.
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
-    Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref);
+    Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<? extends Bindable> children);
 
     /**
      * Attempt to match this matcher against the given {@link ExpressionMatcher}.
@@ -91,10 +93,11 @@ public interface ExpressionMatcher<T extends Bindable> {
      * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
      * or attempt to access children of the given expression.
      * @param expression a planner expression to match with
+     * @param children the conceptual children of {@code expression}
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
-    Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression);
+    Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression, @Nonnull List<? extends Bindable> children);
 
     /**
      * Attempt to match this matcher against the given {@link QueryPredicate}.
@@ -102,10 +105,11 @@ public interface ExpressionMatcher<T extends Bindable> {
      * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
      * or attempt to access children of the given expression.
      * @param predicate a predicate to match with
+     * @param children the conceptual children of {@code predicate}
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
-    Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate);
+    Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate, @Nonnull List<? extends Bindable> children);
 
 
     /**
@@ -114,8 +118,9 @@ public interface ExpressionMatcher<T extends Bindable> {
      * expression and should not call into the {@link ExpressionChildrenMatcher} returned by {@link #getChildrenMatcher()}
      * or attempt to access children of the given expression.
      * @param quantifier a quantifier to match with
+     * @param children the conceptual children of {@code quantifier}
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
-    Stream<PlannerBindings> matchWith(@Nonnull Quantifier quantifier);
+    Stream<PlannerBindings> matchWith(@Nonnull Quantifier quantifier, @Nonnull List<? extends Bindable> children);
 }

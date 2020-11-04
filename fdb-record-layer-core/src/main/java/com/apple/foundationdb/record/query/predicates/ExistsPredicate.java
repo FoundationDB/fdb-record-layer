@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -85,7 +86,7 @@ public class ExistsPredicate implements QueryPredicate {
     @Nonnull
     @Override
     public Stream<PlannerBindings> bindTo(@Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(this);
+        return matcher.matchWith(this, ImmutableList.of());
     }
 
     @Override

@@ -249,9 +249,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     @Override
     @Nonnull
     default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        Stream<PlannerBindings> bindings = matcher.matchWith(this);
-        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(getQuantifiers())
-                .map(outerBindings::mergedWith));
+        return matcher.matchWith(this, getQuantifiers());
     }
 
     /**
