@@ -2606,12 +2606,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return markIndexReadable(getRecordMetaData().getIndex(indexName));
     }
 
+    private void logExceptionAsWarn(KeyValueLogMessage message, Throwable exception) {
+        if (exception instanceof LoggableException) {
+            LoggableException loggable = (LoggableException) exception;
+            LOGGER.warn(message.addKeysAndValues(loggable.getLogInfo()).toString(), loggable);
+        } else {
+            LOGGER.warn(message.toString(), exception);
+        }
+    }
+
     /**
      * Marks the index with the given name as readable without checking to see if it is
      * ready. This is dangerous to do if one has not first verified that the
      * index is ready to be readable as it can cause half-built indexes to be
      * used within queries and can thus produce inconsistent results.
-     *
      * @param indexName the name of the index to mark readable
      * @return a future that will contain <code>true</code> if the store was modified
      * and <code>false</code> otherwise
@@ -3057,7 +3065,16 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
                     IndexState indexState = newStates.getOrDefault(index, IndexState.READABLE);
-                    work.add(rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion));
+                    final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
+                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion),
+                            exception -> {
+                                // If there is anything issue, simply mark the index as disabled without blocking checkVersion
+                                logExceptionAsWarn(KeyValueLogMessage.build("unable to build index",
+                                        LogMessageKeys.INDEX_NAME, index.getName()
+                                ), exception);
+                                return markIndexDisabled(index).thenApply(b -> null);
+                            });
+                    work.add(rebuildOrMarkIndexSafely);
                 } else {
                     break;
                 }
@@ -3086,7 +3103,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     protected CompletableFuture<Void> rebuildOrMarkIndex(@Nonnull Index index, @Nonnull IndexState indexState,
                                                          @Nullable List<RecordType> recordTypes, @Nonnull RebuildIndexReason reason,
                                                          @Nullable Integer oldMetaDataVersion) {
-        // Skip index rebuild if the index is on new record types.
+        // Skip index rebuild if the index is on new record types. This may fail because of reusing an index name whose
+        // state hasn't been cleared.
         if (indexState != IndexState.DISABLED && areAllRecordTypesSince(recordTypes, oldMetaDataVersion)) {
             return rebuildIndexWithNoRecord(index, reason);
         }

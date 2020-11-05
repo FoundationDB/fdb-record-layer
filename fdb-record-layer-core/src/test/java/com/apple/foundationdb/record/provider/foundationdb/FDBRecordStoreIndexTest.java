@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestNoIndexesProto;
+import com.apple.foundationdb.record.TestRecords1EvolvedProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsIndexFilteringProto;
 import com.apple.foundationdb.record.TupleRange;
@@ -1282,6 +1283,62 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             openSimpleRecordStore(context);
             assertTrue(recordStore.getRecordStoreState().allIndexesReadable());
             assertTrue(recordStore.getRecordStoreState().compatibleWith(recordStore.getRecordStoreState()));
+        }
+    }
+
+    @Test
+    public void failureToMarkIndexReadableShouldNotBlockCheckVersion() {
+        // Deleting an index does not remove it from the disabled list
+        // (https://github.com/FoundationDB/fdb-record-layer/issues/515) may cause a new index with the same name
+        // unable to use rebuildIndexWithNoRecord (which tries to mark index on new record type readable), but this
+        // should not block check version.
+
+        final String reusedIndexName = "reused_index_name";
+
+        // Add index and disable it.
+        RecordMetaDataHook metaData2 = builder -> {
+            builder.addIndex("MySimpleRecord", new Index(reusedIndexName, "str_value_indexed"));
+            builder.setVersion(200);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaData2);
+            assertTrue(recordStore.isIndexReadable(reusedIndexName));
+            recordStore.markIndexDisabled(reusedIndexName).join();
+            assertTrue(recordStore.isIndexDisabled(reusedIndexName));
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaData2);
+            assertTrue(recordStore.isIndexDisabled(reusedIndexName));
+        }
+
+        // Remove index.
+        RecordMetaDataHook metaData3 = builder -> {
+            builder.setVersion(300);
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaData3);
+            assertFalse(recordStore.getRecordMetaData().hasIndex(reusedIndexName));
+            commit(context);
+        }
+
+        RecordMetaDataHook metaData4 = builder -> {
+            builder.setVersion(300);
+            // Add another record type: AnotherRecord.
+            builder.updateRecords(TestRecords1EvolvedProto.getDescriptor());
+            // Add an index on the new record type with the old name. The index should have an added version greater
+            // than 300.
+            builder.addIndex("AnotherRecord", new Index(reusedIndexName, "num_value_2"));
+            builder.setVersion(400);
+        };
+        try (FDBRecordContext context = openContext()) {
+            // It should pass checkVersion even if it failed to rebuildIndexWithNoRecord, and the index is disabled.
+            // Also manually checked that there is a log titled with "unable to build index", and the index_name is
+            // "reused_index_name".
+            openSimpleRecordStore(context, metaData4);
+            // The index is disabled
+            assertTrue(recordStore.isIndexDisabled(reusedIndexName));
+            commit(context);
         }
     }
 

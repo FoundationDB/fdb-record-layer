@@ -885,8 +885,8 @@ public class MoreAsyncUtil {
      * @param future future to compose the handler onto
      * @param handler handler bi-function to compose onto the passed future
      * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
-     * @param <V> return type of original future
-     * @param <T> return type of final future
+     * @param <V> type of original future
+     * @param <T> type of final future
      * @return future with same completion properties as the future returned by the handler
      * @see AsyncUtil#composeHandle(CompletableFuture, BiFunction)
      */
@@ -911,6 +911,32 @@ public class MoreAsyncUtil {
                 throw getRuntimeException(handlerSyncException, exceptionMapper);
             }
         });
+    }
+
+    /**
+     * Handle when <code>futureSupplier</code> encounters an exception when supplying a future, or the future is completed
+     * exceptionally. Unlike the "handle" in CompletableFuture, <code>handlerOnException</code> is not executed if
+     * the future is successful.
+     * @param futureSupplier the supplier of future which needs to be handled
+     * @param handlerOnException the handler when the future encounters an exception
+     * @param <V> the result type of the future
+     * @return future that completes exceptionally if the handler has exception
+     */
+    public static <V> CompletableFuture<V> handleOnException(Supplier<CompletableFuture<V>> futureSupplier,
+                                                             Function<Throwable, CompletableFuture<V>> handlerOnException) {
+        try {
+            return AsyncUtil.composeHandle(futureSupplier.get(), (futureResult, futureException) -> {
+                if (futureException != null) {
+                    // This is for the case where future completes exceptionally
+                    return handlerOnException.apply(futureException);
+                } else {
+                    return CompletableFuture.completedFuture(futureResult);
+                }
+            });
+        } catch (Exception e) {
+            // This is for the case where futureSupplier.get() throws an error.
+            return handlerOnException.apply(e);
+        }
     }
 
     private static RuntimeException getRuntimeException(@Nonnull Throwable exception,
