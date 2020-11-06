@@ -152,12 +152,7 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Override
     public int planHash(PlanHashKind hashKind) {
-        switch (hashKind) {
-            case STANDARD:
-                return 13 + 7 * getChild().planHash(hashKind);
-            default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-        }
+        return 13 + 7 * getChild().planHash(hashKind);
     }
 
     @Override
