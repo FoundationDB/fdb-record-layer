@@ -812,6 +812,8 @@ public class Comparisons {
             switch (hashKind) {
                 case STANDARD:
                     return type.name().hashCode() + PlanHashable.objectPlanHash(hashKind, comparand);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return type.name().hashCode();
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
@@ -933,6 +935,8 @@ public class Comparisons {
             switch (hashKind) {
                 case STANDARD:
                     return type.name().hashCode() + parameter.hashCode();
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return type.name().hashCode();
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
