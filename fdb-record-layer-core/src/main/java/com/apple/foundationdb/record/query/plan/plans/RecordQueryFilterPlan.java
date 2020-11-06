@@ -154,12 +154,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Override
     public int planHash(PlanHashKind hashKind) {
-        switch (hashKind) {
-            case STANDARD:
-                return getInnerPlan().planHash(hashKind) + getFilter().planHash(hashKind);
-            default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-        }
+        return getInnerPlan().planHash(hashKind) + getFilter().planHash(hashKind);
     }
 
     @Nonnull

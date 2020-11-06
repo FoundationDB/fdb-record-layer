@@ -46,6 +46,10 @@ public interface PlanHashable {
      */
     int planHash(@Nonnull PlanHashKind hashKind);
 
+    default int planHash() {
+        return planHash(PlanHashKind.STANDARD);
+    }
+
     static int planHash(@Nonnull PlanHashKind hashKind, @Nonnull Iterable<? extends PlanHashable> hashables) {
         int result = 1;
         for (PlanHashable hashable : hashables) {
