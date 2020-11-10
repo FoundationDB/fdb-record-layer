@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -84,7 +86,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         this.children = children;
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of(ConstantPredicate.TRUE)
-                          : groupPredicates(predicates);
+                          : partitionPredicates(predicates);
     }
 
     @Nonnull
@@ -223,8 +225,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         final Set<QueryPredicate> unmappedOtherPredicates = Sets.newIdentityHashSet();
         unmappedOtherPredicates.addAll(otherSelectExpression.getPredicates());
 
-        final Set<QueryPredicate> needCompensationPredicates = Sets.newIdentityHashSet();
-
         final IdentityBiMap<QueryPredicate, QueryPredicate> mappedPredicatesMap = IdentityBiMap.create();
         final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap = Maps.newHashMap();
 
@@ -304,8 +304,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             }
         }
 
-        needCompensationPredicates.addAll(unmappedOtherPredicates);
-
         // Last chance for unmapped predicates - if there is a placeholder on the other side, we can (and should) remove it
         // from the unmapped other set now. The reasoning is that this predicate is not filtering (i.e. false) if there is
         // input for the matched quantifier quantifier, meaning the range is unlimited and the the predicate is a tautology.
@@ -317,14 +315,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableSet.of();
         }
 
-        final List<QueryPredicate> predicatesOnUnmatchedQuantifiers = predicatesOnQuantifiers.get(false);
-        // TODO reapply all unmatched predicates
-
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
                 MatchWithCompensation.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
 
         return allParameterBindingMapOptional
-                .flatMap(allParameterBindingMap -> MatchWithCompensation.tryMerge(partialMatchMap, allParameterBindingMap, mappedPredicatesMap, needCompensationPredicates))
+                .flatMap(allParameterBindingMap -> MatchWithCompensation.tryMerge(partialMatchMap, allParameterBindingMap, mappedPredicatesMap, unmappedPredicates))
                 .map(ImmutableList::of)
                 .orElse(ImmutableList.of());
     }
@@ -346,7 +341,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     }
 
     @SuppressWarnings("UnstableApiUsage")
-    private static List<QueryPredicate> groupPredicates(final List<QueryPredicate> predicates) {
+    private static List<QueryPredicate> partitionPredicates(final List<QueryPredicate> predicates) {
         final ImmutableList<QueryPredicate> flattenedAndPredicates =
                 predicates.stream()
                         .flatMap(predicate -> flattenAndPredicate(predicate).stream())
@@ -373,13 +368,13 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         final BoundEquivalence boundEquivalence = new BoundEquivalence(boundIdentitiesMap);
 
-        final HashMultimap<Equivalence.Wrapper<Value>, PredicateWithValue> groupedPredicatesWithValues =
+        final HashMultimap<Equivalence.Wrapper<Value>, PredicateWithValue> partitionedPredicatesWithValues =
                 predicateWithValues
                         .stream()
                         .collect(Multimaps.toMultimap(
                                 predicate -> boundEquivalence.wrap(predicate.getValue()), Function.identity(), HashMultimap::create));
 
-        groupedPredicatesWithValues
+        partitionedPredicatesWithValues
                 .asMap()
                 .forEach((valueWrapper, predicatesOnValue) -> {
                     final Value value = Objects.requireNonNull(valueWrapper.get());
@@ -430,5 +425,48 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return result.build();
         }
         return result.add(predicate).build();
+    }
+
+    @Override
+    @SuppressWarnings({"java:S135", "java:S1066"})
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        final Map<QueryPredicate, QueryPredicate> toBeReappliedPredicatesMap = Maps.newIdentityHashMap();
+        final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
+        final Set<QueryPredicate> unmappedPredicates = matchWithCompensation.getUnmappedPredicates();
+        final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap = matchWithCompensation.getPredicateMap();
+
+        // go through all predicates
+        // 1. check if they matched -- if not ==> add to predicates to be reapplied
+        // 2. check if they are bound under the current parameter bindings -- if not ==> add to the predicates to be reapplied
+        // 3. check if an exists() needs compensation -- if id does ==> pull up compensation (for now, reapply the altenrative QueryComponent)
+        for (final QueryPredicate predicate : getPredicates()) {
+            if (!unmappedPredicates.contains(predicate) && predicateMap.containsKeyUnwrapped(predicate)) {
+                if (predicate instanceof PredicateWithValue) {
+                    final QueryPredicate otherPredicate = predicateMap.getUnwrapped(predicate);
+                    if (otherPredicate instanceof Placeholder) {
+                        if (boundParameterPrefixMap.containsKey(((Placeholder)otherPredicate).getParameterAlias())) {
+                            continue;
+                        }
+                    }
+                }
+            }
+
+            if (predicate instanceof ExistsPredicate) {
+                final ExistsPredicate existsPredicate = (ExistsPredicate)predicate;
+                final CorrelationIdentifier existentialAlias = existsPredicate.getExistentialAlias();
+                final Optional<PartialMatch> childPartialMatchOptional = partialMatch.getMatchWithCompensation().getChildPartialMatch(existentialAlias);
+                final Optional<Compensation> compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+                if (!compensationOptional.isPresent() || compensationOptional.get().isNeeded()) {
+                    // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
+                    // TODO make a predicate that can evaluate a QueryComponent
+                    toBeReappliedPredicatesMap.put(predicate, new QueryComponentPredicate(existsPredicate.getAlternativeComponent()));
+                }
+                continue;
+            }
+            
+            toBeReappliedPredicatesMap.put(predicate, predicate);
+        }
+
+        return Compensation.of(toBeReappliedPredicatesMap);
     }
 }

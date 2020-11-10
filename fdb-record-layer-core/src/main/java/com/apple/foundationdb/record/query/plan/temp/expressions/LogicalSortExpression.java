@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.BoundOrderingKey;
+import com.apple.foundationdb.record.query.plan.temp.BoundOrderingKeyPart;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
@@ -128,18 +128,18 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Override
     public Optional<MatchWithCompensation> adjustMatch(@Nonnull final RelationalExpression expression, @Nonnull final PartialMatch partialMatch) {
         final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
-        return Optional.of(matchWithCompensation.pullUpWithBoundOrderingKeys(getInner(), partialMatch, forCandidate(partialMatch)));
+        return Optional.of(matchWithCompensation.withBoundOrderingKeys(getInner(), forPartialMatch(partialMatch)));
     }
 
     @Nonnull
-    public List<BoundOrderingKey> forCandidate(@Nonnull PartialMatch partialMatch) {
+    public List<BoundOrderingKeyPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
         final List<KeyExpression> normalizedKeys = sort.normalizeKeyForPositions();
 
         final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
         final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
                 partialMatch.getMatchWithCompensation().getParameterBindingMap();
 
-        final ImmutableList.Builder<BoundOrderingKey> builder = ImmutableList.builder();
+        final ImmutableList.Builder<BoundOrderingKeyPart> builder = ImmutableList.builder();
 
         boolean seenNonEquality = false;
         final List<CorrelationIdentifier> parameters = matchCandidate.getParameters();
@@ -153,7 +153,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
                 seenNonEquality = true;
             }
 
-            builder.add(BoundOrderingKey.of(normalizedKey, seenNonEquality ? ComparisonRange.Type.EMPTY : ComparisonRange.Type.EQUALITY));
+            builder.add(BoundOrderingKeyPart.of(normalizedKey, seenNonEquality ? ComparisonRange.Type.EMPTY : ComparisonRange.Type.EQUALITY));
         }
 
         return builder.build();

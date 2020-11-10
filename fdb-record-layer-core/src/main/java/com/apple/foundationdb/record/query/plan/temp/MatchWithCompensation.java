@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Equivalence;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,6 +39,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -58,30 +60,38 @@ public class MatchWithCompensation {
     private final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap;
 
     @Nonnull
-    private final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap;
+    private final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap;
+
+    @Nonnull
+    private final Supplier<Map<CorrelationIdentifier, PartialMatch>> aliasToPartialMatchMapSupplier;
 
     @Nonnull
     private final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap;
 
     @Nonnull
-    private final Set<QueryPredicate> needCompensationPredicates;
+    private final Set<QueryPredicate> unmappedPredicates;
 
     @Nonnull
-    private final List<BoundOrderingKey> boundOrderingKeys;
+    private final List<BoundOrderingKeyPart> boundOrderingKeyParts;
 
     private MatchWithCompensation(@Nonnull final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator,
                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
-                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
+                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                                   @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap,
-                                  @Nonnull final Set<QueryPredicate> needCompensationPredicates,
-                                  @Nonnull final List<BoundOrderingKey> boundOrderingKeys) {
+                                  @Nonnull final Set<QueryPredicate> unmappedPredicates,
+                                  @Nonnull final List<BoundOrderingKeyPart> boundOrderingKeyParts) {
         this.compensationOperator = compensationOperator;
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
-        this.partialMatchMap = partialMatchMap.toImmutable();
+        this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
+        this.aliasToPartialMatchMapSupplier = Suppliers.memoize(() -> {
+            final ImmutableMap.Builder<CorrelationIdentifier, PartialMatch> mapBuilder = ImmutableMap.builder();
+            quantifierToPartialMatchMap.forEachUnwrapped(((quantifier, partialMatch) -> mapBuilder.put(quantifier.getAlias(), partialMatch)));
+            return mapBuilder.build();
+        });
         this.predicateMap = predicateMap.toImmutable();
-        this.needCompensationPredicates = Sets.newIdentityHashSet();
-        this.needCompensationPredicates.addAll(needCompensationPredicates);
-        this.boundOrderingKeys = ImmutableList.copyOf(boundOrderingKeys);
+        this.unmappedPredicates = Sets.newIdentityHashSet();
+        this.unmappedPredicates.addAll(unmappedPredicates);
+        this.boundOrderingKeyParts = ImmutableList.copyOf(boundOrderingKeyParts);
     }
 
     @Nonnull
@@ -95,8 +105,13 @@ public class MatchWithCompensation {
     }
 
     @Nonnull
-    public IdentityBiMap<Quantifier, PartialMatch> getPartialMatchMap() {
-        return partialMatchMap;
+    public Optional<PartialMatch> getChildPartialMatch(@Nonnull final Quantifier quantifier) {
+        return Optional.ofNullable(quantifierToPartialMatchMap.getUnwrapped(quantifier));
+    }
+
+    @Nonnull
+    public Optional<PartialMatch> getChildPartialMatch(@Nonnull final CorrelationIdentifier alias) {
+        return Optional.ofNullable(aliasToPartialMatchMapSupplier.get().get(alias));
     }
 
     @Nonnull
@@ -105,27 +120,24 @@ public class MatchWithCompensation {
     }
 
     @Nonnull
-    public Set<QueryPredicate> getNeedCompensationPredicates() {
-        return needCompensationPredicates;
+    public Set<QueryPredicate> getUnmappedPredicates() {
+        return unmappedPredicates;
     }
 
     @Nonnull
-    public List<BoundOrderingKey> getBoundOrderingKeys() {
-        return boundOrderingKeys;
+    public List<BoundOrderingKeyPart> getBoundOrderingKeys() {
+        return boundOrderingKeyParts;
     }
 
-    public MatchWithCompensation pullUpWithBoundOrderingKeys(@Nonnull final Quantifier quantifier,
-                                                             @Nonnull PartialMatch partialMatch,
-                                                             @Nonnull final List<BoundOrderingKey> boundOrderingKeys) {
+    public MatchWithCompensation withBoundOrderingKeys(@Nonnull final Quantifier quantifier,
+                                                       @Nonnull final List<BoundOrderingKeyPart> boundOrderingKeyParts) {
         Verify.verify(quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical);
-        final IdentityBiMap<Quantifier, PartialMatch> pulledUpPartialMatchMap = IdentityBiMap.create();
-        pulledUpPartialMatchMap.putUnwrapped(quantifier, partialMatch);
         return new MatchWithCompensation(compensationOperator,
                 parameterBindingMap,
-                pulledUpPartialMatchMap,
-                IdentityBiMap.create(),
-                Sets.newIdentityHashSet(),
-                boundOrderingKeys);
+                quantifierToPartialMatchMap,
+                predicateMap,
+                unmappedPredicates,
+                boundOrderingKeyParts);
     }
 
     @Nonnull
@@ -156,13 +168,13 @@ public class MatchWithCompensation {
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical)
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
 
-        final List<BoundOrderingKey> boundOrderingKeys;
+        final List<BoundOrderingKeyPart> boundOrderingKeyParts;
         if (regularQuantifiers.size() == 1) {
             final Quantifier regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final PartialMatch partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
-            boundOrderingKeys = partialMatch.getMatchWithCompensation().getBoundOrderingKeys();
+            boundOrderingKeyParts = partialMatch.getMatchWithCompensation().getBoundOrderingKeys();
         } else {
-            boundOrderingKeys = ImmutableList.of();
+            boundOrderingKeyParts = ImmutableList.of();
         }
 
         final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator =
@@ -175,7 +187,7 @@ public class MatchWithCompensation {
                         partialMatchMap,
                         predicateMap,
                         needCompensationPredicates,
-                        boundOrderingKeys));
+                        boundOrderingKeyParts));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

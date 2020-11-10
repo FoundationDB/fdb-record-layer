@@ -1,5 +1,5 @@
 /*
- * BoundOrderingKey.java
+ * BoundOrderingKeyPart.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,18 +23,19 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 
 /**
  * A key expression that can be bound by a comparison.
  */
-public class BoundOrderingKey {
+public class BoundOrderingKeyPart {
     @Nonnull
     private final KeyExpression normalizedKeyExpression;
 
     @Nonnull
     private final ComparisonRange.Type comparisonRangeType;
 
-    private BoundOrderingKey(@Nonnull final KeyExpression normalizedKeyExpression, @Nonnull final ComparisonRange.Type comparisonRangeType) {
+    private BoundOrderingKeyPart(@Nonnull final KeyExpression normalizedKeyExpression, @Nonnull final ComparisonRange.Type comparisonRangeType) {
         this.normalizedKeyExpression = normalizedKeyExpression;
         this.comparisonRangeType = comparisonRangeType;
     }
@@ -50,7 +51,18 @@ public class BoundOrderingKey {
     }
 
     @Nonnull
-    public static BoundOrderingKey of(@Nonnull final KeyExpression normalizedKeyExpression, @Nonnull final ComparisonRange.Type comparisonRangeType) {
-        return new BoundOrderingKey(normalizedKeyExpression, comparisonRangeType);
+    public static BoundOrderingKeyPart of(@Nonnull final KeyExpression normalizedKeyExpression, @Nonnull final ComparisonRange.Type comparisonRangeType) {
+        return new BoundOrderingKeyPart(normalizedKeyExpression, comparisonRangeType);
+    }
+
+    public static int getEqualitySize(@Nonnull final List<BoundOrderingKeyPart> boundOrderingKeyParts) {
+        int i;
+        for (i = 0; i < boundOrderingKeyParts.size(); i++) {
+            final BoundOrderingKeyPart boundOrderingKeyPart = boundOrderingKeyParts.get(i);
+            if (boundOrderingKeyPart.getComparisonRangeType() != ComparisonRange.Type.EQUALITY) {
+                break;
+            }
+        }
+        return i;
     }
 }

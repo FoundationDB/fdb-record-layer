@@ -420,6 +420,7 @@ public class RecordMetaData implements RecordMetaDataProvider {
      * Determine whether every record type in this meta-data has the same primary key.
      * @return the common primary key or {@code null}
      */
+    @Nullable
     public KeyExpression commonPrimaryKey() {
         return commonPrimaryKey(recordTypes.values());
     }

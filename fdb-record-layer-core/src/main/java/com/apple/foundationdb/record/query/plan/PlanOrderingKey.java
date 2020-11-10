@@ -31,11 +31,13 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
+import com.apple.foundationdb.record.query.plan.temp.BoundOrderingKeyPart;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * The keys that order the results from a plan.
@@ -144,6 +146,33 @@ public class PlanOrderingKey {
         } else {
             return null;
         }
+    }
+
+    @Nullable
+    public static PlanOrderingKey forBoundOrderingKeys(@Nonnull List<BoundOrderingKeyPart> boundOrderingKeyParts,
+                                                       @Nullable KeyExpression primaryKey) {
+        if (primaryKey == null) {
+            return null;
+        }
+
+        final List<KeyExpression> keys =
+                boundOrderingKeyParts
+                        .stream()
+                        .map(BoundOrderingKeyPart::getNormalizedKeyExpression)
+                        .collect(Collectors.toList());
+        int pkeyStart = boundOrderingKeyParts.size();
+        int pKeyTail = pkeyStart;
+        // Primary keys come after index value keys, unless they were already part of it.
+        for (final KeyExpression pkey : primaryKey.normalizeKeyForPositions()) {
+            int pos = keys.indexOf(pkey);
+            if (pos < 0) {
+                keys.add(pkey);
+            } else if (pkeyStart > pos) {
+                pkeyStart = pos;
+            }
+        }
+        final int prefixSize = BoundOrderingKeyPart.getEqualitySize(boundOrderingKeyParts);
+        return new PlanOrderingKey(keys, prefixSize, pkeyStart, pKeyTail);
     }
 
     /**

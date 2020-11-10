@@ -22,7 +22,12 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
@@ -34,6 +39,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -86,6 +92,19 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         } else {
             return new ExplodeExpression(translationMap.getTargetOrThrow(correlationIdentifier), fieldNames);
         }
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MatchWithCompensation> subsumedBy(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        return exactlySubsumedBy(otherExpression, aliasMap, partialMatchMap);
+    }
+
+    @Override
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        // subsumedBy() is based on equality and this expression is always a leaf, thus we return empty here as
+        // if there is a match, it's exact
+        return Compensation.noCompensation();
     }
 
     @Nonnull

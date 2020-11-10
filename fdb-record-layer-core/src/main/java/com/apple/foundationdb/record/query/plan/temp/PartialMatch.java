@@ -20,11 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 
 /**
  * Case class to represent a partial match. A partial match is stored in a multi map in {@link GroupExpressionRef}s that
@@ -78,6 +84,9 @@ public class PartialMatch {
     @Nonnull
     private final MatchWithCompensation matchWithCompensation;
 
+    @Nonnull
+    private final Supplier<Map<CorrelationIdentifier, ComparisonRange>> boundParameterPrefixMapSupplier;
+
     public PartialMatch(@Nonnull final AliasMap boundAliasMap,
                         @Nonnull final MatchCandidate matchCandidate,
                         @Nonnull final ExpressionRef<? extends RelationalExpression> queryRef,
@@ -90,6 +99,7 @@ public class PartialMatch {
         this.queryExpression = queryExpression;
         this.candidateRef = candidateRef;
         this.matchWithCompensation = matchWithCompensation;
+        this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::getBoundParameterPrefixMap);
     }
 
     @Nonnull
@@ -120,6 +130,44 @@ public class PartialMatch {
     @Nonnull
     public MatchWithCompensation getMatchWithCompensation() {
         return matchWithCompensation;
+    }
+
+    public int getNumBoundParameterPrefix() {
+        return boundParameterPrefixMapSupplier.get().size();
+    }
+
+    public Map<CorrelationIdentifier, ComparisonRange> getBoundParameterPrefixMap() {
+        final ImmutableMap.Builder<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMapBuilder = ImmutableMap.builder();
+        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
+                matchWithCompensation.getParameterBindingMap();
+
+        final List<CorrelationIdentifier> parameters = matchCandidate.getParameters();
+        for (int i = 0; i < parameters.size(); i++) {
+            final CorrelationIdentifier parameter = parameters.get(i);
+            Objects.requireNonNull(parameter);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameter);
+            if (comparisonRange == null) {
+                return boundParameterPrefixMapBuilder.build();
+            }
+            switch (comparisonRange.getRangeType()) {
+                case EQUALITY:
+                    boundParameterPrefixMapBuilder.put(parameter, comparisonRange);
+                    break;
+                case INEQUALITY:
+                    boundParameterPrefixMapBuilder.put(parameter, comparisonRange);
+                    return boundParameterPrefixMapBuilder.build();
+                case EMPTY:
+                default:
+                    return boundParameterPrefixMapBuilder.build();
+            }
+        }
+
+        return boundParameterPrefixMapBuilder.build();
+    }
+
+    @Nonnull
+    public Compensation compensate(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        return queryExpression.compensate(this, boundParameterPrefixMap);
     }
 
     @Nonnull

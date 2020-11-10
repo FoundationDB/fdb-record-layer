@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -60,6 +62,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -169,21 +172,36 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     static Optional<MatchCandidate> fromIndexDefinition(@Nonnull RecordMetaData metaData,
                                                         @Nullable KeyExpression commonPrimaryKey,
                                                         @Nonnull Index index) {
-        final ImmutableSet<String> recordTypesForIndex =
-                metaData.recordTypesForIndex(index)
+        final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
+
+        final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
+        if (commonPrimaryKeyForIndex == null) {
+            return Optional.empty();
+        }
+
+        final ImmutableSet<String> recordTypeNamesForIndex =
+                recordTypesForIndex
                         .stream()
                         .map(RecordType::getName)
                         .collect(ImmutableSet.toImmutableSet());
+
         final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
 
         final String name = index.getName();
         final String type = index.getType();
-        final KeyExpression rootExpression = index.getRootExpression();
+
+        final ArrayList<KeyExpression> trimmedPrimaryKeyComponents = new ArrayList<>(commonPrimaryKeyForIndex.normalizeKeyForPositions());
+        index.trimPrimaryKey(trimmedPrimaryKeyComponents);
+        final ImmutableList.Builder<KeyExpression> fullKeyListBuilder = ImmutableList.builder();
+        fullKeyListBuilder.add(index.getRootExpression());
+        fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
+        
+        final KeyExpression indexKeyExpression = Key.Expressions.concat(fullKeyListBuilder.build());
         if (type.equals(IndexTypes.VALUE)) {
-            final List<CorrelationIdentifier> parameters = Lists.newArrayListWithCapacity(rootExpression.getColumnSize());
-            final Quantifier baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypesForIndex);
+            final List<CorrelationIdentifier> parameters = Lists.newArrayListWithCapacity(indexKeyExpression.getColumnSize());
+            final Quantifier baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypeNamesForIndex);
             final ExpandedPredicates expandedPredicates =
-                    rootExpression.normalizeForPlanner(baseQuantifier.getAlias(),
+                    indexKeyExpression.normalizeForPlanner(baseQuantifier.getAlias(),
                             () -> {
                                 final CorrelationIdentifier parameterAlias = CorrelationIdentifier.of("p" + parameters.size());
                                 parameters.add(parameterAlias);
@@ -191,7 +209,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
                             });
 
             final RelationalExpression expression =
-                    new LogicalSortExpression(index.getRootExpression(), false, expandedPredicates.buildSelectWithBase(baseQuantifier));
+                    new LogicalSortExpression(indexKeyExpression, false, expandedPredicates.buildSelectWithBase(baseQuantifier));
 
             final MatchCandidate matchCandidate =
                     new IndexScanMatchCandidate(
@@ -686,6 +704,14 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     default Iterable<MatchWithCompensation> subsumedBy(@Nonnull final RelationalExpression otherExpression,
                                                        @Nonnull final AliasMap aliasMap,
                                                        @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        // we don't match by default -- end
+        return ImmutableList.of();
+    }
+
+    @Nonnull
+    default Iterable<MatchWithCompensation> exactlySubsumedBy(@Nonnull final RelationalExpression otherExpression,
+                                                              @Nonnull final AliasMap aliasMap,
+                                                              @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
         if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, otherExpression.getQuantifiers())) {
             return ImmutableList.of();
         }
@@ -722,6 +748,10 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
                             Objects.requireNonNull(otherAliasToQuantifierMap.get(aliasMap.getTarget(quantifier.getAlias())));
                     return !quantifier.equalsOnKind(otherQuantifier);
                 });
+    }
+
+    default Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 
     /**

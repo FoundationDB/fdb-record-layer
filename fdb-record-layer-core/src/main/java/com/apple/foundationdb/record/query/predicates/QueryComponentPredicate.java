@@ -1,9 +1,9 @@
 /*
- * ExistsPredicate.java
+ * NotPredicate.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -31,68 +33,57 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * An existential predicate that is true if the inner correlation produces any values, and false otherwise.
+ * A {@link QueryPredicate} that is satisfied when its child component is not satisfied.
+ *
+ * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsPredicate implements QueryPredicate {
+public class QueryComponentPredicate implements QueryPredicate {
     @Nonnull
-    private final CorrelationIdentifier existentialAlias;
+    public final QueryComponent queryComponent;
 
-    @Nonnull
-    private final QueryComponent alternativeComponent;
-
-    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias, @Nonnull final QueryComponent alternativeComponent) {
-        this.existentialAlias = existentialAlias;
-        this.alternativeComponent = alternativeComponent;
+    public QueryComponentPredicate(@Nonnull QueryComponent queryComponent) {
+        this.queryComponent = queryComponent;
     }
 
     @Nonnull
-    public CorrelationIdentifier getExistentialAlias() {
-        return existentialAlias;
-    }
-
-
-    @Nonnull
-    public QueryComponent getAlternativeComponent() {
-        return alternativeComponent;
+    public QueryComponent getQueryComponent() {
+        return queryComponent;
     }
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final SourceEntry sourceEntry) {
-        // TODO not sure how to execute this
-        return null;
+    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull SourceEntry sourceEntry) {
+        // TODO need to do this
+        throw new RecordCoreException("predicate eval() is not implemented");
     }
 
-    @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.singleton(existentialAlias);
-    }
-
     @Nonnull
-    @Override
-    public ExistsPredicate rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(existentialAlias)) {
-            return new ExistsPredicate(translationMap.getTargetOrThrow(existentialAlias), alternativeComponent);
-        } else {
-            return this;
-        }
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindTo(@Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
+    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
         return matcher.matchWith(this, ImmutableList.of());
+    }
+
+    @Override
+    public String toString() {
+        return "QueryComponent(" + getQueryComponent() + ")";
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
     @Override
@@ -103,22 +94,34 @@ public class ExistsPredicate implements QueryPredicate {
         if (other == null || getClass() != other.getClass()) {
             return false;
         }
-        final ExistsPredicate that = (ExistsPredicate)other;
-        return aliasMap.containsMapping(existentialAlias, that.existentialAlias);
+        final QueryComponentPredicate that = (QueryComponentPredicate)other;
+        return getQueryComponent().equals(that.getQueryComponent());
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     @Override
     public int semanticHashCode() {
-        return planHash();
+        return Objects.hash(getQueryComponent());
     }
 
     @Override
     public int planHash() {
-        return 29;
+        return getQueryComponent().planHash() + 1;
     }
 
+    @Nonnull
     @Override
-    public String toString() {
-        return "∃" + existentialAlias;
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public QueryComponentPredicate rebase(@Nonnull final AliasMap translationMap) {
+        return new QueryComponentPredicate(getQueryComponent());
     }
 }

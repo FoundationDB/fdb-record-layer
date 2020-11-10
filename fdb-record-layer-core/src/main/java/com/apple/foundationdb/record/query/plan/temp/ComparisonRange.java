@@ -235,6 +235,10 @@ public class ComparisonRange {
             return MergeResult.of(this);
         }
 
+        if (isEmpty()) {
+            return MergeResult.of(comparisonRange);
+        }
+
         if (isEquality()) {
             return merge(comparisonRange.getEqualityComparison());
         }

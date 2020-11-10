@@ -118,6 +118,10 @@ public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
         return getDelegate().containsKey(key);
     }
 
+    public boolean containsKeyUnwrapped(@Nullable final Object key) {
+        return getDelegate().containsKey(identity.wrap(key));
+    }
+
     @Override
     public boolean containsValue(@Nullable final Object value) {
         return getDelegate().containsValue(value);

@@ -454,7 +454,6 @@ public class Quantifiers {
 
         public Set<Quantifier> resolveCorrelationAlias(@Nonnull RelationalExpression expression,
                                                        @Nonnull final CorrelationIdentifier alias) {
-
             final Set<ExpressionRef<? extends RelationalExpression>> refsContaining = traversal.getRefsContaining(expression);
             final Set<Quantifier> resolvedQuantifiers = Sets.newIdentityHashSet();
 
