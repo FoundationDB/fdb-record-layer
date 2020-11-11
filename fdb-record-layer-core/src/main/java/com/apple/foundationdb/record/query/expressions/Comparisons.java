@@ -810,7 +810,7 @@ public class Comparisons {
         @Override
         public int planHash(PlanHashKind hashKind) {
             switch (hashKind) {
-                case STANDARD:
+                case CONTINUATION:
                     return type.name().hashCode() + PlanHashable.objectPlanHash(hashKind, comparand);
                 case STRUCTURAL_WITHOUT_LITERALS:
                     return type.name().hashCode();
@@ -933,7 +933,7 @@ public class Comparisons {
         @Override
         public int planHash(PlanHashKind hashKind) {
             switch (hashKind) {
-                case STANDARD:
+                case CONTINUATION:
                     return type.name().hashCode() + parameter.hashCode();
                 case STRUCTURAL_WITHOUT_LITERALS:
                     return type.name().hashCode();
@@ -1073,7 +1073,14 @@ public class Comparisons {
 
         @Override
         public int planHash(PlanHashKind hashKind) {
-            return type.name().hashCode() + PlanHashable.iterablePlanHash(hashKind, comparand) + PlanHashable.objectPlanHash(hashKind, javaType);
+            switch (hashKind) {
+                case CONTINUATION:
+                    return type.name().hashCode() + PlanHashable.iterablePlanHash(hashKind, comparand) + PlanHashable.objectPlanHash(hashKind, javaType);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return type.name().hashCode() + PlanHashable.objectPlanHash(hashKind, javaType);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -1314,8 +1321,10 @@ public class Comparisons {
         @Override
         public int planHash(PlanHashKind hashKind) {
             switch (hashKind) {
-                case STANDARD:
+                case CONTINUATION:
                     return PlanHashable.objectsPlanHash(hashKind, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, type, tokenizerName, fallbackTokenizerName);
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
@@ -1374,8 +1383,14 @@ public class Comparisons {
 
         @Override
         public int planHash(PlanHashKind hashKind) {
-            // Right?
-            return super.planHash(hashKind) * 31 + maxDistance;
+            switch (hashKind) {
+                case CONTINUATION:
+                    return super.planHash(hashKind) * 31 + maxDistance;
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return super.planHash(hashKind);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+            }
         }
 
         @Override

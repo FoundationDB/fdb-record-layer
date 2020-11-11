@@ -85,7 +85,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, indexScan(allOf(indexName("prefix_scalar"), bounds(hasTupleString("[[1],[1]]")))));
-        assertEquals(339959201, plan1.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(339959201, plan1.planHash(PlanHashable.PlanHashKind.CONTINUATION));
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -95,7 +95,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, indexScan(allOf(indexName("prefix_scalar"), bounds(hasTupleString("[[1, 1],[1, 1]]")))));
-        assertEquals(-447322749, plan2.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(-447322749, plan2.planHash(PlanHashable.PlanHashKind.CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -130,7 +130,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"),
                 bounds(hasTupleString("[[even, 0, 3],[even, 0, 3]]")))));
-        assertEquals(657537200, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(657537200, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -169,7 +169,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]")))));
-        assertEquals(2137890746, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(2137890746, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -238,7 +238,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         assertThat(plan, indexScan(allOf(
                 indexName("multi_index"),
                 bounds(hasTupleString("[[even, 0, 2],[even, 0]]")))));
-        assertEquals(1276767038, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(1276767038, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -274,7 +274,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even],[even]]")))));
-        assertEquals(1375215309, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(1375215309, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
