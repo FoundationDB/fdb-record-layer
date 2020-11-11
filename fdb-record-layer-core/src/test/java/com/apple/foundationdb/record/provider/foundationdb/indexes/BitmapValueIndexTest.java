@@ -545,6 +545,30 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void singleQuery() {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            saveRecords(100, 200);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            setupPlanner(null);
+            final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
+                    Query.field("str_value").equalsValue("odd"),
+                    Query.field("num_value_2").equalsValue(3)));
+            assertThat(queryPlan, coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))));
+            assertEquals(1188586655, queryPlan.planHash());
+            assertThat(
+                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    equalTo(IntStream.range(100, 200).boxed()
+                            .filter(i -> (i & 1) == 1)
+                            .filter(i -> (i % 7) == 3)
+                            .collect(Collectors.toList())));
+        }
+    }
+
     protected static final KeyExpression REC_NO_BY_STR = concatenateFields("str_value", "rec_no").group(1);
     protected static final KeyExpression REC_NO_BY_STR_NUM2 = concatenateFields("str_value", "num_value_2", "rec_no").group(1);
     protected static final KeyExpression REC_NO_BY_STR_NUM3 = concatenateFields("str_value", "num_value_3", "rec_no").group(1);
