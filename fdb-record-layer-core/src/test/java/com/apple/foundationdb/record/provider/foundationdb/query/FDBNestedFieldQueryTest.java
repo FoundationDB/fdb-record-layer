@@ -130,7 +130,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("[[photos],[photos]]"))));
-        assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Arrays.asList(12, 11), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -141,7 +141,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("{[photos],[photos]}"))));
-        assertEquals(224213141, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(224213141, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Arrays.asList(12, 11, 112, 111, 1111), fetchResultValues(plan, TestRecords3Proto.MyHierarchicalRecord.NUM_VALUE_INDEXED_FIELD_NUMBER,
                 this::openHierarchicalRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -204,7 +204,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), bounds(hasTupleString("([5],>"))))));
-        assertEquals(1378568952, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(1378568952, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Arrays.asList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                 this::openNestedRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -218,7 +218,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         plan = planner.plan(query);
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("tag"), bounds(hasTupleString("[[Lilliput, 5],[Lilliput]]"))))));
-        assertEquals(-1197819382, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(-1197819382, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                 this::openNestedRecordStore,
                 TestHelpers::assertDiscardedNone));
@@ -243,9 +243,9 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, filter(Query.field("stats").matches(Query.field("school_name").equalsValue("Human University")),
                 indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([0],>"))))));
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(-417538532, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+            assertEquals(-417538532, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         } else {
-            assertEquals(-1419776897, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+            assertEquals(-1419776897, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         }
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 this::openNestedRecordStore,
@@ -267,9 +267,9 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("hometown").startsWith("H"))),
                 indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([null],[1000]]"))))));
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(1700959433, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+            assertEquals(1700959433, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         } else {
-            assertEquals(-1198378902, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+            assertEquals(-1198378902, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         }
         assertEquals(Collections.singletonList(1L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 this::openNestedRecordStore,
@@ -310,9 +310,9 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 queryPredicateDescendant(PredicateMatchers.field("value").notEquals("test")),
                 primaryKeyDistinct(indexScan(allOf(indexName("key_index"), bounds(hasTupleString("[[1, alpha],[1, alpha]]")))))));
         if (planner instanceof RecordQueryPlanner) {
-            assertEquals(-1406660101, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+            assertEquals(-1406660101, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         } else {
-            assertEquals(695317608, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+            assertEquals(695317608, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         }
     }
 
@@ -339,7 +339,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Human University, 0],[Human University]]")))));
-        assertEquals(-1854785243, plan1.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(-1854785243, plan1.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan1, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 ctx -> openNestedRecordStore(ctx, hook),
                 TestHelpers::assertDiscardedNone));
@@ -354,7 +354,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Human University, 0],[Human University]]")))));
-        assertEquals(-1854785243, plan2.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(-1854785243, plan2.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan2, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 ctx -> openNestedRecordStore(ctx, hook),
                 TestHelpers::assertDiscardedNone));
@@ -383,7 +383,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Newt A. Robot, 100],[Newt A. Robot, 2000])")))));
-        assertEquals(1355996214, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(1355996214, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 ctx -> openNestedRecordStore(ctx, hook),
                 TestHelpers::assertDiscardedNone));
@@ -443,7 +443,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("event_start"), bounds(hasTupleString("([10],>"))))));
-        assertEquals(667993366, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(667993366, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Arrays.asList("ev1", "ev3"),
                 fetchResultValues(plan, TestRecords5Proto.CalendarEvent.PATH_FIELD_NUMBER,
                         this::openDoublyNestedRecordStore,
@@ -480,7 +480,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[3],[3]]")))));
-        assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Arrays.asList("ev5", "ev6"),
                 fetchResultValues(plan, TestRecords5Proto.CalendarEvent.PATH_FIELD_NUMBER,
                         this::openConcatNestedRecordStore,
@@ -494,7 +494,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[2, 6],[2, 6]]")))));
-        assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         assertEquals(Arrays.asList("ev4"),
                 fetchResultValues(plan2, TestRecords5Proto.CalendarEvent.PATH_FIELD_NUMBER,
                         this::openConcatNestedRecordStore,
@@ -507,7 +507,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan3 = planner.plan(query3);
         assertThat(plan3, indexScan(allOf(indexName("versions"), bounds(hasTupleString("([1],>")))));
-        assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         // Note: ev3/ev4 can be switched, as can ev5/ev6.
         // The important thing is that ev3 and ev4 are before both ev5 and ev6
         assertEquals(Arrays.asList("ev3", "ev4", "ev5", "ev6"),
@@ -544,7 +544,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("[[a, 2],[a, 2]]"))));
-        assertEquals(1265534819, plan.planHash(PlanHashable.PlanHashKind.STANDARD));
+        assertEquals(1265534819, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {

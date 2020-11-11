@@ -35,7 +35,7 @@ import java.util.List;
 @API(API.Status.UNSTABLE)
 public interface PlanHashable {
     enum PlanHashKind {
-        STANDARD,                     // The original plan hash kind: include children, literals and markers
+        CONTINUATION,                 // The original plan hash kind: include children, literals and markers. Used for continuation validation
         STRUCTURAL_WITHOUT_LITERALS   // The hash used for query matching: skip all literals and markers
     }
 
@@ -47,13 +47,13 @@ public interface PlanHashable {
     int planHash(@Nonnull PlanHashKind hashKind);
 
     default int planHash() {
-        return planHash(PlanHashKind.STANDARD);
+        return planHash(PlanHashKind.CONTINUATION);
     }
 
     static int planHash(@Nonnull PlanHashKind hashKind, @Nonnull Iterable<? extends PlanHashable> hashables) {
         int result = 1;
         for (PlanHashable hashable : hashables) {
-            result = 31 * result + (hashable != null ?  hashable.planHash(hashKind) : 0);
+            result = 31 * result + (hashable != null ? hashable.planHash(hashKind) : 0);
         }
         return result;
     }
@@ -97,7 +97,7 @@ public interface PlanHashable {
             return ((Enum)obj).name().hashCode();
         }
         if (obj instanceof Iterable<?>) {
-            return iterablePlanHash(hashKind, (Iterable<?>) obj);
+            return iterablePlanHash(hashKind, (Iterable<?>)obj);
         }
         if (obj instanceof PlanHashable) {
             return ((PlanHashable)obj).planHash(hashKind);

@@ -128,8 +128,14 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
 
     @Override
     public int planHash(PlanHashKind hashKind) {
-        // TODO: Is this right?
-        return super.planHash(hashKind) + PlanHashable.iterablePlanHash(hashKind, values);
+        switch (hashKind) {
+            case CONTINUATION:
+                return super.planHash(hashKind) + PlanHashable.iterablePlanHash(hashKind, values);
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return super.planHash(hashKind);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " not supported");
+        }
     }
 
     @Override

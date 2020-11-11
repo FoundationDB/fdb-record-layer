@@ -108,7 +108,7 @@ public class LiteralElement<T> implements Element {
     @Override
     public int planHash(PlanHashKind hashKind) {
         switch (hashKind) {
-            case STANDARD:
+            case CONTINUATION:
                 return hashCode();
             default:
                 throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");

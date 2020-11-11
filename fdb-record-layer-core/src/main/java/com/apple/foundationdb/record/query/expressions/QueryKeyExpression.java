@@ -277,7 +277,7 @@ public class QueryKeyExpression {
         @Override
         public int planHash(PlanHashKind hashKind) {
             switch (hashKind) {
-                case STANDARD:
+                case CONTINUATION:
                     return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
