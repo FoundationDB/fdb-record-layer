@@ -26,6 +26,7 @@ import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.TransactionContext;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -47,6 +49,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -76,6 +79,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -195,7 +199,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final Function<Config, Config> configLoader;
     @Nonnull private Config config;
     private int configLoaderInvocationCount = 0;
-
+    @Nonnull private final IndexFromIndexPolicy indexFromIndex;
     /**
      * The number of successful transactions in a row as called by {@link #runAsync(Function, BiFunction, BiConsumer, List)}.
      */
@@ -223,7 +227,8 @@ public class OnlineIndexer implements AutoCloseable {
                   @Nonnull IndexStatePrecondition indexStatePrecondition,
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
-                  boolean trackProgress) {
+                  boolean trackProgress,
+                  @Nonnull IndexFromIndexPolicy indexFromIndex) {
         this.runner = runner;
         this.recordStoreBuilder = recordStoreBuilder;
         this.index = index;
@@ -236,6 +241,7 @@ public class OnlineIndexer implements AutoCloseable {
         this.useSynchronizedSession = useSynchronizedSession;
         this.leaseLengthMills = leaseLengthMillis;
         this.trackProgress = trackProgress;
+        this.indexFromIndex = indexFromIndex;
 
         this.recordsRange = computeRecordsRange();
         timeOfLastProgressLogMillis = System.currentTimeMillis();
@@ -578,7 +584,6 @@ public class OnlineIndexer implements AutoCloseable {
         final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
         final FDBRecordContext context = store.getContext();
         return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
-
             if (!result.hasNext()) {
                 // end of the cursor list
                 if (timer != null) {
@@ -921,6 +926,7 @@ public class OnlineIndexer implements AutoCloseable {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildUnbuiltRange",
                 LogMessageKeys.RANGE_START, start,
                 LogMessageKeys.RANGE_END, end);
+
         return buildAsync((store, recordsScanned) -> buildUnbuiltRange(store, start, end, recordsScanned),
                 true,
                 additionalLogMessageKeyValues);
@@ -1290,21 +1296,43 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private CompletableFuture<Void> doBuildIndexAsync(boolean markReadable) {
-        CompletableFuture<Void> buildFuture = buildEndpoints().thenCompose(tupleRange -> {
+    private CompletableFuture<Void> buildIndexFromRecordsAsync() {
+        return buildEndpoints().thenCompose(tupleRange -> {
             if (tupleRange != null) {
                 return buildRange(Key.Evaluated.fromTuple(tupleRange.getLow()), Key.Evaluated.fromTuple(tupleRange.getHigh()));
             } else {
                 return CompletableFuture.completedFuture(null);
             }
         });
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> doBuildIndexAsync(boolean markReadable) {
+        CompletableFuture<Void> buildFuture;
+        if (indexFromIndex.isActive()) {
+            buildFuture = AsyncUtil.composeHandle(
+                    buildIndexFromIndexAsync(),
+                    (ignore, ex) -> {
+                        if (ex != null) {
+                            if (indexFromIndex.isAllowRecordScan() &&
+                                    (ex instanceof OnlineIndexerException)) {
+                                // fallback to a records scan
+                                return buildIndexFromRecordsAsync();
+                            }
+                            throw FDBExceptions.wrapException(ex);
+                        }
+                        return AsyncUtil.DONE;
+                    }
+            );
+        } else {
+            buildFuture = buildIndexFromRecordsAsync();
+        }
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
-                getRunner().runAsync(context -> openRecordStore(context)
-                        .thenCompose(store -> store.markIndexReadable(index))
-                        .thenApply(ignore -> null))
-            );
+                    getRunner().runAsync(context -> openRecordStore(context)
+                            .thenCompose(store -> store.markIndexReadable(index))
+                            .thenApply(ignore -> null)));
         } else {
             return buildFuture;
         }
@@ -1484,6 +1512,200 @@ public class OnlineIndexer implements AutoCloseable {
         } else {
             return runner;
         }
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> buildIndexFromIndexMarkBuilt(Subspace subspace) {
+        // zz 2.1 - mark built
+        // Grand Finale - after fully building the index, remove all missing ranges in one gulp
+        return getRunner().runAsync(context -> {
+            RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
+            TransactionContext tc = context.ensureActive();
+            return rangeSet.insertRange(tc, null, null).thenApply(bignore -> null);
+        });
+    }
+
+    private void buildIndexFromIndexThrowEx(@Nonnull String msg) {
+        throw new OnlineIndexerException(msg);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> buildIndexFromIndexAsync() {
+        // zz 1 - runner
+        return getRunner().runAsync(context -> openRecordStore(context)
+                .thenCompose( store -> {
+                    // first verify that both src and tgt are of a single, similar, type
+                    final RecordMetaData metaData = store.getRecordMetaData();
+                    final Index srcIndex = metaData.getIndex(Objects.requireNonNull(indexFromIndex.getSourceIndex()));
+                    final Collection<RecordType> srcRecordTypes = metaData.recordTypesForIndex(srcIndex);
+
+                    if ( syntheticIndex ||
+                            recordTypes.size() != 1) {
+                        buildIndexFromIndexThrowEx("IndexFromIndex: tgt cannot be scanned from index");
+                    }
+                    if (srcRecordTypes.size() != 1 ||
+                            srcIndex.getRootExpression().createsDuplicates() ||
+                            ! srcIndex.getType().equals(IndexTypes.VALUE) ||
+                            ! recordTypes.equals(srcRecordTypes) ) {
+                        buildIndexFromIndexThrowEx("IndexFromIndex: src cannot be used for this tgt");
+                    }
+
+                    return context.getReadVersionAsync()
+                            .thenCompose(vignore -> {
+                                SubspaceProvider subspaceProvider = recordStoreBuilder.getSubspaceProvider();
+                                // zz 2 - subspace
+                                return subspaceProvider.getSubspaceAsync(context)
+                                        .thenCompose(subspace ->
+                                                buildIndexFromIndex(subspaceProvider, subspace)
+                                                        .thenCompose(vignore2 -> buildIndexFromIndexMarkBuilt(subspace)
+                                                        ));
+                            });
+                }));
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> buildIndexFromIndex(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+        AtomicReference<byte[]> nextCont = new AtomicReference<>();
+
+        // zz 3 while true -> runner/store -> build chunk
+        return AsyncUtil.whileTrue(() -> {
+            byte [] cont = nextCont.get();
+            final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex",
+                    LogMessageKeys.NEXT_CONTINUATION, cont == null ? "" : cont);
+
+            // zz 4 - buildAsync
+            // apparently, buildAsync=buildAndCommitWithRetry
+            return buildAsync( (store, recordsScanned) -> buildIndexFromIndexRange(store, cont, recordsScanned),
+                    true,
+                    additionalLogMessageKeyValues)
+                    .handle((retCont, ex) -> {
+                        // zz 4.1 - handle range
+                        if (ex == null) {
+                            if (LOGGER.isInfoEnabled() &&
+                                    (config.progressLogIntervalMillis > 0 &&
+                                    System.currentTimeMillis() - timeOfLastProgressLogMillis > config.progressLogIntervalMillis) ||
+                                    config.progressLogIntervalMillis == 0) {
+                                LOGGER.info(KeyValueLogMessage.of("Built Range",
+                                        LogMessageKeys.INDEX_NAME, index.getName(),
+                                        LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                                        subspaceProvider.logKey(), subspaceProvider,
+                                        LogMessageKeys.NEXT_CONTINUATION, retCont,
+                                        LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get()),
+                                        LogMessageKeys.INDEXER_ID, onlineIndexerId);
+                                timeOfLastProgressLogMillis = System.currentTimeMillis();
+                            }
+                            if (retCont == null) {
+                                return AsyncUtil.READY_FALSE;
+                            }
+                            nextCont.set(retCont); // continuation
+                            long toWait = (config.recordsPerSecond == UNLIMITED) ? 0 : 1000 * limit / config.recordsPerSecond;
+                            // Note that if the database slows down under load, the index build also naturally decreases
+                            // the amount of work it actually gets done per second
+                            return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
+                        }
+                        final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
+                        if (LOGGER.isInfoEnabled()) {
+                            LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
+                                    LogMessageKeys.NEXT_CONTINUATION, nextCont,
+                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
+                        }
+                        throw unwrappedEx;
+                    })
+                    .thenCompose(Function.identity());
+        }, getRunner().getExecutor());
+    }
+
+    @Nonnull
+    private CompletableFuture<byte[]> buildIndexFromIndexRange(@Nonnull FDBRecordStore store, byte[] cont, @Nonnull AtomicLong recordsScanned) {
+        // zz 5  - buildRangeOnly
+
+        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
+        final RecordMetaDataProvider recordMetaDataProvider = recordStoreBuilder.getMetaDataProvider();
+        if ( recordMetaDataProvider == null ||
+                !store.getRecordMetaData().equals(recordMetaDataProvider.getRecordMetaData())) {
+            throw new MetaDataException("Store does not have the same metadata");
+        }
+        final String srcIndex = indexFromIndex.getSourceIndex();
+
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        if (! maintainer.isIdempotent() ) {
+            // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
+            buildIndexFromIndexThrowEx("IndexFromIndex: tgt is not idempotent");
+        }
+        if (! store.isIndexReadable(srcIndex)) {
+            // readability - This method shouldn't block if one has already opened the record store (as we did)
+            buildIndexFromIndexThrowEx("IndexFromIndex: src is not readable");
+        }
+
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .setReturnedRowLimit(limit); // always respectLimit in this path
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+
+        RecordCursor<FDBIndexedRecord<Message>> cursor =
+                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.ALL, cont, scanProperties);
+
+        final AtomicLong recordsScannedCounter = new AtomicLong();
+        final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
+        final FDBRecordContext context = store.getContext();
+        final AtomicBoolean isEmpty = new AtomicBoolean(true);
+        final FDBStoreTimer timer = getRunner().getTimer();
+
+        return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
+            // zz 6 - handle a record
+            if (!result.hasNext()) {
+                // end of the cursor list
+                if (timer != null) {
+                    timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
+                }
+                lastResult.set(result);
+                return AsyncUtil.READY_FALSE;
+            }
+
+            final FDBIndexedRecord<Message> msg = result.get();
+            assert msg != null;
+            final FDBStoredRecord<Message> rec = msg.getStoredRecord();
+            isEmpty.set(false);
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+            }
+            recordsScannedCounter.incrementAndGet();
+            if (!recordTypes.contains(rec.getRecordType())) {
+                // This should never happen! (yet)
+                return AsyncUtil.READY_TRUE;
+            }
+            // add this index to the transaction
+            store.addRecordReadConflict(rec.getPrimaryKey());
+            if (timer != null) {
+                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+            }
+
+            // Note that synthetic plan is not allowed here
+            final CompletableFuture<Void> updateMaintainer = maintainer.update(null, rec);
+
+            return updateMaintainer.thenCompose(vignore ->
+                    context.getApproximateTransactionSize().thenApply(size -> {
+                        if (size >= config.getMaxWriteLimitBytes()) {
+                            // the transaction becomes too big - stop iterating
+                            if (timer != null) {
+                                timer.increment(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
+                            }
+                            lastResult.set(result);
+                            return false;
+                        }
+                        return true;
+                    }));
+        }), cursor.getExecutor()
+        ).thenCompose(vignore -> {
+            long recordsScannedInTransaction = recordsScannedCounter.get();
+            recordsScanned.addAndGet(recordsScannedInTransaction);
+            if (trackProgress) {
+                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
+                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
+            }
+            final byte[] retCont = isEmpty.get() ? null : lastResult.get().getContinuation().toBytes();
+            return CompletableFuture.completedFuture( retCont );
+        });
     }
 
     /**
@@ -1710,7 +1932,8 @@ public class OnlineIndexer implements AutoCloseable {
         protected Index index;
         @Nullable
         protected Collection<RecordType> recordTypes;
-
+        @Nonnull
+        private IndexFromIndexPolicy indexFromIndex = IndexFromIndexPolicy.INACTIVE;
         @Nonnull
         protected Function<Config, Config> configLoader = old -> old;
         protected int limit = DEFAULT_LIMIT;
@@ -2158,6 +2381,17 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Add an {@link IndexFromIndexPolicy} policy. If set, this policy will be used to build the target index by only
+         * scanning records of a source index, avoiding  a full record scan.
+         * @param indexFromIndex see {@link IndexFromIndexPolicy}
+         * @return this Builder
+         */
+        public Builder setIndexFromIndex(@Nonnull final IndexFromIndexPolicy indexFromIndex) {
+            this.indexFromIndex = indexFromIndex;
+            return this;
+        }
+
+        /**
          * Get the number of successful range builds before re-increasing the number of records to process in a single
          * transaction.
          * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
@@ -2432,7 +2666,7 @@ public class OnlineIndexer implements AutoCloseable {
             validate();
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
             return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
-                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress);
+                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress, indexFromIndex);
         }
 
         protected void validate() {
@@ -2478,6 +2712,119 @@ public class OnlineIndexer implements AutoCloseable {
                 throw new RecordCoreException("Non-positive value " + value + " given for " + desc);
             }
         }
+    }
+
+    /**
+     * A builder for the  indexFromIndex policy. Let the caller set a source index and a fallback policy.
+     */
+    public static class IndexFromIndexPolicy {
+        public static final IndexFromIndexPolicy INACTIVE = new IndexFromIndexPolicy();
+        @Nullable private final String sourceIndex;
+        private final boolean allowRecordScan;
+
+        /**
+         * Build the index from a source index. Source index must be readable, idempotent, and fully cover the target index.
+         * @param sourceIndex source index
+         * @param allowRecordScan allow fallback to record scan
+         */
+        public IndexFromIndexPolicy(@Nonnull String sourceIndex, boolean allowRecordScan) {
+            this.sourceIndex = sourceIndex;
+            this.allowRecordScan = allowRecordScan;
+        }
+
+        /**
+         * Build a non-active object.
+         */
+        public IndexFromIndexPolicy() {
+            this.sourceIndex = null;
+            this.allowRecordScan = true;
+        }
+
+        /**
+         * Check if active.
+         * @return True if active
+         */
+        public boolean isActive() {
+            return sourceIndex != null;
+        }
+
+        /**
+         * If active, get the source index.
+         * @return source index name
+         */
+        @Nullable
+        public String getSourceIndex() {
+            return sourceIndex;
+        }
+
+        /**
+         * If source index is not available, check if allowed to scan the records.
+         * @return  {@code true} if a record scan is allowed
+         */
+        public boolean isAllowRecordScan() {
+            return allowRecordScan;
+        }
+
+        /**
+         * Create a index from index policy builder.
+         * @return a new {@link IndexFromIndexPolicy} builder
+         */
+        @Nonnull
+        public static Builder newBuilder() {
+            return new Builder();
+        }
+
+        /**
+         * Builder for {@link IndexFromIndexPolicy}.
+         *
+         * <pre><code>
+         * OnlineIndexer.IndexFromIndexPolicy.newBuilder().setSourceIndex("src_index").build()
+         * </code></pre>
+         *
+         * Forbid fallback:
+         * <pre><code>
+         * OnlineIndexer.IndexFromIndexPolicy.newBuilder().setSourceIndex("src_index").forbidRecordScan().build()
+         * </code></pre>
+         *
+         */
+        @API(API.Status.UNSTABLE)
+        public static class Builder {
+            boolean allowRecordScan = true;
+            String sourceIndex = null;
+
+            protected Builder() {
+            }
+
+            /**
+             * Set a source index to scan.
+             * Some sanity checks will be performed, but it is the caller's responsibility to verify that this source is
+             * indexing all the relevant records for the target index.
+             *
+             * @param sourceIndex an existing, readable, index.
+             * @return this builder
+             */
+            public Builder setSourceIndex(final String sourceIndex) {
+                this.sourceIndex = sourceIndex;
+                return this;
+            }
+
+            /**
+             * After calling this function, throw an exception if the source index cannot be used to build the target
+             * index.
+             * The default behaviour (if this function isn't called) would be performing a full record scan.
+             *
+             * @return this builder
+             */
+            public Builder forbidRecordScan() {
+                this.allowRecordScan = false;
+                return this;
+            }
+
+            public IndexFromIndexPolicy build() {
+                return new IndexFromIndexPolicy(sourceIndex, allowRecordScan);
+            }
+        }
+
     }
 
     /**

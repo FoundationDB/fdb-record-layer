@@ -353,6 +353,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD_STORE_STATE,
                     preloadRecordStoreStateAsync(StoreExistenceCheck.NONE, IsolationLevel.SERIALIZABLE, IsolationLevel.SNAPSHOT));
         }
+
         return recordStoreStateRef.get();
     }
 
