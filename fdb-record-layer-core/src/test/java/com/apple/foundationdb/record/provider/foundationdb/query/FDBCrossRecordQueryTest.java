@@ -90,6 +90,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), unbounded())));
         assertEquals(1555932709, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+        assertEquals(1555932709, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         List<String> names = new ArrayList<>();
         List<Integer> etags = new ArrayList<>();
@@ -107,6 +108,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Arrays.asList("first", "second", "third", "fourth", "fifth", "sixth"), names.subList(0, 6));
         assertThat(names.subList(6, 9), containsInAnyOrder("seventh", "seventh", "seventh again"));
         assertEquals(1555932709, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+        assertEquals(1555932709, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals("eighth", names.get(9));
         assertEquals(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 7, 7, 8), etags);
     }
@@ -163,6 +165,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, indexScan(allOf(indexName("partial_versions"), bounds(hasTupleString("[[7],[7]]")))));
             assertEquals(-501898489, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-501898496, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             names.clear();
             etags.clear();
             try (FDBRecordContext context = openContext()) {
@@ -187,6 +190,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord2"), indexScan(allOf(indexName("partial_versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1724404567, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-1724404574, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             names.clear();
             etags.clear();
             try (FDBRecordContext context = openContext()) {
@@ -211,6 +215,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord3"), indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1908726868, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-1908726875, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             names.clear();
             etags.clear();
             try (FDBRecordContext context = openContext()) {
@@ -237,6 +242,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
             MatcherAssert.assertThat(plan, typeFilter(containsInAnyOrder("MySimpleRecord2", "MySimpleRecord3"),
                     indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1151709653, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-1151709660, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             names.clear();
             etags.clear();
             try (FDBRecordContext context = openContext()) {
@@ -284,6 +290,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), bounds(hasTupleString("([3],>")))));
         assertEquals(-1766882004, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+        assertEquals(-1766882007, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         List<String> names = new ArrayList<>();
         List<Integer> etags = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
@@ -324,6 +331,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("cross_versions"), bounds(hasTupleString("([1],>")))));
         assertEquals(552822345, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+        assertEquals(552822344, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         List<String> names = new ArrayList<>();
         List<Integer> etags = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
@@ -368,6 +376,7 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         MatcherAssert.assertThat(plan, typeFilter(containsInAnyOrder("MySimpleRecord2", "MySimpleRecord3"),
                 indexScan(allOf(indexName("partial_nested_versions"), bounds(hasTupleString("[[2, 1],[2, 1]]"))))));
         assertEquals(-1448785488, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+        assertEquals(-1448785551, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         try (FDBRecordContext context = openContext()) {
             openUnionRecordStore(context);
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {

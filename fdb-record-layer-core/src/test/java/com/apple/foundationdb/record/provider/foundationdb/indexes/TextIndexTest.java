@@ -1779,6 +1779,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
             assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-2107411954, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
 
@@ -1789,6 +1790,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))));
             assertEquals(1032989149, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-15011480, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
 
@@ -1801,6 +1803,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-2107411954, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
 
@@ -1812,6 +1815,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
             assertEquals(1032989149, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-15011480, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 1L, 2L, 3L), primaryKeys);
 
@@ -1825,6 +1829,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             assertThat(plan, filter(PredicateMatchers.field("group").equalsValue(0L),
                     textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(-1328921799, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(44031052, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Collections.singletonList(2L), primaryKeys);
 
@@ -1835,9 +1840,11 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .build();
             plan = planner.plan(query);
             System.out.println(plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            System.out.println(plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertThat(plan, filter(Query.field("group").equalsValue(0L),
                     fetch(primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))))));
             assertEquals(792432470, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(2046362659, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(Arrays.asList(0L, 2L), primaryKeys);
 
@@ -1855,6 +1862,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
             assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-2107411954, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             List<Tuple> idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
                         final Object docId = record.getRecord().getField(docIdDescriptor);
@@ -1873,6 +1881,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             plan = planner.plan(query);
             assertThat(plan, fetch(primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))));
             assertEquals(-1359010536, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-105080347, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             idTextTuples = recordStore.executeQuery(plan)
                     .map(record -> {
                         final Object docId = record.getRecord().getField(docIdDescriptor);
@@ -2213,6 +2222,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     groupingBounds(hasTupleString("[[0],[0]]")),
                     textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PHRASE, "continuance of their parents' rage", null, DefaultTextTokenizer.NAME)))))));
             assertEquals(822541560, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(125237745, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             List<ComplexDocument> results = recordStore.executeQuery(plan)
                     .map(rec -> ComplexDocument.newBuilder().mergeFrom(rec.getRecord()).build())
                     .asList()
@@ -2238,6 +2248,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     groupingBounds(hasTupleString("[[0],[0]]")),
                     textComparison(equalTo(new Comparisons.TextComparison(Comparisons.Type.TEXT_CONTAINS_PHRASE, "continuance of their parents' rage", null, DefaultTextTokenizer.NAME)))))));
             assertEquals(822541560, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(125237745, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             results = recordStore.executeQuery(plan)
                     .map(rec -> ComplexDocument.newBuilder().mergeFrom(rec.getRecord()).build())
                     .asList()
