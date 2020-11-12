@@ -298,12 +298,14 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         if (functionQuery) {
             assertThat(plan, indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
             assertEquals(316561162, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(313477709, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             // Here I'm really just making sure that (a) the substr_index is not selected, because the
             // function call doesn't appear in the query anyway and (b) that the planner doesn't throw
             // an exception or do something wonky as a result of the presence of this index.
             assertThat(plan, indexScan(allOf(indexName(normalIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
             assertEquals(1189784448, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(1186700995, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {

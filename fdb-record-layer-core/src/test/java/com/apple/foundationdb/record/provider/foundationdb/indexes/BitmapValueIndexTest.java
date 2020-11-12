@@ -291,6 +291,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 4],[odd, 4]]"))))))));
             assertEquals(1339577615, queryPlan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(1230585486, queryPlan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.range(100, 200).boxed()
@@ -319,6 +320,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("([odd, 3, 150],[odd, 3]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("([odd, 4, 150],[odd, 4]]"))))))));
             assertEquals(-1911273393, queryPlan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-2020270322, queryPlan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.range(151, 200).boxed()
@@ -348,6 +350,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 2],[odd, 2]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 4],[odd, 4]]"))))))));
             assertEquals(1173292541, queryPlan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(2086097895, queryPlan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.range(100, 200).boxed()
@@ -416,6 +419,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 0],[odd, 0]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 4],[odd, 4]]"))))))));
             assertEquals(1788540340, queryPlan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-1593621540, queryPlan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.range(100, 200).boxed()
@@ -443,6 +447,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 1],[odd, 1]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 2],[odd, 2]]"))))))));
             assertEquals(1339577551, queryPlan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(1230585486, queryPlan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.range(100, 200).boxed()
@@ -483,6 +488,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 1],[odd, 1]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num3"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 1],[odd, 1]]"))))))));
             assertEquals(-556720460, queryPlan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
+            assertEquals(-665712524, queryPlan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertThat(
                     collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
                     equalTo(IntStream.concat(IntStream.range(100, 200), IntStream.range(500, 600)).boxed()
