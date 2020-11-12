@@ -54,6 +54,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -542,6 +543,48 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                             .filter(i -> (i % 7) == 3 && (i % 5) == 4)
                             .map(i -> i + 1000)
                             .collect(Collectors.toList())));
+        }
+    }
+
+    @Test
+    public void singleQuery() {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            saveRecords(100, 200);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            setupPlanner(null);
+            final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
+                    Query.field("str_value").equalsValue("odd"),
+                    Query.field("num_value_2").equalsValue(3)));
+            assertThat(queryPlan, coveringIndexScan(indexScan(allOf(indexName("rec_no_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))));
+            assertEquals(1188586655, queryPlan.planHash());
+            assertThat(
+                    collectOnBits(queryPlan.execute(recordStore).map(FDBQueriedRecord::getIndexEntry)),
+                    equalTo(IntStream.range(100, 200).boxed()
+                            .filter(i -> (i & 1) == 1)
+                            .filter(i -> (i % 7) == 3)
+                            .collect(Collectors.toList())));
+        }
+    }
+
+    @Test
+    public void negatedQuery() {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            saveRecords(100, 200);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            setupPlanner(null);
+            assertThrows(AssertionFailedError.class, () -> {
+                plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
+                        Query.field("str_value").equalsValue("odd"),
+                        Query.not(Query.field("num_value_2").equalsValue(3))));
+            });
         }
     }
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.bitmap;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -47,6 +48,7 @@ import java.util.function.Function;
  *
  * @see BitmapValueIndexMaintainer
  */
+@API(API.Status.EXPERIMENTAL)
 class ComposedBitmapIndexCursor extends MergeCursor<IndexEntry, IndexEntry, MergeCursorState<IndexEntry>> {
     @Nonnull
     private final Composer composer;

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.bitmap;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithCom
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,6 +68,7 @@ import java.util.stream.Collectors;
  *
  * Optional additional grouping predicates for all indexes are also preserved.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ComposedBitmapIndexAggregate {
     @Nonnull
     private final Node root;
@@ -82,9 +85,9 @@ public class ComposedBitmapIndexAggregate {
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
      */
     @Nonnull
-    public static Optional<ComposedBitmapIndexQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
-                                                                 @Nonnull RecordQuery query,
-                                                                 @Nonnull IndexAggregateFunction indexAggregateFunction) {
+    public static Optional<RecordQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
+                                                    @Nonnull RecordQuery query,
+                                                    @Nonnull IndexAggregateFunction indexAggregateFunction) {
         if (query.getFilter() == null || query.getSort() != null) {
             return Optional.empty();
         }
@@ -99,12 +102,22 @@ public class ComposedBitmapIndexAggregate {
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
      */
     @Nonnull
-    public Optional<ComposedBitmapIndexQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
-                                                          @Nonnull RecordQuery.Builder queryBuilder) {
+    public Optional<RecordQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
+                                             @Nonnull RecordQuery.Builder queryBuilder) {
         final List<RecordQueryCoveringIndexPlan> indexScans = new ArrayList<>();
         final Map<IndexNode, ComposedBitmapIndexQueryPlan.IndexComposer> indexComposers = new IdentityHashMap<>();
-        return Optional.ofNullable(plan(root, queryBuilder, planner, indexScans, indexComposers))
-                .map(composer -> new ComposedBitmapIndexQueryPlan(indexScans, composer));
+        final ComposedBitmapIndexQueryPlan.ComposerBase composer = plan(root, queryBuilder, planner, indexScans, indexComposers);
+        if (composer == null || indexScans.isEmpty()) {
+            return Optional.empty();
+        }
+        if (indexScans.size() == 1) {
+            if (composer instanceof ComposedBitmapIndexQueryPlan.IndexComposer) {
+                return Optional.ofNullable(indexScans.get(0));
+            } else {
+                return Optional.empty();
+            }
+        }
+        return Optional.of(new ComposedBitmapIndexQueryPlan(indexScans, composer));
     }
 
     /**
