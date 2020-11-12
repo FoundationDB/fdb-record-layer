@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.bitmap;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -67,6 +68,7 @@ import java.util.stream.Collectors;
  *
  * Optional additional grouping predicates for all indexes are also preserved.
  */
+@API(API.Status.EXPERIMENTAL)
 public class ComposedBitmapIndexAggregate {
     @Nonnull
     private final Node root;
@@ -109,7 +111,11 @@ public class ComposedBitmapIndexAggregate {
             return Optional.empty();
         }
         if (indexScans.size() == 1) {
-            return Optional.ofNullable(indexScans.get(0));
+            if (composer instanceof ComposedBitmapIndexQueryPlan.IndexComposer) {
+                return Optional.ofNullable(indexScans.get(0));
+            } else {
+                return Optional.empty();
+            }
         }
         return Optional.of(new ComposedBitmapIndexQueryPlan(indexScans, composer));
     }
