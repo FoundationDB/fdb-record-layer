@@ -34,6 +34,11 @@ import java.util.List;
  */
 @API(API.Status.UNSTABLE)
 public interface PlanHashable {
+    /**
+     * The "kinds" of planHash calculations.
+     * Continuation: The "default" calculation. Used to decide whether a continuation can be used with the given plan.
+     * Structural-without-literals: Plan hash that ignores literals and variable markers. Used to distinguish plans that have the same structure.
+     */
     enum PlanHashKind {
         CONTINUATION,                 // The original plan hash kind: include children, literals and markers. Used for continuation validation
         STRUCTURAL_WITHOUT_LITERALS   // The hash used for query matching: skip all literals and markers
@@ -71,7 +76,6 @@ public interface PlanHashable {
         return combineHashes(hashes);
     }
 
-    // TODO: Do we need to add PlanHashKind here too?
     static int stringHashUnordered(@Nonnull Iterable<String> strings) {
         final ArrayList<Integer> hashes = new ArrayList<>();
         for (String str : strings) {
