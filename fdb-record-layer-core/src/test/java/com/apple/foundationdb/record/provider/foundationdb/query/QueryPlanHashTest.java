@@ -34,7 +34,9 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -53,6 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Tests for PlanHash on query plans.
  */
+@Tag(Tags.RequiresFDB)
 public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @BeforeEach
