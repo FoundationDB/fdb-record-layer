@@ -212,7 +212,6 @@ public class QueryKeyExpression {
 
         @Override
         public int planHash(PlanHashKind hashKind) {
-            // Right?
             return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
         }
     }
@@ -276,12 +275,7 @@ public class QueryKeyExpression {
 
         @Override
         public int planHash(PlanHashKind hashKind) {
-            switch (hashKind) {
-                case CONTINUATION:
-                    return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
-                default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-            }
+            return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
         }
     }
 

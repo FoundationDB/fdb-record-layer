@@ -483,6 +483,7 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
 
         @Override
         public int planHash(PlanHashKind hashKind) {
+            // TODO: Add "NOT"?
             return child.planHash(hashKind);
         }
 

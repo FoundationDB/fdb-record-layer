@@ -177,6 +177,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
 
     @Override
     public int planHash(PlanHashKind hashKind) {
+        // TODO: Super()?
         return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + getComparisonKey().planHash(hashKind) + (isReverse() ? 1 : 0);
     }
 

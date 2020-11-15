@@ -46,7 +46,7 @@ import java.util.stream.Stream;
  *
  * <p>
  * An element predicate is a "leaf" in a predicate tree. It pairs an element, which can be evaluated with respect to
- * a given {@link SourceEntry}, with a comparison. An element predicate evalutes to the result of the comparison on the
+ * a given {@link SourceEntry}, with a comparison. An element predicate evaluates to the result of the comparison on the
  * value of the element.
  * </p>
  */

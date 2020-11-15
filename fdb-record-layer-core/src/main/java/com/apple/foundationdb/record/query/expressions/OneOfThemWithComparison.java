@@ -129,6 +129,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
 
     @Override
     public int planHash(PlanHashKind hashKind) {
+        // TODO: Add "OneOfThem"?
         return getComparison().planHash(hashKind);
     }
 }

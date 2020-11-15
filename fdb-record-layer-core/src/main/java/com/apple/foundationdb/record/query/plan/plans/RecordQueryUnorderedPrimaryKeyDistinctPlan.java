@@ -156,7 +156,6 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Override
     public int planHash(PlanHashKind hashKind) {
-        // TODO: Is this right?
         return getInner().planHash(hashKind) + 1;
     }
 

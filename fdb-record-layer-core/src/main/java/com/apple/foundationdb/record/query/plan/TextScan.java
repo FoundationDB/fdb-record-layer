@@ -543,7 +543,6 @@ public class TextScan implements PlanHashable {
 
     @Override
     public int planHash(PlanHashKind hashKind) {
-        // TODO: Right?
         return PlanHashable.planHash(hashKind, textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();
     }
 }

@@ -107,12 +107,8 @@ public class LiteralElement<T> implements Element {
 
     @Override
     public int planHash(PlanHashKind hashKind) {
-        switch (hashKind) {
-            case CONTINUATION:
-                return hashCode();
-            default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-        }
+        // todo implement for STRUCTURAL_WITHOUT_LITERALS? Probably not since cannot decide if to include value without context
+        return hashCode();
     }
 
     @Nonnull

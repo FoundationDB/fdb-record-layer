@@ -71,7 +71,7 @@ public class OrPredicate extends AndOrPredicate {
 
     @Override
     public int planHash(PlanHashKind hashKind) {
-        // TODO: Is this correct? Also, shouldn't there be something for the "OR" part?
+        // TODO: shouldn't there be something for the "OR" part?
         return PlanHashable.planHash(hashKind, getChildren());
     }
 

@@ -243,6 +243,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
 
         @Override
         public int planHash(PlanHashKind hashKind) {
+            // TODO: Right?
             return hashCode();
         }
     }
@@ -292,6 +293,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         @Override
         // Right?
         public int planHash(PlanHashKind hashKind) {
+            // TODO: Right?
             return hashCode();
         }
     }
