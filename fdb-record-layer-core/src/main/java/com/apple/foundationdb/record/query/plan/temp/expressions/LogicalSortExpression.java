@@ -23,10 +23,11 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.BoundOrderingKeyPart;
+import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
@@ -36,6 +37,9 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -132,16 +136,28 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     }
 
     @Nonnull
-    public List<BoundOrderingKeyPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
+    public List<BoundKeyPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
         final List<KeyExpression> normalizedKeys = sort.normalizeKeyForPositions();
 
         final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
+        final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
         final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
-                partialMatch.getMatchWithCompensation().getParameterBindingMap();
+                matchWithCompensation.getParameterBindingMap();
+        final IdentityBiMap<QueryPredicate, QueryPredicate> accumulatedPredicateMap =
+                matchWithCompensation.getAccumulatedPredicateMap();
 
-        final ImmutableList.Builder<BoundOrderingKeyPart> builder = ImmutableList.builder();
+        final ImmutableMap<CorrelationIdentifier, QueryPredicate> parameterBindingPredicateMap = accumulatedPredicateMap
+                .entrySet()
+                .stream()
+                .filter(entry -> Objects.requireNonNull(entry.getValue().get()) instanceof ValueComparisonRangePredicate.Placeholder)
+                .collect(ImmutableMap.toImmutableMap(entry -> {
+                    final ValueComparisonRangePredicate.Placeholder candidatePredicate =
+                            (ValueComparisonRangePredicate.Placeholder)Objects.requireNonNull(entry.getValue().get());
+                    return candidatePredicate.getParameterAlias();
+                }, entry -> Objects.requireNonNull(entry.getKey().get())));
 
-        boolean seenNonEquality = false;
+        final ImmutableList.Builder<BoundKeyPart> builder = ImmutableList.builder();
+
         final List<CorrelationIdentifier> parameters = matchCandidate.getParameters();
         for (int i = 0; i < parameters.size(); i++) {
             final CorrelationIdentifier parameter = parameters.get(i);
@@ -149,11 +165,16 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
             Objects.requireNonNull(parameter);
             Objects.requireNonNull(normalizedKey);
             @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameter);
-            if (comparisonRange == null || comparisonRange.getRangeType() != ComparisonRange.Type.EQUALITY) {
-                seenNonEquality = true;
-            }
 
-            builder.add(BoundOrderingKeyPart.of(normalizedKey, seenNonEquality ? ComparisonRange.Type.EMPTY : ComparisonRange.Type.EQUALITY));
+            final QueryPredicate queryPredicate = parameterBindingPredicateMap.get(parameter);
+
+            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
+
+            builder.add(
+                    BoundKeyPart.of(normalizedKey,
+                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
+                            queryPredicate,
+                            queryPredicate == null ? null : Objects.requireNonNull(accumulatedPredicateMap.getUnwrapped(queryPredicate))));
         }
 
         return builder.build();

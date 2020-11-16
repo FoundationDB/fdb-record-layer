@@ -99,7 +99,7 @@ public class PartialMatch {
         this.queryExpression = queryExpression;
         this.candidateRef = candidateRef;
         this.matchWithCompensation = matchWithCompensation;
-        this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::getBoundParameterPrefixMap);
+        this.boundParameterPrefixMapSupplier = Suppliers.memoize(this::computeBoundParameterPrefixMap);
     }
 
     @Nonnull
@@ -137,6 +137,10 @@ public class PartialMatch {
     }
 
     public Map<CorrelationIdentifier, ComparisonRange> getBoundParameterPrefixMap() {
+        return boundParameterPrefixMapSupplier.get();
+    }
+
+    private Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap() {
         final ImmutableMap.Builder<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMapBuilder = ImmutableMap.builder();
         final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
                 matchWithCompensation.getParameterBindingMap();
