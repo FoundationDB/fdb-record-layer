@@ -156,7 +156,8 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
                         NodeInfo.NESTED_LOOP_JOIN_OPERATOR);
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.NodeWithInfo explodeNode =
-                new PlannerGraph.LogicalOperatorNodeWithInfo(NodeInfo.TABLE_FUNCTION_OPERATOR,
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.TABLE_FUNCTION_OPERATOR,
                         ImmutableList.of("EXPLODE({{externalBinding}})"),
                         ImmutableMap.of("externalBinding", Attribute.gml(externalBinding)));
         final PlannerGraph.Edge fromExplodeEdge = new PlannerGraph.Edge();

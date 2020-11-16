@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.escape.Escaper;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.html.HtmlEscapers;
@@ -31,7 +31,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -73,8 +72,7 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
                 edgeIDProvider,
                 edgeAttributeProvider,
                 graphAttributes,
-                network -> ImmutableMap.of(),
-                node -> ImmutableMap.of());
+                (network, nodes) -> ImmutableList.of());
     }
 
     /**
@@ -172,11 +170,7 @@ public class GmlExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     }
 
     @Override
-    protected void renderCluster(@Nonnull final ExporterContext context,
-                                 @Nonnull final String clusterId,
-                                 @Nonnull final N head,
-                                 @Nonnull final Set<N> nodeSet,
-                                 @Nonnull final Map<String, Attribute> attributes) {
+    protected void renderClusters(@Nonnull final ExporterContext context, @Nonnull final Collection<Cluster<N, E>> clusters) {
         // no clusters in GML
     }
 

@@ -89,7 +89,7 @@ public class VersionElement implements Element {
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         return this == other; // TODO not sure what to do here
     }
 

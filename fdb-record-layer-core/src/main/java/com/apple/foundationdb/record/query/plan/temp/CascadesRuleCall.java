@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * A rule call implementation for the {@link CascadesPlanner}. This rule call implements the logic for handling new
@@ -96,7 +98,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
     }
 
     @Nonnull
-    RelationalExpressionPointerSet<RelationalExpression> getNewExpressions() {
-        return newExpressions;
+    public Collection<RelationalExpression> getNewExpressions() {
+        return Collections.unmodifiableCollection(newExpressions);
     }
 }

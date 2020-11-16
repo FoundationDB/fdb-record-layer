@@ -59,7 +59,7 @@ abstract class ElementWithSingleSource implements Element {
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
         return equals(other); // TODO this should be adapted
     }
 

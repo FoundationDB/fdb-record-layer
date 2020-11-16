@@ -94,11 +94,11 @@ public class QueryPredicateTest {
 
         @Override
         public boolean equals(final Object other) {
-            return semanticEquals(other, AliasMap.empty());
+            return semanticEquals(other, AliasMap.emptyMap());
         }
 
         @Override
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
+        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
             return this == other;
         }
 

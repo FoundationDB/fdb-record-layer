@@ -195,7 +195,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
         }
     }
-
+    
     /**
      * Verify that a complex query with an AND of fields that are _not_ compatibly ordered generates a plan without
      * an intersection (uses filter instead).

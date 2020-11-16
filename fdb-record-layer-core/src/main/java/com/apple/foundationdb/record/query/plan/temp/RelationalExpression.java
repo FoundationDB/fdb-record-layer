@@ -22,6 +22,9 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
+import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
+import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
@@ -35,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -42,12 +46,14 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -129,7 +135,6 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     @Nonnull
     default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
         Stream<PlannerBindings> bindings = matcher.matchWith(this);
-        // TODO this is probably kind of inefficient for the really common case where we don't match at all.
         return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(getQuantifiers())
                 .map(outerBindings::mergedWith));
     }
@@ -191,72 +196,347 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
      *         produce the same result when invoked with no bindings, {@code false} otherwise.
      */
     default boolean semanticEquals(@Nullable final Object other) {
-        return semanticEquals(other, AliasMap.empty());
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 
+    /**
+     * Method to establish whether this relational expression is equal to another object under the bindings
+     * given by the {@link AliasMap} passed in.
+     * @param other the other object to establish equality with
+     * @param aliasMap a map of {@link CorrelationIdentifier}s {@code ids} to {@code ids'}. A correlation
+     *        identifier {@code id} used in {@code this} should be considered equal to another correlation identifier
+     *        {@code id'} used in {@code other} if either they are the same by {@link Object#equals}
+     *        of if there is a mapping from {@code id} to {@code id'}.
+     * @return {@code true} if this is considered equal to {@code other}, false otherwise
+     */
     @Override
     default boolean semanticEquals(@Nullable final Object other,
-                                   @Nonnull final AliasMap equivalenceMap) {
+                                   @Nonnull final AliasMap aliasMap) {
+        // check some early-outs
         if (this == other) {
             return true;
         }
 
-        if (other == null || getClass() != other.getClass()) {
+        if (other == null) {
+            return false;
+        }
+
+        if (!(other instanceof RelationalExpression)) {
             return false;
         }
 
         final RelationalExpression otherExpression = (RelationalExpression)other;
 
-        // We know this and otherExpression are of the same class. canCorrelate() needs to match as well.
+        // use matching logic to establish equality
+        final Iterable<AliasMap> boundMatchIterable =
+                findMatches(otherExpression,
+                        aliasMap,
+                        (quantifier, otherQuantifier, nestedEquivalenceMap) -> {
+                            if (quantifier.semanticHashCode() != otherQuantifier.semanticHashCode()) {
+                                return false;
+                            }
+                            return quantifier.semanticEquals(otherQuantifier, nestedEquivalenceMap);
+                        },
+                        ((boundCorrelatedToMap, boundMapIterable) -> {
+                            if (getQuantifiers().isEmpty()) {
+                                return equalsWithoutChildren(otherExpression, boundCorrelatedToMap);
+                            }
+
+                            return StreamSupport.stream(boundMapIterable.spliterator(), false)
+                                    .anyMatch(boundMap -> equalsWithoutChildren(otherExpression, boundMap));
+                        }));
+
+        return !Iterables.isEmpty(boundMatchIterable);
+    }
+
+    /**
+     * Find matches between this expression and another given expression under the bindings
+     * given by the {@link AliasMap} passed in.
+     *
+     * @param otherExpression other expression
+     * @param aliasMap alias map with external bindings
+     * @param matchPredicate a predicate uses for matching a pair of {@link Quantifier}s
+     * @param combinePredicate a predicate to accept or reject a match
+     * @return an {@link Iterable} of {@link AliasMap}s where each alias map is a match.
+     */
+    @Nonnull
+    default Iterable<AliasMap> findMatches(@Nonnull final RelationalExpression otherExpression,
+                                           @Nonnull final AliasMap aliasMap,
+                                           @Nonnull final MatchPredicate<Quantifier> matchPredicate,
+                                           @Nonnull final CombinePredicate combinePredicate) {
+
+        if (getClass() != otherExpression.getClass()) {
+            return ImmutableList.of();
+        }
+
+        // We know this and otherExpression are of the same class.canCorrelate() needs to match as well.
         Verify.verify(canCorrelate() == otherExpression.canCorrelate());
 
+        final Iterable<AliasMap> boundCorrelatedToIterable =
+                enumerateUnboundCorrelatedTo(aliasMap,
+                        otherExpression);
+
+        return () ->
+                StreamSupport.stream(boundCorrelatedToIterable.spliterator(), false)
+                        .filter(boundCorrelatedToMap -> {
+                            final Iterable<AliasMap> boundMapIterable =
+                                    Quantifiers.findMatches(
+                                            boundCorrelatedToMap,
+                                            getQuantifiers(),
+                                            otherExpression.getQuantifiers(),
+                                            matchPredicate);
+
+                            return combinePredicate.combine(boundCorrelatedToMap, boundMapIterable);
+                        }).iterator();
+    }
+
+    /**
+     * A functional interface to combine the matches computed over pairs of quantifiers during matching into a
+     * boolean result (for the bound correlatedTo set handed into {@link #combine}).
+     *
+     */
+    @FunctionalInterface
+    interface CombinePredicate {
+        /**
+         * Combine the results of a {@link Quantifiers#findMatches} into a boolean result.
+         * @param boundCorrelatedToMap the bound correlated to map
+         * @param boundMapIterable an iterable of {@link AliasMap} for all the matches for a given
+         *        {@code boundCorrelatedToMap}
+         * @return {@code false} if the match should be dropped or {@code true} if it should be kept.
+         */
+        boolean combine(@Nonnull final AliasMap boundCorrelatedToMap,
+                        @Nonnull final Iterable<AliasMap> boundMapIterable);
+    }
+
+    /**
+     * Attempt to match this expression (this graph) with another expression (from another graph called the candidate
+     * graph) to produce matches of some kind.
+     *
+     * Two relational expressions can only match if the sub-graphs of the quantifiers they range over match
+     * themselves under a bijective association (mapping between the quantifiers of this expression and
+     * the quantifier of the candidate expression). To this end, the {@code matchFunction} passed in to this method is
+     * used to determine the matches between two quantifiers: one from this graph and one from the candidate graph.
+     * The {@code matchFunction} can produce zero, one or many matches which are returned as an {@link Iterable} of type
+     * {@code R}.
+     *
+     * This method attempts to find that bijective mapping between the quantifiers contained by their respective
+     * expressions. Naturally, if the expressions that are being matched own a different number of quantifiers we cannot
+     * ever find a bijective mapping. In that case, the two expressions do not match at all. If, on the other hand the
+     * expressions that are being matched do have the same number of quantifiers, we need to enumerate all possible
+     * associations in order to potentially find matches. In a naive implementation, and not considering any other
+     * constraints, such an enumeration produces a number of mappings that is equal to the enumeration of all permutations
+     * of sets of size {@code n} which is {@code n!}. Fortunately, it is possible for most cases to impose strict
+     * constraints on the enumeration of mappings and therefore reduce the degrees of freedom we seemingly have at first
+     * considerably. For instance, if this expression can be the anchor of a correlation, there might be an implied
+     * necessary order imposed by a correlation between two quantifiers {@code q1} and {@code q2} where {@code q2}
+     * depends on {@code q1}, denoted by {@code q1 -> q2}.
+     * This implies that every enumerated mapping must contain {@code q1} before {@code q2} which therefore decreases
+     * the number of all mappings that need to be enumerated.
+     *
+     * One complicating factor are correlations to parts of the graph that are not contained in the sub-graphs
+     * underneath {@code this} respectively the candidate expression. These correlations are enumerated and bound
+     * prior to matching the quantifiers.
+     *
+     * @param otherExpression the expression to match this expression with
+     * @param boundAliasMap alias map containing bound aliases
+     * @param constraintsFunction function constraining the number of permutations to enumerate
+     * @param matchFunction function producing a match result as iterable of type {@code R}
+     * @param combineFunction function to produce an iterable of type {@code S} by combining on bound matches of type
+     *        {@code R}
+     * @param <R> intermediate type to represent match results
+     * @param <S> final type to represent match results
+     * @return an {@link Iterable} of type {@code S} of matches of {@code this} expression with {@code otherExpression}.
+     */
+    @Nonnull
+    default <R, S> Iterable<S> match(@Nonnull final RelationalExpression otherExpression,
+                                     @Nonnull final AliasMap boundAliasMap,
+                                     @Nonnull final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
+                                     @Nonnull final MatchFunction<Quantifier, R> matchFunction,
+                                     @Nonnull final CombineFunction<R, S> combineFunction) {
+        final List<? extends Quantifier> quantifiers = getQuantifiers();
+        final List<? extends Quantifier> otherQuantifiers = otherExpression.getQuantifiers();
+
+        // This is a cheap and effective great filter that is prone to eliminate non-matching cases hopefully very
+        // quickly -- removing this shouldn't change any semantics, just performance
+        if (getClass() != otherExpression.getClass()) {
+            return ImmutableList.of();
+        }
+
+        // If the class is the same ==> this.canCorrelate() == other.canCorrelate()  -- ensure that's the case.
+        Verify.verify(canCorrelate() == otherExpression.canCorrelate());
+
+        // We strive to find a binding for every alias in the grand union of all correlatedTo sets of all quantifiers.
+        // There are three kinds of correlations on those quantifiers:
+        //
+        // 1. correlations to quantifiers outside of the sub-graph rooted at this expressions
+        // 2. correlations among each other, e.g. q2 is correlated to q1 and both are underneath this expression
+        // 3. previously bound mappings -- we won't touch those here.
+        //
+        // We use the terminology "to bind an alias" to denote that we map an alias in this graph to an alias in
+        // the other graph.
+        // In order to produce an actual match we need to bind all aliases falling into (1) and (2) in a compatible way.
+        //
+        // For (1) we need to establish unbound deep correlations. We use the .getCorrelatedTo() sets of both expressions
+        // and try to match these. That is O(n) where n is the number of unbound deep correlations. In order to restrict
+        // the number of correlations we need to enumerate we use the following function to establish bindings absolutely
+        // necessary given constraints. See .enumerateConstraintAliases() for further explanations. It's important that
+        // a. this method attempts to reduce the degrees of freedom we have for (1)
+        // b. calling this method here is not needed for semantic correctness, just for performance
+        final Iterable<AliasMap> boundConstraintIterable =
+                Quantifiers.enumerateConstraintAliases(boundAliasMap,
+                        quantifiers,
+                        constraintsFunction,
+                        getCorrelatedTo(),
+                        otherExpression.getCorrelatedTo());
+
+        // We now attempt to bind all deep correlations that are not bound yet. This results in an iterable over all
+        // possible bindings out of (1)
+        final Iterable<AliasMap> boundCorrelatedToIterable =
+                IterableHelpers.flatMap(boundConstraintIterable,
+                        boundConstraintMap -> enumerateUnboundCorrelatedTo(boundConstraintMap, otherExpression));
+
+        // Call the matching logic to compute the matches for each mapping for (1) (and to find bindings for (2)).
+        return IterableHelpers.flatMap(boundCorrelatedToIterable,
+                boundCorrelatedToMap -> {
+                    final Iterable<BoundMatch<EnumeratingIterable<R>>> boundMatchIterable =
+                            Quantifiers.match(
+                                    boundCorrelatedToMap,
+                                    getQuantifiers(),
+                                    otherQuantifiers,
+                                    matchFunction);
+                    return combineFunction.combine(boundCorrelatedToMap, boundMatchIterable);
+                });
+    }
+
+    /**
+     * A functional interface to combine the matches computed over pairs of quantifiers during matching into a
+     * result (for the bound correlatedTo set handed into {@link #combine}).
+     *
+     * Let's assume we have multiple bindings during matching on the deep correlations (.getCorrelatedTo() of this).
+     * Let's call that the sets of outer bindings. We also attempt to match the quantifiers owned by this to the
+     * quantifiers of other.
+     *
+     * For each set of outer bindings we enumerate bindings among the owned quantifiers of the respective expressions.
+     * Let's call those sets the inner bindings. For each set out outer bindings there are many sets of inner bindings.
+     *
+     * At the end of matching we want to establish a match between this expression and some other expression and the
+     * quantifiers owned by the respective expressions and their bindings among each other do not matter anymore in
+     * terms of matching logic. Those bindings only matter for the result of the match under a set of outer bindings.
+     *
+     * The matching algorithm returns an iterable of some type {@code S} which is computed by a lambda passed in by
+     * the caller. It is up to the caller what to do with the outer and inner bindings and how to compute a useful
+     * result out of it. The signature of that lambda is defined by this interface.
+     *
+     * During matching the matching logic calls {@link #combine} for each set of outer bindings with and {@link Iterable}
+     * over sets of inner bindings (and their match results).
+     *
+     * @param <R> type of the match result computed while matching quantifiers
+     * @param <S> type of combined match result
+     */
+    @FunctionalInterface
+    interface CombineFunction<R, S> {
+        /**
+         * Combine the sets of bindings (and their results) under the given set of outer bindings to an iterable of
+         * combined results.
+         * @param boundCorrelatedToMap set of outer bindings encoded in an {@link AliasMap}
+         * @param boundMatches iterable of {@link BoundMatch}es
+         * @return an iterable of type {@code S}
+         */
+        @Nonnull
+        Iterable<S> combine(@Nonnull final AliasMap boundCorrelatedToMap,
+                            @Nonnull final Iterable<BoundMatch<EnumeratingIterable<R>>> boundMatches);
+    }
+
+    /**
+     * Method to enumerate all bindings of unbound correlations of this and some other expression.
+     *
+     * Example:
+     *
+     * <pre>
+     * {@code
+     *
+     *   this  (correlated to a1, a2, a3)            other (correlated to aa, ab, ac)
+     *   /|\                                          /|\
+     *  .....                                        .....
+     *
+     *  }
+     * </pre>
+     * Example a:
+     * <pre>
+     * {@code
+     *  boundAliasMap: (a2 -> ac)
+     *  result:
+     *    iterable of:
+     *      (a1 -> aa, a3 -> ab)
+     *      (a1 -> ab, a3 -> aa)
+     * }
+     * </pre>
+     * Example b:
+     * <pre>
+     * {@code
+     *  boundAliasMap: (empty)
+     *  result:
+     *    iterable of:
+     *      (a1 -> aa, a2 -> ab, a3 -> ac)
+     *      (a1 -> aa, a2 -> ac, a3 -> ab)
+     *      (a1 -> ab, a2 -> aa, a3 -> ac)
+     *      (a1 -> ab, a2 -> ac, a3 -> aa)
+     *      (a1 -> ac, a2 -> aa, a3 -> ab)
+     *      (a1 -> ac, a2 -> ab, a3 -> aa)
+     * }
+     * </pre>
+     *
+     * @param boundAliasMap alias map of bindings that should be considered pre-bound
+     * @param otherExpression the other expression
+     * @return an iterable of sets of bindings
+     */
+    @Nonnull
+    default Iterable<AliasMap> enumerateUnboundCorrelatedTo(@Nonnull final AliasMap boundAliasMap,
+                                                            @Nonnull final RelationalExpression otherExpression) {
         final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
         final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
 
-        Sets.SetView<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, equivalenceMap.sources());
-        Sets.SetView<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, equivalenceMap.targets());
+        final AliasMap identitiesMap = bindIdentities(otherExpression, boundAliasMap);
+        final Set<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, identitiesMap.sources());
+        final Set<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, identitiesMap.targets());
 
-        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(unboundCorrelatedTo, unboundOtherCorrelatedTo);
-        final AliasMap identitiesMap = AliasMap.identitiesFor(commonUnbound);
-        unboundCorrelatedTo = Sets.difference(correlatedTo, commonUnbound);
-        unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, commonUnbound);
-
-        final Iterable<AliasMap> boundCorrelatedReferencesIterable =
-                AliasMap.empty()
-                        .match(unboundCorrelatedTo,
-                                alias -> ImmutableSet.of(),
-                                unboundOtherCorrelatedTo,
-                                otherAlias -> ImmutableSet.of(),
-                                false,
-                                (alias, otherAlias, nestedEquivalencesMap) -> true);
-
-        for (final AliasMap boundCorrelatedReferencesMap : boundCorrelatedReferencesIterable) {
-            final AliasMap.Builder boundEquivalenceMapBuilder = equivalenceMap.derived();
-
-            boundEquivalenceMapBuilder.putAll(identitiesMap);
-            boundEquivalenceMapBuilder.putAll(boundCorrelatedReferencesMap);
-
-            final Iterable<AliasMap> aliasMapIterable =
-                    Quantifiers.match(getQuantifiers(),
-                            otherExpression.getQuantifiers(),
-                            canCorrelate(),
-                            boundEquivalenceMapBuilder.build(),
-                            (quantifier, otherQuantifier, nestedEquivalenceMap) -> {
-                                if (quantifier.semanticHashCode() != otherQuantifier.semanticHashCode()) {
-                                    return false;
-                                }
-                                return quantifier.semanticEquals(otherQuantifier, nestedEquivalenceMap);
-                            });
-
-            if (StreamSupport.stream(aliasMapIterable.spliterator(), false)
-                    .anyMatch(aliasMap -> equalsWithoutChildren(otherExpression, equivalenceMap.compose(aliasMap)))) {
-                return true;
-            }
-        }
-
-        return false;
+        final AliasMap aliasMapWithIdentities = boundAliasMap.combine(identitiesMap);
+        return aliasMapWithIdentities
+                .findMatches(
+                        unboundCorrelatedTo,
+                        alias -> ImmutableSet.of(),
+                        unboundOtherCorrelatedTo,
+                        otherAlias -> ImmutableSet.of(),
+                        (alias, otherAlias, nestedEquivalencesMap) -> true);
     }
 
+    /**
+     * Given the correlatedTo sets {@code c1} and {@code c2} of this expression and some other expression compute a set
+     * of bindings that contains identity bindings ({@code a -> a}) for the intersection of {@code c1} and {@code c2}.
+     * @param otherExpression other expression
+     * @param boundAliasMap alias map of bindings that should be considered pre-bound meaning that this method does
+     *        not include aliases participating in this map into the identities bindings.
+     * @return an {@link AliasMap} for containing only identity bindings for the intersection of the correlatedTo set
+     *         of this expression and the other expression
+     */
+    @Nonnull
+    default AliasMap bindIdentities(@Nonnull final RelationalExpression otherExpression,
+                                    @Nonnull final AliasMap boundAliasMap) {
+        final Set<CorrelationIdentifier> correlatedTo = getCorrelatedTo();
+        final Set<CorrelationIdentifier> otherCorrelatedTo = otherExpression.getCorrelatedTo();
+
+        Sets.SetView<CorrelationIdentifier> unboundCorrelatedTo = Sets.difference(correlatedTo, boundAliasMap.sources());
+        Sets.SetView<CorrelationIdentifier> unboundOtherCorrelatedTo = Sets.difference(otherCorrelatedTo, boundAliasMap.targets());
+
+        final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(unboundCorrelatedTo, unboundOtherCorrelatedTo);
+        return AliasMap.identitiesFor(commonUnbound);
+    }
+
+    /**
+     * Compute the semantic hash code of this expression. The logic computing the hash code is agnostic to the order
+     * of owned quantifiers.
+     * @return the semantic hash code
+     */
     @Override
     default int semanticHashCode() {
         return Objects.hash(getQuantifiers()
@@ -292,7 +572,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
      * method as a custom renderer for the type {@link RelationalExpression}. During debugging you can then for instance
      * click show() on an instance and enjoy the query graph it represents rendered in your standard browser.
      * @param renderSingleGroups whether to render group references with just one member
-     * @return the String "Done."
+     * @return the String "done"
      */
     @Nonnull
     default String show(final boolean renderSingleGroups) {

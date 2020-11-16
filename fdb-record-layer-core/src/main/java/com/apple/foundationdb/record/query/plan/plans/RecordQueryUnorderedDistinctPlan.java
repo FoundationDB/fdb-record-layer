@@ -152,7 +152,6 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-
         return comparisonKey.equals(((RecordQueryUnorderedDistinctPlan)otherExpression).comparisonKey);
     }
 

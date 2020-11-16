@@ -156,6 +156,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(
+                        this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
                         ImmutableList.of("WHERE {{pred}}"),
                         ImmutableMap.of("pred", Attribute.gml(getPredicate().toString()))),

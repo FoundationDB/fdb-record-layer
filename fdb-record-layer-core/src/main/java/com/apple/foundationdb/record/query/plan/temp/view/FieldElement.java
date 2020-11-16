@@ -120,7 +120,7 @@ public class FieldElement extends ElementWithSingleSource {
             return false;
         }
         FieldElement that = (FieldElement)o;
-        return Objects.equals(source, that.source) &&
+        return Objects.equals(source, that.source) &&  // TODO this should be done based on quantifiers
                Objects.equals(fieldNames, that.fieldNames);
     }
 

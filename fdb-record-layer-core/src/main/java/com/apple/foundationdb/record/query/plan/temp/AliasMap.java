@@ -20,21 +20,24 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.matching.FindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
+import com.apple.foundationdb.record.query.plan.temp.matching.PredicatedMatcher;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.BiPredicate;
 import java.util.function.Function;
 
 /**
@@ -158,12 +161,46 @@ import java.util.function.Function;
  * This class is immutable, all perceived "mutations" cause a new object to be created.
  *
  */
-@API(API.Status.EXPERIMENTAL)
 public class AliasMap {
     private final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map;
 
+    /**
+     * Private constructor. Use static factory methods/builders to instantiate alias maps.
+     * @param map the backing bi-map
+     */
     private AliasMap(final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map) {
         this.map = map;
+    }
+
+    /**
+     * Define equality based on the equality of the backing bimap.
+     * @param o other object
+     * @return {@code true} if {@code o} is equal to {@code this}, {@code false} otherwise.
+     */
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        final AliasMap aliasMap = (AliasMap)o;
+        return map.equals(aliasMap.map);
+    }
+
+    /**
+     * Define equality based on the equality of the backing bimap.
+     * @return {@code true} if {@code o} is equal to {@code this}.
+     */
+    @Override
+    public int hashCode() {
+        return map.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return map.toString();
     }
 
     public boolean containsSource(@Nonnull final CorrelationIdentifier alias) {
@@ -176,7 +213,7 @@ public class AliasMap {
 
     /**
      * Returns the set of {@link CorrelationIdentifier}s that are mapped by this {@code AliasMap}.
-     * @return a set of {@link CorrelationIdentifier}s that this map contains mappings for.
+     * @return a set of {@link CorrelationIdentifier}s that this map contains mappings for
      */
     @Nonnull
     public Set<CorrelationIdentifier> sources() {
@@ -184,8 +221,8 @@ public class AliasMap {
     }
 
     /**
-     * Returns the set of all {@link CorrelationIdentifier}s that this map maps to using the set of {@link CorrelationIdentifier}s
-     * returned by {@link #sources()}.
+     * Returns the set of all {@link CorrelationIdentifier}s that this map maps to using the set of
+     * {@link CorrelationIdentifier}s returned by {@link #sources()}.
      * @return a set of {@link CorrelationIdentifier}s that this map maps to.
      */
     @Nonnull
@@ -193,174 +230,255 @@ public class AliasMap {
         return map.values();
     }
 
+    /**
+     * Returns the size of the alias map, i.e., the number of contained bindings.
+     * @return the size of the alias map.
+     */
     public int size() {
         return map.size();
     }
 
+    /**
+     * Create a builder for a new alias map using the bindings of this map.
+     * @return a new builder derived from the contents of this map.
+     */
     @Nonnull
     public Builder derived() {
-        return new Builder(map);
+        return builder().putAll(this);
+    }
+
+    /**
+     * Create a builder for a new alias map using the bindings of this map.
+     * @param expectedAdditionalElements the number of additional elements that the caller expects to add before
+     *        build is called.
+     * @return a new builder derived from the contents of this map.
+     */
+    @Nonnull
+    public Builder derived(final int expectedAdditionalElements) {
+        return builder(expectedAdditionalElements).putAll(this);
+    }
+
+    /**
+     * Returns the set of entries in this map.
+     * @return the set of entries
+     */
+    @Nonnull
+    public Set<Map.Entry<CorrelationIdentifier, CorrelationIdentifier>> entrySet() {
+        return map.entrySet();
+    }
+
+    /**
+     * Get the target for a source passed in.
+     * @param source the source to return the target for
+     * @return the target that source is bound to in this alias map or {@code null} if there is no binding
+     *         from {@code source} in this alias map
+     */
+    @Nullable
+    public CorrelationIdentifier getTarget(final CorrelationIdentifier source) {
+        return map.get(source);
     }
 
     @Nonnull
-    public Builder derived(int expectedAdditionalElements) {
-        return new Builder(size() + expectedAdditionalElements).putAll(this);
+    public CorrelationIdentifier getTargetOrDefault(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier defaultValue) {
+        @Nullable final CorrelationIdentifier target = getTarget(source);
+        if (target == null) {
+            return defaultValue;
+        }
+        return target;
+    }
+
+    /**
+     * Call an action for each mapping contained in this alias map.
+     * @param action a bi-consumer that is called for each (source, target) pair
+     */
+    public void forEachMapping(@Nonnull final BiConsumer<CorrelationIdentifier, CorrelationIdentifier> action) {
+        for (final CorrelationIdentifier source : sources()) {
+            action.accept(source, Objects.requireNonNull(getTarget(source)));
+        }
+    }
+
+    /**
+     * Filter the bindings of this alias map using some bi-predicate that is handed in. This filter method works
+     * by immediately filtering the contents of this map and then creating a new map which is quite different to what
+     * e.g. operations on {@link java.util.stream.Stream} would do where the result is computed when the collect
+     * happens.
+     * @param predicate a bi-predicate that is called for each (source, target) pair
+     * @return a new alias map that only retains bindings that where accepted by {@code predicate}, i.e., for which
+     *         the predicate returned {@code true}.
+     */
+    @Nonnull
+    public AliasMap filterMappings(@Nonnull final BiPredicate<CorrelationIdentifier, CorrelationIdentifier> predicate) {
+        final Builder builder = builder(size());
+        for (final CorrelationIdentifier source : sources()) {
+            final CorrelationIdentifier target = Objects.requireNonNull(getTarget(source));
+            if (predicate.test(source, target)) {
+                builder.put(source, target);
+            }
+        }
+        return builder.build();
     }
 
     /**
      * Compute the composition of two {@link AliasMap}s.
      * @param other second alias map
-     * @return a translation map that maps {@code a -> c} for {@code a, b, c} if {@code a -> b} is contained in {@code first} and {@code b -> c} is contained in {@code second},
-     *         {@code a -> b} for {@code a, b} if {@code a -> b} in {@code first} and no {@code b -> x} for any {@code x} is contained in {@code second}, and
-     *         {@code b -> c} for {@code b, c} if {@code a -> x} for any {@code x} is not contained in {@code first} and {@code b -> c} is contained in {@code second}
+     * @return a alias map that maps {@code a -> c} for all {@code a, b, c} if {@code a -> b} is contained in
+     *         {@code this} and {@code b -> c} is contained in {@code other},
+     *         {@code a -> b} for {@code a, b} if {@code a -> b} in {@code this} and no {@code b -> x} for any
+     *         {@code x} is contained in {@code other}, and
+     *         {@code b -> c} for {@code b, c} if {@code a -> x} for any {@code x} is not contained in {@code this} and
+     *         {@code b -> c} is contained in {@code other}
      */
     @Nonnull
     public AliasMap compose(@Nonnull final AliasMap other) {
         final Builder builder =
                 AliasMap.builder(size() + other.size());
 
-        final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> otherMap = other.map;
-        this.map.forEach((key, value) -> builder.put(key, otherMap.getOrDefault(value, value)));
+        map.forEach((source, target) -> builder.put(source, other.getTargetOrDefault(target, target)));
 
-        otherMap.forEach((key, value) -> {
-            if (!containsSource(key)) {
-                builder.put(key, value);
+        other.forEachMapping((source, target) -> {
+            // add the mappings that originate in the other side but don't have a mapping in this
+            if (!containsTarget(source)) {
+                Preconditions.checkArgument(!containsSource(source), "conflicting mapping");
+                builder.put(source, target);
             }
         });
         return builder.build();
     }
 
     /**
-     * Method to match up the given sets of correlation identifiers (using an already given equivalence map).
-     *
-     * @param aliases aliases of this set
-     * @param dependsOnFn function yielding the dependsOn set for an alias of this set
-     * @param otherAliases aliases of the other set
-     * @param otherDependsOnFn function yielding the dependsOn set for an alias of the other set
-     * @param canCorrelate {@code true} if this set (and the other set) can be the source of correlations themselves.
-     * @param predicate that tests if two aliases match
-     * @return An iterable iterating alias maps containing mappings from the correlation identifiers ({@code aliases}) to
-     *         correlations identifiers {@code otherAliases} according to the given predicate. Note that these mappings
-     *         are bijective and can therefore be inverted.
+     * Determine if two {@link AliasMap}s are compatible.
+     * @param other second alias map
+     * @return {@code true} if this {@code AliasMap} is compatible to {@code other}, that is there are no conflicting
+     *         mappings in a sense that a union of the mappings of {@code this} and {@code other} can form a
+     *         {@link BiMap}, {@code false} otherwise.
      */
-    @SuppressWarnings({"squid:S135"})
-    @Nonnull
-    public Iterable<AliasMap> match(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                    @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                    @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                    @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                    final boolean canCorrelate,
-                                    @Nonnull final MatchingIdPredicate predicate) {
-        if (aliases.size() != otherAliases.size()) {
-            return ImmutableList.of();
-        }
-
-        if (aliases.isEmpty()) {
-            return ImmutableList.of(empty());
-        }
-
-        //
-        // We do not know which id in "this" maps to which in "other". In fact, we cannot know as it is
-        // intentionally modeled this way. We need to find a feasible ordering that matches. In reality, the
-        // quantifiers owned by an expression imposes a more or less a complete order leaving no room for many
-        // permutations among unrelated quantifiers. In the worst case, we must enumerate them all. Luckily, most
-        // algorithms for children have short-circuit semantics, so the uninteresting case where sub-graphs underneath
-        // quantifiers do not match should be skipped quickly.
-        //
-        // get a topologically-sound permutation from other
-        final Optional<List<CorrelationIdentifier>> otherOrderedOptional =
-                TopologicalSort.anyTopologicalOrderPermutation(
-                        otherAliases,
-                        alias -> Objects.requireNonNull(otherDependsOnFn.apply(alias)));
-
-        // There should always be a topologically sound ordering that we can use.
-        Verify.verify(otherOrderedOptional.isPresent());
-
-        final List<CorrelationIdentifier> otherOrdered = otherOrderedOptional.get();
-
-        final TopologicalSort.TopologicalOrderPermutationIterable<CorrelationIdentifier> iterable =
-                TopologicalSort.topologicalOrderPermutations(
-                        aliases,
-                        alias -> Objects.requireNonNull(dependsOnFn.apply(alias)));
-
-        return () -> {
-            final TopologicalSort.TopologicalOrderPermutationIterator<CorrelationIdentifier> iterator = iterable.iterator();
-
-            return new AbstractIterator<AliasMap>() {
-                @Override
-                protected AliasMap computeNext() {
-                    while (iterator.hasNext()) {
-                        final Builder equivalenceMapBuilder = derived(aliases.size());
-
-                        final List<CorrelationIdentifier> ordered = iterator.next();
-                        int i;
-                        for (i = 0; i < aliases.size(); i++) {
-                            final CorrelationIdentifier alias = ordered.get(i);
-                            final CorrelationIdentifier otherAlias = otherOrdered.get(i);
-
-                            if (!predicate.test(alias, otherAlias, equivalenceMapBuilder.build())) {
-                                break;
-                            }
-
-                            if (canCorrelate) {
-                                // We now amend the equivalences passed in by adding the already known bound aliases left
-                                // of i and make them equivalent as well
-                                equivalenceMapBuilder.put(alias, otherAlias);
-                            }
-                        }
-
-                        if (i == aliases.size()) {
-                            // zip ordered and otherOrdered as they now match
-                            return zip(ordered, otherOrdered);
-                        } else {
-                            // we can skip all permutations where the i-th value is bound the way it currently is
-                            iterator.skip(i);
-                        }
-                    }
-
-                    return endOfData();
+    public boolean isCompatible(@Nonnull final AliasMap other) {
+        for (final CorrelationIdentifier otherSource : other.sources()) {
+            final CorrelationIdentifier otherTarget = Objects.requireNonNull(other.getTarget(otherSource));
+            if (containsSource(otherSource)) {
+                if (!otherTarget.equals(getTarget(otherSource))) {
+                    return false;
                 }
-            };
-        };
+            } else {
+                if (containsTarget(otherTarget)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
+
+    /**
+     * Combine two compatible {@link AliasMap}s.
+     * @param other second alias map
+     * @return a combined translation map (see {@link #combineMaybe})
+     */
+    @Nonnull
+    public AliasMap combine(@Nonnull final AliasMap other) {
+        return combineMaybe(other)
+                .orElseThrow(() -> new IllegalArgumentException("duplicate mapping"));
+    }
+
+    /**
+     * Combine two {@link AliasMap}s if possible
+     * @param other second alias map
+     * @return {@code Optional} containing a translation map that maps {@code a -> b} for all {@code a, b} if
+     *         {@code a -> b} is contained in {@code this} and there is no c with {@code b != c}
+     *         such that {@code a -> c} is contained in {@code other}. Empty {@code Optional}, otherwise.
+     */
+    @Nonnull
+    public Optional<AliasMap> combineMaybe(@Nonnull final AliasMap other) {
+        final Builder builder =
+                AliasMap.builder(size() + other.size());
+
+        for (final CorrelationIdentifier otherSource : other.sources()) {
+            final CorrelationIdentifier otherTarget = Objects.requireNonNull(other.getTarget(otherSource));
+            if (containsSource(otherSource)) {
+                if (!otherTarget.equals(getTarget(otherSource))) {
+                    return Optional.empty();
+                }
+            } else {
+                if (containsTarget(otherTarget)) {
+                    return Optional.empty();
+                }
+            }
+            builder.put(otherSource, otherTarget);
+        }
+        map.forEach(builder::put);
+        return Optional.of(builder.build());
+    }
+
+    /**
+     * Create a new empty builder.
+     * @return a builder for a new {@link AliasMap}
+     */
     @Nonnull
     public static Builder builder() {
         return new Builder();
     }
 
+    /**
+     * Create a new empty builder using an expected size that is passed in.
+     * @param expectedSize expected size of the eventual {@link AliasMap}
+     * @return a builder for a new {@link AliasMap}
+     */
     @Nonnull
     public static Builder builder(final int expectedSize) {
         return new Builder(expectedSize);
     }
 
+    /**
+     * Factory method to create an empty alias map.
+     * @return a new empty {@link AliasMap}
+     */
     @Nonnull
-    public static AliasMap empty() {
+    public static AliasMap emptyMap() {
         return new AliasMap(ImmutableBiMap.of());
     }
 
+    /**
+     * Factory method to create an alias map based on a given binding.
+     * @param source an alias of a source
+     * @param target an alias of a target
+     * @return a new {@link AliasMap} containing exactly the binding {@code source -> target}
+     */
     @Nonnull
     public static AliasMap of(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
         return new AliasMap(ImmutableBiMap.of(source, target));
     }
 
+    /**
+     * Factory method to create an alias map that is a copy of an {@link BiMap} passed in. Note that no actual
+     * copy takes place if the bi-map that is passed in is of type {@link ImmutableBiMap}.
+     * @param map a bi0map containing bindings
+     * @return a new {@link AliasMap}
+     */
     @Nonnull
-    public static AliasMap of(@Nonnull final BiMap<CorrelationIdentifier, CorrelationIdentifier> map) {
+    public static AliasMap copyOf(@Nonnull final BiMap<CorrelationIdentifier, CorrelationIdentifier> map) {
         return new AliasMap(ImmutableBiMap.copyOf(map));
     }
 
+    /**
+     * Factory method to create an alias map that contains entries {@code a -> a, b -> b, ...} for each alias contained
+     * in the set of {@link CorrelationIdentifier}s passed in.
+     * @param aliases set of aliases that this method should create identity-bindings for
+     * @return a new {@link AliasMap}
+     */
     @Nonnull
-    public static AliasMap identitiesFor(@Nonnull final Set<CorrelationIdentifier> correlationIdentifiers) {
-        return new AliasMap(correlationIdentifiers.stream()
-                .collect(ImmutableBiMap.toImmutableBiMap(Function.identity(), Function.identity())));
+    public static AliasMap identitiesFor(final Set<CorrelationIdentifier> aliases) {
+        return builder(aliases.size()).identitiesFor(aliases).build();
     }
 
-    @SuppressWarnings("UnstableApiUsage")
+    /**
+     * Factory method to create an alias map based on a {@code zip} of two parallel lists of aliases.
+     * @param left one list
+     * @param right other list
+     * @return a new {@link AliasMap}
+     */
     @Nonnull
     public static AliasMap zip(@Nonnull final List<CorrelationIdentifier> left, @Nonnull final List<CorrelationIdentifier> right) {
-        return new AliasMap(Streams.zip(left.stream(), right.stream(),
-                (l, r) -> Pair.of(Objects.requireNonNull(l), Objects.requireNonNull(r)))
-                .collect(ImmutableBiMap.toImmutableBiMap(Pair::getLeft, Pair::getRight)));
+        return builder(left.size()).zip(left, right).build();
     }
 
     /**
@@ -377,22 +495,75 @@ public class AliasMap {
             this.map = HashBiMap.create(expectedSize);
         }
 
-        private Builder(final BiMap<CorrelationIdentifier, CorrelationIdentifier> map) {
-            this.map = HashBiMap.create(map);
-        }
-
+        /**
+         * Put a new binding between {@code source} and {@code target}. Note that if there is already a binding for
+         * {@code source}, the binding will remain untouched if {@code target.equals(oldTarget)}, it will be
+         * replaced with {@code source -> target} otherwise. Also, putting a binding for a {@code target} that already
+         * exists will fail.
+         * @param source a source alias
+         * @param target a target alias
+         * @throws IllegalArgumentException if {@code target} is already contained in the builder
+         * @return {@code this} that has been modified to contain {@code source -> target}
+         */
         @Nonnull
         public Builder put(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier target) {
             map.put(source, target);
             return this;
         }
 
+        /**
+         * Put all binding that are contained in another {@link AliasMap}. Note that if there are already bindings for
+         * sources contained in {@code other}, these bindings will remain untouched if {@code target.equals(oldTarget)},
+         * they will be replaced otherwise. Also, this call will fail if a target contained in {@code other} already
+         * exists in {@code this},
+         * @param other another {@link AliasMap}
+         * @throws IllegalArgumentException if any target contained in {@code other} is already contained in the builder
+         * @return {@code this} that has been modified to contain all bindings from {@code other}
+         */
         @Nonnull
         public Builder putAll(@Nonnull final AliasMap other) {
-            map.putAll(other.map);
+            other.sources()
+                    .forEach(source -> put(source,
+                            Objects.requireNonNull(other.getTarget(source))));
             return this;
         }
 
+        /**
+         * Method to update the builder to contain entries {@code a -> a, b -> b, ...} for each alias contained
+         * in the set of {@link CorrelationIdentifier}s passed in.
+         * @param aliases set of aliases that this method should create identity-bindings for
+         * @return {@code this} that has been modified to contain identity-bindings for all aliases contained in
+         *         {@code aliases}
+         */
+        @Nonnull
+        public Builder identitiesFor(final Set<CorrelationIdentifier> aliases) {
+            aliases.forEach(id -> put(id, id));
+            return this;
+        }
+
+        /**
+         * Method to update the builder to additionally contain the {@code zip} of two parallel lists of aliases.
+         * @param left one list
+         * @param right other list
+         * @return {@code this} that has been modified to contain the zip of left and right as bindings {@code l -> r};
+         */
+        @Nonnull
+        public Builder zip(@Nonnull final List<CorrelationIdentifier> left, @Nonnull final List<CorrelationIdentifier> right) {
+            final int size = left.size();
+            Verify.verify(size == right.size());
+
+            for (int i = 0; i < size; i ++) {
+                final CorrelationIdentifier leftId = left.get(i);
+                put(leftId, right.get(i));
+            }
+
+            return this;
+        }
+
+        /**
+         * Build a new {@link AliasMap}. This will entail a copy of the mappings in order to gain immutability guarantees.
+         * @return a new {@link AliasMap}
+         */
         @Nonnull
         public AliasMap build() {
             return new AliasMap(ImmutableBiMap.copyOf(map));
@@ -400,13 +571,42 @@ public class AliasMap {
     }
 
     /**
-     * An predicate that tests for a match between quantifiers also taking into account an equivalence maps between
-     * {@link CorrelationIdentifier}s.
+     * Find matches between two sets of aliases, given their depends-on sets and a
+     * {@link MatchPredicate}.
+     * This method creates an underlying {@link PredicatedMatcher} to do the work.
+     * @param aliases a set of aliases
+     * @param dependsOnFn a function that returns the set of dependencies for a given alias within {@code aliases}
+     * @param otherAliases a set of other aliases
+     * @param otherDependsOnFn a function that returns the set of dependencies for a given alias within {@code otherAliases}
+     * @param matchPredicate match predicate. see {@link MatchPredicate}
+     *        for more info
+     * @return an iterable of {@link AliasMap}s where each individual {@link AliasMap} is considered one match
      */
-    @FunctionalInterface
-    public interface MatchingIdPredicate {
-        boolean test(@Nonnull CorrelationIdentifier id,
-                     @Nonnull CorrelationIdentifier otherId,
-                     @Nonnull final AliasMap equivalencesMap);
+    public Iterable<AliasMap> findMatches(@Nonnull final Set<CorrelationIdentifier> aliases,
+                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                          @Nonnull final Set<CorrelationIdentifier> otherAliases,
+                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                          @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+        return matcher(
+                aliases,
+                dependsOnFn,
+                otherAliases,
+                otherDependsOnFn,
+                matchPredicate)
+                .findMatches();
+    }
+
+    public PredicatedMatcher matcher(@Nonnull final Set<CorrelationIdentifier> aliases,
+                                     @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                     @Nonnull final Set<CorrelationIdentifier> otherAliases,
+                                     @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                     @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+        return FindingMatcher.onAliases(
+                this,
+                aliases,
+                dependsOnFn,
+                otherAliases,
+                otherDependsOnFn,
+                matchPredicate);
     }
 }

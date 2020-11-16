@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.graph.EndpointPair;
+import com.google.common.graph.Graphs;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.MutableNetwork;
 import com.google.common.graph.Network;
@@ -32,10 +34,12 @@ import com.google.common.graph.NetworkBuilder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * The planner graph class. Objects of this class are computed by {@link PlannerGraphProperty},
@@ -61,6 +65,12 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
     private final ImmutableNetwork<N, E> network;
 
     /**
+     * A mapping from objects the nodes in the graph represent to the actual nodes. This is computed by using the
+     * network lazily.
+     */
+    private final Supplier<Map<Object, N>> reverseMapSupplier;
+
+    /**
      * Builder class for planner graph. Used during computation of the planner expression property.
      * Note that each AbstractPlannerGraph will have a root which is mandatory.
      * @param <N> node type
@@ -81,6 +91,11 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
                             .allowsSelfLoops(true)
                             .build();
             addNode(root);
+        }
+
+        protected PlannerGraphBuilder(@Nonnull final AbstractPlannerGraph<N, E> original) {
+            this.root = original.getRoot();
+            this.network = Graphs.copyOf(original.getNetwork());
         }
 
         @Nonnull
@@ -265,6 +280,13 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
         mutableNetwork.addNode(root);
         this.network =
                 ImmutableNetwork.copyOf(network);
+        this.reverseMapSupplier =
+                Suppliers.memoize(() -> {
+                    final IdentityHashMap<Object, N> reverseMap = new IdentityHashMap<>();
+                    network.nodes()
+                            .forEach(node -> reverseMap.put(node.getIdentity(), node));
+                    return reverseMap;
+                });
     }
 
     @Nonnull
@@ -275,5 +297,11 @@ public class AbstractPlannerGraph<N extends AbstractPlannerGraph.AbstractNode, E
     @Nonnull
     public ImmutableNetwork<N, E> getNetwork() {
         return network;
+    }
+
+    @Nullable
+    public N getNodeForIdentity(final Object identity) {
+        return reverseMapSupplier.get()
+                .get(identity);
     }
 }

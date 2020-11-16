@@ -21,9 +21,15 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.AbstractMap;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -82,5 +88,86 @@ public class CorrelationIdentifier {
     @Override
     public String toString() {
         return id;
+    }
+
+    /**
+     * Return a mapping between {@code a -> a} for all a in the given set as a view on the original set.
+     * @param aliases set to compute the identity mappings for
+     * @return a view on the set that maps each element in {@code aliases} to itself.
+     */
+    public static Map<CorrelationIdentifier, CorrelationIdentifier> identityMappingMap(@Nonnull final Set<CorrelationIdentifier> aliases) {
+        return new Map<CorrelationIdentifier, CorrelationIdentifier>() {
+            @Override
+            public int size() {
+                return aliases.size();
+            }
+
+            @Override
+            public boolean isEmpty() {
+                return aliases.isEmpty();
+            }
+
+            @SuppressWarnings("SuspiciousMethodCalls")
+            @Override
+            public boolean containsKey(final Object key) {
+                return aliases.contains(key);
+            }
+
+            @SuppressWarnings("SuspiciousMethodCalls")
+            @Override
+            public boolean containsValue(final Object value) {
+                return aliases.contains(value);
+            }
+
+            @SuppressWarnings("java:S1905")
+            @Nullable
+            @Override
+            public CorrelationIdentifier get(final Object key) {
+                if (containsKey(key)) {
+                    return (CorrelationIdentifier)key;
+                }
+                return null;
+            }
+
+            @Override
+            public CorrelationIdentifier put(final CorrelationIdentifier key, final CorrelationIdentifier value) {
+                throw new UnsupportedOperationException("mutation is not allowed");
+            }
+
+            @Override
+            public CorrelationIdentifier remove(final Object key) {
+                throw new UnsupportedOperationException("mutation is not allowed");
+            }
+
+            @Override
+            public void putAll(@Nonnull final Map<? extends CorrelationIdentifier, ? extends CorrelationIdentifier> m) {
+                throw new UnsupportedOperationException("mutation is not allowed");
+            }
+
+            @Override
+            public void clear() {
+                throw new UnsupportedOperationException("mutation is not allowed");
+            }
+
+            @Nonnull
+            @Override
+            public Set<CorrelationIdentifier> keySet() {
+                return aliases;
+            }
+
+            @Nonnull
+            @Override
+            public Collection<CorrelationIdentifier> values() {
+                return aliases;
+            }
+
+            @Nonnull
+            @Override
+            public Set<Entry<CorrelationIdentifier, CorrelationIdentifier>> entrySet() {
+                return aliases.stream()
+                        .map(element -> new AbstractMap.SimpleImmutableEntry<>(element, element))
+                        .collect(ImmutableSet.toImmutableSet());
+            }
+        };
     }
 }
