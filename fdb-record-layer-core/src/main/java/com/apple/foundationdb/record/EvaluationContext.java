@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -97,6 +98,16 @@ public class EvaluationContext {
     @Nullable
     public Object getBinding(@Nonnull String name) {
         return bindings.get(name);
+    }
+
+    /**
+     * Get the value bound to a single parameter.
+     *
+     * @param alias the correlation identifier
+     * @return the value bound to the given parameter
+     */
+    public String getBinding(@Nonnull CorrelationIdentifier alias) {
+        return Bindings.Internal.CORRELATION.bindingName(alias.getId());
     }
 
     /**

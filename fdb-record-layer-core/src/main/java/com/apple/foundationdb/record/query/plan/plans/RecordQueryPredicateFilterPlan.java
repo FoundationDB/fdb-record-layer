@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -43,7 +42,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -78,17 +76,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         if (record == null) {
             return null;
         }
-        Boolean result = null;
-        Iterator<SourceEntry> entries = baseSource.evalSourceEntriesFor(record.getRecord()).iterator();
-        while (entries.hasNext()) {
-            Boolean entryResult = filter.eval(store, context, entries.next());
-            if (entryResult != null && entryResult) {
-                return true;
-            } else if (result == null) {
-                result = entryResult;
-            }
-        }
-        return result;
+        return filter.eval(store, context, record, record.getRecord());
     }
 
     @Nullable

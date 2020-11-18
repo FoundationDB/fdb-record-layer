@@ -75,8 +75,7 @@ public class ElementPredicate implements QueryPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                            @Nonnull SourceEntry sourceEntry) {
+    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, final @Nullable Message message) {
         return comparison.eval(store, context, element.eval(sourceEntry));
     }
 

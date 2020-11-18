@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeElement;
 import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
@@ -40,7 +39,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * A key expression that indicates that a unique record type identifier should
@@ -138,7 +136,6 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     @Nonnull
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
-        // TODO might need to add pointer to root
         return new RecordTypeValue(baseAlias);
     }
 

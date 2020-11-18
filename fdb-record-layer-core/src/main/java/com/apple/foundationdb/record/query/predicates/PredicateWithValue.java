@@ -30,7 +30,6 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PredicateWithValue extends QueryPredicate {
-
     @Nonnull
     Value getValue();
 }

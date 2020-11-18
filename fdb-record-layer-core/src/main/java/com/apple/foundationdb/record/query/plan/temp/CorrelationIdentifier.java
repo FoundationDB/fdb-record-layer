@@ -64,6 +64,11 @@ public class CorrelationIdentifier {
         this.id = id;
     }
 
+    @Nonnull
+    public String getId() {
+        return id;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {

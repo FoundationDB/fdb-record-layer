@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
@@ -30,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -56,12 +57,6 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
     @Nonnull
     public Value getValue() {
         return value;
-    }
-
-    @Nullable
-    @Override
-    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nonnull final SourceEntry sourceEntry) {
-        return null;
     }
 
     @Nonnull
@@ -121,6 +116,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return parameterAlias;
         }
 
+        @Nullable
+        @Override
+        public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+            throw new RecordCoreException("this method should not ever be reached");
+        }
+
         @Override
         @SuppressWarnings({"ConstantConditions", "java:S2259"})
         public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
@@ -163,6 +164,13 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Nonnull
         public ComparisonRange getComparisonRange() {
             return comparisonRange;
+        }
+
+        @Nullable
+        @Override
+        public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+            final Object eval = getValue().eval(context, record, message);
+            return comparisonRange.eval(store, context, eval);
         }
 
         @Override

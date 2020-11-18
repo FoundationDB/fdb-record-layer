@@ -21,11 +21,14 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
@@ -151,6 +154,31 @@ public class ComparisonRange {
             throw new RecordCoreException("tried to get non-existent inequality comparisons from ComparisonRange");
         }
         return inequalityComparisons;
+    }
+
+    @SuppressWarnings({"ConstantConditions", "java:S2447"})
+    public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+        if (value == null) {
+            return null;
+        }
+
+        if (isEquality()) {
+            return equalityComparison.eval(store, context, value);
+        }
+        if (isInequality()) {
+            for (final Comparisons.Comparison inequalityComparison : inequalityComparisons) {
+                final Boolean comparisonResult = inequalityComparison.eval(store, context, value);
+                if (comparisonResult == null) {
+                    return null;
+                }
+                if (!comparisonResult) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        throw new RecordCoreException("unknown kind of comparison range");
     }
 
     @Nonnull

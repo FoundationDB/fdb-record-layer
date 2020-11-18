@@ -21,9 +21,12 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,6 +60,12 @@ public class ObjectValue implements Value {
             return new ObjectValue(translationMap.getTargetOrThrow(identifier));
         }
         return this;
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object eval(@Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        return context.getBinding(identifier);
     }
 
     @Override
