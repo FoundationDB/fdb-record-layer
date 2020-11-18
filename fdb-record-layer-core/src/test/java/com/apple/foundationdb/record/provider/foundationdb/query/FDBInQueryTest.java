@@ -673,6 +673,32 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that one-of-them queries work with IN when sorted on the repeated field.
+     */
+    @Test
+    public void testOneOfThemInSorted() throws Exception {
+        RecordMetaDataHook recordMetaDataHook = metadata ->
+                metadata.addIndex("MySimpleRecord", "ind", field("repeater", FanType.FanOut));
+        setupSimpleRecordStore(recordMetaDataHook,
+                (i, builder) -> builder.setRecNo(i).addAllRepeater(Arrays.asList(10 + i % 4, 20 + i % 4)));
+        List<Integer> ls = Arrays.asList(13, 22);
+        List<Integer> reversed = new ArrayList<>(ls);
+        Collections.reverse(reversed);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("repeater").oneOfThem().in(reversed))
+                .setSort(field("repeater", FanType.FanOut))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, inValues(equalTo(ls), primaryKeyDistinct(
+                indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
+        assertEquals(503365582, plan.planHash());
+        assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
+                record -> assertThat(record.getRecNo() % 4, anyOf(is(3L), is(2L))),
+                TestHelpers::assertDiscardedNone));
+    }
+
+    /**
      * Verify that IN works with grouped rank indexes.
      */
     @Test
