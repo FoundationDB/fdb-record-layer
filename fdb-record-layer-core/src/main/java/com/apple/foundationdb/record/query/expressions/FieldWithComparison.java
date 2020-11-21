@@ -26,11 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
@@ -95,16 +91,6 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     @Override
     public String toString() {
         return getFieldName() + " " + getComparison();
-    }
-
-    @Nonnull
-    @Override
-    public QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        List<String> fieldNames = ImmutableList.<String>builder()
-                .addAll(fieldNamePrefix)
-                .add(getFieldName())
-                .build();
-        return new ElementPredicate(new FieldElement(source, fieldNames), comparison);
     }
 
     @Override

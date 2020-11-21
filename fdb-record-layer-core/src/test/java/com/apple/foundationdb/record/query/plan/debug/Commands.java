@@ -137,20 +137,6 @@ public class Commands {
                     return false;
                 }
 
-                if ("YIELD".equals(word1)) {
-                    if (words.size() == 3) {
-                        final String word2 = words.get(2);
-                        if (!plannerRepl.isValidEntityName(word2)) {
-                            plannerRepl.printlnError("invalid identifier");
-                            return false;
-                        }
-                        plannerRepl.addBreakPoint(new PlannerRepl.OnYieldBreakPoint(word2.toLowerCase()));
-                        return false;
-                    }
-                    plannerRepl.printlnError("usage: break yield identifier");
-                    return false;
-                }
-
                 if ("REMOVE".equals(word1)) {
                     if (words.size() == 3) {
                         final String word2 = words.get(2);
@@ -172,15 +158,43 @@ public class Commands {
 
                 if ("RULE".equals(word1)) {
                     if (words.size() >= 3) {
+                        final String transformName = words.get(2);
+                        final Location location =
+                                words.size() == 4
+                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase()).or(Location.BEGIN)
+                                : Location.BEGIN;
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnRuleBreakPoint(transformName, location));
+                        return false;
+                    }
+                    plannerRepl.printlnError("usage: break transform ruleNamePrefix [begin | end | success]");
+                    return false;
+                }
+
+                if ("RULECALL".equals(word1)) {
+                    if (words.size() >= 3) {
                         final String candidateMatchPrefix = words.get(2);
                         final Location location =
                                 words.size() == 4
                                 ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase()).or(Location.BEGIN)
                                 : Location.BEGIN;
-                        plannerRepl.addBreakPoint(new PlannerRepl.OnRuleBreakPoint(candidateMatchPrefix, location));
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnRuleCallBreakPoint(candidateMatchPrefix, location));
                         return false;
                     }
-                    plannerRepl.printlnError("usage: break rule ruleNamePrefix [begin | end]");
+                    plannerRepl.printlnError("usage: break rulecall ruleNamePrefix [begin | end]");
+                    return false;
+                }
+
+                if ("YIELD".equals(word1)) {
+                    if (words.size() == 3) {
+                        final String word2 = words.get(2);
+                        if (!plannerRepl.isValidEntityName(word2)) {
+                            plannerRepl.printlnError("invalid identifier");
+                            return false;
+                        }
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnYieldBreakPoint(word2.toLowerCase()));
+                        return false;
+                    }
+                    plannerRepl.printlnError("usage: break yield identifier");
                     return false;
                 }
 

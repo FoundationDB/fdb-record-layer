@@ -28,8 +28,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -195,45 +193,6 @@ public interface KeyExpression extends PlanHashable {
     default List<KeyExpression> normalizeKeyForPositions() {
         return Collections.singletonList(this);
     }
-
-    /**
-     * Flatten this key expression into a list of {@link Element}s, much like {@link #normalizeKeyForPositions()}.
-     * By default, this method throws an exception because most key expressions cannot be flattened to a list of
-     * elements without prior adjustment. This method is only overriden by key expressions that can be flattened.
-     * @return a list of elements representing this key expression in unnested form
-     * @see ElementKeyExpression#flattenForPlannerOld()
-     * @see ThenKeyExpression#flattenForPlannerOld()
-     */
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default List<Element> flattenForPlannerOld() {
-        throw new RecordCoreException("illegal non-element expression");
-    }
-
-    /**
-     * Normalize this key expression into another key expression that pushes all nesting and fan-out to
-     * {@link ElementKeyExpression}s at the leaves.
-     *
-     * <p>
-     * By default, a key expression is a complicated nested structure that can be difficult to work with. This method
-     * pushes much of the complexity, including nested structures and fan-out of repeated fields, to special key
-     * expressions that track these relationship using the {@link Source} abstraction. This pre-processing makes
-     * planning nested and repeated structures much simpler.
-     * </p>
-     *
-     * <p>
-     * This normalization process requires tracking some state since the name of a nested field is available
-     * only at the relevant {@link FieldKeyExpression}, but that information is necessary to construct the
-     * {@link ElementKeyExpression} at the leaves of the sub-tree rooted at the {@link NestingKeyExpression}. This
-     * extra information is tracked in the {@code fieldNamePrefix}.
-     * </p>
-     * @param source the source representing the input stream of the key expression
-     * @param fieldNamePrefix the (non-repeated) field names on the path from the most recent source to this part of the key expression
-     * @return a new key expression that has only {@link ElementKeyExpression}s at its leaves
-     */
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
 
     @API(API.Status.EXPERIMENTAL)
     @Nonnull

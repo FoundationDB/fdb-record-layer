@@ -26,10 +26,7 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Message;
 
@@ -38,7 +35,6 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 /**
  * {@code COLLATE} function.
@@ -175,12 +171,6 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     @Override
     public int getColumnSize() {
         return 1;
-    }
-
-    @Nonnull
-    @Override
-    public Element toElement(@Nonnull Source rootSource) {
-        return normalizeForPlannerOld(rootSource, Collections.emptyList()).flattenForPlannerOld().get(0);
     }
 
     @Nonnull

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
@@ -130,6 +131,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CascadesPlanner.class);
     @Nonnull
+    private RecordQueryPlannerConfiguration configuration;
+    @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
     private final RecordStoreState recordStoreState;
@@ -147,6 +150,7 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlannerRuleSet ruleSet) {
+        this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.ruleSet = ruleSet;
@@ -159,7 +163,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
-        final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query, ImmutableSet.of());
+        final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
         Debugger.query(query, context);
         try {
             planPartial(context, () -> RelationalExpression.fromRecordQuery(query, context));
@@ -187,7 +191,7 @@ public class CascadesPlanner implements QueryPlanner {
     public GroupExpressionRef<RelationalExpression> planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
         aliasResolver = AliasResolver.withRoot(currentRoot);
-        PlannerGraphProperty.show(true, currentRoot);
+        Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         while (!taskStack.isEmpty()) {
@@ -223,7 +227,9 @@ public class CascadesPlanner implements QueryPlanner {
 
     @Override
     public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
-        // nothing to do here, yet
+        configuration = this.configuration.asBuilder()
+                .setIndexScanPreference(indexScanPreference)
+                .build();
     }
 
     /**
@@ -271,7 +277,7 @@ public class CascadesPlanner implements QueryPlanner {
                 // TODO this is very Volcano-style rather than Cascades, because there's no branch-and-bound pruning.
                 RelationalExpression bestMember = null;
                 for (RelationalExpression member : group.getMembers()) {
-                    if (bestMember == null || new CascadesCostModel(context).compare(member, bestMember) < 0) {
+                    if (bestMember == null || new CascadesCostModel(configuration, context).compare(member, bestMember) < 0) {
                         bestMember = member;
                     }
                 }
@@ -459,6 +465,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
             expression.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
+                        Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.SUCCESS)));
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, expression, rule, ruleCall)));
                         executeRuleCall(ruleCall);
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, expression, rule, ruleCall)));
@@ -488,6 +495,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
             group.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
+                        Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.SUCCESS)));
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, rule, ruleCall)));
                         executeRuleCall(ruleCall);
                         Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, rule, ruleCall)));

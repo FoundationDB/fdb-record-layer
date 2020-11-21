@@ -1,5 +1,5 @@
 /*
- * RepeatedFieldSourceMatcher.java
+ * ObjectValueMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,35 +20,34 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.ObjectValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import org.hamcrest.Description;
-import org.hamcrest.TypeSafeMatcher;
+import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
-import java.util.List;
 
 /**
- * A Hamcrest matcher that checks whether a particular {@link Source} is a {@link RepeatedFieldSource}.
+ * A Hamcrest matcher that checks whether an {@link com.apple.foundationdb.record.query.predicates.Value} is a
+ * {@link com.apple.foundationdb.record.query.predicates.ObjectValue}.
  */
-public class RepeatedFieldSourceMatcher extends TypeSafeMatcher<Source> {
+public class ObjectValueMatcher extends ValueMatcher {
     @Nonnull
-    private final List<String> fieldNames;
+    private final Matcher<CorrelationIdentifier> correlationMatcher;
 
-    public RepeatedFieldSourceMatcher(@Nonnull String fieldName) {
-        this(Collections.singletonList(fieldName));
-    }
-
-    public RepeatedFieldSourceMatcher(@Nonnull List<String> fieldNames) {
-        this.fieldNames = fieldNames;
+    public ObjectValueMatcher(@Nonnull Matcher<CorrelationIdentifier> correlationMatcher) {
+        this.correlationMatcher = correlationMatcher;
     }
 
     @Override
-    protected boolean matchesSafely(Source source) {
-        return source instanceof RepeatedFieldSource && ((RepeatedFieldSource)source).getFieldNames().equals(fieldNames);
+    protected boolean matchesSafely(Value value) {
+        return value instanceof ObjectValue;
     }
 
     @Override
     public void describeTo(Description description) {
-        description.appendText(String.join(".", fieldNames));
+        correlationMatcher.describeTo(description);
+        description.appendText(" with value");
     }
 }

@@ -1,0 +1,229 @@
+/*
+ * LogicalSortExpressionOld.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.plan.temp.expressions;
+
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.MatchWithCompensation;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
+import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * A relational planner expression that represents an unimplemented sort on the records produced by its inner
+ * relational planner expression.
+ */
+@API(API.Status.EXPERIMENTAL)
+public class MatchableSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
+    @Nonnull
+    private final List<CorrelationIdentifier> sortParameterIds;
+
+    private final boolean reverse;
+
+    @Nonnull
+    private final Quantifier inner;
+
+    public MatchableSortExpression(@Nonnull final List<CorrelationIdentifier> sortParameterIds,
+                                   final boolean reverse,
+                                   @Nonnull final RelationalExpression inner) {
+        this(sortParameterIds, reverse, Quantifier.forEach(GroupExpressionRef.of(inner)));
+    }
+
+    public MatchableSortExpression(@Nonnull final List<CorrelationIdentifier> sortParameterIds,
+                                   final boolean reverse,
+                                   @Nonnull final Quantifier inner) {
+        this.sortParameterIds = ImmutableList.copyOf(sortParameterIds);
+        this.reverse = reverse;
+        this.inner = inner;
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Quantifier> getQuantifiers() {
+        return ImmutableList.of(getInner());
+    }
+
+    @Override
+    public int getRelationalChildCount() {
+        return 1;
+    }
+
+    @Nonnull
+    public List<CorrelationIdentifier> getSortParameterIds() {
+        return sortParameterIds;
+    }
+
+    public boolean isReverse() {
+        return reverse;
+    }
+
+    @Nonnull
+    private Quantifier getInner() {
+        return inner;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    public MatchableSortExpression rebase(@Nonnull final AliasMap translationMap) {
+        // we know the following is correct, just Java doesn't
+        return (MatchableSortExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
+    }
+
+    @Nonnull
+    @Override
+    public MatchableSortExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new MatchableSortExpression(getSortParameterIds(),
+                isReverse(),
+                Iterables.getOnlyElement(rebasedQuantifiers));
+    }
+
+    @Nonnull
+    @Override
+    public Optional<MatchWithCompensation> adjustMatch(@Nonnull final RelationalExpression expression, @Nonnull final PartialMatch partialMatch) {
+        final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
+        return Optional.of(matchWithCompensation.withOrderingInfo(forPartialMatch(partialMatch), isReverse()));
+    }
+
+    @Nonnull
+    public List<BoundKeyPart> forPartialMatch(@Nonnull PartialMatch partialMatch) {
+        final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
+        final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
+        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
+                matchWithCompensation.getParameterBindingMap();
+        final IdentityBiMap<QueryPredicate, QueryPredicate> accumulatedPredicateMap =
+                matchWithCompensation.getAccumulatedPredicateMap();
+
+        final ImmutableMap<CorrelationIdentifier, QueryPredicate> parameterBindingPredicateMap = accumulatedPredicateMap
+                .entrySet()
+                .stream()
+                .filter(entry -> Objects.requireNonNull(entry.getValue().get()) instanceof ValueComparisonRangePredicate.Placeholder)
+                .collect(ImmutableMap.toImmutableMap(entry -> {
+                    final ValueComparisonRangePredicate.Placeholder candidatePredicate =
+                            (ValueComparisonRangePredicate.Placeholder)Objects.requireNonNull(entry.getValue().get());
+                    return candidatePredicate.getParameterAlias();
+                }, entry -> Objects.requireNonNull(entry.getKey().get())));
+
+        final List<KeyExpression> normalizedKeys =
+                matchCandidate.getAlternativeKeyExpression().normalizeKeyForPositions();
+
+        final ImmutableList.Builder<BoundKeyPart> builder = ImmutableList.builder();
+        final List<CorrelationIdentifier> candidateParameterIds = matchCandidate.getParameters();
+
+        for (int i = 0; i < sortParameterIds.size(); i++) {
+            final CorrelationIdentifier parameterId = sortParameterIds.get(i);
+            final int ordinalInCandidate = candidateParameterIds.indexOf(parameterId);
+            Verify.verify(ordinalInCandidate >= 0);
+            final KeyExpression normalizedKey = normalizedKeys.get(ordinalInCandidate);
+
+            Objects.requireNonNull(parameterId);
+            Objects.requireNonNull(normalizedKey);
+            @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
+
+            final QueryPredicate queryPredicate = parameterBindingPredicateMap.get(parameterId);
+
+            Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
+
+            builder.add(
+                    BoundKeyPart.of(normalizedKey,
+                            comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
+                            queryPredicate,
+                            queryPredicate == null ? null : Objects.requireNonNull(accumulatedPredicateMap.getUnwrapped(queryPredicate))));
+        }
+
+        return builder.build();
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
+                                         @Nonnull final AliasMap equivalencesMap) {
+        if (this == otherExpression) {
+            return true;
+        }
+
+        if (getClass() != otherExpression.getClass()) {
+            return false;
+        }
+
+        final MatchableSortExpression other = (MatchableSortExpression) otherExpression;
+
+        return reverse == other.reverse && !sortParameterIds.equals(other.sortParameterIds);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other);
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
+    }
+
+    @Override
+    public int hashCodeWithoutChildren() {
+        return Objects.hash(getSortParameterIds(), isReverse());
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.SORT_OPERATOR,
+                        ImmutableList.of("BY {{expression}}"),
+                        ImmutableMap.of("expression", Attribute.gml(sortParameterIds.toString()))),
+                childGraphs);
+    }
+}

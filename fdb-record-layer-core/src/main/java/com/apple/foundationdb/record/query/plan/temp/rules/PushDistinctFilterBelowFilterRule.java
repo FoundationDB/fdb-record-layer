@@ -97,7 +97,6 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
                         .rebase(Quantifiers.translate(qun, newQun));
         call.yield(call.ref(
                 new RecordQueryPredicateFilterPlan(newQun,
-                        filterPlan.getBaseSource(),
                         rebasedPred)));
     }
 }

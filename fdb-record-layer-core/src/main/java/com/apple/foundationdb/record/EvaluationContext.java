@@ -106,8 +106,8 @@ public class EvaluationContext {
      * @param alias the correlation identifier
      * @return the value bound to the given parameter
      */
-    public String getBinding(@Nonnull CorrelationIdentifier alias) {
-        return Bindings.Internal.CORRELATION.bindingName(alias.getId());
+    public Object getBinding(@Nonnull CorrelationIdentifier alias) {
+        return bindings.get(Bindings.Internal.CORRELATION.bindingName(alias.getId()));
     }
 
     /**
@@ -148,4 +148,17 @@ public class EvaluationContext {
         return childBuilder().setBinding(bindingName, value).build();
     }
 
+    /**
+     * Create a new <code>EvaluationContext</code> with an additional binding.
+     * The returned context will have all of the same state as the current
+     * context included all bindings except that it will bind an additional
+     * parameter to an additional value.
+     *
+     * @param alias the alias determining the binding name to add
+     * @param value the value to bind the name to
+     * @return a new <code>EvaluationContext</code> with the new binding
+     */
+    public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build();
+    }
 }

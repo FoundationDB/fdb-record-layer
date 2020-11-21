@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.google.common.collect.ImmutableList;
 
@@ -49,12 +50,17 @@ public class IndexScanMatchCandidate implements MatchCandidate {
     @Nonnull
     private final ExpressionRefTraversal traversal;
 
+    @Nonnull
+    private final KeyExpression alternativeKeyExpression;
+
     public IndexScanMatchCandidate(@Nonnull String name,
                                    @Nonnull final ExpressionRefTraversal traversal,
-                                   @Nonnull final List<CorrelationIdentifier> parameters) {
+                                   @Nonnull final List<CorrelationIdentifier> parameters,
+                                   @Nonnull final KeyExpression alternativeKeyExpression) {
         this.name = name;
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
+        this.alternativeKeyExpression = alternativeKeyExpression;
     }
 
     @Nonnull
@@ -72,12 +78,18 @@ public class IndexScanMatchCandidate implements MatchCandidate {
         return parameters;
     }
 
+    @Nonnull
+    @Override
+    public KeyExpression getAlternativeKeyExpression() {
+        return alternativeKeyExpression;
+    }
+
     @Override
     @SuppressWarnings("java:S135")
-    public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges) {
+    public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
         return new IndexScanExpression(getName(),
                 IndexScanType.BY_VALUE,
                 comparisonRanges,
-                false);
+                isReverse);
     }
 }

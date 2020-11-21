@@ -28,8 +28,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
@@ -189,28 +187,10 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public List<Element> flattenForPlannerOld() {
-        return children.stream()
-                .flatMap(k -> k.flattenForPlannerOld().stream())
-                .collect(Collectors.toList());
-    }
-
-    @Nonnull
-    @Override
     public List<Value> flattenForPlanner() {
         return children.stream()
                 .flatMap(k -> k.flattenForPlanner().stream())
                 .collect(Collectors.toList());
-    }
-
-    @Nonnull
-    @Override
-    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
-        for (KeyExpression child : children) {
-            normalizedChildren.add(child.normalizeForPlannerOld(source, fieldNamePrefix));
-        }
-        return new ThenKeyExpression(normalizedChildren.build());
     }
 
     @Nonnull

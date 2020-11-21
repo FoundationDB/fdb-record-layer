@@ -74,16 +74,21 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
     }
 
     @Nonnull
+    public List<ComparisonRange> getComparisonRanges() {
+        return comparisonRanges;
+    }
+
+    public boolean isReverse() {
+        return reverse;
+    }
+
+    @Nonnull
     public ScanComparisons scanComparisons() {
         ScanComparisons.Builder builder = new ScanComparisons.Builder();
         for (ComparisonRange comparisonRange : comparisonRanges) {
             builder.addComparisonRange(comparisonRange);
         }
         return builder.build();
-    }
-
-    public boolean isReverse() {
-        return reverse;
     }
 
     @Nonnull
@@ -157,7 +162,7 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
 
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                        NodeInfo.INDEX_SCAN_OPERATOR,
+                        NodeInfo.SCAN_OPERATOR,
                         ImmutableList.of("comparison ranges: {{ranges}}"),
                         ImmutableMap.of("ranges", Attribute.gml(comparisonRanges.toString()))),
                 ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -77,12 +76,15 @@ public class MatchWithCompensation {
     @Nonnull
     private final List<BoundKeyPart> boundKeyParts;
 
+    private final boolean isReverse;
+
     private MatchWithCompensation(@Nonnull final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator,
                                   @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                                   @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                                   @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap,
                                   @Nonnull final Set<QueryPredicate> unmappedPredicates,
-                                  @Nonnull final List<BoundKeyPart> boundKeyParts) {
+                                  @Nonnull final List<BoundKeyPart> boundKeyParts,
+                                  final boolean isReverse) {
         this.compensationOperator = compensationOperator;
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
@@ -101,6 +103,7 @@ public class MatchWithCompensation {
         this.unmappedPredicates = Sets.newIdentityHashSet();
         this.unmappedPredicates.addAll(unmappedPredicates);
         this.boundKeyParts = ImmutableList.copyOf(boundKeyParts);
+        this.isReverse = isReverse;
     }
 
     @Nonnull
@@ -148,19 +151,23 @@ public class MatchWithCompensation {
     }
 
     @Nonnull
-    public List<BoundKeyPart> getBoundOrderingKeyParts() {
+    public List<BoundKeyPart> getBoundKeyParts() {
         return boundKeyParts;
     }
 
-    public MatchWithCompensation withBoundOrderingKeys(@Nonnull final Quantifier quantifier,
-                                                       @Nonnull final List<BoundKeyPart> boundKeyParts) {
-        Verify.verify(quantifier instanceof Quantifier.ForEach || quantifier instanceof Quantifier.Physical);
+    public boolean isReverse() {
+        return isReverse;
+    }
+
+    public MatchWithCompensation withOrderingInfo(@Nonnull final List<BoundKeyPart> boundKeyParts,
+                                                  final boolean isReverse) {
         return new MatchWithCompensation(compensationOperator,
                 parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
                 unmappedPredicates,
-                boundKeyParts);
+                boundKeyParts,
+                isReverse);
     }
 
     @Nonnull
@@ -192,12 +199,15 @@ public class MatchWithCompensation {
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
 
         final List<BoundKeyPart> boundKeyParts;
+        final boolean isReverse;
         if (regularQuantifiers.size() == 1) {
             final Quantifier regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final PartialMatch partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
-            boundKeyParts = partialMatch.getMatchWithCompensation().getBoundOrderingKeyParts();
+            boundKeyParts = partialMatch.getMatchWithCompensation().getBoundKeyParts();
+            isReverse = partialMatch.getMatchWithCompensation().isReverse();
         } else {
             boundKeyParts = ImmutableList.of();
+            isReverse = false;
         }
 
         final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator =
@@ -210,7 +220,8 @@ public class MatchWithCompensation {
                         partialMatchMap,
                         predicateMap,
                         needCompensationPredicates,
-                        boundKeyParts));
+                        boundKeyParts,
+                        isReverse));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

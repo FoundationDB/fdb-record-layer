@@ -26,17 +26,20 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -169,7 +172,9 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Nullable
         @Override
         public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-            final Object eval = getValue().eval(context, record, message);
+            // this could just throw an exception as we shouldn't support evaluating this kind of predicate
+            // as it is for index matching purposes only
+            final Object eval = getValue().eval(store, context, record, message);
             return comparisonRange.eval(store, context, eval);
         }
 
@@ -202,6 +207,21 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Override
         public String toString() {
             return getValue() + " " + comparisonRange;
+        }
+
+        public List<QueryPredicate> toResiduals() {
+            Verify.verify(!comparisonRange.isEmpty());
+
+            final ImmutableList.Builder<QueryPredicate> residuals = ImmutableList.builder();
+            if (comparisonRange.isEquality()) {
+                residuals.add(new ValuePredicate(getValue(), comparisonRange.getEqualityComparison()));
+            } else if (comparisonRange.isInequality()) {
+                for (final Comparisons.Comparison inequalityComparison : Objects.requireNonNull(comparisonRange.getInequalityComparisons())) {
+                    residuals.add(new ValuePredicate(getValue(), inequalityComparison));
+                }
+            }
+
+            return residuals.build();
         }
     }
 }

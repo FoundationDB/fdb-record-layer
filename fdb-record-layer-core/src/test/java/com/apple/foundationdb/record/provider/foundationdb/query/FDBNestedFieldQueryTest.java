@@ -236,7 +236,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(-417538532, plan.planHash());
         } else {
-            assertEquals(-1419776897, plan.planHash());
+            assertEquals(-1254425583, plan.planHash());
         }
         assertEquals(Collections.singletonList(2L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 this::openNestedRecordStore,
@@ -253,14 +253,20 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 ))
                 .build();
         plan = planner.plan(query);
-        assertThat(plan, filter(Query.field("stats").matches(
-                Query.and(Query.field("school_name").lessThan("University of Procrastination"),
-                        Query.field("hometown").startsWith("H"))),
-                indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([null],[1000]]"))))));
         if (planner instanceof RecordQueryPlanner) {
+            assertThat(plan, filter(Query.field("stats").matches(
+                    Query.and(Query.field("school_name").lessThan("University of Procrastination"),
+                            Query.field("hometown").startsWith("H"))),
+                    indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([null],[1000]]"))))));
+
             assertEquals(1700959433, plan.planHash());
         } else {
-            assertEquals(-1198378902, plan.planHash());
+            assertThat(plan, filter(
+                    allOf(queryPredicateDescendant(PredicateMatchers.field("stats", "school_name").lessThan("University of Procrastination")),
+                            queryPredicateDescendant(PredicateMatchers.field("stats", "hometown").startsWith("H"))),
+                    indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([null],[1000]]"))))));
+
+            assertEquals(1250632468, plan.planHash());
         }
         assertEquals(Collections.singletonList(1L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
                 this::openNestedRecordStore,
@@ -297,13 +303,19 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         // verify that the value filter that can't be satisfied by the index isn't dropped from the filter expression
+
         assertThat(plan, filter(
-                queryPredicateDescendant(PredicateMatchers.field("value").notEquals("test")),
+                Query.field("map").matches(
+                        Query.field("entry").oneOfThem().matches(
+                                Query.and(
+                                        Query.field("key").equalsValue("alpha"),
+                                        Query.field("value").notEquals("test")))),
                 primaryKeyDistinct(indexScan(allOf(indexName("key_index"), bounds(hasTupleString("[[1, alpha],[1, alpha]]")))))));
+
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(-1406660101, plan.planHash());
         } else {
-            assertEquals(695317608, plan.planHash());
+            assertEquals(-1406660100, plan.planHash());
         }
     }
 

@@ -51,8 +51,16 @@ public class QueryComponentPredicate implements QueryPredicate {
     @Nonnull
     public final QueryComponent queryComponent;
 
+    @Nullable
+    public final CorrelationIdentifier correlation;
+
     public QueryComponentPredicate(@Nonnull QueryComponent queryComponent) {
+        this(queryComponent, null);
+    }
+
+    public QueryComponentPredicate(@Nonnull QueryComponent queryComponent, @Nullable CorrelationIdentifier correlation) {
         this.queryComponent = queryComponent;
+        this.correlation = correlation;
     }
 
     @Nonnull
@@ -114,12 +122,15 @@ public class QueryComponentPredicate implements QueryPredicate {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return ImmutableSet.of();
+        return correlation == null ? ImmutableSet.of() : ImmutableSet.of(correlation);
     }
 
     @Nonnull
     @Override
     public QueryComponentPredicate rebase(@Nonnull final AliasMap translationMap) {
-        return new QueryComponentPredicate(getQueryComponent());
+        if (correlation != null && translationMap.containsSource(correlation)) {
+            return new QueryComponentPredicate(getQueryComponent(), translationMap.getTargetOrThrow(correlation));
+        }
+        return this;
     }
 }

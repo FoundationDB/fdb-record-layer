@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
 import com.apple.foundationdb.record.query.plan.temp.ChooseK;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
@@ -38,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -70,9 +70,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts
- * the logical index scan's {@link com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons} to a
- * {@link com.apple.foundationdb.record.query.plan.ScanComparisons} to be used during query execution.
+ * A rule that converts a logical index scan expression to a data access.
  */
 @API(API.Status.EXPERIMENTAL)
 public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExpression>> {
@@ -89,6 +87,7 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
         final ExpressionRef<RelationalExpression> ref = call.get(rootMatcher);
         final RelationalExpression expression = call.get(expressionMatcher);
 
+        // find the best match for a candidate as there may be more than one due to partial matching
         final ImmutableSet<PartialMatch> bestMatches = ref.getMatchCandidates()
                 .stream()
                 .flatMap(matchCandidate -> {
@@ -108,13 +107,7 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
 
         // create scans for all best matches
         final ImmutableMap<PartialMatch, RelationalExpression> bestMatchToExpressionMap =
-                bestMatches
-                        .stream()
-                        .collect(ImmutableMap.toImmutableMap(Function.identity(),
-                                partialMatch -> {
-                                    final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
-                                    return matchCandidate.toScanExpression(partialMatch.getMatchWithCompensation());
-                                }));
+                createScansForBestMatches(bestMatches);
 
         final Collection<Pair<Map<QueryPredicate, BoundKeyPart>, List<PartialMatch>>> coverage = Lists.newArrayList();
 
@@ -124,9 +117,12 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
         coverage
                 .stream()
                 .map(Pair::getRight)
-                .map(partition -> createSimpleDataAccessAndCompensation(bestMatchToExpressionMap, Iterables.getOnlyElement(partition)))
+                .map(partition -> createSingleDataAccessAndCompensation(bestMatchToExpressionMap, Iterables.getOnlyElement(partition)))
                 .forEach(newExpression -> call.yield(call.ref(newExpression)));
         coverage.clear();
+
+        final ImmutableMap<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
+                distinctBestMatchMap(bestMatchToExpressionMap);
 
         @Nullable final KeyExpression commonPrimaryKey = call.getContext().getCommonPrimaryKey();
         if (commonPrimaryKey != null) {
@@ -144,7 +140,7 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
                     .map(partition ->
                             createIntersectionAndCompensation(
                                     commonPrimaryKeyParts,
-                                    bestMatchToExpressionMap,
+                                    bestMatchToDistinctExpressionMap,
                                     partition))
                     .filter(Optional::isPresent)
                     .map(Optional::get)
@@ -153,7 +149,32 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
     }
 
     @Nonnull
-    private RelationalExpression createSimpleDataAccessAndCompensation(@Nonnull final Map<PartialMatch, RelationalExpression> bestMatchToExpressionMap,
+    private ImmutableMap<PartialMatch, RelationalExpression> createScansForBestMatches(@Nonnull final ImmutableSet<PartialMatch> bestMatches) {
+        return bestMatches
+                .stream()
+                .collect(ImmutableMap.toImmutableMap(
+                        Function.identity(),
+                        partialMatch -> {
+                            final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
+                            return matchCandidate.toScanExpression(partialMatch.getMatchWithCompensation());
+                        }));
+    }
+
+    @Nonnull
+    private ImmutableMap<PartialMatch, RelationalExpression> distinctBestMatchMap(@Nonnull ImmutableMap<PartialMatch, RelationalExpression> bestMatchToExpressionMap) {
+        return bestMatchToExpressionMap
+                .entrySet()
+                .stream()
+                .collect(
+                        ImmutableMap.toImmutableMap(Map.Entry::getKey,
+                                entry -> {
+                                    final RelationalExpression dataAccessExpression = entry.getValue();
+                                    return new LogicalDistinctExpression(dataAccessExpression);
+                                }));
+    }
+
+    @Nonnull
+    private RelationalExpression createSingleDataAccessAndCompensation(@Nonnull final Map<PartialMatch, RelationalExpression> bestMatchToExpressionMap,
                                                                        @Nonnull final PartialMatch partialMatch) {
         final Compensation compensation = partialMatch.compensate(partialMatch.getBoundParameterPrefixMap());
         final RelationalExpression scanExpression = bestMatchToExpressionMap.get(partialMatch);
@@ -166,29 +187,36 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
     @CanIgnoreReturnValue
     private boolean updateBoundKeysForPartition(@Nonnull final Collection<Pair<Map<QueryPredicate, BoundKeyPart>, List<PartialMatch>>> coverage,
                                                 @Nonnull final List<PartialMatch> partition) {
-        final Map<QueryPredicate, BoundKeyPart> newBoundKeyParts = combineBoundKeyParts(partition);
+        final Optional<Map<QueryPredicate, BoundKeyPart>> newBoundKeyPartsOptional = trimAndCombineBoundKeyParts(partition);
+        if (!newBoundKeyPartsOptional.isPresent()) {
+            return false;
+        }
 
-        for (final Iterator<Pair<Map<QueryPredicate, BoundKeyPart>, List<PartialMatch>>> iterator = coverage.iterator(); iterator.hasNext(); ) {
-            final Pair<Map<QueryPredicate, BoundKeyPart>, List<PartialMatch>> pair = iterator.next();
-            final Map<QueryPredicate, BoundKeyPart> currentBoundKeyParts = pair.getLeft();
+        final Map<QueryPredicate, BoundKeyPart> newBoundKeyParts = newBoundKeyPartsOptional.get();
 
-            final boolean newIncludesCurrent =
-                    currentBoundKeyParts
-                            .values()
-                            .stream()
-                            .allMatch(currentBoundKeyPart -> newBoundKeyParts.containsKey(currentBoundKeyPart.getQueryPredicate()));
+        if (false) {
+            for (final Iterator<Pair<Map<QueryPredicate, BoundKeyPart>, List<PartialMatch>>> iterator = coverage.iterator(); iterator.hasNext(); ) {
+                final Pair<Map<QueryPredicate, BoundKeyPart>, List<PartialMatch>> pair = iterator.next();
+                final Map<QueryPredicate, BoundKeyPart> currentBoundKeyParts = pair.getLeft();
 
-            if (newIncludesCurrent && newBoundKeyParts.size() > currentBoundKeyParts.size()) {
-                iterator.remove();
-            } else {
-                final boolean currentIncludesNew =
-                        newBoundKeyParts
+                final boolean newIncludesCurrent =
+                        currentBoundKeyParts
                                 .values()
                                 .stream()
-                                .allMatch(currentBoundKeyPart -> currentBoundKeyParts.containsKey(currentBoundKeyPart.getQueryPredicate()));
+                                .allMatch(currentBoundKeyPart -> newBoundKeyParts.containsKey(currentBoundKeyPart.getQueryPredicate()));
 
-                if (currentIncludesNew && newBoundKeyParts.size() < currentBoundKeyParts.size()) {
-                    return false;
+                if (newIncludesCurrent && newBoundKeyParts.size() > currentBoundKeyParts.size()) {
+                    iterator.remove();
+                } else {
+                    final boolean currentIncludesNew =
+                            newBoundKeyParts
+                                    .values()
+                                    .stream()
+                                    .allMatch(currentBoundKeyPart -> currentBoundKeyParts.containsKey(currentBoundKeyPart.getQueryPredicate()));
+
+                    if (currentIncludesNew && newBoundKeyParts.size() < currentBoundKeyParts.size()) {
+                        return false;
+                    }
                 }
             }
         }
@@ -198,19 +226,56 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
     }
 
     @Nonnull
-    private Map<QueryPredicate, BoundKeyPart> combineBoundKeyParts(@Nonnull final List<PartialMatch> partition) {
-        return partition
+    @SuppressWarnings("java:S1905")
+    private Optional<Map<QueryPredicate, BoundKeyPart>> trimAndCombineBoundKeyParts(@Nonnull final List<PartialMatch> partition) {
+        final ImmutableList<Map<QueryPredicate, BoundKeyPart>> boundKeyPartMapsForMatches = partition
                 .stream()
-                .flatMap(partialMatch -> {
+                .map(partialMatch -> {
                     final MatchWithCompensation matchWithCompensation = partialMatch.getMatchWithCompensation();
                     final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap = partialMatch.getBoundParameterPrefixMap();
                     return
-                            matchWithCompensation.getBoundOrderingKeyParts()
+                            matchWithCompensation.getBoundKeyParts()
                                     .stream()
                                     .filter(boundKeyPart -> boundKeyPart.getParameterAlias().isPresent()) // matching bound it
                                     .filter(boundKeyPart -> boundParameterPrefixMap.containsKey(boundKeyPart.getParameterAlias().get())) // can be used by a scan
-                                    .peek(boundKeyPart -> Objects.requireNonNull(boundKeyPart.getQueryPredicate())); // make sure we got a predicate mapping
+                                    .peek(boundKeyPart -> Objects.requireNonNull(boundKeyPart.getQueryPredicate())) // make sure we got a predicate mapping
+                                    .collect(Collectors.toMap(BoundKeyPart::getQueryPredicate,
+                                            Function.identity(),
+                                            (a, b) -> {
+                                                throw new RecordCoreException("merge conflict");
+                                            },
+                                            Maps::newIdentityHashMap));
                 })
+                .sorted(Comparator.comparing((Function<Map<QueryPredicate, BoundKeyPart>, Integer>)Map::size).reversed())
+                .collect(ImmutableList.toImmutableList());
+
+        for (int i = 0; i < boundKeyPartMapsForMatches.size(); i++) {
+            final Map<QueryPredicate, BoundKeyPart> outer = boundKeyPartMapsForMatches.get(i);
+
+            for (int j = 0; j < boundKeyPartMapsForMatches.size(); j++) {
+                final Map<QueryPredicate, BoundKeyPart> inner = boundKeyPartMapsForMatches.get(j);
+                // check if outer is completely contained in inner
+                if (outer.size() > inner.size()) {
+                    break;
+                }
+
+                if (i != j) {
+                    boolean allContained = true;
+                    for (final Map.Entry<QueryPredicate, BoundKeyPart> outerEntry : outer.entrySet()) {
+                        if (!inner.containsKey(outerEntry.getKey())) {
+                            allContained = false;
+                        }
+                    }
+                    if (allContained) {
+                        return Optional.empty();
+                    }
+                }
+            }
+        }
+
+        return Optional.of(boundKeyPartMapsForMatches
+                .stream()
+                .flatMap(map -> map.values().stream())
                 .collect(Collectors.toMap(BoundKeyPart::getQueryPredicate,
                         Function.identity(),
                         (oldValue, newValue) -> {
@@ -229,7 +294,7 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
                                 throw new RecordCoreException("unknown range binding");
                             }
                         },
-                        Maps::newIdentityHashMap));
+                        Maps::newIdentityHashMap)));
     }
 
     @Nonnull
@@ -265,11 +330,14 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
     @Nonnull
     private Optional<KeyExpression> intersectionOrdering(@Nonnull final List<KeyExpression> commonPrimaryKeyParts,
                                                          @Nonnull final List<PartialMatch> partition) {
-        final Optional<ImmutableList<BoundKeyPart>> compatibleOrderingKeyParts =
+        final Optional<ImmutableList<BoundKeyPart>> compatibleOrderingKeyPartsOptional =
                 partition
                         .stream()
-                        .map(partialMatch -> partialMatch.getMatchWithCompensation().getBoundOrderingKeyParts())
-                        .map(boundOrderingKeys -> Optional.of(boundOrderingKeys.stream().filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() != ComparisonRange.Type.EQUALITY).collect(ImmutableList.toImmutableList())))
+                        .map(partialMatch -> partialMatch.getMatchWithCompensation().getBoundKeyParts())
+                        .map(boundOrderingKeyParts -> Optional.of(
+                                boundOrderingKeyParts.stream()
+                                        .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() != ComparisonRange.Type.EQUALITY)
+                                        .collect(ImmutableList.toImmutableList())))
                         .reduce((leftBoundOrderingKeysOptional, rightBoundOrderingKeysOptional) -> {
                             if (!leftBoundOrderingKeysOptional.isPresent()) {
                                 return Optional.empty();
@@ -282,7 +350,7 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
                             final ImmutableList<BoundKeyPart> leftBoundKeyParts =
                                     leftBoundOrderingKeysOptional.get();
                             final ImmutableList<BoundKeyPart> rightBoundKeyParts =
-                                    leftBoundOrderingKeysOptional.get();
+                                    rightBoundOrderingKeysOptional.get();
 
                             if (leftBoundKeyParts.size() != rightBoundKeyParts.size()) {
                                 return Optional.empty();
@@ -292,7 +360,37 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
                                 final BoundKeyPart leftKeyPart = leftBoundKeyParts.get(i);
                                 final BoundKeyPart rightKeyPart = rightBoundKeyParts.get(i);
 
-                                if (!leftKeyPart.getNormalizedKeyExpression().equals(rightKeyPart.getNormalizedKeyExpression())) {
+                                if (leftKeyPart.getComparisonRangeType() != ComparisonRange.Type.EMPTY &&
+                                        rightKeyPart.getComparisonRangeType() != ComparisonRange.Type.EMPTY) {
+                                    if (leftKeyPart.getQueryPredicate() != rightKeyPart.getQueryPredicate()) {
+                                        return Optional.empty();
+                                    }
+                                }
+
+                                //
+                                // Example of where this is a problem
+                                // (a is a repeated field)
+                                //
+                                // Index 1: concat(a, a.b, a.c))
+                                // Index 2: a.(concat(b, c))
+                                //
+                                // normalized expressions for both:
+                                // concat(a, a.b, a.c)
+                                //
+                                // Hence we cannot do this comparison in the presence of repeated field unless we
+                                // distinct the records first and then feed it into the intersection. Since we can
+                                // rely on the planner to apply optimizations orthogonally we can just inject the
+                                // distinct expression here assuming the distinct expression can be optimized
+                                // away later if possible.
+                                //
+                                final KeyExpression leftKeyExpression = leftKeyPart.getNormalizedKeyExpression();
+                                final KeyExpression rightKeyExpression = rightKeyPart.getNormalizedKeyExpression();
+
+                                //
+                                // Without a distinct expression underneath the intersection we would have to reject
+                                // the partition is either left or right key expression creates duplicates.
+                                //
+                                if (!leftKeyExpression.equals(rightKeyExpression)) {
                                     return Optional.empty();
                                 }
                             }
@@ -301,7 +399,7 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
                         })
                         .orElseThrow(() -> new RecordCoreException("there should be at least one ordering"));
 
-        return compatibleOrderingKeyParts
+        return compatibleOrderingKeyPartsOptional
                 .map(parts -> comparisonKey(commonPrimaryKeyParts, parts));
     }
 
@@ -312,10 +410,11 @@ public class DataAccessMatchRule extends PlannerRule<ExpressionRef<RelationalExp
                 .map(BoundKeyPart::getNormalizedKeyExpression)
                 .collect(ImmutableSet.toImmutableSet());
 
-        final ImmutableList<KeyExpression> comparisonKeyParts = commonPrimaryKeyParts
-                .stream()
-                .filter(indexOrderingPartsSet::contains)
-                .collect(ImmutableList.toImmutableList());
+        final ImmutableList<KeyExpression> comparisonKeyParts =
+                commonPrimaryKeyParts
+                        .stream()
+                        .filter(indexOrderingPartsSet::contains)
+                        .collect(ImmutableList.toImmutableList());
 
         if (comparisonKeyParts.isEmpty()) {
             return Key.Expressions.value(true);

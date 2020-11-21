@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -51,24 +50,17 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class LogicalFilterExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicate, PlannerGraphRewritable {
     @Nonnull
-    private final Source baseSource;
-    @Nonnull
     private final QueryPredicate filter;
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalFilterExpression(@Nonnull Source baseSource,
-                                   @Nonnull QueryPredicate filter,
+    public LogicalFilterExpression(@Nonnull QueryPredicate filter,
                                    @Nonnull ExpressionRef<RelationalExpression> inner) {
-        this.baseSource = baseSource;
-        this.filter = filter;
-        this.inner = Quantifier.forEach(inner);
+        this(filter, Quantifier.forEach(inner));
     }
 
-    public LogicalFilterExpression(@Nonnull Source baseSource,
-                                   @Nonnull QueryPredicate filter,
+    public LogicalFilterExpression(@Nonnull QueryPredicate filter,
                                    @Nonnull Quantifier inner) {
-        this.baseSource = baseSource;
         this.filter = filter;
         this.inner = inner;
     }
@@ -88,11 +80,6 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Override
     public QueryPredicate getPredicate() {
         return filter;
-    }
-
-    @Nonnull
-    public Source getBaseSource() {
-        return baseSource;
     }
 
     @Nonnull
@@ -118,8 +105,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Override
     public LogicalFilterExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                 @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new LogicalFilterExpression(getBaseSource(),
-                getPredicate().rebase(translationMap),
+        return new LogicalFilterExpression(getPredicate().rebase(translationMap),
                 Iterables.getOnlyElement(rebasedQuantifiers));
     }
 

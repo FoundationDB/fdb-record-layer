@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -151,16 +149,6 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     @Nonnull
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return RecordMetaDataProto.KeyExpression.newBuilder().setList(toProto()).build();
-    }
-
-    @Nonnull
-    @Override
-    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
-        for (KeyExpression child : children) {
-            normalizedChildren.add(child.normalizeForPlannerOld(source, fieldNamePrefix));
-        }
-        return new ListKeyExpression(normalizedChildren.build());
     }
 
     @Nonnull

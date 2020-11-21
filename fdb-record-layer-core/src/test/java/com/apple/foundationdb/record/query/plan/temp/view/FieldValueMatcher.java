@@ -1,5 +1,5 @@
 /*
- * FieldElementMatcher.java
+ * FieldValueMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp.view;
 
+import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import org.hamcrest.Description;
 
 import javax.annotation.Nonnull;
@@ -27,24 +29,25 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * A Hamcrest matcher that checks whether a {@link Element} is a {@link FieldElement} with particular field names.
+ * A Hamcrest matcher that checks whether a {@link com.apple.foundationdb.record.query.predicates.Value} is a
+ * {@link com.apple.foundationdb.record.query.predicates.FieldValue} with particular field names.
  */
-public class FieldElementMatcher extends ElementMatcher {
+public class FieldValueMatcher extends ValueMatcher {
     @Nonnull
     private final List<String> fieldNames;
 
-    public FieldElementMatcher(@Nonnull List<String> fieldNames) {
+    public FieldValueMatcher(@Nonnull List<String> fieldNames) {
         this.fieldNames = fieldNames;
     }
 
-    public FieldElementMatcher(@Nonnull String fieldName) {
+    public FieldValueMatcher(@Nonnull String fieldName) {
         this(Collections.singletonList(fieldName));
     }
 
     @Override
-    protected boolean matchesSafely(Element element) {
-        return element instanceof FieldElement &&
-               ((FieldElement)element).getFieldNames().equals(fieldNames);
+    protected boolean matchesSafely(final Value element) {
+        return element instanceof FieldValue &&
+               ((FieldValue)element).getFieldNames().equals(fieldNames);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * ElementPredicateCountProperty.java
+ * PredicateCountProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,28 +26,30 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
 import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
-import com.apple.foundationdb.record.query.predicates.ElementPredicate;
+import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
+import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A property that counts the number of {@link ElementPredicate}s that appear in a planner expression tree.
+ * A property that counts the number of {@link com.apple.foundationdb.record.query.predicates.ValuePredicate}s that appear in a planner expression tree.
  * This property is used as the number of "unsatisfied filters" when picking between query plans that scan different
  * indexes.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ElementPredicateCountProperty implements PlannerProperty<Integer> {
-    private static final ElementPredicateCountProperty INSTANCE = new ElementPredicateCountProperty();
+public class PredicateCountProperty implements PlannerProperty<Integer> {
+    private static final PredicateCountProperty INSTANCE = new PredicateCountProperty();
 
     @Nonnull
     @Override
     public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
         int total = 0;
         if (expression instanceof RelationalExpressionWithPredicate) {
-            total = getElementPredicateCount(((RelationalExpressionWithPredicate)expression).getPredicate());
+            total = getValuePredicateCount(((RelationalExpressionWithPredicate)expression).getPredicate());
         }
         for (Integer childCount : childResults) {
             if (childCount != null) {
@@ -57,15 +59,20 @@ public class ElementPredicateCountProperty implements PlannerProperty<Integer> {
         return total;
     }
 
-    private static int getElementPredicateCount(@Nonnull QueryPredicate predicate) {
-        if (predicate instanceof ElementPredicate)  {
+    private static int getValuePredicateCount(@Nonnull QueryPredicate predicate) {
+        if (predicate instanceof PredicateWithValue ||
+                predicate instanceof QueryComponentPredicate) {
             return 1;
         } else if (predicate instanceof NotPredicate) {
-            return getElementPredicateCount(((NotPredicate)predicate).getChild());
+            return getValuePredicateCount(((NotPredicate)predicate).getChild());
         } else if (predicate instanceof AndOrPredicate) {
             return ((AndOrPredicate)predicate).getChildren().stream()
-                    .mapToInt(ElementPredicateCountProperty::getElementPredicateCount)
+                    .mapToInt(PredicateCountProperty::getValuePredicateCount)
                     .sum();
+        } else if (predicate instanceof ExistsPredicate) {
+            // exists() should not count as it would only reapply the predicates that are underneath using its
+            // alternative expression
+            return 0;
         } else {
             throw new UnsupportedOperationException();
         }

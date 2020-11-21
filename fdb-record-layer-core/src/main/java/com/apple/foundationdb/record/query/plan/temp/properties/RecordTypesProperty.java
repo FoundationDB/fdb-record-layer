@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
@@ -83,17 +82,6 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
                     .map(RecordType::getName).collect(Collectors.toSet());
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
-        } else if (expression instanceof IndexEntrySourceScanExpression) {
-            final String indexName = ((IndexEntrySourceScanExpression)expression).getIndexName();
-            if (indexName == null) {
-                // TODO: This isn't quite right, because we might have matched a common prefix of the (non-common)
-                // primary key and thus restricted the set of types that could be returned. Getting it right seems tricky.
-                return context.getMetaData().getRecordTypes().keySet();
-            } else {
-                Index index = context.getIndexByName(indexName);
-                return context.getMetaData().recordTypesForIndex(index).stream()
-                        .map(RecordType::getName).collect(Collectors.toSet());
-            }
         } else if (expression instanceof IndexScanExpression) {
             final String indexName = ((IndexScanExpression)expression).getIndexName();
             Index index = context.getIndexByName(indexName);

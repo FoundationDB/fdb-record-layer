@@ -25,10 +25,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.plan.temp.view.VersionElement;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.VersionValue;
 import com.google.protobuf.Descriptors;
@@ -38,7 +35,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * A key expression that indicates that a serialized {@link FDBRecordVersion} should
@@ -103,12 +99,6 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     @Override
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return VERSION_PROTO;
-    }
-
-    @Nonnull
-    @Override
-    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new ElementKeyExpression(new VersionElement());
     }
 
     @Nonnull

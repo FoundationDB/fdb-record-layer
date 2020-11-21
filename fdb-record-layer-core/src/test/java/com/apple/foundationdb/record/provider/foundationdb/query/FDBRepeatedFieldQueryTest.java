@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
+import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
@@ -479,18 +481,20 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
-        //RecordQueryPlan plan1 = planner.plan(query1);
-        //assertThat(plan1, filter(anything(), typeFilter(anything(), scan(unbounded()))));
-        //assertEquals(913370523, plan1.planHash());
+        RecordQueryPlan plan1 = planner.plan(query1);
+        assertThat(plan1, filter(Query.field("num_value_2").equalsValue(1), typeFilter(anything(), scan(unbounded()))));
+
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(913370523, plan1.planHash());
+        } else {
+            assertEquals(-359515160, plan1.planHash());
+        }
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(
-                        //Query.field("num_value_2").equalsValue(1),
-                        Query.field("num_value_2").greaterThan(2),
-                        Query.field("num_value_2").lessThan(5),
-                        Query.field("repeater").oneOfThem().equalsValue(10)))
-                //Query.field("repeater").oneOfThem().matches(Query.field("repeated").equalsValue(20))))
+                        Query.field("num_value_2").equalsValue(1),
+                        Query.field("repeater").oneOfThem().equalsValue(1)))
                 .build();
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, primaryKeyDistinct(indexScan(allOf(indexName("prefix_repeated"),
@@ -499,15 +503,18 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
-            //  List<Long> recnos = recordStore.executeQuery(plan1)
-            //          .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
-            //          .asList().join();
-            //  assertEquals(Arrays.asList(1L, 3L), recnos);
-            //  assertDiscardedAtMost(1, context);
+            List<Long> recnos =
+                    recordStore.executeQuery(plan1)
+                            .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
+                            .asList().join();
+            assertEquals(Arrays.asList(1L, 3L), recnos);
+            assertDiscardedAtMost(1, context);
+
             clearStoreCounter(context);
-            List<Long> recnos = recordStore.executeQuery(plan2)
-                    .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
-                    .asList().join();
+            recnos =
+                    recordStore.executeQuery(plan2)
+                            .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
+                            .asList().join();
             assertEquals(Arrays.asList(1L), recnos);
             assertDiscardedNone(context);
         }

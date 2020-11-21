@@ -98,5 +98,4 @@ public class ExpandedPredicates {
         return new SelectExpression(ImmutableList.<Quantifier>builder().add(baseQuantifier).addAll(getQuantifiers()).build(),
                 ImmutableList.copyOf(getPredicates()));
     }
-
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.google.common.collect.ImmutableList;
@@ -57,14 +58,19 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
     @Nonnull
     private final Set<String> queriedRecordTypes;
 
+    @Nonnull
+    private final KeyExpression alternativeKeyExpression;
+
     public PrimaryScanMatchCandidate(@Nonnull final ExpressionRefTraversal traversal,
                                      @Nonnull final List<CorrelationIdentifier> parameters,
                                      @Nonnull Set<String> availableRecordTypes,
-                                     @Nonnull Set<String> queriedRecordTypes) {
+                                     @Nonnull Set<String> queriedRecordTypes,
+                                     @Nonnull final KeyExpression alternativeKeyExpression) {
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
         this.availableRecordTypes = ImmutableSet.copyOf(availableRecordTypes);
         this.queriedRecordTypes = ImmutableSet.copyOf(queriedRecordTypes);
+        this.alternativeKeyExpression = alternativeKeyExpression;
     }
 
     @Nonnull
@@ -94,11 +100,17 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
+    public KeyExpression getAlternativeKeyExpression() {
+        return alternativeKeyExpression;
+    }
+
+    @Nonnull
+    @Override
     @SuppressWarnings("java:S135")
-    public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges) {
-        return new LogicalTypeFilterExpression(queriedRecordTypes,
-                new PrimaryScanExpression(getQueriedRecordTypes(),
+    public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
+        return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
+                new PrimaryScanExpression(getAvailableRecordTypes(),
                         comparisonRanges,
-                        false));
+                        isReverse));
     }
 }

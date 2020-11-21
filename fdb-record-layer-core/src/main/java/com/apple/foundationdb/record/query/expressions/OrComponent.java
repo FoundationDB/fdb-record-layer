@@ -24,9 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -66,12 +64,6 @@ public class OrComponent extends AndOrComponent {
     @Override
     public QueryComponent withOtherChildren(List<QueryComponent> newChildren) {
         return OrComponent.from(newChildren);
-    }
-
-    @Nonnull
-    @Override
-    public QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new OrPredicate(normalizeChildrenForPlannerOld(source, fieldNamePrefix));
     }
 
     @Override

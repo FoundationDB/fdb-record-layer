@@ -43,8 +43,8 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
@@ -60,6 +60,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -251,7 +252,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 .build();
         setupPlanner(indexTypes);
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(PredicateMatchers.equivalentTo(query.getFilter()),
+        assertThat(plan, filter(Objects.requireNonNull(query.getFilter()),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(735933204, plan.planHash());
 
@@ -333,7 +334,7 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
                 planHash,
                 expectedReturn,
                 100 - expectedReturn,
-                filter(PredicateMatchers.equivalentTo(filter), typeFilter(contains("MySimpleRecord"), scan(unbounded()))),
+                filter(filter, typeFilter(contains("MySimpleRecord"), scan(unbounded()))),
                 checkRecord
         );
     }
@@ -516,7 +517,11 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
-        assertEquals(-1429997503, plan.planHash());
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-1429997503, plan.planHash());
+        } else {
+            assertEquals(1837304058, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

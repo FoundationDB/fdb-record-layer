@@ -96,7 +96,6 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
         final Quantifier.Physical qun = call.get(qunMatcher);
         final QueryPredicate pred = call.get(predMatcher);
-        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final Collection<String> recordTypes = call.get(root).getRecordTypes();
 
         final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes);
@@ -106,7 +105,6 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         call.yield(GroupExpressionRef.of(
                 new RecordQueryPredicateFilterPlan(
                         newQun,
-                        filterPlan.getBaseSource(),
                         rebasedPred)));
     }
 }

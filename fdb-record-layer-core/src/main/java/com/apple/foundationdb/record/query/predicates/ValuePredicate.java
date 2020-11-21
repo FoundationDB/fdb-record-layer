@@ -68,7 +68,7 @@ public class ValuePredicate implements PredicateWithValue {
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        return comparison.eval(store, context, value.eval(context, record, message));
+        return comparison.eval(store, context, value.eval(store, context, record, message));
     }
 
     @Nonnull
@@ -92,6 +92,17 @@ public class ValuePredicate implements PredicateWithValue {
     @Override
     public Stream<PlannerBindings> bindTo(@Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
         return matcher.matchWith(this, ImmutableList.of());
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     @Override

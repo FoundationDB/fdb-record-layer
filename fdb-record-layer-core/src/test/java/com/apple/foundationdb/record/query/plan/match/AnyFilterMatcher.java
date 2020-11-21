@@ -1,5 +1,5 @@
 /*
- * ValueElementMatcher.java
+ * FilterMatcherWithComponent.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,32 +18,36 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.temp.view;
+package com.apple.foundationdb.record.query.plan.match;
 
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 
 import javax.annotation.Nonnull;
 
 /**
- * A Hamcrest matcher that checks whether an {@link Element} is a {@link ValueElement}.
+ * A specialized Hamcrest matcher that recognizes any {@link RecordQueryFilterPlan}.
  */
-public class ValueElementMatcher extends ElementMatcher {
-    @Nonnull
-    private final Matcher<Source> sourceMatcher;
-
-    public ValueElementMatcher(@Nonnull Matcher<Source> sourceMatcher) {
-        this.sourceMatcher = sourceMatcher;
+public class AnyFilterMatcher extends PlanMatcherWithChild {
+    public AnyFilterMatcher(@Nonnull Matcher<RecordQueryPlan> childMatcher) {
+        super(childMatcher);
     }
 
     @Override
-    protected boolean matchesSafely(Element element) {
-        return element instanceof ValueElement && sourceMatcher.matches(((ValueElement)element).getSource());
+    public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
+        if (plan instanceof RecordQueryFilterPlan) {
+            return super.matchesSafely(plan);
+        } else {
+            return false;
+        }
     }
 
     @Override
     public void describeTo(Description description) {
-        sourceMatcher.describeTo(description);
-        description.appendText(" with value");
+        description.appendText("AnyFilter(");
+        super.describeTo(description);
+        description.appendText(")");
     }
 }

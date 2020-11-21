@@ -26,19 +26,12 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Optional;
 
 /**
  * A key expression that can be bound by a comparison.
  */
-public class BoundKeyPart {
-    @Nonnull
-    private final KeyExpression normalizedKeyExpression;
-
-    @Nonnull
-    private final ComparisonRange.Type comparisonRangeType;
-
+public class BoundKeyPart extends KeyPart {
     @Nullable
     private final QueryPredicate queryPredicate;
 
@@ -49,20 +42,9 @@ public class BoundKeyPart {
                          @Nonnull final ComparisonRange.Type comparisonRangeType,
                          @Nullable final QueryPredicate queryPredicate,
                          @Nullable final QueryPredicate candidatePredicate) {
-        this.normalizedKeyExpression = normalizedKeyExpression;
-        this.comparisonRangeType = comparisonRangeType;
+        super(normalizedKeyExpression, comparisonRangeType);
         this.queryPredicate = queryPredicate;
         this.candidatePredicate = candidatePredicate;
-    }
-
-    @Nonnull
-    public KeyExpression getNormalizedKeyExpression() {
-        return normalizedKeyExpression;
-    }
-
-    @Nonnull
-    public ComparisonRange.Type getComparisonRangeType() {
-        return comparisonRangeType;
     }
 
     @Nullable
@@ -93,16 +75,5 @@ public class BoundKeyPart {
                                   @Nullable final QueryPredicate queryPredicate,
                                   @Nullable final QueryPredicate candidatePredicate) {
         return new BoundKeyPart(normalizedKeyExpression, comparisonRangeType, queryPredicate, candidatePredicate);
-    }
-
-    public static int getEqualitySize(@Nonnull final List<BoundKeyPart> boundKeyParts) {
-        int i;
-        for (i = 0; i < boundKeyParts.size(); i++) {
-            final BoundKeyPart boundKeyPart = boundKeyParts.get(i);
-            if (boundKeyPart.getComparisonRangeType() != ComparisonRange.Type.EQUALITY) {
-                break;
-            }
-        }
-        return i;
     }
 }

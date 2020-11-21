@@ -85,7 +85,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     public SelectExpression(@Nonnull List<Quantifier> children, @Nonnull List<QueryPredicate> predicates) {
         this.children = children;
         this.predicates = predicates.isEmpty()
-                          ? ImmutableList.of(ConstantPredicate.TRUE)
+                          ? ImmutableList.of()
                           : partitionPredicates(predicates);
     }
 
@@ -103,7 +103,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     @Nonnull
     public QueryPredicate getPredicate() {
-        return AndPredicate.and(predicates);
+        return predicates.isEmpty() ? ConstantPredicate.TRUE : AndPredicate.and(predicates);
     }
 
     @Nonnull
@@ -133,6 +133,17 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     public SelectExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         List<QueryPredicate> rebasedPredicates = predicates.stream().map(p -> p.rebase(translationMap)).collect(Collectors.toList());
         return new SelectExpression(rebasedQuantifiers, rebasedPredicates);
+    }
+
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
+    @Override
+    public boolean equals(final Object other) {
+        return semanticEquals(other);
+    }
+
+    @Override
+    public int hashCode() {
+        return semanticHashCode();
     }
 
     @Override
@@ -202,7 +213,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableList.of();
         }
 
-        // loop through all for each quantifiers on this side to ensure that they are all matched
+        // loop through all for each quantifiers on the other side to ensure that they are all matched
         final boolean allOtherForEachQuantifiersMatched =
                 otherSelectExpression.getQuantifiers()
                         .stream()
@@ -440,8 +451,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // 2. check if they are bound under the current parameter bindings -- if not ==> add to the predicates to be reapplied
         // 3. check if an exists() needs compensation -- if id does ==> pull up compensation (for now, reapply the altenrative QueryComponent)
         for (final QueryPredicate predicate : getPredicates()) {
-            if (!unmappedPredicates.contains(predicate) && predicateMap.containsKeyUnwrapped(predicate)) {
-                if (predicate instanceof PredicateWithValue) {
+            if (predicate instanceof Sargable) {
+                if (!unmappedPredicates.contains(predicate) && predicateMap.containsKeyUnwrapped(predicate)) {
                     final QueryPredicate otherPredicate = predicateMap.getUnwrapped(predicate);
                     if (otherPredicate instanceof Placeholder) {
                         if (boundParameterPrefixMap.containsKey(((Placeholder)otherPredicate).getParameterAlias())) {
@@ -449,6 +460,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                         }
                     }
                 }
+                toBeReappliedPredicatesMap.put(predicate, AndPredicate.and(((Sargable)predicate).toResiduals()));
+                continue;
             }
 
             if (predicate instanceof ExistsPredicate) {
@@ -459,11 +472,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 if (!compensationOptional.isPresent() || compensationOptional.get().isNeeded()) {
                     // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
                     // TODO make a predicate that can evaluate a QueryComponent
-                    toBeReappliedPredicatesMap.put(predicate, new QueryComponentPredicate(existsPredicate.getAlternativeComponent()));
+                    toBeReappliedPredicatesMap.put(predicate, new QueryComponentPredicate(existsPredicate.getAlternativeComponent(), existentialAlias));
                 }
                 continue;
             }
-            
+
             toBeReappliedPredicatesMap.put(predicate, predicate);
         }
 

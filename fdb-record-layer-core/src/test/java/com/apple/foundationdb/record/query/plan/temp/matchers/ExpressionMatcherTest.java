@@ -36,15 +36,13 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,10 +58,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * children might not be present, might be masked, etc.). This test might break in the future if that were to happen.
  */
 public class ExpressionMatcherTest {
-    private static List<ExpressionMatcher<? extends Bindable>> existingMatchers = ImmutableList.of(
+    private static final List<ExpressionMatcher<? extends Bindable>> existingMatchers = ImmutableList.of(
             TypeMatcher.of(RecordQueryIndexPlan.class),
             TypeMatcher.of(RelationalExpression.class));
-    private static List<Bindable> existingBindables = ImmutableList.of(
+    private static final List<Bindable> existingBindables = ImmutableList.of(
             new RecordQueryIndexPlan("fake_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
             new RecordQueryScanPlan(ScanComparisons.EMPTY, false));
 
@@ -89,12 +87,10 @@ public class ExpressionMatcherTest {
     public void anyRefMatcher() {
         // create a matcher and expression to match
         ExpressionMatcher<ExpressionRef<RelationalExpression>> matcher = ReferenceMatcher.anyRef();
-        Source recordSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
-                        recordSource,
-                        Query.field("test").equalsValue(5).normalizeForPlannerOld(recordSource),
+                        new QueryComponentPredicate(Query.field("test").equalsValue(5)),
                         quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = root.bindTo(matcher).findFirst();
@@ -193,8 +189,6 @@ public class ExpressionMatcherTest {
 
     @Test
     public void treeDescentWithMixedBindings() {
-        Source rootSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
-
         // build a relatively complicated matcher
         ExpressionMatcher<ExpressionRef<RelationalExpression>> filterLeafMatcher = ReferenceMatcher.anyRef();
         ExpressionMatcher<QueryPredicate> andMatcher = TypeMatcher.of(AndPredicate.class, AnyChildrenMatcher.ANY);
@@ -211,9 +205,9 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)));
-        LogicalFilterExpression filterPlan = new LogicalFilterExpression(rootSource,
-                Query.and(andBranch1, andBranch2).normalizeForPlannerOld(rootSource),
-                quantifier);
+        LogicalFilterExpression filterPlan =
+                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).normalizeForPlanner(quantifier.getAlias()).asAndPredicate(),
+                        quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalUnorderedUnionExpression(

@@ -40,6 +40,17 @@ public class QuantifierMatcher<T extends Quantifier> extends TypeMatcher<T> {
     }
 
     /**
+     * Matches a {@link com.apple.foundationdb.record.query.plan.temp.Quantifier.Physical} quantifier together
+     * with the given matcher for its {@code rangesOver()}.
+     * @param rangesOverMatcher matcher for the rangesOver expression reference
+     * @return a matcher matching a physical quantifier together with the given matcher for the reference it ranges over
+     */
+    @Nonnull
+    public static QuantifierMatcher<Quantifier> any(@Nonnull ExpressionMatcher<? extends Bindable> rangesOverMatcher) {
+        return ofKind(Quantifier.class, rangesOverMatcher);
+    }
+
+    /**
      * Matches a {@link com.apple.foundationdb.record.query.plan.temp.Quantifier.ForEach} quantifier together
      * with the given matcher for its {@code rangesOver()}.
      * @param rangesOverMatcher matcher for the rangesOver expression reference

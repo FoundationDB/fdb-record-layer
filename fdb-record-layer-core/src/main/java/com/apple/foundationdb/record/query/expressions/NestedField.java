@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -85,16 +83,6 @@ public class NestedField extends BaseNestedField {
     @Override
     public String toString() {
         return getFieldName() + "/{" + getChild() + "}";
-    }
-
-    @Nonnull
-    @Override
-    public QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        ImmutableList<String> fieldNames = ImmutableList.<String>builder()
-                .addAll(fieldNamePrefix)
-                .add(getFieldName())
-                .build();
-        return childComponent.normalizeForPlannerOld(source, fieldNames);
     }
 
     @Override

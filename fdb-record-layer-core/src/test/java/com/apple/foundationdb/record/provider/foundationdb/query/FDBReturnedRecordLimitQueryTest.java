@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
@@ -35,6 +36,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
@@ -75,10 +77,15 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .setSort(field("str_value_indexed"), true)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(query.getFilter(),
+        assertThat(plan, filter(Objects.requireNonNull(query.getFilter()),
                 indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
         assertTrue(plan.isReverse());
-        assertEquals(-384998859, plan.planHash());
+
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-384998859, plan.planHash());
+        } else {
+            assertEquals(-1657884542, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -111,7 +118,11 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(scan(unbounded())));
-        assertEquals(913370522, plan.planHash());
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(913370522, plan.planHash());
+        } else {
+            assertEquals(-359515161, plan.planHash());
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

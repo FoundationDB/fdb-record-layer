@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
@@ -56,7 +57,7 @@ public class ObjectValue implements Value {
     @Nonnull
     @Override
     public ObjectValue rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsTarget(identifier)) {
+        if (translationMap.containsSource(identifier)) {
             return new ObjectValue(translationMap.getTargetOrThrow(identifier));
         }
         return this;
@@ -64,7 +65,7 @@ public class ObjectValue implements Value {
 
     @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         return context.getBinding(identifier);
     }
 

@@ -1,5 +1,5 @@
 /*
- * ElementPredicateMatcher.java
+ * ValuePredicateMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.query.predicates.match;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.predicates.ElementPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.hamcrest.TypeSafeMatcher;
@@ -31,30 +31,31 @@ import org.hamcrest.TypeSafeMatcher;
 import javax.annotation.Nonnull;
 
 /**
- * A Hamcrest matcher for an {@link ElementPredicate}, with sub-matchers for the {@link Element} and
+ * A Hamcrest matcher for an {@link com.apple.foundationdb.record.query.predicates.ValuePredicate},
+ * with sub-matchers for the {@link com.apple.foundationdb.record.query.predicates.Value} and
  * {@link Comparisons.Comparison}.
  */
-public class ElementPredicateMatcher extends TypeSafeMatcher<QueryPredicate> {
+public class ValuePredicateMatcher extends TypeSafeMatcher<QueryPredicate> {
     @Nonnull
-    private final Matcher<Element> elementMatcher;
+    private final Matcher<Value> valueMatcher;
     @Nonnull
     private final Matcher<Comparisons.Comparison> comparisonMatcher;
 
-    public ElementPredicateMatcher(@Nonnull Matcher<Element> elementMatcher, @Nonnull Matcher<Comparisons.Comparison> comparisonMatcher) {
-        this.elementMatcher = elementMatcher;
+    public ValuePredicateMatcher(@Nonnull Matcher<Value> valueMatcher, @Nonnull Matcher<Comparisons.Comparison> comparisonMatcher) {
+        this.valueMatcher = valueMatcher;
         this.comparisonMatcher = comparisonMatcher;
     }
 
     @Override
     protected boolean matchesSafely(QueryPredicate predicate) {
-        return predicate instanceof ElementPredicate &&
-               elementMatcher.matches(((ElementPredicate)predicate).getElement()) &&
-               comparisonMatcher.matches(((ElementPredicate)predicate).getComparison());
+        return predicate instanceof ValuePredicate &&
+               valueMatcher.matches(((ValuePredicate)predicate).getValue()) &&
+               comparisonMatcher.matches(((ValuePredicate)predicate).getComparison());
     }
 
     @Override
     public void describeTo(Description description) {
-        elementMatcher.describeTo(description);
+        valueMatcher.describeTo(description);
         description.appendText(" ");
         comparisonMatcher.describeTo(description);
     }

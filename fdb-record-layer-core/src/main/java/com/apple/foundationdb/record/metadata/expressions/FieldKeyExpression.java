@@ -32,10 +32,6 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
-import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.plan.temp.view.ValueElement;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.ObjectValue;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -213,24 +209,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        final List<String> fieldNames = ImmutableList.<String>builder()
-                .addAll(fieldNamePrefix)
-                .add(fieldName)
-                .build();
-        switch (fanType) {
-            case FanOut:
-                return new ElementKeyExpression(new ValueElement(new RepeatedFieldSource(source, fieldNames)));
-            case None:
-                return new ElementKeyExpression(new FieldElement(source, fieldNames));
-            case Concatenate:
-            default:
-        }
-        throw new UnsupportedOperationException();
-    }
-
-    @Nonnull
-    @Override
     public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
                                                   @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
                                                   @Nonnull final List<String> fieldNamePrefix) {
@@ -255,23 +233,6 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
             default:
         }
         throw new UnsupportedOperationException();
-    }
-
-    @Nonnull
-    Source getFieldSource(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
-        final List<String> fieldNames = ImmutableList.<String>builder()
-                .addAll(fieldNamePrefix)
-                .add(fieldName)
-                .build();
-        switch (fanType) {
-            case FanOut:
-                return new RepeatedFieldSource(rootSource, fieldNames);
-            case Concatenate:
-            case None:
-                return rootSource;
-            default:
-                throw new RecordCoreException("unrecognized fan type");
-        }
     }
 
     @Nonnull

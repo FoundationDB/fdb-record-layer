@@ -233,7 +233,7 @@ public class Processors {
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
             final RelationalExpression expression = event.getExpression();
             if (expression != null) {
-                plannerRepl.printKeyValue("expression", expression.toString() + "; ");
+                plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(expression) + "; ");
             }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
@@ -285,6 +285,10 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            final RelationalExpression expression = event.getExpression();
+            if (expression != null) {
+                plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(expression));
+            }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
 

@@ -23,25 +23,21 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.DataAccessMatchRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FilterWithElementWithComparisonRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FindPossibleIndexForAndPredicateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndPredicateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIntersectionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementSortRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRuleOld;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushConjunctElementWithComparisonIntoExistingScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctFilterBelowFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushElementWithComparisonIntoExistingScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushSortIntoExistingIndexRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.SortToIndexRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -64,25 +60,21 @@ public class PlannerRuleSet {
     );
     private static final List<PlannerRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
-            new SortToIndexRule(),
-            new PushSortIntoExistingIndexRule(),
-            new FilterWithElementWithComparisonRule(),
-            new PushElementWithComparisonIntoExistingScanRule(),
-            new PushConjunctElementWithComparisonIntoExistingScanRule(),
             new RemoveRedundantTypeFilterRule(),
-            new FindPossibleIndexForAndPredicateRule(),
             new OrToUnorderedUnionRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> IMPLEMENTATION_RULES = ImmutableList.of(
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
-            new LogicalToPhysicalScanRuleOld(),
             new LogicalToPhysicalIndexScanRule(),
             new LogicalToPhysicalScanRule(),
             new FullUnorderedExpressionToScanPlanRule(),
+            new ImplementIntersectionRule(),
+            new ImplementDistinctUnionRule(),
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule(),
+            new ImplementSortRule(),
             new PushDistinctFilterBelowFilterRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =

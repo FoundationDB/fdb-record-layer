@@ -27,9 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.ElementPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -74,12 +71,6 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
     @Nonnull
     public Comparisons.Comparison getComparison() {
         return this.comparison;
-    }
-
-    @Nonnull
-    @Override
-    public QueryPredicate normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new ElementPredicate(keyExpression.toElement(source), comparison);
     }
 
     @Override

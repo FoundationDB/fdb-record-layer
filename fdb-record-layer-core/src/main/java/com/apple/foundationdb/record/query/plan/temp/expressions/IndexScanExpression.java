@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
-import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRuleOld;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -44,8 +43,6 @@ import java.util.Set;
 
 /**
  * A logical version of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan}.
- *
- * @see LogicalToPhysicalScanRuleOld which converts this to a {@code RecordQueryIndexPlan}
  */
 public class IndexScanExpression implements RelationalExpression, PlannerGraphRewritable {
     @Nonnull
@@ -91,8 +88,26 @@ public class IndexScanExpression implements RelationalExpression, PlannerGraphRe
         return builder.build();
     }
 
+    public int getEqualitySize() {
+        final int size = comparisonRanges.size();
+        if (hasInequality()) {
+            return size - 1;
+        }
+        return size;
+    }
+
+    public boolean hasInequality() {
+        final int size = comparisonRanges.size();
+        Verify.verify(size > 0);
+        return comparisonRanges.get(size - 1).isInequality();
+    }
+
     public boolean isReverse() {
         return reverse;
+    }
+
+    public int getSargableSize() {
+        return comparisonRanges.size();
     }
 
     @Nonnull

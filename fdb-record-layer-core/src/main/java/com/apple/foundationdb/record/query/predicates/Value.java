@@ -4,6 +4,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
@@ -19,7 +20,7 @@ import javax.annotation.Nullable;
 public interface Value extends Correlated<Value>, PlanHashable {
 
     @Nullable
-    <M extends Message> Object eval(@Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
+    <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
 
     @Nonnull
     default ValuePredicate withComparison(@Nonnull Comparisons.Comparison comparison) {

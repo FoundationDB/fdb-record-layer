@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPre
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,15 +52,11 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.EXPERIMENTAL)
 public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicate {
     @Nonnull
-    private final Source baseSource;
-    @Nonnull
     private final QueryPredicate filter;
 
     public RecordQueryPredicateFilterPlan(@Nonnull Quantifier.Physical inner,
-                                          @Nonnull Source baseSource,
                                           @Nonnull QueryPredicate filter) {
         super(inner);
-        this.baseSource = baseSource;
         this.filter = filter;
     }
 
@@ -76,18 +71,15 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         if (record == null) {
             return null;
         }
-        return filter.eval(store, context, record, record.getRecord());
+
+        final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), record.getRecord());
+        return filter.eval(store, nestedContext, record, record.getRecord());
     }
 
     @Nullable
     @Override
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
         throw new UnsupportedOperationException();
-    }
-
-    @Nonnull
-    public Source getBaseSource() {
-        return baseSource;
     }
 
     @Nonnull
@@ -112,8 +104,8 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     @Override
     public RecordQueryPredicateFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                        @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryPredicateFilterPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                getBaseSource(),
+        return new RecordQueryPredicateFilterPlan(
+                Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
                 getPredicate().rebase(translationMap));
     }
 
@@ -128,7 +120,6 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         }
         final RecordQueryPredicateFilterPlan otherPlan = (RecordQueryPredicateFilterPlan)otherExpression;
         return getInnerPlan().equals(otherPlan.getInnerPlan()) &&
-               getBaseSource().equals(otherPlan.getBaseSource()) &&
                filter.semanticEquals(otherPlan.getPredicate(), equivalencesMap);
     }
 
@@ -151,7 +142,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(baseSource, getPredicate());
+        return Objects.hash(getPredicate());
     }
 
     @Override

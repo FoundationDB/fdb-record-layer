@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.view.MessageValue;
+import com.apple.foundationdb.record.query.plan.temp.MessageValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -65,14 +66,14 @@ public class FieldValue implements Value {
     @Nonnull
     @Override
     public FieldValue rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsTarget(identifier)) {
+        if (translationMap.containsSource(identifier)) {
             return new FieldValue(translationMap.getTargetOrThrow(identifier), fieldNames);
         }
         return this;
     }
 
     @Override
-    public <M extends Message> Object eval(@Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         if (message == null) {
             return null;
         }
@@ -104,7 +105,7 @@ public class FieldValue implements Value {
 
     @Override
     public String toString() {
-        return "$" + identifier + "/" + fieldNames.get(fieldNames.size() - 1);
+        return "$" + identifier + "/" + String.join(".", fieldNames);
     }
 
     @Override

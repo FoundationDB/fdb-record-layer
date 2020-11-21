@@ -74,7 +74,7 @@ public class OrPredicate extends AndOrPredicate {
 
     @Override
     public int planHash() {
-        return PlanHashable.planHash(getChildren());
+        return PlanHashable.planHashUnordered(getChildren());
     }
 
     @Override

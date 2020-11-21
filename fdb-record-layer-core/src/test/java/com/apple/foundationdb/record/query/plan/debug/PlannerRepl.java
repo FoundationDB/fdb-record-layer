@@ -875,8 +875,8 @@ public class PlannerRepl implements Debugger {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            final OnRuleBreakPoint that = (OnRuleBreakPoint)o;
-            return candidateNamePrefix.equals(that.ruleNamePrefix) &&
+            final OnMatchBreakPoint that = (OnMatchBreakPoint)o;
+            return candidateNamePrefix.equals(that.candidateNamePrefix) &&
                    location == that.location;
         }
 
@@ -898,6 +898,67 @@ public class PlannerRepl implements Debugger {
         private final Location location;
 
         public OnRuleBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
+            super(event -> event.getShorthand() == Shorthand.TRANSFORM &&
+                           event.getLocation() == location &&
+                           event instanceof TransformEvent);
+            this.ruleNamePrefix = ruleNamePrefix;
+            this.location = location;
+        }
+
+        @Override
+        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
+            if (super.onCallback(plannerRepl, event)) {
+                final TransformEvent transformEvent =
+                        (TransformEvent)event;
+                return (Location.ANY == location || event.getLocation() == location) &&
+                       transformEvent
+                               .getRule()
+                               .getClass()
+                               .getSimpleName()
+                               .startsWith(ruleNamePrefix);
+            }
+            return false;
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl) {
+            super.onList(plannerRepl);
+            plannerRepl.print("; ");
+            plannerRepl.printKeyValue("ruleNamePrefix", ruleNamePrefix + "; ");
+            plannerRepl.printKeyValue("location", location.name());
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final OnRuleBreakPoint that = (OnRuleBreakPoint)o;
+            return ruleNamePrefix.equals(that.ruleNamePrefix) &&
+                   location == that.location;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ruleNamePrefix, location);
+        }
+    }
+
+    /**
+     * Breakpoint that breaks when the planner attempts to match an expression against a match candidate.
+     */
+    public static class OnRuleCallBreakPoint extends BreakPoint {
+
+        @Nonnull
+        private final String ruleNamePrefix;
+
+        @Nonnull
+        private final Location location;
+
+        public OnRuleCallBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
             super(event -> event.getShorthand() == Shorthand.RULECALL &&
                            event.getLocation() == location &&
                            event instanceof TransformRuleCallEvent);
@@ -936,7 +997,7 @@ public class PlannerRepl implements Debugger {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            final OnRuleBreakPoint that = (OnRuleBreakPoint)o;
+            final OnRuleCallBreakPoint that = (OnRuleCallBreakPoint)o;
             return ruleNamePrefix.equals(that.ruleNamePrefix) &&
                    location == that.location;
         }

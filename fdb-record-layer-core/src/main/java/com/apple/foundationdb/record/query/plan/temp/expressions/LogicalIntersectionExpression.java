@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -162,7 +163,10 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.LogicalOperatorNodeWithInfo(this, NodeInfo.INTERSECTION_OPERATOR, ImmutableList.of(), ImmutableMap.of()),
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.INTERSECTION_OPERATOR,
+                        ImmutableList.of("COMPARE BY {{comparisonKey}}"),
+                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
                 childGraphs);
     }
 }

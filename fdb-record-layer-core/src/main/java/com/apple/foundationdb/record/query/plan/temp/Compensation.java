@@ -21,14 +21,17 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordCoreException;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -74,14 +77,6 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
             @Nonnull
             @Override
             public RelationalExpression apply(@Nonnull final ExpressionRef<RelationalExpression> reference) {
-                if (!otherCompensation.isNeeded()) {
-                    return apply(reference);
-                }
-
-                if (!isNeeded()) {
-                    return otherCompensation.apply(reference);
-                }
-
                 return apply(
                         GroupExpressionRef.of(otherCompensation
                                 .apply(reference)));
@@ -158,7 +153,19 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
 
         @Override
         public RelationalExpression apply(final ExpressionRef<RelationalExpression> reference) {
-            return new SelectExpression(ImmutableList.of(Quantifier.forEach(reference)), ImmutableList.copyOf(predicateCompensationMap.values()));
+            final Quantifier quantifier = Quantifier.forEach(reference);
+            final Collection<QueryPredicate> predicates = predicateCompensationMap.values();
+            final ImmutableList<QueryPredicate> rebasedPredicates = predicates
+                    .stream()
+                    .map(queryPredicate -> {
+                        final Set<CorrelationIdentifier> correlatedTo = queryPredicate.getCorrelatedTo();
+                        Verify.verify(correlatedTo.size() == 1);
+                        final AliasMap translationMap = AliasMap.of(Iterables.getOnlyElement(correlatedTo), quantifier.getAlias());
+                        return queryPredicate.rebase(translationMap);
+                    })
+                    .collect(ImmutableList.toImmutableList());
+            // TODO this should use the newer API of LogicalFilterExpression that directly takes a collection of predicates
+            return new LogicalFilterExpression(AndPredicate.and(rebasedPredicates), quantifier);
         }
     }
 

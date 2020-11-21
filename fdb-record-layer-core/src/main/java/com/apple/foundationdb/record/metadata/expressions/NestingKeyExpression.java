@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -123,25 +122,6 @@ public class NestingKeyExpression extends BaseKeyExpression implements KeyExpres
         return getChild().normalizeKeyForPositions()
                 .stream().map(normalizedChild -> new NestingKeyExpression(parent, normalizedChild))
                 .collect(Collectors.toList());
-    }
-
-    @Nonnull
-    @Override
-    public KeyExpression normalizeForPlannerOld(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        switch (parent.getFanType()) {
-            case None:
-            case Concatenate:
-                List<String> newPrefix = ImmutableList.<String>builder()
-                        .addAll(fieldNamePrefix)
-                        .add(parent.getFieldName())
-                        .build();
-
-                return child.normalizeForPlannerOld(source, newPrefix);
-            case FanOut:
-                return child.normalizeForPlannerOld(parent.getFieldSource(source, fieldNamePrefix), Collections.emptyList());
-            default:
-                throw new RecordCoreException("unknown fan type");
-        }
     }
 
     @Nonnull

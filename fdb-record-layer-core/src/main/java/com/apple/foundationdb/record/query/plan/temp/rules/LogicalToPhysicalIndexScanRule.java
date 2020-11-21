@@ -33,7 +33,7 @@ import java.util.Objects;
 
 /**
  * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts
- * the logical index scan's {@link com.apple.foundationdb.record.query.plan.temp.view.ViewExpressionComparisons} to a
+ * the logical index scan's to a
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons} to be used during query execution.
  */
 @API(API.Status.EXPERIMENTAL)

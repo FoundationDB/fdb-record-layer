@@ -1,5 +1,5 @@
 /*
- * ElementMatcher.java
+ * ValueMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,7 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.record.query.expressions.Comparisons;
-import com.apple.foundationdb.record.query.predicates.match.ElementPredicateMatcher;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.match.ValuePredicateMatcher;
 import org.hamcrest.Matchers;
 import org.hamcrest.TypeSafeMatcher;
 
@@ -29,30 +30,42 @@ import javax.annotation.Nonnull;
 
 /**
  * A base class for matchers that should support the fluent syntax for constructing matchers on
- * {@link com.apple.foundationdb.record.query.predicates.ElementPredicate}s.
+ * {@link com.apple.foundationdb.record.query.predicates.ValuePredicate}s.
  */
-public abstract class ElementMatcher extends TypeSafeMatcher<Element> {
+public abstract class ValueMatcher extends TypeSafeMatcher<Value> {
     @Nonnull
-    public ElementPredicateMatcher equalsValue(@Nonnull Object comparand) {
-        return new ElementPredicateMatcher(this,
+    public ValuePredicateMatcher equalsValue(@Nonnull Object comparand) {
+        return new ValuePredicateMatcher(this,
                 Matchers.equalTo(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, comparand)));
     }
 
     @Nonnull
-    public ElementPredicateMatcher notEquals(@Nonnull Object comparand) {
-        return new ElementPredicateMatcher(this,
+    public ValuePredicateMatcher notEquals(@Nonnull Object comparand) {
+        return new ValuePredicateMatcher(this,
                 Matchers.equalTo(new Comparisons.SimpleComparison(Comparisons.Type.NOT_EQUALS, comparand)));
     }
 
     @Nonnull
-    public ElementPredicateMatcher greaterThan(@Nonnull Object comparand) {
-        return new ElementPredicateMatcher(this,
+    public ValuePredicateMatcher greaterThan(@Nonnull Object comparand) {
+        return new ValuePredicateMatcher(this,
                 Matchers.equalTo(new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, comparand)));
     }
 
     @Nonnull
-    public ElementPredicateMatcher notNull() {
-        return new ElementPredicateMatcher(this,
+    public ValuePredicateMatcher lessThan(@Nonnull Object comparand) {
+        return new ValuePredicateMatcher(this,
+                Matchers.equalTo(new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, comparand)));
+    }
+
+    @Nonnull
+    public ValuePredicateMatcher startsWith(@Nonnull Object comparand) {
+        return new ValuePredicateMatcher(this,
+                Matchers.equalTo(new Comparisons.SimpleComparison(Comparisons.Type.STARTS_WITH, comparand)));
+    }
+
+    @Nonnull
+    public ValuePredicateMatcher notNull() {
+        return new ValuePredicateMatcher(this,
                 Matchers.equalTo(new Comparisons.NullComparison(Comparisons.Type.NOT_NULL)));
     }
 }

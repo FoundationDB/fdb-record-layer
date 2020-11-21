@@ -81,13 +81,9 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
         final List<QueryPredicate> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
         final List<QueryPredicate> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
         final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
-        final LogicalFilterExpression rootFilter = call.get(root);
         List<QueryPredicate> allConjuncts = new ArrayList<>(innerAndChildren);
         allConjuncts.addAll(otherOuterAndChildren);
-
-        call.yield(call.ref(new LogicalFilterExpression(
-                rootFilter.getBaseSource(),
-                new AndPredicate(allConjuncts),
+        call.yield(call.ref(new LogicalFilterExpression(new AndPredicate(allConjuncts),
                 innerQuantifier)));
     }
 }

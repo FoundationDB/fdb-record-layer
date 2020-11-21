@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -50,6 +51,9 @@ public interface MatchCandidate {
      */
     @Nonnull
     List<CorrelationIdentifier> getParameters();
+
+    @Nonnull
+    KeyExpression getAlternativeKeyExpression();
 
     @SuppressWarnings("java:S135")
     default RelationalExpression toScanExpression(@Nonnull final MatchWithCompensation matchWithCompensation) {
@@ -86,9 +90,9 @@ public interface MatchCandidate {
             }
         }
 
-        return toScanExpression(comparisonRangesForScanBuilder.build());
+        return toScanExpression(comparisonRangesForScanBuilder.build(), matchWithCompensation.isReverse());
     }
 
     @Nonnull
-    RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges);
+    RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse);
 }
