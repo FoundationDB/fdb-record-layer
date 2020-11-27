@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
@@ -33,6 +35,8 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.MAINTAINED)
 public class StoreRecordFunction<T> extends RecordFunction<T> {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Store-Record-Function");
+
     public StoreRecordFunction(@Nonnull String name) {
         super(name);
     }
@@ -56,5 +60,18 @@ public class StoreRecordFunction<T> extends RecordFunction<T> {
     @Override
     public int hashCode() {
         return getName().hashCode();
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return super.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.spatial.common;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -45,6 +46,8 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-Point-Within-Distance-Component");
+
     @Nonnull
     private final DoubleValueOrParameter centerLatitude;
     @Nonnull
@@ -125,9 +128,17 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         // TODO Right?
-        return PlanHashable.objectsPlanHash(hashKind, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.objectsPlanHash(hashKind, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, latitudeFieldName, longitudeFieldName);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

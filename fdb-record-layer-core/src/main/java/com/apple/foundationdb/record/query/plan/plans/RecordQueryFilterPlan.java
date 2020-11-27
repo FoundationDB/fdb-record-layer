@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Query;
@@ -54,6 +56,8 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Filter-Plan");
+
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryFilterPlan.class);
 
     @Nonnull
@@ -153,8 +157,16 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return getInnerPlan().planHash(hashKind) + getFilter().planHash(hashKind);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getInnerPlan().planHash(hashKind) + getFilter().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.planHash(hashKind, BASE_HASH, getInnerPlan(), getFilter());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

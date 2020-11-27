@@ -117,8 +117,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]")))));
-        assertEquals(2088320916, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(2085236690, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(2088320916, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-373169213, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(899625461, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(Arrays.asList(1L), fetchResultValues(plan,
                 TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
@@ -157,8 +158,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), scan(unbounded())));
-        assertEquals(972152650, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(972152552, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(972152650, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1151142334, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-990332474, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(Arrays.asList(1L), fetchResultValues(plan, TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
                 context -> assertDiscardedAtMost(1, context)));
@@ -175,8 +177,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 filter(Query.field("s2").notEmpty(),
                         indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aba]],[[aba]]]"))))),
                 indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]"))))));
-        assertEquals(1376647244, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(1370575145, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1376647244, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(1357993650, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1653869811, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(Arrays.asList(1L, 2L), fetchResultValues(plan, TestRecords6Proto.MyRepeatedRecord.REC_NO_FIELD_NUMBER,
                 this::openDoublyRepeatedRecordStore,
                 context -> assertDiscardedAtMost(1, context)));
@@ -281,8 +284,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = builder.setRemoveDuplicates(false).build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("review_rating"), unbounded())));
-            assertEquals(406416366, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(406416366, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(406416366, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-492266460, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-492266460, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     TestHelpers::assertDiscardedNone));
@@ -290,8 +294,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             query = builder.setRemoveDuplicates(true).build();
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), unbounded()))));
-            assertEquals(406416367, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(406416367, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(406416367, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1287446114, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1287446114, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> assertDiscardedAtMost(2, context)));
@@ -304,8 +309,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("review_rating"), unbounded())));
             assertTrue(plan.isReverse());
-            assertEquals(406416367, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(406416367, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(406416367, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-492266466, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-492266466, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1001L, 1000L, 1001L, 1000L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     TestHelpers::assertDiscardedNone));
@@ -314,8 +320,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), unbounded()))));
             assertTrue(plan.isReverse());
-            assertEquals(406416368, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(406416368, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(406416368, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1287446120, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1287446120, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1001L, 1000L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> assertDiscardedAtMost(2, context)));
@@ -328,8 +335,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = builder.setRemoveDuplicates(false).build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("review_rating"), unbounded()))));
-            assertEquals(1381942688, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(1381942623, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1381942688, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(437141191, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(597951084, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     TestHelpers::assertDiscardedNone));
@@ -338,8 +346,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             plan = planner.plan(query);
             assertThat(plan, filter(query.getFilter(), primaryKeyDistinct(
                     indexScan(allOf(indexName("review_rating"), unbounded())))));
-            assertEquals(1381942689, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(1381942624, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1381942689, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1556375693, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1717185586, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     context -> assertDiscardedAtMost(2, context)));
@@ -354,15 +363,17 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             if (shouldOptimizeForIndexFilters) {
                 assertThat(plan, fetch(filter(query.getFilter(), coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded()))))));
-                assertEquals(-505715770, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-                assertEquals(-505716225, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(-505715770, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-1599493375, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(-1438683482, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
                 assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1001L, 1000L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                         this::openNestedRecordStore,
                         TestHelpers::assertDiscardedNone));
             } else {
                 assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("customers"), unbounded()))));
-                assertEquals(1833106833, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-                assertEquals(1833106768, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(1833106833, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(927143480, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(1087953373, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
                 assertEquals(Arrays.asList(1000L, 1001L, 1000L, 1001L, 1000L, 1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                         this::openNestedRecordStore,
                         TestHelpers::assertDiscardedNone));
@@ -375,13 +386,15 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             if (shouldOptimizeForIndexFilters) {
                 assertThat(plan, fetch(filter(query.getFilter(), primaryKeyDistinct(
                         coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded())))))));
-                assertEquals(-505715763, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-                assertEquals(-505716218, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(-505715763, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(-480258873, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(-319448980, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 assertThat(plan, filter(query.getFilter(), fetch(primaryKeyDistinct(
                         coveringIndexScan(indexScan(allOf(indexName("customers"), unbounded())))))));
-                assertEquals(-1611344673, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-                assertEquals(-1611344738, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(-1611344673, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(241453899, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(402263792, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
             assertEquals(Arrays.asList(1000L, 1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
@@ -395,8 +408,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = builder.setRemoveDuplicates(false).build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[éponine],[éponine]]")))));
-            assertEquals(-574773820, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-222091158, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-574773820, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1570803679, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1795525185, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1001L, 1000L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     TestHelpers::assertDiscardedNone));
@@ -404,8 +418,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             query = builder.setRemoveDuplicates(true).build();
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[éponine],[éponine]]"))))));
-            assertEquals(-574773819, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-222091157, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-574773819, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1928983963, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1704262457, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Arrays.asList(1001L, 1000L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     TestHelpers::assertDiscardedNone));
@@ -418,8 +433,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = builder.setRemoveDuplicates(false).build();
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[gavroche],[gavroche]]")))));
-            assertEquals(-1720782767, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-222091158, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1720782767, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(921193326, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1795525185, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Collections.singletonList(1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     TestHelpers::assertDiscardedNone));
@@ -427,8 +443,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             query = builder.setRemoveDuplicates(true).build();
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[gavroche],[gavroche]]"))))));
-            assertEquals(-1720782766, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-222091157, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1720782766, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(126013672, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1704262457, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             assertEquals(Collections.singletonList(1001L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                     this::openNestedRecordStore,
                     TestHelpers::assertDiscardedNone));
@@ -478,8 +495,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("repeater$fanout"), bounds(hasTupleString("[[100],[100]]"))))));
-            assertEquals(-784887869, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-784887969, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-784887869, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1467768143, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1318207547, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             List<Message> byQuery = recordStore.executeQuery(plan).map(FDBQueriedRecord::getRecord).asList().get();
             assertEquals(1, byQuery.size());
             assertDiscardedNone(context);
@@ -523,8 +541,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, filter(anything(), typeFilter(anything(), scan(unbounded()))));
-        assertEquals(913370523, plan1.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(913370522, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(913370523, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
+        // assertEquals(2040764736, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -535,8 +554,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, primaryKeyDistinct(indexScan(allOf(indexName("prefix_repeated"),
                 bounds(hasTupleString("[[1, 1],[1, 1]]"))))));
-        assertEquals(-1387256366, plan2.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(-1387256398, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1387256366, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(788744443, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1282760667, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.spatial.geophile;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -57,6 +58,8 @@ import java.util.function.BiFunction;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQueryPlan {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geophile-Point-Within-Distance-Query-Plan");
+
     @Nonnull
     private final DoubleValueOrParameter centerLatitude;
     @Nonnull
@@ -127,9 +130,17 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         // TODO: Is this right?
-        return PlanHashable.objectsPlanHash(hashKind, getIndexName(), getPrefixComparisons(), centerLatitude, centerLongitude, distance, covering);
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.objectsPlanHash(hashKind, getIndexName(), getPrefixComparisons(), centerLatitude, centerLongitude, distance, covering);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getIndexName(), getPrefixComparisons(), covering);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

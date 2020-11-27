@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -52,6 +54,8 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ElementPredicate implements QueryPredicate {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Element-Predicate");
+
     @Nonnull
     private final Element element;
     @Nonnull
@@ -121,8 +125,16 @@ public class ElementPredicate implements QueryPredicate {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return element.planHash(hashKind) + comparison.planHash(hashKind);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return element.planHash(hashKind) + comparison.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.planHash(hashKind, BASE_HASH, element, comparison);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

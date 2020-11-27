@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -49,6 +51,8 @@ import java.util.Set;
 @API(API.Status.INTERNAL)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Parameter-Join-Plan");
+
     private final String externalBinding;
 
     public RecordQueryInParameterJoinPlan(final RecordQueryPlan plan,
@@ -131,8 +135,17 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return super.planHash(hashKind) + externalBinding.hashCode();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return super.planHash(hashKind) + externalBinding.hashCode();
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), externalBinding);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
+
     }
 
     @Override

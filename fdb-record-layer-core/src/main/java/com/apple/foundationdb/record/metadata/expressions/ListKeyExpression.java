@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -64,6 +65,8 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.MAINTAINED)
 public class ListKeyExpression extends BaseKeyExpression implements KeyExpressionWithChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("List-Key-Expression");
+
     @Nonnull
     private final List<KeyExpression> children;
 
@@ -212,8 +215,16 @@ public class ListKeyExpression extends BaseKeyExpression implements KeyExpressio
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return PlanHashable.planHash(hashKind, getChildren());
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, getChildren());
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
 }

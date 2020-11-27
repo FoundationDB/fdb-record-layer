@@ -112,7 +112,8 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        // No base hash since this class is abstract
         return fieldName.hashCode();
     }
 }

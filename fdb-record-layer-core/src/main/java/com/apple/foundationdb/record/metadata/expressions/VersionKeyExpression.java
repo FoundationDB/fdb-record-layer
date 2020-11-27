@@ -122,7 +122,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return 1;
     }
 

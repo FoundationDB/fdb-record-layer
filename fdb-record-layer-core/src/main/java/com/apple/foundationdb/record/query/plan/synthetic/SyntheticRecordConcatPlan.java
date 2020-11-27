@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.synthetic;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
@@ -44,6 +45,7 @@ import java.util.stream.Collectors;
  * Similar to {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan}.
  */
 class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-Concat-Plan");
 
     @Nonnull
     private final List<SyntheticRecordFromStoredRecordPlan> subPlans;
@@ -125,7 +127,15 @@ class SyntheticRecordConcatPlan implements SyntheticRecordFromStoredRecordPlan  
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return PlanHashable.planHash(hashKind, subPlans) + (needDistinct ? 1 : 0);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, subPlans) + (needDistinct ? 1 : 0);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, subPlans, needDistinct);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

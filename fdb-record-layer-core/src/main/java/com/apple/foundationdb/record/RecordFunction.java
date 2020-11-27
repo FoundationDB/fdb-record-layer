@@ -68,7 +68,7 @@ public abstract class RecordFunction<T> implements PlanHashable {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return name.hashCode();
     }
 }

@@ -83,8 +83,9 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[1]]")))));
-        assertEquals(1869980849, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(1869980818, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1869980849, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1218667265, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1591230048, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -171,8 +172,9 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))))));
-        assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(-1444441454, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(1886858967, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1848500501, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -218,8 +220,9 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                 bounds(anyOf(combinations.stream()
                         .map(ls -> hasTupleString("[EQUALS $str, [" + String.join(" && ", ls) + "]]"))
                         .collect(Collectors.toList()))))));
-        assertEquals(241654378, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(241536216, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(241654378, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-833909187, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(2046922955, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

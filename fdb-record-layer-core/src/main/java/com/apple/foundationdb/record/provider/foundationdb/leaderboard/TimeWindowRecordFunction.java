@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 
@@ -34,6 +36,8 @@ import javax.annotation.Nullable;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TimeWindowRecordFunction<T> extends IndexRecordFunction<T> {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Time-Window-Record-Function");
+
     @Nonnull
     private final TimeWindowForFunction timeWindow;
 
@@ -86,5 +90,18 @@ public class TimeWindowRecordFunction<T> extends IndexRecordFunction<T> {
         int result = super.hashCode();
         result = 31 * result + timeWindow.hashCode();
         return result;
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return super.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), timeWindow);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

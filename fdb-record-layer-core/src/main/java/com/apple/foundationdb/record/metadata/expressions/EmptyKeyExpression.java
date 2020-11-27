@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -39,6 +41,8 @@ import java.util.List;
 @API(API.Status.MAINTAINED)
 @SuppressWarnings("PMD.MissingSerialVersionUID") // this appears to be a false positive
 public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpression, KeyExpressionWithoutChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Key-Expression");
+
     public static final EmptyKeyExpression EMPTY = new EmptyKeyExpression();
     public static final RecordMetaDataProto.KeyExpression EMPTY_PROTO =
             RecordMetaDataProto.KeyExpression.newBuilder().setEmpty(EMPTY.toProto()).build();
@@ -114,7 +118,15 @@ public class EmptyKeyExpression extends BaseKeyExpression implements KeyExpressi
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return 0;
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return 0;
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.planHash(hashKind, BASE_HASH);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

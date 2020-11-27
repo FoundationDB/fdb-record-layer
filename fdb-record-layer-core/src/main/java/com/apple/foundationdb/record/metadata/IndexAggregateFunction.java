@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.metadata;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -38,6 +39,8 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class IndexAggregateFunction implements PlanHashable {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Aggregate-Function");
+
     @Nonnull
     private final String name;
     @Nonnull
@@ -122,8 +125,15 @@ public class IndexAggregateFunction implements PlanHashable {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        // TODO: Is this right?
-        return name.hashCode() + operand.planHash(hashKind) + Objects.hashCode(index);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return name.hashCode() + operand.planHash(hashKind) + Objects.hashCode(index);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, name, operand, index);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

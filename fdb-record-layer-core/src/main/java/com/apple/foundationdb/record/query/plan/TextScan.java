@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -73,6 +74,8 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class TextScan implements PlanHashable {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Text-Scan");
+
     // Used by the text predicates that filter
     @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_TEXT_FILTER_PLAN_GIVEN);
@@ -542,7 +545,15 @@ public class TextScan implements PlanHashable {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return PlanHashable.planHash(hashKind, textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, textComparison, groupingComparisons, suffixComparisons) + index.getName().hashCode();
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, index.getName(), textComparison, groupingComparisons, suffixComparisons);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

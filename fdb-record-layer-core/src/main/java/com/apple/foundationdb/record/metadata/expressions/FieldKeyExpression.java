@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -52,6 +54,8 @@ import java.util.List;
  */
 @API(API.Status.MAINTAINED)
 public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Key-Expression");
+
     @Nonnull
     private final String fieldName;
     @Nonnull
@@ -364,10 +368,18 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        // Note that the NullStandIn is NOT included in the hash code. It will be replaced with
-        // https://github.com/FoundationDB/fdb-record-layer/issues/677
-        return fieldName.hashCode() + fanType.name().hashCode();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                // Note that the NullStandIn is NOT included in the hash code. It will be replaced with
+                // https://github.com/FoundationDB/fdb-record-layer/issues/677
+                return fieldName.hashCode() + fanType.name().hashCode();
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldName, fanType.name());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

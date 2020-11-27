@@ -91,7 +91,7 @@ public class RecordTypeElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return 2; // To match RecordTypeKeyExpression.planHash()
     }
 

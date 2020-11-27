@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -44,6 +45,8 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class OrPredicate extends AndOrPredicate {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
+
     public OrPredicate(@Nonnull List<QueryPredicate> operands) {
         super(operands);
     }
@@ -70,9 +73,16 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        // TODO: shouldn't there be something for the "OR" part?
-        return PlanHashable.planHash(hashKind, getChildren());
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, getChildren());
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

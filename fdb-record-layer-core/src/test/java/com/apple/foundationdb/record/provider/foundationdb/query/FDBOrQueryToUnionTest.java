@@ -131,15 +131,17 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))))));
             assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
-            assertEquals(-1584186103, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-1608028110, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1584186103, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(35106487, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(770459014, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, union(
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
             assertTrue(plan.getQueryPlanChildren().stream().allMatch(QueryPlan::isReverse));
-            assertEquals(-2067012572, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-2070418573, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2067012572, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2118434336, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1383081809, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         Set<Long> seen = new HashSet<>();
@@ -236,16 +238,18 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[4],[4]]")))))
             ), equalTo(primaryKey("MySimpleRecord")))));
-            assertEquals(1912003491, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(1911996302, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1912003491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(760524519, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1198771164, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, union(Arrays.asList(
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[4],[4]]"))))
             ), equalTo(primaryKey("MySimpleRecord"))));
-            assertEquals(273143354, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(273142327, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(273143354, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1460945324, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1022698679, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -327,16 +331,18 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>")))))
             ), equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))))));
-            assertEquals(504228282, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(504221100, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(504228282, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-282868387, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-126257381, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, union(Arrays.asList(
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],[2]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>"))))
             ), equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
-            assertEquals(1299166123, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(1299165097, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1299166123, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1790629066, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1947240072, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -385,8 +391,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             indexName("MySimpleRecord$num_value_3_indexed"),
                             bounds(hasTupleString("([3],>"))))),
                     equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord"))))));
-            assertEquals(-627934247, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-627934702, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-627934247, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(44227457, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(914735300, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, union(
                     indexScan(allOf(
@@ -396,8 +403,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                             indexName("MySimpleRecord$num_value_3_indexed"),
                             bounds(hasTupleString("([3],>")))),
                     equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
-            assertEquals(-1930405164, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-1930405229, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1930405164, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2109313366, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1238805523, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -443,16 +451,18 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]")))))
             ), equalTo(primaryKey("MySimpleRecord"))))); // ordered by primary key, since the fields are not the same.
-            assertEquals(-417814093, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(31581839, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-417814093, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(621593801, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(109844357, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, union(Arrays.asList(
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]"))))
             ), equalTo(primaryKey("MySimpleRecord")))); // ordered by primary key, since the fields are not the same.
-            assertEquals(-673254486, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(618078446, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-673254486, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1599876042, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-2111625486, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         }
 
@@ -503,8 +513,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             planMatcher = primaryKeyDistinct(planMatcher);
         }
         assertThat(plan, planMatcher);
-        assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(removesDuplicates ? -1569451126 : -1569451127, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(removesDuplicates ? 950275631 : 1745455285, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(removesDuplicates ? -271757097 : 523422557, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             context.getTimer().reset();
@@ -613,8 +624,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             planMatcher = primaryKeyDistinct(planMatcher);
         }
         assertThat(plan, planMatcher);
-        assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(removesDuplicates ? -1569451126 : -1569451127, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(removesDuplicates ? -1569447744 : -1569447745, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(removesDuplicates ? 950275631 : 1745455285, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(removesDuplicates ? -271757097 : 523422557, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -678,8 +690,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, union(
                 indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("([even, 3],[even]]")))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([null],[1])"))))));
-        assertEquals(1721396731, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(1624505207, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1721396731, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(254899892, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-567271918, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -732,8 +745,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             planMatcher = primaryKeyDistinct(planMatcher);
         }
         assertThat(plan, planMatcher);
-        assertEquals(removesDuplicates ? -173785610 : -173785611, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(removesDuplicates ? -273802604 : -273802605, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(removesDuplicates ? -173785610 : -173785611, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(removesDuplicates ? -1841775739 : -1046596085, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(removesDuplicates ? -1268687871 : -473508217, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -781,8 +795,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("([even, 3],[even]]")))),
                 // note that the primary key is (str_value_indexed, num_value_unique), but "str_value_indexed" is not repeated.
                 equalTo(concat(field("str_value_indexed"), field("num_value_3_indexed"), field("num_value_unique")))));
-        assertEquals(-94975810, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(1193231592, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-94975810, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1680174220, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-662886954, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -825,8 +840,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]")))),
                 equalTo(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))));
-        assertEquals(1412961915, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(1412961881, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1412961915, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(1266155885, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-727469749, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -873,15 +889,19 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
         assertTrue(plan1.semanticEquals(plan2));
         if (shouldPushFetchAboveUnionToIntersection) {
-            assertEquals(-1584186103, plan1.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-1608028110, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(-91575587, plan2.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-92344684, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1584186103, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(35106487, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(770459014, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-91575587, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1231616743, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(880430136, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(-2067012572, plan1.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-2070418573, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(600484528, plan2.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(600374657, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2067012572, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2118434336, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1383081809, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(600484528, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-921924080, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1273110687, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
         
         Set<Long> seen = new HashSet<>();
@@ -938,15 +958,19 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertTrue(plan1.semanticEquals(plan2));
         
         if (shouldDeferFetch) {
-            assertEquals(770691035, plan1.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(31588797, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(1289607451, plan2.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(1288818173, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(770691035, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(994600447, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(104118533, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1289607451, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1007003841, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-671772859, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertEquals(723665474, plan1.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(618079440, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(184229634, plan2.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(184116880, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(723665474, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1226869396, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-2117351310, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(184229634, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1066493612, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1401724594, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         Set<Long> seen = new HashSet<>();
@@ -999,14 +1023,16 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, fetch(union(
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]"))))),
                     coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))))));
-            assertEquals(-1584186334, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-1608028341, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1584186334, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(35291185, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(770643712, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, union(
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[odd],[odd]]")))),
                     indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))));
-            assertEquals(-2067012605, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-            assertEquals(-2070418606, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-2067012605, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2118249638, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1382897111, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -1056,8 +1082,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, union(
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 0],[even, 0, 0]]")))),
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]"))))));
-        assertEquals(-2074065439, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(-794340682, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-2074065439, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(123699734, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1023634317, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -1108,8 +1135,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(anyOf(hasTupleString("[[1],[1]]"), hasTupleString("[[3],[3]]"), hasTupleString("[[5],[5]]")))));
         assertThat(plan, union(everyLeaf(is(leaf)), everyLeaf(is(leaf))));
-        assertEquals(273143386, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(273142327, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(273143386, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1431392652, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1022698679, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             for (int limit = 1; limit <= 5; limit++) {
@@ -1154,8 +1182,9 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(orComponent, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]"))))));
-        assertEquals(-1553701984, plan.planHash(PlanHashable.PlanHashKind.CONTINUATION));
-        assertEquals(-1556828541, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1553701984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(925084586, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1299055873, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

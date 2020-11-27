@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -60,6 +61,8 @@ import java.util.stream.Collectors;
 @API(API.Status.INTERNAL)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
 public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements RecordQueryPlanWithRequiredFields {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Union-Plan");
+
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlan.class);
 
     private static final StoreTimer.Count PLAN_COUNT = FDBStoreTimer.Counts.PLAN_UNION;
@@ -176,9 +179,16 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        // TODO: Super()?
-        return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + getComparisonKey().planHash(hashKind) + (isReverse() ? 1 : 0);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return super.planHash(hashKind) + getComparisonKey().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), getComparisonKey());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

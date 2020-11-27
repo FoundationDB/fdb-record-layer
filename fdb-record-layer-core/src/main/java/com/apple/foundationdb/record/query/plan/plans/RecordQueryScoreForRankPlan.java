@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.EvaluationContextBuilder;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
@@ -65,6 +66,8 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Score-For-Rank-Plan");
+
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
@@ -198,8 +201,16 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return getChild().planHash(hashKind) + PlanHashable.planHash(hashKind, ranks);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getChild().planHash(hashKind) + PlanHashable.planHash(hashKind, ranks);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), ranks);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override
@@ -225,6 +236,8 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
      * A single conversion of a rank to a score to be bound to some name.
      */
     public static class ScoreForRank implements PlanHashable {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Score-For-Rank");
+
         @Nonnull
         private final String bindingName;
         @Nonnull
@@ -273,8 +286,17 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
         }
 
         @Override
-        public int planHash(PlanHashKind hashKind) {
-            return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(hashKind, comparisons);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return bindingName.hashCode() + function.getName().hashCode() + PlanHashable.planHash(hashKind, comparisons);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    // TODO: Use function.planHash()?
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, bindingName, function.getName(), comparisons);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 }

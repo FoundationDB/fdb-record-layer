@@ -159,9 +159,17 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        // TODO: Should we include the concrete subtype type?
-        return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + (reverse ? 1 : 0);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + (reverse ? 1 : 0);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                // No BASE_HASH for abstract class
+                return PlanHashable.objectsPlanHash(hashKind, getQueryPlanChildren(), reverse);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -59,6 +61,8 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChild {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Distinct-Plan");
+
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnorderedDistinctPlan.class);
 
     @Nonnull
@@ -172,8 +176,16 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return getInner().planHash(hashKind) + getComparisonKey().planHash(hashKind);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getInner().planHash(hashKind) + getComparisonKey().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInner(), getComparisonKey());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

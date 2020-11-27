@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -56,6 +58,8 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, PlannerGraphRewritable {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Scan-Plan");
+
     @Nullable
     private final Set<String> recordTypes;
 
@@ -201,9 +205,16 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        // TODO: Is this right?
-        return comparisons.planHash(hashKind) + (reverse ? 1 : 0);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return comparisons.planHash(hashKind) + (reverse ? 1 : 0);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisons, reverse, recordTypes);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

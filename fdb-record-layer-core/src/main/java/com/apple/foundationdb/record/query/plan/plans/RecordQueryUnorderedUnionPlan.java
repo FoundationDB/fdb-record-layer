@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -53,6 +55,7 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Unordered-Union-Plan");
 
     private RecordQueryUnorderedUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
                                           final boolean reverse) {
@@ -127,5 +130,18 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNORDERED_UNION_OPERATOR),
                 childGraphs);
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return super.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

@@ -106,8 +106,7 @@ public class LiteralElement<T> implements Element {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        // todo implement for STRUCTURAL_WITHOUT_LITERALS? Probably not since cannot decide if to include value without context
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return hashCode();
     }
 

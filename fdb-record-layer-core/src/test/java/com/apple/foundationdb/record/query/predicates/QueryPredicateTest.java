@@ -69,7 +69,7 @@ public class QueryPredicateTest {
 
     private abstract static class TestPredicate implements QueryPredicate {
         @Override
-        public int planHash(PlanHashKind hashKind) {
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
             return 0;
         }
 

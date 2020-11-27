@@ -170,7 +170,7 @@ public class QueryRecordFunction<T> implements PlanHashable {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return function.planHash(hashKind);
     }
 

@@ -31,16 +31,27 @@ import java.util.List;
 
 /**
  * A more stable version of {@link Object#hashCode}.
+ * The planHash semantics are different than {@link Object#hashCode} in a few ways:
+ * <UL>
+ *     <LI>{@link #planHash()} values should be stable across runtime instance changes. The reason is that these values can be used to validate
+ *     outstanding continuations, and a change in hash value caused by an application restart or refactoring will invalidate all those
+ *     outstanding continuations</LI>
+ *     <LI>{@link #planHash()} supports multiple flavors of hash calculations (See {@link PlanHashKind}). The various kinds of plan hash algorithms
+ *     are used for different purposes and include/exclude different parts of the target query plan</LI>
+ *     <LI>{@link #planHash()} is meant to imply a certain identity of a plan, and reflects on the entire structure of the plan.
+ *     The intent is to be able to correlate various plans for "identity" (using different definitions for this identity as
+ *     specified by {@link PlanHashKind}). This requirement drives a desire to reduce collisions as much as possible since
+ *     not in all cases can we actually use "equals" to verify identity (e.g. log messages)</LI>
+ * </UL>
  */
 @API(API.Status.UNSTABLE)
 public interface PlanHashable {
     /**
      * The "kinds" of planHash calculations.
-     * Continuation: The "default" calculation. Used to decide whether a continuation can be used with the given plan.
-     * Structural-without-literals: Plan hash that ignores literals and variable markers. Used to distinguish plans that have the same structure.
      */
     enum PlanHashKind {
-        CONTINUATION,                 // The original plan hash kind: include children, literals and markers. Used for continuation validation
+        LEGACY,                       // The original plan hash kind. Here for backwards compatibility, will be removed in the future
+        FOR_CONTINUATION,             // Continuation validation plan hash kind: include children, literals and markers. Used for continuation validation
         STRUCTURAL_WITHOUT_LITERALS   // The hash used for query matching: skip all literals and markers
     }
 
@@ -49,13 +60,13 @@ public interface PlanHashable {
      * @param hashKind the "kind" of hash to calculate. Each kind of hash has a particular logic with regards to included and excluded items.
      * @return a stable hash code
      */
-    int planHash(@Nonnull PlanHashKind hashKind);
+    int planHash(@Nonnull final PlanHashKind hashKind);
 
     default int planHash() {
-        return planHash(PlanHashKind.CONTINUATION);
+        return planHash(PlanHashKind.LEGACY);
     }
 
-    static int planHash(@Nonnull PlanHashKind hashKind, @Nonnull Iterable<? extends PlanHashable> hashables) {
+    static int planHash(@Nonnull final PlanHashKind hashKind, @Nonnull Iterable<? extends PlanHashable> hashables) {
         int result = 1;
         for (PlanHashable hashable : hashables) {
             result = 31 * result + (hashable != null ? hashable.planHash(hashKind) : 0);
@@ -67,7 +78,7 @@ public interface PlanHashable {
         return planHash(hashKind, Arrays.asList(hashables));
     }
 
-    static int planHashUnordered(@Nonnull PlanHashKind hashKind, @Nonnull Iterable<? extends PlanHashable> hashables) {
+    static int planHashUnordered(@Nonnull final PlanHashKind hashKind, @Nonnull Iterable<? extends PlanHashable> hashables) {
         final ArrayList<Integer> hashes = new ArrayList<>();
         for (PlanHashable hashable : hashables) {
             hashes.add(hashable != null ? hashable.planHash(hashKind) : 0);
@@ -93,7 +104,7 @@ public interface PlanHashable {
         return result;
     }
 
-    static int objectPlanHash(@Nonnull PlanHashKind hashKind, @Nullable Object obj) {
+    static int objectPlanHash(@Nonnull final PlanHashKind hashKind, @Nullable Object obj) {
         if (obj == null) {
             return 0;
         }

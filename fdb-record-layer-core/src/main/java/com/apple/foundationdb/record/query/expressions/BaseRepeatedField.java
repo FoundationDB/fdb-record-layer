@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.MessageOrBuilder;
 
@@ -82,7 +83,16 @@ abstract class BaseRepeatedField extends BaseField {
     }
 
     @Override
-    public int planHash(PlanHashKind hashKind) {
-        return super.planHash(hashKind) + emptyMode.ordinal();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return super.planHash(hashKind) + emptyMode.ordinal();
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                // No BASE_HASH since this is abstract
+                return PlanHashable.objectsPlanHash(hashKind, super.planHash(hashKind), emptyMode.ordinal());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }
