@@ -30,6 +30,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -77,7 +78,10 @@ public class AndPredicate extends AndOrPredicate {
                 return PlanHashable.planHash(hashKind, getChildren());
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren());
+                List<PlanHashable> hashables = new ArrayList<>(getChildren().size()+1);
+                hashables.add(BASE_HASH);
+                hashables.addAll(getChildren());
+                return PlanHashable.planHashUnordered(hashKind, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
