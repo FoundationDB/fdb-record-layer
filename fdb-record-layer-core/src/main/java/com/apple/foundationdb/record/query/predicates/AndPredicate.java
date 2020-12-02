@@ -78,7 +78,7 @@ public class AndPredicate extends AndOrPredicate {
                 return PlanHashable.planHash(hashKind, getChildren());
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                List<PlanHashable> hashables = new ArrayList<>(getChildren().size()+1);
+                List<PlanHashable> hashables = new ArrayList<>(getChildren().size() + 1);
                 hashables.add(BASE_HASH);
                 hashables.addAll(getChildren());
                 return PlanHashable.planHashUnordered(hashKind, hashables);
