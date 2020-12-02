@@ -30,7 +30,7 @@ import java.util.List;
 
 /**
  * A property that determines the sum, over all elements of a {@code PlannerExpression} tree, of the number of record
- * types that are passed by type filters in the tree. Records that are filtered for on more than one type filter are
+ * types that are passed by type filters in the tree. Records that are filtered for more than one type filter are
  * not de-duplicated. For example, if there are two {@link TypeFilterExpression}s, one that filters for records
  * of types {@code Type1} or {@code Type2} and one that filters for records of type {@code Type1}, then this property
  * would evaluate to 3.

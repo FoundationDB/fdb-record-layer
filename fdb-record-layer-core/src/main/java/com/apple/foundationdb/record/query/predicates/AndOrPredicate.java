@@ -63,10 +63,8 @@ public abstract class AndOrPredicate implements QueryPredicate {
 
     @Override
     @Nonnull
-    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        Stream<PlannerBindings> bindings = matcher.matchWith(this);
-        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(getChildren())
-                .map(outerBindings::mergedWith));
+    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        return matcher.matchWith(outerBindings, this, getChildren());
     }
 
     @Nonnull
@@ -105,7 +103,7 @@ public abstract class AndOrPredicate implements QueryPredicate {
 
     @Override
     public int semanticHashCode() {
-        return Objects.hash(getChildren());
+        return Objects.hash(ImmutableSet.of(getChildren()));
     }
 
     @SuppressWarnings("UnstableApiUsage")

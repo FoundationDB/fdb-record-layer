@@ -77,7 +77,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<ExpressionRef<RelationalExpression>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> innerMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<Quantifier.ForEach> lowerQunMatcher = QuantifierMatcher.forEach(innerMatcher);
     private static final ExpressionMatcher<QueryPredicate> lowerMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<QueryPredicate> upperMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
@@ -98,20 +98,19 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RelationalExpression> inner = call.get(innerMatcher);
+        final ExpressionRef<?> inner = call.get(innerMatcher);
         final Quantifier.ForEach lowerQun = call.get(lowerQunMatcher);
         final QueryPredicate lowerPred = call.get(lowerMatcher);
         final Quantifier.ForEach upperQun = call.get(upperQunMatcher);
         final QueryPredicate upperPred = call.get(upperMatcher);
-        final LogicalFilterExpression filterExpression = call.get(root);
 
         final Quantifier.ForEach newUpperQun =
                 Quantifier.forEach(inner, upperQun.getAlias());
                         
         final QueryPredicate newLowerPred = lowerPred.rebase(Quantifiers.translate(lowerQun, newUpperQun));
         final QueryPredicate combinedPred = new AndPredicate(ImmutableList.of(upperPred, newLowerPred));
-        call.yield(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(),
-                combinedPred,
-                newUpperQun)));
+        call.yield(call.ref(
+                new LogicalFilterExpression(combinedPred,
+                        newUpperQun)));
     }
 }

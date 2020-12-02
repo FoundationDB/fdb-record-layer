@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
@@ -78,7 +79,7 @@ import java.util.Collection;
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFilterPlan> {
-    private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> innerMatcher = ReferenceMatcher.anyRef();
     private static ExpressionMatcher<Quantifier.Physical> qunMatcher = QuantifierMatcher.physical(innerMatcher);
     private static final ExpressionMatcher<QueryPredicate> predMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
@@ -91,12 +92,12 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         super(root);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
+        final ExpressionRef<RecordQueryPlan> inner = (ExpressionRef<RecordQueryPlan>)call.get(innerMatcher);
         final Quantifier.Physical qun = call.get(qunMatcher);
         final QueryPredicate pred = call.get(predMatcher);
-        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final Collection<String> recordTypes = call.get(root).getRecordTypes();
 
         final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes);
@@ -106,7 +107,6 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         call.yield(GroupExpressionRef.of(
                 new RecordQueryPredicateFilterPlan(
                         newQun,
-                        filterPlan.getBaseSource(),
                         rebasedPred)));
     }
 }

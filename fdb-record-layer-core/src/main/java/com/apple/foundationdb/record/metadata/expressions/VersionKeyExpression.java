@@ -27,8 +27,9 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.plan.temp.view.VersionElement;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.VersionValue;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -43,7 +44,7 @@ import java.util.List;
  * sorted by version.
  */
 @API(API.Status.MAINTAINED)
-public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
+public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
     public static final VersionKeyExpression VERSION = new VersionKeyExpression();
     public static final RecordMetaDataProto.KeyExpression VERSION_PROTO =
             RecordMetaDataProto.KeyExpression.newBuilder().setVersion(VERSION.toProto()).build();
@@ -105,8 +106,8 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new ElementKeyExpression(new VersionElement());
+    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        return new VersionValue();
     }
 
     @Override

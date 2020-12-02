@@ -27,8 +27,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -37,6 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -188,7 +190,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public List<Element> flattenForPlanner() {
+    public List<Value> flattenForPlanner() {
         return children.stream()
                 .flatMap(k -> k.flattenForPlanner().stream())
                 .collect(Collectors.toList());
@@ -196,12 +198,14 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
+                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
+                                                  @Nonnull final List<String> fieldNamePrefix) {
+        final ImmutableList.Builder<ExpandedPredicates> expandedPredicatesBuilder = ImmutableList.builder();
         for (KeyExpression child : children) {
-            normalizedChildren.add(child.normalizeForPlanner(source, fieldNamePrefix));
+            expandedPredicatesBuilder.add(child.normalizeForPlanner(baseAlias, parameterAliasSupplier, fieldNamePrefix));
         }
-        return new ThenKeyExpression(normalizedChildren.build());
+        return ExpandedPredicates.ofOthers(expandedPredicatesBuilder.build());
     }
 
     @Nonnull

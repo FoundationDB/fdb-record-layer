@@ -31,14 +31,11 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeSource;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,8 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class CombineFilterRuleTest {
     private static PlannerRule<LogicalFilterExpression> rule = new CombineFilterRule();
-    private static Source baseSource = new RecordTypeSource(Collections.singleton("MyRecordType"));
-    private static PlanContext blankContext = new FakePlanContext(Collections.emptyList());
+    private static PlanContext blankContext = new FakePlanContext();
     private static RecordQueryPlan[] basePlans = {
             new RecordQueryScanPlan(ScanComparisons.EMPTY, false),
             new RecordQueryIndexPlan("not_an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false)
@@ -59,8 +55,7 @@ public class CombineFilterRuleTest {
                                                               @Nonnull RelationalExpression inner) {
         final Quantifier.ForEach innerQuantifier = Quantifier.forEach(GroupExpressionRef.of(inner));
         return new LogicalFilterExpression(
-                baseSource,
-                queryComponent.normalizeForPlanner(baseSource),
+                queryComponent.normalizeForPlanner(innerQuantifier.getAlias()).asAndPredicate(),
                 innerQuantifier);
     }
 

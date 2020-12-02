@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 
@@ -429,6 +430,19 @@ public class Index {
                 }
             }
         }
+    }
+
+    @Nonnull
+    public KeyExpression fullKey(@Nullable final KeyExpression primaryKey) {
+        if (primaryKey == null) {
+            return getRootExpression();
+        }
+        final ArrayList<KeyExpression> trimmedPrimaryKeyComponents = new ArrayList<>(primaryKey.normalizeKeyForPositions());
+        trimPrimaryKey(trimmedPrimaryKeyComponents);
+        final ImmutableList.Builder<KeyExpression> fullKeyListBuilder = ImmutableList.builder();
+        fullKeyListBuilder.add(getRootExpression());
+        fullKeyListBuilder.addAll(trimmedPrimaryKeyComponents);
+        return concat(fullKeyListBuilder.build());
     }
 
     /**

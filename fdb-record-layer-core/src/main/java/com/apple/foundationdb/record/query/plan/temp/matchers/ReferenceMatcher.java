@@ -23,11 +23,11 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher.DefaultMatcher;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -47,56 +47,55 @@ import java.util.stream.Stream;
  * {@code QueryComponent}; note that there is no way for the type system to know that, so the programmer must track
  * such information when writing rules. If the wrong type is used for the type parameter, the {@link PlannerBindings}
  * will throw a {@link ClassCastException}.
- * @param <T> the type of planner expression that this matcher will always bind to
  */
 @API(API.Status.EXPERIMENTAL)
-public class ReferenceMatcher<T extends RelationalExpression> implements ExpressionMatcher<ExpressionRef<T>> {
+public abstract class ReferenceMatcher extends DefaultMatcher<ExpressionRef<? extends RelationalExpression>> implements ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> {
+    public ReferenceMatcher() {
+    }
+
     @Nonnull
     @Override
     public Class<? extends Bindable> getRootClass() {
-        return RelationalExpression.class;
-    }
-
-    @Nonnull
-    @Override
-    public ExpressionChildrenMatcher getChildrenMatcher() {
-        return ListChildrenMatcher.empty();
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
-        return Stream.of(PlannerBindings.from(this, ref));
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
-        return Stream.empty();
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
-        return Stream.empty();
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier) {
-        return Stream.empty();
+        return ExpressionRef.class;
     }
 
     /**
      * Return a new {@code ReferenceMatcher} instance. The returned matcher is guaranteed to be distinct (according to
      * pointer comparison) from the matchers returned by other calls to {@code anyRef()}, so that multiple such matchers
      * may be used in a single {@link PlannerBindings} object.
-     * @param <U> the type of {@link RelationalExpression} that is guaranteed (by programmer knowledge) to be behind the references that this matcher will bind to
      * @return a new, distinct matcher that matches to any reference
      */
-    public static <U extends RelationalExpression> ReferenceMatcher<U> anyRef() {
-        // This must return a new matcher so that it is distinct from other ReferenceMatchers according to pointer comparison.
-        return new ReferenceMatcher<>();
+    public static ReferenceMatcher anyRef() {
+        return new ReferenceMatcher() {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionRef<? extends RelationalExpression> ref,
+                                                     @Nonnull final List<? extends Bindable> children) {
+                return Stream.of(PlannerBindings.from(this, ref));
+            }
+        };
+    }
+
+    /**
+     * Return a new {@code ReferenceMatcher} instance. The returned matcher is guaranteed to be distinct (according to
+     * pointer comparison) from the matchers returned by other calls to {@code anyRef()}, so that multiple such matchers
+     * may be used in a single {@link PlannerBindings} object.
+     * @param membersMatcher a matcher that is applied to the members of this reference
+     * @return a new, distinct matcher that matches to the cross product of references and their respective members matching
+     *         the {@code membersMatcher}.
+     */
+    public static ReferenceMatcher of(@Nonnull ExpressionMatcher<? extends Bindable> membersMatcher) {
+        final AnyChildMatcher childrenMatcher = AnyChildMatcher.anyMatching(membersMatcher);
+        return new ReferenceMatcher() {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionRef<? extends RelationalExpression> ref,
+                                                     @Nonnull final List<? extends Bindable> children) {
+                return Stream.of(PlannerBindings.from(this, ref))
+                        .flatMap(bindings -> childrenMatcher.matches(outerBindings, children)
+                                .map(bindings::mergedWith));
+            }
+        };
     }
 }
 

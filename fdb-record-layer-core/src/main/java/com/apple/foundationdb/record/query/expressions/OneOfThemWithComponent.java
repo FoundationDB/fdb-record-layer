@@ -25,9 +25,13 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -96,15 +100,26 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
         return child;
     }
 
-    @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final RepeatedFieldSource repeatedSource = new RepeatedFieldSource(source, fieldNames);
-        return child.normalizeForPlanner(repeatedSource, Collections.emptyList()); // reset field name prefix since we just added a source
+        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(baseAlias, fieldNames)));
+        final SelectExpression selectExpression =
+                getChild().normalizeForPlanner(childBase.getAlias(), Collections.emptyList())
+                        .buildSelectWithBase(childBase);
+
+        Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
+
+        QueryComponent withPrefix = this;
+        for (int i = fieldNamePrefix.size() - 1; i >= 0;  i--) {
+            final String fieldName = fieldNames.get(i);
+            withPrefix = Query.field(fieldName).matches(withPrefix);
+        }
+
+        return ExpandedPredicates.ofPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), withPrefix), childQuantifier);
     }
 
     @Override

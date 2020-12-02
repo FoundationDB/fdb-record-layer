@@ -25,8 +25,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.LiteralElement;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.LiteralValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -43,7 +44,7 @@ import java.util.List;
  * @param <T> the type of the literal value
  */
 @API(API.Status.MAINTAINED)
-public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression {
+public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithValue {
     @Nullable
     private final T value;
     @Nonnull
@@ -96,8 +97,9 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new ElementKeyExpression(new LiteralElement<>(value));
+    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
+                         @Nonnull final List<String> fieldNamePrefix) {
+        return new LiteralValue<>(value);
     }
 
     @Nonnull

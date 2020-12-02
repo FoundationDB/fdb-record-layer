@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -67,7 +67,7 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
     private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
             TypeMatcher.of(AndPredicate.class,
                     AnyChildWithRestMatcher.anyMatchingWithRest(
-                            TypeMatcher.of(AndPredicate.class, AllChildrenMatcher.allMatching(andChildrenMatcher)),
+                            TypeMatcher.of(AndPredicate.class, MultiChildrenMatcher.allMatching(andChildrenMatcher)),
                     otherInnerComponentsMatcher)),
             innerQuantifierMatcher);
 
@@ -81,13 +81,9 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
         final List<QueryPredicate> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
         final List<QueryPredicate> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
         final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
-        final LogicalFilterExpression rootFilter = call.get(root);
         List<QueryPredicate> allConjuncts = new ArrayList<>(innerAndChildren);
         allConjuncts.addAll(otherOuterAndChildren);
-
-        call.yield(call.ref(new LogicalFilterExpression(
-                rootFilter.getBaseSource(),
-                new AndPredicate(allConjuncts),
+        call.yield(call.ref(new LogicalFilterExpression(new AndPredicate(allConjuncts),
                 innerQuantifier)));
     }
 }

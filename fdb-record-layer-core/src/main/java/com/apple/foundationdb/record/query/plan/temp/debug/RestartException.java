@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.debug;
 
 /**
- * Tag-exception that is specifically thrown by implementations of {@link Debugger} to signal the planner to restart
+ * Tag-exception tha is specifically thrown by implementations of {@link Debugger} to signal the planner to restart
  * planning.
  */
 public class RestartException extends RuntimeException {

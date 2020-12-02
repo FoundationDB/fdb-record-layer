@@ -88,7 +88,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -1830,7 +1829,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(Query.and(filter1, Query.field("group").equalsValue(0L)))
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, filter(PredicateMatchers.field("group").equalsValue(0L),
+            assertThat(plan, filter(Query.field("group").equalsValue(0L),
                     textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(-1328921799, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(390154904, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

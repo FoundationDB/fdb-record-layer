@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
@@ -39,6 +40,13 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlannerRuleCall {
+    /**
+     * Returns the alias resolver that is currently in use and maintained by the planner.
+     * @return the alias resolver
+     */
+    @Nonnull
+    AliasResolver getAliasResolver();
+
     /**
      * Return the map of bindings that this rule's matcher expression produced, which includes (by contract) all of the
      * bindings specified by the rule associated with this call.
@@ -75,6 +83,21 @@ public interface PlannerRuleCall {
      * @param expression the expression produced by the rule
      */
     void yield(@Nonnull ExpressionRef<? extends RelationalExpression> expression);
+
+    /**
+     * Notify the planner's data structures that a new partial match has been produced by the rule. This method may be
+     * called zero or more times by the rule's <code>onMatch()</code> method.
+     * @param boundAliasMap the alias map of bound correlated identifiers between query and candidate
+     * @param matchCandidate the match candidate
+     * @param queryExpression the query expression
+     * @param candidateRef the matching reference on the candidate side
+     * @param matchInfo an auxiliary structure to keep additional information about the match
+     */
+    void yieldPartialMatch(@Nonnull final AliasMap boundAliasMap,
+                           @Nonnull final MatchCandidate matchCandidate,
+                           @Nonnull final RelationalExpression queryExpression,
+                           @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
+                           @Nonnull final MatchInfo matchInfo);
 
     /**
      * Wrap the given planner expression in an implementation of {@link ExpressionRef} suitable for the planner associated

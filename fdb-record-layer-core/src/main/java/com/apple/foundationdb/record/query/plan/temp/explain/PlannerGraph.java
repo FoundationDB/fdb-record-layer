@@ -57,19 +57,30 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         Edge previousEdge = null;
         int i = 0;
         for (final PlannerGraph childGraph : childGraphs) {
-            @Nullable final String label;
+            final GroupExpressionRefEdge edge;
+            final Set<? extends AbstractEdge> dependsOn =
+                    previousEdge == null
+                    ? ImmutableSet.of()
+                    : ImmutableSet.of(previousEdge);
+
             if (i < quantifiers.size()) {
+                @Nullable final String label;
                 final Quantifier quantifier = quantifiers.get(i);
                 label = Debugger.mapDebugger(debugger -> debugger.nameForObject(quantifier)).orElse(null);
+
+                if (quantifier instanceof Quantifier.Existential) {
+                    edge = new ExistentialQuantifierEdge(label, dependsOn);
+                } else if (quantifier instanceof Quantifier.ForEach) {
+                    edge = new ForEachQuantifierEdge(label, dependsOn);
+                } else if (quantifier instanceof Quantifier.Physical) {
+                    edge = new PhysicalQuantifierEdge(label, dependsOn);
+                } else {
+                    edge = new GroupExpressionRefEdge(label, dependsOn);
+                }
             } else {
-                label = null;
+                edge = new GroupExpressionRefEdge(null, dependsOn);
             }
-            final GroupExpressionRefEdge edge =
-                    new GroupExpressionRefEdge(label,
-                            previousEdge == null
-                            ? ImmutableSet.of()
-                            : ImmutableSet.of(previousEdge));
-            
+
             plannerGraphBuilder
                     .addGraph(childGraph)
                     .addEdge(childGraph.getRoot(), plannerGraphBuilder.getRoot(), edge);
@@ -570,6 +581,8 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
                     .put("style", Attribute.dot(getStyle()))
                     .put("fontname", Attribute.dot(getFontName()))
                     .put("fontsize", Attribute.dot(getFontSize()))
+                    .put("arrowhead", Attribute.dot(getArrowHead()))
+                    .put("arrowtail", Attribute.dot(getArrowTail()))
                     .build();
         }
 
@@ -592,6 +605,16 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         public String getFontSize() {
             return "8";
         }
+
+        @Nonnull
+        public String getArrowHead() {
+            return "normal";
+        }
+
+        @Nonnull
+        public String getArrowTail() {
+            return "none";
+        }
     }
 
     /**
@@ -613,7 +636,76 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         @Nonnull
         @Override
         public String getColor() {
-            return "gray";
+            return "gray20";
+        }
+    }
+
+    /**
+     * Edge class for for-each quantifiers.
+     */
+    public static class ForEachQuantifierEdge extends GroupExpressionRefEdge {
+        public ForEachQuantifierEdge() {
+            this(null, ImmutableSet.of());
+        }
+
+        public ForEachQuantifierEdge(final Set<? extends AbstractEdge> dependsOn) {
+            super(null, dependsOn);
+        }
+
+        public ForEachQuantifierEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+            super(label, dependsOn);
+        }
+    }
+
+    /**
+     * Edge class for existential quantifiers.
+     */
+    public static class ExistentialQuantifierEdge extends GroupExpressionRefEdge {
+        public ExistentialQuantifierEdge() {
+            this(null, ImmutableSet.of());
+        }
+
+        public ExistentialQuantifierEdge(final Set<? extends AbstractEdge> dependsOn) {
+            super(null, dependsOn);
+        }
+
+        public ExistentialQuantifierEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+            super(label, dependsOn);
+        }
+
+        @Nonnull
+        @Override
+        public String getColor() {
+            return "gray70";
+        }
+
+        @Nonnull
+        @Override
+        public String getArrowHead() {
+            return "diamond";
+        }
+    }
+
+    /**
+     * Edge class for for-each quantifiers.
+     */
+    public static class PhysicalQuantifierEdge extends GroupExpressionRefEdge {
+        public PhysicalQuantifierEdge() {
+            this(null, ImmutableSet.of());
+        }
+
+        public PhysicalQuantifierEdge(final Set<? extends AbstractEdge> dependsOn) {
+            super(null, dependsOn);
+        }
+
+        public PhysicalQuantifierEdge(@Nullable final String label, final Set<? extends AbstractEdge> dependsOn) {
+            super(label, dependsOn);
+        }
+
+        @Nonnull
+        @Override
+        public String getStyle() {
+            return "bold";
         }
     }
 
@@ -646,7 +738,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
         public PartialMatchEdge() {
             this(null);
         }
-        
+
         public PartialMatchEdge(@Nullable final String label) {
             super(label);
         }

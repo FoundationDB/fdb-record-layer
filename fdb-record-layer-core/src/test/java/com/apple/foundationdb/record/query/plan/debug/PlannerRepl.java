@@ -62,6 +62,7 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.IntUnaryOperator;
 import java.util.function.Predicate;
 
 /**
@@ -122,18 +123,33 @@ public class PlannerRepl implements Debugger {
         return Objects.requireNonNull(stateStack.peek());
     }
 
+    @Nullable
+    public PlanContext getPlanContext() {
+        return planContext;
+    }
+
     @Override
-    public void onRegisterExpression(final RelationalExpression expression) {
+    public int onGetIndex(@Nonnull final Class<?> clazz) {
+        return getCurrentState().getIndex(clazz);
+    }
+
+    @Override
+    public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
+        return getCurrentState().updateIndex(clazz, updateFn);
+    }
+
+    @Override
+    public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
         getCurrentState().registerExpression(expression);
     }
 
     @Override
-    public void onRegisterReference(final ExpressionRef<? extends RelationalExpression> reference) {
+    public void onRegisterReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
         getCurrentState().registerReference(reference);
     }
 
     @Override
-    public void onRegisterQuantifier(final Quantifier quantifier) {
+    public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
         getCurrentState().registerQuantifier(quantifier);
     }
 
@@ -686,21 +702,53 @@ public class PlannerRepl implements Debugger {
      * TBD.
      */
     public static class OnEventTypeBreakPoint extends BreakPoint {
+        @Nonnull
         private final Debugger.Shorthand shorthand;
+        @Nullable
+        private final String referenceName;
+        @Nonnull
         private final Debugger.Location location;
 
-        public OnEventTypeBreakPoint(final Shorthand shorthand, final Location location) {
+        public OnEventTypeBreakPoint(@Nonnull final Shorthand shorthand,
+                                     @Nonnull final Location location) {
+            this(shorthand, null, location);
+        }
+
+        public OnEventTypeBreakPoint(@Nonnull final Shorthand shorthand,
+                                     @Nullable final String referenceName,
+                                     @Nonnull final Location location) {
             super(event -> event.getShorthand() == shorthand && (location == Location.ANY || event.getLocation() == location));
             this.shorthand = shorthand;
+            this.referenceName = referenceName == null ? null : referenceName.toLowerCase();
             this.location = location;
         }
 
+        @Nonnull
         public Shorthand getShorthand() {
             return shorthand;
         }
 
+        @Nullable
+        public String getReferenceName() {
+            return referenceName;
+        }
+
+        @Nonnull
         public Location getLocation() {
             return location;
+        }
+
+        @Override
+        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
+            if (super.onCallback(plannerRepl, event)) {
+                if (event instanceof EventWithCurrentGroupReference) {
+                    final EventWithCurrentGroupReference eventWithCurrentGroupReference = (EventWithCurrentGroupReference)event;
+                    if (referenceName == null || referenceName.equals(plannerRepl.nameForObject(eventWithCurrentGroupReference.getCurrentGroupReference()))) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         @Override
@@ -708,6 +756,9 @@ public class PlannerRepl implements Debugger {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
             plannerRepl.printKeyValue("shorthand", getShorthand().name().toLowerCase() + "; ");
+            if (getReferenceName() != null) {
+                plannerRepl.printKeyValue("reference", getReferenceName().toLowerCase() + "; ");
+            }
             plannerRepl.printKeyValue("location", getLocation().name().toLowerCase());
         }
 
@@ -720,13 +771,14 @@ public class PlannerRepl implements Debugger {
                 return false;
             }
             final OnEventTypeBreakPoint that = (OnEventTypeBreakPoint)o;
-            return getShorthand() == that.getShorthand() &&
+            return getShorthand().equals(that.getShorthand()) &&
+                   Objects.equals(getReferenceName(), that.getReferenceName()) &&
                    getLocation() == that.getLocation();
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getShorthand(), getLocation());
+            return Objects.hash(getShorthand(), getReferenceName(), getLocation());
         }
     }
 
@@ -782,6 +834,188 @@ public class PlannerRepl implements Debugger {
         @Override
         public int hashCode() {
             return Objects.hash(expressionName);
+        }
+    }
+
+    /**
+     * Breakpoint that breaks when the planner attempts to match an expression against a match candidate.
+     */
+    public static class OnMatchBreakPoint extends BreakPoint {
+
+        @Nonnull
+        private final String candidateNamePrefix;
+
+        @Nonnull
+        private final Location location;
+
+        public OnMatchBreakPoint(@Nonnull final String candidateNamePrefix, @Nonnull final Location location) {
+            super(event -> event.getShorthand() == Shorthand.MATCHEXPCAND &&
+                           event.getLocation() == location &&
+                           event instanceof MatchExpressionWithCandidateEvent);
+            this.candidateNamePrefix = candidateNamePrefix;
+            this.location = location;
+        }
+
+        @Override
+        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
+            if (super.onCallback(plannerRepl, event)) {
+                final MatchExpressionWithCandidateEvent matchExpressionWithCandidateEvent =
+                        (MatchExpressionWithCandidateEvent)event;
+                return (Location.ANY == location || event.getLocation() == location) &&
+                       matchExpressionWithCandidateEvent
+                               .getMatchCandidate()
+                               .getName()
+                               .startsWith(candidateNamePrefix);
+            }
+            return false;
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl) {
+            super.onList(plannerRepl);
+            plannerRepl.print("; ");
+            plannerRepl.printKeyValue("candidateNamePrefix", candidateNamePrefix + "; ");
+            plannerRepl.printKeyValue("location", location.name());
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final OnMatchBreakPoint that = (OnMatchBreakPoint)o;
+            return candidateNamePrefix.equals(that.candidateNamePrefix) &&
+                   location == that.location;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(candidateNamePrefix, location);
+        }
+    }
+
+    /**
+     * Breakpoint that breaks when the planner attempts to match an expression against a match candidate.
+     */
+    public static class OnRuleBreakPoint extends BreakPoint {
+
+        @Nonnull
+        private final String ruleNamePrefix;
+
+        @Nonnull
+        private final Location location;
+
+        public OnRuleBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
+            super(event -> event.getShorthand() == Shorthand.TRANSFORM &&
+                           event.getLocation() == location &&
+                           event instanceof TransformEvent);
+            this.ruleNamePrefix = ruleNamePrefix;
+            this.location = location;
+        }
+
+        @Override
+        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
+            if (super.onCallback(plannerRepl, event)) {
+                final TransformEvent transformEvent =
+                        (TransformEvent)event;
+                return (Location.ANY == location || event.getLocation() == location) &&
+                       transformEvent
+                               .getRule()
+                               .getClass()
+                               .getSimpleName()
+                               .startsWith(ruleNamePrefix);
+            }
+            return false;
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl) {
+            super.onList(plannerRepl);
+            plannerRepl.print("; ");
+            plannerRepl.printKeyValue("ruleNamePrefix", ruleNamePrefix + "; ");
+            plannerRepl.printKeyValue("location", location.name());
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final OnRuleBreakPoint that = (OnRuleBreakPoint)o;
+            return ruleNamePrefix.equals(that.ruleNamePrefix) &&
+                   location == that.location;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ruleNamePrefix, location);
+        }
+    }
+
+    /**
+     * Breakpoint that breaks when the planner attempts to match an expression against a match candidate.
+     */
+    public static class OnRuleCallBreakPoint extends BreakPoint {
+
+        @Nonnull
+        private final String ruleNamePrefix;
+
+        @Nonnull
+        private final Location location;
+
+        public OnRuleCallBreakPoint(@Nonnull final String ruleNamePrefix, @Nonnull final Location location) {
+            super(event -> event.getShorthand() == Shorthand.RULECALL &&
+                           event.getLocation() == location &&
+                           event instanceof TransformRuleCallEvent);
+            this.ruleNamePrefix = ruleNamePrefix;
+            this.location = location;
+        }
+
+        @Override
+        public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
+            if (super.onCallback(plannerRepl, event)) {
+                final TransformRuleCallEvent transformRuleCallEvent =
+                        (TransformRuleCallEvent)event;
+                return (Location.ANY == location || event.getLocation() == location) &&
+                       transformRuleCallEvent
+                               .getRule()
+                               .getClass()
+                               .getSimpleName()
+                               .startsWith(ruleNamePrefix);
+            }
+            return false;
+        }
+
+        @Override
+        public void onList(final PlannerRepl plannerRepl) {
+            super.onList(plannerRepl);
+            plannerRepl.print("; ");
+            plannerRepl.printKeyValue("ruleNamePrefix", ruleNamePrefix + "; ");
+            plannerRepl.printKeyValue("location", location.name());
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final OnRuleCallBreakPoint that = (OnRuleCallBreakPoint)o;
+            return ruleNamePrefix.equals(that.ruleNamePrefix) &&
+                   location == that.location;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ruleNamePrefix, location);
         }
     }
 }

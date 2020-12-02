@@ -27,10 +27,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.view.RecordTypeElement;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.ElementPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.predicates.RecordTypeValue;
+import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -87,10 +87,9 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         return comparison;
     }
 
-    @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new ElementPredicate(new RecordTypeElement(source), comparison);
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        return ExpandedPredicates.ofPredicate(new ValuePredicate(new RecordTypeValue(baseAlias), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, Objects.requireNonNull(comparison.getComparand()))));
     }
 
     @Override

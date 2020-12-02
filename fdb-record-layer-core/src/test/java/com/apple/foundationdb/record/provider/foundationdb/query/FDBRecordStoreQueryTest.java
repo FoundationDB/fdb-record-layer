@@ -44,9 +44,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.Lists;
@@ -59,6 +57,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -295,10 +294,14 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("num_value_2").equalsValue(0))
                     .build();
             plan = planner.plan(query);
-            assertThat(plan, filter(query.getFilter(), typeFilter(anything(), scan(unbounded()))));
-            assertEquals(913370522, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertThat(plan, filter(Objects.requireNonNull(query.getFilter()), typeFilter(anything(), scan(unbounded()))));
+            if (planner instanceof RecordQueryPlanner) {
+                assertEquals(913370522, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             // TODO: https://github.com/FoundationDB/fdb-record-layer/issues/1074
             // assertEquals(389700036, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            } else {
+                assertEquals(-1244637277, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            }
             continuation = null;
             retrieved = new ArrayList<>(50);
             while (true) {
@@ -619,21 +622,17 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planner.plan(query);
             Matcher<RecordQueryPlan> sharedInnerPlan = typeFilter(containsInAnyOrder("MultiRecordTwo", "MultiRecordThree"), scan(unbounded()));
-            if (plan instanceof RecordQueryFilterPlan) {
-                assertThat(plan, filter(query.getFilter(), sharedInnerPlan));
-            } else {
-                assertThat(plan, filter(PredicateMatchers.valueFrom(PredicateMatchers.repeatedField("element")).greaterThan("A"),
-                        sharedInnerPlan));
-            }
-            assertEquals(1808059644, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertThat(plan, filter(query.getFilter(), sharedInnerPlan));
             // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
             // assertEquals(1399455990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1808059644, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            
             assertEquals(Arrays.asList(800L, 1776L),
                     recordStore.executeQuery(plan)
                             .map(FDBQueriedRecord::getRecord)
                             .map(message -> message.getField(message.getDescriptorForType().findFieldByNumber(1)))
                             .asList().join());
-            // TOOD add a performance test here, but doing it before refactoring would be a lot of extra work
+            // TODO add a performance test here, but doing it before refactoring would be a lot of extra work
 
             query = RecordQuery.newBuilder()
                     .setRecordTypes(Arrays.asList("MultiRecordOne", "MultiRecordTwo"))

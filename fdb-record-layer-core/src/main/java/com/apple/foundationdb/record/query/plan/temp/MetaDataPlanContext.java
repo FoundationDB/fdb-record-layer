@@ -36,6 +36,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -55,8 +56,6 @@ public class MetaDataPlanContext implements PlanContext {
     private final BiMap<Index, String> indexes;
     @Nonnull
     private final BiMap<String, Index> indexesByName;
-    @Nonnull
-    private final ImmutableSet<IndexEntrySource> indexEntrySources;
     @Nullable
     private final KeyExpression commonPrimaryKey;
     private final int greatestPrimaryKeyWidth;
@@ -64,7 +63,7 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final Set<MatchCandidate> matchCandidates;
 
-    public MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull RecordQuery query, @Nonnull final Set<MatchCandidate> matchCandidates) {
+    public MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull RecordQuery query) {
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.indexes = HashBiMap.create();
@@ -108,33 +107,18 @@ public class MetaDataPlanContext implements PlanContext {
                 index -> !query.getAllowedIndexes().contains(index.getName()) :
                 index -> !query.getIndexQueryabilityFilter().isQueryable(index));
 
-        ImmutableSet.Builder<IndexEntrySource> builder = ImmutableSet.builder();
-        if (commonPrimaryKey != null) {
-            builder.add(IndexEntrySource.fromCommonPrimaryKey(recordTypes, commonPrimaryKey));
-        }
+        final ImmutableSet.Builder<MatchCandidate> matchCandidatesBuilder = ImmutableSet.builder();
         for (Index index : indexList) {
             indexes.put(index, index.getName());
-            builder.add(IndexEntrySource.fromIndex(metaData.recordTypesForIndex(index), index));
+            final Optional<MatchCandidate> candidateForIndexOptional =
+                    RelationalExpression.fromIndexDefinition(metaData, index, query.isSortReverse());
+            candidateForIndexOptional.ifPresent(matchCandidatesBuilder::add);
         }
-        indexEntrySources = builder.build();
 
-        this.matchCandidates = ImmutableSet.copyOf(matchCandidates);
-    }
+        RelationalExpression.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, query.isSortReverse())
+                .ifPresent(matchCandidatesBuilder::add);
 
-    private MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull Set<String> recordTypes,
-                                @Nonnull RecordStoreState recordStoreState, @Nonnull BiMap<Index, String> indexes,
-                                @Nonnull ImmutableSet<IndexEntrySource> indexEntrySources,
-                                @Nonnull KeyExpression commonPrimaryKey, int greatestPrimaryKeyWidth,
-                                @Nonnull final Set<MatchCandidate> matchCandidates) {
-        this.metaData = metaData;
-        this.recordTypes = recordTypes;
-        this.recordStoreState = recordStoreState;
-        this.indexes = indexes;
-        this.indexesByName = indexes.inverse();
-        this.indexEntrySources = indexEntrySources;
-        this.commonPrimaryKey = commonPrimaryKey;
-        this.greatestPrimaryKeyWidth = greatestPrimaryKeyWidth;
-        this.matchCandidates = matchCandidates;
+        this.matchCandidates = matchCandidatesBuilder.build();
     }
 
     @Nullable
@@ -171,12 +155,6 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     public Set<Index> getIndexes() {
         return indexes.keySet();
-    }
-
-    @Override
-    @Nonnull
-    public Set<IndexEntrySource> getIndexEntrySources() {
-        return indexEntrySources;
     }
 
     @Override

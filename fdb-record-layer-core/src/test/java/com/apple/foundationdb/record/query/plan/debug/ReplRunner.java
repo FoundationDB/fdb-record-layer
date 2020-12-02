@@ -41,7 +41,7 @@ public class ReplRunner {
     public void run(@Nonnull final String className, @Nonnull final String testMethodName, @Nullable final String paramTypes) {
         Debugger.setDebugger(new PlannerRepl());
         Debugger.setup();
-        
+
         final MethodSelector methodSelector;
         if (paramTypes == null) {
             methodSelector = DiscoverySelectors.selectMethod(
@@ -61,7 +61,12 @@ public class ReplRunner {
         Launcher launcher = LauncherFactory.create();
         launcher.discover(request);
         launcher.registerTestExecutionListeners(listener);
-        launcher.execute(request);
+        try {
+            launcher.execute(request);
+        } catch (final Throwable t) {
+            System.out.println("here");
+            t.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {

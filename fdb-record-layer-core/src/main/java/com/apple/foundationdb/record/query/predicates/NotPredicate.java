@@ -25,13 +25,13 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -59,8 +59,8 @@ public class NotPredicate implements QueryPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull SourceEntry sourceEntry) {
-        return invert(child.eval(store, context, sourceEntry));
+    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        return invert(child.eval(store, context, record, message));
     }
 
     @Nullable
@@ -79,10 +79,8 @@ public class NotPredicate implements QueryPredicate {
 
     @Override
     @Nonnull
-    public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        Stream<PlannerBindings> bindings = matcher.matchWith(this);
-        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(ImmutableList.of(getChild()))
-                .map(outerBindings::mergedWith));
+    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        return matcher.matchWith(outerBindings, this, ImmutableList.of(getChild()));
     }
 
     @Override

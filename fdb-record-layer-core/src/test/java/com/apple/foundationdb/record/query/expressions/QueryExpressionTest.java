@@ -31,8 +31,8 @@ import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.apple.test.Tags;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -91,9 +91,8 @@ public class QueryExpressionTest {
             return 0;
         }
 
-        @Nonnull
         @Override
-        public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+        public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
     }

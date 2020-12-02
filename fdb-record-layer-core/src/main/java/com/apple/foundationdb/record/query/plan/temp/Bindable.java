@@ -35,9 +35,11 @@ import java.util.stream.Stream;
 public interface Bindable {
     /**
      * Attempt to match the matcher to this bindable object.
+     *
+     * @param outerBindings existing bindings to be used by the matcher
      * @param matcher the matcher to match against
      * @return a map of bindings if the match succeeded, or an empty <code>Optional</code> if it failed
      */
     @Nonnull
-    Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher);
+    Stream<PlannerBindings> bindTo(@Nonnull PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher);
 }

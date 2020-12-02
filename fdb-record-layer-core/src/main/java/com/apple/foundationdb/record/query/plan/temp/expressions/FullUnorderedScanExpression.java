@@ -23,6 +23,9 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -114,6 +117,12 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Override
     public String toString() {
         return "FullUnorderedScan";
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        return exactlySubsumedBy(otherExpression, aliasMap, partialMatchMap);
     }
 
     @Nonnull

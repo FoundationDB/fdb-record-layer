@@ -60,7 +60,7 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
         final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
         final RecordQueryPlan inner = call.get(innerMatcher);
 
-        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), inner);
+        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), inner);
         final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
         if (filterRecordTypes.containsAll(childRecordTypes)) {
             // type filter is completely redundant, so remove it entirely

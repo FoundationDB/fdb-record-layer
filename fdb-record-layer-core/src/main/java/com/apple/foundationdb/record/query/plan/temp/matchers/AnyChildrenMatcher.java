@@ -37,7 +37,7 @@ public class AnyChildrenMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
+    public Stream<PlannerBindings> matches(@Nonnull final PlannerBindings outerBindings, @Nonnull List<? extends Bindable> children) {
         return Stream.of(PlannerBindings.empty());
     }
 }

@@ -22,11 +22,14 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Set;
 
 /**
  * A rule call implementation for the {@link CascadesPlanner}. This rule call implements the logic for handling new
@@ -37,29 +40,42 @@ import java.util.Collections;
 @API(API.Status.EXPERIMENTAL)
 public class CascadesRuleCall implements PlannerRuleCall {
     @Nonnull
-    private final PlannerRule<? extends RelationalExpression> rule;
+    private final PlannerRule<? extends Bindable> rule;
     @Nonnull
     private final GroupExpressionRef<RelationalExpression> root;
+    @Nonnull
+    private final AliasResolver aliasResolver;
     @Nonnull
     private final PlannerBindings bindings;
     @Nonnull
     private final PlanContext context;
     @Nonnull
     private final RelationalExpressionPointerSet<RelationalExpression> newExpressions;
+    @Nonnull
+    private final Set<PartialMatch> newPartialMatches;
 
     public CascadesRuleCall(@Nonnull PlanContext context,
-                             @Nonnull PlannerRule<? extends RelationalExpression> rule,
-                             @Nonnull GroupExpressionRef<RelationalExpression> root,
-                             @Nonnull PlannerBindings bindings) {
+                            @Nonnull PlannerRule<? extends Bindable> rule,
+                            @Nonnull GroupExpressionRef<RelationalExpression> root,
+                            @Nonnull AliasResolver aliasResolver,
+                            @Nonnull PlannerBindings bindings) {
         this.context = context;
         this.rule = rule;
         this.root = root;
+        this.aliasResolver = aliasResolver;
         this.bindings = bindings;
         this.newExpressions = new RelationalExpressionPointerSet<>();
+        this.newPartialMatches = Sets.newHashSet();
     }
 
     public void run() {
         rule.onMatch(this);
+    }
+
+    @Nonnull
+    @Override
+    public AliasResolver getAliasResolver() {
+        return aliasResolver;
     }
 
     @Override
@@ -85,11 +101,29 @@ public class CascadesRuleCall implements PlannerRuleCall {
             for (RelationalExpression member : groupExpressionRef.getMembers()) {
                 if (root.insert(member)) {
                     newExpressions.add(member);
+                    aliasResolver.addExpression(expression, member);
                 }
             }
         } else {
             throw new RecordCoreArgumentException("found a non-group reference in an expression used by the Cascades planner");
         }
+    }
+
+    @Override
+    public void yieldPartialMatch(@Nonnull final AliasMap boundAliasMap,
+                                  @Nonnull final MatchCandidate matchCandidate,
+                                  @Nonnull final RelationalExpression queryExpression,
+                                  @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
+                                  @Nonnull final MatchInfo matchInfo) {
+        final PartialMatch newPartialMatch =
+                new PartialMatch(boundAliasMap,
+                        matchCandidate,
+                        root,
+                        queryExpression,
+                        candidateRef,
+                        matchInfo);
+        root.addPartialMatchForCandidate(matchCandidate, newPartialMatch);
+        newPartialMatches.add(newPartialMatch);
     }
 
     @Override
@@ -100,5 +134,10 @@ public class CascadesRuleCall implements PlannerRuleCall {
     @Nonnull
     public Collection<RelationalExpression> getNewExpressions() {
         return Collections.unmodifiableCollection(newExpressions);
+    }
+
+    @Nonnull
+    public Set<PartialMatch> getNewPartialMatches() {
+        return newPartialMatches;
     }
 }

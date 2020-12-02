@@ -408,10 +408,8 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindTo(@Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
-        Stream<PlannerBindings> bindings = matcher.matchWith(this);
-        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(ImmutableList.of(getRangesOver()))
-                .map(outerBindings::mergedWith));
+    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
+        return matcher.matchWith(outerBindings, this, ImmutableList.of(getRangesOver()));
     }
 
     /**

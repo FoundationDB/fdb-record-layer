@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.GraphExporter.Compo
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph.Edge;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph.Node;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph.PartialMatchEdge;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -41,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.graph.Network;
 import com.google.common.io.CharStreams;
@@ -70,9 +72,24 @@ import java.util.stream.Collectors;
  */
 @SuppressWarnings({"UnstableApiUsage"})
 public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
-    private final boolean isForExplain;
-    private final boolean renderSingleGroups;
-    private final boolean removePlansIfPossible;
+
+    public static final int EMPTY_FLAGS                = 0x0000;
+
+    /**
+     * Indicates if this property is computed for the purpose of creating an explain
+     * of the execution plan.
+     */
+    public static final int FOR_EXPLAIN                = 0x0001;
+
+    /**
+     * Indicates if {@link ExpressionRef} instances that contain exactly one variation
+     * are rendered.
+     */
+    public static final int RENDER_SINGLE_GROUPS       = 0x0002;
+    public static final int REMOVE_PLANS               = 0x0004;
+    public static final int REMOVE_LOGICAL_EXPRESSIONS = 0x0008;
+
+    private final int flags;
 
     /**
      * Helper class to provide an incrementing integer identifier per use.
@@ -89,6 +106,17 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     }
 
     /**
+     * Validate the flags upon instance creations.
+     * @param flags the flags to validate
+     */
+    private static boolean validateFlags(final int flags) {
+        if ((flags & REMOVE_PLANS) != 0 && (flags & REMOVE_LOGICAL_EXPRESSIONS) != 0) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Show the planner expression that is passed in as a graph rendered in your default browser.
      * @param renderSingleGroups iff true group references with just one member are not rendered
      * @param relationalExpression the planner expression to be rendered.
@@ -96,10 +124,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      */
     @Nonnull
     public static String show(final boolean renderSingleGroups, @Nonnull final RelationalExpression relationalExpression) {
-        final PlannerGraph plannerGraph =
-                Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(forInternalShow(renderSingleGroups)));
-        final String dotString = exportToDot(plannerGraph);
-        return show(dotString);
+        return show(renderSingleGroups ? RENDER_SINGLE_GROUPS : 0, relationalExpression);
     }
 
     /**
@@ -110,8 +135,34 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
      */
     @Nonnull
     public static String show(final boolean renderSingleGroups, @Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference) {
+        return show(renderSingleGroups ? RENDER_SINGLE_GROUPS : 0, rootReference);
+    }
+
+    /**
+     * Show the planner expression that is passed in as a graph rendered in your default browser.
+     * @param flags iff true group references with just one member are not rendered
+     * @param relationalExpression the planner expression to be rendered.
+     * @return the word "done" (IntelliJ really likes a return of String).
+     */
+    @Nonnull
+    public static String show(final int flags, @Nonnull final RelationalExpression relationalExpression) {
         final PlannerGraph plannerGraph =
-                Objects.requireNonNull(rootReference.acceptPropertyVisitor(forInternalShow(renderSingleGroups)));
+                Objects.requireNonNull(relationalExpression.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
+        final String dotString = exportToDot(plannerGraph);
+        return show(dotString);
+    }
+
+
+    /**
+     * Show the planner expression that is passed in as a graph rendered in your default browser.
+     * @param flags rendering options
+     * @param rootReference the planner expression to be rendered.
+     * @return the word "done" (IntelliJ really likes a return of String).
+     */
+    @Nonnull
+    public static String show(final int flags, @Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference) {
+        final PlannerGraph plannerGraph =
+                Objects.requireNonNull(rootReference.acceptPropertyVisitor(new PlannerGraphProperty(flags)));
         final String dotString = exportToDot(plannerGraph);
         return show(dotString);
     }
@@ -135,7 +186,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
 
         final Map<MatchCandidate, PlannerGraph> matchCandidateMap = matchCandidates.stream()
                 .collect(ImmutableMap.toImmutableMap(Function.identity(), matchCandidate -> Objects.requireNonNull(
-                        matchCandidate.getTraversal().getRootRef().acceptPropertyVisitor(forInternalShow(renderSingleGroups)))));
+                        matchCandidate.getTraversal().getRootReference().acceptPropertyVisitor(forInternalShow(renderSingleGroups)))));
 
         matchCandidateMap.forEach((matchCandidate, matchCandidateGraph) -> graphBuilder.addGraph(matchCandidateGraph));
 
@@ -144,7 +195,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
 
         queryGraphRefs
                 .forEach(queryGraphRef -> {
-                    for (final MatchCandidate matchCandidate : queryGraphRef.getMatchCandidates()) {
+                    for (final MatchCandidate matchCandidate : Sets.intersection(matchCandidates, queryGraphRef.getMatchCandidates())) {
                         final Set<PartialMatch> partialMatchesForCandidate = queryGraphRef.getPartialMatchesForCandidate(matchCandidate);
                         final PlannerGraph matchCandidatePlannerGraph = Objects.requireNonNull(matchCandidateMap.get(matchCandidate));
                         final Node queryRefNode = Objects.requireNonNull(queryPlannerGraph.getNodeForIdentity(queryGraphRef));
@@ -397,34 +448,45 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     }
 
     public static PlannerGraphProperty forExplain() {
-        return new PlannerGraphProperty(true, false, false);
+        return new PlannerGraphProperty(FOR_EXPLAIN);
     }
 
     public static PlannerGraphProperty forInternalShow(final boolean renderSingleGroups) {
         return forInternalShow(renderSingleGroups, false);
     }
 
-    public static PlannerGraphProperty forInternalShow(final boolean renderSingleGroups, final boolean removePlansIfPossible) {
-        return new PlannerGraphProperty(false, renderSingleGroups, removePlansIfPossible);
+    public static PlannerGraphProperty forInternalShow(final boolean renderSingleGroups, final boolean removePlans) {
+        return new PlannerGraphProperty((renderSingleGroups ? RENDER_SINGLE_GROUPS : 0) |
+                                        (removePlans ? REMOVE_PLANS : 0));
     }
 
     /**
-     * Constructor.
+     * Private constructor.
      *
      * Creates a property object that can be passed into a {@link RelationalExpression} visitor to create an
      * internal planner graph.
      *
-     * @param isForExplain indicates if this property is computed for the purpose of creating an explain
-     *        of the execution plan.
-     * @param renderSingleGroups indicates if {@link ExpressionRef} instances that contain exactly one variation
-     *        are rendered.
+     * @param flags for options
      */
-    private PlannerGraphProperty(final boolean isForExplain,
-                                 final boolean renderSingleGroups,
-                                 final boolean removePlansIfPossible) {
-        this.isForExplain = isForExplain;
-        this.renderSingleGroups = renderSingleGroups;
-        this.removePlansIfPossible = removePlansIfPossible;
+    private PlannerGraphProperty(final int flags) {
+        Preconditions.checkArgument(validateFlags(flags));
+        this.flags = flags;
+    }
+
+    public boolean isForExplain() {
+        return (flags & FOR_EXPLAIN) != 0;
+    }
+
+    public boolean renderSingleGroups() {
+        return (flags & RENDER_SINGLE_GROUPS) != 0;
+    }
+
+    public boolean removePlansIfPossible() {
+        return (flags & REMOVE_PLANS) != 0;
+    }
+
+    public boolean removeLogicalExpressions() {
+        return (flags & REMOVE_LOGICAL_EXPRESSIONS) != 0;
     }
 
     @Nonnull
@@ -432,9 +494,9 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
     public PlannerGraph evaluateAtExpression(@Nonnull final RelationalExpression expression, @Nonnull final List<PlannerGraph> childGraphs) {
         if (expression instanceof PlannerGraphRewritable) {
             return ((PlannerGraphRewritable)expression).rewritePlannerGraph(childGraphs);
-        } else if (isForExplain && expression instanceof ExplainPlannerGraphRewritable) {
+        } else if (isForExplain() && expression instanceof ExplainPlannerGraphRewritable) {
             return ((ExplainPlannerGraphRewritable)expression).rewriteExplainPlannerGraph(childGraphs);
-        } else if (!isForExplain && expression instanceof InternalPlannerGraphRewritable) {
+        } else if (!isForExplain() && expression instanceof InternalPlannerGraphRewritable) {
             return ((InternalPlannerGraphRewritable)expression).rewriteInternalPlannerGraph(childGraphs);
         } else {
             return PlannerGraph.fromNodeAndChildGraphs(
@@ -454,9 +516,23 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
             return PlannerGraph.builder(new PlannerGraph.ExpressionRefHeadNode(ref)).build();
         }
 
-        if (removePlansIfPossible) {
+        if (removePlansIfPossible()) {
             final List<PlannerGraph> filteredMemberResults = memberResults.stream()
-                    .filter(graph -> !(graph.getRoot().getIdentity() instanceof RecordQueryPlan))
+                    .filter(graph -> graph.getRoot() instanceof PlannerGraph.WithExpression)
+                    .filter(graph -> {
+                        final RelationalExpression expression = ((PlannerGraph.WithExpression)graph.getRoot()).getExpression();
+                        return !(expression instanceof RecordQueryPlan);
+                    })
+                    .collect(Collectors.toList());
+
+            // if we filtered down to empty it is better to just show the physical plan, otherwise try to avoid it
+            if (!filteredMemberResults.isEmpty()) {
+                memberResults = filteredMemberResults;
+            }
+        } else if (removeLogicalExpressions()) {
+            final List<PlannerGraph> filteredMemberResults = memberResults.stream()
+                    .filter(graph -> graph.getRoot() instanceof PlannerGraph.WithExpression)
+                    .filter(graph -> ((PlannerGraph.WithExpression)graph.getRoot()).getExpression() instanceof RecordQueryPlan)
                     .collect(Collectors.toList());
 
             // if we filtered down to empty it is better to just show the physical plan, otherwise try to avoid it
@@ -465,7 +541,7 @@ public class PlannerGraphProperty implements PlannerProperty<PlannerGraph> {
             }
         }
 
-        if (renderSingleGroups || memberResults.size() > 1) {
+        if (renderSingleGroups() || memberResults.size() > 1) {
             final Node head = new PlannerGraph.ExpressionRefHeadNode(ref);
             final PlannerGraph.InternalPlannerGraphBuilder plannerGraphBuilder =
                     PlannerGraph.builder(head);

@@ -231,10 +231,10 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+    public Stream<PlannerBindings> bindWithin(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
         Stream.Builder<Stream<PlannerBindings>> memberStreams = Stream.builder();
         for (T member : members) {
-            memberStreams.add(member.bindTo(matcher));
+            memberStreams.add(member.bindTo(outerBindings, matcher));
         }
         return memberStreams.build().flatMap(Function.identity()); // concat
     }
@@ -356,13 +356,23 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
 
     @Nonnull
     @Override
+    public Collection<PartialMatch> getPartialMatchesForExpression(@Nonnull final RelationalExpression expression) {
+        return partialMatchMap.values()
+                .stream()
+                .filter(partialMatch ->
+                        partialMatch.getQueryExpression() == expression)
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    @Nonnull
+    @Override
     public Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate) {
         return partialMatchMap.get(candidate);
     }
 
     @Override
-    public boolean addAllPartialMatchesForCandidate(final MatchCandidate candidate, final Iterable<PartialMatch> partialMatches) {
-        return partialMatchMap.putAll(candidate, partialMatches);
+    public boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch) {
+        return partialMatchMap.put(candidate, partialMatch);
     }
 
     /**

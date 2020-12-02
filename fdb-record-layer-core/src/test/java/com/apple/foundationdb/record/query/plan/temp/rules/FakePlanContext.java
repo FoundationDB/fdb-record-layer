@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.temp.IndexEntrySource;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.google.common.collect.ImmutableSet;
@@ -31,7 +30,6 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -42,38 +40,15 @@ import java.util.TreeMap;
  */
 public class FakePlanContext implements PlanContext {
     private final Map<String, Index> indexes;
-    private final Set<IndexEntrySource> indexEntrySources;
 
     public FakePlanContext() {
-        this(Collections.emptyList());
-    }
-
-    public FakePlanContext(Collection<Index> fakeIndexes) {
         indexes = new TreeMap<>();
-        ImmutableSet.Builder<IndexEntrySource> indexEntrySourceBuilder = ImmutableSet.builder();
-
-        for (Index index : fakeIndexes) {
-            indexes.put(index.getName(), index);
-            indexEntrySourceBuilder.add(IndexEntrySource.fromIndexWithTypeStrings(getRecordTypes(), index));
-        }
-        indexEntrySources = indexEntrySourceBuilder.build();
-    }
-
-    private FakePlanContext(@Nonnull Map<String, Index> indexes, @Nonnull Set<IndexEntrySource> indexEntrySources) {
-        this.indexes = indexes;
-        this.indexEntrySources = indexEntrySources;
     }
 
     @Nonnull
     @Override
     public Set<Index> getIndexes() {
         return Sets.newHashSet(indexes.values());
-    }
-
-    @Nonnull
-    @Override
-    public Set<IndexEntrySource> getIndexEntrySources() {
-        return indexEntrySources;
     }
 
     @Nonnull

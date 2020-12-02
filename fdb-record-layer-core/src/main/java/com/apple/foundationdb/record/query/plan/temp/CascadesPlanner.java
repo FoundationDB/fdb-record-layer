@@ -28,30 +28,26 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
+import com.google.common.base.Suppliers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
-import java.util.Collection;
 import java.util.Deque;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * A Cascades-style query planner that converts a {@link RecordQuery} to a {@link RecordQueryPlan}, possibly using
@@ -68,20 +64,21 @@ import java.util.stream.StreamSupport;
  * </p>
  *
  * <p>
- * Like many optimization frameworks, Cascades is driven by a set of {@link PlannerRule}s, each of which describes a
+ * Like many optimization frameworks, Cascades is driven by sets of {@link PlannerRule}s that can be defined for
+ * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
  * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
- * more additional {@code PlannerExpression}s. A rule is defined by:
+ * more additional {@code PlannerExpression}s and/or zero or mode additional {@link PartialMatch}es. A rule is defined by:
  * </p>
  * <ul>
  *     <li>
  *         An {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher} that defines a
  *         finite-depth tree of matchers that inspect the structure (i.e., the type-level information) of some subgraph
- *         of the current planner expression.
+ *         of the current planner expression, the current partial match, or the current match partition.
  *     </li>
  *     <li>
  *         A {@link PlannerRule#onMatch(PlannerRuleCall)} method that is run for each successful match, producing zero
- *         or more new expressions.
+ *         or more new expressions and/or zero or more new partial matches.
  *     </li>
  * </ul>
  *
@@ -111,6 +108,66 @@ import java.util.stream.StreamSupport;
  * {@link CascadesCostModel} which is a heuristic model implemented as a {@link java.util.Comparator}.
  * </p>
  *
+ * Simplified enqueue/execute overview:
+ *
+ * {@link OptimizeGroup}
+ *     if (not explored)
+ *         enqueues
+ *             this (again)
+ *             {@link ExploreExpression} for each group member
+ *         sets explored to {@code true}
+ *     else
+ *         prune to find best plan; done
+ *
+ * {@link ExploreGroup}
+ *     enqueues
+ *         {@link ExploreExpression} for each group member
+ *     sets explored to {@code true}
+ *
+ * {@link ExploreExpression}
+ *     enqueues
+ *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
+ *         all transformations ({@link TransformExpression} for current (group, expression)
+ *         {@link ExploreGroup} for all ranged over groups
+ *
+ * after execution of any TransformXXX
+ *     enqueues
+ *         {@link AdjustMatch} for each yielded {@link PartialMatch}
+ *         {@link OptimizeInputs} followed by {@link ExploreExpression} for each yielded {@link RecordQueryPlan}
+ *         {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
+ *
+ * {@link AdjustMatch}
+ *     enqueues
+ *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
+ *
+ * {@link OptimizeInputs}
+ *     enqueues
+ *         {@link OptimizeGroup} for all ranged over groups
+ *
+ * Note: Enqueued tasks are executes in typical stack machine order, that is LIFO.
+ *
+ * There are three different kinds of transformations:
+ * <ul>
+ *     <li>
+ *         Transforms on expressions {@link TransformExpression}. These are the classical transforms creating new
+ *         variations in the expression memoization structure. The root for the corresponding rules is always of type
+ *         {@link RelationalExpression}.
+ *     </li>
+ *     <li>
+ *         Transforms on partial matches {@link TransformPartialMatch}. These transforms are executed when a partial
+ *         match is found and typically only yield other new partial matches for the <em>current</em> (group, expression)
+ *         pair. The root for the corresponding rules is always of type {@link PartialMatch}.
+ *     </li>
+ *     <li>
+ *         Transforms on match partitions {@link TransformMatchPartition}. These transforms are executed only after
+ *         all transforms (both {@link TransformExpression}s and {@link TransformPartialMatch}) have been executed
+ *         for a current (group, expression). Note, that this kind transformation task can be repeatedly executed for
+ *         a given group but it is guaranteed to only be executed once for a (group, expression) pair.
+ *         The root for the corresponding rules is always of type {@link MatchPartition}. These are the rules that react
+ *         to all synthesized matches for an expression at once.
+ *     </li>
+ * </ul>
+ *
  * @see GroupExpressionRef
  * @see RelationalExpression
  * @see PlannerRule
@@ -121,6 +178,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CascadesPlanner.class);
     @Nonnull
+    private RecordQueryPlannerConfiguration configuration;
+    @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
     private final RecordStoreState recordStoreState;
@@ -129,6 +188,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private GroupExpressionRef<RelationalExpression> currentRoot;
     @Nonnull
+    private AliasResolver aliasResolver;
+    @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
@@ -136,18 +197,20 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlannerRuleSet ruleSet) {
+        this.configuration = RecordQueryPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.ruleSet = ruleSet;
         // Placeholders until we get a query.
         this.currentRoot = GroupExpressionRef.empty();
+        this.aliasResolver = AliasResolver.withRoot(currentRoot);
         this.taskStack = new ArrayDeque<>();
     }
 
     @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query) {
-        final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query, ImmutableSet.of());
+        final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
         Debugger.query(query, context);
         try {
             planPartial(context, () -> RelationalExpression.fromRecordQuery(query, context));
@@ -174,6 +237,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     public GroupExpressionRef<RelationalExpression> planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
+        aliasResolver = AliasResolver.withRoot(currentRoot);
+        Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         while (!taskStack.isEmpty()) {
@@ -209,7 +274,9 @@ public class CascadesPlanner implements QueryPlanner {
 
     @Override
     public void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference) {
-        // nothing to do here, yet
+        configuration = this.configuration.asBuilder()
+                .setIndexScanPreference(indexScanPreference)
+                .build();
     }
 
     /**
@@ -221,6 +288,20 @@ public class CascadesPlanner implements QueryPlanner {
         Debugger.Event toTaskEvent(final Location location);
     }
 
+    /**
+     * Optimize Group task.
+     *
+     * Simplified enqueue/execute overview:
+     *
+     * {@link OptimizeGroup}
+     *     if (not explored)
+     *         enqueues
+     *             this (again)
+     *             {@link ExploreExpression} for each group member
+     *         sets explored to {@code true}
+     *     else
+     *         prune to find best plan; done
+     */
     private class OptimizeGroup implements Task {
         @Nonnull
         private final PlanContext context;
@@ -248,14 +329,17 @@ public class CascadesPlanner implements QueryPlanner {
                 // Explore the group, then come back here to pick an optimal expression.
                 taskStack.push(this);
                 for (RelationalExpression member : group.getMembers()) {
+                    // enqueue explore expression which then in turn enqueues necessary rules for transformations
+                    // and matching
                     taskStack.push(new ExploreExpression(context, group, member));
                 }
+                // the second time around we want to visit the else and prune the plan space
                 group.setExplored();
             } else {
                 // TODO this is very Volcano-style rather than Cascades, because there's no branch-and-bound pruning.
                 RelationalExpression bestMember = null;
                 for (RelationalExpression member : group.getMembers()) {
-                    if (bestMember == null || new CascadesCostModel(context).compare(member, bestMember) < 0) {
+                    if (bestMember == null || new CascadesCostModel(configuration, context).compare(member, bestMember) < 0) {
                         bestMember = member;
                     }
                 }
@@ -278,59 +362,16 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private class ExploreExpression implements Task {
-        @Nonnull
-        protected final PlanContext context;
-        @Nonnull
-        protected final GroupExpressionRef<RelationalExpression> group;
-        @Nonnull
-        protected final RelationalExpression expression;
-
-        public ExploreExpression(@Nonnull PlanContext context,
-                                 @Nonnull GroupExpressionRef<RelationalExpression> group,
-                                 @Nonnull RelationalExpression expression) {
-            this.context = context;
-            this.group = group;
-            this.expression = expression;
-        }
-
-        @Nonnull
-        protected PlannerRuleSet getRules() {
-            return ruleSet;
-        }
-
-        protected void addTransformTask(@Nonnull PlannerRule<? extends RelationalExpression> rule) {
-            taskStack.push(new Transform(context, group, expression, rule));
-        }
-
-        @Override
-        public void execute() {
-            // invoke matching after all transformations have been applied and the groups underneath have been explored
-            taskStack.push(new MatchExpression(context, group, expression));
-
-            // This is closely tied to the way that rule finding works _now_. Specifically, rules are indexed only
-            // by the type of their _root_, not any of the stuff lower down. As a result, we have enough information
-            // right here to determine the set of all possible rules that could ever be applied here, regardless of
-            // what happens towards the leaves of the tree.
-            getRules().getRulesMatching(expression).forEachRemaining(this::addTransformTask);
-
-            for (final Quantifier quantifier : expression.getQuantifiers()) {
-                final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
-                taskStack.push(new ExploreGroup(context, rangesOver));
-            }
-        }
-
-        @Override
-        public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.ExploreExpressionEvent(currentRoot, taskStack, location, group, expression);
-        }
-
-        @Override
-        public String toString() {
-            return "ExploreExpression(" + group + ")";
-        }
-    }
-
+    /**
+     * Explore Group Task.
+     *
+     * Simplified enqueue/execute overview:
+     *
+     * {@link ExploreGroup}
+     *     enqueues
+     *         {@link ExploreExpression} for each group member
+     *     sets explored to {@code true}
+     */
     private class ExploreGroup implements Task {
         @Nonnull
         private final PlanContext context;
@@ -372,7 +413,112 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private class Transform implements Task {
+    /**
+     * Abstract base class for all tasks that have a <em>current</em> (group, expression).
+     */
+    private abstract class ExploreTask implements Task {
+        @Nonnull
+        private final PlanContext context;
+        @Nonnull
+        private final GroupExpressionRef<RelationalExpression> group;
+        @Nonnull
+        private final RelationalExpression expression;
+
+        public ExploreTask(@Nonnull PlanContext context,
+                           @Nonnull GroupExpressionRef<RelationalExpression> group,
+                           @Nonnull RelationalExpression expression) {
+            this.context = context;
+            this.group = group;
+            this.expression = expression;
+        }
+
+        @Nonnull
+        public PlanContext getContext() {
+            return context;
+        }
+
+        @Nonnull
+        public GroupExpressionRef<RelationalExpression> getGroup() {
+            return group;
+        }
+
+        @Nonnull
+        public RelationalExpression getExpression() {
+            return expression;
+        }
+
+        @Nonnull
+        protected PlannerRuleSet getRules() {
+            return ruleSet;
+        }
+    }
+
+    /**
+     * Explore Expression Task.
+     *
+     * Simplified enqueue/execute overview:
+     *
+     * {@link ExploreExpression}
+     *     enqueues
+     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
+     *         all transformations ({@link TransformExpression} for current (group, expression)
+     *         {@link ExploreGroup} for all ranged over groups
+     */
+    private class ExploreExpression extends ExploreTask {
+        public ExploreExpression(@Nonnull PlanContext context,
+                                 @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                 @Nonnull RelationalExpression expression) {
+            super(context, group, expression);
+        }
+
+        @Override
+        public void execute() {
+            // Enqueue all rules that need to run after all exploration for a (group, expression) pair is done.
+            ruleSet.getMatchPartitionRules().forEach(this::enqueueTransformPartialMatch);
+
+            // This is closely tied to the way that rule finding works _now_. Specifically, rules are indexed only
+            // by the type of their _root_, not any of the stuff lower down. As a result, we have enough information
+            // right here to determine the set of all possible rules that could ever be applied here, regardless of
+            // what happens towards the leaves of the tree.
+            ruleSet.getExpressionRules(getExpression()).forEach(this::enqueueTransformTask);
+
+            // Enqueue explore group for all groups this expression ranges over
+            getExpression()
+                    .getQuantifiers()
+                    .stream()
+                    .map(Quantifier::getRangesOver)
+                    .forEach(this::enqueueExploreGroup);
+        }
+
+        private void enqueueTransformTask(@Nonnull PlannerRule<? extends RelationalExpression> rule) {
+            taskStack.push(new TransformExpression(getContext(), getGroup(), getExpression(), rule));
+        }
+
+        private void enqueueTransformPartialMatch(PlannerRule<? extends MatchPartition> rule) {
+            taskStack.push(new TransformMatchPartition(getContext(), getGroup(), getExpression(), rule));
+        }
+
+        private void enqueueExploreGroup(ExpressionRef<? extends RelationalExpression> rangesOver) {
+            taskStack.push(new ExploreGroup(getContext(), rangesOver));
+        }
+
+        @Override
+        public Debugger.Event toTaskEvent(final Location location) {
+            return new Debugger.ExploreExpressionEvent(currentRoot, taskStack, location, getGroup(), getExpression());
+        }
+
+        @Override
+        public String toString() {
+            return "ExploreExpression(" + getGroup() + ")";
+        }
+    }
+
+    /**
+     * Abstract base class for all transformations. All transformations are defined on a sub class of {@link Bindable}.
+     * This base class uses just {@link Bindable} itself as it never has to reason or pass on the actual defined type
+     * of the transform rule.
+     */
+    private abstract class AbstractTransform implements Task {
         @Nonnull
         private final PlanContext context;
         @Nonnull
@@ -380,49 +526,106 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final RelationalExpression expression;
         @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
 
-        public Transform(@Nonnull PlanContext context,
-                         @Nonnull GroupExpressionRef<RelationalExpression> group,
-                         @Nonnull RelationalExpression expression,
-                         @Nonnull PlannerRule<? extends RelationalExpression> rule) {
+        protected AbstractTransform(@Nonnull PlanContext context,
+                                    @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                    @Nonnull RelationalExpression expression,
+                                    @Nonnull PlannerRule<? extends Bindable> rule) {
             this.context = context;
             this.group = group;
             this.expression = expression;
             this.rule = rule;
         }
 
+        @Nonnull
+        public PlanContext getContext() {
+            return context;
+        }
+
+        @Nonnull
+        public GroupExpressionRef<RelationalExpression> getGroup() {
+            return group;
+        }
+
+        @Nonnull
+        public RelationalExpression getExpression() {
+            return expression;
+        }
+
+        @Nonnull
+        public PlannerRule<? extends Bindable> getRule() {
+            return rule;
+        }
+
+        @Nonnull
+        protected abstract Bindable getBindable();
+
+        @Nonnull
+        protected PlannerBindings getInitialBindings() {
+            return PlannerBindings.empty();
+        }
+
+        protected boolean shouldExecute() {
+            return true;
+        }
+
+        /**
+         * Method that calls the actual rule and reacts to new constructs the rule yielded.
+         *
+         * Simplified enqueue/execute overview:
+         *
+         * executes rule
+         * enqueues
+         *     {@link AdjustMatch} for each yielded {@link PartialMatch}
+         *     {@link OptimizeInputs} followed by {@link ExploreExpression} for each yielded {@link RecordQueryPlan}
+         *     {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
+         */
         @Override
         public void execute() {
-            if (!group.containsExactly(expression)) { // expression is gone
+            final GroupExpressionRef<RelationalExpression> group = getGroup();
+            final PlannerRule<? extends Bindable> rule = getRule();
+            if (!shouldExecute()) {
                 return;
             }
+
+            final PlannerBindings initialBindings = getInitialBindings();
+
             if (logger.isTraceEnabled()) {
-                logger.trace("Bindings: " +  expression.bindTo(rule.getMatcher()).count());
+                logger.trace("Bindings: " +  getBindable().bindTo(initialBindings, rule.getMatcher()).count());
             }
-            expression.bindTo(rule.getMatcher()).map(bindings -> new CascadesRuleCall(context, rule, group, bindings))
+
+            getBindable().bindTo(initialBindings, rule.getMatcher())
+                    .map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
-                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, expression, rule, ruleCall)));
+                        // we notify the debugger (if installed) that the transform task is succeeding and
+                        // about begin and end of the rule call event
+                        Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.SUCCESS)));
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.BEGIN, group, getBindable(), rule, ruleCall)));
                         executeRuleCall(ruleCall);
-                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, expression, rule, ruleCall)));
+                        Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.TransformRuleCallEvent(currentRoot, taskStack, Location.END, group, getBindable(), rule, ruleCall)));
                     });
         }
 
-        private void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
+        protected void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
             ruleCall.run();
-            for (RelationalExpression newExpression : ruleCall.getNewExpressions()) {
+            for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
+                taskStack.push(new AdjustMatch(getContext(), getGroup(), getExpression(), newPartialMatch));
+            }
+
+            for (final RelationalExpression newExpression : ruleCall.getNewExpressions()) {
                 if (newExpression instanceof QueryPlan) {
-                    taskStack.push(new OptimizeInputs(context, group, newExpression));
-                    taskStack.push(new ExploreExpression(context, group, newExpression));
+                    taskStack.push(new OptimizeInputs(getContext(), getGroup(), newExpression));
+                    taskStack.push(new ExploreExpression(getContext(), getGroup(), newExpression));
                 } else {
-                    taskStack.push(new ExploreExpression(context, group, newExpression));
+                    taskStack.push(new ExploreExpression(getContext(), getGroup(), newExpression));
                 }
             }
         }
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.TransformEvent(currentRoot, taskStack, location, group, expression, rule);
+            return new Debugger.TransformEvent(currentRoot, taskStack, location, getGroup(), getBindable(), getRule());
         }
 
         @Override
@@ -431,166 +634,136 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    private class MatchExpression implements Task {
-        @Nonnull
-        private final PlanContext context;
-        @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
-        @Nonnull
-        private final RelationalExpression expression;
+    /**
+     * Class to transform an expression using a rule.
+     */
+    private class TransformExpression extends AbstractTransform {
+        public TransformExpression(@Nonnull PlanContext context,
+                                   @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                   @Nonnull RelationalExpression expression,
+                                   @Nonnull PlannerRule<? extends RelationalExpression> rule) {
+            super(context, group, expression, rule);
+        }
 
-        public MatchExpression(@Nonnull final PlanContext context, @Nonnull final GroupExpressionRef<RelationalExpression> group, @Nonnull final RelationalExpression expression) {
-            this.context = context;
-            this.group = group;
-            this.expression = expression;
+        @Nonnull
+        @Override
+        protected Bindable getBindable() {
+            // note that the bindable is the current expression itself
+            return getExpression();
+        }
+
+        @Override
+        protected boolean shouldExecute() {
+            return super.shouldExecute() && getGroup().containsExactly(getExpression());
+        }
+
+        @Nonnull
+        @Override
+        protected PlannerBindings getInitialBindings() {
+            return PlannerBindings.newBuilder()
+                    .putAll(super.getInitialBindings())
+                    .putAll(PartialMatchMatcher.expressionWithCurrentPartialMatches(),
+                            getGroup().getPartialMatchesForExpression(getExpression()))
+                    .build();
+        }
+    }
+
+    /**
+     * Class to transform a match partition using a rule.
+     */
+    private class TransformMatchPartition extends AbstractTransform {
+        @Nonnull
+        private final Supplier<MatchPartition> matchPartitionSupplier;
+
+        public TransformMatchPartition(@Nonnull PlanContext context,
+                                       @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                       @Nonnull RelationalExpression expression,
+                                       @Nonnull PlannerRule<? extends MatchPartition> rule) {
+            super(context, group, expression, rule);
+            this.matchPartitionSupplier = Suppliers.memoize(() -> MatchPartition.of(group, expression));
+        }
+
+        @Nonnull
+        @Override
+        protected Bindable getBindable() {
+            return matchPartitionSupplier.get();
+        }
+    }
+
+    /**
+     * Class to transform a match partial match using a rule.
+     */
+    private class TransformPartialMatch extends AbstractTransform {
+        @Nonnull
+        private final PartialMatch partialMatch;
+
+        public TransformPartialMatch(@Nonnull PlanContext context,
+                                     @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                     @Nonnull RelationalExpression expression,
+                                     @Nonnull PartialMatch partialMatch,
+                                     @Nonnull PlannerRule<? extends PartialMatch> rule) {
+            super(context, group, expression, rule);
+            this.partialMatch = partialMatch;
+        }
+
+        @Nonnull
+        @Override
+        protected Bindable getBindable() {
+            return partialMatch;
+        }
+    }
+
+    /**
+     * Adjust Match Task. Attempts to improve an existing partial partial match on a (group, expression) pair
+     * to a better one by enqueuing rules defined on {@link PartialMatch}.
+     *
+     * Simplified enqueue/execute overview:
+     *
+     * {@link AdjustMatch}
+     *     enqueues
+     *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
+     */
+    private class AdjustMatch extends ExploreTask {
+        @Nonnull
+        final PartialMatch partialMatch;
+
+        public AdjustMatch(@Nonnull final PlanContext context,
+                           @Nonnull final GroupExpressionRef<RelationalExpression> group,
+                           @Nonnull final RelationalExpression expression,
+                           @Nonnull final PartialMatch partialMatch) {
+            super(context, group, expression);
+            this.partialMatch = partialMatch;
         }
 
         @Override
         public void execute() {
-            final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> rangesOverRefs =
-                    expression.getQuantifiers()
-                            .stream()
-                            .map(Quantifier::getRangesOver)
-                            .collect(ImmutableList.toImmutableList());
-
-            if (rangesOverRefs.isEmpty()) {
-                for (final MatchCandidate matchCandidate : context.getMatchCandidates()) {
-                    final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
-                    final Set<ExpressionRef<? extends RelationalExpression>> leafRefs = traversal.getLeafRefs();
-                    for (final ExpressionRef<? extends RelationalExpression> leafRef : leafRefs) {
-                        for (final RelationalExpression leafMember : leafRef.getMembers()) {
-                            if (leafMember.getQuantifiers().isEmpty()) {
-                                taskStack.push(new MatchExpressionWithCandidate(context,
-                                        group,
-                                        expression,
-                                        matchCandidate,
-                                        leafRef,
-                                        leafMember));
-                            }
-                        }
-                    }
-                }
-            } else {
-                // form intersection of all possible match candidates
-                final ExpressionRef<? extends RelationalExpression> firstRangesOverRef = rangesOverRefs.get(0);
-                final Set<MatchCandidate> commonMatchCandidates = Sets.newHashSet(firstRangesOverRef.getMatchCandidates());
-                for (int i = 0; i < rangesOverRefs.size(); i++) {
-                    final ExpressionRef<? extends RelationalExpression> rangesOverGroup = rangesOverRefs.get(i);
-                    commonMatchCandidates.retainAll(rangesOverGroup.getMatchCandidates());
-                }
-
-                for (final MatchCandidate matchCandidate : commonMatchCandidates) {
-                    final ExpressionRefTraversal traversal = matchCandidate.getTraversal();
-                    for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : rangesOverRefs) {
-                        final Set<PartialMatch> partialMatchesForCandidate = rangesOverRef.getPartialMatchesForCandidate(matchCandidate);
-                        for (final PartialMatch partialMatch : partialMatchesForCandidate) {
-                            for (final ExpressionRefTraversal.RefPath parentRefPath : traversal.getParentRefPaths(partialMatch.getCandidateRef())) {
-                                taskStack.push(new MatchExpressionWithCandidate(context,
-                                        group,
-                                        expression,
-                                        matchCandidate,
-                                        parentRefPath.getRef(),
-                                        parentRefPath.getExpression()));
-                            }
-                        }
-                    }
-                }
-            }
+            ruleSet.getPartialMatchRules()
+                    .forEach(rule -> taskStack.push(new TransformPartialMatch(getContext(), getGroup(), getExpression(), partialMatch, rule)));
         }
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.MatchExpressionEvent(currentRoot, taskStack, location, group, expression);
+            return new Debugger.MatchExpressionEvent(currentRoot, taskStack, location, getGroup(), getExpression());
         }
 
         @Override
         public String toString() {
-            return "MatchExpression(" + group + "; " + expression + ")";
+            return "AdjustMatch(" + getGroup() + "; " + getExpression() + ")";
         }
     }
 
-    private class MatchExpressionWithCandidate implements Task {
-        @Nonnull
-        private final PlanContext context;
-        @Nonnull
-        private final GroupExpressionRef<RelationalExpression> group;
-        @Nonnull
-        private final RelationalExpression expression;
-        @Nonnull
-        private final MatchCandidate matchCandidate;
-        @Nonnull
-        private final ExpressionRef<? extends RelationalExpression> candidateRef;
-        @Nonnull
-        private final RelationalExpression candidateExpression;
-
-        public MatchExpressionWithCandidate(@Nonnull final PlanContext context,
-                                            @Nonnull final GroupExpressionRef<RelationalExpression> group,
-                                            @Nonnull final RelationalExpression expression,
-                                            @Nonnull final MatchCandidate matchCandidate,
-                                            @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
-                                            @Nonnull final RelationalExpression candidateExpression) {
-            this.context = context;
-            this.group = group;
-            this.expression = expression;
-            this.matchCandidate = matchCandidate;
-            this.candidateRef = candidateRef;
-            this.candidateExpression = candidateExpression;
-        }
-
-        @Override
-        public void execute() {
-            final Iterable<PartialMatch> partialMatches =
-                    expression.match(candidateExpression,
-                            AliasMap.emptyMap(),
-                            this::constraintsForQuantifier,
-                            this::matchQuantifiers,
-                            this::combineMatches);
-            group.addAllPartialMatchesForCandidate(matchCandidate, partialMatches);
-        }
-
-        private Collection<AliasMap> constraintsForQuantifier(final Quantifier quantifier) {
-            final Set<PartialMatch> partialMatchesForCandidate = quantifier.getRangesOver().getPartialMatchesForCandidate(matchCandidate);
-            return partialMatchesForCandidate.stream()
-                    .map(PartialMatch::getBoundAliasMap)
-                    .collect(ImmutableSet.toImmutableSet());
-        }
-
-        private Iterable<PartialMatch> matchQuantifiers(final Quantifier quantifier,
-                                                        final Quantifier otherQuantifier,
-                                                        final AliasMap aliasMap) {
-            final ExpressionRef<? extends RelationalExpression> rangesOver = quantifier.getRangesOver();
-            final ExpressionRef<? extends RelationalExpression> otherRangesOver = otherQuantifier.getRangesOver();
-
-            final Set<PartialMatch> partialMatchesForCandidate = rangesOver.getPartialMatchesForCandidate(matchCandidate);
-            return partialMatchesForCandidate.stream()
-                    .filter(partialMatch -> partialMatch.getCandidateRef() == otherRangesOver && partialMatch.getBoundAliasMap().isCompatible(aliasMap))
-                    .collect(Collectors.toList());
-        }
-
-        @Nonnull
-        private Iterable<PartialMatch> combineMatches(final AliasMap boundCorrelatedToMap,
-                                                      final Iterable<BoundMatch<EnumeratingIterable<PartialMatch>>> boundMatches) {
-            final Optional<BoundMatch<EnumeratingIterable<PartialMatch>>> anyMatch =
-                    StreamSupport.stream(boundMatches.spliterator(), false)
-                            // TODO call actual matching function instead of equalsWithoutChildren()
-                            .filter(boundMatch -> expression.equalsWithoutChildren(candidateExpression, boundMatch.getAliasMap()))
-                            .findAny();
-            if (anyMatch.isPresent()) {
-                return ImmutableList.of(new PartialMatch(boundCorrelatedToMap, group, candidateRef, ref -> ref));
-            }
-            return ImmutableList.of();
-        }
-
-        @Override
-        public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.MatchExpressionWithCandidateEvent(currentRoot, taskStack, location, group, expression, matchCandidate, candidateRef, candidateExpression);
-        }
-
-        public String show() {
-            return PlannerGraphProperty.show(true, currentRoot, ImmutableSet.of(matchCandidate));
-        }
-    }
-
+    /**
+     * Optimize Inputs Task. This task is only used for expressions that are {@link RecordQueryPlan} which are
+     * physical operators. If the current expression is a {@link RecordQueryPlan} all expressions that are considered
+     * children and/or descendants must also be of type {@link RecordQueryPlan}. At that moment we know that exploration
+     * is done and we can optimize the children (that is we can now prune the plan space of the children).
+     *
+     * Simplified enqueue/execute overview:
+     *
+     * {@link OptimizeInputs}
+     *     enqueues
+     *         {@link OptimizeGroup} for all ranged over groups
+     */
     private class OptimizeInputs implements Task {
         @Nonnull
         private final PlanContext context;

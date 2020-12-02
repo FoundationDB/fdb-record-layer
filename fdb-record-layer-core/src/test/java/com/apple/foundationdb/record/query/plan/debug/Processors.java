@@ -22,6 +22,10 @@ package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExecutingTaskEvent;
@@ -33,13 +37,18 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeGrou
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeInputsEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformRuleCallEvent;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import org.jline.reader.ParsedLine;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Class containing all implementations of {@link Processor}
@@ -57,7 +66,7 @@ public class Processors {
         }
 
         default void onCommand(final PlannerRepl plannerRepl, final E event, final ParsedLine parsedLine) {
-            plannerRepl.printlnError("unknown command or syntax error: " + parsedLine.words().get(0));
+            plannerRepl.printlnError("unknown command or syntax error: " + String.join(" ", parsedLine.words()));
             onList(plannerRepl, event);
             plannerRepl.println();
         }
@@ -208,6 +217,12 @@ public class Processors {
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
             plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            final Bindable bindable = event.getBindable();
+            if (bindable instanceof RelationalExpression) {
+                plannerRepl.printlnExpression((RelationalExpression)bindable);
+            } else {
+                plannerRepl.printlnKeyValue("bindable", bindable.toString());
+            }
             plannerRepl.printlnKeyValue("rule", event.getRule().toString());
         }
 
@@ -218,6 +233,12 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            final Bindable bindable = event.getBindable();
+            if (bindable instanceof RelationalExpression) {
+                plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
+            } else {
+                plannerRepl.printKeyValue("bindable", bindable.toString() + "; ");
+            }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
 
@@ -268,6 +289,12 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            final Bindable bindable = event.getBindable();
+            if (bindable instanceof RelationalExpression) {
+                plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
+            } else {
+                plannerRepl.printKeyValue("bindable", bindable.toString() + "; ");
+            }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
 
@@ -316,6 +343,34 @@ public class Processors {
      */
     @AutoService(Processor.class)
     public static class MatchExpressionWithCandidateProcessor implements Processor<MatchExpressionWithCandidateEvent> {
+
+        public void onCommand(final PlannerRepl plannerRepl, final MatchExpressionWithCandidateEvent event, final ParsedLine parsedLine) {
+            final List<String> words = parsedLine.words();
+
+            if (words.size() >= 1) {
+                final String word0 = words.get(0).toUpperCase();
+                if ("MATCH".equals(word0)) {
+                    if (words.size() >= 2) {
+                        final String word1 = words.get(1).toUpperCase();
+                        if ("SHOW".equals(word1)) {
+                            if (words.size() == 3) {
+                                final String word2 = words.get(2).toUpperCase();
+                                if ("ALL".equals(word2)) {
+                                    PlannerGraphProperty.show(true, event.getRootReference(), Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
+                                    return;
+                                }
+                            } else {
+                                PlannerGraphProperty.show(true, event.getRootReference(), ImmutableSet.of(event.getMatchCandidate()));
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Processor.super.onCommand(plannerRepl, event, parsedLine);
+        }
+
         @Override
         public void onDetail(final PlannerRepl plannerRepl, final MatchExpressionWithCandidateEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
@@ -324,14 +379,35 @@ public class Processors {
             plannerRepl.printlnKeyValue("current root reference", "");
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            final GroupExpressionRef<? extends RelationalExpression> currentGroupReference = event.getCurrentGroupReference();
+            plannerRepl.printlnReference(currentGroupReference, "  ");
             plannerRepl.printlnKeyValue("expression", "");
             plannerRepl.printlnExpression(event.getExpression(), "  ");
-            plannerRepl.printlnKeyValue("match candidate", event.getMatchCandidate().getName());
+            final MatchCandidate matchCandidate = event.getMatchCandidate();
+            plannerRepl.printlnKeyValue("match candidate", matchCandidate.getName());
             plannerRepl.printlnKeyValue("candidate reference", "");
             plannerRepl.printlnReference(event.getCandidateRef(), "  ");
             plannerRepl.printlnKeyValue("candidate expression", "");
             plannerRepl.printlnExpression(event.getCandidateExpression(), "  ");
+            final Set<PartialMatch> partialMatchesForCandidate = currentGroupReference.getPartialMatchesForCandidate(matchCandidate);
+            plannerRepl.println();
+            if (partialMatchesForCandidate.isEmpty()) {
+                plannerRepl.printlnKeyValue("partial matches for candidate", "empty");
+            } else {
+                plannerRepl.printlnKeyValue("partial matches for candidate", "");
+                for (final PartialMatch partialMatch : partialMatchesForCandidate) {
+                    plannerRepl.println();
+                    plannerRepl.printlnKeyValue("  bound alias", partialMatch.getBoundAliasMap().toString());
+                    plannerRepl.printlnKeyValue("  group reference", "");
+                    plannerRepl.printlnReference(partialMatch.getQueryRef(), "    ");
+                    plannerRepl.printlnKeyValue("  candidate reference", "");
+                    plannerRepl.printlnReference(partialMatch.getCandidateRef(), "    ");
+                    final MatchInfo matchInfo = partialMatch.getMatchInfo();
+                    plannerRepl.printlnKeyValue("  parameter bindings:", "");
+                    matchInfo.getParameterBindingMap().forEach((parameterAlias, comparisonRange) ->
+                            plannerRepl.printlnKeyValue("    " + parameterAlias, comparisonRange.toString()));
+                }
+            }
         }
 
         @Override
@@ -344,7 +420,7 @@ public class Processors {
             plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(event.getExpression()) + "; ");
             plannerRepl.printKeyValue("match candidate", event.getMatchCandidate().getName() + "; ");
             plannerRepl.printKeyValue("candidate reference", plannerRepl.nameForObjectOrNotInCache(event.getCandidateRef()) + "; ");
-            plannerRepl.printlnKeyValue("candidate expression", plannerRepl.nameForObjectOrNotInCache(event.getCandidateExpression()));
+            plannerRepl.printKeyValue("candidate expression", plannerRepl.nameForObjectOrNotInCache(event.getCandidateExpression()));
         }
 
         @Override

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.debug;
 
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -30,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,6 +39,7 @@ import java.util.Deque;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 
 /**
  * This interface functions as a stub providing hooks which can be called from the planner logic during planning.
@@ -118,6 +121,16 @@ public interface Debugger {
         withDebugger(debugger -> debugger.onQuery(recordQuery, planContext));
     }
 
+    static Optional<Integer> getIndexOptional(Class<?> clazz) {
+        return mapDebugger(debugger -> debugger.onGetIndex(clazz));
+    }
+
+    @Nonnull
+    @CanIgnoreReturnValue
+    static Optional<Integer> updateIndex(Class<?> clazz, IntUnaryOperator updateFn) {
+        return mapDebugger(debugger -> debugger.onUpdateIndex(clazz, updateFn));
+    }
+
     static void registerExpression(RelationalExpression expression) {
         withDebugger(debugger -> debugger.onRegisterExpression(expression));
     }
@@ -137,11 +150,15 @@ public interface Debugger {
 
     void onDone();
 
-    void onRegisterExpression(RelationalExpression expression);
+    int onGetIndex(@Nonnull Class<?> clazz);
 
-    void onRegisterReference(ExpressionRef<? extends RelationalExpression> reference);
+    int onUpdateIndex(@Nonnull Class<?> clazz, @Nonnull final IntUnaryOperator updateFn);
 
-    void onRegisterQuantifier(Quantifier quantifier);
+    void onRegisterExpression(@Nonnull RelationalExpression expression);
+
+    void onRegisterReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
+
+    void onRegisterQuantifier(@Nonnull Quantifier quantifier);
 
     void onInstall();
 
@@ -170,7 +187,9 @@ public interface Debugger {
     enum Location {
         ANY,
         BEGIN,
-        END
+        END,
+        SUCCESS,
+        FAILURE
     }
 
     /**
@@ -425,19 +444,19 @@ public interface Debugger {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
-        private final RelationalExpression expression;
+        private final Bindable bindable;
         @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
 
         public TransformEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
                               @Nonnull final Deque<Task> taskStack,
                               @Nonnull final Location location,
                               @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                              @Nonnull final RelationalExpression expression,
-                              @Nonnull final PlannerRule<? extends RelationalExpression> rule) {
+                              @Nonnull final Bindable bindable,
+                              @Nonnull final PlannerRule<? extends Bindable> rule) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
-            this.expression = expression;
+            this.bindable = bindable;
             this.rule = rule;
         }
 
@@ -460,12 +479,12 @@ public interface Debugger {
         }
 
         @Nonnull
-        public RelationalExpression getExpression() {
-            return expression;
+        public Bindable getBindable() {
+            return bindable;
         }
 
         @Nonnull
-        public PlannerRule<? extends RelationalExpression> getRule() {
+        public PlannerRule<? extends Bindable> getRule() {
             return rule;
         }
     }
@@ -477,9 +496,9 @@ public interface Debugger {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
-        private final RelationalExpression expression;
+        private final Bindable bindable;
         @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
         @Nonnull
         private final CascadesRuleCall ruleCall;
 
@@ -487,12 +506,12 @@ public interface Debugger {
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
                                       @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                                      @Nonnull final RelationalExpression expression,
-                                      @Nonnull final PlannerRule<? extends RelationalExpression> rule,
+                                      @Nonnull final Bindable bindable,
+                                      @Nonnull final PlannerRule<? extends Bindable> rule,
                                       @Nonnull final CascadesRuleCall ruleCall) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
-            this.expression = expression;
+            this.bindable = bindable;
             this.rule = rule;
             this.ruleCall = ruleCall;
         }
@@ -516,12 +535,12 @@ public interface Debugger {
         }
 
         @Nonnull
-        public RelationalExpression getExpression() {
-            return expression;
+        public Bindable getBindable() {
+            return bindable;
         }
 
         @Nonnull
-        public PlannerRule<? extends RelationalExpression> getRule() {
+        public PlannerRule<? extends Bindable> getRule() {
             return rule;
         }
 

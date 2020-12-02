@@ -39,25 +39,14 @@ import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
-import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRefTraversal;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
-import com.apple.foundationdb.record.query.plan.temp.MetaDataPlanContext;
-import com.apple.foundationdb.record.query.plan.temp.PlanContext;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -539,62 +528,6 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 assertDiscardedNone(context);
             }
         }
-    }
-
-    /**
-     * Setup a query with a match candidate.
-     */
-    @Disabled("match infrastructure not ready yet")
-    @Test
-    public void testMatch1() throws Exception {
-        // Debugger.setDebugger(new PlannerRepl());
-        // Debugger.setup();
-
-        RecordMetaDataHook hook = complexQuerySetupHook();
-        complexQuerySetup(hook);
-        final CascadesPlanner cascadesPlanner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("MySimpleRecord")
-                .setFilter(Query.or(
-                        Query.field("str_value_indexed").lessThan("m"),
-                        Query.field("num_value_3_indexed").greaterThan(3)))
-                //                .setRemoveDuplicates(removesDuplicates)
-                .build();
-
-        final PlanContext contextForCandidate = new MetaDataPlanContext(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), query, ImmutableSet.of());
-        final RelationalExpression matchCandidate = RelationalExpression.fromRecordQuery(RecordQuery.newBuilder()
-                .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_3_indexed").greaterThan(3))
-                //                .setRemoveDuplicates(removesDuplicates)
-                .build(), contextForCandidate);
-
-        final PlanContext planContext = new MetaDataPlanContext(recordStore.getRecordMetaData(),
-                recordStore.getRecordStoreState(),
-                query,
-                ImmutableSet.of(new MatchCandidate("index1", ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchCandidate)))));
-        final RecordQueryPlan plan = planWithContext(cascadesPlanner, planContext, query);
-
-        Matcher<RecordQueryPlan> planMatcher = unorderedUnion(
-                indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([null],[m])")))),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>"))))
-        );
-        assertThat(plan, planMatcher);
-    }
-
-    @Nonnull
-    private static RecordQueryPlan planWithContext(@Nonnull final CascadesPlanner cascadesPlanner,
-                                                   @Nonnull final PlanContext planContext,
-                                                   @Nonnull final RecordQuery query) {
-        Debugger.query(query, planContext);
-        final GroupExpressionRef<RelationalExpression> ref;
-        try {
-            ref = cascadesPlanner.planPartial(planContext, () -> RelationalExpression.fromRecordQuery(query, planContext));
-        } finally {
-            Debugger.withDebugger(Debugger::onDone);
-        }
-        final RelationalExpression onlyElement = Iterables.getOnlyElement(ref.getMembers());
-        assertTrue(onlyElement instanceof RecordQueryPlan);
-        return (RecordQueryPlan)onlyElement;
     }
 
     @Nonnull

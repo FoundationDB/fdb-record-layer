@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -104,9 +104,8 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
         function.validate(descriptor);
     }
 
-    @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException();
     }
 

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -100,6 +101,16 @@ public class EvaluationContext {
     }
 
     /**
+     * Get the value bound to a single parameter.
+     *
+     * @param alias the correlation identifier
+     * @return the value bound to the given parameter
+     */
+    public Object getBinding(@Nonnull CorrelationIdentifier alias) {
+        return bindings.get(Bindings.Internal.CORRELATION.bindingName(alias.getId()));
+    }
+
+    /**
      * Construct a builder from this context. This allows the user to create
      * a new <code>EvaluationContext</code> that has all of the same data
      * as the current context except for a few modifications expressed as
@@ -137,4 +148,17 @@ public class EvaluationContext {
         return childBuilder().setBinding(bindingName, value).build();
     }
 
+    /**
+     * Create a new <code>EvaluationContext</code> with an additional binding.
+     * The returned context will have all of the same state as the current
+     * context included all bindings except that it will bind an additional
+     * parameter to an additional value.
+     *
+     * @param alias the alias determining the binding name to add
+     * @param value the value to bind the name to
+     * @return a new <code>EvaluationContext</code> with the new binding
+     */
+    public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build();
+    }
 }

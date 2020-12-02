@@ -43,10 +43,10 @@ public class AnyChildMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
+    public Stream<PlannerBindings> matches(@Nonnull final PlannerBindings outerBindings, @Nonnull List<? extends Bindable> children) {
         return children
                 .stream()
-                .flatMap(child -> child.bindTo(childMatcher));
+                .flatMap(child -> child.bindTo(outerBindings, childMatcher));
     }
 
     /**

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
@@ -72,7 +73,7 @@ import javax.annotation.Nonnull;
  * where pred' is rebased along the translation from qun to newQun.
  */
 public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
-    private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> innerMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<Quantifier.Physical> innerQuantifierMatcher = QuantifierMatcher.physical(innerMatcher);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
             TypeMatcher.of(RecordQueryPredicateFilterPlan.class, innerQuantifierMatcher);
@@ -83,9 +84,10 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
         super(root);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
+        final ExpressionRef<RecordQueryPlan> inner = (ExpressionRef<RecordQueryPlan>)call.get(innerMatcher);
         final Quantifier.Physical qun = call.get(innerQuantifierMatcher);
         final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
 
@@ -97,7 +99,6 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
                         .rebase(Quantifiers.translate(qun, newQun));
         call.yield(call.ref(
                 new RecordQueryPredicateFilterPlan(newQun,
-                        filterPlan.getBaseSource(),
                         rebasedPred)));
     }
 }
