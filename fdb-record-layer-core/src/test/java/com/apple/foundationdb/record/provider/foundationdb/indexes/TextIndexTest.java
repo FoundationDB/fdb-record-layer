@@ -1330,14 +1330,14 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         LOGGER.info(KeyValueLogMessage.of("planned query",
                         TestLogMessageKeys.QUERY, query,
                         LogMessageKeys.PLAN, plan,
-                        TestLogMessageKeys.PLAN_HASH, plan.planHash(PlanHashable.PlanHashKind.LEGACY)));
+                        TestLogMessageKeys.PLAN_HASH, plan.planHash()));
         assertThat(plan, planMatcher);
         if (planHash == 0) {
             LOGGER.warn(KeyValueLogMessage.of("unset plan hash",
-                            TestLogMessageKeys.PLAN_HASH, plan.planHash(PlanHashable.PlanHashKind.LEGACY),
+                            TestLogMessageKeys.PLAN_HASH, plan.planHash(),
                             LogMessageKeys.FILTER, filter));
         } else {
-            assertEquals(planHash, plan.planHash(PlanHashable.PlanHashKind.LEGACY), "Mismatched hash for: " + filter);
+            assertEquals(planHash, plan.planHash(), "Mismatched hash for: " + filter);
         }
         return recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey);
     }

@@ -1,5 +1,5 @@
 /*
- * BasePlanHash.java
+ * ObjectPlanHash.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
 public class ObjectPlanHash implements PlanHashable {
     private int hashCode;
 
-    public ObjectPlanHash(@Nonnull final String id) {
+    public ObjectPlanHash(@Nonnull final Object id) {
         this.hashCode = id.hashCode();
     }
 
