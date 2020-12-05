@@ -1175,6 +1175,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
+                LogMessageKeys.INDEX_NAME, index.getName(),
                 LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
         final CompletableFuture<Void> buildIndexAsyncFuture;
         if (useSynchronizedSession) {
