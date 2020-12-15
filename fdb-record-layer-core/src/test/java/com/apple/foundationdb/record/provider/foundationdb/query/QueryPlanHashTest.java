@@ -378,11 +378,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         assertEquals(-1306680475, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1305756954, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
 
-        assertEquals(890909720, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(919538871, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1164933784, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1193562935, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
 
-        assertEquals(1764411444, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1764411444, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(2038435508, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(2038435508, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test

@@ -1348,9 +1348,9 @@ public class Comparisons {
                 case LEGACY:
                     return PlanHashable.objectsPlanHash(hashKind, type, getComparand(), tokenizerName, fallbackTokenizerName);
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type.name(), getComparand(), tokenizerName, fallbackTokenizerName);
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type.name(), tokenizerName, fallbackTokenizerName);
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }

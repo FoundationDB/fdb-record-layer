@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -391,6 +392,8 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
      * "subfields" and produces and index by those values.
      */
     public static class IndexStrFields extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Str-Fields");
+
         public IndexStrFields(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
@@ -444,6 +447,19 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         @Override
         public int getColumnSize() {
             return 3;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return super.planHash(hashKind);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 }

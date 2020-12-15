@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.provider.foundationdb.indexes;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -217,6 +219,7 @@ public class VersionIndexTest extends FDBTestBase {
      * A function that returns the version after a certain point and a fixed number before that.
      */
     public static class MaybeVersionFunctionKeyExpression extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Maybe-Version-Function-Key-Expression");
         private static final List<Key.Evaluated> FIRST_VERSION_EVALUATED = Collections.singletonList(Key.Evaluated.scalar(FDBRecordVersion.MIN_VERSION));
 
         protected MaybeVersionFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
@@ -262,6 +265,20 @@ public class VersionIndexTest extends FDBTestBase {
         public int versionColumns() {
             return 1;
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return super.planHash(hashKind);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
+        }
+
     }
 
     /**
@@ -289,6 +306,7 @@ public class VersionIndexTest extends FDBTestBase {
      * two columns, the first of which is an integer and the second of which is a version.
      */
     public static class VersionOrNumFunctionKeyExpression extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Or-Num-Function-Key-Expression");
 
         protected VersionOrNumFunctionKeyExpression(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
@@ -335,6 +353,19 @@ public class VersionIndexTest extends FDBTestBase {
         @Override
         public int versionColumns() {
             return 1;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return super.planHash(hashKind);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 

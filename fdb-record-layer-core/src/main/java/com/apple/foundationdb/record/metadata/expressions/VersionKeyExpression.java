@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -45,6 +47,7 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
     public static final VersionKeyExpression VERSION = new VersionKeyExpression();
     public static final RecordMetaDataProto.KeyExpression VERSION_PROTO =
             RecordMetaDataProto.KeyExpression.newBuilder().setVersion(VERSION.toProto()).build();
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Key-Expression");
 
     private static final GroupingKeyExpression UNGROUPED = new GroupingKeyExpression(new VersionKeyExpression(), 1);
 
@@ -123,7 +126,15 @@ public class VersionKeyExpression extends BaseKeyExpression implements AtomKeyEx
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return 1;
+        switch (hashKind) {
+            case LEGACY:
+                return 1;
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override
