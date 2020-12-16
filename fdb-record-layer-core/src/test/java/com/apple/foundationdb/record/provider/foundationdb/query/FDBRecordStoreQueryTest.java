@@ -646,8 +646,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertThat(plan, filter(query.getFilter(),
                         typeFilter(containsInAnyOrder("MultiRecordOne", "MultiRecordTwo"), scan(unbounded()))));
                 assertEquals(-663593392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(1099748063, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(1260557956, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(898549447, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(1059359340, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 // Cascades planner correctly identifies that the requested record types match the index onetwo$element.
                 assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("onetwo$element"), bounds(hasTupleString("([A],>"))))));

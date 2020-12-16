@@ -99,7 +99,7 @@ abstract class BaseRepeatedField extends BaseField {
                 return super.basePlanHash(hashKind, baseHash) + emptyMode.ordinal();
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return super.basePlanHash(hashKind, baseHash, emptyMode.ordinal(), hashables);
+                return super.basePlanHash(hashKind, baseHash, emptyMode, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

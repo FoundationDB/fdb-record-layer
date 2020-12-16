@@ -327,8 +327,8 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 primaryKeyDistinct(indexScan(allOf(indexName("key_index"), bounds(hasTupleString("[[1, alpha],[1, alpha]]")))))));
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(-1406660101, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1218988619, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1432266380, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1017790003, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1231067764, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertEquals(695317608, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1118362528, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

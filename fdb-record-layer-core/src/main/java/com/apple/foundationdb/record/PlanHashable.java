@@ -114,8 +114,11 @@ public interface PlanHashable {
         if (obj instanceof Iterable<?>) {
             return iterablePlanHash(hashKind, (Iterable<?>)obj);
         }
-        if (obj.getClass().isArray()) {
-            return iterablePlanHash(hashKind, Arrays.asList((Object[])obj));
+        if (obj instanceof Object[]) {
+            return objectsPlanHash(hashKind, (Object[])obj);
+        }
+        if (obj.getClass().isArray() && obj.getClass().getComponentType().isPrimitive()) {
+            return primitiveArrayHash(obj);
         }
         if (obj instanceof PlanHashable) {
             return ((PlanHashable)obj).planHash(hashKind);
@@ -133,5 +136,28 @@ public interface PlanHashable {
 
     static int objectsPlanHash(@Nonnull PlanHashKind hashKind, Object... objects) {
         return objectPlanHash(hashKind, Arrays.asList(objects));
+    }
+
+    static int primitiveArrayHash(Object primitiveArray) {
+        Class<?> componentType = primitiveArray.getClass().getComponentType();
+        if (boolean.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((boolean[])primitiveArray);
+        } else if (byte.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((byte[])primitiveArray);
+        } else if (char.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((char[])primitiveArray);
+        } else if (double.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((double[])primitiveArray);
+        } else if (float.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((float[])primitiveArray);
+        } else if (int.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((int[])primitiveArray);
+        } else if (long.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((long[])primitiveArray);
+        } else if (short.class.isAssignableFrom(componentType)) {
+            return Arrays.hashCode((short[])primitiveArray);
+        } else {
+            throw new IllegalArgumentException("Unknown type for hash code: " + componentType);
+        }
     }
 }
