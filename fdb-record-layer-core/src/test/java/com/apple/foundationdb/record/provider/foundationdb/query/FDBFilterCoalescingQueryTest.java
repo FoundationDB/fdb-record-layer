@@ -173,8 +173,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))))));
         assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1886858967, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(1848500501, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1886858998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1848500532, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

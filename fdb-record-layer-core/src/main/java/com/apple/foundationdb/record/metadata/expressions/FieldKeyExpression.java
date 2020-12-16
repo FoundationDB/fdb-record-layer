@@ -376,7 +376,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
                 return fieldName.hashCode() + fanType.name().hashCode();
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldName, fanType.name());
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldName, fanType);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

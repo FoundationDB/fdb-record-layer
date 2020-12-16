@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query;
 
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.UnknownKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
@@ -667,6 +669,7 @@ public class QueryToKeyMatcherTest {
     }
 
     private static class DoNothingFunction extends FunctionKeyExpression implements QueryableKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("DoNothing-Function");
 
         public DoNothingFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
@@ -705,5 +708,11 @@ public class QueryToKeyMatcherTest {
         public Element toElement(@Nonnull final Source rootSource) {
             return normalizeForPlanner(rootSource, Collections.emptyList()).flattenForPlanner().get(0);
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
+
     }
 }

@@ -118,15 +118,15 @@ public class FDBFullTextQueryTest extends FDBRecordStoreQueryTestBase {
                         coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))),
                         primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))))));
                 assertEquals(-683922391, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(-2044794963, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(-1201580859, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(-833837033, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(-464003585, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 assertThat(plan, primaryKeyDistinct(unorderedUnion(
                         textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))),
                         primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))));
                 assertEquals(515863556, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(-126084650, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(717129454, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(1307589440, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(1677422888, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             }
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L), ImmutableSet.copyOf(primaryKeys));

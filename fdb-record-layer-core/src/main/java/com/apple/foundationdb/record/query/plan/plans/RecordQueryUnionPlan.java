@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -182,10 +181,10 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return super.planHash(hashKind) + getComparisonKey().planHash(hashKind);
+                return super.basePlanHash(hashKind, BASE_HASH) + getComparisonKey().planHash(hashKind);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), getComparisonKey());
+                return super.basePlanHash(hashKind, BASE_HASH, getComparisonKey());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

@@ -252,8 +252,8 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([0],>"))))));
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(-417538532, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1086699767, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1053293108, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1086699829, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1053293170, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertEquals(-1419776897, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-781372756, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -280,8 +280,8 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([null],[1000]]"))))));
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(1700959433, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1026880639, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(129782716, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1026881662, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(129783739, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertEquals(-1198378902, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-699838672, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -327,8 +327,8 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 primaryKeyDistinct(indexScan(allOf(indexName("key_index"), bounds(hasTupleString("[[1, alpha],[1, alpha]]")))))));
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(-1406660101, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(925721839, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1138999600, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1218988619, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1432266380, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertEquals(695317608, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1118362528, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

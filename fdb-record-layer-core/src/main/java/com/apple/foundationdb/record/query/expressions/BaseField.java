@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.query.plan.temp.view.MessageValue;
@@ -111,9 +112,25 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
         return Objects.hash(fieldName);
     }
 
-    @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
-        // No base hash since this class is abstract
-        return fieldName.hashCode();
+    /**
+     * Base implementation of {@link #planHash}.
+     * This implementation makes each concrete subclass implement its own version of {@link #planHash} so that they are
+     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * This implementation is meant to give subclasses common functionality for their own implementation.
+     * @param hashKind the plan hash kind to use
+     * @param baseHash the subclass' base hash (concrete identifier)
+     * @param hashables the rest of the subclass' hashable parameters (if any)
+     * @return the plan hash value calculated
+     */
+    protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
+        switch (hashKind) {
+            case LEGACY:
+                return fieldName.hashCode();
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, baseHash, fieldName, hashables);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

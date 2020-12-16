@@ -133,11 +133,11 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return super.planHash(hashKind) + PlanHashable.iterablePlanHash(hashKind, values);
+                return super.basePlanHash(hashKind, BASE_HASH) + PlanHashable.iterablePlanHash(hashKind, values);
             case FOR_CONTINUATION:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), values);
+                return super.basePlanHash(hashKind, BASE_HASH, values);
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+                return super.basePlanHash(hashKind, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " not supported");
         }

@@ -195,8 +195,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))));
         assertEquals(-1408807323, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1650961225, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(281246840, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1650961256, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(281246871, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**
@@ -220,8 +220,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([null],[1])")))))));
         assertEquals(-1374002128, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1915366958, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-2052186501, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1915366989, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-2052186470, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**
@@ -244,8 +244,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
             assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("num").equalsValue(1)),
                     coveringIndexScan(indexScan(allOf(indexName("multi"), bounds(hasTupleString("[[abc],[abc]]"))))))));
             assertEquals(-1536005152, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2115329589, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1689949910, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(2115329651, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1689949972, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
     }
 

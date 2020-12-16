@@ -88,15 +88,15 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                     coveringIndexScan(indexScan(allOf(indexName("multi_index"), unbounded()))))));
             assertTrue(plan.isReverse());
             assertEquals(-1143466156, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1685191050, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(415521006, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1685191019, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(415521037, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, filter(query.getFilter(),
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
             assertTrue(plan.isReverse());
             assertEquals(-384998859, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2127897807, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-66357433, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(2127897838, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-66357402, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {

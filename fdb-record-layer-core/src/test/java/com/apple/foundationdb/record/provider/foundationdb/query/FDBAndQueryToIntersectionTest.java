@@ -229,16 +229,16 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                     descendant(filter(Query.field("num_value_3_indexed").equalsValue(3), coveringIndexScan(indexScan(anyOf(indexName("multi_index"), bounds(hasTupleString("[[e],[e]]")))))))));
             assertFalse(plan.hasRecordScan(), "should not use record scan");
             assertEquals(-1810430840, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1849387310, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1338856988, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1849387279, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1338856957, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, allOf(
                     hasNoDescendant(intersection(anything(), anything())),
                     descendant(indexScan(anyOf(indexName("MySimpleRecord$str_value_indexed"), indexName("MySimpleRecord$num_value_3_indexed"))))));
             assertFalse(plan.hasRecordScan(), "should not use record scan");
             assertEquals(746853985, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1963701547, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1820735427, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1963701578, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1820735396, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -291,16 +291,16 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                     coveringIndexScan(indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_2")), bounds(hasTupleString("[[2],[2]]"))))),
                     equalTo(field("rec_no"))))));
             assertEquals(-1979861885, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1530584352, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-769407361, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1530584321, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-769407330, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertThat(plan, filter(Query.field("str_value_indexed").startsWith("e"), intersection(
                     indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_3_indexed")), bounds(hasTupleString("[[0],[0]]")))),
                     indexScan(allOf(indexName(equalTo("MySimpleRecord$num_value_2")), bounds(hasTupleString("[[2],[2]]")))),
                     equalTo(field("rec_no")))));
             assertEquals(1095867174, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(429126871, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1190303862, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(429126902, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1190303893, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -349,8 +349,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         // Would get Intersection didn't have identical continuations if it did
         assertThat("Should not use grouped index", plan, hasNoDescendant(indexScan("grouped_index")));
         assertEquals(622816289, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(113077437, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1740002426, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(113077468, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1740002395, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -512,8 +512,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
         assertThat("should have range scan in " + plan, plan, descendant(indexScan("index_2_3")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(2140693065, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(396351592, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(482523818, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(396352584, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(482524810, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**

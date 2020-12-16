@@ -114,6 +114,9 @@ public interface PlanHashable {
         if (obj instanceof Iterable<?>) {
             return iterablePlanHash(hashKind, (Iterable<?>)obj);
         }
+        if (obj.getClass().isArray()) {
+            return iterablePlanHash(hashKind, Arrays.asList((Object[])obj));
+        }
         if (obj instanceof PlanHashable) {
             return ((PlanHashable)obj).planHash(hashKind);
         }

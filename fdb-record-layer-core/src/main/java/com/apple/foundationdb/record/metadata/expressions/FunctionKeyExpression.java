@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -272,15 +273,23 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
         return Objects.hash(getName(), getArguments());
     }
 
-    @Override
-    public int planHash(@Nonnull final PlanHashKind hashKind) {
+    /**
+     * Base implementation of {@link #planHash}.
+     * This implementation makes each concrete subclass implement its own version of {@link #planHash} so that they are
+     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * This implementation is meant to give subclasses common functionality for their own implementation.
+     * @param hashKind the plan hash kind to use
+     * @param baseHash the subclass' base hash (concrete identifier)
+     * @param hashables the rest of the subclass' hashable parameters (if any)
+     * @return the plan hash value calculated
+     */
+    protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
         switch (hashKind) {
             case LEGACY:
                 return getName().hashCode() + getArguments().planHash(hashKind);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                // No BASE_HASH for abstract classes
-                return PlanHashable.objectsPlanHash(hashKind, getName(), getArguments());
+                return PlanHashable.objectsPlanHash(hashKind, baseHash, getName(), getArguments(), hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

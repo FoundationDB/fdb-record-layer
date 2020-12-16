@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
@@ -131,10 +130,10 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return super.planHash(hashKind) + getComparison().planHash(hashKind);
+                return super.basePlanHash(hashKind, BASE_HASH) + getComparison().planHash(hashKind);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), getComparison());
+                return super.basePlanHash(hashKind, BASE_HASH, getComparison());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

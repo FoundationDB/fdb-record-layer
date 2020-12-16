@@ -195,14 +195,6 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
 
     @Override
     public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
-        switch (hashKind) {
-            case LEGACY:
-                return super.planHash(hashKind);
-            case FOR_CONTINUATION:
-            case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
-            default:
-                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-        }
+        return super.basePlanHash(hashKind, BASE_HASH);
     }
 }

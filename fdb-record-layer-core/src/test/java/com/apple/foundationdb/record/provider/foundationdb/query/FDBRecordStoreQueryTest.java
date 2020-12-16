@@ -191,8 +191,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                             indexScan(allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("([null],[[0, 1, 2]]]"))))),
                     indexScan(allOf(indexName("ByteStringRecord$secondary"), bounds(hasTupleString("[[[0, 1, 3]],>"))))));
             assertEquals(1352435039, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1219145873, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-2120489102, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1847280450, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(945937221, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 int count = 0;
                 while (cursor.hasNext()) {
@@ -646,8 +646,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 assertThat(plan, filter(query.getFilter(),
                         typeFilter(containsInAnyOrder("MultiRecordOne", "MultiRecordTwo"), scan(unbounded()))));
                 assertEquals(-663593392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(849597142, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(1010407035, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                assertEquals(1099748063, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(1260557956, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 // Cascades planner correctly identifies that the requested record types match the index onetwo$element.
                 assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("onetwo$element"), bounds(hasTupleString("([A],>"))))));
