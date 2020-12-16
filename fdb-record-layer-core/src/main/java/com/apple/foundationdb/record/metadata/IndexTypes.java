@@ -147,6 +147,16 @@ public class IndexTypes {
      */
     public static final String BITMAP_VALUE = "bitmap_value";
 
+    /**
+     * An index remmebering minimum values in a way that can enumerate minima ordered by value and not (part of the) group.
+     */
+    public static final String PERMUTED_MIN = "permuted_" + FunctionNames.MIN;
+
+    /**
+     * An index remmebering maximum values in a way that can enumerate maxima ordered by value and not (part of the) group.
+     */
+    public static final String PERMUTED_MAX = "permuted_" + FunctionNames.MAX;
+
     private IndexTypes() {
     }
 }
