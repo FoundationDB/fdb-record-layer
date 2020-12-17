@@ -344,6 +344,30 @@ public class RankedSet {
     }
 
     /**
+     * Get the subspace used to store this ranked set.
+     * @return ranked set subspace
+     */
+    public Subspace getSubspace() {
+        return subspace;
+    }
+
+    /**
+     * Get executed used by this ranked set.
+     * @return executor used when running asynchronous tasks
+     */
+    public Executor getExecutor() {
+        return executor;
+    }
+
+    /**
+     * Get this ranked set's configuration.
+     * @return ranked set configuration
+     */
+    public Config getConfig() {
+        return config;
+    }
+
+    /**
      * Add a key to the set.
      *
      * If {@link Config#isCountDuplicates} is {@code false} and {@code key} is already present, the return value is {@code false}.
