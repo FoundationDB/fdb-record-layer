@@ -38,6 +38,9 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // end next release
 -->
 
+### 2.10.148.32
+
+
 ### 2.10.148.0
 
 * **Feature** General index matching framework and mechanics needed for the new planner implementation. [(Issue #1026)](https://github.com/FoundationDB/fdb-record-layer/issues/1026)
