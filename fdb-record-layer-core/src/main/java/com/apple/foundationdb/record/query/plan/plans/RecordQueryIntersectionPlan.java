@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -63,6 +64,8 @@ import java.util.stream.Stream;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren, RecordQueryPlanWithRequiredFields {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Intersection-Plan");
+
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryIntersectionPlan.class);
 
     private static final String INTERSECT = "∩"; // U+2229
@@ -228,8 +231,16 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getQueryPlanChildren()) + getComparisonKey().planHash() + (reverse ? 1 : 0);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + getComparisonKey().planHash(hashKind) + (reverse ? 1 : 0);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getQueryPlanChildren(), getComparisonKey(), reverse);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

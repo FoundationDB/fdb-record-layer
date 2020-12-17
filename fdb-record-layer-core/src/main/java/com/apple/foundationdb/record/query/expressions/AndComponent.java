@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
@@ -43,6 +44,7 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class AndComponent extends AndOrComponent {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("And-Component");
 
     public AndComponent(@Nonnull List<QueryComponent> operands) {
         super(operands);
@@ -96,7 +98,15 @@ public class AndComponent extends AndOrComponent {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getChildren());
+    public int planHash(@Nonnull PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, getChildren());
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

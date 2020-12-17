@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.spatial.geophile;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FunctionKeyExpression;
@@ -105,6 +107,8 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
      * <code>GEO_POINT_Z(latitude, longitude)</code>
      */
     public static class GeoPointZ extends GeophileSpatialFunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-Point-Z");
+
         public GeoPointZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
@@ -130,6 +134,11 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         public int getMaxArguments() {
             return 2;
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
     }
 
     /**
@@ -138,6 +147,8 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
      * <code>GEO_JSON_Z(json_string)</code>
      */
     public static class GeoJsonZ extends GeophileSpatialFunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-Json-Z");
+
         public GeoJsonZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
@@ -162,6 +173,11 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         public int getMaxArguments() {
             return 2;
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
     }
 
     /**
@@ -171,6 +187,8 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
      */
     @SuppressWarnings("checkstyle:abbreviationaswordinname")    // Allow WKB
     public static class GeoWKBZ extends GeophileSpatialFunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-WKB-Z");
+
         public GeoWKBZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
@@ -195,6 +213,11 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         public int getMaxArguments() {
             return 2;
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
     }
 
     /**
@@ -204,6 +227,8 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
      */
     @SuppressWarnings("checkstyle:abbreviationaswordinname")    // Allow WKT
     public static class GeoWKTZ extends GeophileSpatialFunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Geo-WKT-Z");
+
         public GeoWKTZ(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
@@ -227,6 +252,11 @@ public abstract class GeophileSpatialFunctionKeyExpression extends FunctionKeyEx
         @Override
         public int getMaxArguments() {
             return 2;
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
         }
     }
 

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -30,6 +31,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -44,6 +46,8 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class OrPredicate extends AndOrPredicate {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Or-Predicate");
+
     public OrPredicate(@Nonnull List<QueryPredicate> operands) {
         super(operands);
     }
@@ -70,8 +74,19 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(getChildren());
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, getChildren());
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                List<PlanHashable> hashables = new ArrayList<>(getChildren().size() + 1);
+                hashables.add(BASE_HASH);
+                hashables.addAll(getChildren());
+                return PlanHashable.planHashUnordered(hashKind, hashables);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

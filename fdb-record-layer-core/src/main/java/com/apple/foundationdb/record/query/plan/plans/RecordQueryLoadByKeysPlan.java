@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
@@ -56,6 +57,8 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Load-By-Keys-Plan");
+
     @Nonnull
     private final KeysSource keysSource;
 
@@ -182,8 +185,16 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     }
 
     @Override
-    public int planHash() {
-        return getKeysSource().planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getKeysSource().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.planHash(hashKind, BASE_HASH, getKeysSource());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override
@@ -208,6 +219,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     }
 
     private static class PrimaryKeysKeySource implements KeysSource {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Primary-Keys-Key-Source");
+
         private final List<Tuple> primaryKeys;
 
         public PrimaryKeysKeySource(List<Tuple> primaryKeys) {
@@ -242,8 +255,16 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public int planHash() {
-            return hashCode();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return hashCode();
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, primaryKeys);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -255,6 +276,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     }
 
     private static class ParameterKeySource implements KeysSource {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Key-Source");
+
         private final String parameter;
 
         public ParameterKeySource(String parameter) {
@@ -290,8 +313,16 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public int planHash() {
-            return hashCode();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return hashCode();
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, parameter);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 }

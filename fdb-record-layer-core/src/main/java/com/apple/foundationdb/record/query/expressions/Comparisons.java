@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -702,6 +703,8 @@ public class Comparisons {
      * A comparison with a constant value.
      */
     public static class SimpleComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Simple-Comparison");
+
         @Nonnull
         private final Type type;
         @Nonnull
@@ -808,8 +811,17 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return type.name().hashCode() + PlanHashable.objectPlanHash(comparand);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return type.name().hashCode() + PlanHashable.objectPlanHash(hashKind, comparand);
+                case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, comparand);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -834,6 +846,8 @@ public class Comparisons {
      * A comparison with a bound parameter, as opposed to a literal constant in the query.
      */
     public static class ParameterComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Comparison");
+
         @Nonnull
         private final Type type;
         @Nonnull
@@ -924,8 +938,17 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return type.name().hashCode() + parameter.hashCode();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return type.name().hashCode() + parameter.hashCode();
+                case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, parameter);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -933,6 +956,8 @@ public class Comparisons {
      * A comparison with a list of values.
      */
     public static class ListComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("List-Comparison");
+
         @Nonnull
         private final Type type;
         @Nonnull
@@ -1058,8 +1083,17 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return type.name().hashCode() + PlanHashable.iterablePlanHash(comparand) + PlanHashable.objectPlanHash(javaType);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return type.name().hashCode() + PlanHashable.iterablePlanHash(hashKind, comparand) + PlanHashable.objectPlanHash(hashKind, javaType);
+                case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, comparand, javaType);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, javaType);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -1067,6 +1101,8 @@ public class Comparisons {
      * A unary predicate for special nullity checks, such as {@code NULL} and {@code NOT NULL}.
      */
     public static class NullComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Null-Comparison");
+
         @Nonnull
         private final Type type;
 
@@ -1133,8 +1169,16 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return type.name().hashCode();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return type.name().hashCode();
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -1143,6 +1187,7 @@ public class Comparisons {
      */
     public static class TextComparison implements Comparison {
         private static final TextTokenizerRegistry TOKENIZER_REGISTRY = TextTokenizerRegistryImpl.instance();
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Text-Comparison");
 
         @Nonnull
         private final Type type;
@@ -1298,8 +1343,17 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return PlanHashable.objectsPlanHash(type, getComparand(), tokenizerName, fallbackTokenizerName);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return PlanHashable.objectsPlanHash(hashKind, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override
@@ -1312,6 +1366,8 @@ public class Comparisons {
      * A {@link TextComparison} that must be satisfied within a certain number of text tokens.
      */
     public static class TextWithMaxDistanceComparison extends TextComparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Text-With-Max-Distance-Comparison");
+
         private final int maxDistance;
 
         public TextWithMaxDistanceComparison(@Nonnull String tokens, int maxDistance, @Nullable String tokenizerName, @Nonnull String fallbackTokenizerName) {
@@ -1354,8 +1410,17 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() * 31 + maxDistance;
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return super.planHash(hashKind) * 31 + maxDistance;
+                case FOR_CONTINUATION:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), maxDistance);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind));
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+            }
         }
 
         @Override
@@ -1376,6 +1441,8 @@ public class Comparisons {
      */
     @API(API.Status.EXPERIMENTAL)
     public static class TextContainsAllPrefixesComparison extends TextComparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Text-Contains-All-Prefixes-Comparison");
+
         private final boolean strict;
         private final long expectedRecords;
         private final double falsePositivePercentage;
@@ -1454,8 +1521,16 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() * (strict ? -1 : 1);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return super.planHash(hashKind) * (strict ? -1 : 1);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, super.planHash(hashKind), strict);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+            }
         }
 
         @Override
@@ -1474,6 +1549,8 @@ public class Comparisons {
      * Comparison wrapping another one and answering {@code true} to {@link #hasMultiColumnComparand}.
      */
     public static class MultiColumnComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Multi-Column-Comparison");
+
         @Nonnull
         private final Comparison inner;
 
@@ -1499,8 +1576,16 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return inner.planHash();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return inner.planHash(hashKind);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, inner);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+            }
         }
 
         @Nullable

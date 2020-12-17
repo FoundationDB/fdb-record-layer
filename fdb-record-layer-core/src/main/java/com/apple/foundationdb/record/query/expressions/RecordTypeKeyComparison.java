@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -46,6 +47,8 @@ import java.util.Set;
  */
 @API(API.Status.MAINTAINED)
 public class RecordTypeKeyComparison implements ComponentWithComparison {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Key-Comparison");
+
     @Nonnull
     private final RecordTypeComparison comparison;
 
@@ -116,8 +119,16 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     }
 
     @Override
-    public int planHash() {
-        return getComparison().planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getComparison().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getComparison());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override
@@ -126,6 +137,8 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     }
 
     static class RecordTypeComparison implements Comparisons.Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Comparison");
+
         private final String recordTypeName;
 
         RecordTypeComparison(String recordTypeName) {
@@ -168,8 +181,16 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
         }
 
         @Override
-        public int planHash() {
-            return PlanHashable.objectPlanHash(recordTypeName);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return PlanHashable.objectPlanHash(hashKind, recordTypeName);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, recordTypeName);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override

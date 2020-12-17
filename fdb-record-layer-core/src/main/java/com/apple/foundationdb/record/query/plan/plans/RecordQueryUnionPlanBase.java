@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -158,9 +159,26 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         return Objects.hash(reverse);
     }
 
-    @Override
-    public int planHash() {
-        return PlanHashable.planHash(getQueryPlanChildren()) + (reverse ? 1 : 0);
+    /**
+     * Base implementation of {@link #planHash}.
+     * This implementation makes each concrete subclass implement its own version of {@link #planHash} so that they are
+     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * This implementation is meant to give subclasses common functionality for their own implementation.
+     * @param hashKind the plan hash kind to use
+     * @param baseHash the subclass' base hash (concrete identifier)
+     * @param hashables the rest of the subclass' hashable parameters (if any)
+     * @return the plan hash value calculated
+     */
+    protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, getQueryPlanChildren()) + (reverse ? 1 : 0);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, baseHash, getQueryPlanChildren(), reverse, hashables);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

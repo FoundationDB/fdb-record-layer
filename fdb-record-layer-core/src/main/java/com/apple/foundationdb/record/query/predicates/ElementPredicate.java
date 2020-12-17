@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -46,12 +48,14 @@ import java.util.stream.Stream;
  *
  * <p>
  * An element predicate is a "leaf" in a predicate tree. It pairs an element, which can be evaluated with respect to
- * a given {@link SourceEntry}, with a comparison. An element predicate evalutes to the result of the comparison on the
+ * a given {@link SourceEntry}, with a comparison. An element predicate evaluates to the result of the comparison on the
  * value of the element.
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
 public class ElementPredicate implements QueryPredicate {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Element-Predicate");
+
     @Nonnull
     private final Element element;
     @Nonnull
@@ -121,8 +125,16 @@ public class ElementPredicate implements QueryPredicate {
     }
 
     @Override
-    public int planHash() {
-        return element.planHash() + comparison.planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return element.planHash(hashKind) + comparison.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.planHash(hashKind, BASE_HASH, element, comparison);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

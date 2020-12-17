@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.synthetic;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
@@ -39,6 +41,7 @@ import java.util.Set;
  * that sub-plan.
  */
 class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-By-Type-Plan");
 
     @Nonnull
     private final Map<String, SyntheticRecordFromStoredRecordPlan> subPlans;
@@ -103,11 +106,20 @@ class SyntheticRecordByTypePlan implements SyntheticRecordFromStoredRecordPlan  
     }
 
     @Override
-    public int planHash() {
-        int hash = 1;
-        for (Map.Entry<String, SyntheticRecordFromStoredRecordPlan> entry : subPlans.entrySet()) {
-            hash += entry.getKey().hashCode() * 31 + entry.getValue().planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                int hash = 1;
+                for (Map.Entry<String, SyntheticRecordFromStoredRecordPlan> entry : subPlans.entrySet()) {
+                    hash += entry.getKey().hashCode() * 31 + entry.getValue().planHash(hashKind);
+                }
+                return hash;
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, subPlans.keySet(), subPlans.values());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
-        return hash;
+
     }
 }

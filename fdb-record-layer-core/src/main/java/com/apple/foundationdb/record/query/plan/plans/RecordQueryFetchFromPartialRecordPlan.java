@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -53,6 +55,8 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWithChild {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Fetch-From-Partial-Record-Plan");
+
     @Nonnull
     private final Quantifier.Physical inner;
 
@@ -151,8 +155,16 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Override
-    public int planHash() {
-        return 13 + 7 * getChild().planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return 13 + 7 * getChild().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

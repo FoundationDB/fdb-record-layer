@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -41,6 +43,8 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryKeyExpressionWithComparison implements ComponentWithComparison {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Query-Key-Expression-With-Comparison");
+
     @Nonnull
     private final QueryableKeyExpression keyExpression;
     @Nonnull
@@ -103,8 +107,16 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
     }
 
     @Override
-    public int planHash() {
-        return keyExpression.planHash() + getComparison().planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return keyExpression.planHash(hashKind) + getComparison().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.planHash(hashKind, BASE_HASH, keyExpression, getComparison());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

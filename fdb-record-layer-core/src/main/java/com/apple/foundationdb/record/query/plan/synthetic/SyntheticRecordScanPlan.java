@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.plan.synthetic;
 
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBSyntheticRecord;
@@ -35,6 +37,7 @@ import java.util.Objects;
  * Generate synthetic records by querying records and passing to a {@link SyntheticRecordFromStoredRecordPlan}.
  */
 class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Synthetic-Record-Scan-Plan");
 
     @Nonnull
     private final RecordQueryPlan recordPlan;
@@ -91,7 +94,15 @@ class SyntheticRecordScanPlan implements SyntheticRecordPlan  {
     }
 
     @Override
-    public int planHash() {
-        return recordPlan.planHash() + syntheticRecordPlan.planHash() + (needDistinct ? 1 : 0);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return recordPlan.planHash(hashKind) + syntheticRecordPlan.planHash(hashKind) + (needDistinct ? 1 : 0);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, recordPlan, syntheticRecordPlan, needDistinct);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

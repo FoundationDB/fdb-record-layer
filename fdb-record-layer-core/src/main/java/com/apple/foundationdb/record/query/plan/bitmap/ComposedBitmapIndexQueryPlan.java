@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -57,6 +58,7 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Composed-Bitmap-Index-Query-Plan");
 
     @Nonnull
     // NOTE: These aren't children in the sense of RecordQueryPlanWithChildren
@@ -151,8 +153,16 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.planHash(indexPlans) + composer.planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.planHash(hashKind, indexPlans) + composer.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexPlans, composer);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull
@@ -235,6 +245,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
 
     static class IndexComposer extends ComposerBase {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Index-Composer");
+
         private final int position;
 
         IndexComposer(int position) {
@@ -258,8 +270,16 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
 
         @Override
-        public int planHash() {
-            return position;
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return position;
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, position);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override
@@ -281,6 +301,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
 
     abstract static class OperatorComposer extends ComposerBase {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Operator-Composer");
+
         @Nonnull
         private final List<ComposerBase> children;
 
@@ -311,8 +333,16 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         abstract byte[] operate(@Nonnull List<byte[]> operands, @Nonnull byte[] result);
 
         @Override
-        public int planHash() {
-            return PlanHashable.planHash(children) + operator().hashCode();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return PlanHashable.planHash(hashKind, children) + operator().hashCode();
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return  PlanHashable.objectsPlanHash(hashKind, BASE_HASH, children, operator());
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override
@@ -453,6 +483,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
     }
 
     static class NotComposer extends ComposerBase {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Composer");
+
         @Nonnull
         private final ComposerBase child;
 
@@ -482,8 +514,16 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         }
 
         @Override
-        public int planHash() {
-            return child.planHash();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return child.planHash(hashKind);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, child);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override

@@ -25,6 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
@@ -59,6 +61,7 @@ import java.util.function.Function;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Covering-Index-Plan");
 
     @Nonnull
     private final RecordQueryPlanWithIndex indexPlan;
@@ -215,8 +218,16 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public int planHash() {
-        return indexPlan.planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return indexPlan.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexPlan);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull

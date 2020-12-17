@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
@@ -42,6 +44,8 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class EmptyComparison extends BaseRepeatedField implements ComponentWithNoChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Comparison");
+
     private final boolean isEmpty;
 
     public EmptyComparison(@Nonnull String fieldName, boolean isEmpty) {
@@ -106,7 +110,15 @@ public class EmptyComparison extends BaseRepeatedField implements ComponentWithN
     }
 
     @Override
-    public int planHash() {
-        return isEmpty ? 1 : 0;
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return isEmpty ? 1 : 0;
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, isEmpty);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

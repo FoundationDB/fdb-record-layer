@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.metadata;
 
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.Customer;
@@ -904,6 +906,8 @@ public class KeyExpressionTest {
      * Function that limits the number of arguments.
      */
     public static class TwoMinThreeMaxFunction extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Two-Min-Three-Max-Function");
+
         public TwoMinThreeMaxFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
@@ -935,12 +939,19 @@ public class KeyExpressionTest {
         public int getColumnSize() {
             return 1;
         }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
     }
 
     /**
      * Function that computes substring.
      */
     public static class SubstrFunction extends FunctionKeyExpression implements QueryableKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Substr-Function");
+
         public SubstrFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
             super(name, arguments);
         }
@@ -986,6 +997,11 @@ public class KeyExpressionTest {
         @Override
         public Element toElement(@Nonnull Source rootSource) {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
         }
     }
 }

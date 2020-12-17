@@ -141,7 +141,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     }
 
     @Override
-    public int planHash() {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return 2;
     }
 

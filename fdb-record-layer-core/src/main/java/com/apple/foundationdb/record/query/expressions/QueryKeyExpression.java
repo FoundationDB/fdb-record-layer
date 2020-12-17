@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 
@@ -35,6 +37,9 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryKeyExpression {
+    private static final ObjectPlanHash SIMPLE_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Simple-Comparison");
+    private static final ObjectPlanHash PARAMETER_COMPARISON_BASE_HASH = new ObjectPlanHash("Conversion-Parameter-Comparison");
+
     @Nonnull
     private final QueryableKeyExpression keyExpression;
 
@@ -211,8 +216,16 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() + getKeyExpression().planHash();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, SIMPLE_COMPARISON_BASE_HASH, super.planHash(hashKind), getKeyExpression());
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -274,8 +287,16 @@ public class QueryKeyExpression {
         }
 
         @Override
-        public int planHash() {
-            return super.planHash() + getKeyExpression().planHash();
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return super.planHash(hashKind) + getKeyExpression().planHash(hashKind);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, PARAMETER_COMPARISON_BASE_HASH, super.planHash(hashKind), getKeyExpression());
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 

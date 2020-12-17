@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -390,6 +392,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
      * A function that uses a regular expression to split a field value.
      */
     public static class RegexSplitter extends FunctionKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Regex-Splitter");
 
         enum KeyType {
             LONG,
@@ -504,6 +507,11 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
         @Override
         public int getColumnSize() {
             return types.size();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
         }
     }
 }

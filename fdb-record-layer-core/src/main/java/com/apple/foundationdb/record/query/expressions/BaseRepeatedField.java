@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.expressions;
 
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.MessageOrBuilder;
 
@@ -81,8 +82,26 @@ abstract class BaseRepeatedField extends BaseField {
         return super.hashCode() + emptyMode.hashCode();
     }
 
+    /**
+     * Base implementation of {@link #planHash}.
+     * This implementation makes each concrete subclass implement its own version of {@link #planHash} so that they are
+     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * This implementation is meant to give subclasses common functionality for their own implementation.
+     * @param hashKind the plan hash kind to use
+     * @param baseHash the subclass' base hash (concrete identifier)
+     * @param hashables the rest of the subclass' hashable parameters (if any)
+     * @return the plan hash value calculated
+     */
     @Override
-    public int planHash() {
-        return super.planHash() + emptyMode.ordinal();
+    protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
+        switch (hashKind) {
+            case LEGACY:
+                return super.basePlanHash(hashKind, baseHash) + emptyMode.ordinal();
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return super.basePlanHash(hashKind, baseHash, emptyMode, hashables);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

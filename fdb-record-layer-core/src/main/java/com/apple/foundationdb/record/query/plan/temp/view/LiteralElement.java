@@ -106,7 +106,7 @@ public class LiteralElement<T> implements Element {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return hashCode();
     }
 

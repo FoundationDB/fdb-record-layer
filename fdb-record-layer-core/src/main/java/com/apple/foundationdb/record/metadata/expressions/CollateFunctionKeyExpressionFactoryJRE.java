@@ -29,7 +29,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Implemention of {@link CollateFunctionKeyExpression} using {@link TextCollatorRegistryJRE}.
+ * Implementation of {@link CollateFunctionKeyExpression} using {@link TextCollatorRegistryJRE}.
  *
  */
 @AutoService(FunctionKeyExpression.Factory.class)

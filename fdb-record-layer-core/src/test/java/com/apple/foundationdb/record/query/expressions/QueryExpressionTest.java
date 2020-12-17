@@ -87,7 +87,7 @@ public class QueryExpressionTest {
         }
 
         @Override
-        public int planHash() {
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
             return 0;
         }
 

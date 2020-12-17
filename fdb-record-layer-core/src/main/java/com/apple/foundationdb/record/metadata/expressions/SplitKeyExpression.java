@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -43,6 +45,8 @@ import java.util.List;
  */
 @API(API.Status.MAINTAINED)
 public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Split-Key-Expression");
+
     private final KeyExpression joined;
     private final int splitSize;
 
@@ -184,8 +188,16 @@ public class SplitKeyExpression extends BaseKeyExpression implements AtomKeyExpr
     }
 
     @Override
-    public int planHash() {
-        return getJoined().planHash() + splitSize;
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getJoined().planHash(hashKind) + splitSize;
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getJoined(), splitSize);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

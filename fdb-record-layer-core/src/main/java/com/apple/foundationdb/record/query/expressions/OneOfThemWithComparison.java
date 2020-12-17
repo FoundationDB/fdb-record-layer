@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
@@ -43,6 +44,8 @@ import java.util.Objects;
  */
 @API(API.Status.MAINTAINED)
 public class OneOfThemWithComparison extends BaseRepeatedField implements ComponentWithComparison {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("One-Of-Them-With-Comparison");
+
     @Nonnull
     private final Comparisons.Comparison comparison;
 
@@ -128,7 +131,15 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
     }
 
     @Override
-    public int planHash() {
-        return getComparison().planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getComparison().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return super.basePlanHash(hashKind, BASE_HASH, comparison);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

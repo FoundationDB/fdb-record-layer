@@ -195,7 +195,7 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Override
-    public int planHash() {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return proto.hashCode();
     }
 

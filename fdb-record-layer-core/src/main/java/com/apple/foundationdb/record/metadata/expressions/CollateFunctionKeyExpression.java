@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
@@ -69,6 +71,8 @@ import java.util.function.Function;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CollateFunctionKeyExpression extends FunctionKeyExpression implements QueryableKeyExpression {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Collate-Function-Key-Expression");
+
     @Nonnull
     private final TextCollatorRegistry collatorRegistry;
     @Nullable
@@ -187,5 +191,10 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
             throw new MetaDataException("can only be used in queries when collation name is constant");
         }
         return o -> textCollator.getKey((String)o);
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+        return super.basePlanHash(hashKind, BASE_HASH);
     }
 }

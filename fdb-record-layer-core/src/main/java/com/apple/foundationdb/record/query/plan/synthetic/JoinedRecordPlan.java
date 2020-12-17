@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.synthetic;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.EvaluationContextBuilder;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
@@ -56,6 +57,7 @@ import java.util.stream.Collectors;
  *
  */
 class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Joined-Record-Plan");
 
     @Nonnull
     private final JoinedRecordType joinedRecordType;
@@ -65,6 +67,8 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
     private final List<RecordQueryPlan> queries;
 
     protected static class JoinedType implements PlanHashable {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Joined-Type");
+
         @Nonnull
         protected final JoinedRecordType.JoinConstituent constituent;
         @Nonnull
@@ -103,13 +107,23 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         }
 
         @Override
-        public int planHash() {
-            return constituent.getName().hashCode() +
-                   PlanHashable.planHash(bindingPlans);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return constituent.getName().hashCode() + PlanHashable.planHash(hashKind, bindingPlans);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, constituent.getName(), bindingPlans);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
+
         }
     }
 
     protected static class BindingPlan implements PlanHashable {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Binding-Plan");
+
         @Nonnull
         protected final String name;
         @Nonnull
@@ -167,8 +181,16 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
         }
 
         @Override
-        public int planHash() {
-            return name.hashCode() + expression.planHash() + (singleton ? 1 : 0);
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+                case LEGACY:
+                    return name.hashCode() + expression.planHash(hashKind) + (singleton ? 1 : 0);
+                case FOR_CONTINUATION:
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, name, expression, singleton);
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -295,7 +317,15 @@ class JoinedRecordPlan implements SyntheticRecordFromStoredRecordPlan  {
     }
 
     @Override
-    public int planHash() {
-        return PlanHashable.objectsPlanHash(joinedRecordType.getName(), joinedTypes, queries);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.objectsPlanHash(hashKind, joinedRecordType.getName(), joinedTypes, queries);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, joinedRecordType.getName(), joinedTypes, queries);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 }

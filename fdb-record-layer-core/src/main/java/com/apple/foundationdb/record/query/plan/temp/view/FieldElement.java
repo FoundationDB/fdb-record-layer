@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
@@ -45,6 +46,8 @@ import java.util.Optional;
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.OverrideBothEqualsAndHashcode")
 public class FieldElement extends ElementWithSingleSource {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Element");
+
     @Nonnull
     private final List<String> fieldNames;
 
@@ -130,11 +133,19 @@ public class FieldElement extends ElementWithSingleSource {
     }
 
     @Override
-    public int planHash() {
-        if (fieldNames.size() == 1) {
-            return fieldNames.get(0).hashCode();
-        } else {
-            return PlanHashable.iterablePlanHash(fieldNames);
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                if (fieldNames.size() == 1) {
+                    return fieldNames.get(0).hashCode();
+                } else {
+                    return PlanHashable.iterablePlanHash(hashKind, fieldNames);
+                }
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldNames);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
     }
 

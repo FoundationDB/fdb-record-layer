@@ -75,7 +75,7 @@ public class IndexScanType implements PlanHashable {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
         return hashCode();
     }
 }

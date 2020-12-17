@@ -72,7 +72,7 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
         }
 
         @Override
-        public int planHash() {
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
             return Double.hashCode(value);
         }
 
@@ -113,7 +113,7 @@ public abstract class DoubleValueOrParameter implements PlanHashable {
         }
 
         @Override
-        public int planHash() {
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
             return parameter.hashCode();
         }
 

@@ -72,7 +72,8 @@ public class VersionElement implements Element {
     }
 
     @Override
-    public int planHash() {
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        // TODO
         return 1;
     }
 

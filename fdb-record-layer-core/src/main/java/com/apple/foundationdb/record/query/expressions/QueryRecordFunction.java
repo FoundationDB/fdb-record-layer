@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -39,6 +40,8 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.MAINTAINED)
 public class QueryRecordFunction<T> implements PlanHashable {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Query-Record-Function");
+
     @Nonnull
     private final RecordFunction<T> function;
 
@@ -170,8 +173,16 @@ public class QueryRecordFunction<T> implements PlanHashable {
     }
 
     @Override
-    public int planHash() {
-        return function.planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return function.planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, function);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override

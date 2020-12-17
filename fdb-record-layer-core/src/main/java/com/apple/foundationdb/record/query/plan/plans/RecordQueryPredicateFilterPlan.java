@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -54,6 +56,8 @@ import java.util.concurrent.CompletableFuture;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicate {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Predicate-Filter-Plan");
+
     @Nonnull
     private final Source baseSource;
     @Nonnull
@@ -167,8 +171,17 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     }
 
     @Override
-    public int planHash() {
-        return getInnerPlan().planHash() + getPredicate().planHash();
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return getInnerPlan().planHash(hashKind) + getPredicate().planHash(hashKind);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                // Not using baseSource, since it uses Object.hashCode()
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), getPredicate());
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Nonnull
