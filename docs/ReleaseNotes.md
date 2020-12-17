@@ -22,14 +22,14 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement: OnlineIndexer: Add index name to "build index online" log message [(Issue #1081)](https://github.com/FoundationDB/fdb-record-layer/issues/1081)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Implement different kinds of planHash for use with plan hash that ignores literals [(Issue #1072)](https://github.com/FoundationDB/fdb-record-layer/issues/1072)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** planHash() is now a default method implementation in PlanHashable, delegating to planHash(PlanHashKind). As a result, code will have to be recompiled to use this default [(Issue #1072)](https://github.com/FoundationDB/fdb-record-layer/issues/1072)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,12 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.149.0
+
+* **Performance** Improvement: OnlineIndexer: Add index name to "build index online" log message [(Issue #1081)](https://github.com/FoundationDB/fdb-record-layer/issues/1081)
+* **Feature** Implement different kinds of planHash for use with plan hash that ignores literals [(Issue #1072)](https://github.com/FoundationDB/fdb-record-layer/issues/1072)
+* **Breaking change** planHash() is now a default method implementation in PlanHashable, delegating to planHash(PlanHashKind). As a result, code will have to be recompiled to use this default [(Issue #1072)](https://github.com/FoundationDB/fdb-record-layer/issues/1072)
 
 ### 2.10.148.0
 
