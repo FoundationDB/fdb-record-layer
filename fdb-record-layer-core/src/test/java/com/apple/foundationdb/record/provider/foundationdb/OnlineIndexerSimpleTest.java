@@ -448,7 +448,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     }
 
     private <R> CompletableFuture<R> runAndHandleLessenWorkCodes(OnlineIndexer indexBuilder, @Nonnull Function<FDBRecordStore, CompletableFuture<R>> function) {
-        return indexBuilder.runAsync(function, Pair::of, indexBuilder::decreaseLimit, null);
+        return indexBuilder.throttledRunAsync(function, Pair::of, indexBuilder::decreaseLimit, null);
     }
 
     @Test
@@ -466,11 +466,11 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
             // Non-retriable error that is in lessen work codes.
             attempts.set(0);
-            indexBuilder.buildAsync((store, recordsScanned) -> {
+            indexBuilder.buildCommitRetryAsync((store, recordsScanned) -> {
                 assertEquals(attempts.getAndIncrement(), indexBuilder.getLimit(),
                         limit.getAndUpdate(x -> Math.max(x, (3 * x) / 4)));
                 throw new RecordCoreException("Non-retriable", new FDBException("transaction_too_large", 2101));
-            }, true, null).handle((val, e) -> {
+            }, null).handle((val, e) -> {
                 assertNotNull(e);
                 assertThat(e, instanceOf(RecordCoreException.class));
                 assertEquals("Non-retriable", e.getMessage());
@@ -570,7 +570,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
             AsyncUtil.whileTrue(() ->
-                    indexBuilder.buildAsync((store, recordsScanned) -> {
+                    indexBuilder.buildCommitRetryAsync((store, recordsScanned) -> {
                         Pair<Integer, Supplier<RuntimeException>> behavior = queue.poll();
                         if (behavior == null) {
                             return AsyncUtil.READY_FALSE;
@@ -583,7 +583,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                             }
                             return AsyncUtil.READY_TRUE;
                         }
-                    }, true, null)).join();
+                    }, null)).join();
             assertNull(queue.poll());
         }
     }
@@ -625,7 +625,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
 
             AtomicInteger attempts = new AtomicInteger();
             attempts.set(0);
-            AsyncUtil.whileTrue(() -> indexBuilder.buildAsync(
+            AsyncUtil.whileTrue(() -> indexBuilder.buildCommitRetryAsync(
                     (store, recordsScanned) -> {
                         Pair<Long, Supplier<RuntimeException>> behavior = queue.poll();
                         if (behavior == null) {
@@ -641,7 +641,6 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                             return AsyncUtil.READY_TRUE;
                         }
                     },
-                    true,
                     Arrays.asList(LogMessageKeys.CALLING_METHOD, "OnlineIndexerTest.recordsScanned"))
             ).join();
             assertNull(queue.poll());

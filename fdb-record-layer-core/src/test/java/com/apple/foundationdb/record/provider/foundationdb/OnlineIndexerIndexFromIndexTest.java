@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -139,7 +140,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     public void testIndexFromIndexFallback() {
-        // Let tgtIndex be a non-idempotent index
+        // Let target index be a non-idempotent index
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 6;
@@ -171,7 +172,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     public void testIndexFromIndexNoFallback() {
-        // Let tgtIndex be a non-idempotent index
+        // Let target index be a non-idempotent index
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 7;
@@ -196,8 +197,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .build()) {
 
-            OnlineIndexerException e = assertThrows(OnlineIndexerException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("IndexFromIndex:")); // could be either non-idempotent or non-IndexTypes.VALUE warning, depends on implementation
+            assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -243,8 +243,41 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .build()) {
 
-            OnlineIndexerException e = assertThrows(OnlineIndexerException.class, indexBuilder::buildIndex);
-            assertTrue(e.getMessage().contains("IndexFromIndex: src is not readable"));
+            IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("source index is not readable"));
+        }
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testIndexFromIndexNoFallbackNonValueSrc() {
+        // Let srcIndex be a non-VALUE index
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 3;
+
+        Index srcIndex = new Index("src_index", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setTimer(timer)
+                .build()) {
+
+            IndexingByIndex.ValidationException e = assertThrows(IndexingByIndex.ValidationException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("source index is not a VALUE index"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
