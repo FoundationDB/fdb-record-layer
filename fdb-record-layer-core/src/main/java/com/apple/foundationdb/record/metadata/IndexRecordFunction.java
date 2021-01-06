@@ -117,4 +117,9 @@ public class IndexRecordFunction<T> extends RecordFunction<T> {
     public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
         return super.basePlanHash(hashKind, BASE_HASH, operand, index);
     }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return super.baseQueryHash(hashKind, BASE_HASH, operand, index);
+    }
 }

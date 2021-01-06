@@ -92,6 +92,12 @@ public class QueryExpressionTest {
         }
 
         @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return 0;
+        }
+
+        @Nonnull
+        @Override
         public GraphExpansion expand(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }

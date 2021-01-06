@@ -202,6 +202,11 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
     }
 
     @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return proto.hashCode();
+    }
+
+    @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder();
         sb.append("value(");

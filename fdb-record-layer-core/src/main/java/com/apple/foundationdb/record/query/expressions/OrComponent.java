@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.record.util.HashUtils;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -108,5 +109,10 @@ public class OrComponent extends AndOrComponent {
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return HashUtils.queryHash(hashKind, BASE_HASH, getChildren());
     }
 }

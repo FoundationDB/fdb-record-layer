@@ -21,12 +21,15 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.RecordTypeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -52,6 +55,7 @@ import java.util.List;
  */
 @API(API.Status.MAINTAINED)
 public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithoutChildren, KeyExpressionWithValue {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Type-Key-Expression");
     public static final RecordTypeKeyExpression RECORD_TYPE_KEY = new RecordTypeKeyExpression();
     public static final RecordMetaDataProto.KeyExpression RECORD_TYPE_KEY_PROTO =
             RecordMetaDataProto.KeyExpression.newBuilder().setRecordTypeKey(RECORD_TYPE_KEY.toProto()).build();
@@ -129,6 +133,11 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         return 2;
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return HashUtils.queryHash(hashKind, BASE_HASH);
     }
 
     @Override

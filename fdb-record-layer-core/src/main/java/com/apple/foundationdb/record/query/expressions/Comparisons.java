@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TupleFieldsProto;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.collect.Iterators;
@@ -629,7 +631,7 @@ public class Comparisons {
      * A comparison between a value associated with someplace in the record (such as a field) and a value associated
      * with the plan (such as a constant or a bound parameter).
      */
-    public interface Comparison extends PlanHashable {
+    public interface Comparison extends PlanHashable, QueryHashable {
         /**
          * Evaluate this comparison for the value taken from the target record.
          * @param store the record store for the query
@@ -823,6 +825,12 @@ public class Comparisons {
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
         }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            // Query Hash without literals ignores comparand.
+            return HashUtils.queryHash(hashKind, BASE_HASH, type);
+        }
     }
 
     /**
@@ -949,6 +957,12 @@ public class Comparisons {
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            // Query hash without parameters ignores parameter.
+            return HashUtils.queryHash(hashKind, BASE_HASH, type);
         }
     }
 
@@ -1095,6 +1109,12 @@ public class Comparisons {
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
         }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            // Query hash without literals ignores comparand.
+            return HashUtils.queryHash(hashKind, BASE_HASH, type, javaType);
+        }
     }
 
     /**
@@ -1179,6 +1199,11 @@ public class Comparisons {
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, BASE_HASH, type);
         }
     }
 
@@ -1357,6 +1382,12 @@ public class Comparisons {
         }
 
         @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            // Query Hash without literals ignores comparand.
+            return HashUtils.queryHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+        }
+
+        @Override
         public int hashCode() {
             return Objects.hash(type.name(), getComparand(), tokenizerName, fallbackTokenizerName);
         }
@@ -1421,6 +1452,12 @@ public class Comparisons {
                 default:
                     throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
             }
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            // Query hash ignores literals so max distance is not counted.
+            return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind));
         }
 
         @Override
@@ -1534,6 +1571,11 @@ public class Comparisons {
         }
 
         @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind), strict);
+        }
+
+        @Override
         public int hashCode() {
             return super.hashCode() * (strict ? -1 : 1);
         }
@@ -1586,6 +1628,11 @@ public class Comparisons {
                 default:
                     throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
             }
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, BASE_HASH, inner);
         }
 
         @Nullable
