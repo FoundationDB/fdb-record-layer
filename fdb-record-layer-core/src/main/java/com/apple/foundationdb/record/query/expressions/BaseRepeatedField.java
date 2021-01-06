@@ -116,7 +116,7 @@ abstract class BaseRepeatedField extends BaseField {
      * @return the query hash value calculated
      */
     @Override
-    public int baseQueryHash(@Nonnull final QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
+    protected int baseQueryHash(@Nonnull final QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
         return super.baseQueryHash(hashKind, baseHash, emptyMode, hashables);
     }
 }

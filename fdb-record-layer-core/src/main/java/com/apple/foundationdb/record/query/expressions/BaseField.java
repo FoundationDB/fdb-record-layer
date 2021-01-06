@@ -146,7 +146,7 @@ public abstract class BaseField implements PlanHashable, QueryComponent {
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the query hash value calculated
      */
-    public int baseQueryHash(@Nonnull final QueryHashable.QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
+    protected int baseQueryHash(@Nonnull final QueryHashable.QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
         return HashUtils.queryHash(hashKind, baseHash, fieldName, hashables);
     }
 }

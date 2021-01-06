@@ -100,7 +100,7 @@ public abstract class RecordFunction<T> implements PlanHashable, QueryHashable {
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the query hash value calculated
      */
-    public int baseQueryHash(@Nonnull final QueryHashable.QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
+    protected int baseQueryHash(@Nonnull final QueryHashable.QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
         return HashUtils.queryHash(hashKind, baseHash, name, hashables);
     }
 }
