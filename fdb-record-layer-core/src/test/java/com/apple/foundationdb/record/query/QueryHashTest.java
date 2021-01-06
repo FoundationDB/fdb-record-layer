@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTest
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -50,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Tests for QueryHash on queries.
  */
+@Tag(Tags.RequiresFDB)
 public class QueryHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
