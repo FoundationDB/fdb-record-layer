@@ -1200,6 +1200,8 @@ public class FDBDatabase {
     }
 
     private void checkIfBlockingInFuture(CompletableFuture<?> future) {
+        if (1 != 2)
+            return;
         BlockingInAsyncDetection behavior = getBlockingInAsyncDetection();
         if (behavior == BlockingInAsyncDetection.DISABLED) {
             return;

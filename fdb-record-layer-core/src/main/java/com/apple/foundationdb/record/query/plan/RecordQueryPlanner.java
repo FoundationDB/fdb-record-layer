@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.LuceneQueryComponent;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
@@ -522,6 +523,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                 indexExpr = grouping.getWholeKey(); // Plan as just value index.
             } else if (indexTypes.getTextTypes().contains(index.getType())) {
                 p = planText(candidateScan, index, filter, sort);
+                if (p != null) {
+                    p = planRemoveDuplicates(planContext, p);
+                }
+                if (p != null) {
+                    p = computeIndexFilters(planContext, p);
+                }
+                return p;
+            } else if (indexTypes.getLuceneTypes().contains(index.getType())) {
+                p = planLucene(candidateScan, index, filter, sort);
                 if (p != null) {
                     p = planRemoveDuplicates(planContext, p);
                 }
@@ -1201,6 +1211,32 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         return null;
+    }
+
+    @Nullable
+    private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
+                                @Nonnull Index index, @Nonnull QueryComponent filter,
+                                @Nullable KeyExpression sort) {
+        if (sort != null) {
+            // TODO: Full Text: Sorts are not supported with full text queries (https://github.com/FoundationDB/fdb-record-layer/issues/55)
+            return null;
+        }
+        FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
+//        final TextScan scan = TextScanPlanner.getScanForQuery(index, filter, false, filterMask);
+//        if (scan == null) {
+//            return null;
+//        }
+        if (filter instanceof LuceneQueryComponent) {
+            RecordQueryPlan plan = new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_LUCENE,
+                    ScanComparisons.from( ((LuceneQueryComponent) filter).getComparison()), false);
+            // TODO: Check the rest of the fields of the text index expression to see if the sort and unsatisfied filters can be helped.
+            // Add a type filter if the index is over more types than those the query specifies
+            Set<String> possibleTypes = getPossibleTypes(index);
+            plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
+            return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), 10, false, null);
+        } else {
+            return null;
+        }
     }
 
     @Nullable

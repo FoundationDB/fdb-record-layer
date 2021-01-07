@@ -545,6 +545,9 @@ public class Comparisons {
         TEXT_CONTAINS_PREFIX,
         TEXT_CONTAINS_ALL_PREFIXES,
         TEXT_CONTAINS_ANY_PREFIX,
+        FULL_TEXT_LUCENE_QUERY,
+        FULL_TEXT_LUCENE_QUERY_HIGHLIGHT,
+        FULL_TEXT_AUTO_COMPLETE,
         @API(API.Status.EXPERIMENTAL)
         SORT(false);
 
@@ -1633,4 +1636,66 @@ public class Comparisons {
             return inner.toString();
         }
     }
+
+    /**
+     * A text-style comparison, such as containing a given set of tokens.
+     */
+    public static class LuceneComparison implements Comparison {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Comparison");
+
+        @Nonnull
+        private final String query;
+
+        public LuceneComparison(@Nonnull String query) {
+            this.query = query;
+        }
+
+        @Nullable
+        @Override
+        public Boolean eval(@Nonnull final FDBRecordStoreBase<?> store, @Nonnull final EvaluationContext context, @Nullable final Object value) {
+            return true;
+        }
+
+        @Override
+        public void validate(@Nonnull final Descriptors.FieldDescriptor descriptor, final boolean fannedOut) {
+
+        }
+
+        @Nonnull
+        @Override
+        public Type getType() {
+            return Type.FULL_TEXT_LUCENE_QUERY;
+        }
+
+        @Nullable
+        @Override
+        public Object getComparand(@Nullable final FDBRecordStoreBase<?> store, @Nullable final EvaluationContext context) {
+            return query;
+        }
+
+        @Nonnull
+        @Override
+        public String typelessString() {
+            return null;
+        }
+
+        @Override
+        public int planHash() {
+            return query.hashCode();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashKind hashKind) {
+            switch (hashKind) {
+            case LEGACY:
+                return PlanHashable.objectsPlanHash(hashKind, query);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, query);
+            default:
+                throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
+        }
+    }
+    
 }

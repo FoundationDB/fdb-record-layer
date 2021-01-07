@@ -143,6 +143,11 @@ public class IndexTypes {
     public static final String TEXT = "text";
 
     /**
+     * An index on the tokens in a text field.
+     */
+    public static final String FULL_TEXT = "full_text";
+
+    /**
      * An index storing bitmaps of which records meet a specific condition.
      */
     public static final String BITMAP_VALUE = "bitmap_value";

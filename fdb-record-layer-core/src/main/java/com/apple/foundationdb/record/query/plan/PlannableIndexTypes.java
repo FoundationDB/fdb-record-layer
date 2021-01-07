@@ -43,7 +43,9 @@ public class PlannableIndexTypes {
     public static final PlannableIndexTypes DEFAULT = new PlannableIndexTypes(
             Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
             Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
-            Sets.newHashSet(IndexTypes.TEXT));
+            Sets.newHashSet(IndexTypes.TEXT),
+            Sets.newHashSet(IndexTypes.FULL_TEXT)
+            );
 
     @Nonnull
     private final Set<String> valueTypes;
@@ -51,15 +53,20 @@ public class PlannableIndexTypes {
     private final Set<String> rankTypes;
     @Nonnull
     private final Set<String> textTypes;
+    @Nonnull
+    private final Set<String> luceneTypes;
+
 
     // TODO extend with more in the future?
 
     public PlannableIndexTypes(@Nonnull Set<String> valueTypes,
                                @Nonnull Set<String> rankTypes,
-                               @Nonnull Set<String> textTypes) {
+                               @Nonnull Set<String> textTypes,
+                               @Nonnull Set<String> luceneTypes) {
         this.valueTypes = valueTypes;
         this.rankTypes = rankTypes;
         this.textTypes = textTypes;
+        this.luceneTypes = luceneTypes;
     }
 
     @Nonnull
@@ -76,4 +83,10 @@ public class PlannableIndexTypes {
     public Set<String> getTextTypes() {
         return textTypes;
     }
+
+    @Nonnull
+    public Set<String> getLuceneTypes() {
+        return luceneTypes;
+    }
+
 }

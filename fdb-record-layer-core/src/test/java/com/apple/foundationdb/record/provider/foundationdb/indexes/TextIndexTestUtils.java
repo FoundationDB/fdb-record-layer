@@ -38,6 +38,7 @@ public class TextIndexTestUtils {
     public static final TransformedRecordSerializer<Message> COMPRESSING_SERIALIZER =
             TransformedRecordSerializer.newDefaultBuilder().setCompressWhenSerializing(true).build();
     public static final String SIMPLE_DEFAULT_NAME = "SimpleDocument$text";
+    public static final String COMPLEX_DEFAULT_NAME = "Complex$text_index";
 
     @Nonnull
     public static List<TestRecordsTextProto.SimpleDocument> toSimpleDocuments(@Nonnull List<String> textSamples) {

@@ -25,6 +25,7 @@ include 'fdb-record-layer-core'
 include 'fdb-record-layer-core-shaded'
 include 'fdb-record-layer-icu'
 include 'fdb-record-layer-spatial'
+include 'fdb-record-layer-lucene'
 include 'examples'
 
 // It's confusing to have dozens of files called build.gradle scattered around the project

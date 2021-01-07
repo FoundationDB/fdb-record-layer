@@ -153,6 +153,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     private final Queue<CommitCheckAsync> commitChecks = new ArrayDeque<>();
     @Nonnull
+    private final Map<String, CommitCheckAsync> namedCommitChecks = new LinkedHashMap<>();
+    @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
@@ -696,14 +698,33 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param check the check to be performed
      */
     public synchronized void addCommitCheck(@Nonnull CommitCheckAsync check) {
+        addCommitCheck(null, check);
+    }
+
+    public synchronized void addCommitCheck(@Nullable String name, @Nonnull CommitCheckAsync check) {
         while (!commitChecks.isEmpty()) {
             if (commitChecks.peek().isReady()) {
                 asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, commitChecks.remove().checkAsync());
+                if (name != null) {
+                    namedCommitChecks.remove(name);
+                }
             } else {
                 break;
             }
         }
         commitChecks.add(check);
+        if (name != null) {
+            namedCommitChecks.putIfAbsent(name, check);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public synchronized <T extends CommitCheckAsync> T getCommitCheck(String name, Class<T> clazz) {
+        return (T) namedCommitChecks.get(name);
+    }
+
+    public synchronized void removeNamedCheck(String name) {
+        namedCommitChecks.remove(name);
     }
 
     /**

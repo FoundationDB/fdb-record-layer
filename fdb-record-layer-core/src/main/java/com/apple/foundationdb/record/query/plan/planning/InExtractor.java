@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
 import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
+import com.apple.foundationdb.record.query.expressions.LuceneQueryComponent;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -145,7 +146,7 @@ public class InExtractor {
             }
             return componentWithSingleChild.withOtherChild(
                     mapClauses(componentWithSingleChild.getChild(), mapper, nestedFields));
-        } else if (filter instanceof ComponentWithNoChildren) {
+        } else if (filter instanceof ComponentWithNoChildren || filter instanceof LuceneQueryComponent) {
             return filter;
         } else {
             throw new Query.InvalidExpressionException("Unsupported query type " + filter.getClass());

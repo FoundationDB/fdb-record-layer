@@ -127,6 +127,9 @@ public class ScanComparisons implements PlanHashable {
         switch (comparison.getType()) {
             case EQUALS:
             case IS_NULL:
+            case FULL_TEXT_AUTO_COMPLETE:
+            case FULL_TEXT_LUCENE_QUERY_HIGHLIGHT:
+            case FULL_TEXT_LUCENE_QUERY:
                 return ComparisonType.EQUALITY;
             case LESS_THAN:
             case LESS_THAN_OR_EQUALS:
@@ -136,7 +139,7 @@ public class ScanComparisons implements PlanHashable {
             case NOT_NULL:
             case SORT:
                 return ComparisonType.INEQUALITY;
-            case NOT_EQUALS:
+        case NOT_EQUALS:
             default:
                 return ComparisonType.NONE;
         }
