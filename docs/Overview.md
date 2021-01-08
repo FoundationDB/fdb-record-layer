@@ -217,7 +217,7 @@ meta-data is then up to the application.
     try (FDBRecordContext context = database.openContext()) {
         RecordMetaData metaData = RecordMetaData.build(TestRecords1Proto.getDescriptor());
         FDBRecordStore recordStore = FDBRecordStore.newBuilder()
-            .setMetadataProvider(metaData)
+            .setMetaDataProvider(metaData)
             .setContext(context)
             .setSubspace(new Subspace(Tuple.from("mydb", "mytest").pack()))
             .build();
