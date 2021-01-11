@@ -109,7 +109,7 @@ public class RecordTypeKeyExpression extends BaseKeyExpression implements AtomKe
     public RecordMetaDataProto.KeyExpression toKeyExpression() {
         return RECORD_TYPE_KEY_PROTO;
     }
-    
+
     @Nonnull
     @Override
     public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {

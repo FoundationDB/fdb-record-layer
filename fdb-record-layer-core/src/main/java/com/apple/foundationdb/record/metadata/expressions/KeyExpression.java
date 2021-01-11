@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -37,7 +37,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * Interface for expressions that evaluate to keys.
@@ -194,28 +193,22 @@ public interface KeyExpression extends PlanHashable {
         return Collections.singletonList(this);
     }
 
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier) {
-        return normalizeForPlanner(baseAlias, parameterAliasSupplier, Collections.emptyList());
-    }
-
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier, @Nonnull List<String> fieldNamePrefix);
-
     /**
-     * Flatten this key expression into a list of {@link Value}s, much like {@link #normalizeKeyForPositions()}.
-     * By default, this method throws an exception because most key expressions cannot be flattened to a list of
-     * elements without prior adjustment. This method is only overridden by key expressions that can be flattened.
-     * @return a list of elements representing this key expression in unnested form
-     * @see ThenKeyExpression#flattenForPlanner()
+     * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
+     * of the key expression as composition of relational expressions and operators
+     * ({@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s). Note that implementors should
+     * defer to the visitation methods in the supplied visitor rather than encoding actual logic in an overriding
+     * method.
+     * @param <S> a type that reflects the state that {@code visitor} uses
+     * @param visitor a {@link ExpansionVisitor} that is created by the caller from a data structure that reflects the
+     *        specific semantics of the key expression. Normally this visitor is directly created based on an index.
+     * @return a new {@link GraphExpansion} representing the query graph equivalent of this key expression using the
+     *         supplied visitor
+     * @see com.apple.foundationdb.record.query.expressions.QueryComponent#expand
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    default List<Value> flattenForPlanner() {
-        throw new RecordCoreException("illegal non-value expression");
-    }
+    <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull ExpansionVisitor<S> visitor);
 
     /**
      * Return the key fields for an expression.

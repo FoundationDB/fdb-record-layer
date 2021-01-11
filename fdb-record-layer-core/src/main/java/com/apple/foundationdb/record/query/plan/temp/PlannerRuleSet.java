@@ -29,12 +29,12 @@ import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressi
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIntersectionRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.ImplementSortRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalIndexScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchIntermediateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchLeafRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
@@ -74,14 +74,14 @@ public class PlannerRuleSet {
             new ImplementTypeFilterRule(),
             new ImplementFilterRule(),
             new PushTypeFilterBelowFilterRule(),
-            new LogicalToPhysicalIndexScanRule(),
-            new LogicalToPhysicalScanRule(),
+            new ImplementIndexScanRule(),
+            new ImplementPhysicalScanRule(),
             new FullUnorderedExpressionToScanPlanRule(),
             new ImplementIntersectionRule(),
             new ImplementDistinctUnionRule(),
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule(),
-            new ImplementSortRule(),
+            new RemoveSortRule(),
             new PushDistinctFilterBelowFilterRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
@@ -136,5 +136,4 @@ public class PlannerRuleSet {
     public Stream<PlannerRule<? extends MatchPartition>> getMatchPartitionRules() {
         return MATCH_PARTITION_RULES.stream();
     }
-
 }

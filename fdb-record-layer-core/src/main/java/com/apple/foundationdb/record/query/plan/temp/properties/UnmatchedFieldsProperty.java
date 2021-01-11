@@ -41,7 +41,9 @@ import java.util.List;
  * such as {@link com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression} and
  * {@link com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression}) that are not matched with at
  * least one {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} in a planner expression
- * tree. This is computed over all {@link KeyExpression}s in various {@link com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression}s.
+ * tree. This is computed over all {@link KeyExpression}s in various scan expressions over indexes
+ * (e.g. {@link IndexScanExpression}, {@link RecordQueryScanPlan}), and also primary scans
+ * (e.g. {@link RecordQueryScanPlan}).
  *
  * <p>
  * For example, suppose that a planner expression scans two indexes:

@@ -22,13 +22,13 @@ package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * A key expression that can be represented as a single {@link Value} because it meets both of the following criteria:
@@ -45,11 +45,7 @@ public interface KeyExpressionWithValue extends KeyExpression {
 
     @Nonnull
     @Override
-    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias,
-                                                   @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
-                                                   @Nonnull List<String> fieldNamePrefix) {
-        final Placeholder predicate =
-                toValue(baseAlias, fieldNamePrefix).withParameterAlias(parameterAliasSupplier.get());
-        return ExpandedPredicates.ofPlaceholderPredicate(predicate);
+    default <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+        return visitor.visitExpression(this);
     }
 }

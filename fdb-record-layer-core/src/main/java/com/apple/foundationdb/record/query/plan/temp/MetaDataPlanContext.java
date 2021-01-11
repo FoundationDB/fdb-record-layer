@@ -111,11 +111,11 @@ public class MetaDataPlanContext implements PlanContext {
         for (Index index : indexList) {
             indexes.put(index, index.getName());
             final Optional<MatchCandidate> candidateForIndexOptional =
-                    RelationalExpression.fromIndexDefinition(metaData, index, query.isSortReverse());
+                    MatchCandidate.fromIndexDefinition(metaData, index, query.isSortReverse());
             candidateForIndexOptional.ifPresent(matchCandidatesBuilder::add);
         }
 
-        RelationalExpression.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, query.isSortReverse())
+        MatchCandidate.fromPrimaryDefinition(metaData, recordTypes, commonPrimaryKey, query.isSortReverse())
                 .ifPresent(matchCandidatesBuilder::add);
 
         this.matchCandidates = matchCandidatesBuilder.build();

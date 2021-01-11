@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.debug;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphPropert
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.cache.Cache;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.jline.reader.ParsedLine;
@@ -123,20 +125,6 @@ public class Commands {
                     }
                 }
 
-                if ("MATCH".equals(word1)) {
-                    if (words.size() >= 3) {
-                        final String candidateMatchPrefix = words.get(2);
-                        final Location location =
-                                words.size() == 4
-                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase()).or(Location.BEGIN)
-                                : Location.BEGIN;
-                        plannerRepl.addBreakPoint(new PlannerRepl.OnMatchBreakPoint(candidateMatchPrefix, location));
-                        return false;
-                    }
-                    plannerRepl.printlnError("usage: break match matchCandidate [begin|end]");
-                    return false;
-                }
-
                 if ("REMOVE".equals(word1)) {
                     if (words.size() == 3) {
                         final String word2 = words.get(2);
@@ -185,16 +173,36 @@ public class Commands {
                 }
 
                 if ("YIELD".equals(word1)) {
-                    if (words.size() == 3) {
-                        final String word2 = words.get(2);
-                        if (!plannerRepl.isValidEntityName(word2)) {
-                            plannerRepl.printlnError("invalid identifier");
+                    if (words.size() == 4) {
+                        final String word2 = words.get(2).toUpperCase();
+
+                        if ("EXP".equals(word2)) {
+                            final String word3 = words.get(3);
+                            if (!plannerRepl.isValidEntityName(word3)) {
+                                plannerRepl.printlnError("invalid identifier");
+                                return false;
+                            }
+                            plannerRepl.addBreakPoint(new PlannerRepl.OnYieldExpressionBreakPoint(word3.toLowerCase()));
                             return false;
                         }
-                        plannerRepl.addBreakPoint(new PlannerRepl.OnYieldBreakPoint(word2.toLowerCase()));
-                        return false;
+
+                        if ("MATCH".equals(word2)) {
+                            final String word3 = words.get(3);
+                            final boolean isValidMatchCandidate =
+                                    Objects.requireNonNull(plannerRepl.getPlanContext())
+                                            .getMatchCandidates()
+                                            .stream()
+                                            .anyMatch(matchCandidate -> word3.equals(matchCandidate.getName()));
+
+                            if (!isValidMatchCandidate) {
+                                plannerRepl.printlnError("invalid match candidate");
+                                return false;
+                            }
+                            plannerRepl.addBreakPoint(new PlannerRepl.OnYieldMatchBreakPoint(word3));
+                            return false;
+                        }
                     }
-                    plannerRepl.printlnError("usage: break yield identifier");
+                    plannerRepl.printlnError("usage: break yield [exp <identifier> | match <candidate>]");
                     return false;
                 }
 
@@ -525,23 +533,35 @@ public class Commands {
                             plannerRepl.println("show is not supported for non-group references.");
                         }
                     },
-                    quantifier -> plannerRepl.println("show is not supported for quantifiers."));
+                    quantifier -> plannerRepl.printlnError("show is not supported for quantifiers."));
             if (!identifiersProcessed) {
-                if ("GRAPH".equals(word1) && event instanceof EventWithState) {
+                if (event instanceof EventWithState) {
                     final EventWithState eventWithState = (EventWithState)event;
                     final GroupExpressionRef<? extends RelationalExpression> rootReference = eventWithState.getRootReference();
-                    PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS, rootReference);
-                    return false;
-                } else if ("MATCHES".equals(word1) && event instanceof EventWithState) {
-                    final EventWithState eventWithState = (EventWithState)event;
-                    final GroupExpressionRef<? extends RelationalExpression> rootReference = eventWithState.getRootReference();
-                    PlannerGraphProperty.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
-                    return false;
-                } else if ("PLANS".equals(word1) && event instanceof EventWithState) {
-                    final EventWithState eventWithState = (EventWithState)event;
-                    final GroupExpressionRef<? extends RelationalExpression> rootReference = eventWithState.getRootReference();
-                    PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS | PlannerGraphProperty.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
-                    return false;
+                    if ("GRAPH".equals(word1)) {
+                        PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS, rootReference);
+                        return false;
+                    } else if ("MATCH".equals(word1) && words.size() == 3) {
+                        final String word2 = words.get(2);
+                        final Optional<MatchCandidate> matchCandidateOptional =
+                                Objects.requireNonNull(plannerRepl.getPlanContext())
+                                        .getMatchCandidates()
+                                        .stream()
+                                        .filter(matchCandidate -> word2.equals(matchCandidate.getName()))
+                                        .findFirst();
+                        if (matchCandidateOptional.isPresent()) {
+                            PlannerGraphProperty.show(true, rootReference, ImmutableSet.of(matchCandidateOptional.get()));
+                        } else {
+                            plannerRepl.printlnError("unknown match candidate");
+                        }
+                        return false;
+                    } else if ("MATCHES".equals(word1)) {
+                        PlannerGraphProperty.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
+                        return false;
+                    } else if ("PLANS".equals(word1)) {
+                        PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS | PlannerGraphProperty.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
+                        return false;
+                    }
                 }
                 plannerRepl.printlnError("not sure what to show");
                 printUsage(plannerRepl);

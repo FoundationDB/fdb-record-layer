@@ -1,5 +1,5 @@
 /*
- * DataAccessRule.java
+ * AdjustMatchRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,18 +21,13 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.IndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
@@ -48,17 +43,16 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create a logical expression
- * for data access. While this rule delegates specifics to the {@link MatchCandidate}s, the following are possible
- * outcomes of the application of this transformation rule. Based on the match info, we may create for a single match:
+ * A rule that attempts to improve an existing {@link PartialMatch} by <em>absorbing</em> an expression on the
+ * candidate side.
  *
- * <ul>
- *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
- *     <li>an {@link IndexScanExpression} for a single {@link IndexScanMatchCandidate}</li>
- * </ul>
- *
- * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toScanExpression(MatchInfo)}.
+ * Currently the only such expression that can be absorbed is
+ * {@link com.apple.foundationdb.record.query.plan.temp.expressions.MatchableSortExpression}.
+ * TODO Maybe that expression should just be a generic property-defining expression or properties should be kept
+ *      on quantifiers.
+ * It is special in a way that there is no corresponding expression on the query side that is subsumed by that
+ * expression. Absorbing such a candidate-side-only expression into the match allows us to fine-tune interesting
+ * provided properties guaranteed by the candidate side.
  */
 @API(API.Status.EXPERIMENTAL)
 public class AdjustMatchRule extends PlannerRule<PartialMatch> {

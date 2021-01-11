@@ -44,13 +44,17 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 /**
- * A {@link QueryPredicate} that is satisfied when its child component is satisfied.
- *
- * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
+ * A {@link QueryPredicate} that is satisfied when its child component is satisfied. This class represents an
+ * interim solution to be able to evaluate a {@link QueryComponent} but in the context of a predicate. Effectively,
+ * this class bridges the old planner constructs and new planner constructs. We may need to evaluate
+ * {@link QueryComponent}s when we need to compensate for partial matches during index matching as
+ * {@link com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression} and others do not have a runtime
+ * implementation yet.
+ * TODO remove this class eventually
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueryComponentPredicate implements QueryPredicate {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Query-Component-Predicate");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Predicate-With-Query-Component");
 
     @Nonnull
     public final QueryComponent queryComponent;

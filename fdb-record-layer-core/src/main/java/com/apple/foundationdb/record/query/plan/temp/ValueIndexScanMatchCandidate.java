@@ -31,9 +31,9 @@ import java.util.List;
 /**
  * Case class to represent a match candidate that is backed by an index.
  */
-public class IndexScanMatchCandidate implements MatchCandidate {
+public class ValueIndexScanMatchCandidate implements MatchCandidate {
     /**
-     * Name of the match candidate. If this candidate represents and index, it will be the name of the index.
+     * Name of the match candidate. This name is also the name of the index.
      */
     @Nonnull
     private final String name;
@@ -45,7 +45,7 @@ public class IndexScanMatchCandidate implements MatchCandidate {
     private final List<CorrelationIdentifier> parameters;
 
     /**
-     * Traversal object.
+     * Traversal object of the expanded index scan graph.
      */
     @Nonnull
     private final ExpressionRefTraversal traversal;
@@ -53,10 +53,10 @@ public class IndexScanMatchCandidate implements MatchCandidate {
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
-    public IndexScanMatchCandidate(@Nonnull String name,
-                                   @Nonnull final ExpressionRefTraversal traversal,
-                                   @Nonnull final List<CorrelationIdentifier> parameters,
-                                   @Nonnull final KeyExpression alternativeKeyExpression) {
+    public ValueIndexScanMatchCandidate(@Nonnull String name,
+                                        @Nonnull final ExpressionRefTraversal traversal,
+                                        @Nonnull final List<CorrelationIdentifier> parameters,
+                                        @Nonnull final KeyExpression alternativeKeyExpression) {
         this.name = name;
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
@@ -89,7 +89,6 @@ public class IndexScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    @SuppressWarnings("java:S135")
     public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
         return new IndexScanExpression(getName(),
                 IndexScanType.BY_VALUE,

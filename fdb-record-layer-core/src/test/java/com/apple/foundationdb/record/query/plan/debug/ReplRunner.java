@@ -64,7 +64,6 @@ public class ReplRunner {
         try {
             launcher.execute(request);
         } catch (final Throwable t) {
-            System.out.println("here");
             t.printStackTrace();
         }
     }

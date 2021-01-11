@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -51,10 +54,19 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     private final CorrelationIdentifier correlationIdentifier;
     @Nonnull
     private final List<String> fieldNames;
+    @Nonnull
+    private final FieldValue resultValue;
 
     public ExplodeExpression(@Nonnull final CorrelationIdentifier correlationIdentifier, @Nonnull final List<String> fieldNames) {
         this.correlationIdentifier = correlationIdentifier;
         this.fieldNames = fieldNames;
+        this.resultValue = new FieldValue(correlationIdentifier, fieldNames);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<List<? extends Value>> getResultValues() {
+        return Optional.of(ImmutableList.of(resultValue));
     }
 
     @Nonnull
@@ -96,8 +108,8 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return exactlySubsumedBy(otherExpression, aliasMap, partialMatchMap);
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
     }
 
     @Override

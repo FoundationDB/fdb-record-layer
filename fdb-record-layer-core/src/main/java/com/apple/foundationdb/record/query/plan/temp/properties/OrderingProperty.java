@@ -1,5 +1,5 @@
 /*
- * CreatesDuplicatesProperty.java
+ * OrderingProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.ValueIndexExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
@@ -90,7 +91,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
             final Index index = metaData.getIndex(indexName);
             final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
             final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
-            final KeyExpression keyExpression = index.fullKey(commonPrimaryKeyForIndex);
+            final KeyExpression keyExpression = ValueIndexExpansionVisitor.fullKey(index, commonPrimaryKeyForIndex);
             final ScanComparisons scanComparisons = recordQueryIndexPlan.getComparisons();
             return fromKeyAndScanComparisons(keyExpression, scanComparisons);
         } else if (expression instanceof IndexScanExpression) {
@@ -102,7 +103,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
             final Index index = metaData.getIndex(indexName);
             final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
             final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
-            final KeyExpression keyExpression = index.fullKey(commonPrimaryKeyForIndex);
+            final KeyExpression keyExpression = ValueIndexExpansionVisitor.fullKey(index, commonPrimaryKeyForIndex);
             final ScanComparisons scanComparisons = ((IndexScanExpression)expression).scanComparisons();
             return fromKeyAndScanComparisons(keyExpression, scanComparisons);
         } else if (expression instanceof LogicalSortExpression) {

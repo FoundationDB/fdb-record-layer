@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -105,7 +105,7 @@ public class QueryRecordFunctionWithComparison implements ComponentWithCompariso
     }
 
     @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         throw new UnsupportedOperationException();
     }
 

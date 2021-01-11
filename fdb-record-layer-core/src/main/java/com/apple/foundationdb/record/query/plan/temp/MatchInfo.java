@@ -20,38 +20,28 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 /**
  * This class represents the result of matching one expression against a candidate.
  */
 public class MatchInfo {
-    /**
-     * Compensation operator that can be applied to the scan of the materialized version of the match candidate.
-     */
-    @Nonnull
-    private final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator;
-
     /**
      * Parameter bindings for this match.
      */
@@ -65,27 +55,21 @@ public class MatchInfo {
     private final Supplier<Map<CorrelationIdentifier, PartialMatch>> aliasToPartialMatchMapSupplier;
 
     @Nonnull
-    private final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap;
+    private final PredicateMap predicateMap;
 
     @Nonnull
-    private final Supplier<IdentityBiMap<QueryPredicate, QueryPredicate>> accumulatedPredicateMapSupplier;
-
-    @Nonnull
-    private final Set<QueryPredicate> unmappedPredicates;
+    private final Supplier<PredicateMap> accumulatedPredicateMapSupplier;
 
     @Nonnull
     private final List<BoundKeyPart> boundKeyParts;
 
     private final boolean isReverse;
 
-    private MatchInfo(@Nonnull final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator,
-                      @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
+    private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
-                      @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap,
-                      @Nonnull final Set<QueryPredicate> unmappedPredicates,
+                      @Nonnull final PredicateMap predicateMap,
                       @Nonnull final List<BoundKeyPart> boundKeyParts,
                       final boolean isReverse) {
-        this.compensationOperator = compensationOperator;
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
         this.aliasToPartialMatchMapSupplier = Suppliers.memoize(() -> {
@@ -93,22 +77,15 @@ public class MatchInfo {
             quantifierToPartialMatchMap.forEachUnwrapped(((quantifier, partialMatch) -> mapBuilder.put(quantifier.getAlias(), partialMatch)));
             return mapBuilder.build();
         });
-        this.predicateMap = predicateMap.toImmutable();
+        this.predicateMap = predicateMap;
         this.accumulatedPredicateMapSupplier = Suppliers.memoize(() -> {
-            final IdentityBiMap<QueryPredicate, QueryPredicate> target = IdentityBiMap.create();
-            collectPredicateMappings(target);
-            return target;
+            final PredicateMap.Builder targetBuilder = PredicateMap.builder();
+            collectPredicateMappings(targetBuilder);
+            return targetBuilder.build();
         });
 
-        this.unmappedPredicates = Sets.newIdentityHashSet();
-        this.unmappedPredicates.addAll(unmappedPredicates);
         this.boundKeyParts = ImmutableList.copyOf(boundKeyParts);
         this.isReverse = isReverse;
-    }
-
-    @Nonnull
-    public UnaryOperator<ExpressionRef<RelationalExpression>> getCompensationOperator() {
-        return compensationOperator;
     }
 
     @Nonnull
@@ -134,27 +111,22 @@ public class MatchInfo {
     }
 
     @Nonnull
-    public IdentityBiMap<QueryPredicate, QueryPredicate> getPredicateMap() {
+    public PredicateMap getPredicateMap() {
         return predicateMap;
     }
 
     @Nonnull
-    public IdentityBiMap<QueryPredicate, QueryPredicate> getAccumulatedPredicateMap() {
+    public PredicateMap getAccumulatedPredicateMap() {
         return accumulatedPredicateMapSupplier.get();
     }
 
-    private void collectPredicateMappings(@Nonnull IdentityBiMap<QueryPredicate, QueryPredicate> target) {
-        target.putAll(predicateMap);
+    private void collectPredicateMappings(@Nonnull PredicateMap.Builder targetBuilder) {
+        targetBuilder.putAll(predicateMap);
 
         for (final Equivalence.Wrapper<PartialMatch> partialMatchWrapper : quantifierToPartialMatchMap.values()) {
             final PartialMatch partialMatch = Objects.requireNonNull(partialMatchWrapper.get());
-            partialMatch.getMatchInfo().collectPredicateMappings(target);
+            partialMatch.getMatchInfo().collectPredicateMappings(targetBuilder);
         }
-    }
-
-    @Nonnull
-    public Set<QueryPredicate> getUnmappedPredicates() {
-        return unmappedPredicates;
     }
 
     @Nonnull
@@ -168,35 +140,27 @@ public class MatchInfo {
 
     public MatchInfo withOrderingInfo(@Nonnull final List<BoundKeyPart> boundKeyParts,
                                       final boolean isReverse) {
-        return new MatchInfo(compensationOperator,
-                parameterBindingMap,
+        return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
-                unmappedPredicates,
                 boundKeyParts,
                 isReverse);
     }
 
     @Nonnull
     public static Optional<MatchInfo> tryFromMatchMap(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
-        return tryMerge(partialMatchMap, ImmutableMap.of(), IdentityBiMap.create(), ImmutableSet.of());
+        return tryMerge(partialMatchMap, ImmutableMap.of(), PredicateMap.empty());
     }
 
     @Nonnull
     public static Optional<MatchInfo> tryMerge(@Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap,
                                                @Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
-                                               @Nonnull final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap,
-                                               @Nonnull final Set<QueryPredicate> needCompensationPredicates) {
-        final ImmutableList.Builder<UnaryOperator<ExpressionRef<RelationalExpression>>> compensationOperatorsBuilder = ImmutableList.builder();
+                                               @Nonnull final PredicateMap predicateMap) {
         final ImmutableList.Builder<Map<CorrelationIdentifier, ComparisonRange>> parameterMapsBuilder = ImmutableList.builder();
 
         final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
 
-        matchInfos.forEach(matchWithCompensation -> {
-            compensationOperatorsBuilder.add(matchWithCompensation.getCompensationOperator());
-            parameterMapsBuilder.add(matchWithCompensation.getParameterBindingMap());
-        });
-
+        matchInfos.forEach(matchInfo -> parameterMapsBuilder.add(matchInfo.getParameterBindingMap()));
         parameterMapsBuilder.add(parameterBindingMap);
 
         final Set<Quantifier> regularQuantifiers = partialMatchMap.keySet()
@@ -217,16 +181,12 @@ public class MatchInfo {
             isReverse = false;
         }
 
-        final UnaryOperator<ExpressionRef<RelationalExpression>> compensationOperator =
-                applySequentially(compensationOperatorsBuilder.build());
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
                 tryMergeParameterBindings(parameterMapsBuilder.build());
         return mergedParameterBindingsOptional
-                .map(mergedParameterBindings -> new MatchInfo(compensationOperator,
-                        mergedParameterBindings,
+                .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
-                        needCompensationPredicates,
                         boundKeyParts,
                         isReverse));
     }
@@ -247,24 +207,5 @@ public class MatchInfo {
         }
 
         return Optional.of(resultMap);
-    }
-
-    private static UnaryOperator<ExpressionRef<RelationalExpression>> applySequentially(final Collection<UnaryOperator<ExpressionRef<RelationalExpression>>> compensationOperators) {
-        final Iterator<UnaryOperator<ExpressionRef<RelationalExpression>>> iterator = compensationOperators.iterator();
-
-        if (!iterator.hasNext()) {
-            return UnaryOperator.identity();
-        }
-
-        UnaryOperator<ExpressionRef<RelationalExpression>> result = iterator.next();
-        while (iterator.hasNext()) {
-            final UnaryOperator<ExpressionRef<RelationalExpression>> next = iterator.next();
-            result = chainCompensations(result, next);
-        }
-        return result;
-    }
-
-    private static UnaryOperator<ExpressionRef<RelationalExpression>> chainCompensations(final UnaryOperator<ExpressionRef<RelationalExpression>> first, final UnaryOperator<ExpressionRef<RelationalExpression>> second) {
-        return e -> second.apply(first.apply(e));
     }
 }

@@ -27,10 +27,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -38,7 +37,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -190,22 +188,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public List<Value> flattenForPlanner() {
-        return children.stream()
-                .flatMap(k -> k.flattenForPlanner().stream())
-                .collect(Collectors.toList());
-    }
-
-    @Nonnull
-    @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
-                                                  @Nonnull final List<String> fieldNamePrefix) {
-        final ImmutableList.Builder<ExpandedPredicates> expandedPredicatesBuilder = ImmutableList.builder();
-        for (KeyExpression child : children) {
-            expandedPredicatesBuilder.add(child.normalizeForPlanner(baseAlias, parameterAliasSupplier, fieldNamePrefix));
-        }
-        return ExpandedPredicates.ofOthers(expandedPredicatesBuilder.build());
+    public <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+        return visitor.visitExpression(this);
     }
 
     @Nonnull

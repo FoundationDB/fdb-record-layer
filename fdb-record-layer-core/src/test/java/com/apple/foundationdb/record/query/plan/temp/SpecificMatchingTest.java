@@ -1,5 +1,5 @@
 /*
- * AliasMapTest.java
+ * SpecificMatchingTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,18 +28,18 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier.of;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Testcase class for {@link com.apple.foundationdb.record.query.plan.temp.matching.ComputingMatcher}.
+ * Testcase class for specific matching.
  */
-public class ComputingMatcherTest {
+public class SpecificMatchingTest {
     @Test
     void testMatchNoCorrelations1() {
         final Set<CorrelationIdentifier> left = ImmutableSet.of(of("l1"), of("l2"), of("l3"), of("ll4"), of("ll5"), of("ll6"), of("ll7"));
@@ -62,18 +62,46 @@ public class ComputingMatcherTest {
                         },
                         ComputingMatcher::productAccumulator);
 
-        final Iterable<BoundMatch<EnumeratingIterable<String>>> matches = matcher.match();
+        final Iterable<BoundMatch<EnumeratingIterable<String>>> matchIterable = matcher.match();
 
+        final List<AliasMap> matches =
+                StreamSupport.stream(matchIterable.spliterator(), false)
+                        .map(BoundMatch::getAliasMap)
+                        .collect(ImmutableList.toImmutableList());
 
-        matches.forEach(boundMatch -> System.out.println(boundMatch.getAliasMap()));
+        final Set<AliasMap> distinctMatches = ImmutableSet.copyOf(matches);
 
-        System.out.println("================");
+        assertEquals(distinctMatches.size(), matches.size());
 
-        final Set<AliasMap> distinctMatches = StreamSupport.stream(matches.spliterator(), false)
-                .map(BoundMatch::getAliasMap)
-                .collect(Collectors.toSet());
-
-        distinctMatches.forEach(System.out::println);
+        assertEquals(ImmutableSet.of(
+                AliasMap.emptyMap(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l2"), of("r2"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l3"), of("r3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .put(of("l2"), of("r2"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .put(of("l3"), of("r3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l2"), of("r2"))
+                        .put(of("l3"), of("r3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .put(of("l2"), of("r2"))
+                        .put(of("l3"), of("r3"))
+                        .build()),
+                distinctMatches);
     }
 
     @Test
@@ -98,17 +126,46 @@ public class ComputingMatcherTest {
                         },
                         ComputingMatcher::productAccumulator);
 
-        final Iterable<BoundMatch<EnumeratingIterable<String>>> matches = matcher.match();
+        final Iterable<BoundMatch<EnumeratingIterable<String>>> matchIterable = matcher.match();
 
-        matches.forEach(boundMatch -> System.out.println(boundMatch.getAliasMap()));
+        final List<AliasMap> matches =
+                StreamSupport.stream(matchIterable.spliterator(), false)
+                        .map(BoundMatch::getAliasMap)
+                        .collect(ImmutableList.toImmutableList());
 
-        System.out.println("================");
+        final Set<AliasMap> distinctMatches = ImmutableSet.copyOf(matches);
 
-        final Set<AliasMap> distinctMatches = StreamSupport.stream(matches.spliterator(), false)
-                .map(BoundMatch::getAliasMap)
-                .collect(Collectors.toSet());
+        assertEquals(distinctMatches.size(), matches.size());
 
-        distinctMatches.forEach(System.out::println);
+        assertEquals(ImmutableSet.of(
+                AliasMap.emptyMap(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l2"), of("r2"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l3"), of("r3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .put(of("l2"), of("r2"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .put(of("l3"), of("r3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l2"), of("r2"))
+                        .put(of("l3"), of("r3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("l1"), of("r1"))
+                        .put(of("l2"), of("r2"))
+                        .put(of("l3"), of("r3"))
+                        .build()),
+                distinctMatches);
     }
 
     @Test
@@ -139,19 +196,46 @@ public class ComputingMatcherTest {
                         },
                         ComputingMatcher::productAccumulator);
 
-        final Iterable<BoundMatch<EnumeratingIterable<String>>> matches = matcher.match();
+        final Iterable<BoundMatch<EnumeratingIterable<String>>> matchIterable = matcher.match();
 
-        final Set<AliasMap> distinctMatches = StreamSupport.stream(matches.spliterator(), false)
-                .map(BoundMatch::getAliasMap)
-                .collect(Collectors.toSet());
+        final List<AliasMap> matches =
+                StreamSupport.stream(matchIterable.spliterator(), false)
+                        .map(BoundMatch::getAliasMap)
+                        .collect(ImmutableList.toImmutableList());
 
-        matches.forEach(boundMatch -> {
-            System.out.println(boundMatch.getAliasMap());
-            //    System.out.println("  " + ImmutableSet.copyOf(boundMatch.getMatchResultOptional().get()));
-        });
+        final Set<AliasMap> distinctMatches = ImmutableSet.copyOf(matches);
 
-        System.out.println("==================");
-        distinctMatches.forEach(System.out::println);
+        assertEquals(distinctMatches.size(), matches.size());
+
+        assertEquals(ImmutableSet.of(
+                AliasMap.emptyMap(),
+                AliasMap.builder()
+                        .put(of("m2"), of("m2"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("m1"), of("m1"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("m3"), of("m3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("m2"), of("m2"))
+                        .put(of("m1"), of("m1"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("m2"), of("m2"))
+                        .put(of("m3"), of("m3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("m1"), of("m1"))
+                        .put(of("m3"), of("m3"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("m2"), of("m2"))
+                        .put(of("m1"), of("m1"))
+                        .put(of("m3"), of("m3"))
+                        .build()),
+                distinctMatches);
     }
 
     @Test

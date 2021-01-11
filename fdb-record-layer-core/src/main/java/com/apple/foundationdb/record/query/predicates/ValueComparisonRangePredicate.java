@@ -33,16 +33,20 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -121,6 +125,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
     /**
      * A place holder predicate solely used for index matching.
      */
+    @SuppressWarnings("java:S2160")
     public static class Placeholder extends ValueComparisonRangePredicate {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Place-Holder");
 
@@ -180,6 +185,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
     /**
      * A query predicate that can be used as a (s)earch (arg)ument for an index scan.
      */
+    @SuppressWarnings("java:S2160")
     public static class Sargable extends ValueComparisonRangePredicate {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sargable-Predicate");
 
@@ -199,10 +205,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Nullable
         @Override
         public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-            // this could just throw an exception as we shouldn't support evaluating this kind of predicate
-            // as it is for index matching purposes only
-            final Object eval = getValue().eval(store, context, record, message);
-            return comparisonRange.eval(store, context, eval);
+            throw new RecordCoreException("search arguments should never be evaluated");
         }
 
         @Override
@@ -231,9 +234,43 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             return PlanHashable.objectsPlanHash(hashKind, super.planHash(), BASE_HASH, comparisonRange.getRangeType());
         }
 
+        @Nonnull
         @Override
-        public String toString() {
-            return getValue() + " " + comparisonRange;
+        public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap,
+                                                                    @Nonnull final QueryPredicate candidatePredicate) {
+            if (candidatePredicate instanceof Placeholder) {
+                final Placeholder placeHolderPredicate = (Placeholder)candidatePredicate;
+                if (!getValue().semanticEquals(placeHolderPredicate.getValue(), aliasMap)) {
+                    return Optional.empty();
+                }
+
+                // we found a compatible association between a comparison range in the query and a
+                // parameter placeholder in the candidate
+                return Optional.of(new PredicateMapping(this,
+                        candidatePredicate,
+                        ((matchInfo, boundParameterPrefixMap) -> reapplyPredicateMaybe(boundParameterPrefixMap, placeHolderPredicate)),
+                        placeHolderPredicate.getParameterAlias()));
+            } else if (candidatePredicate.isTautology()) {
+                return Optional.of(new PredicateMapping(this,
+                        candidatePredicate,
+                        ((matchInfo, boundParameterPrefixMap) -> Optional.of(reapplyPredicate()))));
+
+            }
+
+            return Optional.empty();
+        }
+
+        private Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap,
+                                                               @Nonnull final Placeholder placeholderPredicate) {
+            if (boundParameterPrefixMap.containsKey(placeholderPredicate.getParameterAlias())) {
+                return Optional.empty();
+            }
+
+            return Optional.of(reapplyPredicate());
+        }
+
+        private QueryPredicate reapplyPredicate() {
+            return AndPredicate.and(toResiduals());
         }
 
         public List<QueryPredicate> toResiduals() {
@@ -241,14 +278,20 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
             final ImmutableList.Builder<QueryPredicate> residuals = ImmutableList.builder();
             if (comparisonRange.isEquality()) {
-                residuals.add(new ValuePredicate(getValue(), comparisonRange.getEqualityComparison()));
+                residuals.add(getValue().withComparison(comparisonRange.getEqualityComparison()));
             } else if (comparisonRange.isInequality()) {
                 for (final Comparisons.Comparison inequalityComparison : Objects.requireNonNull(comparisonRange.getInequalityComparisons())) {
-                    residuals.add(new ValuePredicate(getValue(), inequalityComparison));
+                    residuals.add(getValue().withComparison(inequalityComparison));
                 }
             }
 
             return residuals.build();
         }
+
+        @Override
+        public String toString() {
+            return getValue() + " " + comparisonRange;
+        }
+
     }
 }

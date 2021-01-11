@@ -86,7 +86,7 @@ public class ExpressionMatcherTest {
     @Test
     public void anyRefMatcher() {
         // create a matcher and expression to match
-        ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> matcher = ReferenceMatcher.anyRef();
+        ReferenceMatcher<? extends RelationalExpression> matcher = ReferenceMatcher.anyRef();
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
@@ -166,8 +166,8 @@ public class ExpressionMatcherTest {
 
     @Test
     public void matchChildrenAsReferences() {
-        ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> childMatcher1 = ReferenceMatcher.anyRef();
-        ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> childMatcher2 = ReferenceMatcher.anyRef();
+        ReferenceMatcher<? extends RelationalExpression> childMatcher1 = ReferenceMatcher.anyRef();
+        ReferenceMatcher<? extends RelationalExpression> childMatcher2 = ReferenceMatcher.anyRef();
         ExpressionMatcher<RecordQueryUnionPlan> matcher =
                 TypeMatcher.of(RecordQueryUnionPlan.class,
                         QuantifierMatcher.physical(childMatcher1),
@@ -190,7 +190,7 @@ public class ExpressionMatcherTest {
     @Test
     public void treeDescentWithMixedBindings() {
         // build a relatively complicated matcher
-        ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> filterLeafMatcher = ReferenceMatcher.anyRef();
+        ReferenceMatcher<? extends RelationalExpression> filterLeafMatcher = ReferenceMatcher.anyRef();
         ExpressionMatcher<QueryPredicate> andMatcher = TypeMatcher.of(AndPredicate.class, AnyChildrenMatcher.ANY);
         ExpressionMatcher<LogicalFilterExpression> filterPlanMatcher =
                 TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
@@ -206,7 +206,7 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)));
         LogicalFilterExpression filterPlan =
-                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).normalizeForPlanner(quantifier.getAlias()).asAndPredicate(),
+                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias()).asAndPredicate(),
                         quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(

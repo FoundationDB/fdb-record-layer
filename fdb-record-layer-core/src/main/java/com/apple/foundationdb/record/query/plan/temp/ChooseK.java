@@ -146,10 +146,8 @@ public class ChooseK {
                 int resultOffset = 0;
                 for (final PeekingIterator<Integer> iterator : state) {
                     resultOffset += iterator.peek();
-                    // System.out.print("[" + iterator.peek() + " " + resultOffset + "]");
                     resultBuilder.add(elements.get(resultOffset - 1));
                 }
-                // System.out.println();
 
                 return resultBuilder.build();
             }
@@ -214,7 +212,7 @@ public class ChooseK {
     /**
      * An implementation of {@link EnumeratingIterable} that is optimized to work for single item
      * input sets. The case where the input set is exactly one item is trivial and also properly handled by
-     * {@link ComplexIterable}. Iterators created by this class, however, avoid to build complex state objects
+     * {@link ComplexIterable}. Iterators created by this class, however, avoid building complex state objects
      * during their lifecycle.
      *
      * @param <T> type

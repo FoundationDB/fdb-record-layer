@@ -43,13 +43,27 @@ public interface Value extends Correlated<Value>, PlanHashable {
     @Nullable
     <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
 
+    /**
+     * Method to create a {@link QueryPredicate} that is based on this value and a
+     * {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} that is passed in by the
+     * caller.
+     * @param comparison comparison to relate this value to
+     * @return a new {@link ValuePredicate} using the passed in {@code comparison}
+     */
     @Nonnull
     default ValuePredicate withComparison(@Nonnull Comparisons.Comparison comparison) {
         return new ValuePredicate(this, comparison);
     }
 
+    /**
+     * Method to create a {@link Placeholder} that is based on this value. A placeholder is also a {@link QueryPredicate}
+     * that is used solely for matching query predicates against.
+     * @param parameterAlias alias to uniquely identify the parameter in the
+     *        {@link com.apple.foundationdb.record.query.plan.temp.MatchCandidate} this placeholder will be a part of.
+     * @return a new {@link Placeholder}
+     */
     @Nonnull
-    default Placeholder withParameterAlias(@Nonnull final CorrelationIdentifier parameterAlias) {
+    default Placeholder asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {
         return ValueComparisonRangePredicate.placeholder(this, parameterAlias);
     }
 }

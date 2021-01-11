@@ -783,14 +783,13 @@ public class PlannerRepl implements Debugger {
     }
 
     /**
-     * TBD.
+     * Breakpoint that breaks when a transform rule call yields an expression.
      */
-    public static class OnYieldBreakPoint extends BreakPoint {
-
+    public static class OnYieldExpressionBreakPoint extends BreakPoint {
         @Nonnull
         private final String expressionName;
 
-        public OnYieldBreakPoint(@Nonnull final String expressionName) {
+        public OnYieldExpressionBreakPoint(@Nonnull final String expressionName) {
             super(event -> event.getShorthand() == Shorthand.RULECALL &&
                            event.getLocation() == Location.END &&
                            event instanceof TransformRuleCallEvent);
@@ -827,7 +826,7 @@ public class PlannerRepl implements Debugger {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            final OnYieldBreakPoint that = (OnYieldBreakPoint)o;
+            final OnYieldExpressionBreakPoint that = (OnYieldExpressionBreakPoint)o;
             return expressionName.equals(that.expressionName);
         }
 
@@ -838,34 +837,27 @@ public class PlannerRepl implements Debugger {
     }
 
     /**
-     * Breakpoint that breaks when the planner attempts to match an expression against a match candidate.
+     * Breakpoint that breaks when a transform rule call yields a new match for a given candidate.
      */
-    public static class OnMatchBreakPoint extends BreakPoint {
-
+    public static class OnYieldMatchBreakPoint extends BreakPoint {
         @Nonnull
-        private final String candidateNamePrefix;
+        private final String candidateName;
 
-        @Nonnull
-        private final Location location;
-
-        public OnMatchBreakPoint(@Nonnull final String candidateNamePrefix, @Nonnull final Location location) {
-            super(event -> event.getShorthand() == Shorthand.MATCHEXPCAND &&
-                           event.getLocation() == location &&
-                           event instanceof MatchExpressionWithCandidateEvent);
-            this.candidateNamePrefix = candidateNamePrefix;
-            this.location = location;
+        public OnYieldMatchBreakPoint(@Nonnull final String candidateName) {
+            super(event -> event.getShorthand() == Shorthand.RULECALL &&
+                           event.getLocation() == Location.END &&
+                           event instanceof TransformRuleCallEvent);
+            this.candidateName = candidateName;
         }
 
         @Override
         public boolean onCallback(final PlannerRepl plannerRepl, final Event event) {
             if (super.onCallback(plannerRepl, event)) {
-                final MatchExpressionWithCandidateEvent matchExpressionWithCandidateEvent =
-                        (MatchExpressionWithCandidateEvent)event;
-                return (Location.ANY == location || event.getLocation() == location) &&
-                       matchExpressionWithCandidateEvent
-                               .getMatchCandidate()
-                               .getName()
-                               .startsWith(candidateNamePrefix);
+                final TransformRuleCallEvent transformRuleCallEvent = (TransformRuleCallEvent)event;
+                return transformRuleCallEvent.getRuleCall()
+                        .getNewPartialMatches()
+                        .stream()
+                        .anyMatch(partialMatch -> candidateName.equals(partialMatch.getMatchCandidate().getName()));
             }
             return false;
         }
@@ -874,8 +866,9 @@ public class PlannerRepl implements Debugger {
         public void onList(final PlannerRepl plannerRepl) {
             super.onList(plannerRepl);
             plannerRepl.print("; ");
-            plannerRepl.printKeyValue("candidateNamePrefix", candidateNamePrefix + "; ");
-            plannerRepl.printKeyValue("location", location.name());
+            plannerRepl.printKeyValue("shorthand", Shorthand.RULECALL + "; ");
+            plannerRepl.printKeyValue("location", Location.END.name().toLowerCase() + "; ");
+            plannerRepl.printKeyValue("candidate", candidateName);
         }
 
         @Override
@@ -886,14 +879,13 @@ public class PlannerRepl implements Debugger {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            final OnMatchBreakPoint that = (OnMatchBreakPoint)o;
-            return candidateNamePrefix.equals(that.candidateNamePrefix) &&
-                   location == that.location;
+            final OnYieldMatchBreakPoint that = (OnYieldMatchBreakPoint)o;
+            return candidateName.equals(that.candidateName);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(candidateNamePrefix, location);
+            return Objects.hash(candidateName);
         }
     }
 

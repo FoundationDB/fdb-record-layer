@@ -59,6 +59,7 @@ public class ConstantPredicate implements QueryPredicate {
         this.value = value;
     }
 
+    @Override
     public boolean isTautology() {
         return value;
     }

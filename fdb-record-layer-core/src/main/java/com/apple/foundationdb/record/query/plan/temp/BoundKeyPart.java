@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 
 /**
- * A key expression that can be bound by a comparison.
+ * A key expression that can be bound by a comparison during graph matching.
  */
 public class BoundKeyPart extends KeyPart {
     @Nullable
@@ -38,6 +38,13 @@ public class BoundKeyPart extends KeyPart {
     @Nullable
     private final QueryPredicate candidatePredicate;
 
+    /**
+     * Constructor.
+     * @param normalizedKeyExpression normalized key expression as an alternative representation of this part
+     * @param comparisonRangeType type of comparison
+     * @param queryPredicate reference to {@link QueryPredicate} on query side
+     * @param candidatePredicate reference to {@link QueryPredicate} on candidate side
+     */
     private BoundKeyPart(@Nonnull final KeyExpression normalizedKeyExpression,
                          @Nonnull final ComparisonRange.Type comparisonRangeType,
                          @Nullable final QueryPredicate queryPredicate,

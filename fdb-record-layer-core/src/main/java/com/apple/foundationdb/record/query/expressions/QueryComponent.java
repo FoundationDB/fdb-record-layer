@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -143,11 +143,27 @@ public interface QueryComponent extends PlanHashable {
      */
     void validate(@Nonnull Descriptors.Descriptor descriptor);
 
+    /**
+     * Expand this query component into a data flow graph. The returned graph represents an adequate representation
+     * of the component as composition of relational expressions and operators.
+     * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
+     * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
+     */
     @API(API.Status.EXPERIMENTAL)
-    default ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias) {
-        return normalizeForPlanner(baseAlias, Collections.emptyList());
+    default GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias) {
+        return expand(baseAlias, Collections.emptyList());
     }
 
+    /**
+     * Expand this query component into a data flow graph. The returned graph represents an adequate representation
+     * of the component as composition of relational expressions and operators.
+     * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @param fieldNamePrefix a list of field names that accumulate a field nesting chain for non-repeated fields
+     * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
+     * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
+     * TODO make this method private in Java 11
+     */
     @API(API.Status.EXPERIMENTAL)
-    ExpandedPredicates normalizeForPlanner(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
+    GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
 }

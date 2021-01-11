@@ -66,7 +66,7 @@ public class PlannerGraph extends AbstractPlannerGraph<PlannerGraph.Node, Planne
             if (i < quantifiers.size()) {
                 @Nullable final String label;
                 final Quantifier quantifier = quantifiers.get(i);
-                label = Debugger.mapDebugger(debugger -> debugger.nameForObject(quantifier)).orElse(null);
+                label = Debugger.mapDebugger(debugger -> quantifier.getAlias().getId()).orElse(null);
 
                 if (quantifier instanceof Quantifier.Existential) {
                     edge = new ExistentialQuantifierEdge(label, dependsOn);

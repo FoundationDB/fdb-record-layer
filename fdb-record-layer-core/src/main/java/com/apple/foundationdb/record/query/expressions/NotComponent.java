@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -140,8 +140,8 @@ public class NotComponent implements ComponentWithSingleChild {
     }
 
     @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
-        final ExpandedPredicates childExpandedPredicates = child.normalizeForPlanner(base, fieldNamePrefix);
-        return childExpandedPredicates.withPredicate(new NotPredicate(childExpandedPredicates.asAndPredicate()));
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
+        final GraphExpansion childGraphExpansion = child.expand(base, fieldNamePrefix);
+        return childGraphExpansion.withPredicate(new NotPredicate(childGraphExpansion.asAndPredicate()));
     }
 }

@@ -31,15 +31,23 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
+import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -139,6 +147,37 @@ public class ExistsPredicate implements QueryPredicate {
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+    }
+
+    @Nonnull
+    @Override
+    public Optional<PredicateMapping> impliesCandidatePredicate(@NonNull final AliasMap aliasMap, @Nonnull final QueryPredicate candidatePredicate) {
+        if (candidatePredicate instanceof ExistsPredicate) {
+            final ExistsPredicate candidateExistsPredicate = (ExistsPredicate)candidatePredicate;
+            if (!existentialAlias.equals(aliasMap.getTarget(candidateExistsPredicate.getExistentialAlias()))) {
+                return Optional.empty();
+            }
+            return Optional.of(new PredicateMapping(this, candidatePredicate, this::reapplyPredicateMaybe));
+        } else if (candidatePredicate.isTautology()) {
+            return Optional.of(new PredicateMapping(this, candidatePredicate, this::reapplyPredicateMaybe));
+        }
+        return Optional.empty();
+    }
+
+    @Nonnull
+    public Optional<QueryPredicate> reapplyPredicateMaybe(@Nonnull final MatchInfo matchInfo, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        final Optional<PartialMatch> childPartialMatchOptional = matchInfo.getChildPartialMatch(existentialAlias);
+        final Optional<Compensation> compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
+        if (!compensationOptional.isPresent() || compensationOptional.get().isNeeded()) {
+            // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
+            // TODO make a predicate that can evaluate a QueryComponent
+            return Optional.of(reapplyPredicate());
+        }
+        return Optional.empty();
+    }
+
+    private QueryPredicate reapplyPredicate() {
+        return new QueryComponentPredicate(getAlternativeComponent(), existentialAlias);
     }
 
     @Override

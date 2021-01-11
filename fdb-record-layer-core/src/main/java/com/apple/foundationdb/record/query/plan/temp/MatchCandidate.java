@@ -20,10 +20,17 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -31,10 +38,12 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -43,7 +52,7 @@ import java.util.Set;
  * rather an instance of {@link ExpressionRefTraversal} to allow for navigation of references within the candidate.
  *
  * Match candidates also allow for creation of scans over the materialized data, e.g. the index for an
- * {@link IndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate} given appropriate
+ * {@link ValueIndexScanMatchCandidate} or the primary range for a {@link PrimaryScanMatchCandidate}, given appropriate
  * {@link ComparisonRange}s which usually are the direct result of graph matching.
  */
 public interface MatchCandidate {
@@ -83,10 +92,10 @@ public interface MatchCandidate {
 
     /**
      * Computes a map from {@link CorrelationIdentifier} to {@link ComparisonRange} that is physically compatible with
-     * a scan over the materialized version of the match candidate, so e.g. for an {@link IndexScanMatchCandidate} that
+     * a scan over the materialized version of the match candidate, so e.g. for an {@link ValueIndexScanMatchCandidate} that
      * would be the scan over the index.
      * As matching progresses it finds mappings from parameters to corresponding comparison ranges. Matching, however,
-     * is not sensitive to whether such a binding could actually be uses in an index scan. In fact, in a different maybe
+     * is not sensitive to whether such a binding could actually be used in an index scan. In fact, in a different maybe
      * future record layer with improved physical operators this method should be revised to account for those improvements.
      * For now, we only consider a prefix of said mappings that consist of n equality-bound mappings and stops either
      * at an inequality bound parameter or before a unbound parameter.
@@ -182,5 +191,52 @@ public interface MatchCandidate {
             }
         }
         return refToExpressionMap;
+    }
+
+    @Nonnull
+    static Optional<MatchCandidate> fromIndexDefinition(@Nonnull final RecordMetaData metaData,
+                                                        @Nonnull final Index index,
+                                                        final boolean isReverse) {
+        final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
+        final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
+
+        final ImmutableSet<String> recordTypeNamesForIndex =
+                recordTypesForIndex
+                        .stream()
+                        .map(RecordType::getName)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
+
+        final String type = index.getType();
+
+        if (type.equals(IndexTypes.VALUE)) {
+            final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypeNamesForIndex);
+            final ValueIndexExpansionVisitor expansionVisitor = new ValueIndexExpansionVisitor(index);
+            return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKeyForIndex, isReverse));
+        }
+
+        return Optional.empty();
+    }
+
+    @Nonnull
+    static Optional<MatchCandidate> fromPrimaryDefinition(@Nonnull final RecordMetaData metaData,
+                                                          @Nonnull final Set<String> recordTypes,
+                                                          @Nullable KeyExpression commonPrimaryKey,
+                                                          final boolean isReverse) {
+        if (commonPrimaryKey != null) {
+            final Set<String> availableRecordTypes = metaData.getRecordTypes().keySet();
+            final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypes);
+            final PrimaryAccessExpansionVisitor expansionVisitor = new PrimaryAccessExpansionVisitor(availableRecordTypes, recordTypes);
+            return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKey, isReverse));
+        }
+
+        return Optional.empty();
+    }
+
+    @Nonnull
+    static Quantifier.ForEach createBaseQuantifier(@Nonnull final Set<String> allAvailableRecordTypes, @Nonnull final Set<String> recordTypesForIndex) {
+        final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes)));
+        return Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(recordTypesForIndex, quantifier)));
     }
 }

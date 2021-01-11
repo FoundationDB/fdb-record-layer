@@ -1,5 +1,5 @@
 /*
- * LogicalSortExpressionOld.java
+ * MatchableSortExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,16 +21,18 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
+import com.apple.foundationdb.record.query.plan.temp.PredicateMap;
+import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -38,7 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGrap
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.ImplementSortRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.base.Verify;
@@ -60,12 +62,12 @@ import java.util.Set;
  * relational planner expression.
  *
  * TODO BEGIN
- * This class is somewhat flawed. There is a cousin of this class {@link LogicalSortExpression} which does a similar
- * thing conceptually but is still technically a quite different. {@link LogicalSortExpression} serves as the logical
+ * This class is somewhat flawed. There is a cousin of this class {@link LogicalSortExpression} which serves a similar
+ * purpose conceptually but is still technically quite different. {@link LogicalSortExpression} serves as the logical
  * precursor to a physical implementation of a sort (which we do not (yet) have). So in order for the planner to produce
- * an executable plan, that sort expression has to be optimized away by e.g. {@link ImplementSortRule}. This class
+ * an executable plan, that sort expression has to be optimized away by e.g. {@link RemoveSortRule}. This class
  * is different in a way that it an only be used as an expression to be matched against. In other words this class is
- * only allowed to appear in a match candidate, ever on the expression side. The reason why that is comes down to the
+ * only ever allowed to appear in a match candidate on the expression side. The reason why that is comes down to the
  * simple question of how to express the thing(s) to sort on in general and what to do with nested repeated value in
  * particular.
  *
@@ -77,7 +79,7 @@ import java.util.Set;
  * it cannot be computed (conceptually) in this operator. The nested repeated field {@code a} needs to come from either
  * a physical version of an {@link ExplodeExpression} (which we don't have (yet)) or from an index access as index keys
  * can be constructed in this way. The expressiveness that is fundamentally lacking here is to model what data flows,
- * how it flows and what operations have been applied to it since it was fethed. There are other places where exactly
+ * how it flows and what operations have been applied to it since it was generated. There are other places where exactly
  * this is a problem as well. Specifically, for the sort expression, however, this problem manifests itself as:
  *
  * (1) Either the sort is expressed by using {@link KeyExpression}s. In that case, expressing a nested repeated value
@@ -111,7 +113,7 @@ import java.util.Set;
  * As a direct result of this we now have two different logical sort expressions. One, {@link LogicalSortExpression}
  * which expresses order by using {@link KeyExpression}s and which has the problems layed out in (1), and a this one
  * {@link MatchableSortExpression} which expresses order by explicitly naming the constituent parts of an index.
- * In the future, we should strive ti unify these two classes to one logical sort expression. For now, we have
+ * In the future, we should strive to unify these two classes to one logical sort expression. For now, we have
  * a logical sort expression ({@link LogicalSortExpression}) on the query side and a matchable sort expression
  * ({@link MatchableSortExpression}) on the match candidate side.
  * TODO END
@@ -247,18 +249,22 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
         final MatchInfo matchInfo = partialMatch.getMatchInfo();
         final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap =
                 matchInfo.getParameterBindingMap();
-        final IdentityBiMap<QueryPredicate, QueryPredicate> accumulatedPredicateMap =
-                matchInfo.getAccumulatedPredicateMap();
+        final PredicateMap accumulatedPredicateMap = matchInfo.getAccumulatedPredicateMap();
 
-        final ImmutableMap<CorrelationIdentifier, QueryPredicate> parameterBindingPredicateMap = accumulatedPredicateMap
-                .entrySet()
-                .stream()
-                .filter(entry -> Objects.requireNonNull(entry.getValue().get()) instanceof Placeholder)
-                .collect(ImmutableMap.toImmutableMap(entry -> {
-                    final Placeholder candidatePredicate =
-                            (Placeholder)Objects.requireNonNull(entry.getValue().get());
-                    return candidatePredicate.getParameterAlias();
-                }, entry -> Objects.requireNonNull(entry.getKey().get())));
+        final ImmutableMap<CorrelationIdentifier, QueryPredicate> parameterBindingPredicateMap =
+                accumulatedPredicateMap
+                        .entries()
+                        .stream()
+                        .filter(entry -> {
+                            final PredicateMapping predicateMapping = entry.getValue();
+                            return predicateMapping.getParameterAliasOptional().isPresent();
+                        })
+                        .collect(ImmutableMap.toImmutableMap(entry -> {
+                            final PredicateMapping predicateMapping = entry.getValue();
+                            return Objects.requireNonNull(predicateMapping
+                                    .getParameterAliasOptional()
+                                    .orElseThrow(() -> new RecordCoreException("parameter alias should have been set")));
+                        }, entry -> Objects.requireNonNull(entry.getKey())));
 
         final List<KeyExpression> normalizedKeys =
                 matchCandidate.getAlternativeKeyExpression().normalizeKeyForPositions();
@@ -274,16 +280,22 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
             Objects.requireNonNull(parameterId);
             Objects.requireNonNull(normalizedKey);
             @Nullable final ComparisonRange comparisonRange = parameterBindingMap.get(parameterId);
-
-            final QueryPredicate queryPredicate = parameterBindingPredicateMap.get(parameterId);
+            @Nullable final QueryPredicate queryPredicate = parameterBindingPredicateMap.get(parameterId);
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
+
+            final QueryPredicate candidatePredicate =
+                    queryPredicate == null
+                    ? null
+                    : accumulatedPredicateMap.getMappingOptional(queryPredicate)
+                            .map(PredicateMapping::getCandidatePredicate)
+                            .orElseThrow(() -> new RecordCoreException("no candidate predicate"));
 
             builder.add(
                     BoundKeyPart.of(normalizedKey,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                             queryPredicate,
-                            queryPredicate == null ? null : Objects.requireNonNull(accumulatedPredicateMap.getUnwrapped(queryPredicate))));
+                            candidatePredicate));
         }
 
         return builder.build();

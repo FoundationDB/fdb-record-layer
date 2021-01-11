@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.IndexScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.MatchPartition;
@@ -77,7 +77,7 @@ import java.util.stream.StreamSupport;
  *
  * <ul>
  *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
- *     <li>an {@link IndexScanExpression} for a single {@link IndexScanMatchCandidate}</li>
+ *     <li>an {@link IndexScanExpression} for a single {@link ValueIndexScanMatchCandidate}</li>
  * </ul>
  *
  * The logic that this rules delegates to to actually create the expressions can be found in
@@ -129,7 +129,6 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
         final ImmutableMap<PartialMatch, RelationalExpression> bestMatchToExpressionMap =
                 createScansForBestMatches(bestMatches);
 
-
         // create single scan accesses
         for (final PartialMatch bestMatch : bestMatches) {
             final ImmutableList<PartialMatch> singleMatchPartition = ImmutableList.of(bestMatch);
@@ -146,7 +145,6 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
         @Nullable final KeyExpression commonPrimaryKey = call.getContext().getCommonPrimaryKey();
         if (commonPrimaryKey != null) {
             final List<KeyExpression> commonPrimaryKeyParts = commonPrimaryKey.normalizeKeyForPositions();
-
 
             final List<BoundPartition> boundPartitions = Lists.newArrayList();
             // create intersections for all n choose k partitions from k = 2 .. n

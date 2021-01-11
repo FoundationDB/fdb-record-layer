@@ -1,5 +1,5 @@
 /*
- * ImplementUnorderedUnionRule.java
+ * ImplementDistinctUnionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,15 +25,14 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
@@ -49,9 +48,9 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * A rule that implements an unordered union of its (already implemented) children. This will extract the
+ * A rule that implements a distinct union of its (already implemented) children. This will extract the
  * {@link RecordQueryPlan} from each child of a {@link LogicalUnorderedUnionExpression} and create a
- * {@link RecordQueryUnorderedUnionPlan} with those plans as children.
+ * {@link RecordQueryUnionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpression> {

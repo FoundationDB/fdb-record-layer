@@ -26,13 +26,20 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -70,11 +77,17 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     private final CorrelationIdentifier alias;
 
     /**
-     * As a quantifier is immutable the correlated set can be computed lazily and then cached. This supplier
+     * As a quantifier is immutable, the correlated set can be computed lazily and then cached. This supplier
      * represents that cached set.
      */
     @Nonnull
     private final Supplier<Set<CorrelationIdentifier>> correlatedToSupplier;
+
+    /**
+     * As a quantifier is immutable, the columns that flow along the quantifier can be lazily computed.
+     */
+    @Nonnull
+    private final Supplier<Optional<List<? extends QuantifiedColumnValue>>> flowedValuesSupplier;
 
     /**
      * Builder class for quantifiers.
@@ -116,7 +129,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
         public static class ForEachBuilder extends Builder<ForEach, ForEachBuilder> {
             @Nonnull
             public ForEach build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
-                return new ForEach(alias == null ? CorrelationIdentifier.randomID() : alias,
+                return new ForEach(alias == null ? CorrelationIdentifier.uniqueID() : alias,
                         rangesOver);
             }
         }
@@ -145,6 +158,12 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
             return Quantifier.forEachBuilder()
                     .from(this)
                     .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues() {
+            return pullUpResultValues();
         }
     }
 
@@ -200,7 +219,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
         public static class ExistentialBuilder extends Builder<Existential, ExistentialBuilder> {
             @Nonnull
             public Existential build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
-                return new Existential(alias == null ? CorrelationIdentifier.randomID() : alias,
+                return new Existential(alias == null ? CorrelationIdentifier.uniqueID() : alias,
                         rangesOver);
             }
         }
@@ -229,6 +248,12 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
             return Quantifier.existentialBuilder()
                     .from(this)
                     .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
+        }
+
+        @Nonnull
+        @Override
+        public Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues() {
+            return Optional.of(ImmutableList.of(new QuantifiedColumnValue(getAlias(), 0)));
         }
     }
 
@@ -282,7 +307,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
         public static class PhysicalBuilder extends Builder<Physical, PhysicalBuilder> {
             @Nonnull
             public Physical build(@Nonnull final ExpressionRef<? extends RecordQueryPlan> rangesOver) {
-                return new Physical(alias == null ? CorrelationIdentifier.randomID() : alias, rangesOver);
+                return new Physical(alias == null ? CorrelationIdentifier.uniqueID() : alias, rangesOver);
             }
 
             /**
@@ -356,6 +381,12 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
                     .from(this)
                     .build(needsRebase(translationMap) ? getRangesOver().rebase(translationMap) : getRangesOver());
         }
+
+        @Nonnull
+        @Override
+        public Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues() {
+            return pullUpResultValues();
+        }
     }
 
     /**
@@ -382,6 +413,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     protected Quantifier(@Nonnull final CorrelationIdentifier alias) {
         this.alias = alias;
         this.correlatedToSupplier = Suppliers.memoize(() -> getRangesOver().getCorrelatedTo());
+        this.flowedValuesSupplier = Suppliers.memoize(this::computeFlowedValues);
         // Call debugger hook for this new quantifier.
         Debugger.registerQuantifier(this);
     }
@@ -442,7 +474,6 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
         return getRangesOver().semanticEquals(that.getRangesOver(), aliasMap);
     }
 
-    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean equalsOnKind(final Object o) {
         if (this == o) {
             return true;
@@ -492,5 +523,46 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     @Nonnull
     public <Q extends Quantifier> Q narrow(@Nonnull Class<Q> narrowedClass) {
         return narrowedClass.cast(this);
+    }
+
+    @Nonnull
+    public Optional<List<? extends QuantifiedColumnValue>> getFlowedValues() {
+        return flowedValuesSupplier.get();
+    }
+
+    @Nonnull
+    protected abstract Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues();
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Nonnull
+    protected Optional<List<? extends QuantifiedColumnValue>> pullUpResultValues() {
+        return resolveValuesRangedOver().map(unifiedResultValues ->
+                Streams.mapWithIndex(unifiedResultValues.stream(),
+                        (columnValue, index) -> new QuantifiedColumnValue(getAlias(), Math.toIntExact(index)))
+                        .collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nonnull
+    protected Optional<List<? extends Value>> resolveValuesRangedOver() {
+        final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
+
+        return rangesOver.getMembers()
+                .stream()
+                .map(RelationalExpression::getResultValues)
+                .reduce((leftOptional, rightOptional) -> {
+                    if (!leftOptional.isPresent() || !rightOptional.isPresent()) {
+                        return Optional.empty();
+                    }
+                    final List<? extends Value> left = leftOptional.get();
+                    final List<? extends Value> right = rightOptional.get();
+
+                    Preconditions.checkArgument(!left.isEmpty() && !right.isEmpty());
+
+                    // TODO type check -- for now just return the prefix common in both
+                    final int commonPrefixLength = Math.min(left.size(), right.size());
+
+                    return Optional.of(ImmutableList.copyOf(left.subList(0, commonPrefixLength)));
+                })
+                .flatMap(Function.identity());
     }
 }

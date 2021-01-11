@@ -29,14 +29,12 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.ObjectValue;
-import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -45,7 +43,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * Take keys from a record field.
@@ -213,36 +210,12 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
-                                                  @Nonnull final List<String> fieldNamePrefix) {
-        final List<String> fieldNames = ImmutableList.<String>builder()
-                .addAll(fieldNamePrefix)
-                .add(fieldName)
-                .build();
-        final Placeholder predicate;
-        switch (fanType) {
-            case FanOut:
-                final Quantifier childBase = getBase(baseAlias, fieldNamePrefix);
-                final CorrelationIdentifier parameterAlias = parameterAliasSupplier.get();
-                predicate = new ObjectValue(childBase.getAlias()).withParameterAlias(parameterAlias);
-                final ExpandedPredicates.Sealed childExpandedPredicates = ExpandedPredicates.ofPlaceholderPredicate(predicate).seal();
-                final SelectExpression selectExpression =
-                        childExpandedPredicates
-                                .buildSelectWithBase(childBase);
-                final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
-                return childExpandedPredicates.derivedWithQuantifier(childQuantifier);
-            case None:
-                predicate = new FieldValue(baseAlias, fieldNames).withParameterAlias(parameterAliasSupplier.get());
-                return ExpandedPredicates.ofPlaceholderPredicate(predicate);
-            case Concatenate: // TODO collect/concatenate function
-            default:
-        }
-        throw new UnsupportedOperationException();
+    public <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+        return visitor.visitExpression(this);
     }
 
     @Nonnull
-    Quantifier getBase(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix) {
+    public Quantifier explodeField(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
@@ -256,6 +229,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         }
     }
 
+    @Nonnull
     public String getFieldName() {
         return fieldName;
     }

@@ -38,7 +38,6 @@ import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,7 +67,7 @@ import java.util.function.Supplier;
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
  * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
- * more additional {@code PlannerExpression}s and/or zero or mode additional {@link PartialMatch}es. A rule is defined by:
+ * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined by:
  * </p>
  * <ul>
  *     <li>
@@ -108,8 +107,11 @@ import java.util.function.Supplier;
  * {@link CascadesCostModel} which is a heuristic model implemented as a {@link java.util.Comparator}.
  * </p>
  *
+ * <p>
  * Simplified enqueue/execute overview:
+ * </p>
  *
+ * <pre>
  * {@link OptimizeGroup}
  *     if (not explored)
  *         enqueues
@@ -127,7 +129,7 @@ import java.util.function.Supplier;
  * {@link ExploreExpression}
  *     enqueues
  *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
- *         all transformations ({@link TransformExpression} for current (group, expression)
+ *         all transformations ({@link TransformExpression}) for current (group, expression)
  *         {@link ExploreGroup} for all ranged over groups
  *
  * after execution of any TransformXXX
@@ -143,23 +145,24 @@ import java.util.function.Supplier;
  * {@link OptimizeInputs}
  *     enqueues
  *         {@link OptimizeGroup} for all ranged over groups
+ * </pre>
  *
- * Note: Enqueued tasks are executes in typical stack machine order, that is LIFO.
+ * Note: Enqueued tasks are executed in typical stack machine order, that is LIFO.
  *
  * There are three different kinds of transformations:
  * <ul>
  *     <li>
- *         Transforms on expressions {@link TransformExpression}. These are the classical transforms creating new
+ *         Transforms on expressions {@link TransformExpression}: These are the classical transforms creating new
  *         variations in the expression memoization structure. The root for the corresponding rules is always of type
  *         {@link RelationalExpression}.
  *     </li>
  *     <li>
- *         Transforms on partial matches {@link TransformPartialMatch}. These transforms are executed when a partial
+ *         Transforms on partial matches {@link TransformPartialMatch}: These transforms are executed when a partial
  *         match is found and typically only yield other new partial matches for the <em>current</em> (group, expression)
  *         pair. The root for the corresponding rules is always of type {@link PartialMatch}.
  *     </li>
  *     <li>
- *         Transforms on match partitions {@link TransformMatchPartition}. These transforms are executed only after
+ *         Transforms on match partitions {@link TransformMatchPartition}: These transforms are executed only after
  *         all transforms (both {@link TransformExpression}s and {@link TransformPartialMatch}) have been executed
  *         for a current (group, expression). Note, that this kind transformation task can be repeatedly executed for
  *         a given group but it is guaranteed to only be executed once for a (group, expression) pair.
@@ -233,9 +236,7 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
-    @VisibleForTesting
-    @Nonnull
-    public GroupExpressionRef<RelationalExpression> planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
+    private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
         aliasResolver = AliasResolver.withRoot(currentRoot);
         Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
@@ -269,7 +270,6 @@ public class CascadesPlanner implements QueryPlanner {
                 taskStack.push(new OptimizeGroup(context, currentRoot));
             }
         }
-        return currentRoot;
     }
 
     @Override
@@ -590,11 +590,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
 
             final PlannerBindings initialBindings = getInitialBindings();
-
-            if (logger.isTraceEnabled()) {
-                logger.trace("Bindings: " +  getBindable().bindTo(initialBindings, rule.getMatcher()).count());
-            }
-
+            
             getBindable().bindTo(initialBindings, rule.getMatcher())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
@@ -743,7 +739,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public Debugger.Event toTaskEvent(final Location location) {
-            return new Debugger.MatchExpressionEvent(currentRoot, taskStack, location, getGroup(), getExpression());
+            return new Debugger.AdjustMatchEvent(currentRoot, taskStack, location, getGroup(), getExpression());
         }
 
         @Override

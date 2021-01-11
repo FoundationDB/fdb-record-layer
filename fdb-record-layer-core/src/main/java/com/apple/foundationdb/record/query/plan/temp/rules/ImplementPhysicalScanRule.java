@@ -1,5 +1,5 @@
 /*
- * LogicalToPhysicalIndexScanRule.java
+ * ImplementPhysicalScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,35 +21,33 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
 /**
- * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts
+ * A rule that converts a logical index scan expression to a {@link RecordQueryScanPlan}. This rule simply converts
  * the logical index scan's to a
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons} to be used during query execution.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalToPhysicalIndexScanRule extends PlannerRule<IndexScanExpression> {
-    private static final ExpressionMatcher<IndexScanExpression> root = TypeMatcher.of(IndexScanExpression.class);
+public class ImplementPhysicalScanRule extends PlannerRule<PrimaryScanExpression> {
+    private static final ExpressionMatcher<PrimaryScanExpression> root = TypeMatcher.of(PrimaryScanExpression.class);
 
-    public LogicalToPhysicalIndexScanRule() {
+    public ImplementPhysicalScanRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final IndexScanExpression logical = call.get(root);
-        call.yield(call.ref(new RecordQueryIndexPlan(Objects.requireNonNull(
-                logical.getIndexName()),
-                logical.getScanType(),
+        final PrimaryScanExpression logical = call.get(root);
+        call.yield(call.ref(new RecordQueryScanPlan(
+                logical.getRecordTypes(),
                 logical.scanComparisons(),
                 logical.isReverse())));
     }

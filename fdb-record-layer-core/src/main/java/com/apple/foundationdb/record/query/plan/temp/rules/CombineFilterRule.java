@@ -77,7 +77,7 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<ExpressionRef<? extends RelationalExpression>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ReferenceMatcher<? extends RelationalExpression> innerMatcher = ReferenceMatcher.anyRef();
     private static final ExpressionMatcher<Quantifier.ForEach> lowerQunMatcher = QuantifierMatcher.forEach(innerMatcher);
     private static final ExpressionMatcher<QueryPredicate> lowerMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<QueryPredicate> upperMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);

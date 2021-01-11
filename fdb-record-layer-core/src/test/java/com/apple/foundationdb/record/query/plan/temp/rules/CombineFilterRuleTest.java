@@ -55,7 +55,7 @@ public class CombineFilterRuleTest {
                                                               @Nonnull RelationalExpression inner) {
         final Quantifier.ForEach innerQuantifier = Quantifier.forEach(GroupExpressionRef.of(inner));
         return new LogicalFilterExpression(
-                queryComponent.normalizeForPlanner(innerQuantifier.getAlias()).asAndPredicate(),
+                queryComponent.expand(innerQuantifier.getAlias()).asAndPredicate(),
                 innerQuantifier);
     }
 

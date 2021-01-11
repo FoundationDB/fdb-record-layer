@@ -41,7 +41,7 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
     private final List<CorrelationIdentifier> parameters;
 
     /**
-     * Traversal object.
+     * Traversal object of the primary scan graph (not the query graph).
      */
     @Nonnull
     private final ExpressionRefTraversal traversal;
@@ -109,7 +109,6 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    @SuppressWarnings("java:S135")
     public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
         return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
                 new PrimaryScanExpression(getAvailableRecordTypes(),

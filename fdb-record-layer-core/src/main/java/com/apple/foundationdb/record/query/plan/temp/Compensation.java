@@ -40,19 +40,22 @@ import java.util.function.Function;
 /**
  * Interface for all kinds of compensation. A compensation is the byproduct of expression DAG matching.
  * Matching two graphs {@code Q} and {@code M} may yield two sub graphs {@code Q_s} and {@code M_s} that match.
- * {@code A_s} and {@code B_s} may be completely equivalent to each other and {@code Q_s} can be substituted with
+ * {@code Q_s} and {@code M_s} may be completely equivalent to each other and {@code Q_s} can be substituted with
  * {@code M_s} freely and vice versa. The requirement that {@code Q_s} and {@code M_s} have to be semantically
  * equivalent for such a substitution, however, is not very useful. Normally, we try to find a materialized data set
  * such as an index that can be utilized by the planner directly using a scan
  * (requiring a complete match on the {@code M}-side, that is {@code M_s} equals {@code M}) instead of computing the
- * result from the raw base data set. For those purposes it makes more sense to relax the matching requirement to just
- * require that the materialized view side of matching {@code M} can subsume the query side {@code M} which means that
- * executing {@code M} at least contains the result result executing {@code Q} would result in. But it may produce
- * extraneous records. Compensation corrects for that problem by applying certain post-operations such as
+ * result from the raw base data set. For those purposes, it makes more sense to relax the matching requirement to just
+ * require that the materialized view side of matching {@code Q} can subsume the query side {@code M} which means that
+ * executing {@code M} at least contains the result that executing {@code Q} would yield. That execution, however,
+ * may produce also extraneous records. Compensation corrects for that problem by applying certain post-operations such as
  * filtering, distincting or resorting.
  *
+ * <p>
  * Example in SQL terms:
+ * </p>
  *
+ * <p>
  * Query:
  * <pre>
  * {@code
@@ -62,6 +65,7 @@ import java.util.function.Function;
  * }
  * </pre>
  *
+ * <p>
  * Index:
  * <pre>
  * {@code
@@ -72,6 +76,7 @@ import java.util.function.Function;
  * }
  * </pre>
  *
+ * <p>
  * A match for the two graphs created for both query and index side is:
  * <pre>
  * {@code
@@ -175,6 +180,36 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
     }
 
     /**
+     * Union this compensation with another one passed in.
+     * @param otherCompensation other compensation to union this compensation with
+     * @return the new compensation representing the union of both compensations
+     */
+    @Nonnull
+    default Compensation union(@Nonnull Compensation otherCompensation) {
+        if (!isNeeded() && !otherCompensation.isNeeded()) {
+            return noCompensation();
+        }
+
+        if (!isNeeded()) {
+            return otherCompensation;
+        }
+
+        if (!otherCompensation.isNeeded()) {
+            return this;
+        }
+
+        return new Compensation() {
+            @Nonnull
+            @Override
+            public RelationalExpression apply(@Nonnull final ExpressionRef<RelationalExpression> reference) {
+                return Compensation.this.apply(
+                        GroupExpressionRef.of(otherCompensation
+                                .apply(reference)));
+            }
+        };
+    }
+
+    /**
      * Intersect this compensation with another one passed in.
      * @param otherCompensation other compensation to intersect this compensation with
      * @return the new compensation representing the intersection of both compensations
@@ -208,11 +243,11 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
 
     /**
      * Returns a compensation which represents the <em>impossible</em> compensation, i.e. it returns an object where
-     * {@link #isNeeded()} returns {@code true} however, that cannot be applied. This object is only needed to define
+     * {@link #isNeeded()} returns {@code true} but that cannot be applied. This object is only needed to define
      * the identity of the intersection monoid on compensations. One can imagine the impossible compensation to stand
      * for the fact that compensation is needed (that is the match subsumes the query) but that the compensation itself
      * cannot be computed.
-     * @return a compensation object that represents an impossible for compensation
+     * @return a compensation object that represents an impossible compensation
      */
     @Nonnull
     static Compensation impossibleCompensation() {
@@ -222,13 +257,16 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
     /**
      * Returns a specific compensation object that uses a mapping between predicates from a query to predicates that
      * are used for the application of the compensation.
+     * @param childCompensation a compensation that should be applied before the compensation being created in this
+     *        method
      * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
      *        used for compensation
      * @return a new compensation
      */
     @Nonnull
-    static Compensation ofPredicateMap(final Map<QueryPredicate, QueryPredicate> predicateCompensationMap) {
-        return predicateCompensationMap.isEmpty() ? noCompensation() : new ForMatch(predicateCompensationMap);
+    static Compensation ofChildCompensationAndPredicateMap(@Nonnull final Compensation childCompensation,
+                                                           @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap) {
+        return predicateCompensationMap.isEmpty() ? noCompensation() : new ForMatch(childCompensation, predicateCompensationMap);
     }
 
     /**
@@ -237,18 +275,78 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
      */
     interface WithPredicateCompensation extends Compensation {
         @Nonnull
+        Compensation getChildCompensation();
+
+        @Nonnull
         Map<QueryPredicate, QueryPredicate> getPredicateCompensationMap();
 
         /**
          * Method to return a new compensation of at least type {@link WithPredicateCompensation} based on the current
          * compensation object. This method should be implemented by implementing classes and/or their sub classes.
          * TODO make this method protected in Java 11.
-         * @param predicateCompensationMap  map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
+         * @param childCompensation a compensation that should be applied before the compensation being created in this
+         *        method
+         * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
          *        used for compensation
          * @return a new compensation
          */
         @Nonnull
-        WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap);
+        WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull Compensation childCompensation,
+                                                                      @Nonnull IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap);
+
+        /**
+         * Specific implementation of union-ing two compensations both of type {@link WithPredicateCompensation}.
+         * This implementation delegates to its super method if {@code otherCompensation} is not of type
+         * {@link WithPredicateCompensation}. If it is, it creates a new compensation of type
+         * {@link WithPredicateCompensation} that contains the mappings of both this compensation
+         * and {@code otherCompensation}.
+         * @param otherCompensation other compensation to union this compensation with
+         * @return a new compensation object representing the logical union between {@code this} and
+         *         {@code otherCompensation}
+         */
+        @Nonnull
+        @Override
+        default Compensation union(@Nonnull Compensation otherCompensation) {
+            if (!(otherCompensation instanceof WithPredicateCompensation)) {
+                return Compensation.super.union(otherCompensation);
+            }
+
+            final WithPredicateCompensation otherWithPredicateCompensation = (WithPredicateCompensation)otherCompensation;
+            final Map<QueryPredicate, QueryPredicate> otherCompensationMap = otherWithPredicateCompensation.getPredicateCompensationMap();
+
+            final IdentityHashMap<QueryPredicate, QueryPredicate> combinedMap = Maps.newIdentityHashMap();
+
+            combinedMap.putAll(getPredicateCompensationMap());
+
+            for (final Map.Entry<QueryPredicate, QueryPredicate> otherEntry : otherCompensationMap.entrySet()) {
+                // if the other side does not have compensation for this key, we don't need compensation
+                if (combinedMap.containsKey(otherEntry.getKey())) {
+                    // Both compensations have a compensation for this particular predicate which is essentially
+                    // reapplying the predicate.
+                    //
+                    // TODO Remember that both sides are effectively asking for a specific
+                    // (to post filtering, etc. of their side after the candidate scan). So in the most generic case
+                    // you have a query predicate that is matched in both compensations differently (cannot happen today)
+                    // and compensated differently.
+                    // Even though it cannot happen today, we can still AND the compensations together. For now,
+                    // we just bail!
+                    //
+                    throw new RecordCoreException("predicate is mapped more than once");
+                }
+                combinedMap.put(otherEntry.getKey(), otherEntry.getValue());
+            }
+
+            final Compensation unionedChildCompensation = getChildCompensation().union(otherWithPredicateCompensation.getChildCompensation());
+            if (!unionedChildCompensation.isNeeded() && combinedMap.isEmpty()) {
+                return Compensation.noCompensation();
+            }
+
+            if (combinedMap.isEmpty()) {
+                return unionedChildCompensation;
+            }
+
+            return derivedWithPredicateCompensationMap(unionedChildCompensation, combinedMap);
+        }
 
         /**
          * Specific implementation of intersecting two compensations both of type {@link WithPredicateCompensation}.
@@ -273,12 +371,26 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
             for (final Map.Entry<QueryPredicate, QueryPredicate> entry : getPredicateCompensationMap().entrySet()) {
                 // if the other side does not have compensation for this key, we don't need compensation
                 if (otherCompensationMap.containsKey(entry.getKey())) {
-                    // we just pick one side
+                    // Both compensations have a compensation for this particular predicate which is essentially
+                    // reapplying the predicate. At this point it doesn't matter which side we take as both create
+                    // the same compensating filter. If at any point in the future one data access has a better
+                    // reapplication we need to generate plan variants with either compensation and let the planner
+                    // figure out which one wins.
+                    // We just pick one side here.
                     combinedMap.put(entry.getKey(), entry.getValue());
                 }
             }
 
-            return combinedMap.isEmpty() ? noCompensation() : derivedWithPredicateCompensationMap(combinedMap);
+            final Compensation intersectedChildCompensation = getChildCompensation().intersect(otherWithPredicateCompensation.getChildCompensation());
+            if (!intersectedChildCompensation.isNeeded() && combinedMap.isEmpty()) {
+                return Compensation.noCompensation();
+            }
+
+            if (combinedMap.isEmpty()) {
+                return intersectedChildCompensation;
+            }
+
+            return derivedWithPredicateCompensationMap(intersectedChildCompensation, combinedMap);
         }
     }
 
@@ -287,11 +399,22 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
      */
     class ForMatch implements WithPredicateCompensation {
         @Nonnull
+        private final Compensation childCompensation;
+
+        @Nonnull
         final Map<QueryPredicate, QueryPredicate> predicateCompensationMap;
 
-        public ForMatch(@Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap) {
+        public ForMatch(@Nonnull final Compensation childCompensation,
+                        @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap) {
+            this.childCompensation = childCompensation;
             this.predicateCompensationMap = Maps.newIdentityHashMap();
             this.predicateCompensationMap.putAll(predicateCompensationMap);
+        }
+
+        @Override
+        @Nonnull
+        public Compensation getChildCompensation() {
+            return childCompensation;
         }
 
         @Nonnull
@@ -302,9 +425,10 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
 
         @Nonnull
         @Override
-        public WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull final IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap) {
+        public WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull final Compensation childCompensation,
+                                                                             @Nonnull final IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap) {
             Verify.verify(!predicateCompensationMap.isEmpty());
-            return new ForMatch(predicateCompensationMap);
+            return new ForMatch(childCompensation, predicateCompensationMap);
         }
 
         /**
@@ -315,7 +439,11 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
          *         filter
          */
         @Override
-        public RelationalExpression apply(final ExpressionRef<RelationalExpression> reference) {
+        public RelationalExpression apply(ExpressionRef<RelationalExpression> reference) {
+            // apply the child is needed
+            if (childCompensation.isNeeded()) {
+                reference = GroupExpressionRef.of(childCompensation.apply(reference));
+            }
             final Quantifier quantifier = Quantifier.forEach(reference);
             final Collection<QueryPredicate> predicates = predicateCompensationMap.values();
             final ImmutableList<QueryPredicate> rebasedPredicates = predicates

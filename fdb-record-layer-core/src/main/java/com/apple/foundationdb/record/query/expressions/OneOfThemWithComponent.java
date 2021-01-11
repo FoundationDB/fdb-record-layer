@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
@@ -101,25 +101,29 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
     }
 
     @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
         final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(baseAlias, fieldNames)));
+        final GraphExpansion graphExpansion = getChild().expand(childBase.getAlias(), Collections.emptyList());
         final SelectExpression selectExpression =
-                getChild().normalizeForPlanner(childBase.getAlias(), Collections.emptyList())
+                graphExpansion
                         .buildSelectWithBase(childBase);
 
         Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
 
+        // create a query component that creates a path to this prefix and then applies this to it
+        // this is needed for reapplication of the component if the sub query cannot be matched or only matched with
+        // compensation
         QueryComponent withPrefix = this;
         for (int i = fieldNamePrefix.size() - 1; i >= 0;  i--) {
             final String fieldName = fieldNames.get(i);
             withPrefix = Query.field(fieldName).matches(withPrefix);
         }
 
-        return ExpandedPredicates.ofPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), withPrefix), childQuantifier);
+        return GraphExpansion.ofPredicateAndQuantifier(new ExistsPredicate(childQuantifier.getAlias(), withPrefix), childQuantifier);
     }
 
     @Override

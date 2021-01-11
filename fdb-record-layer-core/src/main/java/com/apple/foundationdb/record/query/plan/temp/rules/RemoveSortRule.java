@@ -1,5 +1,5 @@
 /*
- * ImplementDistinctRule.java
+ * RemoveSortRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -45,7 +45,7 @@ import java.util.Set;
  * A rule that implements a sort expression by removing this expression if appropriate.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ImplementSortRule extends PlannerRule<LogicalSortExpression> {
+public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
     @Nonnull
     private static final ExpressionMatcher<RecordQueryPlan> innerPlanMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
     @Nonnull
@@ -54,7 +54,7 @@ public class ImplementSortRule extends PlannerRule<LogicalSortExpression> {
     private static final ExpressionMatcher<LogicalSortExpression> root =
             TypeMatcher.of(LogicalSortExpression.class, innerQuantifierMatcher);
 
-    public ImplementSortRule() {
+    public RemoveSortRule() {
         super(root);
     }
 

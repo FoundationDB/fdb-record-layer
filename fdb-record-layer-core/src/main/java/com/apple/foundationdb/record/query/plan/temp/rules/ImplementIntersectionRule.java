@@ -1,5 +1,5 @@
 /*
- * ImplementUnorderedUnionRule.java
+ * ImplementIntersectionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -23,13 +23,12 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
@@ -38,9 +37,9 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
- * A rule that implements an unordered union of its (already implemented) children. This will extract the
+ * A rule that implements an intersection of its (already implemented) children. This will extract the
  * {@link RecordQueryPlan} from each child of a {@link LogicalIntersectionExpression} and create a
- * {@link RecordQueryUnorderedUnionPlan} with those plans as children.
+ * {@link RecordQueryIntersectionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementIntersectionRule extends PlannerRule<LogicalIntersectionExpression> {

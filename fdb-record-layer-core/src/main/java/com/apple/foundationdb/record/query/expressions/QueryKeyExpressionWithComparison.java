@@ -28,8 +28,7 @@ import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
-import com.apple.foundationdb.record.query.predicates.ValuePredicate;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -78,8 +77,8 @@ public class QueryKeyExpressionWithComparison implements ComponentWithComparison
     }
 
     @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
-        return ExpandedPredicates.ofPredicate(new ValuePredicate(keyExpression.toValue(baseAlias, fieldNamePrefix), comparison));
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        return GraphExpansion.ofPredicate(keyExpression.toValue(baseAlias, fieldNamePrefix).withComparison(comparison));
     }
 
     @Override

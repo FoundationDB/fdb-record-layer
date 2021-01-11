@@ -21,12 +21,14 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.AbstractMap;
 import java.util.Collection;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -51,13 +53,44 @@ public class CorrelationIdentifier {
     }
 
     /**
-     * Create a new correlation identifier using a random string. The returned correlation identifier can be assumed
+     * Create a new correlation identifier. The returned correlation identifier can be assumed
      * to be unique.
-     * @return a new {@link CorrelationIdentifier}
+     * @return a new unique {@link CorrelationIdentifier}
      */
     @Nonnull
-    public static CorrelationIdentifier randomID() {
-        return new CorrelationIdentifier(UUID.randomUUID().toString());
+    public static CorrelationIdentifier uniqueID() {
+        return uniqueID(CorrelationIdentifier.class);
+    }
+
+    /**
+     * Create a new correlation identifier. The returned correlation identifier can be assumed
+     * to be unique.
+     * @param clazz to specify the kind of ewntity this identifier is going to be used for. This is really only useful
+     *        if a {@link Debugger} is set.
+     * @return a new unique {@link CorrelationIdentifier}
+     */
+    @Nonnull
+    public static CorrelationIdentifier uniqueID(@Nonnull final Class<?> clazz) {
+        return uniqueID(clazz, clazz.getSimpleName().substring(0, 1).toLowerCase(Locale.getDefault()));
+    }
+
+    /**
+     * Create a new correlation identifier. The returned correlation identifier can be assumed
+     * to be unique.
+     * @param clazz to specify the kind of ewntity this identifier is going to be used for. This is really only useful
+     *        if a {@link Debugger} is set.
+     * @param prefix a prefix for the returned identifier
+     * @return a new unique {@link CorrelationIdentifier}
+     */
+    @Nonnull
+    public static CorrelationIdentifier uniqueID(@Nonnull final Class<?> clazz, @Nonnull final String prefix) {
+        final CorrelationIdentifier id =
+                Debugger.getIndexOptional(clazz)
+                        .map(i -> CorrelationIdentifier.of(prefix + i))
+                        .orElseGet(() -> new CorrelationIdentifier(UUID.randomUUID().toString()));
+        Debugger.updateIndex(clazz, i -> i + 1);
+
+        return id;
     }
 
     private CorrelationIdentifier(@Nonnull final String id) {

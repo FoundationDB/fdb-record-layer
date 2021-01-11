@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -74,9 +74,9 @@ public class AndComponent extends AndOrComponent {
     }
 
     @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
-        return ExpandedPredicates.ofOthers(getChildren().stream()
-                .map(child -> child.normalizeForPlanner(base, fieldNamePrefix))
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
+        return GraphExpansion.ofOthers(getChildren().stream()
+                .map(child -> child.expand(base, fieldNamePrefix))
                 .collect(ImmutableList.toImmutableList()));
     }
 

@@ -30,13 +30,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * An expression children matcher that tries to match all children to a single {@link ExpressionMatcher}.
- *
- * Given a single {@code ExpressionMatcher}, this matcher tries to match it to every child. If it matches all of them, it
- * produces a stream of bindings containing the Cartesian product of the streams of bindings from each child, merged
- * using {@link PlannerBindings#mergedWith(PlannerBindings)}. Because the same matcher is used for all children, the
- * merged bindings will map the single child matcher to a collected list of {@link Bindable}s; such a binding must be
- * retrieved using {@link PlannerBindings#getAll(ExpressionMatcher)} rather than the usual {@code get()} method.
+ * An expression children matcher that tries to match a multitude of children to a single {@link ExpressionMatcher}.
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class MultiChildrenMatcher implements ExpressionChildrenMatcher {

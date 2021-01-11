@@ -40,7 +40,7 @@ import java.util.function.BiConsumer;
  * on instances of {@link ExpressionRef} such as {@link #getLeafReferences()} and {@link #getParentRefs}.
  *
  * The implementation of this class assumes that the original DAG is not mutated after the traversal is created.
- * If the underlying DAG is mutated gainst assumptions, the semantics of this class is defined in a way that calls to
+ * If the underlying DAG is mutated against assumptions, the semantics of this class is defined in a way that calls to
  * graph-backed methods return data as if the mutation hadn't occurred while references that are being returned as part
  * of the result of method calls naturally reflect any mutations that have occurred.
  */

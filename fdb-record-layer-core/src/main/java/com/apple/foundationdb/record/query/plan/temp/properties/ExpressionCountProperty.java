@@ -1,5 +1,5 @@
 /*
- * TypeFilterCountProperty.java
+ * ExpressionCountProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.function.BinaryOperator;
 
 /**
- * A property that determines the sum, over all elements of a {@code PlannerExpression} tree, of the number of occurences
+ * A property that determines the sum, over all elements of a {@code PlannerExpression} tree, of the number of occurrences
  * of specific types of {@link RelationalExpression}.
  *
  * <p>

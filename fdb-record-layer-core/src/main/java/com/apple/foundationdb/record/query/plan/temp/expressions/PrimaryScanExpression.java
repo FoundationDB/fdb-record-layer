@@ -1,5 +1,5 @@
 /*
- * IndexEntrySourceScanExpression.java
+ * PrimaryScanExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -41,9 +42,9 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A logical version of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan}.
+ * A logical version of {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}.
  *
- * @see com.apple.foundationdb.record.query.plan.temp.rules.LogicalToPhysicalScanRule which converts this
+ * @see ImplementPhysicalScanRule which converts this
  *      to a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan}
  */
 public class PrimaryScanExpression implements RelationalExpression, PlannerGraphRewritable {

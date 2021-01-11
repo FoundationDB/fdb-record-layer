@@ -26,15 +26,15 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpandedPredicates;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.function.Supplier;
 
 /**
  * A <code>KeyWithValue</code> expression is a top level expression that takes as input an expression that
@@ -144,10 +144,8 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
 
     @Nonnull
     @Override
-    public ExpandedPredicates normalizeForPlanner(@Nonnull final CorrelationIdentifier baseAlias,
-                                                  @Nonnull final Supplier<CorrelationIdentifier> parameterAliasSupplier,
-                                                  @Nonnull final List<String> fieldNamePrefix) {
-        return innerKey.normalizeForPlanner(baseAlias, parameterAliasSupplier, fieldNamePrefix);
+    public <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+        return visitor.visitExpression(this);
     }
 
     @Nonnull
@@ -174,7 +172,7 @@ public class KeyWithValueExpression extends BaseKeyExpression implements KeyExpr
     }
 
     @Nonnull
-    private KeyExpression getInnerKey() {
+    public KeyExpression getInnerKey() {
         return innerKey;
     }
 

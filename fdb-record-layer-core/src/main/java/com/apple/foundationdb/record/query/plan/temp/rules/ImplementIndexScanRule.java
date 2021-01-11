@@ -1,5 +1,5 @@
 /*
- * LogicalToPhysicalIndexScanRule.java
+ * ImplementIndexScanRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,14 +22,14 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 /**
  * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts
@@ -37,18 +37,19 @@ import javax.annotation.Nonnull;
  * {@link com.apple.foundationdb.record.query.plan.ScanComparisons} to be used during query execution.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalToPhysicalScanRule extends PlannerRule<PrimaryScanExpression> {
-    private static final ExpressionMatcher<PrimaryScanExpression> root = TypeMatcher.of(PrimaryScanExpression.class);
+public class ImplementIndexScanRule extends PlannerRule<IndexScanExpression> {
+    private static final ExpressionMatcher<IndexScanExpression> root = TypeMatcher.of(IndexScanExpression.class);
 
-    public LogicalToPhysicalScanRule() {
+    public ImplementIndexScanRule() {
         super(root);
     }
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final PrimaryScanExpression logical = call.get(root);
-        call.yield(call.ref(new RecordQueryScanPlan(
-                logical.getRecordTypes(),
+        final IndexScanExpression logical = call.get(root);
+        call.yield(call.ref(new RecordQueryIndexPlan(Objects.requireNonNull(
+                logical.getIndexName()),
+                logical.getScanType(),
                 logical.scanComparisons(),
                 logical.isReverse())));
     }

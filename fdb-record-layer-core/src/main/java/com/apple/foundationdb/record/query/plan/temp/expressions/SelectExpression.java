@@ -26,9 +26,14 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.CrossProduct;
+import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
+import com.apple.foundationdb.record.query.plan.temp.PredicateMap;
+import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
@@ -36,9 +41,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGrap
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
-import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -56,6 +59,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -67,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A select expression.
@@ -74,19 +79,26 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class SelectExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicate, InternalPlannerGraphRewritable {
     @Nonnull
+    private final List<? extends Value> resultValues;
+    @Nonnull
     private final List<Quantifier> children;
     @Nonnull
     private final List<QueryPredicate> predicates;
 
-    public SelectExpression(@Nonnull List<Quantifier> children) {
-        this(children, ImmutableList.of());
-    }
-
-    public SelectExpression(@Nonnull List<Quantifier> children, @Nonnull List<QueryPredicate> predicates) {
-        this.children = children;
+    public SelectExpression(@Nonnull List<? extends Value> resultValues,
+                            @Nonnull List<? extends Quantifier> children,
+                            @Nonnull List<QueryPredicate> predicates) {
+        this.resultValues = ImmutableList.copyOf(resultValues);
+        this.children = ImmutableList.copyOf(children);
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
                           : partitionPredicates(predicates);
+    }
+
+    @Nonnull
+    @Override
+    public Optional<List<? extends Value>> getResultValues() {
+        return Optional.of(resultValues);
     }
 
     @Nonnull
@@ -119,7 +131,9 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return getPredicate().getCorrelatedTo();
+        return Streams.concat(getPredicate().getCorrelatedTo().stream(),
+                resultValues.stream().flatMap(resultValue -> resultValue.getCorrelatedTo().stream()))
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
@@ -132,7 +146,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public SelectExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         List<QueryPredicate> rebasedPredicates = predicates.stream().map(p -> p.rebase(translationMap)).collect(Collectors.toList());
-        return new SelectExpression(rebasedQuantifiers, rebasedPredicates);
+        final ImmutableList<Value> rebasedResultValues = resultValues.stream().map(r -> r.rebase(translationMap)).collect(ImmutableList.toImmutableList());
+        return new SelectExpression(rebasedResultValues, rebasedQuantifiers, rebasedPredicates);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -166,17 +181,18 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Nonnull
     @Override
-    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression otherExpression,
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
                                           @Nonnull final AliasMap aliasMap,
                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        // TODO This method should be simplified by adding some structure to it.
         final Collection<MatchInfo> matchInfos = PartialMatch.matchesFromMap(partialMatchMap);
 
-        Verify.verify(this != otherExpression);
+        Verify.verify(this != candidateExpression);
 
-        if (getClass() != otherExpression.getClass()) {
+        if (getClass() != candidateExpression.getClass()) {
             return ImmutableList.of();
         }
-        final SelectExpression otherSelectExpression = (SelectExpression)otherExpression;
+        final SelectExpression otherSelectExpression = (SelectExpression)candidateExpression;
 
         // merge parameter maps -- early out if a binding clashes
         final ImmutableList<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps =
@@ -191,16 +207,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         }
         final Map<CorrelationIdentifier, ComparisonRange> mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
 
-        // 1. ensure all for each quantifiers on this and the other side are matched
-        // 2. find all predicates referring to only matched quantifiers
-        //    a) find all sargable predicates that can now be associated with placeholder predicates, resolve
-        //       placeholder (parameter) to comparison ranges mappings
-        //    b) find all exists(q) predicates and record that we need enforce distinctness for compensation and the exists()
-        // 3. find all predicates referring to only unmatched quantifiers (the rest)
-        //    a.) find predicates on unmatched quantifiers on this side and record to reapply those predicates for compensation
-        //    b.) find predicates on unmatched quantifiers on the other side (candidate) and record that we need to enforce distinctness as compensation
-
-        // loop through all for each quantifiers on this side to ensure that they are all matched
+        // Loop through all for each quantifiers on this side to ensure that they are all matched
+        // If any are not matched we cannot establish a match at all.
         final boolean allForEachQuantifiersMatched = getQuantifiers()
                 .stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
@@ -210,25 +218,26 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableList.of();
         }
 
-        // loop through all for each quantifiers on the other side to ensure that they are all matched
+        // Loop through all for each quantifiers on the other side to ensure that they are all matched.
+        // If any are not matched we cannot establish a match at all.
         final boolean allOtherForEachQuantifiersMatched =
                 otherSelectExpression.getQuantifiers()
                         .stream()
                         .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                         .allMatch(quantifier -> aliasMap.containsTarget(quantifier.getAlias()));
 
+        // TODO this is not really needed if we assign a property to the quantifier that allows us to reason about the
+        //      the "default on empty" property as in does this quantifier flow a scalar result such as an "empty" value,
+        //      a real value, or even null if the underlying graph evaluates to empty. The presence of such a property
+        //      would help us here to make sure the additional non-matched quantifier is not eliminating records.
         if (!allOtherForEachQuantifiersMatched) {
             return ImmutableList.of();
         }
 
-        final Set<QueryPredicate> unmappedPredicates = Sets.newIdentityHashSet();
-        unmappedPredicates.addAll(getPredicates());
-        final Set<QueryPredicate> unmappedOtherPredicates = Sets.newIdentityHashSet();
-        unmappedOtherPredicates.addAll(otherSelectExpression.getPredicates());
-
-        final IdentityBiMap<QueryPredicate, QueryPredicate> mappedPredicatesMap = IdentityBiMap.create();
-        final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap = Maps.newHashMap();
-
+        // Build a multimap that allows us to quickly find relate source alias (on the query side) with
+        // predicates on the candidate side that are correlated to the mapped alias. This structure is only needed
+        // for efficiency.
+        // TODO make this map work for join predicates
         final ImmutableListMultimap.Builder<CorrelationIdentifier, QueryPredicate> aliasToOtherPredicatesMapBuilder =
                 ImmutableListMultimap.builder();
         for (final QueryPredicate otherPredicate : otherSelectExpression.getPredicates()) {
@@ -245,84 +254,105 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         final ImmutableListMultimap<CorrelationIdentifier, QueryPredicate> aliasToOtherPredicatesMap =
                 aliasToOtherPredicatesMapBuilder.build();
 
+        //
+        // Map predicates on the query side to predicates on the candidate side. Record parameter bindings and/or
+        // compensations for each mapped predicate.
+        // A predicate on this side (the query side) can cause us to filter out rows, a mapped predicate (for that
+        // predicate) can only filter out fewer rows which is correct and can be compensated for. The important part
+        // is that we must not have predicates on the other (candidate) side at the end of this mapping process which
+        // would mean that the candidate eliminates records that the query side may not eliminate. If we detect that
+        // case we MUST not create a match.
+        //
+        final ImmutableList.Builder<Iterable<PredicateMapping>> predicateMappingsBuilder = ImmutableList.builder();
+
+        //
+        // Handle the "on empty" case, i.e., the case where there are no predicates on the query side that can
+        // map to anything on the candidate side. Conceptually that could be handled with a fake tautology predicate
+        // but this seems to be simpler albeit a little more verbose here. The important restriction in order to
+        // produce a match is that the candidate side MUST NOT be filtering at all, as the query side is not either.
+        //
+        if (getPredicates().isEmpty()) {
+            final boolean allNonFiltering = otherSelectExpression.getPredicates()
+                    .stream()
+                    .allMatch(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
+            if (allNonFiltering) {
+                return MatchInfo.tryMerge(partialMatchMap, mergedParameterBindingMap, PredicateMap.empty())
+                        .map(ImmutableList::of)
+                        .orElse(ImmutableList.of());
+            } else {
+                return ImmutableList.of();
+            }
+        }
+
         for (final QueryPredicate predicate : getPredicates()) {
-            boolean foundMatch = false;
-            if (predicate instanceof Sargable) {
-                final Sargable sargablePredicate = (Sargable)predicate;
-                final Set<CorrelationIdentifier> correlatedTo =
-                        sargablePredicate.getValue()
-                                .getCorrelatedTo();
-                if (correlatedTo.size() == 1) {
-                    final CorrelationIdentifier correlatedToAlias = Iterables.getOnlyElement(correlatedTo);
+            final Set<CorrelationIdentifier> correlatedTo =
+                    predicate.getCorrelatedTo();
 
-                    final ImmutableList<QueryPredicate> otherPredicates = aliasToOtherPredicatesMap.get(correlatedToAlias);
+            // TODO join predicates
+            if (correlatedTo.size() == 1) {
+                final CorrelationIdentifier correlatedToAlias = Iterables.getOnlyElement(correlatedTo);
+                final ImmutableList<QueryPredicate> candidatePredicates = aliasToOtherPredicatesMap.get(correlatedToAlias);
+                final Set<PredicateMapping> impliedMappingsForPredicate =
+                        predicate.findImpliedMappings(aliasMap, candidatePredicates);
 
-                    for (final QueryPredicate otherPredicate : otherPredicates) {
-                        if (otherPredicate instanceof Placeholder) {
-                            final Placeholder placeHolderPredicate = ((Placeholder)otherPredicate);
-                            if (sargablePredicate
-                                    .getValue()
-                                    .semanticEquals(placeHolderPredicate.getValue(), aliasMap)) {
-                                // we found a compatible association between a comparison range in the query and a
-                                // parameter placeholder in the candidate - record the match but about if that match
-                                // would lead to a clash in parameters (which should not happen)
-                                final CorrelationIdentifier parameterAlias = placeHolderPredicate.getParameterAlias();
-                                if (mergedParameterBindingMap.containsKey(parameterAlias) ||
-                                        parameterBindingMap.containsKey(parameterAlias)) {
-                                    // clash
-                                    return ImmutableList.of();
-                                }
+                predicateMappingsBuilder.add(impliedMappingsForPredicate);
+            }
+        }
 
-                                parameterBindingMap.put(parameterAlias, sargablePredicate.getComparisonRange());
-                                mappedPredicatesMap.putUnwrapped(sargablePredicate, placeHolderPredicate);
-                                unmappedOtherPredicates.remove(placeHolderPredicate);
-                                foundMatch = true;
-                            }
+        //
+        // We now have a multimap from predicates on the query side to predicates on the candidate side. In the trivial
+        // case this multimap only contains singular mappings for a query predicate. If it doesn't we need to enumerate
+        // through their cross product exhaustively. Each complete and non-contradictory element of that cross product
+        // can lead to a match.
+        //
+        final EnumeratingIterable<PredicateMapping> crossedMappings =
+                CrossProduct.crossProduct(predicateMappingsBuilder.build());
+
+        return IterableHelpers.flatMap(crossedMappings,
+                predicateMappings -> {
+                    final Set<QueryPredicate> unmappedOtherPredicates = Sets.newIdentityHashSet();
+                    unmappedOtherPredicates.addAll(otherSelectExpression.getPredicates());
+
+                    final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap = Maps.newHashMap();
+                    final PredicateMap.Builder predicateMapBuilder = PredicateMap.builder();
+
+                    for (final PredicateMapping predicateMapping : predicateMappings) {
+                        predicateMapBuilder.put(predicateMapping.getQueryPredicate(), predicateMapping);
+                        unmappedOtherPredicates.remove(predicateMapping.getCandidatePredicate());
+
+                        final Optional<CorrelationIdentifier> parameterAliasOptional = predicateMapping.getParameterAliasOptional();
+                        final Optional<ComparisonRange> comparisonRangeOptional = predicateMapping.getComparisonRangeOptional();
+                        if (parameterAliasOptional.isPresent() &&
+                                comparisonRangeOptional.isPresent()) {
+                            parameterBindingMap.put(parameterAliasOptional.get(), comparisonRangeOptional.get());
                         }
                     }
-                }
-            } else if (predicate instanceof ExistsPredicate) {
-                // We do know that this predicate may refer to a matched or unmatched quantifier.
-                final ExistsPredicate existsPredicate = (ExistsPredicate)predicate;
-                final CorrelationIdentifier existentialAlias =
-                        existsPredicate.getExistentialAlias();
-                final ImmutableList<QueryPredicate> otherPredicates = aliasToOtherPredicatesMap.get(existentialAlias);
-                for (final QueryPredicate otherPredicate : otherPredicates) {
-                    if (otherPredicate instanceof ExistsPredicate) {
-                        final ExistsPredicate otherExistsPredicate = (ExistsPredicate)otherPredicate;
-                        Verify.verify(otherExistsPredicate.getExistentialAlias().equals(aliasMap.getTarget(existentialAlias)));
-                        mappedPredicatesMap.putUnwrapped(existsPredicate, otherExistsPredicate);
-                        unmappedOtherPredicates.remove(otherExistsPredicate);
-                        foundMatch = true;
 
-                        // we found another exists() on the other side ranging over a matching subquery
+                    //
+                    // Last chance for unmapped predicates - if there is a placeholder or a tautology on the other side that is still
+                    // unmapped, we can (and should) remove it from the unmapped other set now. The reasoning is that this predicate is
+                    // not filtering so it does not cause records to be filtered that are not filtered on the query side.
+                    //
+                    unmappedOtherPredicates
+                            .removeIf(queryPredicate -> queryPredicate instanceof Placeholder || queryPredicate.isTautology());
+
+                    if (!unmappedOtherPredicates.isEmpty()) {
+                        return ImmutableList.of();
                     }
-                }
-            }
 
-            if (foundMatch) {
-                unmappedPredicates.remove(predicate);
-            }
-        }
+                    final Optional<? extends PredicateMap> predicateMapOptional = predicateMapBuilder.buildMaybe();
+                    return predicateMapOptional
+                            .map(predicateMap -> {
+                                final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
+                                        MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
 
-        // Last chance for unmapped predicates - if there is a placeholder on the other side, we can (and should) remove it
-        // from the unmapped other set now. The reasoning is that this predicate is not filtering (i.e. false) if there is
-        // input for the matched quantifier quantifier, meaning the range is unlimited and the the predicate is a tautology.
-        unmappedOtherPredicates
-                .removeIf(predicate -> predicate instanceof Placeholder ||
-                                       (predicate instanceof ConstantPredicate && ((ConstantPredicate)predicate).isTautology()));
-
-        if (!unmappedOtherPredicates.isEmpty()) {
-            return ImmutableSet.of();
-        }
-
-        final Optional<Map<CorrelationIdentifier, ComparisonRange>> allParameterBindingMapOptional =
-                MatchInfo.tryMergeParameterBindings(ImmutableList.of(mergedParameterBindingMap, parameterBindingMap));
-
-        return allParameterBindingMapOptional
-                .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, mappedPredicatesMap, unmappedPredicates))
-                .map(ImmutableList::of)
-                .orElse(ImmutableList.of());
+                                return allParameterBindingMapOptional
+                                        .flatMap(allParameterBindingMap -> MatchInfo.tryMerge(partialMatchMap, allParameterBindingMap, predicateMap))
+                                        .map(ImmutableList::of)
+                                        .orElse(ImmutableList.of());
+                            })
+                            .orElse(ImmutableList.of());
+                });
     }
 
     @Nonnull
@@ -331,14 +361,14 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "Select",
-                        ImmutableList.of(toString()),
+                        ImmutableList.of("SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) +  " WHERE " + getPredicate()),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "WHERE " + getPredicate();
+        return "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "WHERE " + getPredicate();
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -391,7 +421,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
                             mergeResult.getResidualComparisons()
                                     .forEach(residualComparison ->
-                                            resultPredicatesBuilder.add(new ValuePredicate(value, residualComparison)));
+                                            resultPredicatesBuilder.add(value.withComparison(residualComparison)));
                         } else if (predicateOnValue instanceof Sargable) {
                             final Sargable valueComparisonRangePredicate = (Sargable)predicateOnValue;
                             final ComparisonRange comparisonRange = valueComparisonRangePredicate.getComparisonRange();
@@ -403,7 +433,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
                             mergeResult.getResidualComparisons()
                                     .forEach(residualComparison ->
-                                            resultPredicatesBuilder.add(new ValuePredicate(value, residualComparison)));
+                                            resultPredicatesBuilder.add(value.withComparison(residualComparison)));
                         } else {
                             resultPredicatesBuilder.add(predicateOnValue);
                         }
@@ -433,43 +463,45 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         final Map<QueryPredicate, QueryPredicate> toBeReappliedPredicatesMap = Maps.newIdentityHashMap();
         final MatchInfo matchInfo = partialMatch.getMatchInfo();
-        final Set<QueryPredicate> unmappedPredicates = matchInfo.getUnmappedPredicates();
-        final IdentityBiMap<QueryPredicate, QueryPredicate> predicateMap = matchInfo.getPredicateMap();
+        final PredicateMap predicateMap = matchInfo.getPredicateMap();
 
-        // go through all predicates
-        // 1. check if they matched -- if not ==> add to predicates to be reapplied
-        // 2. check if they are bound under the current parameter bindings -- if not ==> add to the predicates to be reapplied
-        // 3. check if an exists() needs compensation -- if id does ==> pull up compensation (for now, reapply the alternative QueryComponent)
+        //
+        // The partial match we are called with here has child matches that have compensations on their own.
+        // Given a pair of these matches that we reach along two for each quantifiers (forming a join) we have to
+        // apply both compensations. The compensation class has a union method to combine two compensations in an
+        // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
+        // is formed by partial matches therefore collapses into a chain of compensations.
+        //
+        final Compensation childCompensation = getQuantifiers()
+                .stream()
+                .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                .flatMap(quantifier ->
+                        matchInfo.getChildPartialMatch(quantifier)
+                                .map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap))
+                                .map(Stream::of)
+                                .orElse(Stream.empty()))
+                .reduce(Compensation.noCompensation(), Compensation::union);
+
+        //
+        // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
+        // predicate MUST have a mapping to the other side (which may just be a tautology). If something needs to be
+        // reapplied that logic creates the correct predicates. The reapplication logic is also passed enough context
+        // to skip reapplication in which case we won't do anything when compensation needs to be applied.
+        //
         for (final QueryPredicate predicate : getPredicates()) {
-            if (predicate instanceof Sargable) {
-                if (!unmappedPredicates.contains(predicate) && predicateMap.containsKeyUnwrapped(predicate)) {
-                    final QueryPredicate otherPredicate = predicateMap.getUnwrapped(predicate);
-                    if (otherPredicate instanceof Placeholder) {
-                        if (boundParameterPrefixMap.containsKey(((Placeholder)otherPredicate).getParameterAlias())) {
-                            continue;
-                        }
-                    }
-                }
-                toBeReappliedPredicatesMap.put(predicate, AndPredicate.and(((Sargable)predicate).toResiduals()));
-                continue;
-            }
+            final Optional<PredicateMapping> predicateMappingOptional = predicateMap.getMappingOptional(predicate);
+            Verify.verify(predicateMappingOptional.isPresent());
 
-            if (predicate instanceof ExistsPredicate) {
-                final ExistsPredicate existsPredicate = (ExistsPredicate)predicate;
-                final CorrelationIdentifier existentialAlias = existsPredicate.getExistentialAlias();
-                final Optional<PartialMatch> childPartialMatchOptional = partialMatch.getMatchInfo().getChildPartialMatch(existentialAlias);
-                final Optional<Compensation> compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
-                if (!compensationOptional.isPresent() || compensationOptional.get().isNeeded()) {
-                    // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
-                    // TODO make a predicate that can evaluate a QueryComponent
-                    toBeReappliedPredicatesMap.put(predicate, new QueryComponentPredicate(existsPredicate.getAlternativeComponent(), existentialAlias));
-                }
-                continue;
-            }
+            final PredicateMapping predicateMapping = predicateMappingOptional.get();
 
-            toBeReappliedPredicatesMap.put(predicate, predicate);
+            final Optional<QueryPredicate> reappliedPredicateOptional =
+                    predicateMapping
+                            .reapplyPredicateFunction()
+                            .reapplyPredicateMaybe(matchInfo, boundParameterPrefixMap);
+
+            reappliedPredicateOptional.ifPresent(reappliedPredicate -> toBeReappliedPredicatesMap.put(predicate, reappliedPredicate));
         }
 
-        return Compensation.ofPredicateMap(toBeReappliedPredicatesMap);
+        return Compensation.ofChildCompensationAndPredicateMap(childCompensation, toBeReappliedPredicatesMap);
     }
 }

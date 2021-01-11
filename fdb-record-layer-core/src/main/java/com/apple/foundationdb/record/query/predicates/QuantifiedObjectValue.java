@@ -1,5 +1,5 @@
 /*
- * ObjectValue.java
+ * QuantifiedObjectValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -43,13 +43,13 @@ import java.util.Set;
  * For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ObjectValue implements Value {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Object-Value");
+public class QuantifiedObjectValue implements Value {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
 
     @Nonnull
     private final CorrelationIdentifier identifier;
 
-    public ObjectValue(@Nonnull final CorrelationIdentifier identifier) {
+    public QuantifiedObjectValue(@Nonnull final CorrelationIdentifier identifier) {
         this.identifier = identifier;
     }
 
@@ -61,9 +61,9 @@ public class ObjectValue implements Value {
 
     @Nonnull
     @Override
-    public ObjectValue rebase(@Nonnull final AliasMap translationMap) {
+    public QuantifiedObjectValue rebase(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(identifier)) {
-            return new ObjectValue(translationMap.getTargetOrThrow(identifier));
+            return new QuantifiedObjectValue(translationMap.getTargetOrThrow(identifier));
         }
         return this;
     }
@@ -82,7 +82,7 @@ public class ObjectValue implements Value {
         if (other == null || getClass() != other.getClass()) {
             return false;
         }
-        final ObjectValue that = (ObjectValue)other;
+        final QuantifiedObjectValue that = (QuantifiedObjectValue)other;
         return equivalenceMap.containsMapping(identifier, that.identifier);
     }
 

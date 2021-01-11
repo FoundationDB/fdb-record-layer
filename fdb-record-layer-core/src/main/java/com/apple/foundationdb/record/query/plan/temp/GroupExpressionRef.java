@@ -360,6 +360,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return partialMatchMap.values()
                 .stream()
                 .filter(partialMatch ->
+                        // partial matches need to be compared by identity
                         partialMatch.getQueryExpression() == expression)
                 .collect(ImmutableSet.toImmutableSet());
     }
