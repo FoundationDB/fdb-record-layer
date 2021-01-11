@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.indexes;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.FunctionNames;
@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
@@ -72,19 +73,23 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
         this.mutation = mutation;
     }
 
+    protected static boolean getClearWhenZero(@Nonnull Index index) {
+        return index.getBooleanOption(IndexOptions.CLEAR_WHEN_ZERO, false);
+    }
+
     @SuppressWarnings({"deprecation","squid:CallToDeprecatedMethod"})
     protected static AtomicMutation getAtomicMutation(@Nonnull Index index) {
         if (IndexTypes.COUNT.equals(index.getType())) {
-            return AtomicMutation.Standard.COUNT;
+            return getClearWhenZero(index) ? AtomicMutation.Standard.COUNT_CLEAR_WHEN_ZERO : AtomicMutation.Standard.COUNT;
         }
         if (IndexTypes.COUNT_UPDATES.equals(index.getType())) {
             return AtomicMutation.Standard.COUNT_UPDATES;
         }
         if (IndexTypes.COUNT_NOT_NULL.equals(index.getType())) {
-            return AtomicMutation.Standard.COUNT_NOT_NULL;
+            return getClearWhenZero(index) ? AtomicMutation.Standard.COUNT_NOT_NULL_CLEAR_WHEN_ZERO : AtomicMutation.Standard.COUNT_NOT_NULL;
         }
         if (IndexTypes.SUM.equals(index.getType())) {
-            return AtomicMutation.Standard.SUM_LONG;
+            return getClearWhenZero(index) ? AtomicMutation.Standard.SUM_LONG_CLEAR_WHEN_ZERO : AtomicMutation.Standard.SUM_LONG;
         }
         if (IndexTypes.MIN_EVER_TUPLE.equals(index.getType())) {
             return AtomicMutation.Standard.MIN_EVER_TUPLE;
@@ -150,6 +155,8 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 }
             }
 
+            final byte[] compareAndClear = mutation.getCompareAndClearParam();
+
             final byte[] key = state.indexSubspace.pack(groupKey);
             if (AtomicMutation.Standard.MAX_EVER_VERSION.equals(mutation)) {
                 if (groupedValue.getKey().hasIncompleteVersionstamp()) {
@@ -165,6 +172,9 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 }
             } else {
                 state.transaction.mutate(mutationType, key, param);
+                if (compareAndClear != null) {
+                    state.transaction.mutate(MutationType.COMPARE_AND_CLEAR, key, compareAndClear);
+                }
             }
             if (state.store.getTimer() != null) {
                 state.store.getTimer().recordSinceNanoTime(FDBStoreTimer.Events.MUTATE_INDEX_ENTRY, startTime);

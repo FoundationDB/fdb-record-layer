@@ -110,6 +110,11 @@ public class IndexOptions {
      */
     public static final String BITMAP_VALUE_ENTRY_SIZE_OPTION = "bitmapValueEntrySize";
 
+    /**
+     * Whether to remove index entry for {@link IndexTypes#COUNT} type indexes when they decrement to zero.
+     */
+    public static final String CLEAR_WHEN_ZERO = "clearWhenZero";
+
     private IndexOptions() {
     }
 }

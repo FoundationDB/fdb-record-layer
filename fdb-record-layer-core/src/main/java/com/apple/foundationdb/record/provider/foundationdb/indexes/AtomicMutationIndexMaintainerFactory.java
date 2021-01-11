@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -107,6 +108,9 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                     validateVersionInGroupedKeys();
                 } else {
                     validateNotVersion();
+                }
+                if (AtomicMutationIndexMaintainer.getClearWhenZero(index) && mutation.getCompareAndClearParam() == null) {
+                    throw new MetaDataException(String.format("%s index does not support clearWhenZero", index.getType()));
                 }
             }
 
