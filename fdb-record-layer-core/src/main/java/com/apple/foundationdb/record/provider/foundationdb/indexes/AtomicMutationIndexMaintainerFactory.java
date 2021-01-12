@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -108,7 +109,15 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                 } else {
                     validateNotVersion();
                 }
+                if (AtomicMutationIndexMaintainer.getClearWhenZero(index) && mutation.getCompareAndClearParam() == null) {
+                    throw new MetaDataException(String.format("%s index does not support clearWhenZero", index.getType()));
+                }
             }
+
+            // NOTE: There is no override of validateChangedOptions for CLEAR_WHEN_ZERO.
+            // Turning it on does not immediately clear to zero without a rebuild.
+            // But it is still valid, provided one understands the option to mean that the clear happens at decrement time.
+            // A system requiring that it become clear immediately can arrange for the index to be rebuilt.
 
             @Override
             public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {
