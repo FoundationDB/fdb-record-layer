@@ -114,6 +114,11 @@ public class AtomicMutationIndexMaintainerFactory implements IndexMaintainerFact
                 }
             }
 
+            // NOTE: There is no override of validateChangedOptions for CLEAR_WHEN_ZERO.
+            // Turning it on does not immediately clear to zero without a rebuild.
+            // But it is still valid, provided one understands the option to mean that the clear happens at decrement time.
+            // A system requiring that it become clear immediately can arrange for the index to be rebuilt.
+
             @Override
             public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {
                 final List<Descriptors.FieldDescriptor> fields = metaDataValidator.validateIndexForRecordType(index, recordType);

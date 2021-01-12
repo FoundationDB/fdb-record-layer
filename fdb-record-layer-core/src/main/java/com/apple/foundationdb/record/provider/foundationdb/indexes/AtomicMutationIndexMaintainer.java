@@ -155,8 +155,6 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 }
             }
 
-            final byte[] compareAndClear = mutation.getCompareAndClearParam();
-
             final byte[] key = state.indexSubspace.pack(groupKey);
             if (AtomicMutation.Standard.MAX_EVER_VERSION.equals(mutation)) {
                 if (groupedValue.getKey().hasIncompleteVersionstamp()) {
@@ -172,6 +170,7 @@ public class AtomicMutationIndexMaintainer extends StandardIndexMaintainer {
                 }
             } else {
                 state.transaction.mutate(mutationType, key, param);
+                final byte[] compareAndClear = mutation.getCompareAndClearParam();
                 if (compareAndClear != null) {
                     state.transaction.mutate(MutationType.COMPARE_AND_CLEAR, key, compareAndClear);
                 }
