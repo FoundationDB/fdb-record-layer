@@ -215,6 +215,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @SuppressWarnings("squid:S2386")
     @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
     public static final byte[] LITTLE_ENDIAN_INT64_MINUS_ONE = new byte[] { -1, -1, -1, -1, -1, -1, -1, -1 };
+    @SuppressWarnings("squid:S2386")
+    @SpotBugsSuppressWarnings("MS_MUTABLE_ARRAY")
+    public static final byte[] INT64_ZERO = new byte[] { 0, 0, 0, 0, 0, 0, 0, 0 };
 
     protected int formatVersion;
     protected int userVersion;
