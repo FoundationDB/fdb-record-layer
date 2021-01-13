@@ -110,6 +110,18 @@ public class IndexOptions {
      */
     public static final String BITMAP_VALUE_ENTRY_SIZE_OPTION = "bitmapValueEntrySize";
 
+    /**
+     * Whether to remove index entry for {@link IndexTypes#COUNT} type indexes when they decrement to zero.
+     *
+     * This makes the existence of zero-valued entries in the index in the face of updates and deletes
+     * closer to what it would be if the index were rebuilt, but still not always the same.
+     * In particular,<ul>
+     *   <li>A {@code SUM} index will not have entries for groups all of whose indexed values are zero.</li>
+     *   <li>Changing the option for an existing index from {@code false} to {@code true} does not clear any entries.</li>
+     * </ul>
+     */
+    public static final String CLEAR_WHEN_ZERO = "clearWhenZero";
+
     private IndexOptions() {
     }
 }

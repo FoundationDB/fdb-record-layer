@@ -109,6 +109,13 @@ public interface AtomicMutation {
     boolean isIdempotent();
 
     /**
+     * Get a value that causes the index entry to be removed if the result of the mutation matches.
+     * @return a byte array to pass to {@code COMPARE_AND_CLEAR} or {@code null} to do nothing for this mutation
+     */
+    @Nullable
+    byte[] getCompareAndClearParam();
+
+    /**
      * The atomic mutations implemented straightforwardly by the FDB API.
      */
     @API(API.Status.MAINTAINED)
@@ -122,8 +129,11 @@ public interface AtomicMutation {
         // MutationType.MAX and MIN do little-endian unsigned comparison, which only works for long (and only if you disallow negatives).
         MAX_EVER_LONG(MutationType.MAX),
         MIN_EVER_LONG(MutationType.MIN),
-        MAX_EVER_VERSION(MutationType.SET_VERSIONSTAMPED_VALUE);
-
+        MAX_EVER_VERSION(MutationType.SET_VERSIONSTAMPED_VALUE),
+        COUNT_CLEAR_WHEN_ZERO(MutationType.ADD),
+        COUNT_NOT_NULL_CLEAR_WHEN_ZERO(MutationType.ADD),
+        SUM_LONG_CLEAR_WHEN_ZERO(MutationType.ADD);
+        
         @Nonnull
         private final MutationType mutationType;
 
@@ -153,12 +163,14 @@ public interface AtomicMutation {
             long lval;
             switch (this) {
                 case COUNT_NOT_NULL:
+                case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:
                     if (entry.keyContainsNonUniqueNull()) {
                         return null;
                     } else {
                         return getMutationParamForCount(remove);
                     }
                 case COUNT:
+                case COUNT_CLEAR_WHEN_ZERO:
                     return getMutationParamForCount(remove);
                 case COUNT_UPDATES:
                     if (remove) {
@@ -167,6 +179,7 @@ public interface AtomicMutation {
                         return FDBRecordStore.LITTLE_ENDIAN_INT64_ONE;
                     }
                 case SUM_LONG:
+                case SUM_LONG_CLEAR_WHEN_ZERO:
                     numVal = (Number)entry.getKey().get(0);
                     if (numVal == null) {
                         return null;
@@ -235,6 +248,9 @@ public interface AtomicMutation {
                 case COUNT_UPDATES:
                 case COUNT_NOT_NULL:
                 case SUM_LONG:
+                case COUNT_CLEAR_WHEN_ZERO:
+                case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:
+                case SUM_LONG_CLEAR_WHEN_ZERO:
                     return (total, tuple) -> Tuple.from(total.getLong(0) + tuple.getLong(0));
                 case MIN_EVER_LONG:
                 case MIN_EVER_TUPLE:
@@ -261,6 +277,9 @@ public interface AtomicMutation {
                 case COUNT_UPDATES:
                 case COUNT_NOT_NULL:
                 case SUM_LONG:
+                case COUNT_CLEAR_WHEN_ZERO:
+                case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:
+                case SUM_LONG_CLEAR_WHEN_ZERO:
                     return Tuple.from(0L);
                 default:
                     return null;
@@ -274,6 +293,9 @@ public interface AtomicMutation {
                 case COUNT_UPDATES:
                 case COUNT_NOT_NULL:
                 case SUM_LONG:
+                case COUNT_CLEAR_WHEN_ZERO:
+                case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:
+                case SUM_LONG_CLEAR_WHEN_ZERO:
                     return false;
                 default:
                     return true;
@@ -285,6 +307,8 @@ public interface AtomicMutation {
             switch (this) {
                 case COUNT:
                 case COUNT_UPDATES:
+                case COUNT_CLEAR_WHEN_ZERO:
+                case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:
                     return false;
                 default:
                     return true;
@@ -298,6 +322,7 @@ public interface AtomicMutation {
                 case MAX_EVER_TUPLE:
                 case MIN_EVER_TUPLE:
                 case MAX_EVER_VERSION:
+                case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:
                     return false;
                 default:
                     return true;
@@ -310,6 +335,7 @@ public interface AtomicMutation {
                 case SUM_LONG:
                 case MAX_EVER_LONG:
                 case MIN_EVER_LONG:
+                case SUM_LONG_CLEAR_WHEN_ZERO:
                     return true;
                 default:
                     return false;
@@ -326,6 +352,18 @@ public interface AtomicMutation {
                     return true;
             }
         }
-    }
 
+        @Override
+        @Nullable
+        public byte[] getCompareAndClearParam() {
+            switch (this) {
+                case COUNT_NOT_NULL_CLEAR_WHEN_ZERO:
+                case COUNT_CLEAR_WHEN_ZERO:
+                case SUM_LONG_CLEAR_WHEN_ZERO:
+                    return FDBRecordStore.INT64_ZERO;
+                default:
+                    return null;
+            }
+        }
+    }
 }

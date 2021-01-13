@@ -68,8 +68,10 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexE
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
@@ -829,6 +831,58 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
 
             assertEquals(100 - 100 / 5 - 100 / 3 + 100 / 15, recordStore.evaluateAggregateFunction(types, total, Key.Evaluated.EMPTY, IsolationLevel.SNAPSHOT).join().getLong(0));
             assertEquals(50 - 50 / 5 - 50 / 3 + 50 / 15, recordStore.evaluateAggregateFunction(types, perKey, Key.Evaluated.scalar("even"), IsolationLevel.SNAPSHOT).join().getLong(0));
+            commit(context);
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void countClearWhenZero(boolean clearWhenZero) throws Exception {
+        final GroupingKeyExpression byKey = new GroupingKeyExpression(field("str_value_indexed"), 0);
+        final RecordMetaDataHook hook = md -> md.addIndex("MySimpleRecord", new Index("count_by_str", byKey, IndexTypes.COUNT, ImmutableMap.of(IndexOptions.CLEAR_WHEN_ZERO, Boolean.toString(clearWhenZero))));
+        final List<String> types = Collections.singletonList("MySimpleRecord");
+
+        final IndexAggregateFunction perKey = new IndexAggregateFunction(FunctionNames.COUNT, byKey, null);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            for (int i = 0; i < 10; i++) {
+                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                recBuilder.setRecNo(i);
+                recBuilder.setStrValueIndexed((i & 1) == 1 ? "odd" : "even");
+                recordStore.saveRecord(recBuilder.build());
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            assertEquals(5, recordStore.evaluateAggregateFunction(types, perKey, Key.Evaluated.scalar("even"), IsolationLevel.SNAPSHOT).join().getLong(0));
+            assertEquals(5, recordStore.evaluateAggregateFunction(types, perKey, Key.Evaluated.scalar("odd"), IsolationLevel.SNAPSHOT).join().getLong(0));
+            assertEquals(ImmutableMap.of("even", 5L, "odd", 5L),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("count_by_str"), IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                            .map(i -> Pair.of(i.getKey().get(0), i.getValue().get(0)))
+                            .asList().join().stream().collect(Collectors.toMap(Pair::getLeft, Pair::getRight)));
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            for (int i = 0; i < 10; i += 2) {
+                recordStore.deleteRecord(Tuple.from(i));
+            }
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            assertEquals(0, recordStore.evaluateAggregateFunction(types, perKey, Key.Evaluated.scalar("even"), IsolationLevel.SNAPSHOT).join().getLong(0));
+            assertEquals(5, recordStore.evaluateAggregateFunction(types, perKey, Key.Evaluated.scalar("odd"), IsolationLevel.SNAPSHOT).join().getLong(0));
+            assertEquals(clearWhenZero ? ImmutableMap.of("odd", 5L) : ImmutableMap.of("even", 0L, "odd", 5L),
+                    recordStore.scanIndex(recordStore.getRecordMetaData().getIndex("count_by_str"), IndexScanType.BY_GROUP, TupleRange.ALL, null, ScanProperties.FORWARD_SCAN)
+                            .map(i -> Pair.of(i.getKey().get(0), i.getValue().get(0)))
+                            .asList().join().stream().collect(Collectors.toMap(Pair::getLeft, Pair::getRight)));
             commit(context);
         }
     }
