@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -127,6 +128,15 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @return <code>true</code> if this plan (or one of its components) loads records by their primary key
      */
     boolean hasLoadBykeys();
+
+    /**
+     * Indicates whether this plan can only return one or zero records.
+     * @param metaData meta-data to use to determine index uniqueness
+     * @return <code>true</code> if this plan returns at most a single record.
+     */
+    default boolean isUnique(@Nonnull RecordMetaData metaData) {
+        return false;
+    }
 
     /**
      * Adds one to an appropriate {@link StoreTimer} counter for each plan and subplan of this plan, allowing tracking

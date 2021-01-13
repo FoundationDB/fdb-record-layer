@@ -146,6 +146,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return indexPlan.getUsedIndexes();
     }
 
+    @Override
+    public boolean isUnique(@Nonnull RecordMetaData metaData) {
+        return indexPlan.isUnique(metaData);
+    }
+
     @Nonnull
     @Override
     public AvailableFields getAvailableFields() {

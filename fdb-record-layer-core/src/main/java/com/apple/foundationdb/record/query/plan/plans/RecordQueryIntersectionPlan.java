@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -265,6 +266,11 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     @Override
     public Set<KeyExpression> getRequiredFields() {
         return ImmutableSet.copyOf(getComparisonKey().normalizeKeyForPositions());
+    }
+
+    @Override
+    public boolean isUnique(@Nonnull RecordMetaData metaData) {
+        return getChildStream().anyMatch(p -> p.isUnique(metaData));
     }
 
     /**
