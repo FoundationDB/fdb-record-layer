@@ -269,8 +269,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     }
 
     @Override
-    public boolean isUnique(@Nonnull RecordMetaData metaData) {
-        return getChildStream().anyMatch(p -> p.isUnique(metaData));
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return getChildStream().map(p -> p.maxCardinality(metaData)).min(Integer::compare).orElse(UNKNOWN_MAX_CARDINALITY);
     }
 
     /**

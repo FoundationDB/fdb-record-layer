@@ -32,17 +32,20 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Tests for {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan#isUnique}.
+ * Tests for {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan#maxCardinality}.
  */
-public class QueryPlanIsUniqueTest extends FDBRecordStoreQueryTestBase {
+@Tag(Tags.RequiresFDB)
+public class QueryPlanMaxCardinalityTest extends FDBRecordStoreQueryTestBase {
 
     RecordMetaData metaData;
     QueryPlanner planner;
@@ -63,7 +66,7 @@ public class QueryPlanIsUniqueTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("x"))
                 .build();
-        assertFalse(planner.plan(query).isUnique(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
     }
 
     @Test
@@ -73,7 +76,7 @@ public class QueryPlanIsUniqueTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").equalsValue(1))
                 .build();
-        assertTrue(planner.plan(query).isUnique(metaData));
+        assertEquals(1, planner.plan(query).maxCardinality(metaData));
     }
 
     @Test
@@ -83,7 +86,7 @@ public class QueryPlanIsUniqueTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").lessThanOrEquals(1))
                 .build();
-        assertFalse(planner.plan(query).isUnique(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
     }
 
     @Test
@@ -96,7 +99,7 @@ public class QueryPlanIsUniqueTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_unique").equalsValue(1))
                 .build();
-        assertFalse(planner.plan(query).isUnique(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
     }
 
     @Test
@@ -106,7 +109,7 @@ public class QueryPlanIsUniqueTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("rec_no").equalsValue(1L))
                 .build();
-        assertTrue(planner.plan(query).isUnique(metaData));
+        assertEquals(1, planner.plan(query).maxCardinality(metaData));
     }
 
     @Test
@@ -118,7 +121,7 @@ public class QueryPlanIsUniqueTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
-        assertFalse(planner.plan(query).isUnique(metaData));
+        assertEquals(QueryPlan.UNKNOWN_MAX_CARDINALITY, planner.plan(query).maxCardinality(metaData));
     }
 
 }

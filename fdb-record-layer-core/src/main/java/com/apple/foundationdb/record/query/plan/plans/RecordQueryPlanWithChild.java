@@ -69,8 +69,8 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     @Override
-    default boolean isUnique(@Nonnull RecordMetaData metaData) {
-        return getChild().isUnique(metaData);
+    default int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return getChild().maxCardinality(metaData);
     }
 
     @Override

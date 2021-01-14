@@ -128,8 +128,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     }
 
     @Override
-    public boolean isUnique(@Nonnull RecordMetaData metaData) {
-        return keysSource.isUnique();
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return keysSource.maxCardinality();
     }
 
     @Nonnull
@@ -239,8 +239,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public boolean isUnique() {
-            return primaryKeys.size() <= 1;
+        public int maxCardinality() {
+            return primaryKeys.size();
         }
 
         @Override
@@ -285,7 +285,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     public interface KeysSource extends PlanHashable {
         List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context);
 
-        boolean isUnique();
+        int maxCardinality();
     }
 
     private static class ParameterKeySource implements KeysSource {
@@ -304,8 +304,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
-        public boolean isUnique() {
-            return false;
+        public int maxCardinality() {
+            return UNKNOWN_MAX_CARDINALITY;
         }
 
         @Override

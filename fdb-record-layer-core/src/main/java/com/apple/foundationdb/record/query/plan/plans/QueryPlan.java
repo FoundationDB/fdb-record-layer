@@ -48,6 +48,11 @@ import java.util.Set;
 public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
 
     /**
+     * The result of {@link #maxCardinality} is not known.
+     */
+    int UNKNOWN_MAX_CARDINALITY = Integer.MAX_VALUE;
+
+    /**
      * Execute this query plan.
      * @param store record store from which to fetch items
      * @param context evaluation context containing parameter bindings
@@ -130,12 +135,12 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
     boolean hasLoadBykeys();
 
     /**
-     * Indicates whether this plan can only return one or zero records.
-     * @param metaData meta-data to use to determine index uniqueness
-     * @return <code>true</code> if this plan returns at most a single record.
+     * Indicates how many records this plan could possibly return.
+     * @param metaData meta-data to use to determine things like index uniqueness
+     * @return the maximum number of records or {@link #UNKNOWN_MAX_CARDINALITY} if not known
      */
-    default boolean isUnique(@Nonnull RecordMetaData metaData) {
-        return false;
+    default int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return UNKNOWN_MAX_CARDINALITY;
     }
 
     /**

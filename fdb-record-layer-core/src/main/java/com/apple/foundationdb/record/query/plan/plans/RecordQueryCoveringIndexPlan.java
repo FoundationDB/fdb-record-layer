@@ -147,8 +147,8 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public boolean isUnique(@Nonnull RecordMetaData metaData) {
-        return indexPlan.isUnique(metaData);
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return indexPlan.maxCardinality(metaData);
     }
 
     @Nonnull

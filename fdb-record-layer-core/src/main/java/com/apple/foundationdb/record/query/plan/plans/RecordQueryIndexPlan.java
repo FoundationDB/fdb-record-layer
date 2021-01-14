@@ -132,9 +132,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Override
-    public boolean isUnique(@Nonnull RecordMetaData metaData) {
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
         final Index index = metaData.getIndex(indexName);
-        return index.isUnique() && comparisons.isEquality() && comparisons.size() == index.getColumnSize();
+        if (index.isUnique() && comparisons.isEquality() && comparisons.size() == index.getColumnSize()) {
+            return 1;
+        } else {
+            return UNKNOWN_MAX_CARDINALITY;
+        }
     }
 
     @Override

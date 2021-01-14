@@ -143,9 +143,13 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     }
 
     @Override
-    public boolean isUnique(@Nonnull RecordMetaData metaData) {
-        return comparisons.isEquality() &&
-               metaData.getRecordTypes().values().stream().allMatch(t -> t.getPrimaryKey().getColumnSize() <= comparisons.size());
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        if (comparisons.isEquality() &&
+                metaData.getRecordTypes().values().stream().allMatch(t -> t.getPrimaryKey().getColumnSize() <= comparisons.size())) {
+            return 1;
+        } else {
+            return UNKNOWN_MAX_CARDINALITY;
+        }
     }
 
     @Nonnull
