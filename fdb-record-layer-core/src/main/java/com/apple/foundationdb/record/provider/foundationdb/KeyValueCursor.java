@@ -227,8 +227,13 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
                 prefixLength++;
             }
 
+            if (lowEndpoint == EndpointType.PREFIX_STRING || highEndpoint == EndpointType.PREFIX_STRING) {
+                prefixLength = prefixLength - 1;
+            }
+
             final boolean reverse = scanProperties.isReverse();
             if (continuation != null) {
+
                 final byte[] continuationBytes = new byte[prefixLength + continuation.length];
                 System.arraycopy(lowBytes, 0, continuationBytes, 0, prefixLength);
                 System.arraycopy(continuation, 0, continuationBytes, prefixLength, continuation.length);

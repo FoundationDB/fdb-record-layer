@@ -118,6 +118,40 @@ public class KeyValueCursorTest extends FDBTestBase {
             return null;
         });
     }
+    @SuppressWarnings("checkstyle:WhitespaceAround")
+    @Test
+    public void prefixString() {
+
+        fdb.database().run(tr -> {
+            for (char c = 'a'; c < 'k'; c++) {
+                String key = "cat" + c;
+                tr.set(subspace.pack(Tuple.from(key)),Tuple.from(Character.toString(c)).pack());
+            }
+            return null;
+        });
+
+        fdb.run(context -> {
+            KeyValueCursor cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(TupleRange.prefixedBy("cat"))
+                    .setContinuation(null)
+                    .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()))
+                    .build();
+            assertEquals(2, (int)cursor.getCount().join());
+            cursor = KeyValueCursor.Builder.withSubspace(subspace)
+                    .setContext(context)
+                    .setRange(TupleRange.prefixedBy("cat"))
+                    .setContinuation(cursor.getNext().getContinuation().toBytes())
+                    .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(3).build()))
+                    .build();
+
+            for (char c = 'c'; c < 'f'; c++) {
+                byte[] key = cursor.getNext().get().getKey();
+                assertEquals(c, key[10]);
+            }
+            return null;
+        });
+    }
 
     @Test
     public void beginsWith() {
@@ -174,16 +208,16 @@ public class KeyValueCursorTest extends FDBTestBase {
                     .setContinuation(null)
                     .setScanProperties(new ScanProperties(ExecuteProperties.newBuilder().setReturnedRowLimit(2).build()))
                     .build();
-            assertEquals(Arrays.asList(Tuple.from(3L, 3L), Tuple.from(3L, 4L)),
+            assertEquals(Arrays.asList(Tuple.from(3L, 0L), Tuple.from(3L, 4L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
             cursor = KeyValueCursor.Builder.withSubspace(subspace)
                     .setContext(context)
-                    .setLow(Tuple.from(3, 3), EndpointType.RANGE_INCLUSIVE)
-                    .setHigh(Tuple.from(4, 2), EndpointType.RANGE_INCLUSIVE)
+                    .setLow(Tuple.from(3), EndpointType.RANGE_INCLUSIVE)
+                    .setHigh(Tuple.from(3), EndpointType.RANGE_INCLUSIVE)
                     .setContinuation(cursor.getNext().getContinuation().toBytes())
                     .setScanProperties(ScanProperties.FORWARD_SCAN)
                     .build();
-            assertEquals(Arrays.asList(Tuple.from(4L, 0L), Tuple.from(4L, 1L), Tuple.from(4L, 2L)),
+            assertEquals(Arrays.asList(Tuple.from(3L, 4L), Tuple.from(4L, 0L), Tuple.from(4L, 1L), Tuple.from(4L, 2L)),
                     cursor.map(KeyValue::getValue).map(Tuple::fromBytes).asList().join());
 
             return null;
