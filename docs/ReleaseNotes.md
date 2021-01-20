@@ -26,7 +26,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Count indexes can be cleared when decremented to zero [(Issue #737)](https://github.com/FoundationDB/fdb-record-layer/issues/737)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Allow creating a target index by iterating a source index of the same type [(Issue #1078)](https://github.com/FoundationDB/fdb-record-layer/issues/1078)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
