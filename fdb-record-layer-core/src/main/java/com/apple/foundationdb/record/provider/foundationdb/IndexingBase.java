@@ -1,5 +1,5 @@
 /*
- * OnlineIndexerScanner.java
+ * IndexingBase.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -84,19 +84,23 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
+    private static Subspace indexBuildSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index, Object key) {
+        return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(key));
+    }
+
+    @Nonnull
     protected static Subspace indexBuildLockSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_LOCK_KEY));
+        return indexBuildSubspace(store, index, INDEX_BUILD_LOCK_KEY);
     }
 
     @Nonnull
     protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return store.getUntypedRecordStore().indexBuildSubspace(index)
-                .subspace(Tuple.from(INDEX_BUILD_SCANNED_RECORDS));
+        return indexBuildSubspace(store, index, INDEX_BUILD_SCANNED_RECORDS);
     }
 
     @Nonnull
     protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return store.getUntypedRecordStore().indexBuildSubspace(index).subspace(Tuple.from(INDEX_BUILD_TYPE_VERSION));
+        return indexBuildSubspace(store, index, INDEX_BUILD_TYPE_VERSION);
     }
 
     @SuppressWarnings("squid:S1452")
@@ -351,7 +355,7 @@ public abstract class IndexingBase {
 
     abstract CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store);
 
-    // test support
+    // These two methods are externalized for testing usage only
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,

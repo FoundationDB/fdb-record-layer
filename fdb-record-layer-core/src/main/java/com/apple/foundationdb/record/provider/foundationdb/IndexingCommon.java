@@ -1,5 +1,5 @@
 /*
- * OnlineIndexerCommon.java
+ * IndexingCommon.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -36,8 +36,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
 /**
- * Shared structure to be used (only) by the Indexing* modules.
+ * Shared data structure to be used (only) by the Indexing* modules.
  */
+
 @API(API.Status.INTERNAL)
 public class IndexingCommon {
     private final UUID uuid = UUID.randomUUID();
