@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.util.LoggableException;
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,7 +121,6 @@ public class IndexingThrottle {
         }
     }
 
-    @VisibleForTesting
     void decreaseLimit(@Nonnull FDBException fdbException,
                        @Nullable List<Object> additionalLogMessageKeyValues) {
         limit = Math.max(1, (3 * limit) / 4);

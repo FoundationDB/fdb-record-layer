@@ -429,7 +429,7 @@ public class OnlineIndexer implements AutoCloseable {
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
         return AsyncUtil.composeHandle( getIndexer().rebuildIndexAsync(store),
                 (ignore, ex) ->
-                        handleIndexerReturnOrFallback(ex, () -> getIndexer().rebuildIndexAsync(store)));
+                        handleIndexerReturnOrFallback(ex, () -> getIndexer().setFallbackMode().rebuildIndexAsync(store)));
     }
 
     /**
@@ -565,7 +565,7 @@ public class OnlineIndexer implements AutoCloseable {
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         return AsyncUtil.composeHandle(getIndexer().buildIndexAsync(markReadable),
                 (ignore, ex) ->
-                        handleIndexerReturnOrFallback(ex, () -> getIndexer().buildIndexAsync(markReadable)));
+                        handleIndexerReturnOrFallback(ex, () -> getIndexer().setFallbackMode().buildIndexAsync(markReadable)));
     }
 
     @Nonnull
@@ -576,6 +576,11 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return IndexingBase.indexBuildScannedRecordsSubspace(store, index);
+    }
+
+    @Nonnull
+    protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return IndexingBase.indexBuildTypeSubspace(store, index);
     }
 
     /**

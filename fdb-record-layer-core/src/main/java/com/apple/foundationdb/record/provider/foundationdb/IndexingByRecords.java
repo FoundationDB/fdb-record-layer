@@ -29,6 +29,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexMetaDataProto;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -70,15 +71,34 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class IndexingByRecords extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByRecords.class);
-
-    @Nonnull private final TupleRange recordsRange;
     @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
 
+    @Nonnull private final TupleRange recordsRange;
+    @Nonnull private final byte[] myTypeStamp;
 
     IndexingByRecords(@Nonnull IndexingCommon common) {
         super(common);
         this.recordsRange = computeRecordsRange();
+        this.myTypeStamp = compileTypeStamp();
+    }
+
+    @Override
+    @Nonnull
+    byte[] getTypeStamp() {
+        return myTypeStamp;
+    }
+
+    @Nonnull
+    byte[] compileTypeStamp() {
+        return IndexMetaDataProto.IndexMetaDataIndexingStamp.newBuilder()
+                .setMethod(IndexMetaDataProto.IndexMetaDataIndexingStamp.Method.BY_RECORDS)
+                .build().toByteArray();
+    }
+
+    @Override
+    boolean matchingTypeStamp(final byte[] stamp) {
+        return Arrays.equals(stamp, myTypeStamp);
     }
 
     @Nonnull
@@ -234,18 +254,6 @@ public class IndexingByRecords extends IndexingBase {
     public CompletableFuture<TupleRange> buildEndpoints() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
         return buildCommitRetryAsync(this::buildEndpoints, false, additionalLogMessageKeyValues);
-    }
-
-    // Turn a (possibly null) key into its tuple representation.
-    @Nullable
-    private Tuple convertOrNull(@Nullable Key.Evaluated key) {
-        return (key == null) ? null : key.toTuple();
-    }
-
-    // Turn a (possibly null) tuple into a (possibly null) byte array.
-    @Nullable
-    private byte[] packOrNull(@Nullable Tuple tuple) {
-        return (tuple == null) ? null : tuple.pack();
     }
 
     // Builds a range within a single transaction. It will look for the missing ranges within the given range and build those while

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -281,5 +283,117 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testIndexFromIndexPersistentContinuation() {
+        // start indexing by Index, verify refusal to continue by records
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1329;
+        final int chunkSize  = 42;
+        final int numChunks  = 1 + (numRecords / chunkSize);
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        final AtomicLong counter = new AtomicLong(0);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .setConfigLoader(old -> {
+                    if (counter.incrementAndGet() > 4) {
+                        throw new RecordCoreException("Intentionally crash during test");
+                    }
+                    return old;
+                })
+                .build()) {
+
+            assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            // The index should be partially built
+        }
+        assertEquals(3 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .build()) {
+            // now continue building from the last successful range
+            indexBuilder.buildIndex(true);
+        }
+        // counters should demonstrate a continuation to completion
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+    }
+
+    @Test
+    public void testIndexFromIndexPersistentPreventBadContinuation() {
+        // start indexing by Index, verify refusal to continue by records
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1328;
+        final int chunkSize  = 42;
+        final int numChunks  = 1 + (numRecords / chunkSize);
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        final AtomicLong counter = new AtomicLong(0);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .setConfigLoader(old -> {
+                    if (counter.incrementAndGet() > 4) {
+                        throw new RecordCoreException("Intentionally crash during test");
+                    }
+                    return old;
+                })
+                .build()) {
+            // build by index
+            assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            // The index should be partially built by index
+        }
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setTimer(timer)
+                .build()) {
+
+            // now try building by records, a failure is expected
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+        }
     }
 }

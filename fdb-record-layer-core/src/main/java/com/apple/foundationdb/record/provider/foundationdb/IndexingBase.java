@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.subspace.Subspace;
@@ -44,6 +45,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -73,12 +75,14 @@ public abstract class IndexingBase {
     private final IndexingThrottle throttle;
 
     private long timeOfLastProgressLogMillis = 0;
+    private boolean fallbackMode = false;
 
     IndexingBase(IndexingCommon common) {
         this.common = common;
         this.throttle = new IndexingThrottle(common);
     }
 
+    // helper functions
     protected FDBDatabaseRunner getRunner() {
         return common.getRunner();
     }
@@ -108,7 +112,22 @@ public abstract class IndexingBase {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
     }
 
-    CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
+    // Turn a (possibly null) tuple into a (possibly null) byte array.
+    @Nullable
+    protected static byte[] packOrNull(@Nullable Tuple tuple) {
+        return (tuple == null) ? null : tuple.pack();
+    }
+
+    // Turn a (possibly null) key into its tuple representation.
+    @Nullable
+    protected static Tuple convertOrNull(@Nullable Key.Evaluated key) {
+        return (key == null) ? null : key.toTuple();
+    }
+
+    // (methods order: as a rule of thumb, let sub-routines follow their callers)
+
+    // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
+    public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
                 LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
         final CompletableFuture<Void> buildIndexAsyncFuture;
@@ -219,7 +238,9 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> doBuildIndexAsync(boolean markReadable) {
-        CompletableFuture<Void> buildFuture = buildIndexByEntityAsync();
+        CompletableFuture<Void> buildFuture =
+                setIndexingTypeOrThrow()
+                        .thenCompose(ignore -> buildIndexByEntityAsync());
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
@@ -231,8 +252,51 @@ public abstract class IndexingBase {
         }
     }
 
+    @Nonnull
+    public IndexingBase setFallbackMode() {
+        fallbackMode = true;
+        return this;
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> setIndexingTypeOrThrow() {
+        byte[] stamp = getTypeStamp();
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "setIndexingTypeOrThrow",
+                LogMessageKeys.LOCAL_VERSION, stamp);
+
+        return buildCommitRetryAsync( (store, ignore) -> {
+            Transaction transaction = store.getContext().ensureActive();
+            byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
+            return transaction.get(stampKey)
+                            .thenApply( bytes -> {
+                                if (bytes == null || fallbackMode) {
+                                    transaction.set(stampKey, stamp);
+                                } else if (! matchingTypeStamp(bytes)) {
+                                    if (LOGGER.isWarnEnabled()) {
+                                        LOGGER.warn(KeyValueLogMessage.of("Index was partly built by another method",
+                                                LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                                                LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                                                LogMessageKeys.INDEXER_ID, common.getUuid(),
+                                                LogMessageKeys.EXPECTED_TYPE, stamp,
+                                                LogMessageKeys.ACTUAL_TYPE, bytes));
+                                    }
+                                    throw new RecordCoreException("This index was partly built by another method");
+                                }
+                                return null;
+                            }); },
+                false,
+                additionalLogMessageKeyValues);
+    }
+
+    @Nonnull
+    abstract byte[] getTypeStamp();
+
+    @Nonnull
+    abstract boolean matchingTypeStamp(byte[] stamp);
+
     abstract CompletableFuture<Void> buildIndexByEntityAsync();
 
+    // Helpers for implementing modules. Some of them are public to support unit-testing.
     protected boolean shouldLogBuildProgress() {
         long interval = common.config.getProgressLogIntervalMillis();
         long now = System.currentTimeMillis();
@@ -259,7 +323,6 @@ public abstract class IndexingBase {
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           boolean limitControl,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
-
         return throttle.buildCommitRetryAsync(buildFunction, limitControl, additionalLogMessageKeyValues);
     }
 
@@ -268,18 +331,6 @@ public abstract class IndexingBase {
         if (timer != null) {
             timer.increment(event);
         }
-    }
-
-    private static CompletableFuture<Void> updateMaintainerBuilder(SyntheticRecordFromStoredRecordPlan syntheticPlan,
-                                                                   FDBStoredRecord<Message> rec,
-                                                                   IndexMaintainer maintainer,
-                                                                   FDBRecordStore store) {
-        // helper function to reduce complexity
-        if (syntheticPlan == null) {
-            return maintainer.update(null, rec);
-        }
-        // Pipeline size is 1, since not all maintainers are thread-safe.
-        return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
     }
 
     protected <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
@@ -336,6 +387,19 @@ public abstract class IndexingBase {
         }), cursor.getExecutor());
     }
 
+    private static CompletableFuture<Void> updateMaintainerBuilder(SyntheticRecordFromStoredRecordPlan syntheticPlan,
+                                                                   FDBStoredRecord<Message> rec,
+                                                                   IndexMaintainer maintainer,
+                                                                   FDBRecordStore store) {
+        // helper function to reduce complexity
+        if (syntheticPlan == null) {
+            return maintainer.update(null, rec);
+        }
+        // Pipeline size is 1, since not all maintainers are thread-safe.
+        return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
+    }
+
+    // rebuildIndexAsyc - builds the whole index inline (without commiting)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
         Index index = common.getIndex();
@@ -355,7 +419,7 @@ public abstract class IndexingBase {
 
     abstract CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store);
 
-    // These two methods are externalized for testing usage only
+    // These throttle methods are externalized for testing usage only
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
