@@ -37,6 +37,7 @@ import org.apache.lucene.store.LockFactory;
 import org.apache.lucene.store.NoLockFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
@@ -72,6 +73,7 @@ public class FDBDirectory extends Directory {
     private AtomicLong atomicLong;
     private boolean hasWritten;
     private CompletableFuture<Void> setIncrement;
+    //TODO:  make visible for testing
     private final Cache<String, FDBLuceneFileReference> fileReferenceCache;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
     private final Map<String, Long> reads;
@@ -101,7 +103,11 @@ public class FDBDirectory extends Directory {
         this.reads = new ConcurrentHashMap<>();
     }
 
-    public CompletableFuture<Void> setIncrement() {
+    /**.
+     * Sets increment if not set yet.
+     * @return Future representing the status of setting the increment
+     */
+    private CompletableFuture<Void> setIncrement() {
         return txn.get(sequenceSubspaceKey).thenAcceptAsync(
                 (value) -> {
                     if (value == null) {
@@ -113,14 +119,31 @@ public class FDBDirectory extends Directory {
                 });
     }
 
+    /**
+     * Sets increment if not set yet and waits till completed to return
+     * Returns and increments the increment if its already set.
+     * @return current increment value
+     */
     public long getIncrement() {
         if (setIncrement == null) {
             setIncrement = setIncrement();
+            setIncrement.join();
+            return atomicLong.get();
         }
         setIncrement.join();
         return atomicLong.incrementAndGet();
     }
 
+    /**
+     * Checks the cache for  the file reference.
+     * If the file is in the cache it returns the cached value.
+     * If not there then it checks the subspace for it.
+     * If its there the file is added to the cache and returned to caller
+     * If the file doesn't exist in the subspace it returns null.
+     *
+     * @param name name for the file reference
+     * @return FDBLuceneFileReference
+     */
     public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReference(final String name) {
         LOG.trace("getFDBLuceneFileReference {}", name);
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
@@ -135,6 +158,12 @@ public class FDBDirectory extends Directory {
                     ) : CompletableFuture.supplyAsync(() -> fileReference);
     }
 
+    /**
+     * Puts a file reference in the meta subspace and in the cache under the given name.
+     * @param name name for the file reference
+     * @param reference the file reference being inserted
+     * TODO: this overwrites the file reference under that name, expected behavior?
+     */
     public void writeFDBLuceneFileReference(final String name, final FDBLuceneFileReference reference) {
         LOG.trace("writeFDBLuceneFileReference {}", reference);
         hasWritten = true;
@@ -142,12 +171,26 @@ public class FDBDirectory extends Directory {
         fileReferenceCache.put(name, reference);
     }
 
+    /**
+     * Writes data to the given block under the given id.
+     * @param id id for the data
+     * @param block block for the data to be stored in
+     * @param value the data to be stored
+     */
     public void writeData(long id, int block, byte[] value) {
         LOG.trace("writeData id={}, block={}, valueSize={}", id, block, value.length);
         hasWritten = true;
         txn.set(dataSubspace.pack(Tuple.from(id, block)), value);
     }
 
+    /**
+     * Seeks known data from the directory.
+     * @param resourceDescription TODO
+     * @param referenceFuture the reference where the data supposedly lives
+     * @param block the block where the data is stored
+     * @return Completable future of the data returned
+     * @throws IOException if blockCache fails to get the data from the block
+     */
     public CompletableFuture<byte[]> seekData(String resourceDescription, CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws IOException {
         try {
             LOG.trace("seekData resourceDescription={}, block={}", resourceDescription, block);
@@ -166,6 +209,15 @@ public class FDBDirectory extends Directory {
         }
     }
 
+    /**
+     * Lists all references in the subspace. Puts all references in the cache.
+     * Logs the count of references, and the total size of the data.
+     * @return String list of names of lucene file references
+     * TODO: Why do we add all to the cache.
+     * Doesn't that defeat the point of the cache if we make it too large?
+     * Wouldn't it cost just as much to search the data if we've added everything to the cache?
+     * (I understand on hard disk this is different but in a solidstate/cloud model does this make a difference?)
+     */
     @Override
     public String[] listAll() {
         List<String> outList = new ArrayList<>();
@@ -199,6 +251,10 @@ public class FDBDirectory extends Directory {
         return outList.toArray(new String[0]);
     }
 
+    /**
+     * deletes the file reference under the provided name.
+     * @param name the name for the file reference
+     */
     @Override
     public void deleteFile(String name) {
         LOG.trace("deleteFile -> {}", name);
@@ -215,6 +271,12 @@ public class FDBDirectory extends Directory {
         ).join();
     }
 
+    /**
+     * Returns the size of the given file under the given name.
+     * @param name the name of the file reference
+     * @return long value of the size of the file
+     * @throws NoSuchFileException if the file reference doesn't exist.
+     */
     @Override
     public long fileLength(String name) throws NoSuchFileException {
         LOG.trace("fileLength -> {}", name);
@@ -225,6 +287,12 @@ public class FDBDirectory extends Directory {
         return reference.getSize();
     }
 
+    /**
+     * Create new output for
+     * @param name
+     * @param ioContext
+     * @return
+     */
     @Override
     public IndexOutput createOutput(final String name, final IOContext ioContext) {
         LOG.trace("createOutput -> {}", name);
@@ -280,6 +348,12 @@ public class FDBDirectory extends Directory {
         return lockFactory.obtainLock(null,s);
     }
 
+    /**
+     * TODO: verify if anything else needs to happen here.
+     * All this is doing is logging not actually closing anything.
+     * Close implies that it shouldn't be used again.
+     * @throws IOException TODO: no it doesn't?
+     */
     @Override
     public void close() throws IOException {
         LOG.debug("close");
