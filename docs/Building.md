@@ -38,13 +38,11 @@ To verify that you have a working configuration, pick some tests that depend on 
 
 If this does not work smoothly for you, please create a [new issue](https://github.com/FoundationDB/fdb-record-layer/issues/new) or ask in [the forum](https://forums.foundationdb.org/c/using-layers).
 
-### Behind the Scene
+### Behind the Scenes
 
 *(This section explains what happened above and why, in case you are interested.)*
 
 The `./gradlew package` command (Step 2) generates the protobuf files.
-
-If you are used to opening older `.ipr`-based IntelliJ projects, the process for opening this project will be somewhat different. Instead of selecting the `fdb-record-layer.ipr` file, open the project's root directory; IntelliJ will find the project configuration in the `.idea` directory.
 
 The Record Layer project does not use the Gradle IDEA plugin, unlike many similar projects. Instead, it uses IntelliJ IDEA's builtin Gradle support to compile the project and run the tests; the repository will run a "sync" with the Gradle configuration when you load Gradle project (Step 6).
 
