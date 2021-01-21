@@ -185,11 +185,12 @@ public class FDBDirectory extends Directory {
 
     /**
      * Seeks known data from the directory.
-     * @param resourceDescription TODO
+     * @param resourceDescription TODO: Is there anywhere else this is referenced? I don't understand what this is.
      * @param referenceFuture the reference where the data supposedly lives
      * @param block the block where the data is stored
      * @return Completable future of the data returned
      * @throws IOException if blockCache fails to get the data from the block
+     * @throws NullPointerException if a reference with that id hasn't been written yet.
      */
     public CompletableFuture<byte[]> seekData(String resourceDescription, CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws IOException {
         try {

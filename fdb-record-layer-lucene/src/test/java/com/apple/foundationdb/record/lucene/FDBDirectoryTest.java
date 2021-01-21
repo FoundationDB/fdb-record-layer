@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -50,6 +51,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.NoSuchFileException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -186,12 +188,55 @@ public class FDBDirectoryTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testWriteSeekData() {
-        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
-        fail();
+        Transaction transaction = recordStore.ensureContextActive();
 
-        // write data and make sure its correct
-        // seek data not there
+        FDBDirectory directory = new FDBDirectory(subspace, transaction);
+        // seek data from non-existant lucene file.
+        try {
+            directory.seekData("testDescription", directory.getFDBLuceneFileReference("testReference"), 1);
+            fail();
+        } catch (IOException | NullPointerException e) {
+            assertTrue(e instanceof NullPointerException, "This should throw NPE not IOException: " + e.toString());
+        }
 
+        // seek data from existent lucene file reference without data being written.
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(2, 1, 1);
+        directory.writeFDBLuceneFileReference("testReference1", reference1);
+        try {
+            CompletableFuture<byte[]> seekData = directory.seekData("testReference1", directory.getFDBLuceneFileReference("testReference1"), 1);
+            byte[] bytes = seekData.get(5, TimeUnit.SECONDS);
+            assertNull(bytes);
+        } catch (Exception e) {
+            fail("Unexpected exception thrown: " + e.toString());
+        }
+
+        // data written before commit isn't written to record store yet.
+
+        FDBLuceneFileReference reference2 = new FDBLuceneFileReference(2, 1, 200);
+        directory.writeFDBLuceneFileReference("testReference2", reference2);
+        byte[] bytes1 = "test string for write".getBytes(StandardCharsets.UTF_8);
+        directory.writeData(2, 1, bytes1);
+
+        try {
+            CompletableFuture<byte[]> seekData = directory.seekData("testReference2", directory.getFDBLuceneFileReference("testReference1"), 1);
+            byte[] bytes = seekData.get(5, TimeUnit.SECONDS);
+            assertNull(bytes);
+        } catch (Exception e) {
+            fail("Unexpected exception thrown: " + e.toString());
+        }
+
+        // after commit data is seekable
+        transaction.commit();
+        FDBLuceneFileReference reference3 = new FDBLuceneFileReference(2, bytes1.length, bytes1.length);
+        directory.writeFDBLuceneFileReference("testReference3", reference3);
+        try {
+            CompletableFuture<byte[]> seekData = directory.seekData("testReference3", directory.getFDBLuceneFileReference("testReference1"), 1);
+            byte[] bytes = seekData.get(5, TimeUnit.SECONDS);
+            //TODO figure out what this is missing to seek the data or commit it. 
+            assertNotNull(bytes);
+        } catch (Exception e) {
+            fail("Unexpected exception thrown: " + e.toString());
+        }
     }
 
     @Test
@@ -274,11 +319,13 @@ public class FDBDirectoryTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testSyncMetadata() {
+
         fail();
     }
 
     @Test
     public void testRename() {
+
         fail();
     }
 
