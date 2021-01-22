@@ -196,6 +196,7 @@ public class FDBDirectoryTest extends FDBRecordStoreTestBase {
             directory.seekData("testDescription", directory.getFDBLuceneFileReference("testReference"), 1);
             fail();
         } catch (IOException | NullPointerException e) {
+            // TODO: should throw NPE?
             assertTrue(e instanceof NullPointerException, "This should throw NPE not IOException: " + e.toString());
         }
 
@@ -232,7 +233,7 @@ public class FDBDirectoryTest extends FDBRecordStoreTestBase {
         try {
             CompletableFuture<byte[]> seekData = directory.seekData("testReference3", directory.getFDBLuceneFileReference("testReference1"), 1);
             byte[] bytes = seekData.get(5, TimeUnit.SECONDS);
-            //TODO figure out what this is missing to seek the data or commit it. 
+            //TODO figure out what this is missing to seek the data or commit it.
             assertNotNull(bytes);
         } catch (Exception e) {
             fail("Unexpected exception thrown: " + e.toString());
@@ -266,14 +267,16 @@ public class FDBDirectoryTest extends FDBRecordStoreTestBase {
     public void testDeleteData() {
         FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
 
-        // test delete data on empty data
-        // TODO: not entirely sure how to catch the exception here.
-        //directory.deleteFile("NonExist");
-        //try {
-        //wait(200);
-        //} catch (Exception e) {
-        //fail();
-        //}
+        //test delete data on empty data
+        try {
+            directory.deleteFile("NonExist");
+            wait(200);
+            fail();
+        } catch (Exception e) {
+            assertTrue(e.getCause().getCause() instanceof NoSuchFileException);
+
+
+        }
 
         // test delete data on existing data
         FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 1, 1);
@@ -325,6 +328,13 @@ public class FDBDirectoryTest extends FDBRecordStoreTestBase {
 
     @Test
     public void testRename() {
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+        try {
+            directory.rename("NoExist", "newName");
+        } catch (Exception e) {
+            assertTrue(e instanceof IllegalArgumentException);
+        }
+
 
         fail();
     }

@@ -331,6 +331,8 @@ public class FDBDirectory extends Directory {
     public void rename(final String source, final String dest) throws IOException {
         LOG.trace("rename -> source={}, dest={}", source, dest);
         final byte[] key = metaSubspace.pack(source);
+        // TODO: probably makes sense to make sure that the key isn't null.
+        //  Otherwise we get Illegal argument from a non-obvious place when we try to pack it.
         txn.get(key).thenAcceptAsync( (value) -> {
             txn.set(metaSubspace.pack(dest), value);
             txn.clear(key);
