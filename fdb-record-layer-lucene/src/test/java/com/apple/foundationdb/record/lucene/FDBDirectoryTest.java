@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -50,9 +51,19 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Test for FDBDirectory validating it can function as a backing store
@@ -86,6 +97,275 @@ public class FDBDirectoryTest extends FDBRecordStoreTestBase {
                 .setFormatVersion(FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION)
                 .createOrOpen();
         luceneIndex = new FDBLuceneTestIndex(new FDBDirectory(subspace, recordStore.ensureContextActive()), new StandardAnalyzer());
+    }
+
+    @Test
+    public void testDirectoryCreate() {
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+        assertNotNull(directory);
+        assertEquals(subspace, directory.subspace);
+        assertEquals(directory.txn, recordStore.ensureContextActive());
+    }
+
+    @Test
+    public void testSetGetIncrement() {
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+        // If increment is null, get starts the increment: TODO: Why is it returning 2 the first time?
+        assertEquals(1, directory.getIncrement());
+        // subsequent gets return the next value
+        assertEquals(2, directory.getIncrement());
+    }
+
+    @Test
+    public void testWriteGetLuceneFileReference() {
+        // TODO: Assert that at the start the reference cache and subspace is empty.
+
+        // get unknown file reference.
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+        CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("NonExist");
+        try {
+            assertNull(luceneFileReference.get(5, TimeUnit.SECONDS));
+        } catch (InterruptedException e) {
+            fail("Interrupted exception thrown when getting lucene reference: " + e.toString());
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            fail("Exception thrown when getting lucene file reference: " + e.toString());
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            fail("Timeout when getting lucene file reference: " + e.toString());
+            e.printStackTrace();
+        }
+
+        // get known file reference
+        String luceneReference1 = "luceneReference1";
+        FDBLuceneFileReference fileReference = new FDBLuceneFileReference(1, 10, 10);
+        directory.writeFDBLuceneFileReference(luceneReference1, fileReference);
+        luceneFileReference = directory.getFDBLuceneFileReference(luceneReference1);
+        try {
+            FDBLuceneFileReference actual = luceneFileReference.get(5, TimeUnit.SECONDS);
+            assertNotNull(actual);
+            assertEquals(actual, fileReference);
+        } catch (InterruptedException e) {
+            fail("Interrupted exception thrown when getting lucene reference: " + e.toString());
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            fail("Exception thrown when getting lucene file reference: " + e.toString());
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            fail("Timeout when getting lucene file reference: " + e.toString());
+            e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testWriteLuceneFileReference() {
+        // write already created file reference
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(2, 1, 1);
+        directory.writeFDBLuceneFileReference("test1", reference1);
+        FDBLuceneFileReference reference2 = new FDBLuceneFileReference(3, 1, 1);
+        directory.writeFDBLuceneFileReference("test1", reference2);
+
+        CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("test1");
+        try {
+            FDBLuceneFileReference actual = luceneFileReference.get(5, TimeUnit.SECONDS);
+            assertNotNull(actual);
+            // TODO: this overwrites the file reference under that name, if expected complete this test.
+        } catch (InterruptedException e) {
+            fail("Interrupted exception thrown when getting lucene reference: " + e.toString());
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            fail("Exception thrown when getting lucene file reference: " + e.toString());
+            e.printStackTrace();
+        } catch (TimeoutException e) {
+            fail("Timeout when getting lucene file reference: " + e.toString());
+            e.printStackTrace();
+        }
+        // write invalid file reference
+        // TODO: not sure how/if we can have invalid references.
+    }
+
+
+    @Test
+    public void testWriteSeekData() {
+        Transaction transaction = recordStore.ensureContextActive();
+
+        FDBDirectory directory = new FDBDirectory(subspace, transaction);
+        // seek data from non-existant lucene file.
+        try {
+            directory.seekData("testDescription", directory.getFDBLuceneFileReference("testReference"), 1);
+            fail();
+        } catch (IOException | NullPointerException e) {
+            // TODO: should throw NPE?
+            assertTrue(e instanceof NullPointerException, "This should throw NPE not IOException: " + e.toString());
+        }
+
+        // seek data from existent lucene file reference without data being written.
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(2, 1, 1);
+        directory.writeFDBLuceneFileReference("testReference1", reference1);
+        try {
+            CompletableFuture<byte[]> seekData = directory.seekData("testReference1", directory.getFDBLuceneFileReference("testReference1"), 1);
+            byte[] bytes = seekData.get(5, TimeUnit.SECONDS);
+            assertNull(bytes);
+        } catch (Exception e) {
+            fail("Unexpected exception thrown: " + e.toString());
+        }
+
+        // data written before commit isn't written to record store yet.
+
+        FDBLuceneFileReference reference2 = new FDBLuceneFileReference(2, 1, 200);
+        directory.writeFDBLuceneFileReference("testReference2", reference2);
+        byte[] bytes1 = "test string for write".getBytes(StandardCharsets.UTF_8);
+        directory.writeData(2, 1, bytes1);
+
+        try {
+            CompletableFuture<byte[]> seekData = directory.seekData("testReference2", directory.getFDBLuceneFileReference("testReference1"), 1);
+            byte[] bytes = seekData.get(5, TimeUnit.SECONDS);
+            assertNull(bytes);
+        } catch (Exception e) {
+            fail("Unexpected exception thrown: " + e.toString());
+        }
+
+        // after commit data is seekable
+        transaction.commit();
+        FDBLuceneFileReference reference3 = new FDBLuceneFileReference(2, bytes1.length, bytes1.length);
+        directory.writeFDBLuceneFileReference("testReference3", reference3);
+        try {
+            CompletableFuture<byte[]> seekData = directory.seekData("testReference3", directory.getFDBLuceneFileReference("testReference1"), 1);
+            byte[] bytes = seekData.get(5, TimeUnit.SECONDS);
+            //TODO figure out what this is missing to seek the data or commit it.
+            assertNotNull(bytes);
+        } catch (Exception e) {
+            fail("Unexpected exception thrown: " + e.toString());
+        }
+    }
+
+    @Test
+    public void testListAll() {
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+
+        // test list all on emtpy directory returns empty list.
+        assertEquals(directory.listAll().length, 0);
+
+        // test list all adds elements to cache.
+        // TODO: expose cache to do this
+
+        // test list all returns all elements
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 1, 1);
+        directory.writeFDBLuceneFileReference("test1", reference1);
+        FDBLuceneFileReference reference2 = new FDBLuceneFileReference(2, 1, 1);
+        directory.writeFDBLuceneFileReference("test2", reference2);
+        FDBLuceneFileReference reference3 = new FDBLuceneFileReference(3, 1, 1);
+        directory.writeFDBLuceneFileReference("test3", reference3);
+        String[] references = directory.listAll();
+        String[] actual = {"test1", "test2", "test3"};
+        assertTrue(references[0].equals(actual[0]) && references[1].equals(actual[1]) &&
+                   references[2].equals(actual[2]));
+    }
+
+    @Test
+    public void testDeleteData() {
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+
+        //test delete data on empty data
+        try {
+            directory.deleteFile("NonExist");
+            wait(200);
+            fail();
+        } catch (Exception e) {
+            assertTrue(e.getCause().getCause() instanceof NoSuchFileException);
+
+
+        }
+
+        // test delete data on existing data
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 1, 1);
+        directory.writeFDBLuceneFileReference("test1", reference1);
+        directory.deleteFile("test1");
+        assertTrue(directory.listAll().length == 0);
+    }
+
+    @Test
+    public void testFileLength() {
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+        // get file length for non-existent file throws exception.
+        try {
+            directory.fileLength("nonExist");
+            fail("NoSuchFileException should have been thrown for non-existent file.");
+        } catch (NoSuchFileException e) { }
+
+        // get file length for existing file.
+        FDBLuceneFileReference reference1 = new FDBLuceneFileReference(1, 1, 1);
+        directory.writeFDBLuceneFileReference("test1", reference1);
+        try {
+            long fileSize = directory.fileLength("test1");
+            assertEquals(1, fileSize);
+        } catch (NoSuchFileException e) {
+            fail("Unexpected exception was thrown: " + e.toString());
+        }
+    }
+
+    @Test
+    public void testCreateOutput() {
+        fail();
+    }
+
+    @Test
+    public void testCreateTempOutput() {
+        fail();
+    }
+
+    @Test
+    public void testSync() {
+        fail();
+    }
+
+    @Test
+    public void testSyncMetadata() {
+
+        fail();
+    }
+
+    @Test
+    public void testRename() {
+        FDBDirectory directory = new FDBDirectory(subspace, recordStore.ensureContextActive());
+        try {
+            directory.rename("NoExist", "newName");
+        } catch (Exception e) {
+            assertTrue(e instanceof IllegalArgumentException);
+        }
+
+
+        fail();
+    }
+
+    @Test
+    public void testOpenInput() {
+        fail();
+    }
+
+    @Test
+    public void testObtainLock() {
+        fail();
+    }
+
+    @Test
+    public void testClose() {
+        fail();
+    }
+
+    @Test
+    public void testGetPendingDeletions() {
+        fail();
+        // Test getting when no pending deletions
+        // test getting when deletions exist
+    }
+
+    @Test
+    public void testGetBlockSize() {
+        fail();
+        // getting empty block.
+        // getting existing block.
     }
 
     @Test
