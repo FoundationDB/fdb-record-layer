@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -139,6 +140,16 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Override
     public Set<String> getUsedIndexes() {
         return new HashSet<>();
+    }
+
+    @Override
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        if (comparisons.isEquality() &&
+                metaData.getRecordTypes().values().stream().allMatch(t -> t.getPrimaryKey().getColumnSize() <= comparisons.size())) {
+            return 1;
+        } else {
+            return UNKNOWN_MAX_CARDINALITY;
+        }
     }
 
     @Nonnull

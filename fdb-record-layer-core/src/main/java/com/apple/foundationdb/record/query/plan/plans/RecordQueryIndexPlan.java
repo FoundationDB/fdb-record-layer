@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -128,6 +129,16 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public Set<String> getUsedIndexes() {
         return Collections.singleton(indexName);
+    }
+
+    @Override
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        final Index index = metaData.getIndex(indexName);
+        if (index.isUnique() && comparisons.isEquality() && comparisons.size() == index.getColumnSize()) {
+            return 1;
+        } else {
+            return UNKNOWN_MAX_CARDINALITY;
+        }
     }
 
     @Override
