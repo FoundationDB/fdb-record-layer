@@ -308,13 +308,23 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
+
     @Nonnull
     protected RecordMetaDataHook complexPrimaryKeyHook() {
+        return complexPrimaryKeyHook(false);
+    }
+
+    @Nonnull
+    protected RecordMetaDataHook complexPrimaryKeyHook(boolean skipNum3) {
         return metaData -> {
             RecordTypeBuilder recordType = metaData.getRecordType("MySimpleRecord");
             recordType.setPrimaryKey(concatenateFields("str_value_indexed", "num_value_unique"));
             metaData.addIndex(recordType, new Index("str_value_2_index",
                     "str_value_indexed", "num_value_2"));
+            if (skipNum3) {
+                // Same fields in different order as str_value_3_index.
+                metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+            }
             metaData.addIndex(recordType, new Index("str_value_3_index",
                     "str_value_indexed", "num_value_3_indexed"));
         };

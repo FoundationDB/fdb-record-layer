@@ -321,7 +321,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (sort == null) {
                 p = planNoFilterNoSort(planContext, index);
             } else {
-                p = planSortOnly(new CandidateScan(planContext, index, sortReverse), index.getRootExpression(), sort);
+                p = planSortOnly(new CandidateScan(planContext, index, sortReverse), indexKeyExpressionForPlan(planContext.commonPrimaryKey, index), sort);
             }
             if (p != null) {
                 if (bestPlan == null || p.score > bestPlan.score ||
@@ -452,11 +452,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             bestPlan = planIndex(planContext, filter, null, planContext.commonPrimaryKey, intersectionCandidates);
         }
         for (Index index : planContext.indexes) {
-            KeyExpression indexKeyExpression = index.getRootExpression();
-            if (indexKeyExpression instanceof KeyWithValueExpression) {
-                indexKeyExpression = ((KeyWithValueExpression) indexKeyExpression).getKeyExpression();
-            }
-
+            KeyExpression indexKeyExpression = indexKeyExpressionForPlan(planContext.commonPrimaryKey, index);
             ScoredPlan p = planIndex(planContext, filter, index, indexKeyExpression, intersectionCandidates);
             if (p != null) {
                 // TODO: Consider more organized score / cost:
@@ -483,6 +479,23 @@ public class RecordQueryPlanner implements QueryPlanner {
             return scoredPlan;
         }
         return null;
+    }
+
+    // Get the key expression for the index entries, which includes primary key fields for normal indexes.
+    private KeyExpression indexKeyExpressionForPlan(@Nullable KeyExpression commonPrimaryKey, @Nonnull Index index) {
+        KeyExpression indexKeyExpression = index.getRootExpression();
+        if (indexKeyExpression instanceof KeyWithValueExpression) {
+            indexKeyExpression = ((KeyWithValueExpression) indexKeyExpression).getKeyExpression();
+        }
+        if (commonPrimaryKey != null && indexTypes.getValueTypes().contains(index.getType())) {
+            final List<KeyExpression> keys = new ArrayList<>(commonPrimaryKey.normalizeKeyForPositions());
+            index.trimPrimaryKey(keys);
+            if (!keys.isEmpty()) {
+                keys.add(0, indexKeyExpression);
+                indexKeyExpression = Key.Expressions.concat(keys);
+            }
+        }
+        return indexKeyExpression;
     }
 
     public boolean isBetterThanOther(@Nonnull final PlanContext planContext,

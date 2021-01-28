@@ -731,7 +731,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      */
     @Test
     public void testOrQuery7() throws Exception {
-        RecordMetaDataHook hook = complexPrimaryKeyHook();
+        RecordMetaDataHook hook = complexPrimaryKeyHook(true);
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")

@@ -66,7 +66,6 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTup
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.intersection;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.queryPredicateDescendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
@@ -318,12 +317,11 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
 
         if (planner instanceof RecordQueryPlanner) {
+            // Does not understand duplicate condition
             assertThat(plan,
                     filter(nestedComponent,
-                            intersection(
-                                    indexScan(allOf(indexName("composite"), bounds(hasTupleString("[[something, 1],[something, 1]]")))),
-                                    indexScan(allOf(indexName("duplicates"), bounds(hasTupleString("[[something, something],[something, something]]"))))
-                            )));
+                            indexScan(allOf(indexName("duplicates"), bounds(hasTupleString("[[something, something, 1],[something, something, 1]]"))))
+                            ));
         } else {
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("complex"), bounds(hasTupleString("[[something, 1, 10, 20],[something, 1, 10, 20]]"))))));
         }

@@ -369,13 +369,12 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         setupSimpleRecordStore(NO_HOOK, (i, builder) -> builder.setRecNo(i).setNumValue2(i % 2).setNumValue3Indexed(i % 3));
 
         // Case 1: Equality filter on a single field with primary key as next field.
-        // TODO: Queries with order-preserving filter sorting by primary key will not use index for filter (https://github.com/FoundationDB/fdb-record-layer/issues/5)
         sortByPrimaryKeyWithFilter(
                 Query.field("num_value_3_indexed").equalsValue(0),
                 reverse,
-                reverse ? 831975758 : 831975757, // with index: -1828364112
-                34,
-                // with index: indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]")))
+                reverse ? -1828364111 : -1828364112,
+                34, 0,
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]")))),
                 builder -> assertThat(builder.getNumValue3Indexed(), equalTo(0))
         );
 
@@ -426,18 +425,16 @@ public class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase 
         );
 
         // Case 7: And query with filter on one indexed and one unindexed field.
-        // TODO: Queries with order-preserving filter sorting by primary key will not use index for filter (https://github.com/FoundationDB/fdb-record-layer/issues/5)
         sortByPrimaryKeyWithFilter(
                 Query.and(
                     Query.field("num_value_2").equalsValue(1),
                     Query.field("num_value_3_indexed").equalsValue(0)
                 ),
                 reverse,
-                reverse ? 304196996 : 304196995, // with index: 1756841371
-                17,
-                // with index:
-                // filter(equalTo(Query.field("num_value_2").equalsValue(1)),
-                //        indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))))
+                reverse ? 1756841372 : 1756841371,
+                17, 20,
+                filter(Query.field("num_value_2").equalsValue(1),
+                        indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[0]]"))))),
                 builder -> assertThat(builder.getNumValue2(), not(equalTo(2)))
         );
 
