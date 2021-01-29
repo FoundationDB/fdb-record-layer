@@ -2,7 +2,7 @@
 
 ## Developing the Record Layer
 
-Before contributing to the Record Layer, please see the [contribution guide](https://github.com/FoundationDB/fdb-record-layer/blob/master/CONTRIBUTING.md).
+Before contributing to the Record Layer, please see the [contribution guide](https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md).
 
 ## Configuring IntelliJ
 
