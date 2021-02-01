@@ -3539,7 +3539,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // subspace. We are not supposed to clear the lock subspace, which is used to run online index jobs which may
         // invoke this method. But we should clear the scanned records subspace, which, roughly speaking, counts how
         // many records of this store are covered in index range subspace.
-        tr.clear(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).range());
+        tr.clear(Range.startsWith(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).pack()));
     }
 
     public void removeFormerIndex(FormerIndex formerIndex) {
