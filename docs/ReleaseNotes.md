@@ -14,7 +14,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Scanned records counter was not cleared properly when clearing the index [(Issue #1115)](https://github.com/FoundationDB/fdb-record-layer/issues/1115)
 * **Bug fix** Fix the instruction document of building Record Layer [(Issue #1061)](https://github.com/FoundationDB/fdb-record-layer/issues/1061)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
