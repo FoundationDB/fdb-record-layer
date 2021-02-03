@@ -30,6 +30,8 @@ import java.util.Arrays;
  */
 public class HashUtils {
 
+    private HashUtils() {}
+
     public static int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind, Object... objs) {
         return iterableQueryHash(hashKind, Arrays.asList(objs));
     }
