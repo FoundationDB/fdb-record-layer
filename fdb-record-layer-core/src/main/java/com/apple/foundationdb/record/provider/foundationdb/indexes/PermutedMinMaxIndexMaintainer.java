@@ -50,7 +50,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * An index that maintains an extremum value in a way that can be enumated by that value rather than by group.
+ * An index that maintains an extremum value in a way that can be enumerated by that value rather than by group.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
