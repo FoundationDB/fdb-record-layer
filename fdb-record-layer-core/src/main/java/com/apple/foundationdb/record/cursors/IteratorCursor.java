@@ -22,8 +22,10 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursorResult;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
+import java.io.Closeable;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -37,8 +39,23 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.MAINTAINED)
 public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
+    private static final Logger LOG = LoggerFactory.getLogger(IteratorCursor.class);
+    private Closeable closeable;
+
     public IteratorCursor(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
         super(executor, iterator);
+    }
+
+    /**
+     * Adds an additional closeable that fires prior to the super.close().  Errors are logged but <b>are</b> swallowed.
+     *
+     * @param executor executor
+     * @param iterator iterator
+     * @param closeable closeable
+     */
+    public IteratorCursor(@Nonnull Executor executor, @Nonnull Iterator<T> iterator, Closeable closeable) {
+        super(executor, iterator);
+        this.closeable = closeable;
     }
 
     @Nonnull
@@ -47,4 +64,15 @@ public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
         return CompletableFuture.completedFuture(computeNextResult(iterator.hasNext()));
     }
 
+    @Override
+    public void close() {
+        try {
+            if (closeable != null) {
+                closeable.close();
+            }
+        } catch (Exception ioe) {
+            LOG.warn("close failed",ioe);
+        }
+        super.close();
+    }
 }
