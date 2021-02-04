@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -61,8 +62,16 @@ public class PermutedMinMaxIndexMaintainerFactory implements IndexMaintainerFact
             public void validate(@Nonnull MetaDataValidator metaDataValidator) {
                 super.validate(metaDataValidator);
                 validateGrouping(1);
+                int groupingCount = ((GroupingKeyExpression)index.getRootExpression()).getGroupingCount();
                 validateNotVersion();
-                PermutedMinMaxIndexMaintainer.getPermutedSize(index);
+                int permutedSize = PermutedMinMaxIndexMaintainer.getPermutedSize(index);
+                if (permutedSize < 0) {
+                    throw new MetaDataException("permuted size cannot be negative", LogMessageKeys.INDEX_NAME, index.getName());
+                } else if (permutedSize == 0) {
+                    throw new MetaDataException("no permutation does not need a special index type for MIN and MAX", LogMessageKeys.INDEX_NAME, index.getName());
+                } else if (permutedSize > groupingCount) {
+                    throw new MetaDataException("permuted size cannot be larger than grouping size", LogMessageKeys.INDEX_NAME, index.getName());
+                }
             }
 
             @Override

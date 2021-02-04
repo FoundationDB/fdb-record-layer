@@ -34,11 +34,13 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -51,6 +53,12 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * An index that maintains an extremum value in a way that can be enumerated by that value rather than by group.
+ *
+ * This is done by specifying a number of grouping fields that are <em>permuted</em> to after the value.
+ * This number is specified by the {@link IndexOptions#PERMUTED_SIZE_OPTION} index option.
+ *
+ * For example, an {@code PERMUTED_MAX} index on <code>field(val).groupBy(concatenateFields(group, subgroup))</code> with a permuted size of {@code 1} can,
+ * for an ordered range of {@code group} value(s) (including just a single group), list the maximum {@code value} for each {@code subgroup}, ordered by that maximum.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
@@ -184,5 +192,23 @@ public class PermutedMinMaxIndexMaintainer extends StandardIndexMaintainer {
                 (type == Type.MIN ? ScanProperties.FORWARD_SCAN : ScanProperties.REVERSE_SCAN)
                         .with(props -> props.clearState().setReturnedRowLimit(1)));
         return scan.first().thenApply(first -> first.map(IndexEntry::getKey).orElse(null));
+    }
+
+    @Override
+    public boolean canDeleteWhere(@Nonnull final QueryToKeyMatcher matcher, @Nonnull final Key.Evaluated evaluated) {
+        if (!super.canDeleteWhere(matcher, evaluated)) {
+            return false;
+        }
+        final int unpermutedSize = getGroupingCount() - permutedSize;
+        return evaluated.size() <= unpermutedSize;
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteWhere(Transaction tr, @Nonnull Tuple prefix) {
+        return super.deleteWhere(tr, prefix).thenApply(v -> {
+            final Subspace permutedSubspace = getSecondarySubspace();
+            tr.clear(permutedSubspace.subspace(prefix).range());
+            return v;
+        });
     }
 }

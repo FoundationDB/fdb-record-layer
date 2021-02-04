@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
@@ -41,6 +43,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 /**
@@ -179,12 +182,73 @@ public class PermutedMinMaxIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    public void deleteWhere() {
+        final RecordMetaDataHook hook = md -> {
+            final KeyExpression pkey = Key.Expressions.concatenateFields("num_value_2", "num_value_3_indexed", "rec_no");
+            md.getRecordType("MySimpleRecord").setPrimaryKey(pkey);
+            md.getRecordType("MyOtherRecord").setPrimaryKey(pkey);
+            md.removeIndex("MySimpleRecord$str_value_indexed");
+            md.removeIndex("MySimpleRecord$num_value_3_indexed");
+            md.removeIndex("MySimpleRecord$num_value_unique");
+            md.removeIndex(COUNT_INDEX.getName());
+            md.removeIndex(COUNT_UPDATES_INDEX.getName());
+            md.addIndex("MySimpleRecord", new Index(INDEX_NAME,
+                    Key.Expressions.concatenateFields("num_value_2", "num_value_3_indexed", "str_value_indexed", "num_value_unique").group(1),
+                    IndexTypes.PERMUTED_MAX, Collections.singletonMap(IndexOptions.PERMUTED_SIZE_OPTION, "2")));
+        };
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            saveRecord(100, "yes", 1, 1);
+            saveRecord(150, "yes", 1, 1);
+            saveRecord(200, "no", 1, 1);
+            saveRecord(300, "yes", 1, 2);
+            saveRecord(400, "no", 1, 2);
+            saveRecord(500, "maybe", 2, 1);
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 150, 1, "yes"),
+                    Tuple.from(1, 200, 1, "no"),
+                    Tuple.from(1, 300, 2, "yes"),
+                    Tuple.from(1, 400, 2, "no"),
+                    Tuple.from(2, 500, 1, "maybe")
+            ), scanGroup(Tuple.from(), false));
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            recordStore.deleteRecordsWhere(Query.field("num_value_2").equalsValue(2));
+
+            assertEquals(Arrays.asList(
+                    Tuple.from(1, 150, 1, "yes"),
+                    Tuple.from(1, 200, 1, "no"),
+                    Tuple.from(1, 300, 2, "yes"),
+                    Tuple.from(1, 400, 2, "no")
+            ), scanGroup(Tuple.from(), false));
+
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+
+            assertThrows(Query.InvalidExpressionException.class, () -> {
+                recordStore.deleteRecordsWhere(Query.and(
+                        Query.field("num_value_2").equalsValue(2),
+                        Query.field("num_value_3_indexed").equalsValue(1)));
+            });
+        }
+    }
+
     private void saveRecord(int recNo, String strValue, int value2, int value3) {
         recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
                 .setRecNo(recNo)
                 .setStrValueIndexed(strValue)
                 .setNumValue2(value2)
                 .setNumValue3Indexed(value3)
+                .setNumValueUnique(recNo)
                 .build());
     }
 
