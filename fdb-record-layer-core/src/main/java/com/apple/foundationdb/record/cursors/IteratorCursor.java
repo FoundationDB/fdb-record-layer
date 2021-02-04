@@ -22,9 +22,11 @@ package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.io.Closeable;
 import java.util.Iterator;
 import java.util.concurrent.CompletableFuture;
@@ -39,11 +41,14 @@ import java.util.concurrent.Executor;
  */
 @API(API.Status.MAINTAINED)
 public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
-    private static final Logger LOG = LoggerFactory.getLogger(IteratorCursor.class);
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IteratorCursor.class);
+
+    @Nullable
     private Closeable closeable;
 
     public IteratorCursor(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
-        super(executor, iterator);
+        this(executor, iterator, null);
     }
 
     /**
@@ -71,8 +76,9 @@ public class IteratorCursor<T> extends IteratorCursorBase<T, Iterator<T>> {
                 closeable.close();
             }
         } catch (Exception ioe) {
-            LOG.warn("close failed",ioe);
+            LOGGER.warn(KeyValueLogMessage.of("close failed"), ioe);
+        } finally {
+            super.close();
         }
-        super.close();
     }
 }
