@@ -122,6 +122,11 @@ public class IndexOptions {
      */
     public static final String CLEAR_WHEN_ZERO = "clearWhenZero";
 
+    /**
+     * Size of the portion of the grouping keys enumerated after the extrema by {@link IndexTypes#PERMUTED_MIN} and {@link IndexTypes#PERMUTED_MAX} indexes.
+     */
+    public static final String PERMUTED_SIZE_OPTION = "permutedSize";
+
     private IndexOptions() {
     }
 }
