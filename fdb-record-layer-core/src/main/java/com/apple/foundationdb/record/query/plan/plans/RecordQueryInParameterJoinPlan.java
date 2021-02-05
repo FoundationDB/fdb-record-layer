@@ -144,6 +144,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+
     }
 
     @Override

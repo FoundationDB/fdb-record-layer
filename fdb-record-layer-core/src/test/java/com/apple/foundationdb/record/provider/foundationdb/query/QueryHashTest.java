@@ -59,7 +59,7 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
     public void testSingleEqualsFilter() throws Exception {
         RecordQuery qyery1 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsValue(1));
         RecordQuery qyery2 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsValue(2));
-        RecordQuery query3 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsParameter("3"));
+        RecordQuery query3 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsParameter("x"));
 
         assertEquals(947189211, qyery1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(947189211, qyery2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
