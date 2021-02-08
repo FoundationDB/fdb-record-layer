@@ -27,7 +27,7 @@ import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexMetaDataProto;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +55,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -72,32 +74,38 @@ public class IndexingByIndex extends IndexingBase {
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
 
     @Nonnull private final OnlineIndexer.IndexFromIndexPolicy policy;
-    @Nonnull private final byte[] myTypeStamp;
+    @Nonnull private final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp;
 
     IndexingByIndex(@Nonnull IndexingCommon common,
                     @Nonnull OnlineIndexer.IndexFromIndexPolicy policy) {
         super(common);
         this.policy = policy;
-        this.myTypeStamp = compileTypeStamp();
+        this.myIndexingTypeStamp = compileIndexingTypeStamp(common.getIndex());
     }
 
     @Override
     @Nonnull
-    byte[] getTypeStamp() {
-        return myTypeStamp;
+    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp() {
+        return myIndexingTypeStamp;
     }
 
     @Override
-    boolean matchingTypeStamp(final byte[] stamp) {
-        return Arrays.equals(stamp, myTypeStamp);
+    boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
+        final IndexBuildProto.IndexBuildIndexingStamp.Method method = stamp.getMethod();
+        final ByteString subspaceKey = stamp.getSourceIndexSubspaceKey();
+        final int lastModifiedVersion = stamp.getSourceIndexLastModifiedVersion();
+        return myIndexingTypeStamp.getMethod() == method &&
+               Arrays.equals(myIndexingTypeStamp.getSourceIndexSubspaceKey().toByteArray(), subspaceKey.toByteArray()) &&
+               myIndexingTypeStamp.getSourceIndexLastModifiedVersion() == lastModifiedVersion;
     }
 
     @Nonnull
-    private byte[] compileTypeStamp() {
-        return IndexMetaDataProto.IndexMetaDataIndexingStamp.newBuilder()
-                .setMethod(IndexMetaDataProto.IndexMetaDataIndexingStamp.Method.BY_INDEX)
-                .setSourceIndex(policy.getSourceIndex())
-                .build().toByteArray();
+    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(Index srcIndex) {
+        return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX)
+                .setSourceIndexSubspaceKey(ByteString.copyFrom(Tuple.from(srcIndex.getSubspaceKey()).pack()))
+                .setSourceIndexLastModifiedVersion(srcIndex.getLastModifiedVersion())
+                .build();
     }
 
     @Nonnull
@@ -127,19 +135,6 @@ public class IndexingByIndex extends IndexingBase {
                 }));
     }
 
-    private void maybeLogBuildProgress(SubspaceProvider subspaceProvider) {
-        if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
-            // todo: add progress
-            final Index index = common.getIndex();
-            LOGGER.info(KeyValueLogMessage.of("Built Range",
-                    LogMessageKeys.INDEX_NAME, index.getName(),
-                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                    subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get()),
-                    LogMessageKeys.INDEXER_ID, common.getUuid());
-        }
-    }
-
     @Nonnull
     private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, @Nullable byte[] start, @Nullable byte[] end) {
         return AsyncUtil.whileTrue(() -> {
@@ -152,7 +147,7 @@ public class IndexingByIndex extends IndexingBase {
                     additionalLogMessageKeyValues)
                     .handle((hasMore, ex) -> {
                         if (ex == null) {
-                            maybeLogBuildProgress(subspaceProvider);
+                            maybeLogBuildProgress(subspaceProvider, Collections.emptyList());
                             if (Boolean.FALSE.equals(hasMore)) {
                                 // all done
                                 return AsyncUtil.READY_FALSE;
@@ -213,8 +208,10 @@ public class IndexingByIndex extends IndexingBase {
             Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
             Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
 
+            // range.begin, if not null, is produced by getContinuation() and should be used at continuation field
+            // range.end, if not null, is either defined by caller or as a missingRange - making a top range, therefore used at range field
             RecordCursor<FDBIndexedRecord<Message>> cursor =
-                    store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.between(rangeStart, rangeEnd), range.begin, scanProperties);
+                    store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.between(null, rangeEnd), range.begin, scanProperties);
 
             final AtomicLong recordsScannedCounter = new AtomicLong();
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());

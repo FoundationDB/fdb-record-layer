@@ -29,7 +29,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexMetaDataProto;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -75,30 +75,32 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
 
     @Nonnull private final TupleRange recordsRange;
-    @Nonnull private final byte[] myTypeStamp;
+    @Nonnull private final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp;
 
     IndexingByRecords(@Nonnull IndexingCommon common) {
         super(common);
         this.recordsRange = computeRecordsRange();
-        this.myTypeStamp = compileTypeStamp();
+        this.myIndexingTypeStamp = compileIndexingTypeStamp();
     }
 
     @Override
     @Nonnull
-    byte[] getTypeStamp() {
-        return myTypeStamp;
+    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp() {
+        return myIndexingTypeStamp;
     }
 
     @Nonnull
-    byte[] compileTypeStamp() {
-        return IndexMetaDataProto.IndexMetaDataIndexingStamp.newBuilder()
-                .setMethod(IndexMetaDataProto.IndexMetaDataIndexingStamp.Method.BY_RECORDS)
-                .build().toByteArray();
+    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
+        return
+                IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                        .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
+                        .build();
     }
 
     @Override
-    boolean matchingTypeStamp(final byte[] stamp) {
-        return Arrays.equals(stamp, myTypeStamp);
+    boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
+        return stamp.hasMethod() &&
+               stamp.getMethod() == myIndexingTypeStamp.getMethod();
     }
 
     @Nonnull
@@ -111,20 +113,6 @@ public class IndexingByRecords extends IndexingBase {
                 return CompletableFuture.completedFuture(null);
             }
         });
-    }
-
-    private void maybeLogBuildProgress(SubspaceProvider subspaceProvider, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
-        if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
-            LOGGER.info(KeyValueLogMessage.of("Built Range",
-                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                    LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
-                    subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.START_TUPLE, startTuple,
-                    LogMessageKeys.END_TUPLE, endTuple,
-                    LogMessageKeys.REAL_END, realEnd,
-                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get()),
-                    LogMessageKeys.INDEXER_ID, common.getUuid());
-        }
     }
 
     @Nonnull
@@ -403,7 +391,10 @@ public class IndexingByRecords extends IndexingBase {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            maybeLogBuildProgress(subspaceProvider, startTuple, endTuple, realEnd);
+            maybeLogBuildProgress(subspaceProvider,Arrays.asList(
+                    LogMessageKeys.START_TUPLE, startTuple,
+                    LogMessageKeys.END_TUPLE, endTuple,
+                    LogMessageKeys.REAL_END, realEnd));
             return throttleDelay();
         } else {
             Throwable cause = unwrappedEx;

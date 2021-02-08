@@ -21,20 +21,20 @@
 syntax = "proto2";
 
 package com.apple.foundationdb.record;
-import "google/protobuf/descriptor.proto";
-
-option java_outer_classname = "IndexMetaDataProto";
+option java_outer_classname = "IndexBuildProto";
 
 // This stamp indicates an ongoing indexing process. It will be used to assure a coherent indexing
 // continuation - which continued by another process.
-message IndexMetaDataIndexingStamp {
+
+message IndexBuildIndexingStamp {
   enum Method {
     INVALID    = 0;   // let zero be invalid
     BY_RECORDS = 1;   // indexing by records - scanning all records in a record store
     BY_INDEX   = 2;   // indexing by a source index. When source index points to all possible records of the target index.
   };
-  optional Method method      = 1;
-  optional string sourceIndex = 2; // relevant only to BY_INDEX method
-}
+  optional Method method = 1;
+  optional bytes source_index_subspace_key = 2; // relevant only with BY_INDEX method
+  optional int32 source_index_last_modified_version = 3; // only with BY_INDEX method
+ }
 
 

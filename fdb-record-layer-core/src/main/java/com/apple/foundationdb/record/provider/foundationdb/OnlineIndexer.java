@@ -175,7 +175,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private CompletableFuture<Void> handleIndexerReturnOrFallback(Throwable ex, Supplier<CompletableFuture<Void>> fallback) {
+    private CompletableFuture<Void> handleIndexerReturnOrFallback(Throwable ex, Supplier<CompletableFuture<Void>> fallbackFunction) {
         if (ex == null) {
             return AsyncUtil.DONE;
         }
@@ -192,7 +192,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
             indexer = null;
             fallbackToRecordsScan = true;
-            return fallback.get();
+            return fallbackFunction.get();
         }
         throw FDBExceptions.wrapException(ex);
     }
@@ -220,7 +220,9 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private IndexingBase getIndexer() {
         if (fallbackToRecordsScan) {
-            return getIndexerByRecords();
+            IndexingBase indexingBase = getIndexerByRecords();
+            indexingBase.setFallbackMode();
+            return indexingBase;
         }
         if (indexFromIndexPolicy.isActive()) {
             return getIndexerByIndex();
@@ -429,7 +431,7 @@ public class OnlineIndexer implements AutoCloseable {
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
         return AsyncUtil.composeHandle( getIndexer().rebuildIndexAsync(store),
                 (ignore, ex) ->
-                        handleIndexerReturnOrFallback(ex, () -> getIndexer().setFallbackMode().rebuildIndexAsync(store)));
+                        handleIndexerReturnOrFallback(ex, () -> getIndexer().rebuildIndexAsync(store)));
     }
 
     /**
@@ -565,7 +567,7 @@ public class OnlineIndexer implements AutoCloseable {
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         return AsyncUtil.composeHandle(getIndexer().buildIndexAsync(markReadable),
                 (ignore, ex) ->
-                        handleIndexerReturnOrFallback(ex, () -> getIndexer().setFallbackMode().buildIndexAsync(markReadable)));
+                        handleIndexerReturnOrFallback(ex, () -> getIndexer().buildIndexAsync(markReadable)));
     }
 
     @Nonnull

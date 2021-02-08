@@ -26,6 +26,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.S
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -45,7 +47,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +76,7 @@ public abstract class IndexingBase {
     private final IndexingThrottle throttle;
 
     private long timeOfLastProgressLogMillis = 0;
-    private boolean fallbackMode = false;
+    private boolean forceStampOverwrite = false;
 
     IndexingBase(IndexingCommon common) {
         this.common = common;
@@ -253,51 +254,64 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    public IndexingBase setFallbackMode() {
-        fallbackMode = true;
-        return this;
+    public void setFallbackMode() {
+        forceStampOverwrite = true; // must overwrite a previous indexing method's stamp
     }
 
     @Nonnull
     private CompletableFuture<Void> setIndexingTypeOrThrow() {
-        byte[] stamp = getTypeStamp();
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "setIndexingTypeOrThrow",
-                LogMessageKeys.LOCAL_VERSION, stamp);
-
-        return buildCommitRetryAsync( (store, ignore) -> {
+        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             Transaction transaction = store.getContext().ensureActive();
+            IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp();
             byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
             return transaction.get(stampKey)
-                            .thenApply( bytes -> {
-                                if (bytes == null || fallbackMode) {
-                                    transaction.set(stampKey, stamp);
-                                } else if (! matchingTypeStamp(bytes)) {
-                                    if (LOGGER.isWarnEnabled()) {
-                                        LOGGER.warn(KeyValueLogMessage.of("Index was partly built by another method",
-                                                LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                                                LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
-                                                LogMessageKeys.INDEXER_ID, common.getUuid(),
-                                                LogMessageKeys.EXPECTED_TYPE, stamp,
-                                                LogMessageKeys.ACTUAL_TYPE, bytes));
-                                    }
-                                    throw new RecordCoreException("This index was partly built by another method");
-                                }
-                                return null;
-                            }); },
-                false,
-                additionalLogMessageKeyValues);
+                    .thenApply( bytes -> {
+                        if (bytes == null || forceStampOverwrite) {
+                            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+                        } else {
+                            IndexBuildProto.IndexBuildIndexingStamp savedStamp ;
+                            try {
+                                savedStamp = IndexBuildProto.IndexBuildIndexingStamp.parseFrom(bytes);
+                            } catch (InvalidProtocolBufferException ex) {
+                                savedStamp = null;
+                            }
+                            if ( savedStamp == null || ! matchingIndexingTypeStamp(savedStamp)) {
+                                throw new RecordCoreException("This index was partly built by another method",
+                                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                                        LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                                        LogMessageKeys.INDEXER_ID, common.getUuid(),
+                                        LogMessageKeys.EXPECTED_TYPE, indexingTypeStamp,
+                                        LogMessageKeys.ACTUAL_TYPE, savedStamp);
+                            }
+                        }
+                        return null;
+                    });
+        } ));
     }
 
     @Nonnull
-    abstract byte[] getTypeStamp();
+    abstract IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp();
 
     @Nonnull
-    abstract boolean matchingTypeStamp(byte[] stamp);
+    abstract boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp);
 
     abstract CompletableFuture<Void> buildIndexByEntityAsync();
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
-    protected boolean shouldLogBuildProgress() {
+    protected void maybeLogBuildProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+        if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
+            final Index index = common.getIndex();
+            LOGGER.info(KeyValueLogMessage.of("Built Range",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                    subspaceProvider.logKey(), subspaceProvider,
+                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get()),
+                    LogMessageKeys.INDEXER_ID, common.getUuid(),
+                    additionalLogMessageKeyValues);
+        }
+    }
+
+    private boolean shouldLogBuildProgress() {
         long interval = common.config.getProgressLogIntervalMillis();
         long now = System.currentTimeMillis();
         if (interval == 0 || interval < (now - timeOfLastProgressLogMillis)) {

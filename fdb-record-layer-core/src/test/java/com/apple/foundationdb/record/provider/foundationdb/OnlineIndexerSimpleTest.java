@@ -872,13 +872,13 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             future = indexBuilder.buildIndexAsync();
             int pass = 0;
             while (!future.isDone() && timer.getCount(FDBStoreTimer.Events.COMMIT) < 10 && pass++ < 100) {
+                Thread.sleep(100);
                 assertThat("Should have invoked the configuration loader at least once", indexBuilder.getConfigLoaderInvocationCount(), greaterThan(0));
                 assertEquals(indexBuilder.getLimit(), limit - indexBuilder.getConfigLoaderInvocationCount());
                 assertEquals(indexBuilder.getConfig().getMaxRetries(), 3);
                 assertEquals(indexBuilder.getConfig().getRecordsPerSecond(), 10000);
                 assertEquals(indexBuilder.getConfig().getProgressLogIntervalMillis(), DEFAULT_PROGRESS_LOG_INTERVAL);
                 assertEquals(indexBuilder.getConfig().getIncreaseLimitAfter(), DO_NOT_RE_INCREASE_LIMIT);
-                Thread.sleep(100);
             }
             assertThat("Should have done several transactions in a few seconds", pass, lessThan(100));
         }
