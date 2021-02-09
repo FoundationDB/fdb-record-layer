@@ -25,9 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -145,33 +144,26 @@ public interface QueryComponent extends PlanHashable {
     void validate(@Nonnull Descriptors.Descriptor descriptor);
 
     /**
-     * Convert this query component into an equivalent {@link QueryPredicate} by pushing all information about nested
-     * and repeated fields to {@link Element}s inside of {@link com.apple.foundationdb.record.query.predicates.ElementPredicate}s.
-     *
-     * @param rootSource the source representing the input stream of the query component
-     * @return an equivalent query predicate
+     * Expand this query component into a data flow graph. The returned graph represents an adequate representation
+     * of the component as composition of relational expressions and operators.
+     * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
+     * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    default QueryPredicate normalizeForPlanner(@Nonnull Source rootSource) {
-        return normalizeForPlanner(rootSource, Collections.emptyList());
+    default GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias) {
+        return expand(baseAlias, Collections.emptyList());
     }
 
     /**
-     * Convert this query component into an equivalent {@link QueryPredicate} by pushing all information about nested
-     * and repeated fields to {@link Element}s inside of {@link com.apple.foundationdb.record.query.predicates.ElementPredicate}s.
-     *
-     * <p>
-     * This normalization process requires tracking some state: the name of a nested field is available
-     * only at the relevant {@link NestedField}, but that information is necessary to construct the
-     * {@link com.apple.foundationdb.record.query.predicates.ElementPredicate} at the leaves of the sub-tree rooted at
-     * that nested field. This extra information is tracked in the given {@code fieldNamePrefix}.
-     * </p>
-     * @param source the source representing the input stream of the key expression
-     * @param fieldNamePrefix the (non-repeated) field names on the path from the most recent source to this part of the query component
-     * @return an equivalent query predicate
+     * Expand this query component into a data flow graph. The returned graph represents an adequate representation
+     * of the component as composition of relational expressions and operators.
+     * @param baseAlias a an alias that refers to the data flow equivalent of an input to this component
+     * @param fieldNamePrefix a list of field names that accumulate a field nesting chain for non-repeated fields
+     * @return a new {@link GraphExpansion} representing the query graph equivalent of this query component
+     * @see com.apple.foundationdb.record.metadata.expressions.KeyExpression#expand
+     * TODO make this method private in Java 11
      */
     @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+    GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
 }

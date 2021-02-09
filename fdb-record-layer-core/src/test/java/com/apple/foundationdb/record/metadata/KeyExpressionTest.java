@@ -41,8 +41,8 @@ import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression
 import com.apple.foundationdb.record.metadata.expressions.SplitKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -995,7 +995,7 @@ public class KeyExpressionTest {
 
         @Nonnull
         @Override
-        public Element toElement(@Nonnull Source rootSource) {
+        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
             throw new UnsupportedOperationException();
         }
 

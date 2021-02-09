@@ -21,23 +21,23 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
-import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
-import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.plan.temp.view.ViewExpression;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
+import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
+import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
+import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -47,11 +47,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -96,47 +97,52 @@ import java.util.stream.StreamSupport;
 public interface RelationalExpression extends Bindable, Correlated<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
-
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
-        final ViewExpression.Builder builder = ViewExpression.builder();
-        for (String recordType : context.getRecordTypes()) {
-            builder.addRecordType(recordType);
-        }
-        final Source baseSource = builder.buildBaseSource();
-        if (query.getSort() != null) {
-            List<Element> normalizedSort = query.getSort()
-                    .normalizeForPlanner(baseSource, Collections.emptyList())
-                    .flattenForPlanner();
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(Collections.emptyList(), normalizedSort, query.isSortReverse(), quantifier)));
+
+        if (!context.getRecordTypes().isEmpty()) {
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(context.getRecordTypes()), quantifier)));
         }
 
+        final SelectExpression selectExpression;
         if (query.getFilter() != null) {
-            final QueryPredicate normalized = query.getFilter().normalizeForPlanner(baseSource);
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalFilterExpression(baseSource, normalized, quantifier)));
+            selectExpression =
+                    query.getFilter()
+                            .expand(quantifier.getAlias())
+                            .buildSelectWithBase(quantifier);
+        } else {
+            selectExpression =
+                    GraphExpansion.empty()
+                            .buildSelectWithBase(quantifier);
         }
+        quantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
 
-        if (!query.getRecordTypes().isEmpty()) {
-            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalTypeFilterExpression(new HashSet<>(query.getRecordTypes()), quantifier)));
-        }
         if (query.removesDuplicates()) {
             quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalDistinctExpression(quantifier)));
         }
-        return Iterables.getOnlyElement(quantifier.getRangesOver().getMembers());
+
+        if (query.getSort() != null) {
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(query.getSort(), query.isSortReverse(), quantifier)));
+        }
+
+        return quantifier.getRangesOver().get();
     }
-
-
 
     /**
      * Matches a matcher expression to an expression tree rooted at this node, adding to some existing bindings.
+     *
+     * @param outerBindings preexisting bindings to be used by the matcher
      * @param matcher the matcher to match against
      * @return the existing bindings extended with some new ones if the match was successful or <code>Optional.empty()</code> otherwise
      */
     @Override
     @Nonnull
-    default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        Stream<PlannerBindings> bindings = matcher.matchWith(this);
-        return bindings.flatMap(outerBindings -> matcher.getChildrenMatcher().matches(getQuantifiers())
-                .map(outerBindings::mergedWith));
+    default Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        return matcher.matchWith(outerBindings, this, getQuantifiers());
+    }
+
+    @Nonnull
+    default Optional<List<? extends Value>> getResultValues() {
+        return Optional.empty();
     }
 
     /**
@@ -312,12 +318,48 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
      * Attempt to match this expression (this graph) with another expression (from another graph called the candidate
      * graph) to produce matches of some kind.
      *
+     * This overload matches over all quantifiers owned by this expression respectively the {@code otherExpression}.
+     * See {@link #match(RelationalExpression, AliasMap, List, List, Function, MatchFunction, CombineFunction)} for
+     * more information about the matching process.
+     *
+     * @param otherExpression the expression to match this expression with
+     * @param boundAliasMap alias map containing bound aliases
+     * @param constraintsFunction function constraining the number of permutations to enumerate
+     * @param matchFunction function producing a match result as iterable of type {@code M}
+     * @param combineFunction function to produce an iterable of type {@code S} by combining on bound matches of type
+     *        {@code M}
+     * @param <M> intermediate type to represent match results
+     * @param <S> final type to represent match results
+     * @return an {@link Iterable} of type {@code S} of matches of {@code this} expression with {@code otherExpression}.
+     */
+    @Nonnull
+    default <M, S> Iterable<S> match(@Nonnull final RelationalExpression otherExpression,
+                                     @Nonnull final AliasMap boundAliasMap,
+                                     @Nonnull final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
+                                     @Nonnull final MatchFunction<Quantifier, M> matchFunction,
+                                     @Nonnull final CombineFunction<M, S> combineFunction) {
+        final List<? extends Quantifier> quantifiers = getQuantifiers();
+        final List<? extends Quantifier> otherQuantifiers = otherExpression.getQuantifiers();
+
+        return match(otherExpression,
+                boundAliasMap,
+                quantifiers,
+                otherQuantifiers,
+                constraintsFunction,
+                matchFunction,
+                combineFunction);
+    }
+
+    /**
+     * Attempt to match this expression (this graph) with another expression (from another graph called the candidate
+     * graph) to produce matches of some kind.
+     *
      * Two relational expressions can only match if the sub-graphs of the quantifiers they range over match
      * themselves under a bijective association (mapping between the quantifiers of this expression and
      * the quantifier of the candidate expression). To this end, the {@code matchFunction} passed in to this method is
      * used to determine the matches between two quantifiers: one from this graph and one from the candidate graph.
      * The {@code matchFunction} can produce zero, one or many matches which are returned as an {@link Iterable} of type
-     * {@code R}.
+     * {@code M}.
      *
      * This method attempts to find that bijective mapping between the quantifiers contained by their respective
      * expressions. Naturally, if the expressions that are being matched own a different number of quantifiers we cannot
@@ -339,23 +381,24 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
      *
      * @param otherExpression the expression to match this expression with
      * @param boundAliasMap alias map containing bound aliases
+     * @param quantifiers the set of quantifiers owned by this expression that is matched over
+     * @param otherQuantifiers the set of quantifiers owned by {@code otherExpression}  that is matched over
      * @param constraintsFunction function constraining the number of permutations to enumerate
-     * @param matchFunction function producing a match result as iterable of type {@code R}
+     * @param matchFunction function producing a match result as iterable of type {@code M}
      * @param combineFunction function to produce an iterable of type {@code S} by combining on bound matches of type
-     *        {@code R}
-     * @param <R> intermediate type to represent match results
+     *        {@code M}
+     * @param <M> intermediate type to represent match results
      * @param <S> final type to represent match results
      * @return an {@link Iterable} of type {@code S} of matches of {@code this} expression with {@code otherExpression}.
      */
     @Nonnull
-    default <R, S> Iterable<S> match(@Nonnull final RelationalExpression otherExpression,
+    default <M, S> Iterable<S> match(@Nonnull final RelationalExpression otherExpression,
                                      @Nonnull final AliasMap boundAliasMap,
+                                     @Nonnull final List<? extends Quantifier> quantifiers,
+                                     @Nonnull final List<? extends Quantifier> otherQuantifiers,
                                      @Nonnull final Function<Quantifier, Collection<AliasMap>> constraintsFunction,
-                                     @Nonnull final MatchFunction<Quantifier, R> matchFunction,
-                                     @Nonnull final CombineFunction<R, S> combineFunction) {
-        final List<? extends Quantifier> quantifiers = getQuantifiers();
-        final List<? extends Quantifier> otherQuantifiers = otherExpression.getQuantifiers();
-
+                                     @Nonnull final MatchFunction<Quantifier, M> matchFunction,
+                                     @Nonnull final CombineFunction<M, S> combineFunction) {
         // This is a cheap and effective great filter that is prone to eliminate non-matching cases hopefully very
         // quickly -- removing this shouldn't change any semantics, just performance
         if (getClass() != otherExpression.getClass()) {
@@ -398,7 +441,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         // Call the matching logic to compute the matches for each mapping for (1) (and to find bindings for (2)).
         return IterableHelpers.flatMap(boundCorrelatedToIterable,
                 boundCorrelatedToMap -> {
-                    final Iterable<BoundMatch<EnumeratingIterable<R>>> boundMatchIterable =
+                    final Iterable<BoundMatch<EnumeratingIterable<M>>> boundMatchIterable =
                             Quantifiers.match(
                                     boundCorrelatedToMap,
                                     getQuantifiers(),
@@ -530,6 +573,108 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
 
         final Sets.SetView<CorrelationIdentifier> commonUnbound = Sets.intersection(unboundCorrelatedTo, unboundOtherCorrelatedTo);
         return AliasMap.identitiesFor(commonUnbound);
+    }
+
+    /**
+     * Try to establish if {@code otherExpression} subsumes this one. If two expression are semantically equal
+     * (e.g. in structure or by other means of reasoning) they should exactly return the same records. There are
+     * use cases where semantic equality is too strict and not that useful. During index matching we don't necessarily
+     * need to know if two expressions produce the same result, we just need to know that the candidate scan produces
+     * a (non-proper) super multiset of records (the candidate therefore includes all records warranted by the query)
+     * and we can match query against that candidate. The difference between result set produced by the candidate and
+     * the query then must be corrected by applying compensation. The following tautologies apply:
+     * <ul>
+     *     <li>
+     *         If query and candidate are semantically equivalent, the query side should match to the candidate side
+     *         without any compensation. In other words the query expression can simply be replaced by the candidate
+     *         expression.
+     *     </li>
+     *     <li>
+     *         If the candidate is matched and we decide to rewrite this query expression with the appropriate top
+     *         expression on the candidate side then it holds that the query expression is equivalent to
+     *         the computed compensation of the match over the candidate scan.
+     *     </li>
+     *     <li>
+     *         A query cannot match to a candidate if it cannot be proven that the candidate cannot at least produce
+     *         all the records that the query may produce.
+     *     </li>
+     * </ul>
+     * @param candidateExpression the candidate expression
+     * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
+     * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
+     *        from one of the expressions below that quantifier
+     * @return an iterable of {@link MatchInfo}s if subsumption between this expression and the candidate expression
+     *         can be established
+     */
+    @Nonnull
+    default Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression,
+                                           @Nonnull final AliasMap aliasMap,
+                                           @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        // we don't match by default -- end
+        return ImmutableList.of();
+    }
+
+    /**
+     * Helper method that can be called by sub classes to defer subsumption in a way that the particular expression
+     * only matches if it is semantically equivalent.
+     * @param candidateExpression the candidate expression
+     * @param aliasMap a map of alias defining the equivalence between aliases and therefore quantifiers
+     * @param partialMatchMap a map from quantifier to a {@link PartialMatch} that pulled up along that quantifier
+     *        from one of the expressions below that quantifier
+     * @return an iterable of {@link MatchInfo}s if semantic equivalence between this expression and the candidate
+     *         expression can be established
+     */
+    @Nonnull
+    default Iterable<MatchInfo> exactlySubsumedBy(@Nonnull final RelationalExpression candidateExpression,
+                                                  @Nonnull final AliasMap aliasMap,
+                                                  @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        if (hasUnboundQuantifiers(aliasMap) || hasIncompatibleBoundQuantifiers(aliasMap, candidateExpression.getQuantifiers())) {
+            return ImmutableList.of();
+        }
+
+        if (equalsWithoutChildren(candidateExpression, aliasMap)) {
+            return MatchInfo.tryFromMatchMap(partialMatchMap)
+                    .map(ImmutableList::of)
+                    .orElse(ImmutableList.of());
+        } else {
+            return ImmutableList.of();
+        }
+    }
+
+    /**
+     * Override that is called by {@link AdjustMatchRule} to improve an already existing {@link PartialMatch}.
+     * @param expression the query expression
+     * @param partialMatch the partial match already existing between {@code expression} and {@code this}
+     * @return {@code Optional.empty()} if the match could not be adjusted, Optional.of(matchInfo) for a new adjusted
+     *         match, otherwise.
+     */
+    @Nonnull
+    default Optional<MatchInfo> adjustMatch(@Nonnull final RelationalExpression expression,
+                                            @Nonnull final PartialMatch partialMatch) {
+        return Optional.empty();
+    }
+
+    default boolean hasUnboundQuantifiers(final AliasMap aliasMap) {
+        return getQuantifiers()
+                .stream()
+                .map(Quantifier::getAlias)
+                .anyMatch(alias -> !aliasMap.containsSource(alias));
+    }
+
+    default boolean hasIncompatibleBoundQuantifiers(final AliasMap aliasMap, final Collection<? extends Quantifier> otherQuantifiers) {
+        final BiMap<CorrelationIdentifier, Quantifier> otherAliasToQuantifierMap = Quantifiers.toBiMap(otherQuantifiers);
+        return getQuantifiers()
+                .stream()
+                .filter(quantifier -> aliasMap.containsSource(quantifier.getAlias())) // must be bound on this side
+                .anyMatch(quantifier -> {
+                    final Quantifier otherQuantifier =
+                            Objects.requireNonNull(otherAliasToQuantifierMap.get(aliasMap.getTarget(quantifier.getAlias())));
+                    return !quantifier.equalsOnKind(otherQuantifier);
+                });
+    }
+
+    default Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        throw new RecordCoreException("expression matched but no compensation logic implemented");
     }
 
     /**

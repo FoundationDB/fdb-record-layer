@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -42,7 +40,7 @@ import java.util.function.Function;
  * with an optional conversion of any comparison operand.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryableKeyExpression extends KeyExpression {
+public interface QueryableKeyExpression extends KeyExpression, KeyExpressionWithValue {
     @Nonnull
     String getName();
 
@@ -65,9 +63,6 @@ public interface QueryableKeyExpression extends KeyExpression {
     default boolean evalForQueryAsTuple() {
         return getColumnSize() > 1;
     }
-
-    @Nonnull
-    Element toElement(@Nonnull Source rootSource);
 
     /**
      * Get a function to be applied to the comparison operand before comparing it with the application of the key expression

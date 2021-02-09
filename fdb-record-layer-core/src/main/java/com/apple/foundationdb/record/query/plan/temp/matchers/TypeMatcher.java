@@ -23,12 +23,15 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchPartition;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.stream.Stream;
 
 /**
@@ -40,23 +43,22 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
     @Nonnull
-    private final Class<? extends T> expressionClass;
+    private final Class<? extends T> bindableClass;
     @Nonnull
     private final ExpressionChildrenMatcher childrenMatcher;
 
-    protected TypeMatcher(@Nonnull Class<? extends T> expressionClass,
-                        @Nonnull ExpressionChildrenMatcher childrenMatcher) {
-        this.expressionClass = expressionClass;
+    protected TypeMatcher(@Nonnull Class<? extends T> bindableClass,
+                          @Nonnull ExpressionChildrenMatcher childrenMatcher) {
+        this.bindableClass = bindableClass;
         this.childrenMatcher = childrenMatcher;
     }
 
     @Override
     @Nonnull
     public Class<? extends Bindable> getRootClass() {
-        return expressionClass;
+        return bindableClass;
     }
 
-    @Override
     @Nonnull
     public ExpressionChildrenMatcher getChildrenMatcher() {
         return childrenMatcher;
@@ -83,32 +85,66 @@ public class TypeMatcher<T extends Bindable> implements ExpressionMatcher<T> {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+    public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings,
+                                             @Nonnull final ExpressionRef<? extends RelationalExpression> ref,
+                                             @Nonnull final List<? extends Bindable> children) {
         // A type matcher will never match a reference. Ask the reference whether its contents match properly.
-        return ref.bindWithin(this);
+        return ref.bindWithin(outerBindings, this);
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull RelationalExpression expression) {
-        return matchClassWith(expression);
+    public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull RelationalExpression expression, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(expression)
+                .flatMap(bindings ->
+                        getChildrenMatcher()
+                                .matches(outerBindings, children)
+                                .map(bindings::mergedWith));
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull QueryPredicate predicate) {
-        return matchClassWith(predicate);
+    public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull QueryPredicate predicate, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(predicate)
+                .flatMap(bindings ->
+                        getChildrenMatcher()
+                                .matches(outerBindings, children)
+                                .map(bindings::mergedWith));
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matchWith(@Nonnull final Quantifier quantifier) {
-        return matchClassWith(quantifier);
+    public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull final Quantifier quantifier, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(quantifier)
+                .flatMap(bindings ->
+                        getChildrenMatcher()
+                                .matches(outerBindings, children)
+                                .map(bindings::mergedWith));
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull final PartialMatch partialMatch, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(partialMatch)
+                .flatMap(bindings ->
+                        getChildrenMatcher()
+                                .matches(outerBindings, children)
+                                .map(bindings::mergedWith));
+    }
+
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull final MatchPartition matchPartition, @Nonnull final List<? extends Bindable> children) {
+        return matchClassWith(matchPartition)
+                .flatMap(bindings ->
+                        getChildrenMatcher()
+                                .matches(outerBindings, children)
+                                .map(bindings::mergedWith));
     }
 
     @Nonnull
     private Stream<PlannerBindings> matchClassWith(final Bindable bindable) {
-        if (expressionClass.isInstance(bindable)) {
+        if (bindableClass.isInstance(bindable)) {
             return Stream.of(PlannerBindings.from(this, bindable));
         } else {
             return Stream.empty();

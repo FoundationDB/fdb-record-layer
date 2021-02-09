@@ -21,15 +21,16 @@
 package com.apple.foundationdb.record.query.plan.temp.debug;
 
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -37,6 +38,7 @@ import java.util.Deque;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
 
 /**
  * This interface functions as a stub providing hooks which can be called from the planner logic during planning.
@@ -118,6 +120,16 @@ public interface Debugger {
         withDebugger(debugger -> debugger.onQuery(recordQuery, planContext));
     }
 
+    static Optional<Integer> getIndexOptional(Class<?> clazz) {
+        return mapDebugger(debugger -> debugger.onGetIndex(clazz));
+    }
+
+    @Nonnull
+    @CanIgnoreReturnValue
+    static Optional<Integer> updateIndex(Class<?> clazz, IntUnaryOperator updateFn) {
+        return mapDebugger(debugger -> debugger.onUpdateIndex(clazz, updateFn));
+    }
+
     static void registerExpression(RelationalExpression expression) {
         withDebugger(debugger -> debugger.onRegisterExpression(expression));
     }
@@ -137,11 +149,15 @@ public interface Debugger {
 
     void onDone();
 
-    void onRegisterExpression(RelationalExpression expression);
+    int onGetIndex(@Nonnull Class<?> clazz);
 
-    void onRegisterReference(ExpressionRef<? extends RelationalExpression> reference);
+    int onUpdateIndex(@Nonnull Class<?> clazz, @Nonnull final IntUnaryOperator updateFn);
 
-    void onRegisterQuantifier(Quantifier quantifier);
+    void onRegisterExpression(@Nonnull RelationalExpression expression);
+
+    void onRegisterReference(@Nonnull ExpressionRef<? extends RelationalExpression> reference);
+
+    void onRegisterQuantifier(@Nonnull Quantifier quantifier);
 
     void onInstall();
 
@@ -157,7 +173,7 @@ public interface Debugger {
         OPTGROUP,
         EXPEXP,
         EXPGROUP,
-        MATCHEXP,
+        ADJUSTMATCH,
         MATCHEXPCAND,
         OPTINPUTS,
         RULECALL,
@@ -170,7 +186,9 @@ public interface Debugger {
     enum Location {
         ANY,
         BEGIN,
-        END
+        END,
+        SUCCESS,
+        FAILURE
     }
 
     /**
@@ -425,19 +443,19 @@ public interface Debugger {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
-        private final RelationalExpression expression;
+        private final Bindable bindable;
         @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
 
         public TransformEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
                               @Nonnull final Deque<Task> taskStack,
                               @Nonnull final Location location,
                               @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                              @Nonnull final RelationalExpression expression,
-                              @Nonnull final PlannerRule<? extends RelationalExpression> rule) {
+                              @Nonnull final Bindable bindable,
+                              @Nonnull final PlannerRule<? extends Bindable> rule) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
-            this.expression = expression;
+            this.bindable = bindable;
             this.rule = rule;
         }
 
@@ -460,12 +478,12 @@ public interface Debugger {
         }
 
         @Nonnull
-        public RelationalExpression getExpression() {
-            return expression;
+        public Bindable getBindable() {
+            return bindable;
         }
 
         @Nonnull
-        public PlannerRule<? extends RelationalExpression> getRule() {
+        public PlannerRule<? extends Bindable> getRule() {
             return rule;
         }
     }
@@ -477,9 +495,9 @@ public interface Debugger {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
-        private final RelationalExpression expression;
+        private final Bindable bindable;
         @Nonnull
-        private final PlannerRule<? extends RelationalExpression> rule;
+        private final PlannerRule<? extends Bindable> rule;
         @Nonnull
         private final CascadesRuleCall ruleCall;
 
@@ -487,12 +505,12 @@ public interface Debugger {
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
                                       @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                                      @Nonnull final RelationalExpression expression,
-                                      @Nonnull final PlannerRule<? extends RelationalExpression> rule,
+                                      @Nonnull final Bindable bindable,
+                                      @Nonnull final PlannerRule<? extends Bindable> rule,
                                       @Nonnull final CascadesRuleCall ruleCall) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
-            this.expression = expression;
+            this.bindable = bindable;
             this.rule = rule;
             this.ruleCall = ruleCall;
         }
@@ -516,12 +534,12 @@ public interface Debugger {
         }
 
         @Nonnull
-        public RelationalExpression getExpression() {
-            return expression;
+        public Bindable getBindable() {
+            return bindable;
         }
 
         @Nonnull
-        public PlannerRule<? extends RelationalExpression> getRule() {
+        public PlannerRule<? extends Bindable> getRule() {
             return rule;
         }
 
@@ -532,19 +550,19 @@ public interface Debugger {
     }
 
     /**
-     * Events of this class are generated when the planner attempts to match an expression.
+     * Events of this class are generated when the planner attempts to adjust an existing match.
      */
-    class MatchExpressionEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
+    class AdjustMatchEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
         private final RelationalExpression expression;
 
-        public MatchExpressionEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
-                                    @Nonnull final Deque<Task> taskStack,
-                                    @Nonnull final Location location,
-                                    @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                                    @Nonnull final RelationalExpression expression) {
+        public AdjustMatchEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+                                @Nonnull final Deque<Task> taskStack,
+                                @Nonnull final Location location,
+                                @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
+                                @Nonnull final RelationalExpression expression) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.expression = expression;
@@ -553,13 +571,13 @@ public interface Debugger {
         @Override
         @Nonnull
         public String getDescription() {
-            return "match expression";
+            return "adjust match";
         }
 
         @Nonnull
         @Override
         public Shorthand getShorthand() {
-            return Shorthand.MATCHEXP;
+            return Shorthand.ADJUSTMATCH;
         }
 
         @Override
@@ -571,77 +589,6 @@ public interface Debugger {
         @Nonnull
         public RelationalExpression getExpression() {
             return expression;
-        }
-    }
-
-    /**
-     * Events of this class are generated when the planner attempts to match an expression to the expression of a
-     * match candidate.
-     */
-    class MatchExpressionWithCandidateEvent extends AbstractEventWithState implements EventWithCurrentGroupReference {
-        @Nonnull
-        private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
-        @Nonnull
-        private final RelationalExpression expression;
-        @Nonnull
-        private final MatchCandidate matchCandidate;
-        @Nonnull
-        private final ExpressionRef<? extends RelationalExpression> candidateRef;
-        @Nonnull
-        private final RelationalExpression candidateExpression;
-
-        public MatchExpressionWithCandidateEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
-                                                 @Nonnull final Deque<Task> taskStack,
-                                                 @Nonnull final Location location,
-                                                 @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                                                 @Nonnull final RelationalExpression expression,
-                                                 @Nonnull final MatchCandidate matchCandidate,
-                                                 @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
-                                                 @Nonnull final RelationalExpression candidateExpression) {
-            super(rootReference, taskStack, location);
-            this.currentGroupReference = currentGroupReference;
-            this.expression = expression;
-            this.matchCandidate = matchCandidate;
-            this.candidateRef = candidateRef;
-            this.candidateExpression = candidateExpression;
-        }
-
-        @Override
-        @Nonnull
-        public String getDescription() {
-            return "match expression with candidate";
-        }
-
-        @Nonnull
-        @Override
-        public Shorthand getShorthand() {
-            return Shorthand.MATCHEXPCAND;
-        }
-
-        @Override
-        @Nonnull
-        public GroupExpressionRef<? extends RelationalExpression> getCurrentGroupReference() {
-            return currentGroupReference;
-        }
-
-        @Nonnull
-        public RelationalExpression getExpression() {
-            return expression;
-        }
-
-        @Nonnull
-        public MatchCandidate getMatchCandidate() {
-            return matchCandidate;
-        }
-
-        @Nonnull
-        public ExpressionRef<? extends RelationalExpression> getCandidateRef() {
-            return candidateRef;
-        }
-
-        @Nonnull
-        public RelationalExpression getCandidateExpression() {
-            return candidateExpression;
         }
     }
 

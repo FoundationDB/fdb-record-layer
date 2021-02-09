@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.matching;
 
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -69,6 +70,12 @@ public class BoundMatch<R> {
         return matchResultOptional;
     }
 
+    @Nonnull
+    public R getMatchResult() {
+        Verify.verify(matchResultOptional.isPresent());
+        return matchResultOptional.get();
+    }
+
     /**
      * Factory method to create a bound match with a proper match result.
      * @param aliasMap the alias map for this match containing <em>all</em> mappings necessary to describe this match (even bindings
@@ -78,7 +85,7 @@ public class BoundMatch<R> {
      * @return a newly created bound match
      */
     @Nonnull
-    static <R> BoundMatch<R> withAliasMapAndMatchResult(final AliasMap aliasMap, @Nonnull final R matchResult) {
+    public static <R> BoundMatch<R> withAliasMapAndMatchResult(final AliasMap aliasMap, @Nonnull final R matchResult) {
         return new BoundMatch<>(aliasMap, Optional.of(matchResult));
     }
 
@@ -90,7 +97,7 @@ public class BoundMatch<R> {
      * @return a newly created bound match that does not hold a match result
      */
     @Nonnull
-    static <R> BoundMatch<R> withAliasMap(final AliasMap aliasMap) {
+    public static <R> BoundMatch<R> withAliasMap(final AliasMap aliasMap) {
         return new BoundMatch<>(aliasMap, Optional.empty());
     }
 }

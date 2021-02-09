@@ -56,9 +56,11 @@ public interface ExpressionChildrenMatcher {
      * Apply this matcher to the children provided by the given iterator and produce a stream of possible bindings.
      * If the match is not successful, produce an empty stream. Note that this method should not generally match to the
      * children themselves; instead, it should delegate that work to one or more inner {@link ExpressionMatcher}s.
+     *
+     * @param outerBindings preexisting bindings supplied by the caller
      * @param children a list of references to the children of a planner expression
      * @return a stream of the possible bindings from applying this match to the children in the given iterator
      */
     @Nonnull
-    Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children);
+    Stream<PlannerBindings> matches(@Nonnull PlannerBindings outerBindings, @Nonnull List<? extends Bindable> children);
 }

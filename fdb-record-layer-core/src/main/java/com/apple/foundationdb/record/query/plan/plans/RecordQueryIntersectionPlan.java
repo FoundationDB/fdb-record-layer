@@ -42,9 +42,11 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -326,7 +328,10 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.INTERSECTION_OPERATOR),
+                new PlannerGraph.OperatorNodeWithInfo(this,
+                        NodeInfo.INTERSECTION_OPERATOR,
+                        ImmutableList.of("COMPARE BY {{comparisonKey}}"),
+                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
                 childGraphs);
     }
 }

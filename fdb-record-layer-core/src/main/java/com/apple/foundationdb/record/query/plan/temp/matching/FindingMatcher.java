@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matching;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterator;
+import com.apple.foundationdb.record.query.plan.temp.TransitiveClosure;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -95,7 +96,17 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
     @Nonnull
     @Override
     public Iterable<AliasMap> findMatches() {
+        if (getAliases().size() != getOtherAliases().size()) {
+            return ImmutableList.of();
+        }
+
         return match(this::enumerate);
+    }
+
+    @Nonnull
+    @Override
+    protected Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive) {
+        return ImmutableList.of(otherPermutation);
     }
 
     /**
@@ -198,11 +209,11 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
                 aliases,
                 Function.identity(),
                 identityMappingMap,
-                BaseMatcher.computeDependsOnMap(aliases, Function.identity(), identityMappingMap, dependsOnFn),
+                TransitiveClosure.transitiveClosure(aliases, BaseMatcher.computeDependsOnMap(aliases, Function.identity(), identityMappingMap, dependsOnFn)),
                 otherAliases,
                 Function.identity(),
                 otherIdentityMappingMap,
-                BaseMatcher.computeDependsOnMap(otherAliases, Function.identity(), otherIdentityMappingMap, otherDependsOnFn),
+                TransitiveClosure.transitiveClosure(otherAliases, BaseMatcher.computeDependsOnMap(otherAliases, Function.identity(), otherIdentityMappingMap, otherDependsOnFn)),
                 matchPredicate);
     }
 
@@ -245,11 +256,11 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
                 aliases,
                 elementToAliasFn,
                 aliasToElementMap,
-                BaseMatcher.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn),
+                TransitiveClosure.transitiveClosure(aliases, BaseMatcher.computeDependsOnMapWithAliases(aliases, aliasToElementMap, dependsOnFn)),
                 otherAliases,
                 otherElementToAliasFn,
                 otherAliasToElementMap,
-                BaseMatcher.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn),
+                TransitiveClosure.transitiveClosure(otherAliases, BaseMatcher.computeDependsOnMapWithAliases(otherAliases, otherAliasToElementMap, otherDependsOnFn)),
                 matchPredicate);
     }
 }

@@ -52,7 +52,8 @@ public class ListChildrenMatcher implements ExpressionChildrenMatcher {
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
+    @SuppressWarnings("java:S3958")
+    public Stream<PlannerBindings> matches(@Nonnull final PlannerBindings outerBindings, @Nonnull List<? extends Bindable> children) {
         if (children.size() != childMatchers.size()) {
             return Stream.empty();
         }
@@ -61,7 +62,7 @@ public class ListChildrenMatcher implements ExpressionChildrenMatcher {
         for (int i = 0; i < children.size(); i++) {
             final Bindable child = children.get(i);
             final ExpressionMatcher<? extends Bindable> matcher = childMatchers.get(i);
-            List<PlannerBindings> possible = child.bindTo(matcher).collect(Collectors.toList());
+            List<PlannerBindings> possible = child.bindTo(outerBindings, matcher).collect(Collectors.toList());
             if (possible.isEmpty()) {
                 return Stream.empty();
             }

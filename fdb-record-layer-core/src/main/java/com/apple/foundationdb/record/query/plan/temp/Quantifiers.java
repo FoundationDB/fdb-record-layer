@@ -21,6 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier.Existential;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier.ForEach;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier.Physical;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.ComputingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matching.FindingMatcher;
@@ -28,13 +31,12 @@ import com.apple.foundationdb.record.query.plan.temp.matching.GenericMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.matching.PredicatedMatcher;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier.Existential;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier.ForEach;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier.Physical;
+import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -126,11 +128,25 @@ public class Quantifiers {
      * @return a new {@link AliasMap} mapping from {@code from.getAlias()} to {@code to.getAlias()}
      */
     @Nonnull
-    public static AliasMap toIDMap(@Nonnull final BiMap<Quantifier, Quantifier> map) {
+    public static AliasMap toAliasMap(@Nonnull final BiMap<Quantifier, Quantifier> map) {
         return AliasMap.copyOf(map.entrySet()
                 .stream()
                 .collect(ImmutableBiMap.toImmutableBiMap(entry -> entry.getKey().getAlias(),
                         entry -> entry.getValue().getAlias())));
+    }
+
+    /**
+     * Convenience helper to create an alias to quantifier map using a collection of quantifiers.
+     * @param quantifiers collection of quantifiers
+     * @return a new {@link BiMap} mapping from {@code q.getAlias()} to {@code q} for every {@code q} in {@code quantifiers}
+     */
+    @Nonnull
+    public static BiMap<CorrelationIdentifier, Quantifier> toBiMap(@Nonnull final Collection<? extends Quantifier> quantifiers) {
+        return quantifiers
+                .stream()
+                .collect(ImmutableBiMap
+                        .toImmutableBiMap(Quantifier::getAlias,
+                                Function.identity()));
     }
 
     @Nonnull
@@ -270,14 +286,11 @@ public class Quantifiers {
                                                                          @Nonnull final Collection<? extends Quantifier> quantifiers,
                                                                          @Nonnull final Collection<? extends Quantifier> otherQuantifiers,
                                                                          @Nonnull final MatchFunction<Quantifier, M> matchFunction) {
-        final MatchPredicate<Quantifier> quantifierMatchPredicate =
-                (quantifier, otherQuantifier, eM) -> quantifier.equalsOnKind(otherQuantifier);
-
         return genericMatcher(
                 boundAliasesMap,
                 quantifiers,
                 otherQuantifiers,
-                quantifierMatchPredicate.andThen(matchFunction)).match();
+                matchFunction).match();
     }
 
     /**
@@ -421,5 +434,65 @@ public class Quantifiers {
                 }
             };
         };
+    }
+
+    /**
+     * Resolver to resolve aliases to quantifiers.
+     */
+    public static class AliasResolver {
+        @Nonnull
+        private final ExpressionRefTraversal traversal;
+
+        private AliasResolver(@Nonnull final ExpressionRefTraversal traversal) {
+            this.traversal = traversal;
+        }
+
+        public void addExpression(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+                                  @Nonnull final RelationalExpression expression) {
+            traversal.addExpression(reference, expression);
+        }
+
+        public Set<Quantifier> resolveCorrelationAlias(@Nonnull RelationalExpression expression,
+                                                       @Nonnull final CorrelationIdentifier alias) {
+            final Set<ExpressionRef<? extends RelationalExpression>> refsContaining = traversal.getRefsContaining(expression);
+            final Set<Quantifier> resolvedQuantifiers = Sets.newIdentityHashSet();
+
+            for (final ExpressionRef<? extends RelationalExpression> reference : refsContaining) {
+                resolveCorrelationAlias(reference, alias, resolvedQuantifiers);
+            }
+
+            return resolvedQuantifiers;
+        }
+
+        public Set<Quantifier> resolveCorrelationAlias(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+                                                       @Nonnull final CorrelationIdentifier alias) {
+
+            final Set<Quantifier> resolvedQuantifiers = Sets.newIdentityHashSet();
+            resolveCorrelationAlias(reference, alias, resolvedQuantifiers);
+            return resolvedQuantifiers;
+        }
+
+        private void resolveCorrelationAlias(@Nonnull ExpressionRef<? extends RelationalExpression> reference,
+                                             @Nonnull final CorrelationIdentifier alias,
+                                             @Nonnull Set<Quantifier> resolvedQuantifiers) {
+            final Set<ExpressionRefTraversal.ReferencePath> referencePaths = traversal.getParentRefPaths(reference);
+
+            for (final ExpressionRefTraversal.ReferencePath referencePath : referencePaths) {
+                final RelationalExpression expression = referencePath.getExpression();
+                for (final Quantifier quantifier : expression.getQuantifiers()) {
+                    if (quantifier.getAlias().equals(alias)) {
+                        Verify.verify(expression.canCorrelate());
+                        resolvedQuantifiers.add(quantifier);
+                    }
+                }
+                resolveCorrelationAlias(referencePath.getReference(),
+                        alias,
+                        resolvedQuantifiers);
+            }
+        }
+
+        public static AliasResolver withRoot(@Nonnull final ExpressionRef<? extends RelationalExpression> rootRef) {
+            return new AliasResolver(ExpressionRefTraversal.withRoot(rootRef));
+        }
     }
 }

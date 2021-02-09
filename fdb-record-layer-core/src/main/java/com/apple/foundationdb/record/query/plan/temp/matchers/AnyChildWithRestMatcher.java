@@ -44,17 +44,17 @@ public class AnyChildWithRestMatcher implements ExpressionChildrenMatcher {
     @Nonnull
     private ExpressionMatcher<? extends QueryPredicate> selectedChildMatcher;
     @Nonnull
-    private AllChildrenMatcher otherChildrenMatcher;
+    private MultiChildrenMatcher otherChildrenMatcher;
 
     private AnyChildWithRestMatcher(@Nonnull ExpressionMatcher<? extends QueryPredicate> selectedChildMatcher,
                                     @Nonnull ExpressionMatcher<QueryPredicate> otherChildrenMatcher) {
         this.selectedChildMatcher = selectedChildMatcher;
-        this.otherChildrenMatcher = new AllChildrenMatcher(otherChildrenMatcher);
+        this.otherChildrenMatcher = MultiChildrenMatcher.allMatching(otherChildrenMatcher);
     }
 
     @Nonnull
     @Override
-    public Stream<PlannerBindings> matches(@Nonnull List<? extends Bindable> children) {
+    public Stream<PlannerBindings> matches(@Nonnull final PlannerBindings outerBindings, @Nonnull List<? extends Bindable> children) {
         Stream.Builder<Stream<PlannerBindings>> streams = Stream.builder();
         for (int i = 0; i < children.size(); i++) {
             Bindable child = children.get(i);
@@ -62,10 +62,10 @@ public class AnyChildWithRestMatcher implements ExpressionChildrenMatcher {
             otherChildren.addAll(children.subList(0, i));
             otherChildren.addAll(children.subList(i + 1, children.size()));
 
-            Stream<PlannerBindings> childBindings = child.bindTo(selectedChildMatcher);
-            // The otherChildrenMatcher is an AllChildrenMatcher wrapping a ReferenceMatcher, so it is guaranteed to
+            Stream<PlannerBindings> childBindings = child.bindTo(outerBindings, selectedChildMatcher);
+            // The otherChildrenMatcher is an MultiChildrenMatcher wrapping a ReferenceMatcher, so it is guaranteed to
             // produce a single set of PlannerBindings.
-            Optional<PlannerBindings> otherBindings = otherChildrenMatcher.matches(otherChildren).findFirst();
+            Optional<PlannerBindings> otherBindings = otherChildrenMatcher.matches(outerBindings, otherChildren).findFirst();
             if (!otherBindings.isPresent()) {
                 throw new RecordCoreException("invariant violated: couldn't match reference matcher to one of the other children");
             }

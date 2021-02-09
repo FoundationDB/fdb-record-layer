@@ -23,9 +23,10 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -68,10 +69,15 @@ public class OrComponent extends AndOrComponent {
         return OrComponent.from(newChildren);
     }
 
-    @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new OrPredicate(normalizeChildrenForPlanner(source, fieldNamePrefix));
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        final GraphExpansion childrenGraphExpansion =
+                GraphExpansion.ofOthers(getChildren().stream()
+                        .map(child -> child.expand(baseAlias, fieldNamePrefix))
+                        .map(expanded -> expanded.withPredicate(expanded.asAndPredicate()))
+                        .collect(ImmutableList.toImmutableList()));
+
+        return childrenGraphExpansion.withPredicate(OrPredicate.or(childrenGraphExpansion.getPredicates()));
     }
 
     @Override

@@ -27,14 +27,17 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
+import java.util.function.IntUnaryOperator;
 
 class State {
-    private int currentExpressionIndex;
-    private int currentReferenceIndex;
-    private int currentQuantifierIndex;
+    @Nonnull
+    private final Map<Class<?>, Integer> classToIndexMap;
 
     @Nonnull
     private final Cache<Integer, RelationalExpression> expressionCache;
@@ -66,9 +69,7 @@ class State {
         final Cache<Quantifier, Integer> copyInvertedQuantifierCache = CacheBuilder.newBuilder().weakKeys().build();
         source.getInvertedQuantifierCache().asMap().forEach(copyInvertedQuantifierCache::put);
 
-        return new State(source.getCurrentExpressionIndex(),
-                source.getCurrentReferenceIndex(),
-                source.getCurrentQuantifierIndex(),
+        return new State(source.getClassToIndexMap(),
                 copyExpressionCache,
                 copyInvertedExpressionsCache,
                 copyReferenceCache,
@@ -80,9 +81,7 @@ class State {
     }
 
     private State() {
-        this(0,
-                0,
-                0,
+        this(Maps.newHashMap(),
                 CacheBuilder.newBuilder().weakValues().build(),
                 CacheBuilder.newBuilder().weakKeys().build(),
                 CacheBuilder.newBuilder().weakValues().build(),
@@ -93,9 +92,7 @@ class State {
                 -1);
     }
 
-    private State(final int currentExpressionIndex,
-                  final int currentReferenceIndex,
-                  final int currentQuantifierIndex,
+    private State(@Nonnull final Map<Class<?>, Integer> classToIndexMap,
                   @Nonnull final Cache<Integer, RelationalExpression> expressionCache,
                   @Nonnull final Cache<RelationalExpression, Integer> invertedExpressionsCache,
                   @Nonnull final Cache<Integer, ExpressionRef<? extends RelationalExpression>> referenceCache,
@@ -104,9 +101,7 @@ class State {
                   @Nonnull final Cache<Quantifier, Integer> invertedQuantifierCache,
                   @Nonnull final List<Debugger.Event> events,
                   @Nonnull final int currentTick) {
-        this.currentExpressionIndex = currentExpressionIndex;
-        this.currentReferenceIndex = currentReferenceIndex;
-        this.currentQuantifierIndex = currentQuantifierIndex;
+        this.classToIndexMap = Maps.newHashMap(classToIndexMap);
         this.expressionCache = expressionCache;
         this.invertedExpressionsCache = invertedExpressionsCache;
         this.referenceCache = referenceCache;
@@ -117,16 +112,9 @@ class State {
         this.currentTick = currentTick;
     }
 
-    public int getCurrentExpressionIndex() {
-        return currentExpressionIndex;
-    }
-
-    public int getCurrentReferenceIndex() {
-        return currentReferenceIndex;
-    }
-
-    public int getCurrentQuantifierIndex() {
-        return currentQuantifierIndex;
+    @Nonnull
+    private Map<Class<?>, Integer> getClassToIndexMap() {
+        return classToIndexMap;
     }
 
     @Nonnull
@@ -168,27 +156,39 @@ class State {
         return currentTick;
     }
 
+    public int getIndex(final Class<?> clazz) {
+        return classToIndexMap.getOrDefault(clazz, 0);
+    }
+
+    @CanIgnoreReturnValue
+    public int updateIndex(final Class<?> clazz, IntUnaryOperator computeFn) {
+        return classToIndexMap.compute(clazz, (c, value) -> value == null ? computeFn.applyAsInt(0) : computeFn.applyAsInt(value));
+    }
+
     public void registerExpression(final RelationalExpression expression) {
         if (invertedExpressionsCache.getIfPresent(expression) == null) {
-            expressionCache.put(currentExpressionIndex, expression);
-            invertedExpressionsCache.put(expression, currentExpressionIndex);
-            currentExpressionIndex ++;
+            final int index = getIndex(RelationalExpression.class);
+            expressionCache.put(index, expression);
+            invertedExpressionsCache.put(expression, index);
+            updateIndex(RelationalExpression.class, i -> i + 1);
         }
     }
 
     public void registerReference(final ExpressionRef<? extends RelationalExpression> reference) {
         if (invertedReferenceCache.getIfPresent(reference) == null) {
-            referenceCache.put(currentReferenceIndex, reference);
-            invertedReferenceCache.put(reference, currentReferenceIndex);
-            currentReferenceIndex ++;
+            final int index = getIndex(ExpressionRef.class);
+            referenceCache.put(index, reference);
+            invertedReferenceCache.put(reference, index);
+            updateIndex(ExpressionRef.class, i -> i + 1);
         }
     }
 
     public void registerQuantifier(final Quantifier quantifier) {
         if (invertedQuantifierCache.getIfPresent(quantifier) == null) {
-            quantifierCache.put(currentQuantifierIndex, quantifier);
-            invertedQuantifierCache.put(quantifier, currentQuantifierIndex);
-            currentQuantifierIndex ++;
+            final int index = getIndex(Quantifier.class);
+            quantifierCache.put(index, quantifier);
+            invertedQuantifierCache.put(quantifier, index);
+            updateIndex(Quantifier.class, i -> i + 1);
         }
     }
 

@@ -23,14 +23,19 @@ package com.apple.foundationdb.record.query.plan.debug;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Event;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.EventWithState;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.cache.Cache;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.jline.reader.ParsedLine;
@@ -120,21 +125,7 @@ public class Commands {
                     }
                 }
 
-                if ("YIELD".equals(word1.toUpperCase())) {
-                    if (words.size() == 3) {
-                        final String word2 = words.get(2);
-                        if (!plannerRepl.isValidEntityName(word2)) {
-                            plannerRepl.printlnError("invalid identifier");
-                            return false;
-                        }
-                        plannerRepl.addBreakPoint(new PlannerRepl.OnYieldBreakPoint(word2.toLowerCase()));
-                        return false;
-                    }
-                    plannerRepl.printlnError("usage: break yield identifier");
-                    return false;
-                }
-
-                if ("REMOVE".equals(word1.toUpperCase())) {
+                if ("REMOVE".equals(word1)) {
                     if (words.size() == 3) {
                         final String word2 = words.get(2);
                         @Nullable final Integer index = PlannerRepl.getIdFromIdentifier(word2, "");
@@ -153,6 +144,68 @@ public class Commands {
                     plannerRepl.printlnError("usage: break remove <index>");
                 }
 
+                if ("RULE".equals(word1)) {
+                    if (words.size() >= 3) {
+                        final String transformName = words.get(2);
+                        final Location location =
+                                words.size() == 4
+                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase()).or(Location.BEGIN)
+                                : Location.BEGIN;
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnRuleBreakPoint(transformName, location));
+                        return false;
+                    }
+                    plannerRepl.printlnError("usage: break transform ruleNamePrefix [begin | end | success]");
+                    return false;
+                }
+
+                if ("RULECALL".equals(word1)) {
+                    if (words.size() >= 3) {
+                        final String candidateMatchPrefix = words.get(2);
+                        final Location location =
+                                words.size() == 4
+                                ? Enums.getIfPresent(Location.class, words.get(3).toUpperCase()).or(Location.BEGIN)
+                                : Location.BEGIN;
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnRuleCallBreakPoint(candidateMatchPrefix, location));
+                        return false;
+                    }
+                    plannerRepl.printlnError("usage: break rulecall ruleNamePrefix [begin | end]");
+                    return false;
+                }
+
+                if ("YIELD".equals(word1)) {
+                    if (words.size() == 4) {
+                        final String word2 = words.get(2).toUpperCase();
+
+                        if ("EXP".equals(word2)) {
+                            final String word3 = words.get(3);
+                            if (!plannerRepl.isValidEntityName(word3)) {
+                                plannerRepl.printlnError("invalid identifier");
+                                return false;
+                            }
+                            plannerRepl.addBreakPoint(new PlannerRepl.OnYieldExpressionBreakPoint(word3.toLowerCase()));
+                            return false;
+                        }
+
+                        if ("MATCH".equals(word2)) {
+                            final String word3 = words.get(3);
+                            final boolean isValidMatchCandidate =
+                                    Objects.requireNonNull(plannerRepl.getPlanContext())
+                                            .getMatchCandidates()
+                                            .stream()
+                                            .anyMatch(matchCandidate -> word3.equals(matchCandidate.getName()));
+
+                            if (!isValidMatchCandidate) {
+                                plannerRepl.printlnError("invalid match candidate");
+                                return false;
+                            }
+                            plannerRepl.addBreakPoint(new PlannerRepl.OnYieldMatchBreakPoint(word3));
+                            return false;
+                        }
+                    }
+                    plannerRepl.printlnError("usage: break yield [exp <identifier> | match <candidate>]");
+                    return false;
+                }
+
                 final Optional<Debugger.Shorthand> shorthandOptional =
                         Enums.getIfPresent(Debugger.Shorthand.class, word1).toJavaUtil();
                 if (!shorthandOptional.isPresent()) {
@@ -164,14 +217,37 @@ public class Commands {
                 final Debugger.Shorthand shorthand = shorthandOptional.get();
 
                 if (words.size() == 2) {
-                    plannerRepl.addBreakPoint(new PlannerRepl.OnEventTypeBreakPoint(shorthand, Debugger.Location.ANY));
+                    // "break event_type" sets a break point to the event_type on any location
+                    plannerRepl.addBreakPoint(new PlannerRepl.OnEventTypeBreakPoint(shorthand, Location.ANY));
                     return false;
                 }
 
                 if (words.size() >= 3) {
+                    // "break event_type [location | refId [location]]"
                     final String word2 = words.get(2).toUpperCase();
-                    final Debugger.Location location = Enums.getIfPresent(Debugger.Location.class, word2.toUpperCase()).toJavaUtil().orElse(Debugger.Location.ANY);
-                    plannerRepl.addBreakPoint(new PlannerRepl.OnEventTypeBreakPoint(shorthand, location));
+
+                    Optional<Location> locationOptional = Enums.getIfPresent(Location.class, word2).toJavaUtil();
+                    if (words.size() == 3 && locationOptional.isPresent()) {
+                        // "break event_type location"
+                        final Location location = locationOptional.get();
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnEventTypeBreakPoint(shorthand, location));
+                        return false;
+                    }
+
+                    if (plannerRepl.isValidEntityName(word2) && word2.startsWith("REF")) {
+                        // "break event_type refId [location]"
+                        if (words.size() >= 4) {
+                            // "break event_type refId location"
+                            final String word3 = words.get(3).toUpperCase();
+                            locationOptional = Enums.getIfPresent(Location.class, word3.toUpperCase()).toJavaUtil();
+                        } else {
+                            // "break event_type refId"
+                            locationOptional = Optional.empty();
+                        }
+
+                        final Location location = locationOptional.orElse(Location.ANY);
+                        plannerRepl.addBreakPoint(new PlannerRepl.OnEventTypeBreakPoint(shorthand, word2, location));
+                    }
                 }
                 return false;
             }
@@ -443,11 +519,12 @@ public class Commands {
                                       @Nonnull final ParsedLine parsedLine) {
             final List<String> words = parsedLine.words();
             if (words.size() < 2) {
-                plannerRepl.printlnError("usage show [exp|ref|qun]id");
+                plannerRepl.printlnError("usage show [(exp|ref|qun)id] | graph | matches | plans");
                 return false;
             }
 
-            plannerRepl.processIdentifiers(words.get(1),
+            final String word1 = words.get(1).toUpperCase();
+            final boolean identifiersProcessed = plannerRepl.processIdentifiers(word1,
                     expression -> expression.show(true),
                     reference -> {
                         if (reference instanceof GroupExpressionRef) {
@@ -456,7 +533,41 @@ public class Commands {
                             plannerRepl.println("show is not supported for non-group references.");
                         }
                     },
-                    quantifier -> plannerRepl.println("show is not supported for quantifiers."));
+                    quantifier -> plannerRepl.printlnError("show is not supported for quantifiers."));
+            if (!identifiersProcessed) {
+                if (event instanceof EventWithState) {
+                    final EventWithState eventWithState = (EventWithState)event;
+                    final GroupExpressionRef<? extends RelationalExpression> rootReference = eventWithState.getRootReference();
+                    if ("GRAPH".equals(word1)) {
+                        PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS, rootReference);
+                        return false;
+                    } else if ("MATCH".equals(word1) && words.size() == 3) {
+                        final String word2 = words.get(2);
+                        final Optional<MatchCandidate> matchCandidateOptional =
+                                Objects.requireNonNull(plannerRepl.getPlanContext())
+                                        .getMatchCandidates()
+                                        .stream()
+                                        .filter(matchCandidate -> word2.equals(matchCandidate.getName()))
+                                        .findFirst();
+                        if (matchCandidateOptional.isPresent()) {
+                            PlannerGraphProperty.show(true, rootReference, ImmutableSet.of(matchCandidateOptional.get()));
+                        } else {
+                            plannerRepl.printlnError("unknown match candidate");
+                        }
+                        return false;
+                    } else if ("MATCHES".equals(word1)) {
+                        PlannerGraphProperty.show(true, rootReference, Objects.requireNonNull(plannerRepl.getPlanContext()).getMatchCandidates());
+                        return false;
+                    } else if ("PLANS".equals(word1)) {
+                        PlannerGraphProperty.show(PlannerGraphProperty.RENDER_SINGLE_GROUPS | PlannerGraphProperty.REMOVE_LOGICAL_EXPRESSIONS, rootReference);
+                        return false;
+                    }
+                }
+                plannerRepl.printlnError("not sure what to show");
+                printUsage(plannerRepl);
+                return false;
+            }
+
             return false;
         }
 
@@ -488,21 +599,19 @@ public class Commands {
                 int i = 0;
                 for (final Iterator<CascadesPlanner.Task> iterator = taskStack.descendingIterator(); iterator.hasNext(); i ++) {
                     final CascadesPlanner.Task task = iterator.next();
-                    final Event e = task.toTaskEvent(Debugger.Location.ANY);
+                    final Event e = task.toTaskEvent(Location.ANY);
 
-                    if (i + 1 == size) {
-                        plannerRepl.printHighlighted(" ==> ");
-                    } else {
-                        plannerRepl.print("     ");
-                    }
+                    plannerRepl.print("     ");
 
                     plannerRepl.withProcessors(e, p -> p.onList(plannerRepl, e));
                     plannerRepl.println();
                 }
 
+                plannerRepl.printlnHighlighted(" ==> current");
             } else {
                 plannerRepl.printlnError("event does not contain information about current state of task stack.");
             }
+
             return false;
         }
 

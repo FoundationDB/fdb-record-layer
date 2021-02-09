@@ -43,9 +43,6 @@ public interface PlanContext {
     Set<Index> getIndexes();
 
     @Nonnull
-    Set<IndexEntrySource> getIndexEntrySources();
-
-    @Nonnull
     Index getIndexByName(@Nonnull String name);
 
     @Nullable

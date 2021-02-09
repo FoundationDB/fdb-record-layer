@@ -78,12 +78,12 @@ import java.util.Collection;
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFilterPlan> {
-    private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
-    private static ExpressionMatcher<Quantifier.Physical> qunMatcher = QuantifierMatcher.physical(innerMatcher);
+    private static final ReferenceMatcher<RecordQueryPlan> innerMatcher = ReferenceMatcher.allOf(TypeMatcher.of(RecordQueryPlan.class));
+    private static final ExpressionMatcher<Quantifier.Physical> qunMatcher = QuantifierMatcher.physical(innerMatcher);
     private static final ExpressionMatcher<QueryPredicate> predMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
             TypeWithPredicateMatcher.ofPredicate(RecordQueryPredicateFilterPlan.class, predMatcher, qunMatcher);
-    private static QuantifierMatcher<Quantifier.Physical> filterPlanQuantifierMatcher = QuantifierMatcher.physical(filterPlanMatcher);
+    private static final QuantifierMatcher<Quantifier.Physical> filterPlanQuantifierMatcher = QuantifierMatcher.physical(filterPlanMatcher);
     private static final ExpressionMatcher<RecordQueryTypeFilterPlan> root =
             TypeMatcher.of(RecordQueryTypeFilterPlan.class, filterPlanQuantifierMatcher);
 
@@ -96,7 +96,6 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
         final Quantifier.Physical qun = call.get(qunMatcher);
         final QueryPredicate pred = call.get(predMatcher);
-        final RecordQueryPredicateFilterPlan filterPlan = call.get(filterPlanMatcher);
         final Collection<String> recordTypes = call.get(root).getRecordTypes();
 
         final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes);
@@ -106,7 +105,6 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
         call.yield(GroupExpressionRef.of(
                 new RecordQueryPredicateFilterPlan(
                         newQun,
-                        filterPlan.getBaseSource(),
                         rebasedPred)));
     }
 }

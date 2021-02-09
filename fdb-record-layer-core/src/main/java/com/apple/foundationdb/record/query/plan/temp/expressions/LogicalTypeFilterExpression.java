@@ -21,21 +21,34 @@
 package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.Compensation;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -44,6 +57,9 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalTypeFilterExpression implements TypeFilterExpression, PlannerGraphRewritable {
+    @Nonnull
+    private final Optional<List<? extends Value>> resultValuesOptional;
+
     @Nonnull
     private final Set<String> recordTypes;
     @Nonnull
@@ -56,6 +72,15 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner) {
         this.recordTypes = recordTypes;
         this.inner = inner;
+        this.resultValuesOptional = inner
+                .getFlowedValues()
+                .map(Function.identity());
+    }
+
+    @Nonnull
+    @Override
+    public Optional<List<? extends Value>> getResultValues() {
+        return resultValuesOptional;
     }
 
     @Override
@@ -82,6 +107,16 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
 
     @Nonnull
     @Override
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return resultValuesOptional
+                .map(resultValues -> resultValues.stream()
+                        .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
+                        .collect(ImmutableSet.toImmutableSet()))
+                .orElse(ImmutableSet.of());
+    }
+
+    @Nonnull
+    @Override
     public LogicalTypeFilterExpression rebase(@Nonnull final AliasMap translationMap) {
         // we know the following is correct, just Java doesn't
         return (LogicalTypeFilterExpression)TypeFilterExpression.super.rebase(translationMap);
@@ -104,6 +139,18 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Override
     public int hashCode() {
         return semanticHashCode();
+    }
+
+    @Nonnull
+    @Override
+    public Iterable<MatchInfo> subsumedBy(@Nonnull final RelationalExpression candidateExpression, @Nonnull final AliasMap aliasMap, @Nonnull final IdentityBiMap<Quantifier, PartialMatch> partialMatchMap) {
+        return exactlySubsumedBy(candidateExpression, aliasMap, partialMatchMap);
+    }
+
+    @Override
+    public Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
+        final PartialMatch childPartialMatch = Objects.requireNonNull(partialMatch.getMatchInfo().getChildPartialMatch(inner).orElseThrow(() -> new RecordCoreException("expected a match child")));
+        return childPartialMatch.compensate(boundParameterPrefixMap);
     }
 
     @Nonnull

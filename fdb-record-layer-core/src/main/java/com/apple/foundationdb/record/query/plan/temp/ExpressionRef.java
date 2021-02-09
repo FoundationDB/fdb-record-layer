@@ -24,9 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -61,7 +63,7 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable,
     /**
      * Try to bind the given matcher to this reference. It should not try to match to the members of the reference;
      * if the given matcher needs to match to a {@link RelationalExpression} rather than an {@link ExpressionRef}, it will
-     * call {@link #bindWithin(ExpressionMatcher)} instead.
+     * call {@link #bindWithin(PlannerBindings, ExpressionMatcher)} instead.
      *
      * <p>
      * Binding to references can be a bit subtle: some matchers (such as {@code ReferenceMatcher}) can bind to references
@@ -69,13 +71,15 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable,
      * which might not even be well defined. This method implements binding to the <em>reference</em>, rather than to
      * its member(s).
      * </p>
+     *
+     * @param outerBindings preexisting bindings to be used by the matcher
      * @param matcher a matcher to match with
      * @return a stream of bindings if the match succeeded or an empty stream if it failed
      */
     @Nonnull
     @Override
-    default Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(this);
+    default Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        return matcher.matchWith(outerBindings, this, ImmutableList.copyOf(getMembers()));
     }
 
     /**
@@ -83,11 +87,13 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable,
      * it should try to match to any of them and produce a stream of bindings covering all possible combinations.
      * If possible, this should be done in a lazy fashion using the {@link Stream} API, so as to minimize unnecessary
      * work.
+     *
+     * @param outerBindings preexisting bindings
      * @param matcher an expression matcher to match the member(s) of this reference with
      * @return a stream of bindings if the match succeeded or an empty stream if it failed
      */
     @Nonnull
-    Stream<PlannerBindings> bindWithin(@Nonnull ExpressionMatcher<? extends Bindable> matcher);
+    Stream<PlannerBindings> bindWithin(@Nonnull PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher);
 
     @Nonnull
     <U extends RelationalExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func);
@@ -113,6 +119,15 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable,
     Set<MatchCandidate> getMatchCandidates();
 
     /**
+     * Return all partial matches that match a given expression. This method is agnostic of the {@link MatchCandidate}
+     * that created the partial match.
+     * @param expression expression to return partial matches for. This expression has to be a member of this reference
+     * @return a collection of partial matches that matches the give expression to some candidate
+     */
+    @Nonnull
+    Collection<PartialMatch> getPartialMatchesForExpression(@Nonnull final RelationalExpression expression);
+
+    /**
      * Return all partial matches for the {@link MatchCandidate} passed in.
      * @param candidate match candidate
      * @return a set of partial matches for {@code candidate}
@@ -121,13 +136,13 @@ public interface ExpressionRef<T extends RelationalExpression> extends Bindable,
     Set<PartialMatch> getPartialMatchesForCandidate(final MatchCandidate candidate);
 
     /**
-     * Add the {@link PartialMatch}es passed in to this reference for the {@link MatchCandidate} passed in.
+     * Add the {@link PartialMatch} passed in to this reference for the {@link MatchCandidate} passed in.
      * @param candidate match candidate this partial match relates to
-     * @param partialMatches a set of partial matches.
-     * @return {@code true} if this call added new partial matches, {@code false} if all partial matches were already
+     * @param partialMatch a new partial match.
+     * @return {@code true} if this call added a new partial, {@code false} if the partial match passed in was already
      *         contained in this reference
      */
-    boolean addAllPartialMatchesForCandidate(final MatchCandidate candidate, final Iterable<PartialMatch> partialMatches);
+    boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch);
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

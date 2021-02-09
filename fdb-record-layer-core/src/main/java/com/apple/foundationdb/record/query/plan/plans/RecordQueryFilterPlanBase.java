@@ -99,6 +99,11 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     }
 
     @Nonnull
+    public Quantifier.Physical getInner() {
+        return inner;
+    }
+
+    @Nonnull
     public RecordQueryPlan getInnerPlan() {
         return inner.getRangesOverPlan();
     }

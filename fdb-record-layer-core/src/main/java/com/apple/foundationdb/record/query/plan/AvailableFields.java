@@ -117,9 +117,9 @@ public class AvailableFields {
         }
 
         // Like FDBRecordStoreBase.indexEntryKey(), but with key expressions instead of actual values.
-        final List<KeyExpression> primaryKeys = commonPrimaryKey == null
-                                                ? Collections.emptyList()
-                                                : commonPrimaryKey.normalizeKeyForPositions();
+        final List<KeyExpression> primaryKeys = new ArrayList<>(commonPrimaryKey == null
+                                                                ? Collections.emptyList()
+                                                                : commonPrimaryKey.normalizeKeyForPositions());
         index.trimPrimaryKey(primaryKeys);
         keyFields.addAll(primaryKeys);
 

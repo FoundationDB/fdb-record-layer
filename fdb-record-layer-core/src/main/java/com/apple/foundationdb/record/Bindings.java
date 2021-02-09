@@ -41,7 +41,8 @@ public class Bindings {
      */
     public enum Internal {
         IN("__in_"),
-        RANK("__rank_");
+        RANK("__rank_"),
+        CORRELATION("__corr_");
 
         public static final String PREFIX = "__";
         private final String value;

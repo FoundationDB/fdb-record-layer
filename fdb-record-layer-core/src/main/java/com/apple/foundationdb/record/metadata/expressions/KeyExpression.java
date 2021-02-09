@@ -26,8 +26,9 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -193,43 +194,21 @@ public interface KeyExpression extends PlanHashable {
     }
 
     /**
-     * Flatten this key expression into a list of {@link Element}s, much like {@link #normalizeKeyForPositions()}.
-     * By default, this method throws an exception because most key expressions cannot be flattened to a list of
-     * elements without prior adjustment. This method is only overriden by key expressions that can be flattened.
-     * @return a list of elements representing this key expression in unnested form
-     * @see ElementKeyExpression#flattenForPlanner()
-     * @see ThenKeyExpression#flattenForPlanner()
+     * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
+     * of the key expression as composition of relational expressions and operators
+     * ({@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s). Note that implementors should
+     * defer to the visitation methods in the supplied visitor rather than encoding actual logic in an overriding
+     * method.
+     * @param <S> a type that reflects the state that {@code visitor} uses
+     * @param visitor a {@link ExpansionVisitor} that is created by the caller from a data structure that reflects the
+     *        specific semantics of the key expression. Normally this visitor is directly created based on an index.
+     * @return a new {@link GraphExpansion} representing the query graph equivalent of this key expression using the
+     *         supplied visitor
+     * @see com.apple.foundationdb.record.query.expressions.QueryComponent#expand
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    default List<Element> flattenForPlanner() {
-        throw new RecordCoreException("illegal non-element expression");
-    }
-
-    /**
-     * Normalize this key expression into another key expression that pushes all nesting and fan-out to
-     * {@link ElementKeyExpression}s at the leaves.
-     *
-     * <p>
-     * By default, a key expression is a complicated nested structure that can be difficult to work with. This method
-     * pushes much of the complexity, including nested structures and fan-out of repeated fields, to special key
-     * expressions that track these relationship using the {@link Source} abstraction. This pre-processing makes
-     * planning nested and repeated structures much simpler.
-     * </p>
-     *
-     * <p>
-     * This normalization process requires tracking some state since the name of a nested field is available
-     * only at the relevant {@link FieldKeyExpression}, but that information is necessary to construct the
-     * {@link ElementKeyExpression} at the leaves of the sub-tree rooted at the {@link NestingKeyExpression}. This
-     * extra information is tracked in the {@code fieldNamePrefix}.
-     * </p>
-     * @param source the source representing the input stream of the key expression
-     * @param fieldNamePrefix the (non-repeated) field names on the path from the most recent source to this part of the key expression
-     * @return a new key expression that has only {@link ElementKeyExpression}s at its leaves
-     */
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix);
+    <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull ExpansionVisitor<S> visitor);
 
     /**
      * Return the key fields for an expression.

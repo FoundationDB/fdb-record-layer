@@ -72,7 +72,7 @@ import javax.annotation.Nonnull;
  * where pred' is rebased along the translation from qun to newQun.
  */
 public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
-    private static final ExpressionMatcher<ExpressionRef<RecordQueryPlan>> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ReferenceMatcher<RecordQueryPlan> innerMatcher = ReferenceMatcher.allOf(TypeMatcher.of(RecordQueryPlan.class));
     private static final ExpressionMatcher<Quantifier.Physical> innerQuantifierMatcher = QuantifierMatcher.physical(innerMatcher);
     private static final ExpressionMatcher<RecordQueryPredicateFilterPlan> filterPlanMatcher =
             TypeMatcher.of(RecordQueryPredicateFilterPlan.class, innerQuantifierMatcher);
@@ -92,12 +92,11 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
         final RecordQueryUnorderedPrimaryKeyDistinctPlan newDistinctPlan =
                 new RecordQueryUnorderedPrimaryKeyDistinctPlan(Quantifier.physical(inner));
         final Quantifier.Physical newQun = Quantifier.physical(call.ref(newDistinctPlan));
-        final QueryPredicate rebasedPred =
+        final QueryPredicate rebasedPredicate =
                 filterPlan.getPredicate()
                         .rebase(Quantifiers.translate(qun, newQun));
         call.yield(call.ref(
                 new RecordQueryPredicateFilterPlan(newQun,
-                        filterPlan.getBaseSource(),
-                        rebasedPred)));
+                        rebasedPredicate)));
     }
 }

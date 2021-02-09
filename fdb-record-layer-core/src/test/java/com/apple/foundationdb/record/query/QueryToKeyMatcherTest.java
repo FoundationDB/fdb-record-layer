@@ -34,8 +34,8 @@ import com.apple.foundationdb.record.query.expressions.Field;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
@@ -446,14 +446,14 @@ public class QueryToKeyMatcherTest {
 
         assertEqualityCoveringKey(MatchType.EQUALITY,
                 Query.and(
-                    queryField("p").matches(Query.and(
-                            queryField("a").equalsValue(1),
-                            queryField("b").matches(Query.and(
-                                    queryField("c").equalsValue(2),
-                                    queryField("d").equalsValue(3)
-                            ))
-                    )),
-                    queryField("e").equalsValue(4)
+                        queryField("p").matches(Query.and(
+                                queryField("a").equalsValue(1),
+                                queryField("b").matches(Query.and(
+                                        queryField("c").equalsValue(2),
+                                        queryField("d").equalsValue(3)
+                                ))
+                        )),
+                        queryField("e").equalsValue(4)
                 ),
                 concat(keyField("e"), keyField("p").nest("a")));
 
@@ -549,8 +549,8 @@ public class QueryToKeyMatcherTest {
         assertNoMatch(Query.and(queryField("a").equalsValue(3), queryField("b").isEmpty()), concatenateFields("a", "b"));
         assertNoMatch(
                 Query.and(
-                    queryField("a").lessThan(3),
-                    queryField("a").greaterThan(0)
+                        queryField("a").lessThan(3),
+                        queryField("a").greaterThan(0)
                 ),
                 concatenateFields("a", "b"));
 
@@ -705,14 +705,13 @@ public class QueryToKeyMatcherTest {
 
         @Nonnull
         @Override
-        public Element toElement(@Nonnull final Source rootSource) {
-            return normalizeForPlanner(rootSource, Collections.emptyList()).flattenForPlanner().get(0);
+        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+            throw new UnsupportedOperationException("not supported");
         }
 
         @Override
         public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
             return super.basePlanHash(hashKind, BASE_HASH);
         }
-
     }
 }

@@ -186,7 +186,7 @@ public class AliasMap {
             return false;
         }
         final AliasMap aliasMap = (AliasMap)o;
-        return map.equals(aliasMap.map);
+        return Objects.equals(map, aliasMap.map);
     }
 
     /**
@@ -195,7 +195,7 @@ public class AliasMap {
      */
     @Override
     public int hashCode() {
-        return map.hashCode();
+        return Objects.hash(map);
     }
 
     @Override
@@ -209,6 +209,11 @@ public class AliasMap {
 
     public boolean containsTarget(@Nonnull final CorrelationIdentifier alias) {
         return map.containsValue(alias);
+    }
+
+    public boolean containsMapping(@Nonnull final CorrelationIdentifier source,
+                                   @Nonnull final CorrelationIdentifier target) {
+        return containsSource(source) && containsTarget(target) && getTargetOrThrow(source).equals(target);
     }
 
     /**
@@ -268,6 +273,45 @@ public class AliasMap {
     }
 
     /**
+     * Get the source for a target passed in.
+     * @param target the target to return the source for
+     * @return the source that target is bound to in this alias map or {@code null} if there is no binding
+     *         to {@code target} in this alias map
+     */
+    @Nullable
+    public CorrelationIdentifier getSource(final CorrelationIdentifier target) {
+        return map.inverse().get(target);
+    }
+
+    /**
+     * Get the source for a target passed in or a default in case there is no mapping for the target alias.
+     * @param target the target to return the source for
+     * @param defaultValue default value to return is there is no mapping in this map for {@code target}
+     * @return the source that target is bound to in this alias map or {@code null} if there is no binding
+     *         to {@code target} in this alias map
+     */
+    @Nonnull
+    public CorrelationIdentifier getSourceOrDefault(@Nonnull final CorrelationIdentifier target, @Nonnull final CorrelationIdentifier defaultValue) {
+        @Nullable final CorrelationIdentifier source = getSource(target);
+        if (source == null) {
+            return defaultValue;
+        }
+        return source;
+    }
+
+    /**
+     * Get the source for a target passed in or throw an exception in case there is no mapping for the target alias.
+     * @param target the target to return the source for
+     * @return the source that target is bound to in this alias map or {@code null} if there is no binding
+     *         to {@code target} in this alias map
+     */
+    @Nonnull
+    public CorrelationIdentifier getSourceOrThrow(@Nonnull final CorrelationIdentifier target) {
+        @Nullable final CorrelationIdentifier source = getTarget(target);
+        return Objects.requireNonNull(source);
+    }
+
+    /**
      * Get the target for a source passed in.
      * @param source the source to return the target for
      * @return the target that source is bound to in this alias map or {@code null} if there is no binding
@@ -278,6 +322,13 @@ public class AliasMap {
         return map.get(source);
     }
 
+    /**
+     * Get the target for a source passed in or a default in case there is no mapping for the source alias.
+     * @param source the source to return the target for
+     * @param defaultValue default value to return is there is no mapping in this map for {@code source}
+     * @return the target that source is bound to in this alias map or {@code null} if there is no binding
+     *         from {@code source} in this alias map
+     */
     @Nonnull
     public CorrelationIdentifier getTargetOrDefault(@Nonnull final CorrelationIdentifier source, @Nonnull final CorrelationIdentifier defaultValue) {
         @Nullable final CorrelationIdentifier target = getTarget(source);
@@ -285,6 +336,18 @@ public class AliasMap {
             return defaultValue;
         }
         return target;
+    }
+
+    /**
+     * Get the target for a source passed in or throw an exception in case there is no mapping for the source alias.
+     * @param source the source to return the target for
+     * @return the target that source is bound to in this alias map or {@code null} if there is no binding
+     *         from {@code source} in this alias map
+     */
+    @Nonnull
+    public CorrelationIdentifier getTargetOrThrow(@Nonnull final CorrelationIdentifier source) {
+        @Nullable final CorrelationIdentifier target = getTarget(source);
+        return Objects.requireNonNull(target);
     }
 
     /**
