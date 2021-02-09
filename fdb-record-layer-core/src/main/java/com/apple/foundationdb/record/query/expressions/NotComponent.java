@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
