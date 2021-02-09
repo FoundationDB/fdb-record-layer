@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.RecordTypeValue;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -130,6 +131,11 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
     }
 
     @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return HashUtils.queryHash(hashKind, BASE_HASH, getComparison());
+    }
+
+    @Override
     public QueryComponent withOtherComparison(Comparisons.Comparison comparison) {
         throw new UnsupportedOperationException("Cannot change comparison");
     }
@@ -189,6 +195,11 @@ public class RecordTypeKeyComparison implements ComponentWithComparison {
                 default:
                     throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
             }
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, BASE_HASH, recordTypeName);
         }
 
         @Override

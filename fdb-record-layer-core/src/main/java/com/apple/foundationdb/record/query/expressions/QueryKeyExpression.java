@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.util.HashUtils;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -227,6 +228,11 @@ public class QueryKeyExpression {
                     throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
             }
         }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, SIMPLE_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
+        }
     }
 
     private final class ConversionParameterComparison extends Comparisons.ParameterComparison {
@@ -297,6 +303,11 @@ public class QueryKeyExpression {
                 default:
                     throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
             }
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return HashUtils.queryHash(hashKind, PARAMETER_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
         }
     }
 

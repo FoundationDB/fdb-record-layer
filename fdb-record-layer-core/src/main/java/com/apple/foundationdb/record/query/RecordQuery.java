@@ -21,10 +21,13 @@
 package com.apple.foundationdb.record.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -47,8 +50,9 @@ import java.util.List;
  * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan
  */
 @API(API.Status.STABLE)
-public class RecordQuery {
+public class RecordQuery implements QueryHashable {
     public static final Collection<String> ALL_TYPES = Collections.emptyList();
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query");
 
     @Nonnull
     private final Collection<String> recordTypes;
@@ -164,6 +168,11 @@ public class RecordQuery {
 
     public Builder toBuilder() {
         return new Builder(this);
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
+        return HashUtils.queryHash(hashKind, BASE_HASH, recordTypes, allowedIndexes, queryabilityFilter, filter, sort, sortReverse, removeDuplicates);
     }
 
     /**

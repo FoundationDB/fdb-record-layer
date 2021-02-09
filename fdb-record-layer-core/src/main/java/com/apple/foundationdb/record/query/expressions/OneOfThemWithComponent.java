@@ -171,4 +171,9 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
     }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return super.baseQueryHash(hashKind, BASE_HASH, getChild());
+    }
 }

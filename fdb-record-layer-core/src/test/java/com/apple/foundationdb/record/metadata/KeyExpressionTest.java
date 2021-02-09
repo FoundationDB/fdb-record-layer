@@ -944,6 +944,11 @@ public class KeyExpressionTest {
         public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
             return super.basePlanHash(hashKind, BASE_HASH);
         }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH);
+        }
     }
 
     /**
@@ -1002,6 +1007,11 @@ public class KeyExpressionTest {
         @Override
         public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
             return super.basePlanHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH);
         }
     }
 }
