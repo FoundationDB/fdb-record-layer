@@ -14,8 +14,8 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Scanned records counter was not cleared properly when clearing the index [(Issue #1115)](https://github.com/FoundationDB/fdb-record-layer/issues/1115)
-* **Bug fix** Fix the instruction document of building Record Layer [(Issue #1061)](https://github.com/FoundationDB/fdb-record-layer/issues/1061)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -24,14 +24,12 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Permuted grouped aggregate [(Issue #1085)](https://github.com/FoundationDB/fdb-record-layer/issues/1085)
-* **Feature** integrated index matching and planning in the Cascades planner [(Issue #1083)](https://github.com/FoundationDB/fdb-record-layer/issues/1083)
-* **Feature** Implement QueryHash to identify created queries and match them to generated plans [(Issue #1091)](https://github.com/FoundationDB/fdb-record-layer/issues/1091)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** The addition of QueryHashable and the implementation of it by various classes will force existing extenders of some classes to implement the queryHash() method [(Issue #1091)](https://github.com/FoundationDB/fdb-record-layer/issues/1091)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +37,15 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.154.0
+
+* **Bug fix** Scanned records counter was not cleared properly when clearing the index [(Issue #1115)](https://github.com/FoundationDB/fdb-record-layer/issues/1115)
+* **Bug fix** Fix the instruction document of building Record Layer [(Issue #1061)](https://github.com/FoundationDB/fdb-record-layer/issues/1061)
+* **Feature** Permuted grouped aggregate [(Issue #1085)](https://github.com/FoundationDB/fdb-record-layer/issues/1085)
+* **Feature** integrated index matching and planning in the Cascades planner [(Issue #1083)](https://github.com/FoundationDB/fdb-record-layer/issues/1083)
+* **Feature** Implement QueryHash to identify created queries and match them to generated plans [(Issue #1091)](https://github.com/FoundationDB/fdb-record-layer/issues/1091)
+* **Breaking change** The addition of QueryHashable and the implementation of it by various classes will force existing extenders of some classes to implement the queryHash() method [(Issue #1091)](https://github.com/FoundationDB/fdb-record-layer/issues/1091)
 
 ### 2.10.151.0
 
