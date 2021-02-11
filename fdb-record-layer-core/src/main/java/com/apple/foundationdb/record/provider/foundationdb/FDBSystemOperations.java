@@ -117,7 +117,6 @@ public class FDBSystemOperations {
      * @param runner a runner to use to perform the operation
      * @return the current cluster connection string
      * @see #getConnectionStringAsync(FDBDatabaseRunner)
-     * @see #getConnectionStringAsync(FDBDatabaseRunner)
      */
     @Nullable
     public static String getConnectionString(@Nonnull FDBDatabaseRunner runner) {
