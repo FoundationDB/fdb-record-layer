@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,11 +63,12 @@ public class SystemKeyspace {
     private static final byte[] SYSTEM_2_PREFIX = {(byte)0xff, 0x02};
 
     /**
-     * The prefix under which "special" keys live. Unlike the data in the range [{@code \xff}, {@code \xff\xff}), which
-     * are stored in the database but are just off limits to regular client operations, the keys prefixed with
-     * {@code \xff\xff} don't "really" exist, but they are instead instructions to the client used to retrieve some
-     * special information. For example, they might be used to read and return client configuration information. They
+     * The prefix under which "special" keys live. The data in the range {@code \xff\xff} does not "really" exist,
+     * but instead acts as instructions to the client used to retrieve some special information.
+     * For example, they might be used to read and return client configuration information. They
      * may not read any actual data from the database or (sometimes) even make any network calls at all.
+     * Note: This is in contrast to the rest of {@code \xff}, which is stored in the database, but is off limits to
+     * regular client operations. 
      */
     private static final byte[] SPECIAL_PREFIX = {(byte)0xff, (byte)0xff};
 

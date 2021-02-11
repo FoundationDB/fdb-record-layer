@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ public class FDBSystemOperations {
 
     /**
      * Get the primary datacenter of the underlying cluster. This will return the datacenter ID (if set)
-     * of the datacenter currently serving as the primary, which is (by definition) is where the transaction
+     * of the datacenter currently serving as the primary, which (by definition) is where the transaction
      * subsystem will be recruited. This is mostly relevant for
      * <a href="https://apple.github.io/foundationdb/configuration.html#configuring-regions">multi-region configurations</a>,
      * where this value might change if the cluster decides that it needs to fail over to a secondary region. The returned
