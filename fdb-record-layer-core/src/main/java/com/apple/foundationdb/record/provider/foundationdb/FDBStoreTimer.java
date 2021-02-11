@@ -408,6 +408,8 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_END_SYNC_SESSION("wait for ending a synchronized session"),
         /** Wait for editing a header user field. */
         WAIT_EDIT_HEADER_USER_FIELD("wait to edit a header user field"),
+        /** Wait to read a key from the FDB system keyspace. */
+        WAIT_LOAD_SYSTEM_KEY("wait for reading a key from the FDB system keyspace"),
         ;
 
         private final String title;

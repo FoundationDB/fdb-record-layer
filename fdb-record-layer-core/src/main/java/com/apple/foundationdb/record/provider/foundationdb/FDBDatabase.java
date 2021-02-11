@@ -263,9 +263,12 @@ public class FDBDatabase {
     }
 
     /**
-     * Get the path to the cluster file that this database was created with. May return <code>null</code> if using the
-     * default cluster file.
+     * Get the path to the cluster file that this database was created with. Will return <code>null</code> if using the
+     * default cluster file. To get the resolved cluster file path for databases created with the default path, use
+     * {@link FDBSystemOperations#getClusterFilePath(FDBDatabaseRunner)} instead.
+     *
      * @return The path to the cluster file.
+     * @see FDBSystemOperations#getClusterFilePath(FDBDatabaseRunner)
      */
     @Nullable
     public String getClusterFile() {

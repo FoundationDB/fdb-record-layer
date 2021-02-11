@@ -67,7 +67,7 @@ public abstract class FDBTestBase {
     public static String createFakeClusterFile(String prefix) throws IOException {
         File clusterFile = File.createTempFile(prefix, ".cluster");
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(clusterFile))) {
-            writer.write("fake:fdbcluster@127.0.0.1:65537\n");
+            writer.write("fake:fdbcluster@127.0.0.1:65535\n");
         }
         return clusterFile.getAbsolutePath();
     }
