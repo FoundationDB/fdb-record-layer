@@ -42,10 +42,6 @@ public class FDBSystemOperations {
         return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
     }
 
-    private static <T> T asyncToSync(@Nonnull FDBRecordContext context, @Nonnull CompletableFuture<T> operation) {
-        return context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY, operation);
-    }
-
     private static <T> T asyncToSync(@Nonnull FDBDatabaseRunner runner, @Nonnull CompletableFuture<T> operation) {
         return runner.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_SYSTEM_KEY, operation);
     }
@@ -56,7 +52,7 @@ public class FDBSystemOperations {
      * subsystem will be recruited. This is mostly relevant for
      * <a href="https://apple.github.io/foundationdb/configuration.html#configuring-regions">multi-region configurations</a>,
      * where this value might change if the cluster decides that it needs to fail over to a secondary region. The returned
-     * datacenter ID will be {@code null} if the server's datacenter has not been set.
+     * datacenter ID will be {@code null} if the FDB cluster's datacenter has not been set.
      *
      * <p>
      * Note that this operation must read this information from the database's storage and uses its own transaction.
@@ -76,14 +72,21 @@ public class FDBSystemOperations {
 
     /**
      * Get the primary datacenter of the underlying cluster. This is a blocking version of
-     * {@link #getPrimaryDatacenterAsync(FDBDatabaseRunner)}.
+     * {@link #getPrimaryDatacenterAsync(FDBDatabaseRunner)}. If the FDB cluster's primary datacenter has not
+     * been set, this will return {@code null}.
      *
      * @param runner a runner to use to perform the operation
      * @return the primary datacenter of the database underlying {@code runner}
+     * @see #getPrimaryDatacenterAsync(FDBDatabaseRunner)
      */
     @Nullable
     public static String getPrimaryDatacenter(@Nonnull FDBDatabaseRunner runner) {
         return asyncToSync(runner, getPrimaryDatacenterAsync(runner));
+    }
+
+    @Nonnull
+    private static CompletableFuture<String> getConnectionStringAsyncInternal(@Nonnull FDBRecordContext context) {
+        return context.ensureActive().get(SystemKeyspace.CONNECTION_STR_KEY).thenApply(FDBSystemOperations::nullableUtf8);
     }
 
     /**
@@ -99,39 +102,12 @@ public class FDBSystemOperations {
      * in the FoundationDB documentation.
      * </p>
      *
-     * @param context a transaction to use to perform the operation
-     * @return a future that will contain the current cluster connection string
-     */
-    @Nonnull
-    public static CompletableFuture<String> getConnectionStringAsync(@Nonnull FDBRecordContext context) {
-        return context.ensureActive().get(SystemKeyspace.CONNECTION_STR_KEY).thenApply(FDBSystemOperations::nullableUtf8);
-    }
-
-    /**
-     * Get the connection string used to connect to the FDB cluster. This operates like
-     * {@link #getConnectionStringAsync(FDBRecordContext)}, but it will use the provided runner to create a new
-     * transaction and retry if necessary.
-     *
      * @param runner a runner to use to perform the operation
      * @return a future that will contain the current cluster connection string
-     * @see #getConnectionStringAsync(FDBRecordContext)
      */
     @Nonnull
     public static CompletableFuture<String> getConnectionStringAsync(@Nonnull FDBDatabaseRunner runner) {
-        return runner.runAsync(FDBSystemOperations::getConnectionStringAsync);
-    }
-
-    /**
-     * Get the connection string used to connect to the FDB cluster. This is a synchronous version of
-     * {@link #getConnectionStringAsync(FDBRecordContext)}
-     *
-     * @param context a transaction to use to perform the operation
-     * @return the current cluster connection string
-     * @see #getConnectionStringAsync(FDBRecordContext)
-     */
-    @Nullable
-    public static String getConnectionString(@Nonnull FDBRecordContext context) {
-        return asyncToSync(context, getConnectionStringAsync(context));
+        return runner.runAsync(FDBSystemOperations::getConnectionStringAsyncInternal);
     }
 
     /**
@@ -141,11 +117,15 @@ public class FDBSystemOperations {
      * @param runner a runner to use to perform the operation
      * @return the current cluster connection string
      * @see #getConnectionStringAsync(FDBDatabaseRunner)
-     * @see #getConnectionStringAsync(FDBRecordContext)
+     * @see #getConnectionStringAsync(FDBDatabaseRunner)
      */
     @Nullable
     public static String getConnectionString(@Nonnull FDBDatabaseRunner runner) {
         return asyncToSync(runner, getConnectionStringAsync(runner));
+    }
+
+    private static CompletableFuture<String> getClusterFilePathAsyncInternal(@Nonnull FDBRecordContext context) {
+        return context.ensureActive().get(SystemKeyspace.CLUSTER_FILE_PATH_KEY).thenApply(FDBSystemOperations::nullableUtf8);
     }
 
     /**
@@ -156,40 +136,12 @@ public class FDBSystemOperations {
      * Note that even though this operation returns a future, it does not need to perform any network calls but instead
      * answers this question from the client's local memory.
      *
-     * @param context a transaction to use to perform the operation
-     * @return a future that will contain the cluster file path
-     * @see FDBDatabase#getClusterFile()
-     */
-    @Nonnull
-    public static CompletableFuture<String> getClusterFilePathAsync(@Nonnull FDBRecordContext context) {
-        return context.ensureActive().get(SystemKeyspace.CLUSTER_FILE_PATH_KEY).thenApply(FDBSystemOperations::nullableUtf8);
-    }
-
-    /**
-     * Get the file system path to the cluster file used. This operates like
-     * {@link #getClusterFilePathAsync(FDBRecordContext)}, but it will use the provided runner to create a transaction
-     * and to handle performing any retries (if necessary).
-     *
      * @param runner a runner to use to perform the operation
      * @return a future that will contain the cluster file path
-     * @see #getClusterFilePathAsync(FDBRecordContext)
      */
     @Nonnull
     public static CompletableFuture<String> getClusterFilePathAsync(@Nonnull FDBDatabaseRunner runner) {
-        return runner.runAsync(FDBSystemOperations::getClusterFilePathAsync);
-    }
-
-    /**
-     * Get the file system path to the cluster file used. This is a synchronous version of
-     * {@link #getClusterFilePathAsync(FDBRecordContext)}.
-     *
-     * @param context a transaction to use to perform the operation
-     * @return the cluster file path
-     * @see #getClusterFilePathAsync(FDBRecordContext)
-     */
-    @Nullable
-    public static String getClusterFilePath(@Nonnull FDBRecordContext context) {
-        return asyncToSync(context, getClusterFilePathAsync(context));
+        return runner.runAsync(FDBSystemOperations::getClusterFilePathAsyncInternal);
     }
 
     /**
@@ -199,7 +151,6 @@ public class FDBSystemOperations {
      * @param runner a transaction to use to perform the operation
      * @return the cluster file path
      * @see #getClusterFilePathAsync(FDBDatabaseRunner)
-     * @see #getClusterFilePathAsync(FDBRecordContext)
      */
     @Nullable
     public static String getClusterFilePath(@Nonnull FDBDatabaseRunner runner) {

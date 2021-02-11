@@ -68,8 +68,9 @@ public class FDBSystemOperationsTest extends FDBTestBase {
         String clusterFilePath = run(FDBSystemOperations::getClusterFilePath);
         assertNotNull(clusterFilePath);
 
-        // This may or may not match the database's cluster file path, as that can be null if the
-        // database is using the default cluster file.
+        // Note that fdb.getClusterFile() returns null if the client is configured to use the default
+        // system cluster file, so this test can't compare the results of fdb.getClusterFile() to
+        // clusterFilePath to check correctness. The best it can do is make sure the file exists.
         File file = new File(clusterFilePath);
         assertTrue(file.exists(), "cluster file should exist");
     }
