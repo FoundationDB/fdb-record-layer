@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -183,6 +184,8 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private RecordQueryPlannerConfiguration configuration;
     @Nonnull
+    private CascadesPlannerConfiguration cascadesConfiguration;
+    @Nonnull
     private final RecordMetaData metaData;
     @Nonnull
     private final RecordStoreState recordStoreState;
@@ -201,6 +204,7 @@ public class CascadesPlanner implements QueryPlanner {
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlannerRuleSet ruleSet) {
         this.configuration = RecordQueryPlannerConfiguration.builder().build();
+        this.cascadesConfiguration = CascadesPlannerConfiguration.builder().build();
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.ruleSet = ruleSet;
@@ -242,9 +246,14 @@ public class CascadesPlanner implements QueryPlanner {
         Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
+        int taskCount = 0;
         while (!taskStack.isEmpty()) {
             try {
                 Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
+                if (taskTotalCountExceeded(cascadesConfiguration, taskCount++)) {
+                    throw new RecordQueryPlanComplexityException("Maximum number of tasks (" + cascadesConfiguration.getMaxTotalTaskCount() + ") was exceeded");
+                }
+
                 Task nextTask = taskStack.pop();
                 if (logger.isTraceEnabled()) {
                     logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
@@ -258,6 +267,10 @@ public class CascadesPlanner implements QueryPlanner {
                     logger.trace(KeyValueLogMessage.of("planner state",
                             "taskStackSize", taskStack.size(),
                             "memo", new GroupExpressionPrinter(currentRoot)));
+                }
+
+                if (taskQueueSizeExceeded(cascadesConfiguration, taskStack.size())) {
+                    throw new RecordQueryPlanComplexityException("Maximum task queue size (" + cascadesConfiguration.getMaxTaskQueueSize() + ") was exceeded");
                 }
             } catch (final RestartException restartException) {
                 if (logger.isTraceEnabled()) {
@@ -277,6 +290,23 @@ public class CascadesPlanner implements QueryPlanner {
         configuration = this.configuration.asBuilder()
                 .setIndexScanPreference(indexScanPreference)
                 .build();
+    }
+
+    @Nonnull
+    public CascadesPlannerConfiguration getCascadesConfiguration() {
+        return cascadesConfiguration;
+    }
+
+    public void setCascadesConfiguration(@Nonnull final CascadesPlannerConfiguration cascadesConfiguration) {
+        this.cascadesConfiguration = cascadesConfiguration;
+    }
+
+    private boolean taskQueueSizeExceeded(final CascadesPlannerConfiguration configuration, final int queueSize) {
+        return ((configuration.getMaxTaskQueueSize() > 0) && (queueSize > configuration.getMaxTaskQueueSize()));
+    }
+
+    private boolean taskTotalCountExceeded(final CascadesPlannerConfiguration configuration, final int taskCount) {
+        return ((configuration.getMaxTotalTaskCount() > 0) && (taskCount > configuration.getMaxTotalTaskCount()));
     }
 
     /**
