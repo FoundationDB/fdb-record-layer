@@ -250,9 +250,10 @@ public class CascadesPlanner implements QueryPlanner {
         while (!taskStack.isEmpty()) {
             try {
                 Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
-                if (taskTotalCountExceeded(cascadesConfiguration, taskCount++)) {
+                if (taskTotalCountExceeded(cascadesConfiguration, taskCount)) {
                     throw new RecordQueryPlanComplexityException("Maximum number of tasks (" + cascadesConfiguration.getMaxTotalTaskCount() + ") was exceeded");
                 }
+                taskCount++;
 
                 Task nextTask = taskStack.pop();
                 if (logger.isTraceEnabled()) {
