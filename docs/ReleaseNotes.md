@@ -24,7 +24,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add configuration for Cascades planner, protect from queue explosion and infinite loop [(Issue #1126)](https://github.com/FoundationDB/fdb-record-layer/issues/1126)
+* **Feature** Add configuration for Cascades planner, protect from queue explosion and infinite loop, use interface instead of RecordQueryPlanner [(Issue #1126)](https://github.com/FoundationDB/fdb-record-layer/issues/1126)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
