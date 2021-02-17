@@ -553,7 +553,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 if (index == null) {
                     // if we scan without an index all filters become index filters as we don't need a fetch
                     // to evaluate these filters
-                    p = p.withFilters(Collections.emptyList(), p.combineNonSargables());
+                    p = p.withFilters(p.combineNonSargables(), Collections.emptyList());
                 } else {
                     p = computeIndexFilters(planContext, p);
                 }
