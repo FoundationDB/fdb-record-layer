@@ -213,6 +213,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return the meta-data
      */
     @Nonnull
+    @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
     }
@@ -222,6 +223,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return the record store state
      */
     @Nonnull
+    @Override
     public RecordStoreState getRecordStoreState() {
         return recordStoreState;
     }
