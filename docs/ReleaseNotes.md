@@ -27,7 +27,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Certain system keys are exposed through the new `FDBSystemOperations` API [(Issue #949)](https://github.com/FoundationDB/fdb-record-layer/issues/949)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,10 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.155.0
+
+* **Feature** Certain system keys are exposed through the new `FDBSystemOperations` API [(Issue #949)](https://github.com/FoundationDB/fdb-record-layer/issues/949)
 
 ### 2.10.154.0
 
