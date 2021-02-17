@@ -240,6 +240,18 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
+    @Nonnull
+    @Override
+    public RecordMetaData getRecordMetaData() {
+        return metaData;
+    }
+
+    @Nonnull
+    @Override
+    public RecordStoreState getRecordStoreState() {
+        return recordStoreState;
+    }
+
     private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
         aliasResolver = AliasResolver.withRoot(currentRoot);
