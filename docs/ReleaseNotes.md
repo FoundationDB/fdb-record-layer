@@ -40,10 +40,12 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 ### 2.10.156.0
 
+* No changes from version [2.10.155.0](#2101550)
 
 ### 2.10.155.0
 
 * **Feature** Certain system keys are exposed through the new `FDBSystemOperations` API [(Issue #949)](https://github.com/FoundationDB/fdb-record-layer/issues/949)
+* **Performance** Query plan costing model is adjusted to not prefer full record scans over index scans with the same residual filters [(Issue #1130)](https://github.com/FoundationDB/fdb-record-layer/issues/1130)
 
 ### 2.10.154.0
 
