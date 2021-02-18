@@ -39,6 +39,7 @@ message ComplexDocument {
     optional string text = 3;
     repeated string tag = 4;
     optional int32 score = 5;
+    optional string text2 = 6;
 }
 
 message MapDocument {

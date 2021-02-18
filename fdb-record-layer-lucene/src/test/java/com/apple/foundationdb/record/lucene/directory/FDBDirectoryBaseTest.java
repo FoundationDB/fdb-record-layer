@@ -20,9 +20,9 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,8 +51,8 @@ public abstract class FDBDirectoryBaseTest {
             context.ensureActive().clear(subspace.range());
             return null;
         });
-        Transaction transaction = fdb.database().createTransaction();
-        directory = new FDBDirectory(subspace, transaction);
+        FDBRecordContext context = fdb.openContext();
+        directory = new FDBDirectory(subspace, context);
     }
 
     protected int randomInt(int minimum) {
