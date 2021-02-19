@@ -896,9 +896,10 @@ public class MoreAsyncUtil {
             @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
         return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
             try {
-                return handler.apply(futureResult, futureException).handle((handlerResult, handlerAsyncException) -> {
-                    if (futureException != null) {
-                        throw getRuntimeException(futureException, exceptionMapper);
+                RuntimeException mappedFutureException = futureException == null ? null : getRuntimeException(futureException, exceptionMapper);
+                return handler.apply(futureResult, mappedFutureException).handle((handlerResult, handlerAsyncException) -> {
+                    if (mappedFutureException != null) {
+                        throw mappedFutureException;
                     } else if (handlerAsyncException != null) {
                         // This is for the case where the function call handler.apply returns an exceptional future.
                         throw getRuntimeException(handlerAsyncException, exceptionMapper);

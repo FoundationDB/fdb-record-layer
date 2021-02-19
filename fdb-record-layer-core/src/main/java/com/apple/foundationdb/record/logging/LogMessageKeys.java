@@ -146,6 +146,7 @@ public enum LogMessageKeys {
     INDEXER_CURR_RETRY("indexer_curr_retry"),
     INDEXER_MAX_RETRIES("indexer_max_retries"),
     DIRECTOY("directory"),
+    LESSEN_LIMIT("lessen_limit"),
 
     // comparisons
     COMPARISON_VALUE("comparison_value"),
