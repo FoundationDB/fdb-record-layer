@@ -75,12 +75,11 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
 
     @Nonnull private final TupleRange recordsRange;
-    @Nonnull private final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp;
+    @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
 
     IndexingByRecords(@Nonnull IndexingCommon common) {
         super(common);
         this.recordsRange = computeRecordsRange();
-        this.myIndexingTypeStamp = compileIndexingTypeStamp();
     }
 
     @Override
@@ -99,13 +98,12 @@ public class IndexingByRecords extends IndexingBase {
 
     @Override
     boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        return stamp.hasMethod() &&
-               stamp.getMethod() == myIndexingTypeStamp.getMethod();
+        return getIndexingTypeStamp().equals(stamp);
     }
 
     @Nonnull
     @Override
-    CompletableFuture<Void> buildIndexByEntityAsync() {
+    CompletableFuture<Void> buildIndexInternalAsync() {
         return buildEndpoints().thenCompose(tupleRange -> {
             if (tupleRange != null) {
                 return buildRange(Key.Evaluated.fromTuple(tupleRange.getLow()), Key.Evaluated.fromTuple(tupleRange.getHigh()));
@@ -391,7 +389,7 @@ public class IndexingByRecords extends IndexingBase {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            maybeLogBuildProgress(subspaceProvider,Arrays.asList(
+            maybeLogBuildProgress(subspaceProvider, Arrays.asList(
                     LogMessageKeys.START_TUPLE, startTuple,
                     LogMessageKeys.END_TUPLE, endTuple,
                     LogMessageKeys.REAL_END, realEnd));
@@ -585,7 +583,7 @@ public class IndexingByRecords extends IndexingBase {
     // support rebuildIndexAsync
     @Nonnull
     @Override
-    CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store) {
+    CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         return AsyncUtil.whileTrue(() ->
                 buildRangeOnly(store, rangeToGo.get(), true, null).thenApply(nextStart -> {

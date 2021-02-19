@@ -91,12 +91,7 @@ public class IndexingByIndex extends IndexingBase {
 
     @Override
     boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        final IndexBuildProto.IndexBuildIndexingStamp.Method method = stamp.getMethod();
-        final ByteString subspaceKey = stamp.getSourceIndexSubspaceKey();
-        final int lastModifiedVersion = stamp.getSourceIndexLastModifiedVersion();
-        return myIndexingTypeStamp.getMethod() == method &&
-               Arrays.equals(myIndexingTypeStamp.getSourceIndexSubspaceKey().toByteArray(), subspaceKey.toByteArray()) &&
-               myIndexingTypeStamp.getSourceIndexLastModifiedVersion() == lastModifiedVersion;
+        return getIndexingTypeStamp().equals(stamp);
     }
 
     @Nonnull
@@ -110,7 +105,7 @@ public class IndexingByIndex extends IndexingBase {
 
     @Nonnull
     @Override
-    CompletableFuture<Void> buildIndexByEntityAsync() {
+    CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose( store -> {
                     // first validate that both src and tgt are of a single, similar, type
@@ -204,14 +199,14 @@ public class IndexingByIndex extends IndexingBase {
             if (Boolean.FALSE.equals(hasNext)) {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
-            Range range = ranges.next();
-            Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
-            Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
+            final Range range = ranges.next();
+            final Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
+            final Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
+            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
 
-            // range.begin, if not null, is produced by getContinuation() and should be used at continuation field
-            // range.end, if not null, is either defined by caller or as a missingRange - making a top range, therefore used at range field
             RecordCursor<FDBIndexedRecord<Message>> cursor =
-                    store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.between(null, rangeEnd), range.begin, scanProperties);
+                    store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
+
 
             final AtomicLong recordsScannedCounter = new AtomicLong();
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
@@ -220,27 +215,36 @@ public class IndexingByIndex extends IndexingBase {
             return iterateRangeOnly(store, cursor,
                     IndexingByIndex::castCursorResultToStoreRecord,
                     lastResult::set,
-                    isEmpty, recordsScannedCounter
-            ).thenCompose(vignore -> {
-                long recordsScannedInTransaction = recordsScannedCounter.get();
-                recordsScanned.addAndGet(recordsScannedInTransaction);
-                if (common.isTrackProgress()) {
-                    store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
-                            FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
-                }
-                final byte[] realEnd =
-                        isEmpty.get() ? null : lastResult.get().getContinuation().toBytes();
+                    isEmpty, recordsScannedCounter)
+                    .thenCompose(vignore -> {
+                        long recordsScannedInTransaction = recordsScannedCounter.get();
+                        recordsScanned.addAndGet(recordsScannedInTransaction);
+                        if (common.isTrackProgress()) {
+                            store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
+                                    FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
+                        }
+                        final byte[] nextCont =
+                                isEmpty.get() ? null : lastResult.get().getContinuation().toBytes();
+                        if (nextCont == null) {
+                            return CompletableFuture.completedFuture(null);
+                        }
+                        executeProperties.setReturnedRowLimit(1);
+                        final ScanProperties scanProperties1 = new ScanProperties(executeProperties.build());
+                        RecordCursor<FDBIndexedRecord<Message>> nextCursor =
+                                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.between(null, rangeEnd), nextCont, scanProperties1);
+                        return nextCursor.onNext().thenApply(result ->
+                                result.hasNext() ? result.get().getIndexEntry().getKey() : null );
+                    })
+                    .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
+                                .thenApply(ignore -> cont != null));
 
-                return rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), realEnd, true)
-                        .thenApply(ignore -> !isEmpty.get());
-            });
         });
     }
 
     // support rebuildIndexAsync
     @Nonnull
     @Override
-    CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store) {
+    CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<byte[]> nextCont = new AtomicReference<>();
         AtomicLong recordScanned = new AtomicLong();
         return AsyncUtil.whileTrue(() ->

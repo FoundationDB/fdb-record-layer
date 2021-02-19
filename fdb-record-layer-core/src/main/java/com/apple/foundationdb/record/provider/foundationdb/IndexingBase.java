@@ -241,7 +241,7 @@ public abstract class IndexingBase {
     private CompletableFuture<Void> doBuildIndexAsync(boolean markReadable) {
         CompletableFuture<Void> buildFuture =
                 setIndexingTypeOrThrow()
-                        .thenCompose(ignore -> buildIndexByEntityAsync());
+                        .thenCompose(ignore -> buildIndexInternalAsync());
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
@@ -269,7 +269,7 @@ public abstract class IndexingBase {
                         if (bytes == null || forceStampOverwrite) {
                             transaction.set(stampKey, indexingTypeStamp.toByteArray());
                         } else {
-                            IndexBuildProto.IndexBuildIndexingStamp savedStamp ;
+                            IndexBuildProto.IndexBuildIndexingStamp savedStamp;
                             try {
                                 savedStamp = IndexBuildProto.IndexBuildIndexingStamp.parseFrom(bytes);
                             } catch (InvalidProtocolBufferException ex) {
@@ -280,8 +280,8 @@ public abstract class IndexingBase {
                                         LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
                                         LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
                                         LogMessageKeys.INDEXER_ID, common.getUuid(),
-                                        LogMessageKeys.EXPECTED_TYPE, indexingTypeStamp,
-                                        LogMessageKeys.ACTUAL_TYPE, savedStamp);
+                                        LogMessageKeys.EXPECTED, indexingTypeStamp,
+                                        LogMessageKeys.ACTUAL, savedStamp);
                             }
                         }
                         return null;
@@ -295,19 +295,20 @@ public abstract class IndexingBase {
     @Nonnull
     abstract boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp);
 
-    abstract CompletableFuture<Void> buildIndexByEntityAsync();
+    abstract CompletableFuture<Void> buildIndexInternalAsync();
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
     protected void maybeLogBuildProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
             final Index index = common.getIndex();
-            LOGGER.info(KeyValueLogMessage.of("Built Range",
+            LOGGER.info(KeyValueLogMessage.build("Built Range",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
                     subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get()),
-                    LogMessageKeys.INDEXER_ID, common.getUuid(),
-                    additionalLogMessageKeyValues);
+                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get(),
+                    LogMessageKeys.INDEXER_ID, common.getUuid())
+                    .addKeysAndValues(additionalLogMessageKeyValues)
+                    .toString());
         }
     }
 
@@ -362,7 +363,6 @@ public abstract class IndexingBase {
         // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
         // Copying the state also guards against changes made by other online building from check version.
         // TODO: need some state to avoid generating the same synthetic record via more than one self-join path for non-idempotent indexes.
-
         return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
             if (!result.hasNext()) {
                 // end of the cursor list
@@ -426,12 +426,12 @@ public abstract class IndexingBase {
         // (2) to allow for write-only indexes to continue to do the right thing.
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         CompletableFuture<Boolean> rangeFuture = rangeSet.insertRange(tr, null, null);
-        CompletableFuture<Void> buildFuture = rebuildIndexByEntityAsync(store);
+        CompletableFuture<Void> buildFuture = rebuildIndexInternalAsync(store);
 
         return CompletableFuture.allOf(rangeFuture, buildFuture);
     }
 
-    abstract CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store);
+    abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
 
     // These throttle methods are externalized for testing usage only
     @Nonnull
