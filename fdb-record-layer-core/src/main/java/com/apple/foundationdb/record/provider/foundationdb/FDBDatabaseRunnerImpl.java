@@ -304,8 +304,8 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
-        final RetriableTaskRunner.Builder<T> builder = RetriableTaskRunner.newBuilder(() -> {
-            FDBRecordContext ctx = openContext();
+        final RetriableTaskRunner.Builder<T> builder = RetriableTaskRunner.newBuilder(taskState -> {
+            FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0);
             return retriable.apply(ctx).thenCompose(val ->
                     ctx.commitAsync().thenApply(vignore -> val)
             ).handle((result, ex) -> {

@@ -1,5 +1,5 @@
 /*
- * RetryTask.java
+ * RetriableTaskRunner.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -40,12 +40,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class RetriableTaskRunner<T> implements AutoCloseable {
     private static final Logger DEFAULT_LOGGER = LoggerFactory.getLogger(RetriableTaskRunner.class);
 
-    @Nonnull private final Supplier<CompletableFuture<? extends T>> retriableTask;
+    @Nonnull private final Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask;
     private final int maxAttempts;
 
     // This can also handle other things need to be done post the retriable task.
@@ -63,13 +62,13 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     @Nonnull
     private final List<CompletableFuture<?>> futuresToCompleteExceptionally = new ArrayList<>();
 
-    public static <T> Builder<T> newBuilder(Supplier<CompletableFuture<? extends T>> retriableTask, int maxAttempts) {
+    public static <T> Builder<T> newBuilder(Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask, int maxAttempts) {
         return new Builder<>(retriableTask, maxAttempts);
     }
 
     public CompletableFuture<T> runAsync() {
         final TaskState<T> taskState = new TaskState<>(initDelayMillis, initGlobalLogs());
-        return AsyncUtil.whileTrue(() -> MoreAsyncUtil.composeWhenCompleteAndHandle(retriableTask.get(), (result, ex) -> {
+        return AsyncUtil.whileTrue(() -> MoreAsyncUtil.composeWhenCompleteAndHandle(retriableTask.apply(taskState), (result, ex) -> {
             if (closed) {
                 taskState.setPossibleException(new RetriableTaskRunnerClosed());
                 return AsyncUtil.READY_FALSE;
@@ -79,9 +78,14 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
             return AsyncUtil.applySafely(possiblyRetry, taskState).thenCompose(possible -> {
                 if (possible && (taskState.getCurrAttempt() + 1 < maxAttempts)) {
                     handleIfDoRetry.accept(taskState); // Exceptions in handleIfDoRetry should be caught by handle later.
-                    long delay = (long)(Math.random() * taskState.getCurrDelayRangeMillis());
                     taskState.setCurrAttempt(taskState.getCurrAttempt() + 1);
-                    taskState.setCurrDelayRangeMillis(Math.max(Math.min(delay * 2, maxDelayMillis), minDelayMillis));
+
+                    long delay = clampByDelayLimits((long)(Math.random() * taskState.getCurrMaxDelayMillis()));
+                    // Double the current max delay for the next iteration. Note that it should be doubled from the
+                    // iteration's max delay rather than actual delay, because multiplying by Math.random() * 2
+                    // repeatedly will converge it to 0.
+                    taskState.setCurrMaxDelayMillis(clampByDelayLimits(taskState.getCurrMaxDelayMillis() * 2));
+
                     logCurrentAttempt(taskState, delay);
                     CompletableFuture<Void> delayedFuture = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
                     addFutureToCompleteExceptionally(delayedFuture);
@@ -107,6 +111,10 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
             }
             return ret;
         });
+    }
+
+    private long clampByDelayLimits(long delay) {
+        return Math.max(Math.min(delay, maxDelayMillis), minDelayMillis);
     }
 
     private List<Object> initGlobalLogs() {
@@ -172,7 +180,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         @Nullable
         private Throwable possibleException;
         private int currAttempt = 0;
-        private long currDelayRangeMillis;
+        private long currMaxDelayMillis;
         // Keep the logs for the current attempt.
         @Nonnull
         private final List<Object> localLogs = new ArrayList<>();
@@ -181,7 +189,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         private final List<Object> globalLogs;
 
         TaskState(long initDelayMillis, List<Object> globalLogs) {
-            this.currDelayRangeMillis = initDelayMillis;
+            this.currMaxDelayMillis = initDelayMillis;
             this.globalLogs = new ArrayList<>(globalLogs);
         }
 
@@ -211,12 +219,12 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
             this.currAttempt = currAttempt;
         }
 
-        public long getCurrDelayRangeMillis() {
-            return currDelayRangeMillis;
+        public long getCurrMaxDelayMillis() {
+            return currMaxDelayMillis;
         }
 
-        public void setCurrDelayRangeMillis(long currDelayRangeMillis) {
-            this.currDelayRangeMillis = currDelayRangeMillis;
+        public void setCurrMaxDelayMillis(long currMaxDelayMillis) {
+            this.currMaxDelayMillis = currMaxDelayMillis;
         }
 
         @Nonnull
@@ -231,7 +239,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     }
 
     public static class Builder<T> {
-        @Nonnull private final Supplier<CompletableFuture<? extends T>> retriableTask;
+        @Nonnull private final Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask;
         private final int maxAttempts;
 
         @Nonnull private Function<TaskState<T>, CompletableFuture<Boolean>> possiblyRetry =
@@ -245,7 +253,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         @Nonnull private Executor executor = FDB.DEFAULT_EXECUTOR;
         @Nullable private Function<Throwable,RuntimeException> exceptionMapper = FDBExceptions::wrapException;
 
-        private Builder(Supplier<CompletableFuture<? extends T>> retriableTask, int maxAttempts) {
+        private Builder(Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask, int maxAttempts) {
             this.retriableTask = retriableTask;
             this.maxAttempts = maxAttempts;
         }

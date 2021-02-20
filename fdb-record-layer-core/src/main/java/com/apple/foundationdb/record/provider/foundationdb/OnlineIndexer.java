@@ -407,7 +407,7 @@ public class OnlineIndexer implements AutoCloseable {
             onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
         }
 
-        RetriableTaskRunner.Builder<R> builder = RetriableTaskRunner.newBuilder(() -> {
+        RetriableTaskRunner.Builder<R> builder = RetriableTaskRunner.newBuilder(ignore -> {
             loadConfig();
             return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
                 IndexState indexState = store.getIndexState(index);
