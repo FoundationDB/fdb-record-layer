@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.annotation.API;
@@ -522,7 +521,6 @@ public class IndexingByRecords extends IndexingBase {
                                                     boolean respectLimit, @Nullable AtomicLong recordsScanned) {
         Index index = common.getIndex();
         int limit = getLimit();
-        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
         if (store.getRecordMetaData() != common.getRecordStoreBuilder().getMetaDataProvider().getRecordMetaData()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
@@ -534,50 +532,24 @@ public class IndexingByRecords extends IndexingBase {
                         IsolationLevel.SNAPSHOT :
                         IsolationLevel.SERIALIZABLE);
         if (respectLimit) {
-            executeProperties.setReturnedRowLimit(limit);
+            executeProperties.setReturnedRowLimit(limit + 1); // +1 allows continuation item
         }
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
-        final AtomicBoolean empty = new AtomicBoolean(true);
+        final AtomicBoolean hasMore = new AtomicBoolean(true);
 
-        AtomicLong recordsScannedCounter = new AtomicLong();
-        // Note: This runs all of the updates in serial in order to not invoke a race condition
+        // Note: This runs all of the updates serially in order to avoid invoking a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
-
         final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
 
         return iterateRangeOnly(store, cursor,
                 RecordCursorResult::get,
                 lastResult::set,
-                empty, recordsScannedCounter
-        ).thenCompose(vignore -> {
-            long recordsScannedInTransaction = recordsScannedCounter.get();
-            if (recordsScanned != null) {
-                recordsScanned.addAndGet(recordsScannedInTransaction);
-            }
-            if (common.isTrackProgress()) {
-                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
-                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
-            }
-            byte[] nextCont = empty.get() ? null : lastResult.get().getContinuation().toBytes();
-            if (nextCont == null) {
-                return CompletableFuture.completedFuture(null);
-            } else {
-                // Get the next record and return its primary key.
-                executeProperties.setReturnedRowLimit(1);
-                final ScanProperties scanProperties1 = new ScanProperties(executeProperties.build());
-                RecordCursor<FDBStoredRecord<Message>> nextCursor = store.scanRecords(range, nextCont, scanProperties1);
-                return nextCursor.onNext().thenApply(result -> {
-                    if (result.hasNext()) {
-                        FDBStoredRecord<Message> rec = result.get();
-                        return rec.getPrimaryKey();
-                    } else {
-                        return null;
-                    }
-                });
-            }
-        });
+                hasMore, recordsScanned)
+                .thenApply(vignore -> hasMore.get() ?
+                                      lastResult.get().get().getPrimaryKey() :
+                                      null );
     }
 
     // support rebuildIndexAsync

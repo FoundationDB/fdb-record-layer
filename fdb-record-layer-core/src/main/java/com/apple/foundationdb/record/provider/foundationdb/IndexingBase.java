@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -52,11 +53,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
 
 /**
  * A base class for different types of online indexing scanners.
@@ -349,11 +353,11 @@ public abstract class IndexingBase {
     }
 
     protected <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
-                                                           @Nonnull RecordCursor<T> cursor,
+                                                           @Nonnull RecordCursor<T> cursor, // at least two items must be requested for this cursor
                                                            @Nonnull Function<RecordCursorResult<T>, FDBStoredRecord<Message>> getRecord,
-                                                           @Nonnull Consumer<RecordCursorResult<T>> lastResultSet,
-                                                           @Nonnull AtomicBoolean isEmpty,
-                                                           @Nonnull AtomicLong recordsScannedCounter) {
+                                                           @Nonnull Consumer<RecordCursorResult<T>> nextResultCont,
+                                                           @Nonnull AtomicBoolean hasMore,
+                                                           @Nullable AtomicLong recordsScanned) {
         final FDBStoreTimer timer = getRunner().getTimer();
         final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
@@ -363,20 +367,50 @@ public abstract class IndexingBase {
         // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
         // Copying the state also guards against changes made by other online building from check version.
         // TODO: need some state to avoid generating the same synthetic record via more than one self-join path for non-idempotent indexes.
+        AtomicLong recordsScannedCounter = new AtomicLong();
+
+        final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
-            if (!result.hasNext()) {
+            RecordCursorResult<T> currResult;
+            boolean isExhausted = false;
+            if (result.hasNext()) {
+                // has next, process one previous item (if exists)
+                currResult = nextResult.get();
+                nextResult.set(result);
+                if (currResult == null) {
+                    // that was the first item, nothing to process
+                    return AsyncUtil.READY_TRUE;
+                }
+            } else {
                 // end of the cursor list
                 timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-                lastResultSet.accept(result);
-                return AsyncUtil.READY_FALSE;
+                if (result.getNoNextReason() != SOURCE_EXHAUSTED) {
+                    // should we trigger a warning (or an exception) if nextResult is null - i.e. non-exhausted empty list?
+                    nextResultCont.accept(nextResult.get());
+                    hasMore.set(true);
+                    return AsyncUtil.READY_FALSE;
+                }
+                // source is exhausted, fall down to handle the last item and return with hasMore=false
+                currResult = nextResult.get();
+                if (currResult == null) {
+                    // this was an empty list
+                    hasMore.set(false);
+                    return AsyncUtil.READY_FALSE;
+                }
+                // here, process the last item and return
+                nextResult.set(null);
+                isExhausted = true;
             }
-
-            final FDBStoredRecord<Message> rec = getRecord.apply(result);
-            isEmpty.set(false);
+            // here: currResult must have value
+            final FDBStoredRecord<Message> rec = getRecord.apply(currResult);
             timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
             recordsScannedCounter.incrementAndGet();
             if (!common.recordTypes.contains(rec.getRecordType())) {
                 // This record is not our type, swipe left
+                if (isExhausted) {
+                    hasMore.set(false);
+                    return AsyncUtil.READY_FALSE;
+                }
                 return AsyncUtil.READY_TRUE;
             }
             // add this index to the transaction
@@ -386,19 +420,36 @@ public abstract class IndexingBase {
             timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
 
             final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(syntheticPlan, rec, maintainer, store);
-
+            if (isExhausted) {
+                // we've just processed the last item
+                hasMore.set(false);
+                return updateMaintainer.thenApply(vignore -> false);
+            }
             return updateMaintainer.thenCompose(vignore ->
                     context.getApproximateTransactionSize().thenApply(size -> {
                         if (size >= common.config.getMaxWriteLimitBytes()) {
                             // the transaction becomes too big - stop iterating
                             timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
-                            lastResultSet.accept(result);
+                            nextResultCont.accept(nextResult.get());
+                            hasMore.set(true);
                             return false;
                         }
                         return true;
                     }));
 
-        }), cursor.getExecutor());
+        }), cursor.getExecutor()
+        ).thenApply(vignore -> {
+            long recordsScannedInTransaction = recordsScannedCounter.get();
+            if (recordsScanned != null) {
+                recordsScanned.addAndGet(recordsScannedInTransaction);
+            }
+            if (common.isTrackProgress()) {
+                final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
+                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
+                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
+            }
+            return null;
+        });
     }
 
     private static CompletableFuture<Void> updateMaintainerBuilder(SyntheticRecordFromStoredRecordPlan syntheticPlan,

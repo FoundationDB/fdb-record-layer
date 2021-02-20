@@ -170,14 +170,12 @@ public class IndexingByIndex extends IndexingBase {
     private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
         // return false when done
         Index index = common.getIndex();
-        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
         final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
         if ( recordMetaDataProvider == null ||
                 !store.getRecordMetaData().equals(recordMetaDataProvider.getRecordMetaData())) {
             throw new MetaDataException("Store does not have the same metadata");
         }
         final String srcIndex = policy.getSourceIndex();
-
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
 
         // this should never happen. But it makes the compiler happy
@@ -192,7 +190,7 @@ public class IndexingByIndex extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit()); // always respectLimit in this path
+                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
         return ranges.onHasNext().thenCompose(hasNext -> {
@@ -207,34 +205,16 @@ public class IndexingByIndex extends IndexingBase {
             RecordCursor<FDBIndexedRecord<Message>> cursor =
                     store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
 
-
-            final AtomicLong recordsScannedCounter = new AtomicLong();
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
-            final AtomicBoolean isEmpty = new AtomicBoolean(true);
+            final AtomicBoolean hasMore = new AtomicBoolean(true);
 
             return iterateRangeOnly(store, cursor,
                     IndexingByIndex::castCursorResultToStoreRecord,
                     lastResult::set,
-                    isEmpty, recordsScannedCounter)
-                    .thenCompose(vignore -> {
-                        long recordsScannedInTransaction = recordsScannedCounter.get();
-                        recordsScanned.addAndGet(recordsScannedInTransaction);
-                        if (common.isTrackProgress()) {
-                            store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
-                                    FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
-                        }
-                        final byte[] nextCont =
-                                isEmpty.get() ? null : lastResult.get().getContinuation().toBytes();
-                        if (nextCont == null) {
-                            return CompletableFuture.completedFuture(null);
-                        }
-                        executeProperties.setReturnedRowLimit(1);
-                        final ScanProperties scanProperties1 = new ScanProperties(executeProperties.build());
-                        RecordCursor<FDBIndexedRecord<Message>> nextCursor =
-                                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.between(null, rangeEnd), nextCont, scanProperties1);
-                        return nextCursor.onNext().thenApply(result ->
-                                result.hasNext() ? result.get().getIndexEntry().getKey() : null );
-                    })
+                    hasMore, recordsScanned)
+                    .thenApply(vignore -> hasMore.get() ?
+                                          lastResult.get().get().getIndexEntry().getKey() :
+                                          null)
                     .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
                                 .thenApply(ignore -> cont != null));
 
