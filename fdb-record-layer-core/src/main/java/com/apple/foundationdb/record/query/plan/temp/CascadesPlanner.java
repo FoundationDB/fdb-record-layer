@@ -302,6 +302,18 @@ public class CascadesPlanner implements QueryPlanner {
                 .build();
     }
 
+    public void setMaxTaskQueueSize(final int maxTaskQueueSize) {
+        configuration = this.configuration.asBuilder()
+                .setMaxTaskQueueSize(maxTaskQueueSize)
+                .build();
+    }
+
+    public void setMaxTotalTaskCount(final int maxTotalTaskCount) {
+        configuration = this.configuration.asBuilder()
+                .setMaxTotalTaskCount(maxTotalTaskCount)
+                .build();
+    }
+
     @Nonnull
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;

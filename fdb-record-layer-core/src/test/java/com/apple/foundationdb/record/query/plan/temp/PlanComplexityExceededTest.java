@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Assertions;
@@ -59,14 +60,14 @@ public class PlanComplexityExceededTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testPlanQueueTooLarge() throws Exception {
-        cascadesPlanner.setConfiguration(cascadesPlanner.getConfiguration().asBuilder().setMaxTaskQueueSize(1).build());
+        cascadesPlanner.setConfiguration(RecordQueryPlannerConfiguration.builder().setMaxTaskQueueSize(1).build());
         Assertions.assertThrows(RecordQueryPlanComplexityException.class,
                 () -> createPlan("MySimpleRecord", Query.field("num_value_2").equalsValue(1)));
     }
 
     @Test
     public void testPlanTooManyTasks() throws Exception {
-        cascadesPlanner.setConfiguration(cascadesPlanner.getConfiguration().asBuilder().setMaxTotalTaskCount(1).build());
+        cascadesPlanner.setConfiguration(RecordQueryPlannerConfiguration.builder().setMaxTotalTaskCount(1).build());
         Assertions.assertThrows(RecordQueryPlanComplexityException.class,
                 () -> createPlan("MySimpleRecord", Query.field("num_value_2").equalsValue(1)));
     }
