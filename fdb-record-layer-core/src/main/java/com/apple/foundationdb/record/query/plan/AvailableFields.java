@@ -161,7 +161,9 @@ public class AvailableFields {
                     fieldKeyExpression.getFanType().equals(KeyExpression.FanType.FanOut)) {
                 return false;
             }
-            builder.addField(fieldKeyExpression.getFieldName(), fieldData.source, fieldData.index);
+            if (!builder.hasField(fieldKeyExpression.getFieldName())) {
+                builder.addField(fieldKeyExpression.getFieldName(), fieldData.source, fieldData.index);
+            }
             return true;
         } else {
             return false;
