@@ -1885,6 +1885,34 @@ public class RecordQueryPlanner implements QueryPlanner {
                 }
                 return;
             }
+            // It may be possible to match a nested then to multiple filters, but the filters need to be adjusted a bit.
+            // Cf. planAndWithNesting
+            if (child instanceof NestingKeyExpression &&
+                    filters.size() > 1 &&
+                    child.getColumnSize() > 1) {
+                final NestingKeyExpression nestingKey = (NestingKeyExpression)child;
+                final FieldKeyExpression parent = nestingKey.getParent();
+                if (parent.getFanType() == FanType.None) {
+                    final List<QueryComponent> nestedFilters = new ArrayList<>();
+                    final List<QueryComponent> nestedChildren = new ArrayList<>();
+                    for (QueryComponent filterChild : filters) {
+                        if (filterChild instanceof NestedField) {
+                            final NestedField nestedField = (NestedField) filterChild;
+                            if (parent.getFieldName().equals(nestedField.getFieldName())) {
+                                nestedFilters.add(nestedField);
+                                nestedChildren.add(nestedField.getChild());
+                            }
+                        }
+                    }
+                    if (nestedFilters.size() > 1) {
+                        final NestedField nestedAnd = new NestedField(parent.getFieldName(), Query.and(nestedChildren));
+                        if (planNestedFieldChild(child, nestedAnd, null)) {
+                            unsatisfiedFilters.removeAll(nestedFilters);
+                            return;
+                        }
+                    }
+                }
+            }
             for (QueryComponent filterChild : filters) {
                 QueryComponent filterComponent = candidateScan.planContext.rankComparisons.planComparisonSubstitute(filterChild);
                 if (filterComponent instanceof FieldWithComparison) {
@@ -1905,7 +1933,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private void planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nonnull QueryComponent filterChild) {
+        private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nullable QueryComponent filterChild) {
             ScoredPlan scoredPlan = planNestedField(candidateScan, child, filterField, null);
             ScanComparisons nextComparisons = getPlanComparisons(scoredPlan);
             if (nextComparisons != null) {
@@ -1923,15 +1951,19 @@ public class RecordQueryPlanner implements QueryPlanner {
                         scoredPlan = planNestedField(candidateScan, child, filterField, currentSort);
                     }
                     if (scoredPlan != null) {
-                        unsatisfiedFilters.remove(filterChild);
+                        if (filterChild != null) {
+                            unsatisfiedFilters.remove(filterChild);
+                        }
                         unsatisfiedFilters.addAll(scoredPlan.unsatisfiedFilters);
                         comparisons.addAll(nextComparisons);
                         if (nextComparisons.isEquality()) {
                             foundComparison = true;
                         }
+                        return true;
                     }
                 }
             }
+            return false;
         }
 
         private boolean currentSortMatches(@Nonnull KeyExpression child) {

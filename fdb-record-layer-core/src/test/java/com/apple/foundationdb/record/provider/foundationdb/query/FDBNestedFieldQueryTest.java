@@ -381,6 +381,44 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that AND conditions involving nested non-repeated fields still work when index has non-nested fields,
+     * no matter which way the nested conditions are expressed.
+     */
+    @DualPlannerTest
+    public void nestedThenWithAnd() throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("RestaurantReviewer", "emailHometown", concat(field("email"), field("stats").nest(concatenateFields("hometown", "start_date"))));
+        };
+        nestedWithAndSetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("stats").matches(Query.and(
+                                Query.field("start_date").lessThanOrEquals(0L),
+                                Query.field("hometown").equalsValue("Home Town"))),
+                        Query.field("email").equalsValue("pmp@example.com")))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, indexScan(allOf(indexName("emailHometown"), bounds(hasTupleString("([pmp@example.com, Home Town, null],[pmp@example.com, Home Town, 0]]")))));
+        assertEquals(-688450117, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-453057696, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(989457917, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(Collections.singletonList(1L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
+                context -> openNestedRecordStore(context, hook),
+                TestHelpers::assertDiscardedNone));
+
+        query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("stats").matches(Query.field("start_date").lessThanOrEquals(0L)),
+                        Query.field("email").equalsValue("pmp@example.com"),
+                        Query.field("stats").matches(Query.field("hometown").equalsValue("Home Town"))))
+                .build();
+        assertEquals(plan, planner.plan(query));
+    }
+
+    /**
      * Verify that an AND query on a nested record store that can be mostly implemented by a scan of a concatenated index
      * still filters on predicates that are not satisfied by scanning that index.
      * Specifically, verify that an AND query with a predicate on an outer record and a predicate on an inner, map-like
