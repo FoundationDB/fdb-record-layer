@@ -59,14 +59,14 @@ public class PlanComplexityExceededTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testPlanQueueTooLarge() throws Exception {
-        cascadesPlanner.setCascadesConfiguration(CascadesPlannerConfiguration.builder().withMaxTaskQueueSize(1).build());
+        cascadesPlanner.setConfiguration(cascadesPlanner.getConfiguration().asBuilder().setMaxTaskQueueSize(1).build());
         Assertions.assertThrows(RecordQueryPlanComplexityException.class,
                 () -> createPlan("MySimpleRecord", Query.field("num_value_2").equalsValue(1)));
     }
 
     @Test
     public void testPlanTooManyTasks() throws Exception {
-        cascadesPlanner.setCascadesConfiguration(CascadesPlannerConfiguration.builder().withMaxTotalTaskCount(1).build());
+        cascadesPlanner.setConfiguration(cascadesPlanner.getConfiguration().asBuilder().setMaxTotalTaskCount(1).build());
         Assertions.assertThrows(RecordQueryPlanComplexityException.class,
                 () -> createPlan("MySimpleRecord", Query.field("num_value_2").equalsValue(1)));
     }
