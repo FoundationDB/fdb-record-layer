@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
@@ -60,6 +61,8 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
             indexName = ((RecordQueryPlanWithIndex)expression).getIndexName();
         } else if (expression instanceof IndexScanExpression) {
             indexName = ((IndexScanExpression)expression).getIndexName();
+        } else if (expression instanceof RecordQueryCoveringIndexPlan) {
+            indexName = ((RecordQueryCoveringIndexPlan)expression).getIndexName();
         }
         if (indexName != null) {
             return context.getIndexByName(indexName).getRootExpression().createsDuplicates();

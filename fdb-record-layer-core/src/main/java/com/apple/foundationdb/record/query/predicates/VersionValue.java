@@ -66,6 +66,11 @@ public class VersionValue implements Value {
     }
 
     @Override
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        return true;
+    }
+
+    @Override
     public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
         return other instanceof VersionValue;
     }

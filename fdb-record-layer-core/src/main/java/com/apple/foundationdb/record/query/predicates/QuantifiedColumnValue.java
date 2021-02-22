@@ -34,8 +34,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * A value representing the quantifier as an object.
@@ -43,23 +41,18 @@ import java.util.Set;
  * For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedColumnValue implements Value {
+public class QuantifiedColumnValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantifier-Column-Value");
 
     @Nonnull
-    private final CorrelationIdentifier identifier;
+    private final CorrelationIdentifier alias;
     private final int ordinalPosition;
 
 
-    public QuantifiedColumnValue(@Nonnull final CorrelationIdentifier identifier,
+    public QuantifiedColumnValue(@Nonnull final CorrelationIdentifier alias,
                                  final int ordinalPosition) {
-        this.identifier = identifier;
+        this.alias = alias;
         this.ordinalPosition = ordinalPosition;
-    }
-
-    @Nonnull
-    public CorrelationIdentifier getIdentifier() {
-        return identifier;
     }
 
     public int getOrdinalPosition() {
@@ -68,15 +61,9 @@ public class QuantifiedColumnValue implements Value {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.singleton(identifier);
-    }
-
-    @Nonnull
-    @Override
     public QuantifiedColumnValue rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(identifier)) {
-            return new QuantifiedColumnValue(translationMap.getTargetOrThrow(identifier), ordinalPosition);
+        if (translationMap.containsSource(alias)) {
+            return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition);
         }
         return this;
     }
@@ -84,7 +71,13 @@ public class QuantifiedColumnValue implements Value {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        return context.getBinding(identifier);
+        return context.getBinding(alias);
+    }
+
+    @Nonnull
+    @Override
+    public CorrelationIdentifier getAlias() {
+        return alias;
     }
 
     @Override
@@ -99,7 +92,7 @@ public class QuantifiedColumnValue implements Value {
         if (ordinalPosition != that.getOrdinalPosition()) {
             return false;
         }
-        return equivalenceMap.containsMapping(identifier, that.identifier);
+        return equivalenceMap.containsMapping(alias, that.alias);
     }
 
     @Override
@@ -114,7 +107,7 @@ public class QuantifiedColumnValue implements Value {
 
     @Override
     public String toString() {
-        return "$" + identifier + "[" + ordinalPosition + "]";
+        return "$" + alias + "[" + ordinalPosition + "]";
     }
 
     @Override
@@ -126,6 +119,6 @@ public class QuantifiedColumnValue implements Value {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(identifier)));
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
     }
 }

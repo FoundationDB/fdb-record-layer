@@ -37,9 +37,7 @@ import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
- * A value representing the quantifier as an object.
- *
- * For example, this is used to represent non-nested repeated fields.
+ * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
 public class BaseValue implements Value {
@@ -61,6 +59,11 @@ public class BaseValue implements Value {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         return null;
+    }
+
+    @Override
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        return false;
     }
 
     @Override

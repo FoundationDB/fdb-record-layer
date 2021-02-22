@@ -207,6 +207,15 @@ public class AvailableFields {
         }
 
         @Nonnull
+        public IndexKeyValueToPartialRecord.TupleSource getSource() {
+            return source;
+        }
+
+        public int getIndex() {
+            return index;
+        }
+
+        @Nonnull
         public static FieldData of(@Nonnull IndexKeyValueToPartialRecord.TupleSource source, int index) {
             return new FieldData(source, index);
         }

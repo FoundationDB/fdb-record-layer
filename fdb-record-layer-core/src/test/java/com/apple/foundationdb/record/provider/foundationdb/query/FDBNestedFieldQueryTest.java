@@ -242,7 +242,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         RecordMetaDataHook hook = metaData -> {
             metaData.addIndex("RestaurantRecord", "complex", concat(field("name"), field("rest_no"), field("reviews", KeyExpression.FanType.FanOut).nest(concat(field("reviewer"), field("rating")))));
             metaData.addIndex("RestaurantRecord", "composite", concat(field("name"), field("rest_no")));
-            metaData.addIndex("RestaurantRecord", "duplicates", concat(field("name"), field("name")));
+            //metaData.addIndex("RestaurantRecord", "duplicates", concat(field("name"), field("name")));
         };
 
         try (FDBRecordContext context = openContext()) {

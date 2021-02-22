@@ -34,10 +34,10 @@ import java.util.List;
  */
 public class FieldValueMatcher extends ValueMatcher {
     @Nonnull
-    private final List<String> fieldNames;
+    private final List<String> fieldPath;
 
-    public FieldValueMatcher(@Nonnull List<String> fieldNames) {
-        this.fieldNames = fieldNames;
+    public FieldValueMatcher(@Nonnull List<String> fieldPath) {
+        this.fieldPath = fieldPath;
     }
 
     public FieldValueMatcher(@Nonnull String fieldName) {
@@ -47,11 +47,11 @@ public class FieldValueMatcher extends ValueMatcher {
     @Override
     protected boolean matchesSafely(final Value element) {
         return element instanceof FieldValue &&
-               ((FieldValue)element).getFieldNames().equals(fieldNames);
+               ((FieldValue)element).getFieldPath().equals(fieldPath);
     }
 
     @Override
     public void describeTo(Description description) {
-        description.appendText(String.join(".", fieldNames));
+        description.appendText(String.join(".", fieldPath));
     }
 }

@@ -30,48 +30,53 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.MessageValue;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FieldValue implements Value {
+public class FieldValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull
-    private final CorrelationIdentifier identifier;
+    private final CorrelationIdentifier alias;
     @Nonnull
-    private final List<String> fieldNames;
+    private final List<String> fieldPath;
 
-    public FieldValue(@Nonnull CorrelationIdentifier identifier, @Nonnull List<String> fieldNames) {
-        this.identifier = identifier;
-        this.fieldNames = fieldNames;
+    public FieldValue(@Nonnull CorrelationIdentifier alias, @Nonnull List<String> fieldPath) {
+        Preconditions.checkArgument(!fieldPath.isEmpty());
+        this.alias = alias;
+        this.fieldPath = ImmutableList.copyOf(fieldPath);
     }
 
     @Nonnull
-    public List<String> getFieldNames() {
-        return fieldNames;
+    public List<String> getFieldPath() {
+        return fieldPath;
     }
 
     @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.singleton(identifier);
+    public List<String> getFieldPrefix() {
+        return fieldPath.subList(0, fieldPath.size() - 1);
+    }
+
+    @Nonnull
+    public String getFieldName() {
+        return fieldPath.get(fieldPath.size() - 1);
     }
 
     @Nonnull
     @Override
     public FieldValue rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(identifier)) {
-            return new FieldValue(translationMap.getTargetOrThrow(identifier), fieldNames);
+        if (translationMap.containsSource(alias)) {
+            return new FieldValue(translationMap.getTargetOrThrow(alias), fieldPath);
         }
         return this;
     }
@@ -81,7 +86,13 @@ public class FieldValue implements Value {
         if (message == null) {
             return null;
         }
-        return MessageValue.getFieldValue(message, fieldNames);
+        return MessageValue.getFieldValue(message, fieldPath);
+    }
+
+    @Nonnull
+    @Override
+    public CorrelationIdentifier getAlias() {
+        return alias;
     }
 
     @Override
@@ -93,23 +104,23 @@ public class FieldValue implements Value {
             return false;
         }
         final FieldValue that = (FieldValue)other;
-        return equivalenceMap.containsMapping(identifier, that.identifier) &&
-               fieldNames.equals(that.fieldNames);
+        return equivalenceMap.containsMapping(alias, that.alias) &&
+               fieldPath.equals(that.fieldPath);
     }
 
     @Override
     public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, fieldNames);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, fieldPath);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldNames);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, fieldPath);
     }
 
     @Override
     public String toString() {
-        return "$" + identifier + "/" + String.join(".", fieldNames);
+        return "$" + alias + "/" + String.join(".", fieldPath);
     }
 
     @Override
@@ -121,6 +132,6 @@ public class FieldValue implements Value {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(identifier)));
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
     }
 }

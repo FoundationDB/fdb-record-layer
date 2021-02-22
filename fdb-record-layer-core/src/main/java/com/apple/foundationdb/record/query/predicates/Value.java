@@ -66,4 +66,63 @@ public interface Value extends Correlated<Value>, PlanHashable {
     default Placeholder asPlaceholder(@Nonnull final CorrelationIdentifier parameterAlias) {
         return ValueComparisonRangePredicate.placeholder(this, parameterAlias);
     }
+
+    /**
+     * Method to derive if this value is functionally dependent on another value. In order to produce a meaningful
+     * result that {@code otherValue} and this value must parts of the result values of the same
+     * {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}.
+     *
+     * <h2>Example 1</h2>
+     * <pre>
+     * {@code
+     *    SELECT q, q.x, q.y
+     *    FROM T q
+     * }
+     * </pre>
+     * {@code q.x} and {@code q.y} are both functionally dependent on {@code q} meaning that for a given quantified
+     * (bound) value of {@code q} there is exactly one scalar result for this value. In other words, {@code q -> q.x}
+     * and {@code q -> q.y}
+     *
+     * <h2>Example 2</h2>
+     * <pre>
+     * {@code
+     *    SELECT q1, q1.x, q2.y
+     *    FROM S q1, T q2
+     * }
+     * </pre>
+     * {@code q1.x} is functionally dependent on {@code q1} meaning that for a given quantified (bound) value of
+     * {@code q1} there is exactly one scalar result for this value. In other words, {@code q1 -> q1.x}.
+     * {@code q2.x} is functionally dependent on {@code q2} meaning that for a given quantified (bound) value of
+     * {@code q2} there is exactly one scalar result for this value. In other words, {@code q2 -> q2.x}.
+     * Note that it does not hold that {@code q1 -> q2.y} nor that {@code q2 -> q1.x}.
+     *
+     * <h2>Example 3</h2>
+     * <pre>
+     * {@code
+     *    SELECT q1, q2.y
+     *    FROM S q1, (SELECT * FROM EXPLODE(q1.x) q2
+     * }
+     * </pre>
+     * {@code q2.y} is not functionally dependent on {@code q1} as for a given quantified (bound) value of {@code q1}
+     * there may be many or no associated values over {@code q2}.
+     *
+     * <h2>Example 4</h2>
+     * <pre>
+     * {@code
+     *    SELECT q1, 3
+     *    FROM S q1, (SELECT * FROM EXPLODE(q1.x) q2
+     * }
+     * {@code 3} is functionally dependent on {@code q1} as for any given quantified (bound) value of {@code q1}
+     * there is exactly one scalar result for this value (namely {@code 3}).*
+     * </pre>
+     *
+     * Note that if {@code x -> y} and {@code y -> z} then {@code x -> z} should hold. Note that this method attempts
+     * a best effort to establish the functional dependency relationship between the other value and this value. That
+     * means that the caller cannot rely on a {@code false} result to deduce that this value is definitely not
+     * dependent on {@code otherValue}.
+     *
+     * @param otherValue other value to check if this value is functionally dependent on it
+     * @return {@code true} if this value is definitely dependent on {@code otherValue}
+     */
+    boolean isFunctionallyDependentOn(@Nonnull final Value otherValue);
 }

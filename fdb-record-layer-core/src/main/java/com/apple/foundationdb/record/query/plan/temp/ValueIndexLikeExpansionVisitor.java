@@ -83,7 +83,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
      * @return {@code t}
      */
     public <T> T pop(final T t) {
-        states.pop();
+        pop();
         return t;
     }
 
@@ -169,11 +169,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
-        // Push a new state to indicate that we have to watch out for a split point between keys and values.
-        return pop(keyWithValueExpression
-                .getInnerKey()
-                .expand(push(getCurrentState()
-                        .withSplitPointForValues(keyWithValueExpression.getSplitPoint()))));
+        throw new RecordCoreException("expression should have been handled at top level");
     }
 
     @Nonnull

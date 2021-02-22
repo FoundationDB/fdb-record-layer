@@ -34,8 +34,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * A value representing the quantifier as an object.
@@ -43,27 +41,21 @@ import java.util.Set;
  * For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedObjectValue implements Value {
+public class QuantifiedObjectValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
 
     @Nonnull
-    private final CorrelationIdentifier identifier;
+    private final CorrelationIdentifier alias;
 
-    public QuantifiedObjectValue(@Nonnull final CorrelationIdentifier identifier) {
-        this.identifier = identifier;
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.singleton(identifier);
+    public QuantifiedObjectValue(@Nonnull final CorrelationIdentifier alias) {
+        this.alias = alias;
     }
 
     @Nonnull
     @Override
     public QuantifiedObjectValue rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(identifier)) {
-            return new QuantifiedObjectValue(translationMap.getTargetOrThrow(identifier));
+        if (translationMap.containsSource(alias)) {
+            return new QuantifiedObjectValue(translationMap.getTargetOrThrow(alias));
         }
         return this;
     }
@@ -71,7 +63,13 @@ public class QuantifiedObjectValue implements Value {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        return context.getBinding(identifier);
+        return context.getBinding(alias);
+    }
+
+    @Nonnull
+    @Override
+    public CorrelationIdentifier getAlias() {
+        return alias;
     }
 
     @Override
@@ -83,7 +81,7 @@ public class QuantifiedObjectValue implements Value {
             return false;
         }
         final QuantifiedObjectValue that = (QuantifiedObjectValue)other;
-        return equivalenceMap.containsMapping(identifier, that.identifier);
+        return equivalenceMap.containsMapping(alias, that.alias);
     }
 
     @Override
@@ -98,7 +96,7 @@ public class QuantifiedObjectValue implements Value {
 
     @Override
     public String toString() {
-        return "$" + identifier;
+        return "$" + alias;
     }
 
     @Override
@@ -110,6 +108,6 @@ public class QuantifiedObjectValue implements Value {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(identifier)));
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
     }
 }

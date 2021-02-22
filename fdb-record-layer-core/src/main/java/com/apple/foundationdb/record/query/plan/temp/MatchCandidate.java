@@ -212,7 +212,7 @@ public interface MatchCandidate {
 
         if (type.equals(IndexTypes.VALUE)) {
             final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypeNamesForIndex);
-            final ValueIndexExpansionVisitor expansionVisitor = new ValueIndexExpansionVisitor(index);
+            final ValueIndexExpansionVisitor expansionVisitor = new ValueIndexExpansionVisitor(index, recordTypesForIndex);
             return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKeyForIndex, isReverse));
         }
 

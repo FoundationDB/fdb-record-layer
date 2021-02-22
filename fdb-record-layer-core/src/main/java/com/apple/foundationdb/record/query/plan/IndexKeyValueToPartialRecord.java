@@ -33,7 +33,6 @@ import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,13 +44,10 @@ import java.util.TreeMap;
  */
 @API(API.Status.INTERNAL)
 public class IndexKeyValueToPartialRecord {
-    @Nullable
-    private final RecordType recordType;
     @Nonnull
     private final List<Copier> copiers;
 
-    private IndexKeyValueToPartialRecord(@Nullable RecordType recordType, @Nonnull List<Copier> copiers) {
-        this.recordType = recordType;
+    private IndexKeyValueToPartialRecord(@Nonnull List<Copier> copiers) {
         this.copiers = copiers;
     }
 
@@ -61,11 +57,6 @@ public class IndexKeyValueToPartialRecord {
             copier.copy(recordDescriptor, recordBuilder, kv);
         }
         return recordBuilder.build();
-    }
-
-    @Nullable
-    public RecordType getRecordType() {
-        return recordType;
     }
 
     @Override
@@ -232,8 +223,6 @@ public class IndexKeyValueToPartialRecord {
      * A builder for {@link IndexKeyValueToPartialRecord}.
      */
     public static class Builder {
-        @Nullable
-        private RecordType recordType;
         @Nonnull
         private final Descriptors.Descriptor recordDescriptor;
         @Nonnull
@@ -243,7 +232,6 @@ public class IndexKeyValueToPartialRecord {
 
         private Builder(@Nonnull RecordType recordType) {
             this(recordType.getDescriptor());
-            this.recordType = recordType;
         }
 
         private Builder(@Nonnull Descriptors.Descriptor recordDescriptor) {
@@ -329,7 +317,7 @@ public class IndexKeyValueToPartialRecord {
             for (Map.Entry<String, Builder> entry : nestedBuilders.entrySet()) {
                 copiers.add(new MessageCopier(entry.getKey(), entry.getValue().build()));
             }
-            return new IndexKeyValueToPartialRecord(recordType, copiers);
+            return new IndexKeyValueToPartialRecord(copiers);
         }
     }
 }
