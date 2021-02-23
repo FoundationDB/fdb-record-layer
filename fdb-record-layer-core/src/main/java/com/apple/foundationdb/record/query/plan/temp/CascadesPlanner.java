@@ -259,7 +259,7 @@ public class CascadesPlanner implements QueryPlanner {
         while (!taskStack.isEmpty()) {
             try {
                 Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
-                if (taskTotalCountExceeded(configuration, taskCount)) {
+                if (isTaskTotalCountExceeded(configuration, taskCount)) {
                     throw new RecordQueryPlanComplexityException("Maximum number of tasks (" + configuration.getMaxTotalTaskCount() + ") was exceeded");
                 }
                 taskCount++;
@@ -279,7 +279,7 @@ public class CascadesPlanner implements QueryPlanner {
                             "memo", new GroupExpressionPrinter(currentRoot)));
                 }
 
-                if (taskQueueSizeExceeded(configuration, taskStack.size())) {
+                if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
                     throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
                 }
             } catch (final RestartException restartException) {
@@ -302,12 +302,24 @@ public class CascadesPlanner implements QueryPlanner {
                 .build();
     }
 
+    /**
+     * Set the size limit of the Cascades planner task queue.
+     * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
+     * Default value is 0, which means "unbound".
+     * @param maxTaskQueueSize the maximum size of the queue.
+     */
     public void setMaxTaskQueueSize(final int maxTaskQueueSize) {
         configuration = this.configuration.asBuilder()
                 .setMaxTaskQueueSize(maxTaskQueueSize)
                 .build();
     }
 
+    /**
+     * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
+     * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
+     * Default value is 0, which means "unbound".
+     * @param maxTotalTaskCount the maximum number of tasks.
+     */
     public void setMaxTotalTaskCount(final int maxTotalTaskCount) {
         configuration = this.configuration.asBuilder()
                 .setMaxTotalTaskCount(maxTotalTaskCount)
@@ -323,11 +335,11 @@ public class CascadesPlanner implements QueryPlanner {
         this.configuration = configuration;
     }
 
-    private boolean taskQueueSizeExceeded(final RecordQueryPlannerConfiguration configuration, final int queueSize) {
+    private boolean isTaskQueueSizeExceeded(final RecordQueryPlannerConfiguration configuration, final int queueSize) {
         return ((configuration.getMaxTaskQueueSize() > 0) && (queueSize > configuration.getMaxTaskQueueSize()));
     }
 
-    private boolean taskTotalCountExceeded(final RecordQueryPlannerConfiguration configuration, final int taskCount) {
+    private boolean isTaskTotalCountExceeded(final RecordQueryPlannerConfiguration configuration, final int taskCount) {
         return ((configuration.getMaxTotalTaskCount() > 0) && (taskCount > configuration.getMaxTotalTaskCount()));
     }
 

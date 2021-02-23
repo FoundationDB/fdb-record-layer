@@ -206,11 +206,25 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set the size limit of the Cascades planner task queue.
+         * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
+         * Default value is 0, which means "unbound".
+         * @param maxTaskQueueSize the maximum size of the queue.
+         * @return this builder
+         */
         public Builder setMaxTaskQueueSize(final int maxTaskQueueSize) {
             this.maxTaskQueueSize = maxTaskQueueSize;
             return this;
         }
 
+        /**
+         * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
+         * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
+         * Default value is 0, which means "unbound".
+         * @param maxTotalTaskCount the maximum number of tasks.
+         * @return this builder
+         */
         public Builder setMaxTotalTaskCount(final int maxTotalTaskCount) {
             this.maxTotalTaskCount = maxTotalTaskCount;
             return this;
