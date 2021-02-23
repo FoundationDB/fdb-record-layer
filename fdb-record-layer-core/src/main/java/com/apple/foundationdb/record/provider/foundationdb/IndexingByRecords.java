@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.annotation.API;
@@ -29,6 +28,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.EndpointType;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -70,20 +70,34 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class IndexingByRecords extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByRecords.class);
-
-    @Nonnull private final TupleRange recordsRange;
     @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
     @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
 
+    @Nonnull private final TupleRange recordsRange;
+    @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
 
     IndexingByRecords(@Nonnull IndexingCommon common) {
         super(common);
         this.recordsRange = computeRecordsRange();
     }
 
+    @Override
+    @Nonnull
+    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp() {
+        return myIndexingTypeStamp;
+    }
+
+    @Nonnull
+    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
+        return
+                IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                        .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
+                        .build();
+    }
+
     @Nonnull
     @Override
-    CompletableFuture<Void> buildIndexByEntityAsync() {
+    CompletableFuture<Void> buildIndexInternalAsync() {
         return buildEndpoints().thenCompose(tupleRange -> {
             if (tupleRange != null) {
                 return buildRange(Key.Evaluated.fromTuple(tupleRange.getLow()), Key.Evaluated.fromTuple(tupleRange.getHigh()));
@@ -91,20 +105,6 @@ public class IndexingByRecords extends IndexingBase {
                 return CompletableFuture.completedFuture(null);
             }
         });
-    }
-
-    private void maybeLogBuildProgress(SubspaceProvider subspaceProvider, Tuple startTuple, Tuple endTuple, Tuple realEnd) {
-        if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
-            LOGGER.info(KeyValueLogMessage.of("Built Range",
-                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                    LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
-                    subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.START_TUPLE, startTuple,
-                    LogMessageKeys.END_TUPLE, endTuple,
-                    LogMessageKeys.REAL_END, realEnd,
-                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get()),
-                    LogMessageKeys.INDEXER_ID, common.getUuid());
-        }
     }
 
     @Nonnull
@@ -234,18 +234,6 @@ public class IndexingByRecords extends IndexingBase {
     public CompletableFuture<TupleRange> buildEndpoints() {
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildEndpoints");
         return buildCommitRetryAsync(this::buildEndpoints, false, additionalLogMessageKeyValues);
-    }
-
-    // Turn a (possibly null) key into its tuple representation.
-    @Nullable
-    private Tuple convertOrNull(@Nullable Key.Evaluated key) {
-        return (key == null) ? null : key.toTuple();
-    }
-
-    // Turn a (possibly null) tuple into a (possibly null) byte array.
-    @Nullable
-    private byte[] packOrNull(@Nullable Tuple tuple) {
-        return (tuple == null) ? null : tuple.pack();
     }
 
     // Builds a range within a single transaction. It will look for the missing ranges within the given range and build those while
@@ -395,7 +383,10 @@ public class IndexingByRecords extends IndexingBase {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            maybeLogBuildProgress(subspaceProvider, startTuple, endTuple, realEnd);
+            maybeLogBuildProgress(subspaceProvider, Arrays.asList(
+                    LogMessageKeys.START_TUPLE, startTuple,
+                    LogMessageKeys.END_TUPLE, endTuple,
+                    LogMessageKeys.REAL_END, realEnd));
             return throttleDelay();
         } else {
             Throwable cause = unwrappedEx;
@@ -516,8 +507,7 @@ public class IndexingByRecords extends IndexingBase {
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store,
                                                     @Nullable Tuple start, @Nullable Tuple end,
                                                     boolean respectLimit, @Nullable AtomicLong recordsScanned) {
-        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit, recordsScanned)
-                .thenApply(realEnd -> realEnd == null ? end : realEnd);
+        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit, recordsScanned);
     }
 
     @Nonnull
@@ -525,7 +515,6 @@ public class IndexingByRecords extends IndexingBase {
                                                     boolean respectLimit, @Nullable AtomicLong recordsScanned) {
         Index index = common.getIndex();
         int limit = getLimit();
-        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
         if (store.getRecordMetaData() != common.getRecordStoreBuilder().getMetaDataProvider().getRecordMetaData()) {
             throw new MetaDataException("Store does not have the same metadata");
         }
@@ -537,60 +526,34 @@ public class IndexingByRecords extends IndexingBase {
                         IsolationLevel.SNAPSHOT :
                         IsolationLevel.SERIALIZABLE);
         if (respectLimit) {
-            executeProperties.setReturnedRowLimit(limit);
+            executeProperties.setReturnedRowLimit(limit + 1); // +1 allows continuation item
         }
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, scanProperties);
-        final AtomicBoolean empty = new AtomicBoolean(true);
+        final AtomicBoolean hasMore = new AtomicBoolean(true);
 
-        AtomicLong recordsScannedCounter = new AtomicLong();
-        // Note: This runs all of the updates in serial in order to not invoke a race condition
+        // Note: This runs all of the updates serially in order to avoid invoking a race condition
         // in the rank code that was causing incorrect results. If everything were thread safe,
         // a larger pipeline size would be possible.
-
         final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
 
         return iterateRangeOnly(store, cursor,
                 RecordCursorResult::get,
-                lastResult::set,
-                empty, recordsScannedCounter
-        ).thenCompose(vignore -> {
-            long recordsScannedInTransaction = recordsScannedCounter.get();
-            if (recordsScanned != null) {
-                recordsScanned.addAndGet(recordsScannedInTransaction);
-            }
-            if (common.isTrackProgress()) {
-                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
-                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
-            }
-            byte[] nextCont = empty.get() ? null : lastResult.get().getContinuation().toBytes();
-            if (nextCont == null) {
-                return CompletableFuture.completedFuture(null);
-            } else {
-                // Get the next record and return its primary key.
-                executeProperties.setReturnedRowLimit(1);
-                final ScanProperties scanProperties1 = new ScanProperties(executeProperties.build());
-                RecordCursor<FDBStoredRecord<Message>> nextCursor = store.scanRecords(range, nextCont, scanProperties1);
-                return nextCursor.onNext().thenApply(result -> {
-                    if (result.hasNext()) {
-                        FDBStoredRecord<Message> rec = result.get();
-                        return rec.getPrimaryKey();
-                    } else {
-                        return null;
-                    }
-                });
-            }
-        });
+                lastResult,
+                hasMore, recordsScanned)
+                .thenApply(vignore -> hasMore.get() ?
+                                      lastResult.get().get().getPrimaryKey() :
+                                      range.getHigh());
     }
 
     // support rebuildIndexAsync
     @Nonnull
     @Override
-    CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store) {
+    CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         return AsyncUtil.whileTrue(() ->
                 buildRangeOnly(store, rangeToGo.get(), true, null).thenApply(nextStart -> {
-                    if (nextStart == null) {
+                    if (nextStart == rangeToGo.get().getHigh()) {
                         return false;
                     } else {
                         rangeToGo.set(new TupleRange(nextStart, rangeToGo.get().getHigh(), EndpointType.RANGE_INCLUSIVE, rangeToGo.get().getHighEndpoint()));

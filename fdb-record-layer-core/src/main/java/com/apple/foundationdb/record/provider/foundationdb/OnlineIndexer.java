@@ -175,7 +175,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private CompletableFuture<Void> handleIndexerReturnOrFallback(Throwable ex, Supplier<CompletableFuture<Void>> fallback) {
+    private CompletableFuture<Void> handleIndexerReturnOrFallback(Throwable ex, Supplier<CompletableFuture<Void>> fallbackFunction) {
         if (ex == null) {
             return AsyncUtil.DONE;
         }
@@ -192,7 +192,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
             indexer = null;
             fallbackToRecordsScan = true;
-            return fallback.get();
+            return fallbackFunction.get();
         }
         throw FDBExceptions.wrapException(ex);
     }
@@ -220,7 +220,9 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private IndexingBase getIndexer() {
         if (fallbackToRecordsScan) {
-            return getIndexerByRecords();
+            IndexingBase indexingBase = getIndexerByRecords();
+            indexingBase.setFallbackMode();
+            return indexingBase;
         }
         if (indexFromIndexPolicy.isActive()) {
             return getIndexerByIndex();
@@ -576,6 +578,11 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     protected static Subspace indexBuildScannedRecordsSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return IndexingBase.indexBuildScannedRecordsSubspace(store, index);
+    }
+
+    @Nonnull
+    protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return IndexingBase.indexBuildTypeSubspace(store, index);
     }
 
     /**

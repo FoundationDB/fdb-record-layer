@@ -20,12 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.MutationType;
-import com.apple.foundationdb.TransactionContext;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +54,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -66,17 +69,37 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class IndexingByIndex extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByIndex.class);
+    @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
+    @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
+
     @Nonnull private final OnlineIndexer.IndexFromIndexPolicy policy;
+    @Nonnull private final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp;
 
     IndexingByIndex(@Nonnull IndexingCommon common,
                     @Nonnull OnlineIndexer.IndexFromIndexPolicy policy) {
         super(common);
         this.policy = policy;
+        this.myIndexingTypeStamp = compileIndexingTypeStamp(common.getIndex());
+    }
+
+    @Override
+    @Nonnull
+    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp() {
+        return myIndexingTypeStamp;
+    }
+
+    @Nonnull
+    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp(Index srcIndex) {
+        return IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX)
+                .setSourceIndexSubspaceKey(ByteString.copyFrom(Tuple.from(srcIndex.getSubspaceKey()).pack()))
+                .setSourceIndexLastModifiedVersion(srcIndex.getLastModifiedVersion())
+                .build();
     }
 
     @Nonnull
     @Override
-    CompletableFuture<Void> buildIndexByEntityAsync() {
+    CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose( store -> {
                     // first validate that both src and tgt are of a single, similar, type
@@ -96,64 +119,33 @@ public class IndexingByIndex extends IndexingBase {
                             .thenCompose(vignore -> {
                                 SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                 return subspaceProvider.getSubspaceAsync(context)
-                                        .thenCompose(subspace ->
-                                                buildIndexFromIndex(subspaceProvider, subspace)
-                                                        .thenCompose(vignore2 -> markBuilt(subspace)
-                                                        ));
+                                        .thenCompose(subspace -> buildIndexFromIndex(subspaceProvider, subspace, null, null));
                             });
                 }));
     }
 
     @Nonnull
-    private CompletableFuture<Void> markBuilt(Subspace subspace) {
-        // Grand Finale - after fully building the index, remove all missing ranges in one gulp
-        return getRunner().runAsync(context -> {
-            final Index index = common.getIndex();
-            RangeSet rangeSet = new RangeSet(subspace.subspace(Tuple.from(FDBRecordStore.INDEX_RANGE_SPACE_KEY, index.getSubspaceKey())));
-            TransactionContext tc = context.ensureActive();
-            return rangeSet.insertRange(tc, null, null).thenApply(bignore -> null);
-        });
-    }
-
-    private void maybeLogBuildProgress(SubspaceProvider subspaceProvider, byte[] retCont) {
-        if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
-            final Index index = common.getIndex();
-            LOGGER.info(KeyValueLogMessage.of("Built Range",
-                    LogMessageKeys.INDEX_NAME, index.getName(),
-                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                    subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.NEXT_CONTINUATION, retCont,
-                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get()),
-                    LogMessageKeys.INDEXER_ID, common.getUuid());
-        }
-    }
-
-    @Nonnull
-    private CompletableFuture<Void> buildIndexFromIndex(SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
-        AtomicReference<byte[]> nextCont = new AtomicReference<>();
-
+    private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, @Nullable byte[] start, @Nullable byte[] end) {
         return AsyncUtil.whileTrue(() -> {
-            byte [] cont = nextCont.get();
             final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex",
-                    LogMessageKeys.NEXT_CONTINUATION, cont == null ? "" : cont);
+                    LogMessageKeys.RANGE_START, start,
+                    LogMessageKeys.RANGE_END, end);
 
-            // apparently, buildAsync=buildAndCommitWithRetry
-            return buildCommitRetryAsync( (store, recordsScanned) -> buildRangeOnly(store, cont, recordsScanned),
+            return buildCommitRetryAsync( (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
                     true,
                     additionalLogMessageKeyValues)
-                    .handle((retCont, ex) -> {
+                    .handle((hasMore, ex) -> {
                         if (ex == null) {
-                            maybeLogBuildProgress(subspaceProvider, retCont);
-                            if (retCont == null) {
+                            maybeLogBuildProgress(subspaceProvider, Collections.emptyList());
+                            if (Boolean.FALSE.equals(hasMore)) {
+                                // all done
                                 return AsyncUtil.READY_FALSE;
                             }
-                            nextCont.set(retCont); // continuation
-                            return throttleDelay();
+                            return throttleDelay(); // returns true after an appropriate delay (to avoid an overload)
                         }
                         final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                         if (LOGGER.isInfoEnabled()) {
                             LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                    LogMessageKeys.NEXT_CONTINUATION, nextCont,
                                     LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
                         }
                         throw unwrappedEx;
@@ -169,10 +161,79 @@ public class IndexingByIndex extends IndexingBase {
     }
 
     @Nonnull
-    private CompletableFuture<byte[]> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] cont, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+        // return false when done
+        Index index = common.getIndex();
+        final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
+        if ( recordMetaDataProvider == null ||
+                !store.getRecordMetaData().equals(recordMetaDataProvider.getRecordMetaData())) {
+            throw new MetaDataException("Store does not have the same metadata");
+        }
+        final String srcIndex = policy.getSourceIndex();
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+
+        // this should never happen. But it makes the compiler happy
+        validateOrThrowEx(srcIndex != null, "source index is null");
+        // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
+        validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
+        // readability - This method shouldn't block if one has already opened the record store (as we did)
+        validateOrThrowEx(store.isIndexReadable(srcIndex), "source index is not readable");
+
+        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
+        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
+
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows continuation item
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+
+        return ranges.onHasNext().thenCompose(hasNext -> {
+            if (Boolean.FALSE.equals(hasNext)) {
+                return AsyncUtil.READY_FALSE; // no more missing ranges - all done
+            }
+            final Range range = ranges.next();
+            final Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
+            final Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
+            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
+
+            RecordCursor<FDBIndexedRecord<Message>> cursor =
+                    store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
+
+            final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
+            final AtomicBoolean hasMore = new AtomicBoolean(true);
+
+            return iterateRangeOnly(store, cursor,
+                    IndexingByIndex::castCursorResultToStoreRecord,
+                    lastResult, hasMore, recordsScanned)
+                    .thenApply(vignore -> hasMore.get() ?
+                                          lastResult.get().get().getIndexEntry().getKey() :
+                                          rangeEnd)
+                    .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
+                                .thenApply(ignore -> !Objects.equals(cont, rangeEnd)));
+
+        });
+    }
+
+    // support rebuildIndexAsync
+    @Nonnull
+    @Override
+    CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
+        AtomicReference<Tuple> nextResultCont = new AtomicReference<>();
+        AtomicLong recordScanned = new AtomicLong();
+        return AsyncUtil.whileTrue(() ->
+                rebuildRangeOnly(store, nextResultCont.get(), recordScanned).thenApply(cont -> {
+                    if (cont == null) {
+                        return false;
+                    }
+                    nextResultCont.set(cont);
+                    return true;
+                }), store.getExecutor());
+    }
+
+    @Nonnull
+    private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
 
         Index index = common.getIndex();
-        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
         final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
         if ( recordMetaDataProvider == null ||
                 !store.getRecordMetaData().equals(recordMetaDataProvider.getRecordMetaData())) {
@@ -185,54 +246,28 @@ public class IndexingByIndex extends IndexingBase {
         // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
         validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
 
-        // this should never happen. But it makes the compiler happy
-        validateOrThrowEx(srcIndex != null, "source index is null");
-
         // readability - This method shouldn't block if one has already opened the record store (as we did)
-        validateOrThrowEx(store.isIndexReadable(srcIndex), "source index is not readable");
+        validateOrThrowEx(srcIndex != null && store.isIndexReadable(srcIndex), "source index is not readable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
                 .setReturnedRowLimit(getLimit()); // always respectLimit in this path
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+        final TupleRange tupleRange = TupleRange.between(cont, null);
 
+        assert srcIndex != null ; // this can never happen; suppressing spotBug MS_PKGPROTECT (srcIndex mightbe null) compilation error
         RecordCursor<FDBIndexedRecord<Message>> cursor =
-                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.ALL, cont, scanProperties);
+                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
 
-        final AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
-        final AtomicBoolean isEmpty = new AtomicBoolean(true);
+        final AtomicBoolean hasMore = new AtomicBoolean(true);
 
         return iterateRangeOnly(store, cursor,
                 IndexingByIndex::castCursorResultToStoreRecord,
-                lastResult::set,
-                isEmpty, recordsScannedCounter
-        ).thenCompose(vignore -> {
-            long recordsScannedInTransaction = recordsScannedCounter.get();
-            recordsScanned.addAndGet(recordsScannedInTransaction);
-            if (common.isTrackProgress()) {
-                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
-                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
-            }
-            final byte[] retCont = isEmpty.get() ? null : lastResult.get().getContinuation().toBytes();
-            return CompletableFuture.completedFuture( retCont );
-        });
-    }
-
-    // support rebuildIndexAsync
-    @Nonnull
-    @Override
-    CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store) {
-        AtomicReference<byte[]> nextCont = new AtomicReference<>();
-        AtomicLong recordScanned = new AtomicLong();
-        return AsyncUtil.whileTrue(() ->
-                buildRangeOnly(store, nextCont.get(), recordScanned).thenApply(cont -> {
-                    if (cont == null) {
-                        return false;
-                    }
-                    nextCont.set(cont);
-                    return true;
-                }), store.getExecutor());
+                lastResult, hasMore, recordsScanned
+        ).thenApply(vignore -> hasMore.get() ?
+                               lastResult.get().get().getIndexEntry().getKey() :
+                               null );
     }
 
     private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {

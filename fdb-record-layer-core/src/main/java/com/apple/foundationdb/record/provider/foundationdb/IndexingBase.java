@@ -21,11 +21,13 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
+import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -33,10 +35,12 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -49,9 +53,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -73,12 +77,14 @@ public abstract class IndexingBase {
     private final IndexingThrottle throttle;
 
     private long timeOfLastProgressLogMillis = 0;
+    private boolean forceStampOverwrite = false;
 
     IndexingBase(IndexingCommon common) {
         this.common = common;
         this.throttle = new IndexingThrottle(common);
     }
 
+    // helper functions
     protected FDBDatabaseRunner getRunner() {
         return common.getRunner();
     }
@@ -108,7 +114,22 @@ public abstract class IndexingBase {
         return common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync();
     }
 
-    CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
+    // Turn a (possibly null) tuple into a (possibly null) byte array.
+    @Nullable
+    protected static byte[] packOrNull(@Nullable Tuple tuple) {
+        return (tuple == null) ? null : tuple.pack();
+    }
+
+    // Turn a (possibly null) key into its tuple representation.
+    @Nullable
+    protected static Tuple convertOrNull(@Nullable Key.Evaluated key) {
+        return (key == null) ? null : key.toTuple();
+    }
+
+    // (methods order: as a rule of thumb, let sub-routines follow their callers)
+
+    // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
+    public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
                 LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
         final CompletableFuture<Void> buildIndexAsyncFuture;
@@ -219,7 +240,9 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> doBuildIndexAsync(boolean markReadable) {
-        CompletableFuture<Void> buildFuture = buildIndexByEntityAsync();
+        CompletableFuture<Void> buildFuture =
+                setIndexingTypeOrThrow()
+                        .thenCompose(ignore -> buildIndexInternalAsync());
 
         if (markReadable) {
             return buildFuture.thenCompose(vignore ->
@@ -231,9 +254,75 @@ public abstract class IndexingBase {
         }
     }
 
-    abstract CompletableFuture<Void> buildIndexByEntityAsync();
+    @Nonnull
+    public void setFallbackMode() {
+        forceStampOverwrite = true; // must overwrite a previous indexing method's stamp
+    }
 
-    protected boolean shouldLogBuildProgress() {
+    @Nonnull
+    private CompletableFuture<Void> setIndexingTypeOrThrow() {
+        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
+            Transaction transaction = store.getContext().ensureActive();
+            IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp();
+            byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
+            return transaction.get(stampKey)
+                    .thenApply( bytes -> {
+                        if (bytes == null || forceStampOverwrite) {
+                            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+                        } else {
+                            IndexBuildProto.IndexBuildIndexingStamp savedStamp;
+                            try {
+                                savedStamp = IndexBuildProto.IndexBuildIndexingStamp.parseFrom(bytes);
+                            } catch (InvalidProtocolBufferException ex) {
+                                RecordCoreException protoEx = new RecordCoreException("invalid indexing type stamp",
+                                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                                        LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                                        LogMessageKeys.INDEXER_ID, common.getUuid(),
+                                        LogMessageKeys.EXPECTED, indexingTypeStamp,
+                                        LogMessageKeys.ACTUAL, bytes);
+                                protoEx.initCause(ex);
+                                throw protoEx;
+                            }
+                            if ( savedStamp == null || ! matchingIndexingTypeStamp(savedStamp)) {
+                                throw new RecordCoreException("This index was partly built by another method",
+                                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                                        LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                                        LogMessageKeys.INDEXER_ID, common.getUuid(),
+                                        LogMessageKeys.EXPECTED, indexingTypeStamp,
+                                        LogMessageKeys.ACTUAL, savedStamp);
+                            }
+                        }
+                        return null;
+                    });
+        } ));
+    }
+
+    @Nonnull
+    abstract IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp();
+
+    @Nonnull
+    private boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
+        return getIndexingTypeStamp().equals(stamp);
+    }
+
+    abstract CompletableFuture<Void> buildIndexInternalAsync();
+
+    // Helpers for implementing modules. Some of them are public to support unit-testing.
+    protected void maybeLogBuildProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+        if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
+            final Index index = common.getIndex();
+            LOGGER.info(KeyValueLogMessage.build("Built Range",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                    subspaceProvider.logKey(), subspaceProvider,
+                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get(),
+                    LogMessageKeys.INDEXER_ID, common.getUuid())
+                    .addKeysAndValues(additionalLogMessageKeyValues)
+                    .toString());
+        }
+    }
+
+    private boolean shouldLogBuildProgress() {
         long interval = common.config.getProgressLogIntervalMillis();
         long now = System.currentTimeMillis();
         if (interval == 0 || interval < (now - timeOfLastProgressLogMillis)) {
@@ -259,7 +348,6 @@ public abstract class IndexingBase {
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           boolean limitControl,
                                                           @Nullable List<Object> additionalLogMessageKeyValues) {
-
         return throttle.buildCommitRetryAsync(buildFunction, limitControl, additionalLogMessageKeyValues);
     }
 
@@ -268,6 +356,116 @@ public abstract class IndexingBase {
         if (timer != null) {
             timer.increment(event);
         }
+    }
+
+    /**
+     * iterate cursor's items and index them.
+     * @param store the record store.
+     * @param cursor iteration items.
+     * @param getRecord function to convert cursor's item to a record.
+     * @param nextResultCont when return, if hasMore is true, holds the last cursored result - unprocessed - as a continuation item.
+     * @param hasMore when return, true if the cursor's source is not exhausted (not more items in range).
+     * @param recordsScanned when return, number of scanned records.
+     * @param <T> cursor result's type.
+     * @return hasMore, nextResultCont, and recordsScanned.
+     */
+    protected <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
+                                                           @Nonnull RecordCursor<T> cursor,
+                                                           @Nonnull Function<RecordCursorResult<T>, FDBStoredRecord<Message>> getRecord,
+                                                           @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                           @Nonnull AtomicBoolean hasMore,
+                                                           @Nullable AtomicLong recordsScanned) {
+        final FDBStoreTimer timer = getRunner().getTimer();
+        final Index index = common.getIndex();
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        final boolean isIdempotent = maintainer.isIdempotent();
+        final FDBRecordContext context = store.getContext();
+        final SyntheticRecordFromStoredRecordPlan syntheticPlan = common.getSyntheticPlan(store);
+        // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
+        // Copying the state also guards against changes made by other online building from check version.
+        // TODO: need some state to avoid generating the same synthetic record via more than one self-join path for non-idempotent indexes.
+        AtomicLong recordsScannedCounter = new AtomicLong();
+
+        final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
+        return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
+            RecordCursorResult<T> currResult;
+            boolean isExhausted = false;
+            if (result.hasNext()) {
+                // has next, process one previous item (if exists)
+                currResult = nextResult.get();
+                nextResult.set(result);
+                if (currResult == null) {
+                    // that was the first item, nothing to process
+                    return AsyncUtil.READY_TRUE;
+                }
+            } else {
+                // end of the cursor list
+                timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
+                if (! result.getNoNextReason().isSourceExhausted()) {
+                    nextResultCont.set(nextResult.get());
+                    hasMore.set(true);
+                    return AsyncUtil.READY_FALSE;
+                }
+                // source is exhausted, fall down to handle the last item and return with hasMore=false
+                currResult = nextResult.get();
+                if (currResult == null) {
+                    // there was no data
+                    hasMore.set(false);
+                    return AsyncUtil.READY_FALSE;
+                }
+                // here, process the last item and return
+                nextResult.set(null);
+                isExhausted = true;
+            }
+            // here: currResult must have value
+            final FDBStoredRecord<Message> rec = getRecord.apply(currResult);
+            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
+            recordsScannedCounter.incrementAndGet();
+            if (!common.recordTypes.contains(rec.getRecordType())) {
+                // This record is not our type, swipe left
+                if (isExhausted) {
+                    hasMore.set(false);
+                    return AsyncUtil.READY_FALSE;
+                }
+                return AsyncUtil.READY_TRUE;
+            }
+            // add this index to the transaction
+            if (isIdempotent) {
+                store.addRecordReadConflict(rec.getPrimaryKey());
+            }
+            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+
+            final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(syntheticPlan, rec, maintainer, store);
+            if (isExhausted) {
+                // we've just processed the last item
+                hasMore.set(false);
+                return updateMaintainer.thenApply(vignore -> false);
+            }
+            return updateMaintainer.thenCompose(vignore ->
+                    context.getApproximateTransactionSize().thenApply(size -> {
+                        if (size >= common.config.getMaxWriteLimitBytes()) {
+                            // the transaction becomes too big - stop iterating
+                            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
+                            nextResultCont.set(nextResult.get());
+                            hasMore.set(true);
+                            return false;
+                        }
+                        return true;
+                    }));
+
+        }), cursor.getExecutor()
+        ).thenApply(vignore -> {
+            long recordsScannedInTransaction = recordsScannedCounter.get();
+            if (recordsScanned != null) {
+                recordsScanned.addAndGet(recordsScannedInTransaction);
+            }
+            if (common.isTrackProgress()) {
+                final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
+                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
+                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
+            }
+            return null;
+        });
     }
 
     private static CompletableFuture<Void> updateMaintainerBuilder(SyntheticRecordFromStoredRecordPlan syntheticPlan,
@@ -282,60 +480,7 @@ public abstract class IndexingBase {
         return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
     }
 
-    protected <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
-                                                           @Nonnull RecordCursor<T> cursor,
-                                                           @Nonnull Function<RecordCursorResult<T>, FDBStoredRecord<Message>> getRecord,
-                                                           @Nonnull Consumer<RecordCursorResult<T>> lastResultSet,
-                                                           @Nonnull AtomicBoolean isEmpty,
-                                                           @Nonnull AtomicLong recordsScannedCounter) {
-        final FDBStoreTimer timer = getRunner().getTimer();
-        final Index index = common.getIndex();
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        final boolean isIdempotent = maintainer.isIdempotent();
-        final FDBRecordContext context = store.getContext();
-        final SyntheticRecordFromStoredRecordPlan syntheticPlan = common.getSyntheticPlan(store);
-        // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
-        // Copying the state also guards against changes made by other online building from check version.
-        // TODO: need some state to avoid generating the same synthetic record via more than one self-join path for non-idempotent indexes.
-
-        return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
-            if (!result.hasNext()) {
-                // end of the cursor list
-                timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-                lastResultSet.accept(result);
-                return AsyncUtil.READY_FALSE;
-            }
-
-            final FDBStoredRecord<Message> rec = getRecord.apply(result);
-            isEmpty.set(false);
-            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
-            recordsScannedCounter.incrementAndGet();
-            if (!common.recordTypes.contains(rec.getRecordType())) {
-                // This record is not our type, swipe left
-                return AsyncUtil.READY_TRUE;
-            }
-            // add this index to the transaction
-            if (isIdempotent) {
-                store.addRecordReadConflict(rec.getPrimaryKey());
-            }
-            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
-
-            final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(syntheticPlan, rec, maintainer, store);
-
-            return updateMaintainer.thenCompose(vignore ->
-                    context.getApproximateTransactionSize().thenApply(size -> {
-                        if (size >= common.config.getMaxWriteLimitBytes()) {
-                            // the transaction becomes too big - stop iterating
-                            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
-                            lastResultSet.accept(result);
-                            return false;
-                        }
-                        return true;
-                    }));
-
-        }), cursor.getExecutor());
-    }
-
+    // rebuildIndexAsyc - builds the whole index inline (without commiting)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
         Index index = common.getIndex();
@@ -348,14 +493,14 @@ public abstract class IndexingBase {
         // (2) to allow for write-only indexes to continue to do the right thing.
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
         CompletableFuture<Boolean> rangeFuture = rangeSet.insertRange(tr, null, null);
-        CompletableFuture<Void> buildFuture = rebuildIndexByEntityAsync(store);
+        CompletableFuture<Void> buildFuture = rebuildIndexInternalAsync(store);
 
         return CompletableFuture.allOf(rangeFuture, buildFuture);
     }
 
-    abstract CompletableFuture<Void> rebuildIndexByEntityAsync(FDBRecordStore store);
+    abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
 
-    // These two methods are externalized for testing usage only
+    // These throttle methods are externalized for testing usage only
     @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,

@@ -150,6 +150,8 @@ public enum LogMessageKeys {
 
     // comparisons
     COMPARISON_VALUE("comparison_value"),
+    EXPECTED("expected"),
+    ACTUAL("actual"),
     // functional index keys
     FUNCTION("function"),
     INDEX_KEY("index_key"),

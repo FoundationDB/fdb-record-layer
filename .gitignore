@@ -41,6 +41,7 @@ atlassian-ide-plugin.xml
 .idea/compiler.xml
 .idea/gradle.xml
 .idea/jarRepositories.xml
+.idea/shelf
 
 # Eclipse specific files/directories
 .classpath

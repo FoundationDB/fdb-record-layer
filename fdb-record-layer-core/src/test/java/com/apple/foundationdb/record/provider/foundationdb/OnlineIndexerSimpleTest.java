@@ -872,13 +872,13 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             future = indexBuilder.buildIndexAsync();
             int pass = 0;
             while (!future.isDone() && timer.getCount(FDBStoreTimer.Events.COMMIT) < 10 && pass++ < 100) {
+                Thread.sleep(100);
                 assertThat("Should have invoked the configuration loader at least once", indexBuilder.getConfigLoaderInvocationCount(), greaterThan(0));
                 assertEquals(indexBuilder.getLimit(), limit - indexBuilder.getConfigLoaderInvocationCount());
                 assertEquals(indexBuilder.getConfig().getMaxRetries(), 3);
                 assertEquals(indexBuilder.getConfig().getRecordsPerSecond(), 10000);
                 assertEquals(indexBuilder.getConfig().getProgressLogIntervalMillis(), DEFAULT_PROGRESS_LOG_INTERVAL);
                 assertEquals(indexBuilder.getConfig().getIncreaseLimitAfter(), DO_NOT_RE_INCREASE_LIMIT);
-                Thread.sleep(100);
             }
             assertThat("Should have done several transactions in a few seconds", pass, lessThan(100));
         }
@@ -934,8 +934,8 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
             assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
 
-            assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
-            assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+            assertEquals(199, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+            assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT)); // last item
 
             recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
             context.commit();
@@ -977,6 +977,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
         }
         assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(200, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
+        // this includes two endpoints + one range = total of 3 terminations by count
+        // - note that (last, null] endpoint is en empty range
+        assertEquals(3, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        // this is the range between the endpoints - 199 items in (first, last] interval
+        assertEquals(198, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
     }
 }
