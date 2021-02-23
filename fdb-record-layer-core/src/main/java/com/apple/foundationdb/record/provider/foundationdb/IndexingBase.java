@@ -56,11 +56,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
-
-import static com.apple.foundationdb.record.RecordCursor.NoNextReason.SOURCE_EXHAUSTED;
 
 /**
  * A base class for different types of online indexing scanners.
@@ -277,7 +274,14 @@ public abstract class IndexingBase {
                             try {
                                 savedStamp = IndexBuildProto.IndexBuildIndexingStamp.parseFrom(bytes);
                             } catch (InvalidProtocolBufferException ex) {
-                                savedStamp = null;
+                                RecordCoreException protoEx = new RecordCoreException("invalid indexing type stamp",
+                                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                                        LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                                        LogMessageKeys.INDEXER_ID, common.getUuid(),
+                                        LogMessageKeys.EXPECTED, indexingTypeStamp,
+                                        LogMessageKeys.ACTUAL, bytes);
+                                protoEx.initCause(ex);
+                                throw protoEx;
                             }
                             if ( savedStamp == null || ! matchingIndexingTypeStamp(savedStamp)) {
                                 throw new RecordCoreException("This index was partly built by another method",
@@ -297,7 +301,9 @@ public abstract class IndexingBase {
     abstract IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp();
 
     @Nonnull
-    abstract boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp);
+    private boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
+        return getIndexingTypeStamp().equals(stamp);
+    }
 
     abstract CompletableFuture<Void> buildIndexInternalAsync();
 
@@ -352,10 +358,21 @@ public abstract class IndexingBase {
         }
     }
 
+    /**
+     * iterate cursor's items and index them.
+     * @param store the record store.
+     * @param cursor iteration items.
+     * @param getRecord function to convert cursor's item to a record.
+     * @param nextResultCont when return, if hasMore is true, holds the last cursored result - unprocessed - as a continuation item.
+     * @param hasMore when return, true if the cursor's source is not exhausted (not more items in range).
+     * @param recordsScanned when return, number of scanned records.
+     * @param <T> cursor result's type.
+     * @return hasMore, nextResultCont, and recordsScanned.
+     */
     protected <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
-                                                           @Nonnull RecordCursor<T> cursor, // at least two items must be requested for this cursor
+                                                           @Nonnull RecordCursor<T> cursor,
                                                            @Nonnull Function<RecordCursorResult<T>, FDBStoredRecord<Message>> getRecord,
-                                                           @Nonnull Consumer<RecordCursorResult<T>> nextResultCont,
+                                                           @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
                                                            @Nonnull AtomicBoolean hasMore,
                                                            @Nullable AtomicLong recordsScanned) {
         final FDBStoreTimer timer = getRunner().getTimer();
@@ -384,16 +401,15 @@ public abstract class IndexingBase {
             } else {
                 // end of the cursor list
                 timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-                if (result.getNoNextReason() != SOURCE_EXHAUSTED) {
-                    // should we trigger a warning (or an exception) if nextResult is null - i.e. non-exhausted empty list?
-                    nextResultCont.accept(nextResult.get());
+                if (! result.getNoNextReason().isSourceExhausted()) {
+                    nextResultCont.set(nextResult.get());
                     hasMore.set(true);
                     return AsyncUtil.READY_FALSE;
                 }
                 // source is exhausted, fall down to handle the last item and return with hasMore=false
                 currResult = nextResult.get();
                 if (currResult == null) {
-                    // this was an empty list
+                    // there was no data
                     hasMore.set(false);
                     return AsyncUtil.READY_FALSE;
                 }
@@ -430,7 +446,7 @@ public abstract class IndexingBase {
                         if (size >= common.config.getMaxWriteLimitBytes()) {
                             // the transaction becomes too big - stop iterating
                             timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
-                            nextResultCont.accept(nextResult.get());
+                            nextResultCont.set(nextResult.get());
                             hasMore.set(true);
                             return false;
                         }

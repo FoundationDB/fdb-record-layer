@@ -416,4 +416,40 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
+
+    @Test
+    public void testIndexFromIndexRebuild() {
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final long numRecords = 1000;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                    .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                            .setSourceIndex("src_index")
+                            .forbidRecordScan()
+                            .build())
+                    .setTimer(timer)
+                    .build()) {
+
+                indexBuilder.rebuildIndex(recordStore);
+                context.commit();
+            }
+        }
+
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
 }

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
@@ -87,11 +86,6 @@ public class IndexingByIndex extends IndexingBase {
     @Nonnull
     IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp() {
         return myIndexingTypeStamp;
-    }
-
-    @Override
-    boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        return getIndexingTypeStamp().equals(stamp);
     }
 
     @Nonnull
@@ -210,13 +204,12 @@ public class IndexingByIndex extends IndexingBase {
 
             return iterateRangeOnly(store, cursor,
                     IndexingByIndex::castCursorResultToStoreRecord,
-                    lastResult::set,
-                    hasMore, recordsScanned)
+                    lastResult, hasMore, recordsScanned)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
-                                          null)
+                                          rangeEnd)
                     .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
-                                .thenApply(ignore -> cont != null));
+                                .thenApply(ignore -> !Objects.equals(cont, rangeEnd)));
 
         });
     }
@@ -225,23 +218,22 @@ public class IndexingByIndex extends IndexingBase {
     @Nonnull
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store) {
-        AtomicReference<byte[]> nextCont = new AtomicReference<>();
+        AtomicReference<Tuple> nextResultCont = new AtomicReference<>();
         AtomicLong recordScanned = new AtomicLong();
         return AsyncUtil.whileTrue(() ->
-                rebuildRangeOnly(store, nextCont.get(), recordScanned).thenApply(cont -> {
+                rebuildRangeOnly(store, nextResultCont.get(), recordScanned).thenApply(cont -> {
                     if (cont == null) {
                         return false;
                     }
-                    nextCont.set(cont);
+                    nextResultCont.set(cont);
                     return true;
                 }), store.getExecutor());
     }
 
     @Nonnull
-    private CompletableFuture<byte[]> rebuildRangeOnly(@Nonnull FDBRecordStore store, byte[] cont, @Nonnull AtomicLong recordsScanned) {
+    private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
 
         Index index = common.getIndex();
-        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
         final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
         if ( recordMetaDataProvider == null ||
                 !store.getRecordMetaData().equals(recordMetaDataProvider.getRecordMetaData())) {
@@ -261,29 +253,21 @@ public class IndexingByIndex extends IndexingBase {
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
                 .setReturnedRowLimit(getLimit()); // always respectLimit in this path
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+        final TupleRange tupleRange = TupleRange.between(cont, null);
 
         assert srcIndex != null ; // this can never happen; suppressing spotBug MS_PKGPROTECT (srcIndex mightbe null) compilation error
         RecordCursor<FDBIndexedRecord<Message>> cursor =
-                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, TupleRange.ALL, cont, scanProperties);
+                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
 
-        final AtomicLong recordsScannedCounter = new AtomicLong();
         final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
-        final AtomicBoolean isEmpty = new AtomicBoolean(true);
+        final AtomicBoolean hasMore = new AtomicBoolean(true);
 
         return iterateRangeOnly(store, cursor,
                 IndexingByIndex::castCursorResultToStoreRecord,
-                lastResult::set,
-                isEmpty, recordsScannedCounter
-        ).thenCompose(vignore -> {
-            long recordsScannedInTransaction = recordsScannedCounter.get();
-            recordsScanned.addAndGet(recordsScannedInTransaction);
-            if (common.isTrackProgress()) {
-                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
-                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
-            }
-            final byte[] retCont = isEmpty.get() ? null : lastResult.get().getContinuation().toBytes();
-            return CompletableFuture.completedFuture( retCont );
-        });
+                lastResult, hasMore, recordsScanned
+        ).thenApply(vignore -> hasMore.get() ?
+                               lastResult.get().get().getIndexEntry().getKey() :
+                               null );
     }
 
     private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {

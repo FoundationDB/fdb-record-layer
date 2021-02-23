@@ -95,11 +95,6 @@ public class IndexingByRecords extends IndexingBase {
                         .build();
     }
 
-    @Override
-    boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        return getIndexingTypeStamp().equals(stamp);
-    }
-
     @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
@@ -512,8 +507,7 @@ public class IndexingByRecords extends IndexingBase {
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store,
                                                     @Nullable Tuple start, @Nullable Tuple end,
                                                     boolean respectLimit, @Nullable AtomicLong recordsScanned) {
-        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit, recordsScanned)
-                .thenApply(realEnd -> realEnd == null ? end : realEnd);
+        return buildRangeOnly(store, TupleRange.between(start, end), respectLimit, recordsScanned);
     }
 
     @Nonnull
@@ -545,11 +539,11 @@ public class IndexingByRecords extends IndexingBase {
 
         return iterateRangeOnly(store, cursor,
                 RecordCursorResult::get,
-                lastResult::set,
+                lastResult,
                 hasMore, recordsScanned)
                 .thenApply(vignore -> hasMore.get() ?
                                       lastResult.get().get().getPrimaryKey() :
-                                      null );
+                                      range.getHigh());
     }
 
     // support rebuildIndexAsync
@@ -559,7 +553,7 @@ public class IndexingByRecords extends IndexingBase {
         AtomicReference<TupleRange> rangeToGo = new AtomicReference<>(recordsRange);
         return AsyncUtil.whileTrue(() ->
                 buildRangeOnly(store, rangeToGo.get(), true, null).thenApply(nextStart -> {
-                    if (nextStart == null) {
+                    if (nextStart == rangeToGo.get().getHigh()) {
                         return false;
                     } else {
                         rangeToGo.set(new TupleRange(nextStart, rangeToGo.get().getHigh(), EndpointType.RANGE_INCLUSIVE, rangeToGo.get().getHighEndpoint()));
