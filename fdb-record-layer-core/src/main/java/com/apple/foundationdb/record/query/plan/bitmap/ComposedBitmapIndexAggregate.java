@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
+import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
@@ -137,7 +138,7 @@ public class ComposedBitmapIndexAggregate {
      * @return an {@code Optional} composed bitmap or {@code Optional.empty} if there conditions could not be satisfied
      */
     @Nonnull
-    public static Optional<ComposedBitmapIndexAggregate> tryBuild(@Nonnull RecordQueryPlanner planner,
+    public static Optional<ComposedBitmapIndexAggregate> tryBuild(@Nonnull QueryPlanner planner,
                                                                   @Nonnull Collection<String> recordTypeNames,
                                                                   @Nonnull IndexAggregateFunction indexAggregateFunction,
                                                                   @Nonnull QueryComponent filter) {
@@ -266,7 +267,7 @@ public class ComposedBitmapIndexAggregate {
 
     static class Builder {
         @Nonnull
-        private final RecordQueryPlanner planner;
+        private final QueryPlanner planner;
         @Nonnull
         private final Collection<String> recordTypeNames;
         @Nonnull
@@ -278,7 +279,7 @@ public class ComposedBitmapIndexAggregate {
         @Nullable
         private Map<QueryComponent, IndexNode> indexNodes;
 
-        Builder(@Nonnull final RecordQueryPlanner planner, @Nonnull Collection<String> recordTypeNames,
+        Builder(@Nonnull final QueryPlanner planner, @Nonnull Collection<String> recordTypeNames,
                 @Nonnull List<QueryComponent> groupFilters, @Nonnull IndexAggregateFunction indexAggregateFunction) {
             this.planner = planner;
             this.recordTypeNames = recordTypeNames;

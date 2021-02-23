@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
@@ -64,6 +66,20 @@ public interface QueryPlanner {
      */
     @Nonnull
     RecordQueryPlan plan(@Nonnull RecordQuery query);
+
+    /**
+     * Get the {@link RecordMetaData} for this planner.
+     * @return the meta-data
+     */
+    @Nonnull
+    RecordMetaData getRecordMetaData();
+
+    /**
+     * Get the {@link RecordStoreState} for this planner.
+     * @return the record store state
+     */
+    @Nonnull
+    RecordStoreState getRecordStoreState();
 
     /**
      * Set whether {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan} is preferred over

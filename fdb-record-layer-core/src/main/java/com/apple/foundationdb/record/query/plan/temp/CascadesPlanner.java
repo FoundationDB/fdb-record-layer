@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -236,15 +237,33 @@ public class CascadesPlanner implements QueryPlanner {
         }
     }
 
+    @Nonnull
+    @Override
+    public RecordMetaData getRecordMetaData() {
+        return metaData;
+    }
+
+    @Nonnull
+    @Override
+    public RecordStoreState getRecordStoreState() {
+        return recordStoreState;
+    }
+
     private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
         aliasResolver = AliasResolver.withRoot(currentRoot);
         Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
+        int taskCount = 0;
         while (!taskStack.isEmpty()) {
             try {
                 Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
+                if (isTaskTotalCountExceeded(configuration, taskCount)) {
+                    throw new RecordQueryPlanComplexityException("Maximum number of tasks (" + configuration.getMaxTotalTaskCount() + ") was exceeded");
+                }
+                taskCount++;
+
                 Task nextTask = taskStack.pop();
                 if (logger.isTraceEnabled()) {
                     logger.trace(KeyValueLogMessage.of("executing task", "nextTask", nextTask.toString()));
@@ -258,6 +277,10 @@ public class CascadesPlanner implements QueryPlanner {
                     logger.trace(KeyValueLogMessage.of("planner state",
                             "taskStackSize", taskStack.size(),
                             "memo", new GroupExpressionPrinter(currentRoot)));
+                }
+
+                if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
+                    throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
                 }
             } catch (final RestartException restartException) {
                 if (logger.isTraceEnabled()) {
@@ -277,6 +300,47 @@ public class CascadesPlanner implements QueryPlanner {
         configuration = this.configuration.asBuilder()
                 .setIndexScanPreference(indexScanPreference)
                 .build();
+    }
+
+    /**
+     * Set the size limit of the Cascades planner task queue.
+     * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
+     * Default value is 0, which means "unbound".
+     * @param maxTaskQueueSize the maximum size of the queue.
+     */
+    public void setMaxTaskQueueSize(final int maxTaskQueueSize) {
+        configuration = this.configuration.asBuilder()
+                .setMaxTaskQueueSize(maxTaskQueueSize)
+                .build();
+    }
+
+    /**
+     * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
+     * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
+     * Default value is 0, which means "unbound".
+     * @param maxTotalTaskCount the maximum number of tasks.
+     */
+    public void setMaxTotalTaskCount(final int maxTotalTaskCount) {
+        configuration = this.configuration.asBuilder()
+                .setMaxTotalTaskCount(maxTotalTaskCount)
+                .build();
+    }
+
+    @Nonnull
+    public RecordQueryPlannerConfiguration getConfiguration() {
+        return configuration;
+    }
+
+    public void setConfiguration(@Nonnull final RecordQueryPlannerConfiguration configuration) {
+        this.configuration = configuration;
+    }
+
+    private boolean isTaskQueueSizeExceeded(final RecordQueryPlannerConfiguration configuration, final int queueSize) {
+        return ((configuration.getMaxTaskQueueSize() > 0) && (queueSize > configuration.getMaxTaskQueueSize()));
+    }
+
+    private boolean isTaskTotalCountExceeded(final RecordQueryPlannerConfiguration configuration, final int taskCount) {
+        return ((configuration.getMaxTotalTaskCount() > 0) && (taskCount > configuration.getMaxTotalTaskCount()));
     }
 
     /**
