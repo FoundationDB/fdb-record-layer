@@ -258,7 +258,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
         if (plan == null) {
             if (sort == null) {
-                plan = planScan(new CandidateScan(planContext, null, false));
+                plan = planScan(new CandidateScan(planContext, null, false), null, false);
                 if (filter != null) {
                     plan = new RecordQueryFilterPlan(plan, filter);
                 }
@@ -355,7 +355,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             final RecordTypeKeyComparison recordTypeKeyComparison = new RecordTypeKeyComparison(planContext.query.getRecordTypes().iterator().next());
             scanComparisons = new ScanComparisons.Builder().addEqualityComparison(recordTypeKeyComparison.getComparison()).build();
         }
-        return new ScoredPlan(0, planScan(new CandidateScan(planContext, index, false), scanComparisons));
+        return new ScoredPlan(0, planScan(new CandidateScan(planContext, index, false), scanComparisons, false));
     }
 
     private int compareIndexes(PlanContext planContext, @Nullable Index index1, @Nullable Index index2) {
@@ -642,7 +642,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                          @Nonnull QueryComponent filter, @Nullable KeyExpression sort) {
         filter = candidateScan.planContext.rankComparisons.planComparisonSubstitute(filter);
         if (filter instanceof FieldWithComparison) {
-            return planFieldWithComparison(candidateScan, index, (FieldWithComparison) filter, sort);
+            return planFieldWithComparison(candidateScan, index, (FieldWithComparison) filter, sort, true);
         } else if (filter instanceof OneOfThemWithComparison) {
             return planOneOfThemWithComparison(candidateScan, index, (OneOfThemWithComparison) filter, sort);
         } else if (filter instanceof AndComponent) {
@@ -957,12 +957,12 @@ public class RecordQueryPlanner implements QueryPlanner {
                         FieldKeyExpression sortField = (FieldKeyExpression) sort;
                         if (Objects.equals(sortField.getFieldName(), field.getFieldName())) {
                             // everything matches, yay!! Hopefully that comparison can be for tuples
-                            return new ScoredPlan(1, planScan(candidateScan, scanComparisons),
+                            return new ScoredPlan(1, planScan(candidateScan, scanComparisons, true),
                                     Collections.<QueryComponent>emptyList(), true);
                         }
                     }
                 } else {
-                    return new ScoredPlan(1, planScan(candidateScan, scanComparisons),
+                    return new ScoredPlan(1, planScan(candidateScan, scanComparisons, false),
                             Collections.<QueryComponent>emptyList(), true);
                 }
             }
@@ -1046,7 +1046,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     private ScoredPlan planFieldWithComparison(@Nonnull CandidateScan candidateScan,
                                                @Nonnull KeyExpression index,
                                                @Nonnull FieldWithComparison singleField,
-                                               @Nullable KeyExpression sort) {
+                                               @Nullable KeyExpression sort,
+                                               boolean fullKey) {
         final Comparisons.Comparison comparison = singleField.getComparison();
         final ScanComparisons scanComparisons = ScanComparisons.from(comparison);
         if (scanComparisons == null) {
@@ -1063,11 +1064,11 @@ public class RecordQueryPlanner implements QueryPlanner {
                         FieldKeyExpression sortField = (FieldKeyExpression) sort;
                         if (Objects.equals(sortField.getFieldName(), field.getFieldName())) {
                             // everything matches, yay!! Hopefully that comparison can be for tuples
-                            return new ScoredPlan(1, planScan(candidateScan, scanComparisons));
+                            return new ScoredPlan(1, planScan(candidateScan, scanComparisons, fullKey));
                         }
                     }
                 } else {
-                    return new ScoredPlan(1, planScan(candidateScan, scanComparisons));
+                    return new ScoredPlan(1, planScan(candidateScan, scanComparisons, false));
                 }
             }
             return null;
@@ -1077,7 +1078,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     !then.createsDuplicates() &&
                     !(then.getChildren().get(0) instanceof RecordTypeKeyExpression)) {
                 // First column will do it all or not.
-                return planFieldWithComparison(candidateScan, then.getChildren().get(0), singleField, sort);
+                return planFieldWithComparison(candidateScan, then.getChildren().get(0), singleField, sort, false);
             } else {
                 // May need second column to do sort, so handle like And, which does such cases.
                 return new AndWithThenPlanner(candidateScan, then, Collections.singletonList(singleField), sort).plan();
@@ -1097,7 +1098,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (scanComparisons == null) {
                 return null;
             }
-            return new ScoredPlan(1, planScan(candidateScan, scanComparisons));
+            final boolean fullySorted = sort != null; // Must be equal.
+            return new ScoredPlan(1, planScan(candidateScan, scanComparisons, fullySorted));
         } else if (index instanceof ThenKeyExpression) {
             return new AndWithThenPlanner(candidateScan, (ThenKeyExpression) index, Collections.singletonList(queryKeyExpressionWithComparison), sort).plan();
         }
@@ -1120,7 +1122,9 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         if (sort.isPrefixKey(index)) {
-            return new ScoredPlan(0, planScan(candidateScan), Collections.emptyList(), index.createsDuplicates());
+            final boolean fullySorted = sort.equals(index) ||
+                                        (candidateScan.index != null && candidateScan.index.isUnique() && sort.getColumnSize() >= candidateScan.index.getColumnSize());
+            return new ScoredPlan(0, planScan(candidateScan, null, fullySorted), Collections.emptyList(), index.createsDuplicates());
         } else {
             return null;
         }
@@ -1266,20 +1270,24 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan) {
-        return planScan(candidateScan, null, null);
-    }
-
-    @Nonnull
     private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan,
-                                     @Nullable ScanComparisons scanComparisons) {
-        return planScan(candidateScan, null, scanComparisons);
+                                     @Nullable ScanComparisons scanComparisons,
+                                     boolean fullySorted) {
+        return planScan(candidateScan, null, scanComparisons, fullySorted);
     }
 
     @Nonnull
     private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan,
                                      @Nullable IndexScanType scanType,
                                      @Nullable ScanComparisons scanComparisons) {
+        return planScan(candidateScan, scanType, scanComparisons, false);
+    }
+
+    @Nonnull
+    private RecordQueryPlan planScan(@Nonnull CandidateScan candidateScan,
+                                     @Nullable IndexScanType scanType,
+                                     @Nullable ScanComparisons scanComparisons,
+                                     boolean fullySorted) {
         if (scanComparisons == null) {
             scanComparisons = ScanComparisons.EMPTY;
         }
@@ -1291,12 +1299,12 @@ public class RecordQueryPlanner implements QueryPlanner {
             } else {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
-            plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse);
+            plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse, fullySorted);
         } else {
             if (scanType == null) {
                 scanType = IndexScanType.BY_VALUE;
             }
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse);
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse, fullySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified
@@ -1868,6 +1876,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         public ScoredPlan plan() {
             setupPlanState();
             boolean doneComparing = false;
+            boolean fullySorted = true;
+            int childColumns = 0;
             for (KeyExpression child : indexChildren) {
                 if (!doneComparing) {
                     planChild(child);
@@ -1878,6 +1888,10 @@ public class RecordQueryPlanner implements QueryPlanner {
                 }
                 if (doneComparing) {
                     if (currentSort == null) {
+                        if (!(candidateScan.index != null && candidateScan.index.isUnique() && childColumns >= candidateScan.index.getColumnSize())) {
+                            // More index children than sorts, except for unique index sorted up far enough.
+                            fullySorted = false;
+                        }
                         break;
                     }
                     // With inequalities or no filters, index ordering must match sort ordering.
@@ -1887,6 +1901,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                         break;
                     }
                 }
+                childColumns += child.getColumnSize();
             }
             if (currentSort != null) {
                 return null;
@@ -1905,7 +1920,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                     return null;
                 }
             }
-            return new ScoredPlan(comparisons.totalSize(), planScan(candidateScan, comparisons.build()), unsatisfiedFilters, createsDuplicates);
+            return new ScoredPlan(comparisons.totalSize(), planScan(candidateScan, comparisons.build(), fullySorted), unsatisfiedFilters, createsDuplicates);
         }
 
         private void setupPlanState() {

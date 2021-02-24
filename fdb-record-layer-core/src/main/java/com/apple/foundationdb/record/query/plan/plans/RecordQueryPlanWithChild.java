@@ -74,6 +74,11 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     @Override
+    default boolean isFullySorted() {
+        return getChild().isFullySorted();
+    }
+
+    @Override
     default boolean hasLoadBykeys() {
         return getChild().hasLoadBykeys();
     }

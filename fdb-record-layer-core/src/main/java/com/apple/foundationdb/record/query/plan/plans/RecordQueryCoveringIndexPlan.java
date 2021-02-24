@@ -151,6 +151,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return indexPlan.maxCardinality(metaData);
     }
 
+    @Override
+    public boolean isFullySorted() {
+        return indexPlan.isFullySorted();
+    }
+
     @Nonnull
     @Override
     public AvailableFields getAvailableFields() {

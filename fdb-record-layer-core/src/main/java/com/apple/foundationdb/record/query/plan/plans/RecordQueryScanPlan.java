@@ -68,15 +68,17 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     private final ScanComparisons comparisons;
     private final boolean reverse;
 
+    private final boolean fullySorted;
+
     /**
      * Overloaded constructor.
-     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, ScanComparisons, boolean)}
+     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, ScanComparisons, boolean, boolean)}
      * to also pass in a set of record types.
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
-        this(null, comparisons, reverse);
+        this(null, comparisons, reverse, false);
     }
 
     /**
@@ -86,9 +88,21 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes, @Nonnull ScanComparisons comparisons, boolean reverse) {
+        this(recordTypes, comparisons, reverse, false);
+    }
+
+    /**
+     * Overloaded constructor.
+     * @param recordTypes a super set of record types of the records that this scan operator can produce
+     * @param comparisons comparisons to be applied by the operator
+     * @param reverse indicator whether this scan is reverse
+     * @param fullySorted indicator whether this scan is only ordered by query's requested sort
+     */
+    public RecordQueryScanPlan(@Nullable Set<String> recordTypes, @Nonnull ScanComparisons comparisons, boolean reverse, boolean fullySorted) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.comparisons = comparisons;
         this.reverse = reverse;
+        this.fullySorted = fullySorted;
     }
 
     @Nonnull
@@ -150,6 +164,11 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         } else {
             return UNKNOWN_MAX_CARDINALITY;
         }
+    }
+
+    @Override
+    public boolean isFullySorted() {
+        return fullySorted;
     }
 
     @Nonnull

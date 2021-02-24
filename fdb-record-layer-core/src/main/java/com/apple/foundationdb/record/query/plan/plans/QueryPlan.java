@@ -144,6 +144,15 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
     }
 
     /**
+     * Indicates whether the ordering of records from this plan is fully accounted for by its requested sort.
+     * That is, each new record will have a different value for that sort key.
+     * @return {@code true} if this plan is fully sorted according to the query definition
+     */
+    default boolean isFullySorted() {
+        return false;
+    }
+
+    /**
      * Adds one to an appropriate {@link StoreTimer} counter for each plan and subplan of this plan, allowing tracking
      * of which plans are being chosen (e.g. index scan vs. full scan).
      * @param timer the counters to increment

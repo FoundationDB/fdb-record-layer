@@ -275,6 +275,11 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         return getChildStream().map(p -> p.maxCardinality(metaData)).min(Integer::compare).orElse(UNKNOWN_MAX_CARDINALITY);
     }
 
+    @Override
+    public boolean isFullySorted() {
+        return getChildren().stream().allMatch(RecordQueryPlan::isFullySorted);
+    }
+
     /**
      * Construct a new union of two compatibly-ordered plans. The resulting plan will return all results that are
      * returned by both the {@code left} or {@code right} child plans. Each plan should return results in the same

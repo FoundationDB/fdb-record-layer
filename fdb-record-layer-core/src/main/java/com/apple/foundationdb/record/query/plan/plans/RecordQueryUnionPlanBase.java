@@ -215,6 +215,11 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         return quantifiers.size();
     }
 
+    @Override
+    public boolean isFullySorted() {
+        return getChildren().stream().allMatch(RecordQueryPlan::isFullySorted);
+    }
+
     @Nonnull
     public abstract RecordQueryUnionPlanBase withChildren(@Nonnull List<RecordQueryPlan> newChildren);
 }
