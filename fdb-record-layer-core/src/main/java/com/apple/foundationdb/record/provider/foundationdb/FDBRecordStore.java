@@ -3535,11 +3535,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(indexSecondarySubspace(index).range());
         tr.clear(indexRangeSubspace(index).range());
         tr.clear(indexUniquenessViolationsSubspace(index).range());
-        // Under the index build subspace, there are two lower level subspaces, the lock space and the scanned records
-        // subspace. We are not supposed to clear the lock subspace, which is used to run online index jobs which may
-        // invoke this method. But we should clear the scanned records subspace, which, roughly speaking, counts how
-        // many records of this store are covered in index range subspace.
+        // Under the index build subspace, there are 3 lower level subspaces, the lock space, the scanned records
+        // subspace, and the type/stamp subspace. We are not supposed to clear the lock subspace, which is used to
+        // run online index jobs which may invoke this method. We should clear:
+        // * the scanned records subspace. Which, roughly speaking, counts how many records of this store are covered in
+        // index range subspace.
+        // * the type/stamp subspace. Which indicates which type of indexing is in progress.
         tr.clear(Range.startsWith(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).pack()));
+        tr.clear(Range.startsWith(OnlineIndexer.indexBuildTypeSubspace(this, index).pack()));
     }
 
     public void removeFormerIndex(FormerIndex formerIndex) {

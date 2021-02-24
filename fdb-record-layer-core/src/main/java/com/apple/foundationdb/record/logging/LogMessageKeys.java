@@ -146,9 +146,12 @@ public enum LogMessageKeys {
     INDEXER_CURR_RETRY("indexer_curr_retry"),
     INDEXER_MAX_RETRIES("indexer_max_retries"),
     DIRECTOY("directory"),
+    SOURCE_INDEX("source_index"),
 
     // comparisons
     COMPARISON_VALUE("comparison_value"),
+    EXPECTED("expected"),
+    ACTUAL("actual"),
     // functional index keys
     FUNCTION("function"),
     INDEX_KEY("index_key"),
