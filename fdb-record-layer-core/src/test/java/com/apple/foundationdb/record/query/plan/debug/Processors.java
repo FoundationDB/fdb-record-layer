@@ -24,11 +24,10 @@ import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.AdjustMatchEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExecutingTaskEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExploreExpressionEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.ExploreGroupEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.MatchExpressionEvent;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.MatchExpressionWithCandidateEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeGroupEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeInputsEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformEvent;
@@ -57,7 +56,7 @@ public class Processors {
         }
 
         default void onCommand(final PlannerRepl plannerRepl, final E event, final ParsedLine parsedLine) {
-            plannerRepl.printlnError("unknown command or syntax error: " + parsedLine.words().get(0));
+            plannerRepl.printlnError("unknown command or syntax error: " + String.join(" ", parsedLine.words()));
             onList(plannerRepl, event);
             plannerRepl.println();
         }
@@ -208,6 +207,12 @@ public class Processors {
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
             plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
+            final Bindable bindable = event.getBindable();
+            if (bindable instanceof RelationalExpression) {
+                plannerRepl.printlnExpression((RelationalExpression)bindable);
+            } else {
+                plannerRepl.printlnKeyValue("bindable", bindable.toString());
+            }
             plannerRepl.printlnKeyValue("rule", event.getRule().toString());
         }
 
@@ -218,6 +223,12 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            final Bindable bindable = event.getBindable();
+            if (bindable instanceof RelationalExpression) {
+                plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
+            } else {
+                plannerRepl.printKeyValue("bindable", bindable.toString() + "; ");
+            }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
 
@@ -268,6 +279,12 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
+            final Bindable bindable = event.getBindable();
+            if (bindable instanceof RelationalExpression) {
+                plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
+            } else {
+                plannerRepl.printKeyValue("bindable", bindable.toString() + "; ");
+            }
             plannerRepl.printKeyValue("rule", event.getRule().toString());
         }
 
@@ -278,12 +295,12 @@ public class Processors {
     }
 
     /**
-     * Processor for {@link MatchExpressionEvent}.
+     * Processor for {@link AdjustMatchEvent}.
      */
     @AutoService(Processor.class)
-    public static class MatchExpressionProcessor implements Processor<MatchExpressionEvent> {
+    public static class AdjustMatchProcessor implements Processor<AdjustMatchEvent> {
         @Override
-        public void onDetail(final PlannerRepl plannerRepl, final MatchExpressionEvent event) {
+        public void onDetail(final PlannerRepl plannerRepl, final AdjustMatchEvent event) {
             plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
             plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
             plannerRepl.printlnKeyValue("description", event.getDescription());
@@ -296,7 +313,7 @@ public class Processors {
         }
 
         @Override
-        public void onList(final PlannerRepl plannerRepl, final MatchExpressionEvent event) {
+        public void onList(final PlannerRepl plannerRepl, final AdjustMatchEvent event) {
             plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
@@ -306,53 +323,11 @@ public class Processors {
         }
 
         @Override
-        public Class<MatchExpressionEvent> getEventType() {
-            return MatchExpressionEvent.class;
+        public Class<AdjustMatchEvent> getEventType() {
+            return AdjustMatchEvent.class;
         }
     }
-
-    /**
-     * Processor for {@link MatchExpressionWithCandidateEvent}.
-     */
-    @AutoService(Processor.class)
-    public static class MatchExpressionWithCandidateProcessor implements Processor<MatchExpressionWithCandidateEvent> {
-        @Override
-        public void onDetail(final PlannerRepl plannerRepl, final MatchExpressionWithCandidateEvent event) {
-            plannerRepl.printlnKeyValue("event", event.getShorthand().name().toLowerCase());
-            plannerRepl.printlnKeyValue("location", event.getLocation().name().toLowerCase());
-            plannerRepl.printlnKeyValue("description", event.getDescription());
-            plannerRepl.printlnKeyValue("current root reference", "");
-            plannerRepl.printlnReference(event.getRootReference(), "  ");
-            plannerRepl.printlnKeyValue("current group reference", "");
-            plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
-            plannerRepl.printlnKeyValue("expression", "");
-            plannerRepl.printlnExpression(event.getExpression(), "  ");
-            plannerRepl.printlnKeyValue("match candidate", event.getMatchCandidate().getName());
-            plannerRepl.printlnKeyValue("candidate reference", "");
-            plannerRepl.printlnReference(event.getCandidateRef(), "  ");
-            plannerRepl.printlnKeyValue("candidate expression", "");
-            plannerRepl.printlnExpression(event.getCandidateExpression(), "  ");
-        }
-
-        @Override
-        public void onList(final PlannerRepl plannerRepl, final MatchExpressionWithCandidateEvent event) {
-            plannerRepl.printKeyValue("shorthand", event.getShorthand().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("location", event.getLocation().name().toLowerCase() + "; ");
-            plannerRepl.printKeyValue("description", event.getDescription() + "; ");
-            plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
-            plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
-            plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(event.getExpression()) + "; ");
-            plannerRepl.printKeyValue("match candidate", event.getMatchCandidate().getName() + "; ");
-            plannerRepl.printKeyValue("candidate reference", plannerRepl.nameForObjectOrNotInCache(event.getCandidateRef()) + "; ");
-            plannerRepl.printlnKeyValue("candidate expression", plannerRepl.nameForObjectOrNotInCache(event.getCandidateExpression()));
-        }
-
-        @Override
-        public Class<MatchExpressionWithCandidateEvent> getEventType() {
-            return MatchExpressionWithCandidateEvent.class;
-        }
-    }
-
+    
     /**
      * Processor for {@link OptimizeInputsEvent}.
      */

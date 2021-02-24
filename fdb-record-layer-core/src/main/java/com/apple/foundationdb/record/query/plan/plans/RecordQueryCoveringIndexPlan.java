@@ -146,6 +146,11 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return indexPlan.getUsedIndexes();
     }
 
+    @Override
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return indexPlan.maxCardinality(metaData);
+    }
+
     @Nonnull
     @Override
     public AvailableFields getAvailableFields() {

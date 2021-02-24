@@ -22,14 +22,11 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A relational planner expression that represents a type filter. This includes both logical and physical type filtering
@@ -39,12 +36,6 @@ import java.util.Set;
 public interface TypeFilterExpression extends RelationalExpressionWithChildren {
     @Nonnull
     Collection<String> getRecordTypes();
-
-    @Nonnull
-    @Override
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
-    }
 
     @Nonnull
     @Override

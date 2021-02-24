@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -124,6 +125,11 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
     @Override
     public Set<String> getUsedIndexes() {
         return new HashSet<>();
+    }
+
+    @Override
+    public int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return keysSource.maxCardinality();
     }
 
     @Nonnull
@@ -233,6 +239,11 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         }
 
         @Override
+        public int maxCardinality() {
+            return primaryKeys.size();
+        }
+
+        @Override
         public String toString() {
             return primaryKeys.toString();
         }
@@ -273,6 +284,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
      */
     public interface KeysSource extends PlanHashable {
         List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context);
+
+        int maxCardinality();
     }
 
     private static class ParameterKeySource implements KeysSource {
@@ -288,6 +301,11 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
         @SuppressWarnings("unchecked")
         public List<Tuple> getPrimaryKeys(@Nonnull EvaluationContext context) {
             return (List<Tuple>)context.getBinding(parameter);
+        }
+
+        @Override
+        public int maxCardinality() {
+            return UNKNOWN_MAX_CARDINALITY;
         }
 
         @Override

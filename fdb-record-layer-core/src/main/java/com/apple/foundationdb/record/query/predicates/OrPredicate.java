@@ -24,14 +24,18 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -54,11 +58,10 @@ public class OrPredicate extends AndOrPredicate {
 
     @Nullable
     @Override
-    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                            @Nonnull SourceEntry sourceEntry) {
+    public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         Boolean defaultValue = Boolean.FALSE;
         for (QueryPredicate child : getChildren()) {
-            final Boolean val = child.eval(store, context, sourceEntry);
+            final Boolean val = child.eval(store, context, record, message);
             if (val == null) {
                 defaultValue = null;
             } else if (val) {
@@ -77,7 +80,6 @@ public class OrPredicate extends AndOrPredicate {
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return PlanHashable.planHash(hashKind, getChildren());
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
                 List<PlanHashable> hashables = new ArrayList<>(getChildren().size() + 1);
@@ -92,5 +94,14 @@ public class OrPredicate extends AndOrPredicate {
     @Override
     public OrPredicate rebaseWithRebasedChildren(final AliasMap translationMap, final List<QueryPredicate> rebasedChildren) {
         return new OrPredicate(rebasedChildren);
+    }
+
+    public static QueryPredicate or(@Nonnull Collection<QueryPredicate> children) {
+        Verify.verify(!children.isEmpty());
+        if (children.size() == 1) {
+            return Iterables.getOnlyElement(children);
+        }
+
+        return new OrPredicate(ImmutableList.copyOf(children));
     }
 }

@@ -56,7 +56,7 @@ public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilter
         final Quantifier.ForEach qun = call.get(qunMatcher);
 
         // TODO add overload
-        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), qun.getRangesOver());
+        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), qun.getRangesOver());
         final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
         if (filterRecordTypes.containsAll(childRecordTypes)) {
             // type filter is completely redundant, so remove it entirely

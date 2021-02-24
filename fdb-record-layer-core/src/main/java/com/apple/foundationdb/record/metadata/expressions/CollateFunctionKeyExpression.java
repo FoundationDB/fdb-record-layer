@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.common.text.TextCollator;
 import com.apple.foundationdb.record.provider.common.text.TextCollatorRegistry;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -179,8 +179,10 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
 
     @Nonnull
     @Override
-    public Element toElement(@Nonnull Source rootSource) {
-        return normalizeForPlanner(rootSource, Collections.emptyList()).flattenForPlanner().get(0);
+    public Value toValue(@Nonnull final CorrelationIdentifier baseAlias,
+                         @Nonnull final List<String> fieldNamePrefix) {
+        // TODO support this
+        throw new UnsupportedOperationException();
     }
 
     @Nullable
@@ -196,5 +198,10 @@ public class CollateFunctionKeyExpression extends FunctionKeyExpression implemen
     @Override
     public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
         return super.basePlanHash(hashKind, BASE_HASH);
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return super.baseQueryHash(hashKind, BASE_HASH);
     }
 }

@@ -28,7 +28,10 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -247,8 +250,8 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        throw new UnsupportedOperationException(); // must be implemented by each extender
+    public <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+        return visitor.visitExpression(this);
     }
 
     @Override
@@ -293,6 +296,20 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+    }
+
+    /**
+     * Base implementation of {@link #queryHash}.
+     * This implementation makes each concrete subclass implement its own version of {@link #queryHash} so that they are
+     * guided to add their own class modifier (See {@link com.apple.foundationdb.record.ObjectPlanHash ObjectPlanHash}).
+     * This implementation is meant to give subclasses common functionality for their own implementation.
+     * @param hashKind the query hash kind to use
+     * @param baseHash the subclass' base hash (concrete identifier)
+     * @param hashables the rest of the subclass' hashable parameters (if any)
+     * @return the query hash value calculated
+     */
+    protected int baseQueryHash(@Nonnull final QueryHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
+        return HashUtils.queryHash(hashKind, baseHash, getName(), getArguments(), hashables);
     }
 
     @Override

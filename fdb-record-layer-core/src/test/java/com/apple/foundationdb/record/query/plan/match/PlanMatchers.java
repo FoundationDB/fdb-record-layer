@@ -126,6 +126,10 @@ public class PlanMatchers {
         return new FilterMatcherWithComponent(component, childMatcher);
     }
 
+    public static Matcher<RecordQueryPlan> anyFilter(@Nonnull Matcher<RecordQueryPlan> childMatcher) {
+        return new AnyFilterMatcher(childMatcher);
+    }
+
     public static Matcher<RecordQueryPlan> typeFilter(@Nonnull Matcher<Iterable<? extends String>> typeMatcher,
                                                       @Nonnull Matcher<RecordQueryPlan> childMatcher) {
         return new TypeFilterMatcher(typeMatcher, childMatcher);

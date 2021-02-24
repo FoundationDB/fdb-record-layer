@@ -230,7 +230,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
     /**
      * Verify that a complex query with an appropriate multi-field index uses the index, even when bounds are complex.
      */
-    @Test
+    @DualPlannerTest
     public void testComplexQuery4() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);

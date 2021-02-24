@@ -25,8 +25,8 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -87,14 +87,13 @@ public class NestedField extends BaseNestedField {
         return getFieldName() + "/{" + getChild() + "}";
     }
 
-    @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
         ImmutableList<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return childComponent.normalizeForPlanner(source, fieldNames);
+        return childComponent.expand(baseAlias, fieldNames);
     }
 
     @Override
@@ -130,4 +129,8 @@ public class NestedField extends BaseNestedField {
         }
     }
 
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return super.baseQueryHash(hashKind, BASE_HASH, getChild());
+    }
 }

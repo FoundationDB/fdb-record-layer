@@ -23,9 +23,11 @@ package com.apple.foundationdb.record.query.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.record.util.HashUtils;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -68,10 +70,15 @@ public class OrComponent extends AndOrComponent {
         return OrComponent.from(newChildren);
     }
 
-    @Nonnull
     @Override
-    public QueryPredicate normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        return new OrPredicate(normalizeChildrenForPlanner(source, fieldNamePrefix));
+    public GraphExpansion expand(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+        final GraphExpansion childrenGraphExpansion =
+                GraphExpansion.ofOthers(getChildren().stream()
+                        .map(child -> child.expand(baseAlias, fieldNamePrefix))
+                        .map(expanded -> expanded.withPredicate(expanded.asAndPredicate()))
+                        .collect(ImmutableList.toImmutableList()));
+
+        return childrenGraphExpansion.withPredicate(OrPredicate.or(childrenGraphExpansion.getPredicates()));
     }
 
     @Override
@@ -102,5 +109,10 @@ public class OrComponent extends AndOrComponent {
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return HashUtils.queryHash(hashKind, BASE_HASH, getChildren());
     }
 }

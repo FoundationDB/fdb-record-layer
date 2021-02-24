@@ -28,15 +28,27 @@ import javax.annotation.Nonnull;
  * member of the model apart. Using this class we can implement a stable (withstand JVM restart and class refactorings)
  * base hash for each object that can be added to the rest of the plan.
  */
-public class ObjectPlanHash implements PlanHashable {
+public class ObjectPlanHash implements PlanHashable, QueryHashable {
+    private Object id;
     private int hashCode;
 
     public ObjectPlanHash(@Nonnull final Object id) {
+        this.id = id;
         this.hashCode = id.hashCode();
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
         return hashCode;
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
+        return hashCode;
+    }
+
+    @Override
+    public String toString() {
+        return id.toString();
     }
 }

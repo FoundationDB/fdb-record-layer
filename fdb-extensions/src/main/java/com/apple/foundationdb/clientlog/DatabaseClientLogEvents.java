@@ -29,6 +29,7 @@ import com.apple.foundationdb.TransactionOptions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
 import javax.annotation.Nonnull;
@@ -143,9 +144,9 @@ public class DatabaseClientLogEvents {
             if (events == null) {
                 return versionRangeProducer.apply(tr).thenCompose(versions -> {
                     final Long startVersion = versions[0];
-                    final byte[] startKey = startVersion == null ? FDBClientLogEvents.EVENT_KEY_PREFIX : FDBClientLogEvents.eventKeyForVersion(startVersion);
+                    final byte[] startKey = startVersion == null ? SystemKeyspace.CLIENT_LOG_KEY_PREFIX : FDBClientLogEvents.eventKeyForVersion(startVersion);
                     final Long endVersion = versions[1];
-                    final byte[] endKey = endVersion == null ? ByteArrayUtil.strinc(FDBClientLogEvents.EVENT_KEY_PREFIX) : FDBClientLogEvents.eventKeyForVersion(endVersion);
+                    final byte[] endKey = endVersion == null ? ByteArrayUtil.strinc(SystemKeyspace.CLIENT_LOG_KEY_PREFIX) : FDBClientLogEvents.eventKeyForVersion(endVersion);
                     events = new DatabaseClientLogEvents(startKey, endKey);
                     return loopBody();
                 });

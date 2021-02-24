@@ -23,51 +23,157 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
-import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
+import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Optional;
+import java.util.Set;
 
 /**
- * An interface describing a predicate that can be evaluated on a {@link SourceEntry} (usually derived from a record).
- *
- * <p>
- * {@code QueryPredicate} is generally quite similar to {@link com.apple.foundationdb.record.query.expressions.QueryComponent}.
- * However, there is a key difference in how each interface evaluates the predicate against a given record:
- * </p>
- * <ul>
- *     <li>
- *         A {@link com.apple.foundationdb.record.query.expressions.QueryComponent} is evaluated on a
- *         {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecord} wrapping a Protobuf message.
- *         To evaluate predicates on nested records, a {@code QueryComponent} such as
- *         {@link com.apple.foundationdb.record.query.expressions.NestedField} or
- *         {@link com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent} will descend into the nested
- *         record.
- *     </li>
- *     <li>
- *         A {@code QueryPredicate} is evaluated on a {@link SourceEntry}, which maps
- *         {@link com.apple.foundationdb.record.query.plan.temp.view.Source}s to values. The predicate can be evaluated
- *         on a nested record by specifying a complex {@code Source}, such as
- *         {@link com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource}. All sources are evaluated
- *         to produce a stream of source entries before any predicates are evaluated.
- *     </li>
- * </ul>
- *
- * <p>
- * Concretely, the difference between {@code QueryPredicate}s and {@code QueryComponent}s is most easily seen in the
- * way that multiple predicates on repeated fields can be expressed. Any query predicate anywhere in a tree of
- * predicates can make use of any source. In contrast, each {@link com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent}
- * is a single iteration through the field's repeated values so the values obtained by that iteration are usable only
- * within that {@code OneOfThemWithComponent}.
- * </p>
+ * Class to model the concept of a predicate. A predicate is a construct that can be evaluated using
+ * three-values logic for a set of given inputs. The caller can then use that result to take appropriate action,
+ * e.g. filter a record out of a set of records, etc.
  */
 @API(API.Status.EXPERIMENTAL)
 public interface QueryPredicate extends Bindable, PlanHashable, Correlated<QueryPredicate> {
+
+    /**
+     * Determines if this predicate implies some other predicate.
+     *
+     * Let's say that {@code EVAL(p)} denotes the outcome of the evaluation of a predicate. A predicate {@code p1}
+     * implies some other predicate {@code p2} if
+     *
+     * <pre>
+     *     {@code
+     *     (EVAL(p1, recordBindings) == true) -> (EVAL(p2, recordBindings) == true)
+     *     }
+     * </pre>
+     *
+     * for all {@code recordBindings} possibly contained in a stream of records that are potentially being flowed at
+     * execution time.
+     *
+     * If {@code p1} implies {@code p2}, this method returns an instance of class {@link PredicateMapping} which should
+     * give the caller all necessary info to change {@code p2} to {@code COMP(p2)} in a way make the opposite also true:
+     *
+     * <pre>
+     *     {@code
+     *     (EVAL(p1, recordBindings) == true) <-> (EVAL(COMP(p2), recordBindings) == true)
+     *     }
+     * </pre>
+     *
+     * Note that this method takes special care when placeholders are involved as this method is called during index
+     * matching with candidates graphs. A placeholder by itself cannot be executed. In order for the place holder to
+     * match it has to partake in a relationship with a query predicate that tells the placeholder the specific comparison
+     * and bounds it operates over. In some sends this expresses a kind of polymorphism of the placeholder that is bound
+     * to a specific predicate only in the presence of a sargable predicate
+     * ({@link com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Sargable}) on the query side.
+     *
+     * <h2>Examples:</h2>
+     *
+     * <h2>Example 1</h2>
+     * <pre>
+     *     {@code
+     *     p1: x = 5
+     *     p2: true (tautology predicate)
+     *
+     *     result: optional of PredicateMapping(COMP(true) => x = 5)
+     *     }
+     *     {@code p1} implies {@code p2} but, i.e., {@code x = 5} implies {@code true} but in order for {@code true} to
+     *     imply {@code x = 5}, the compensation has to be applied such that {@code COMP(p2)} becomes {@code true ^ x = 5}.
+     * </pre>
+     *
+     * <h2>Example 2</h2>
+     * <pre>
+     *     {@code
+     *     p1: x = 5
+     *     p2: x COMPARISONRANGE (placeholder)
+     *
+     *     result: optional of PredicateMapping(COMP(x COMPARISONRANGE) => x = 5, binding b to indicate
+     *     COMPARISONRANGE should be [5, 5])
+     *     }
+     *     {@code p1} implies {@code p2} but, i.e., {@code x = 5} implies {@code x COMPARISONRANGE} but only if
+     *     {@code COMPARISONRANGE} is bound to {@code [5, 5]} but in order for {@code x COMPARISONRANGE} to
+     *     imply {@code x = 5}, the compensation has to be applied such that {@code COMP(p2)} becomes {@code x = 5}.
+     * </pre>
+     *
+     * <h2>Example 3</h2>
+     * <pre>
+     *     {@code
+     *     p1: x = 5
+     *     p2: y COMPARISONRANGE (placeholder)
+     *
+     *     result: Optional.empty()
+     *     }
+     *     {@code p1} does not imply {@code p2}, i.e., {@code x = 5} does not imply {@code y COMPARISONRANGE}.
+     * </pre>
+     *
+     * Note: This method is expected to return a meaningful non-empty result if called with a candidate predicate that
+     * also represents a tautology.
+     *
+     * @param aliasMap the current alias map
+     * @param candidatePredicate another predicate (usually in a match candidate)
+     * @return {@code Optional(predicateMapping)} if {@code this} implies {@code candidatePredicate} where
+     *         {@code predicateMapping} is an new instance of {@link PredicateMapping} that captures potential bindings
+     *         and compensation for {@code candidatePredicate}
+     *         such that {@code candidatePredicate} to also imply {@code this}, {@code Optional.empty()} otherwise
+     */
+    @Nonnull
+    @SuppressWarnings("unused")
+    default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull AliasMap aliasMap,
+                                                                 @Nonnull final QueryPredicate candidatePredicate) {
+        if (candidatePredicate.isTautology()) {
+            return Optional.of(new PredicateMapping(this, candidatePredicate, ((matchInfo, boundParameterPrefixMap) -> Optional.of(this))));
+        }
+        
+        return Optional.empty();
+    }
+
+    /**
+     * Method to find all mappings of this predicate in an {@link Iterable} of candidate predicates. If no mapping can
+     * be found at all, this method will then call {@link #impliesCandidatePredicate(AliasMap, QueryPredicate)} using
+     * a tautology predicate as candidate which by should by contract should return a {@link PredicateMapping}.
+     * @param aliasMap the current alias map
+     * @param candidatePredicates an {@link Iterable} of candiate predicates
+     * @return a non-empty set of {@link PredicateMapping}s
+     */
+    default Set<PredicateMapping> findImpliedMappings(@NonNull AliasMap aliasMap,
+                                                      @Nonnull Iterable<QueryPredicate> candidatePredicates) {
+        final ImmutableSet.Builder<PredicateMapping> mappingBuilder = ImmutableSet.builder();
+
+        for (final QueryPredicate candidatePredicate : candidatePredicates) {
+            final Optional<PredicateMapping> impliedByQueryPredicateOptional =
+                    impliesCandidatePredicate(aliasMap, candidatePredicate);
+            impliedByQueryPredicateOptional.ifPresent(mappingBuilder::add);
+        }
+
+        final ImmutableSet<PredicateMapping> result = mappingBuilder.build();
+        if (result.isEmpty()) {
+            final ConstantPredicate tautologyPredicate = new ConstantPredicate(true);
+            return impliesCandidatePredicate(aliasMap, tautologyPredicate)
+                    .map(ImmutableSet::of)
+                    .orElseThrow(() -> new RecordCoreException("should have found at least one mapping"));
+        }
+        return result;
+    }
+
+    /**
+     * Method that indicates whether this predicate is filtering at all.
+     * @return {@code true} if this predicate always evaluates to true, {@code false} otherwise
+     */
+    default boolean isTautology() {
+        return false;
+    }
+
     @Nullable
-    <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                     @Nonnull SourceEntry sourceEntry);
+    <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
 }

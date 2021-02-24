@@ -23,11 +23,12 @@ package com.apple.foundationdb.clientlog;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.google.common.primitives.Longs;
 
@@ -35,7 +36,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -66,22 +66,13 @@ public class FDBClientLogEvents {
             PROTOCOL_VERSION_5_2, PROTOCOL_VERSION_6_0, PROTOCOL_VERSION_6_1, PROTOCOL_VERSION_6_2
     };
 
-    //                                              0         1         2         3         4         5         6         7
-    //                                              0123456789012345678901234567890123456789012345678901234567890123456789012345...
-    public static final String EVENT_KEY_PATTERN = "FF/fdbClientInfo/client_latency/SSSSSSSSSS/RRRRRRRRRRRRRRRR/NNNNTTTT/XXXX/";
-    @SpotBugsSuppressWarnings("MS_PKGPROTECT")
-    public static final byte[] EVENT_KEY_PREFIX;
-    public static final int EVENT_KEY_VERSION_START_INDEX = 32;
+    //                    0               1         2         3         4         5         6         7
+    //                    0   1   23456789012345678901234567890123456789012345678901234567890123456789012345...
+    // Event key pattern: \xff\x02/fdbClientInfo/client_latency/SSSSSSSSSS/RRRRRRRRRRRRRRRR/NNNNTTTT/XXXX/
     public static final int EVENT_KEY_VERSION_END_INDEX = 42;
     public static final int EVENT_KEY_ID_START_INDEX = 43;
     public static final int EVENT_KEY_ID_END_INDEX = 59;
     public static final int EVENT_KEY_CHUNK_INDEX = 60;
-
-    static {
-        EVENT_KEY_PREFIX = EVENT_KEY_PATTERN.substring(0, EVENT_KEY_VERSION_START_INDEX).getBytes(StandardCharsets.US_ASCII);
-        EVENT_KEY_PREFIX[0] = (byte)0xFF;
-        EVENT_KEY_PREFIX[1] = (byte)0x02;
-    }
 
     private static final Map<Integer, MutationType> MUTATION_TYPE_BY_CODE = buildMutationTypeMap();
 
@@ -736,7 +727,7 @@ public class FDBClientLogEvents {
         // Do not include the two bytes for the transaction number at this version.
         final byte[] result = new byte[EVENT_KEY_VERSION_END_INDEX - 2];
         final ByteBuffer buffer = ByteBuffer.wrap(result);
-        buffer.put(EVENT_KEY_PREFIX);
+        buffer.put(SystemKeyspace.CLIENT_LOG_KEY_PREFIX);
         buffer.putLong(version);
         return result;
     }

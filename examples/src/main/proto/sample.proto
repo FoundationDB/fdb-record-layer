@@ -35,7 +35,7 @@ message Vendor {
     // so each record must have primary key that is unique across all records
     // of each type in each store. (In other words, two records of different
     // types cannot share the same primary key.) For more information, see the
-    // FAQ: https://github.com/FoundationDB/fdb-record-layer/blob/master/docs/FAQ.md#are-record-types-tables
+    // FAQ: https://github.com/FoundationDB/fdb-record-layer/blob/main/docs/FAQ.md#are-record-types-tables
     optional int64 vendor_id = 1 [(com.apple.foundationdb.record.field).primary_key = true];
     optional string vendor_name = 2;
 }

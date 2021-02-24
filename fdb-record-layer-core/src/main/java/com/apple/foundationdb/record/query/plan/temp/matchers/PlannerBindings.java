@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 
 import javax.annotation.Nonnull;
@@ -81,21 +82,20 @@ public class PlannerBindings {
     }
 
     /**
-     * Retrieve all bindables bound to {@code key} if there is at least one such bindable. The bindables in the returned
+     * Retrieve all {@link Bindable}s bound to {@code key} if there is at least one such bindable. The bindables in the returned
      * list appear in same order as they appear in the list of children of the {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}
      * that produced this set of bindings. If no bindable is bound to this key, throw a {@link NoSuchElementException}.
      * @param key a matcher
      * @param <T> the type of {@link Bindable} that was bound to {@code key}
      * @return a list of bindable objects bound to the key
-     * @throws NoSuchElementException if no bindable objects are bound to the given key
      */
     @Nonnull
     @SuppressWarnings("unchecked")
     public <T extends Bindable> List<T> getAll(@Nonnull ExpressionMatcher<T> key) {
         if (bindings.containsKey(key)) {
-            return (List<T>) bindings.get(key);
+            return (List<T>)bindings.get(key);
         }
-        throw new NoSuchElementException("attempted to extract bindable from binding using non-existent key");
+        return ImmutableList.of();
     }
 
     /**
@@ -165,8 +165,21 @@ public class PlannerBindings {
             this.map = ImmutableListMultimap.builder();
         }
 
+        @Nonnull
         public Builder put(@Nonnull ExpressionMatcher<? extends Bindable> key, @Nonnull Bindable bindable) {
             map.put(key, bindable);
+            return this;
+        }
+
+        @Nonnull
+        public Builder putAll(@Nonnull ExpressionMatcher<? extends Bindable> key, @Nonnull Iterable<? extends Bindable> bindables) {
+            map.putAll(key, bindables);
+            return this;
+        }
+
+        @Nonnull
+        public Builder putAll(@Nonnull PlannerBindings plannerBindings) {
+            map.putAll(plannerBindings.bindings);
             return this;
         }
 

@@ -20,11 +20,14 @@
 
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
+import com.apple.foundationdb.record.query.plan.temp.TopologicalSort;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
 import com.google.common.graph.ImmutableNetwork;
 import com.google.common.html.HtmlEscapers;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -34,6 +37,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
@@ -72,7 +76,6 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
     public static final String DEFAULT_GRAPH_ID = "G";
 
     private static final String INDENT = "  ";
-    private static final String INDENT2 = INDENT + INDENT;
 
     private static final Escaper escaper = HtmlEscapers.htmlEscaper();
 
@@ -149,15 +152,12 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         }
     }
 
-    @Override
-    protected void renderNodes(@Nonnull final ExporterContext context) {
+    @SuppressWarnings("unchecked")
+    private void renderInvisibleEdges(@Nonnull final ExporterContext context, final N n, final String indentation) {
         final ImmutableNetwork<N, E> network = context.getNetwork();
         final PrintWriter out = context.getPrintWriter();
 
-        super.renderNodes(context);
-
-        // Go through the vertex set a second time to render dependsOn information
-        // vertex set. dependsOn is a property of an edge specifying a partial order between that edge and
+        // dependsOn is a property of an edge specifying a partial order between that edge and
         // other inEdges to the target of that edge:
         //
         //           n*                                           n*
@@ -177,63 +177,47 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         // correct left-to-right layouts. A complete ordering will force exactly on left-to-right layout.
         //
         // The way we encode the left-to-rightedness of the edges is by creating invisible edges between n1, ..., nk.
-        for (final N n : network.nodes()) {
-            // If the current node had children that explicitly encode an order we do the following:
-            // We create a sub-block and set rank=same, rankDir=LR in order to have all children be rendered
-            // on the same level but left to right.
-            final Set<E> childrenEdges = network.inEdges(n);
 
-            // We sort the childrenEdges topologically insertion sort-style O(N^2).
-            final List<E> orderedChildrenEdges = new ArrayList<>(childrenEdges.size());
+        // If the current node had children that explicitly encode an order we do the following:
+        // We create a sub-block and set rank=same, rankDir=LR in order to have all children be rendered
+        // on the same level but left to right.
+        final Set<E> childrenEdges = network.inEdges(n);
 
-            boolean needsInvisibleEdges = false;
-            for (final E toBeInsertedEdge : childrenEdges) {
-                final Set<? extends AbstractPlannerGraph.AbstractEdge> dependsOn = toBeInsertedEdge.getDependsOn();
+        final boolean needsInvisibleEdges = childrenEdges.stream().anyMatch(edge -> !edge.getDependsOn().isEmpty());
 
-                if (!dependsOn.isEmpty()) {
-                    needsInvisibleEdges = true;
-                }
+        if (needsInvisibleEdges) {
+            final Optional<List<E>> orderedChildrenEdgesOptional =
+                    TopologicalSort.anyTopologicalOrderPermutation(childrenEdges, edge -> (Set<E>)edge.getDependsOn());
+            Verify.verify(orderedChildrenEdgesOptional.isPresent());
+            final List<E> orderedChildrenEdges = orderedChildrenEdgesOptional.get();
 
-                int index = 0;
-                while (index < orderedChildrenEdges.size()) {
-                    final E currentEdge = orderedChildrenEdges.get(index);
-                    if (!dependsOn.contains(currentEdge)) {
-                        break;
+            final ArrayList<N> childrenOperatorList = new ArrayList<>();
+            for (final E currentEdge : orderedChildrenEdges) {
+                final N currentChildNode = network.incidentNodes(currentEdge).nodeU();
+                if (currentChildNode instanceof PlannerGraph.ExpressionRefHeadNode) {
+                    final Set<N> refMembers = network.predecessors(currentChildNode);
+                    for (final N refMember : Sets.filter(refMembers, refMember -> refMember instanceof PlannerGraph.ExpressionRefMemberNode)) {
+                        childrenOperatorList.addAll(network.predecessors(refMember));
                     }
-                    index ++;
+                } else {
+                    childrenOperatorList.add(currentChildNode);
                 }
-                orderedChildrenEdges.add(index, toBeInsertedEdge);
             }
-            if (needsInvisibleEdges) {
-                final ArrayList<N> childrenOperatorList = new ArrayList<>();
-                for (final E currentEdge : orderedChildrenEdges) {
-                    final N currentChildNode = network.incidentNodes(currentEdge).nodeU();
-                    if (currentChildNode instanceof PlannerGraph.ExpressionRefHeadNode) {
-                        final Set<N> refMembers = network.predecessors(currentChildNode);
-                        for (final N refMember : refMembers) {
-                            Verify.verify(refMember instanceof PlannerGraph.ExpressionRefMemberNode);
-                            childrenOperatorList.addAll(network.predecessors(refMember));
-                        }
-                    } else {
-                        childrenOperatorList.add(currentChildNode);
-                    }
-                }
 
-                // We have already exported all nodes; we will now render "hidden" edges to encode the edge order.
-                for (int index = 0; index < childrenOperatorList.size() - 1; index ++) {
-                    final N currentChildNode = childrenOperatorList.get(index);
-                    final N nextChildNode = childrenOperatorList.get(index + 1);
-                    out.println(INDENT + "{");
-                    out.println(INDENT2 + "rank=same;");
-                    out.println(INDENT2 + "rankDir=LR;");
-                    out.print(INDENT);
-                    renderEdge(context,
-                            true,
-                            currentChildNode,
-                            nextChildNode,
-                            ImmutableMap.of("color", Attribute.dot("red"), "style", Attribute.dot("invis")));
-                    out.println(INDENT + "}");
-                }
+            // We have already exported all nodes; we will now render "hidden" edges to encode the edge order.
+            for (int index = 0; index < childrenOperatorList.size() - 1; index ++) {
+                final N currentChildNode = childrenOperatorList.get(index);
+                final N nextChildNode = childrenOperatorList.get(index + 1);
+                out.println(indentation + "{");
+                out.println(indentation + INDENT + "rank=same;");
+                out.println(indentation + INDENT + "rankDir=LR;");
+                out.print(indentation);
+                renderEdge(context,
+                        true,
+                        currentChildNode,
+                        nextChildNode,
+                        ImmutableMap.of("color", Attribute.dot("red"), "style", Attribute.dot("invis")));
+                out.println(indentation + "}");
             }
         }
     }
@@ -314,19 +298,30 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     @Override
     protected void renderClusters(@Nonnull final ExporterContext context, @Nonnull final Collection<Cluster<N, E>> clusters) {
-        renderClusters(context, clusters, "cluster", INDENT);
+        renderClusters(context, context.getNetwork().nodes(), clusters, "cluster", INDENT);
     }
 
-    protected void renderClusters(@Nonnull final ExporterContext context, @Nonnull final Collection<Cluster<N, E>> clusters, @Nonnull final String prefix, @Nonnull String indentation) {
+    protected void renderClusters(@Nonnull final ExporterContext context,
+                                  @NonNull final Set<N> currentNodes,
+                                  @Nonnull final Collection<Cluster<N, E>> nestedClusters,
+                                  @Nonnull final String prefix,
+                                  @Nonnull String indentation) {
+
+        Set<N> remainingNodes = Sets.newHashSet(currentNodes);
         int i = 1;
-        for (final Cluster<N, E> cluster : clusters) {
-            final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider = cluster.getClusterAttributeProvider();
+        for (final Cluster<N, E> nestedCluster : nestedClusters) {
+            final ComponentAttributeProvider<Cluster<N, E>> clusterAttributeProvider = nestedCluster.getClusterAttributeProvider();
             renderCluster(context,
                     prefix + "_" + i,
-                    cluster,
-                    clusterAttributeProvider.apply(cluster),
+                    nestedCluster,
+                    clusterAttributeProvider.apply(nestedCluster),
                     indentation);
+            remainingNodes = Sets.difference(remainingNodes, nestedCluster.getNodes());
             i ++;
+        }
+
+        for (final N remainingNode : remainingNodes) {
+            renderInvisibleEdges(context, remainingNode, indentation);
         }
     }
 
@@ -357,7 +352,7 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
         final Collection<Cluster<N, E>> nestedClusters = nestedClusterProvider.apply(context.getNetwork(), cluster.getNodes());
         if (!nestedClusters.isEmpty()) {
             out.println();
-            renderClusters(context, nestedClusters, clusterId, indentation + INDENT);
+            renderClusters(context, cluster.getNodes(), nestedClusters, clusterId, indentation + INDENT);
             out.print(indentation);
         }
         out.println("}");

@@ -174,9 +174,13 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recordStore.saveRecord(record);
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("str_value_indexed")))));
-            assertEquals(423324477, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            if (planner instanceof RecordQueryPlanner) {
+                assertEquals(423324477, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
             // assertEquals(1148834070, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            } else {
+                assertEquals(-1489463374, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            }
 
             List<Long> keys = recordStore.executeQuery(plan)
                     .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).getRecNo()).asList().get();
@@ -382,9 +386,13 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
-        assertEquals(-223683738, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-223683738, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(1148834070, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertEquals(-2136471589, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -447,9 +455,13 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("universal_num_value_2")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
-        assertEquals(-709761689, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-709761689, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(-1366919407, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertEquals(1427197808, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        }
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setFilter(Query.field("num_value_2").equalsValue(123))
@@ -488,9 +500,13 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
-        assertEquals(-223683738, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-223683738, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
         // assertEquals(-1148834070, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertEquals(-2136471589, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        }
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")

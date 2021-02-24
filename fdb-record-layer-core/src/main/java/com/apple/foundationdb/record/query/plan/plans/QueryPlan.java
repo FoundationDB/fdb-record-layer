@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -45,6 +46,11 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
+
+    /**
+     * The result of {@link #maxCardinality} is not known.
+     */
+    int UNKNOWN_MAX_CARDINALITY = Integer.MAX_VALUE;
 
     /**
      * Execute this query plan.
@@ -127,6 +133,15 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * @return <code>true</code> if this plan (or one of its components) loads records by their primary key
      */
     boolean hasLoadBykeys();
+
+    /**
+     * Indicates how many records this plan could possibly return.
+     * @param metaData meta-data to use to determine things like index uniqueness
+     * @return the maximum number of records or {@link #UNKNOWN_MAX_CARDINALITY} if not known
+     */
+    default int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return UNKNOWN_MAX_CARDINALITY;
+    }
 
     /**
      * Adds one to an appropriate {@link StoreTimer} counter for each plan and subplan of this plan, allowing tracking

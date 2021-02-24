@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 
@@ -58,8 +58,8 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
         String indexName = null;
         if (expression instanceof RecordQueryPlanWithIndex) {
             indexName = ((RecordQueryPlanWithIndex)expression).getIndexName();
-        } else if (expression instanceof IndexEntrySourceScanExpression) {
-            indexName = ((IndexEntrySourceScanExpression)expression).getIndexName();
+        } else if (expression instanceof IndexScanExpression) {
+            indexName = ((IndexScanExpression)expression).getIndexName();
         }
         if (indexName != null) {
             return context.getIndexByName(indexName).getRootExpression().createsDuplicates();

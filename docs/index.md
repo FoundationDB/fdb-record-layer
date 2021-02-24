@@ -30,9 +30,9 @@ reliability, and performance in a distributed setting.
 * [Versioning Guide](Versioning.md)
 * [Release Notes](ReleaseNotes.md)
 * [Frequently Asked Questions](FAQ.md)
-* [Contributing](https://github.com/FoundationDB/fdb-record-layer/blob/master/CONTRIBUTING.md)
-* [Code of Conduct](https://github.com/FoundationDB/fdb-record-layer/blob/master/CODE_OF_CONDUCT.md)
-* [License](https://github.com/FoundationDB/fdb-record-layer/blob/master/LICENSE)
+* [Contributing](https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md)
+* [Code of Conduct](https://github.com/FoundationDB/fdb-record-layer/blob/main/CODE_OF_CONDUCT.md)
+* [License](https://github.com/FoundationDB/fdb-record-layer/blob/main/LICENSE)
 
 The API documentation can be found here for the most recent releases of each of this
 project's published libraries:

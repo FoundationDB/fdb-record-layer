@@ -73,7 +73,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
-import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
@@ -214,6 +213,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return the meta-data
      */
     @Nonnull
+    @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
     }
@@ -223,6 +223,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      * @return the record store state
      */
     @Nonnull
+    @Override
     public RecordStoreState getRecordStoreState() {
         return recordStoreState;
     }
@@ -553,7 +554,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 if (index == null) {
                     // if we scan without an index all filters become index filters as we don't need a fetch
                     // to evaluate these filters
-                    p = p.withFilters(Collections.emptyList(), p.combineNonSargables());
+                    p = p.withFilters(p.combineNonSargables(), Collections.emptyList());
                 } else {
                     p = computeIndexFilters(planContext, p);
                 }
@@ -1528,12 +1529,6 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     @Nullable
     public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index, @Nonnull KeyExpression indexExpr) {
-        return planCoveringAggregateIndex(query, index, indexExpr, false);
-    }
-
-    @Nullable
-    public RecordQueryCoveringIndexPlan planCoveringAggregateIndex(@Nonnull RecordQuery query, @Nonnull Index index,
-                                                                   @Nonnull KeyExpression indexExpr, boolean allowRepeated) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() != 1) {
             // Unfortunately, since we materialize partial records, we need a unique type for them.
@@ -1542,6 +1537,8 @@ public class RecordQueryPlanner implements QueryPlanner {
         final RecordType recordType = recordTypes.iterator().next();
         final PlanContext planContext = getPlanContext(query);
         planContext.rankComparisons = new RankComparisons(query.getFilter(), planContext.indexes);
+        // Repeated fields will be scanned one at a time by covering aggregate, so there is no issue with fan out.
+        planContext.allowDuplicates = true;
         final CandidateScan candidateScan = new CandidateScan(planContext, index, query.isSortReverse());
         final ScoredPlan scoredPlan = planCandidateScan(candidateScan, indexExpr,
                 BooleanNormalizer.forConfiguration(configuration).normalizeIfPossible(query.getFilter()), query.getSort());
@@ -1559,7 +1556,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
         builder.addRequiredMessageFields();
-        if (!builder.isValid(allowRepeated)) {
+        if (!builder.isValid(true)) {
             return null;
         }
 
@@ -1599,6 +1596,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         @Nullable
         final KeyExpression commonPrimaryKey;
         RankComparisons rankComparisons;
+        boolean allowDuplicates;
 
         public PlanContext(@Nonnull RecordQuery query, @Nonnull List<Index> indexes,
                            @Nullable KeyExpression commonPrimaryKey) {
@@ -1848,7 +1846,9 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
             boolean createsDuplicates = false;
             if (candidateScan.index != null) {
-                createsDuplicates = candidateScan.index.getRootExpression().createsDuplicates();
+                if (!candidateScan.planContext.allowDuplicates) {
+                    createsDuplicates = candidateScan.index.getRootExpression().createsDuplicates();
+                }
                 if (createsDuplicates && index != null && index.createsDuplicatesAfter(comparisons.size())) {
                     // If fields after we stopped comparing create duplicates, they might be empty, so that a record
                     // that otherwise matches the comparisons would be absent from the index entirely.

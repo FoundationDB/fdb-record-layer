@@ -37,19 +37,25 @@ public class RecordQueryPlannerConfiguration {
     private final boolean checkForDuplicateConditions;
     private final boolean deferFetchAfterUnionAndIntersection;
     private final boolean optimizeForIndexFilters;
+    private final int maxTaskQueueSize;
+    private final int maxTotalTaskCount;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
                                             int complexityThreshold,
                                             boolean checkForDuplicateConditions,
                                             boolean deferFetchAfterUnionAndIntersection,
-                                            boolean optimizeForIndexFilters) {
+                                            boolean optimizeForIndexFilters,
+                                            int maxTaskQueueSize,
+                                            int maxTotalTaskCount) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.complexityThreshold = complexityThreshold;
         this.checkForDuplicateConditions = checkForDuplicateConditions;
         this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
         this.optimizeForIndexFilters = optimizeForIndexFilters;
+        this.maxTaskQueueSize = maxTaskQueueSize;
+        this.maxTotalTaskCount = maxTotalTaskCount;
     }
 
     /**
@@ -116,6 +122,22 @@ public class RecordQueryPlannerConfiguration {
         return optimizeForIndexFilters;
     }
 
+    /**
+     * Return the size limit of the cascades planner task queue.
+     * @return the maximum size of the queue. 0 means "unbound" (the default). Trying to add a task beyond the maximum size will fail the planning.
+     */
+    public int getMaxTaskQueueSize() {
+        return maxTaskQueueSize;
+    }
+
+    /**
+     * Return the limit on the number of tasks that can be executed as part of the cascades planner planning.
+     * @return the maximum number of tasks. 0 means "unbound" (the default). Trying to execute a task after the maximum number was exceeded will fail the planning.
+     */
+    public int getMaxTotalTaskCount() {
+        return maxTotalTaskCount;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -137,6 +159,8 @@ public class RecordQueryPlannerConfiguration {
         private boolean checkForDuplicateConditions = false;
         private boolean deferFetchAfterUnionAndIntersection = false;
         private boolean optimizeForIndexFilters = false;
+        private int maxTaskQueueSize = 0;
+        private int maxTotalTaskCount = 0;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -145,6 +169,8 @@ public class RecordQueryPlannerConfiguration {
             this.checkForDuplicateConditions = configuration.checkForDuplicateConditions;
             this.deferFetchAfterUnionAndIntersection = configuration.deferFetchAfterUnionAndIntersection;
             this.optimizeForIndexFilters = configuration.optimizeForIndexFilters;
+            this.maxTaskQueueSize = configuration.maxTaskQueueSize;
+            this.maxTotalTaskCount = configuration.maxTotalTaskCount;
         }
 
         public Builder() {
@@ -180,8 +206,32 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set the size limit of the Cascades planner task queue.
+         * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
+         * Default value is 0, which means "unbound".
+         * @param maxTaskQueueSize the maximum size of the queue.
+         * @return this builder
+         */
+        public Builder setMaxTaskQueueSize(final int maxTaskQueueSize) {
+            this.maxTaskQueueSize = maxTaskQueueSize;
+            return this;
+        }
+
+        /**
+         * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
+         * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
+         * Default value is 0, which means "unbound".
+         * @param maxTotalTaskCount the maximum number of tasks.
+         * @return this builder
+         */
+        public Builder setMaxTotalTaskCount(final int maxTotalTaskCount) {
+            this.maxTotalTaskCount = maxTotalTaskCount;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount);
         }
     }
 }

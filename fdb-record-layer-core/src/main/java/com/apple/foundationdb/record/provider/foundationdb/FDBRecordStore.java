@@ -3541,7 +3541,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // * the scanned records subspace. Which, roughly speaking, counts how many records of this store are covered in
         // index range subspace.
         // * the type/stamp subspace. Which indicates which type of indexing is in progress.
-        tr.clear(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).range());
+        tr.clear(Range.startsWith(OnlineIndexer.indexBuildScannedRecordsSubspace(this, index).pack()));
         tr.clear(Range.startsWith(OnlineIndexer.indexBuildTypeSubspace(this, index).pack()));
     }
 

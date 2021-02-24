@@ -27,9 +27,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.view.Element;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.util.HashUtils;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -188,20 +189,8 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public List<Element> flattenForPlanner() {
-        return children.stream()
-                .flatMap(k -> k.flattenForPlanner().stream())
-                .collect(Collectors.toList());
-    }
-
-    @Nonnull
-    @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        final ImmutableList.Builder<KeyExpression> normalizedChildren = ImmutableList.builder();
-        for (KeyExpression child : children) {
-            normalizedChildren.add(child.normalizeForPlanner(source, fieldNamePrefix));
-        }
-        return new ThenKeyExpression(normalizedChildren.build());
+    public <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+        return visitor.visitExpression(this);
     }
 
     @Nonnull
@@ -301,6 +290,11 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return HashUtils.queryHash(hashKind, BASE_HASH, getChildren());
     }
 
     private static int splitGroupingKeys(List<KeyExpression> keys, int pos) {

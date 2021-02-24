@@ -2,7 +2,7 @@
 
 This document contains a log of changes to the FoundationDB Record Layer. It aims to include mostly user-visible changes or improvements. Within each minor release, larger or more involved changes are highlighted first before detailing the changes that were included in each build or patch version. Users should especially take note of any breaking changes or special upgrade instructions which should always be included as a preface to the minor version as a whole before looking at changes at a version-by-version level.
 
-As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the master release train, some releases will say as a note that they contain all changes from a specific patch.
+As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
 ## 2.10
 
@@ -25,7 +25,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Count indexes can be cleared when decremented to zero [(Issue #737)](https://github.com/FoundationDB/fdb-record-layer/issues/737)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Allow creating a target index by iterating a source index of the same type [(Issue #1078)](https://github.com/FoundationDB/fdb-record-layer/issues/1078)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Add persistent continuation and parallel indexing to indexing by index [(Issue #1107)](https://github.com/FoundationDB/fdb-record-layer/issues/1107)
@@ -37,6 +37,35 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.157.0
+
+* **Feature** Add configuration for Cascades planner, protect from queue explosion and infinite loop, use interface instead of RecordQueryPlanner [(Issue #1126)](https://github.com/FoundationDB/fdb-record-layer/issues/1126)
+
+### 2.10.156.0
+
+* No changes from version [2.10.155.0](#2101550)
+
+### 2.10.155.0
+
+* **Feature** Certain system keys are exposed through the new `FDBSystemOperations` API [(Issue #949)](https://github.com/FoundationDB/fdb-record-layer/issues/949)
+* **Performance** Query plan costing model is adjusted to not prefer full record scans over index scans with the same residual filters [(Issue #1130)](https://github.com/FoundationDB/fdb-record-layer/issues/1130)
+
+### 2.10.154.0
+
+* **Bug fix** Scanned records counter was not cleared properly when clearing the index [(Issue #1115)](https://github.com/FoundationDB/fdb-record-layer/issues/1115)
+* **Bug fix** Fix the instruction document of building Record Layer [(Issue #1061)](https://github.com/FoundationDB/fdb-record-layer/issues/1061)
+* **Feature** Permuted grouped aggregate [(Issue #1085)](https://github.com/FoundationDB/fdb-record-layer/issues/1085)
+* **Feature** integrated index matching and planning in the Cascades planner [(Issue #1083)](https://github.com/FoundationDB/fdb-record-layer/issues/1083)
+* **Feature** Implement QueryHash to identify created queries and match them to generated plans [(Issue #1091)](https://github.com/FoundationDB/fdb-record-layer/issues/1091)
+* **Breaking change** The addition of QueryHashable and the implementation of it by various classes will force existing extenders of some classes to implement the queryHash() method [(Issue #1091)](https://github.com/FoundationDB/fdb-record-layer/issues/1091)
+
+### 2.10.151.0
+
+
+### 2.10.150.0
+
+* **Feature** Count indexes can be cleared when decremented to zero [(Issue #737)](https://github.com/FoundationDB/fdb-record-layer/issues/737)
 
 ### 2.10.149.0
 

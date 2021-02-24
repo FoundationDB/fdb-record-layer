@@ -23,13 +23,13 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.view.SourceEntry;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -48,15 +48,11 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  */
 public class QueryPredicateTest {
     private Boolean evaluate(@Nonnull QueryPredicate predicate) {
-        return evaluate(predicate, Bindings.EMPTY_BINDINGS, SourceEntry.EMPTY);
+        return evaluate(predicate, Bindings.EMPTY_BINDINGS);
     }
 
-    private Boolean evaluate(@Nonnull QueryPredicate predicate, @Nonnull SourceEntry sourceEntry) {
-        return evaluate(predicate, Bindings.EMPTY_BINDINGS, sourceEntry);
-    }
-
-    private Boolean evaluate(@Nonnull QueryPredicate predicate, @Nonnull Bindings bindings, @Nonnull SourceEntry sourceEntry) {
-        return predicate.eval(null, EvaluationContext.forBindings(bindings), sourceEntry);
+    private Boolean evaluate(@Nonnull QueryPredicate predicate, @Nonnull Bindings bindings) {
+        return predicate.eval(null, EvaluationContext.forBindings(bindings), null, null);
     }
 
     private QueryPredicate and(@Nonnull QueryPredicate... predicates) {
@@ -75,7 +71,7 @@ public class QueryPredicateTest {
 
         @Nonnull
         @Override
-        public Stream<PlannerBindings> bindTo(@Nonnull ExpressionMatcher<? extends Bindable> matcher) {
+        public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
             return Stream.empty();
         }
 
@@ -116,7 +112,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate TRUE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull SourceEntry sourceEntry) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
             return Boolean.TRUE;
         }
     };
@@ -124,7 +120,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate FALSE = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull SourceEntry sourceEntry) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
             return Boolean.FALSE;
         }
     };
@@ -132,7 +128,7 @@ public class QueryPredicateTest {
     private static final QueryPredicate NULL = new TestPredicate() {
         @Nullable
         @Override
-        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull SourceEntry sourceEntry) {
+        public <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
             return null;
         }
     };

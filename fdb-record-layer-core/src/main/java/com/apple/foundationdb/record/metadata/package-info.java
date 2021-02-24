@@ -42,7 +42,7 @@
  * Note that this correspondence is not exact. In particular, note that a record type and a
  * table differ in that records of various types are included within the same extent. There are
  * more details about the differences between tables and record types within the
- * <a href="https://github.com/FoundationDB/fdb-record-layer/blob/master/docs/FAQ.md#are-record-types-tables">Record Layer FAQ</a>.
+ * <a href="https://github.com/FoundationDB/fdb-record-layer/blob/main/docs/FAQ.md#are-record-types-tables">Record Layer FAQ</a>.
  * </p>
  *
  * <p>

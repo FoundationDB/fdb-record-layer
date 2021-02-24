@@ -28,10 +28,14 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.temp.view.FieldElement;
-import com.apple.foundationdb.record.query.plan.temp.view.RepeatedFieldSource;
-import com.apple.foundationdb.record.query.plan.temp.view.Source;
-import com.apple.foundationdb.record.query.plan.temp.view.ValueElement;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -207,34 +211,20 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
 
     @Nonnull
     @Override
-    public KeyExpression normalizeForPlanner(@Nonnull Source source, @Nonnull List<String> fieldNamePrefix) {
-        final List<String> fieldNames = ImmutableList.<String>builder()
-                .addAll(fieldNamePrefix)
-                .add(fieldName)
-                .build();
-        switch (fanType) {
-            case FanOut:
-                return new ElementKeyExpression(new ValueElement(new RepeatedFieldSource(source, fieldNames)));
-            case None:
-                return new ElementKeyExpression(new FieldElement(source, fieldNames));
-            case Concatenate:
-            default:
-        }
-        throw new UnsupportedOperationException();
+    public <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+        return visitor.visitExpression(this);
     }
 
     @Nonnull
-    Source getFieldSource(@Nonnull Source rootSource, @Nonnull List<String> fieldNamePrefix) {
+    public Quantifier explodeField(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix) {
         final List<String> fieldNames = ImmutableList.<String>builder()
                 .addAll(fieldNamePrefix)
                 .add(fieldName)
                 .build();
         switch (fanType) {
             case FanOut:
-                return new RepeatedFieldSource(rootSource, fieldNames);
-            case Concatenate:
-            case None:
-                return rootSource;
+                return Quantifier.forEach(GroupExpressionRef.of(
+                        new ExplodeExpression(baseAlias, fieldNames)));
             default:
                 throw new RecordCoreException("unrecognized fan type");
         }
@@ -380,6 +370,11 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
+    }
+
+    @Override
+    public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        return HashUtils.queryHash(hashKind, BASE_HASH, fieldName, fanType);
     }
 
     @Override

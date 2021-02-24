@@ -23,14 +23,14 @@ package com.apple.foundationdb.clientlog;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.ReadTransaction;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
@@ -40,16 +40,6 @@ import java.util.concurrent.CompletableFuture;
 @API(API.Status.EXPERIMENTAL)
 @SpotBugsSuppressWarnings({"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
 public class VersionFromTimestamp {
-
-    public static final String TIME_KEEPER_KEY_PATTERN = "FF/timeKeeper/map/";
-    @SpotBugsSuppressWarnings("MS_PKGPROTECT")
-    public static final byte[] TIME_KEEPER_KEY_PREFIX;
-
-    static {
-        TIME_KEEPER_KEY_PREFIX = TIME_KEEPER_KEY_PATTERN.getBytes(StandardCharsets.US_ASCII);
-        TIME_KEEPER_KEY_PREFIX[0] = (byte)0xFF;
-        TIME_KEEPER_KEY_PREFIX[1] = (byte)0x02;
-    }
 
     /**
      * Get the last version from the timekeeper at or before the given timestamp.
@@ -74,15 +64,15 @@ public class VersionFromTimestamp {
     }
 
     private static CompletableFuture<Long> versionFromTimestamp(@Nonnull ReadTransaction tr, @Nonnull Instant timestamp, boolean start) {
-        final byte[] dateKey = ByteArrayUtil.join(TIME_KEEPER_KEY_PREFIX, Tuple.from(timestamp.getEpochSecond()).pack());
+        final byte[] dateKey = ByteArrayUtil.join(SystemKeyspace.TIMEKEEPER_KEY_PREFIX, Tuple.from(timestamp.getEpochSecond()).pack());
         final KeySelector startKey;
         final KeySelector endKey;
         if (start) {
-            startKey = KeySelector.firstGreaterThan(TIME_KEEPER_KEY_PREFIX);
+            startKey = KeySelector.firstGreaterThan(SystemKeyspace.TIMEKEEPER_KEY_PREFIX);
             endKey = KeySelector.firstGreaterThan(dateKey);
         } else {
             startKey = KeySelector.firstGreaterOrEqual(dateKey);
-            endKey = KeySelector.firstGreaterOrEqual(ByteArrayUtil.strinc(TIME_KEEPER_KEY_PREFIX));
+            endKey = KeySelector.firstGreaterOrEqual(ByteArrayUtil.strinc(SystemKeyspace.TIMEKEEPER_KEY_PREFIX));
         }
         final AsyncIterator<KeyValue> range = tr.getRange(startKey, endKey, 1, start).iterator();
         return range.onHasNext().thenApply(hasNext -> {

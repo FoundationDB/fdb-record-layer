@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 
 import javax.annotation.Nonnull;
@@ -65,6 +66,11 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     @Override
     default Set<String> getUsedIndexes() {
         return getChild().getUsedIndexes();
+    }
+
+    @Override
+    default int maxCardinality(@Nonnull RecordMetaData metaData) {
+        return getChild().maxCardinality(metaData);
     }
 
     @Override

@@ -29,19 +29,24 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexEntrySourceScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -53,9 +58,13 @@ import java.util.stream.Collectors;
 public class RecordTypesProperty implements PlannerProperty<Set<String>> {
     @Nonnull
     private final PlanContext context;
+    @Nonnull
+    private final AliasResolver aliasResolver;
 
-    private RecordTypesProperty(@Nonnull PlanContext context) {
+    private RecordTypesProperty(@Nonnull PlanContext context,
+                                @Nonnull AliasResolver aliasResolver) {
         this.context = context;
+        this.aliasResolver = aliasResolver;
     }
 
     @Nonnull
@@ -73,20 +82,28 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
                     .map(RecordType::getName).collect(Collectors.toSet());
         } else if (expression instanceof TypeFilterExpression) {
             return Sets.filter(childResults.get(0), ((TypeFilterExpression)expression).getRecordTypes()::contains);
-        } else if (expression instanceof IndexEntrySourceScanExpression) {
-            String indexName = ((IndexEntrySourceScanExpression)expression).getIndexName();
-            if (indexName == null) {
-                // TODO: This isn't quite right, because we might have matched a common prefix of the (non-common)
-                // primary key and thus restricted the set of types that could be returned. Getting it right seems tricky.
-                return context.getMetaData().getRecordTypes().keySet();
-            } else {
-                Index index = context.getIndexByName(indexName);
-                return context.getMetaData().recordTypesForIndex(index).stream()
-                        .map(RecordType::getName).collect(Collectors.toSet());
-            }
+        } else if (expression instanceof IndexScanExpression) {
+            final String indexName = ((IndexScanExpression)expression).getIndexName();
+            Index index = context.getIndexByName(indexName);
+            return context.getMetaData().recordTypesForIndex(index).stream()
+                    .map(RecordType::getName).collect(Collectors.toSet());
+        } else if (expression instanceof PrimaryScanExpression) {
+            return ((PrimaryScanExpression)expression).getRecordTypes();
         } else if (childResults.isEmpty()) {
-            throw new RecordCoreException("tried to find record types for a relational expression with no children" +
-                                          "but case wasn't handled");
+            // try to see if the leaf expression is correlated and follow up the correlations
+            final Set<String> recordTypes = Sets.newHashSet();
+            for (final CorrelationIdentifier alias : expression.getCorrelatedTo()) {
+                final Set<Quantifier> quantifiers = aliasResolver.resolveCorrelationAlias(expression, alias);
+                for (final Quantifier quantifier : quantifiers) {
+                    recordTypes.addAll(Objects.requireNonNull(quantifier.getRangesOver().acceptPropertyVisitor(this)));
+                }
+            }
+
+            if (recordTypes.isEmpty()) {
+                throw new RecordCoreException("tried to find record types for a relational expression with no children" +
+                                              "but case wasn't handled");
+            }
+            return recordTypes;
         } else {
             int nonNullChildResult = 0;
             Set<String> firstChildResult = null;
@@ -134,12 +151,16 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context, ExpressionRef<? extends RelationalExpression> ref) {
-        return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
+    public static Set<String> evaluate(@Nonnull PlanContext context,
+                                       @Nonnull AliasResolver aliasResolver,
+                                       @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, aliasResolver)));
     }
 
     @Nonnull
-    public static Set<String> evaluate(@Nonnull PlanContext context, @Nonnull RelationalExpression ref) {
-        return ref.acceptPropertyVisitor(new RecordTypesProperty(context));
+    public static Set<String> evaluate(@Nonnull PlanContext context,
+                                       @Nonnull AliasResolver aliasResolver,
+                                       @Nonnull RelationalExpression ref) {
+        return Objects.requireNonNull(ref.acceptPropertyVisitor(new RecordTypesProperty(context, aliasResolver)));
     }
 }

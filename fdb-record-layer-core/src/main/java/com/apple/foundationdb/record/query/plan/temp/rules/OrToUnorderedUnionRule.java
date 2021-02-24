@@ -21,24 +21,28 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AllChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -52,7 +56,7 @@ import java.util.List;
  * {@code
  *     +----------------------------+                 +-----------------------------------+
  *     |                            |                 |                                   |
- *     |  LogicalFilterExpression   |                 |  LogicalUnorderedUnionExpression  |
+ *     |  SelectExpression          |                 |  LogicalUnorderedUnionExpression  |
  *     |       p1 v p2 v ... v pn   |                 |                                   |
  *     |                            |                 +-----------------------------------+
  *     +-------------+--------------+                        /        |               \
@@ -62,12 +66,12 @@ import java.util.List;
  *                   |                                   /            |                   \
  *                   |                             +--------+    +--------+          +--------+
  *                   |                             |        |    |        |          |        |
- *                   |                             |  LFE   |    |  LFE   |          |  LFE   |
+ *                   |                             |  SEL   |    |  SEL   |          |  SEL   |
  *                   |                             |    p1' |    |    p2' |   ....   |    pn' |
  *                   |                             |        |    |        |          |        |
  *                   |                             +--------+    +--------+          +--------+
  *                   |                                /              /                   /
- *                   |                               / newQun1      / newQun2           / newQunn
+ *                   |                               / qun          / qun               / qun
  *            +------+------+  ---------------------+              /                   /
  *            |             |                                     /                   /
  *            |   any ref   |  ----------------------------------+                   /
@@ -75,24 +79,24 @@ import java.util.List;
  *            +-------------+  ----------------------------------------------------+
  * }
  * </pre>
- * Where p1', p2', ..., pn' are rebased from p1, p2, ..., pn (from qun to newQun).
+ * Where p1, p2, ..., pn are the or terms of the predicate in the original {@link SelectExpression}.
  *        
  */
 @API(API.Status.EXPERIMENTAL)
-public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression> {
+public class OrToUnorderedUnionRule extends PlannerRule<SelectExpression> {
     @Nonnull
-    private static final ReferenceMatcher<RelationalExpression> innerMatcher = ReferenceMatcher.anyRef();
+    private static final ReferenceMatcher<? extends RelationalExpression> innerMatcher = ReferenceMatcher.anyRef();
     @Nonnull
-    private static final QuantifierMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatcher.forEach(innerMatcher);
+    private static final QuantifierMatcher<Quantifier> qunMatcher = QuantifierMatcher.any(innerMatcher);
     @Nonnull
-    private static final ExpressionMatcher<QueryPredicate> childMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final ExpressionMatcher<QueryPredicate> orTermPredicateMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
     @Nonnull
-    private static final ExpressionMatcher<OrPredicate> orMatcher = TypeMatcher.of(OrPredicate.class, AllChildrenMatcher.allMatching(childMatcher));
+    private static final ExpressionMatcher<OrPredicate> orMatcher = TypeMatcher.of(OrPredicate.class, MultiChildrenMatcher.allMatching(orTermPredicateMatcher));
     @Nonnull
-    private static final ExpressionMatcher<LogicalFilterExpression> root =
-            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
+    private static final ExpressionMatcher<SelectExpression> root =
+            TypeWithPredicateMatcher.ofPredicate(SelectExpression.class,
                     orMatcher,
-                    qunMatcher);
+                    MultiChildrenMatcher.allMatching(qunMatcher));
 
     public OrToUnorderedUnionRule() {
         super(root);
@@ -100,15 +104,16 @@ public class OrToUnorderedUnionRule extends PlannerRule<LogicalFilterExpression>
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RelationalExpression> inner = call.get(innerMatcher);
-        final Quantifier.ForEach qun = call.get(qunMatcher);
-        final List<QueryPredicate> children = call.getBindings().getAll(childMatcher);
-        final LogicalFilterExpression filterExpression = call.get(root);
-        final List<ExpressionRef<RelationalExpression>> relationalExpressionRefs = new ArrayList<>(children.size());
-        for (final QueryPredicate child : children) {
-            final Quantifier.ForEach newQun = Quantifier.forEach(inner);
-            final QueryPredicate rebasedChild = child.rebase(Quantifiers.translate(qun, newQun));
-            relationalExpressionRefs.add(call.ref(new LogicalFilterExpression(filterExpression.getBaseSource(), rebasedChild, newQun)));
+        final PlannerBindings bindings = call.getBindings();
+        final SelectExpression selectExpression = bindings.get(root);
+        final List<? extends Value> resultValues =
+                selectExpression.getResultValues()
+                        .orElseThrow(() -> new RecordCoreException("result values not set"));
+        final List<Quantifier> quantifiers = bindings.getAll(qunMatcher);
+        final List<QueryPredicate> orTermPredicates = bindings.getAll(orTermPredicateMatcher);
+        final List<ExpressionRef<RelationalExpression>> relationalExpressionRefs = new ArrayList<>(orTermPredicates.size());
+        for (final QueryPredicate orTermPredicate : orTermPredicates) {
+            relationalExpressionRefs.add(call.ref(new SelectExpression(resultValues, quantifiers, ImmutableList.of(orTermPredicate))));
         }
         call.yield(GroupExpressionRef.of(new LogicalUnorderedUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionRefs))));
     }

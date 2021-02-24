@@ -57,6 +57,23 @@ public class IterableHelpers {
     }
 
     /**
+     * Maps given function to the given iterable and returns a new iterable. This is akin
+     * to compositions based on {@link java.util.stream.Stream}, however, allows for restarting the iteration as per
+     * general contract in {@link Iterable}.
+     * @param source source iterable
+     * @param mapper mapper function to map from {@code T} to {@code Iterable} of {@code R}
+     * @param <T> type of source iterable
+     * @param <R> type the given mapper function returns
+     * @return an iterable of type {@code R} that is the conceptual map of {@code source} using {@code mapper}
+     */
+    public static <T, R> Iterable<R> map(@Nonnull Iterable<T> source, @Nonnull final Function<? super T, R> mapper) {
+        return () -> StreamSupport
+                .stream(source.spliterator(), false)
+                .map(mapper)
+                .iterator();
+    }
+
+    /**
      * Returns an alternative singleton iterable if the given source iterable is empty.
      * @param source source
      * @param value value to use if source is empty
