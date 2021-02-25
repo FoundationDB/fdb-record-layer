@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -203,7 +204,7 @@ public class FDBDirectory extends Directory {
      * @throws NullPointerException if a reference with that id hasn't been written yet.
      */
     @Nonnull
-    public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws IOException {
+    public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws RecordCoreException {
         try {
             LOGGER.trace("readBlock resourceDescription={}, block={}", resourceDescription, block);
             final FDBLuceneFileReference reference = referenceFuture.join(); // Tried to fully pipeline this but the reality is that this is mostly cached after listAll, delete, etc.
@@ -215,6 +216,8 @@ public class FDBDirectory extends Directory {
             );
         } catch (ExecutionException e) {
             throw new RecordCoreException("Execution exception thrown while getting block cache", e);
+        } catch (NullPointerException e) {
+            throw new RecordCoreArgumentException("No reference with that id was found", e);
         }
     }
 
@@ -240,9 +243,9 @@ public class FDBDirectory extends Directory {
             if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
                 try {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
-                } catch (IOException ioe) {
+                } catch (RecordCoreException e) {
                     LOGGER.warn("Cannot Prefetch resource={}", name);
-                    LOGGER.warn("Prefetch Error", ioe);
+                    LOGGER.warn("Prefetch Error", e);
                 }
             }
             this.fileReferenceCache.put(name, fileReference);

@@ -220,7 +220,7 @@ public class FDBIndexInput extends IndexInput {
      * @throws IOException exception
      */
     @Override
-    public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) throws IOException {
+    public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
         LOGGER.trace("readBytes resource={}, offset={}, length={}", resourceDescription, offset, length);
         int bytesRead = 0;
         long blockSize = reference.join().getBlockSize();
