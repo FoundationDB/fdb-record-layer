@@ -362,7 +362,11 @@ public class FDBDirectory extends Directory {
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
         LOGGER.trace("rename -> source={}, dest={}", source, dest);
         final byte[] key = metaSubspace.pack(source);
-        context.ensureActive().get(key).thenAcceptAsync( (value) -> {
+        CompletableFuture<byte[]> completableFuture;
+        completableFuture = context.ensureActive().get(key).exceptionally( (e) -> {
+            throw new RecordCoreArgumentException("Invalid source name in rename function for source" + source);
+        });
+        completableFuture.thenAcceptAsync( (value) -> {
             this.fileReferenceCache.invalidate(source);
             context.ensureActive().set(metaSubspace.pack(dest), value);
             context.ensureActive().clear(key);
