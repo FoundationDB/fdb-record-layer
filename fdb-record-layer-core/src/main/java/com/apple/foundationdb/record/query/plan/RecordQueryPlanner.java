@@ -1457,9 +1457,31 @@ public class RecordQueryPlanner implements QueryPlanner {
     private KeyExpression getKeyForMerge(@Nullable KeyExpression sort, @Nonnull KeyExpression candidateKey) {
         if (sort == null || sort.isPrefixKey(candidateKey)) {
             return candidateKey;
+        } else if (candidateKey.isPrefixKey(sort)) {
+            return sort;
         } else {
-            return Key.Expressions.concat(sort, candidateKey);
+            return concatWithoutDuplicates(sort, candidateKey);
         }
+    }
+
+    // TODO: Perhaps this should be a public method on Key.Expressions.
+    private ThenKeyExpression concatWithoutDuplicates(@Nullable KeyExpression expr1, @Nonnull KeyExpression expr2) {
+        final List<KeyExpression> children = new ArrayList<>(2);
+        if (expr1 instanceof ThenKeyExpression) {
+            children.addAll(((ThenKeyExpression)expr1).getChildren());
+        } else {
+            children.add(expr1);
+        }
+        if (expr2 instanceof ThenKeyExpression) {
+            for (KeyExpression child : ((ThenKeyExpression)expr2).getChildren()) {
+                if (!children.contains(child)) {
+                    children.add(child);
+                }
+            }
+        } else if (!children.contains(expr2)) {
+            children.add(expr2);
+        }
+        return new ThenKeyExpression(children);
     }
 
     @Nonnull

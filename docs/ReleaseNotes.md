@@ -19,7 +19,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Bug fix** Planner's key from index should include primary keys [(Issue #1138)](https://github.com/FoundationDB/fdb-record-layer/issues/1138)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Performance** RecordQueryPlanner.getKeyForMerge can build redundant merge keys [(Issue #1154)](https://github.com/FoundationDB/fdb-record-layer/issues/1154)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

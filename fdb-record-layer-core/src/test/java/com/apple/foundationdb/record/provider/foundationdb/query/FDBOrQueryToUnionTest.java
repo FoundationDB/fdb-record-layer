@@ -817,6 +817,11 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(20 + 20, i);
             assertDiscardedNone(context);
         }
+
+        query = query.toBuilder()
+                .setSort(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))
+                .build();
+        assertEquals(plan, planner.plan(query));
     }
 
     @ParameterizedTest
