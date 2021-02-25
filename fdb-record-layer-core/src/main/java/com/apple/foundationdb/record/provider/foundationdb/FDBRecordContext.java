@@ -157,6 +157,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyStoreState;
     private boolean dirtyMetaDataVersionStamp;
     private long trackOpenTimeNanos;
+    @Nonnull
+    private final Map<String, Object> session = new LinkedHashMap<>();
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
@@ -1299,4 +1301,45 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
             }
         }
     }
+
+    /**
+     * Retrieve a value from the session in the FDBRecordContext.
+     *
+     * @param key key
+     * @param clazz class
+     * @param <T> Class
+     * @return value
+     */
+    @SuppressWarnings("unchecked")
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T getInSession(@Nonnull String key, @Nonnull Class<T> clazz) {
+        return (T) session.get(key);
+    }
+
+    /**
+     * Put an object into the session of the FDBRecordContext.
+     *
+     * @param key key
+     * @param <T> the type of the value
+     * @param value value
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T extends Object> void putInSessionIfAbsent(@Nonnull String key, @Nonnull T value) {
+        session.put(key, value);
+    }
+
+    /**
+     * Put an object into the session of the FDBRecordContext.
+     *
+     * @param key key
+     * @param clazz class
+     * @param <T> the type of the class
+     * @return value
+     */
+    @SuppressWarnings("unchecked")
+    @API(API.Status.EXPERIMENTAL)
+    public synchronized <T> T removeFromSession(@Nonnull String key, @Nonnull Class<T> clazz) {
+        return (T) session.remove(key);
+    }
+
 }

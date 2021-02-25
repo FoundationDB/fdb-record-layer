@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -75,7 +75,7 @@ public class FDBDirectory extends Directory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
     public static final int DEFAULT_BLOCK_SIZE = 16_384;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
-    private final Transaction txn;
+    private final FDBRecordContext context;
     private final Subspace subspace;
     private final Subspace metaSubspace;
     private final Subspace dataSubspace;
@@ -87,19 +87,19 @@ public class FDBDirectory extends Directory {
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
     private final Map<String, Long> reads;
 
-    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull Transaction txn) {
-        this(subspace, txn, NoLockFactory.INSTANCE);
+    public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
+        this(subspace, context, NoLockFactory.INSTANCE);
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull Transaction txn, @Nonnull LockFactory lockFactory) {
-        this(subspace, txn, lockFactory, DEFAULT_BLOCK_SIZE);
+    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory) {
+        this(subspace, context, lockFactory, DEFAULT_BLOCK_SIZE);
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull Transaction txn, @Nonnull LockFactory lockFactory, int blockSize) {
+    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory, int blockSize) {
         Verify.verify(subspace != null);
-        Verify.verify(txn != null);
+        Verify.verify(context != null);
         Verify.verify(lockFactory != null);
-        this.txn = txn;
+        this.context = context;
         this.subspace = subspace;
         final Subspace sequenceSubspace = subspace.subspace(Tuple.from(0));
         this.sequenceSubspaceKey = sequenceSubspace.pack();
@@ -118,14 +118,14 @@ public class FDBDirectory extends Directory {
      * @return current increment value
      */
     public synchronized long getIncrement() {
-        return txn.get(sequenceSubspaceKey).thenApply(
+        return context.ensureActive().get(sequenceSubspaceKey).thenApply(
             (value) -> {
                 if (value == null) {
-                    txn.set(sequenceSubspaceKey, Tuple.from(1L).pack());
+                    context.ensureActive().set(sequenceSubspaceKey, Tuple.from(1L).pack());
                     return 1L;
                 } else {
                     long sequence = Tuple.fromBytes(value).getLong(0) + 1;
-                    txn.set(sequenceSubspaceKey, Tuple.from(sequence).pack());
+                    context.ensureActive().set(sequenceSubspaceKey, Tuple.from(sequence).pack());
                     return sequence;
                 }
             }).join();
@@ -146,7 +146,7 @@ public class FDBDirectory extends Directory {
         LOGGER.trace("getFDBLuceneFileReference {}", name);
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
-            return txn.get(metaSubspace.pack(name))
+            return context.ensureActive().get(metaSubspace.pack(name))
                     .thenApplyAsync((value) -> {
                             FDBLuceneFileReference fetchedref = value == null ? null : new FDBLuceneFileReference(Tuple.fromBytes(value));
                             if (fetchedref != null) {
@@ -167,7 +167,7 @@ public class FDBDirectory extends Directory {
      */
     public void writeFDBLuceneFileReference(@Nonnull final String name, @Nonnull final FDBLuceneFileReference reference) {
         LOGGER.trace("writeFDBLuceneFileReference {}", reference);
-        txn.set(metaSubspace.pack(name), reference.getTuple().pack());
+        context.ensureActive().set(metaSubspace.pack(name), reference.getTuple().pack());
         fileReferenceCache.put(name, reference);
     }
 
@@ -180,7 +180,7 @@ public class FDBDirectory extends Directory {
     public void writeData(long id, int block, @Nonnull byte[] value) {
         LOGGER.trace("writeData id={}, block={}, valueSize={}", id, block, value.length);
         Verify.verify(value.length <= blockSize);
-        txn.set(dataSubspace.pack(Tuple.from(id, block)), value);
+        context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), value);
     }
 
     /**
@@ -203,7 +203,7 @@ public class FDBDirectory extends Directory {
                         Long value = reads.getOrDefault(resourceDescription + ":" + id, 0L);
                         value += 1;
                         reads.put(resourceDescription + ":" + id, value);
-                    return txn.get(dataSubspace.pack(Tuple.from(id, block)));
+                    return context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)));
                 }
             );
         } catch (ExecutionException e) {
@@ -225,7 +225,7 @@ public class FDBDirectory extends Directory {
         List<String> displayList = null;
 
         long totalSize = 0L;
-        for (KeyValue kv : txn.getRange(metaSubspace.range())) {
+        for (KeyValue kv : context.ensureActive().getRange(metaSubspace.range())) {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             outList.add(name);
             FDBLuceneFileReference fileReference = new FDBLuceneFileReference(Tuple.fromBytes(kv.getValue()));
@@ -269,8 +269,8 @@ public class FDBDirectory extends Directory {
                     if (value == null) {
                         return false;
                     }
-                    txn.clear(metaSubspace.pack(name));
-                    txn.clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
+                    context.ensureActive().clear(metaSubspace.pack(name));
+                    context.ensureActive().clear(dataSubspace.subspace(Tuple.from(value.getId())).range());
                     this.fileReferenceCache.invalidate(name);
                     return true;
                 }
@@ -352,10 +352,10 @@ public class FDBDirectory extends Directory {
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
         LOGGER.trace("rename -> source={}, dest={}", source, dest);
         final byte[] key = metaSubspace.pack(source);
-        txn.get(key).thenAcceptAsync( (value) -> {
+        context.ensureActive().get(key).thenAcceptAsync( (value) -> {
             this.fileReferenceCache.invalidate(source);
-            txn.set(metaSubspace.pack(dest), value);
-            txn.clear(key);
+            context.ensureActive().set(metaSubspace.pack(dest), value);
+            context.ensureActive().clear(key);
         }).join();
     }
 
@@ -397,8 +397,8 @@ public class FDBDirectory extends Directory {
         return blockSize;
     }
 
-    public Transaction getTxn() {
-        return txn;
+    public FDBRecordContext getContext() {
+        return context;
     }
 
     public Subspace getSubspace() {

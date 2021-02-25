@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
-import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -53,9 +53,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
     public void testGetIncrement() {
         assertEquals(1, directory.getIncrement());
         assertEquals(2, directory.getIncrement());
-        directory.getTxn().commit().join();
-        Transaction transaction = fdb.database().createTransaction();
-        directory = new FDBDirectory(subspace, transaction);
+        directory.getContext().ensureActive().commit().join();
+        FDBRecordContext context = fdb.openContext();
+        directory = new FDBDirectory(subspace, context);
         assertEquals(3, directory.getIncrement());
     }
 
@@ -106,9 +106,9 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test2", new FDBLuceneFileReference(2, 1, 1));
         directory.writeFDBLuceneFileReference("test3", new FDBLuceneFileReference(3, 1, 1));
         assertArrayEquals(new String[]{"test1", "test2", "test3"}, directory.listAll());
-        directory.getTxn().cancel();
-        Transaction transaction = fdb.database().createTransaction();
-        directory = new FDBDirectory(subspace, transaction);
+        directory.getContext().ensureActive().cancel();
+        FDBRecordContext context = fdb.openContext();
+        directory = new FDBDirectory(subspace, context);
         assertArrayEquals(new String[0], directory.listAll());
     }
 

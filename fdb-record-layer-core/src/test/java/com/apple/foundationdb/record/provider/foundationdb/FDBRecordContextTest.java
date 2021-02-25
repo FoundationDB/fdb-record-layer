@@ -63,6 +63,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -431,6 +432,17 @@ public class FDBRecordContextTest extends FDBTestBase {
             context.commit();
         }
     }
+
+    @Test
+    public void testSession() {
+        try (FDBRecordContext context = fdb.openContext(null, null, null, FDBTransactionPriority.DEFAULT, "logTransactionTwice")) {
+            context.putInSessionIfAbsent("Yo", "YOLO");
+            assertEquals("YOLO", context.getInSession("Yo", String.class));
+            assertEquals("YOLO", context.removeFromSession("Yo", String.class));
+            assertNull(context.getInSession("Yo", String.class));
+        }
+    }
+
 
     @Test
     public void logTransactionAfterGettingAReadVersion() {
