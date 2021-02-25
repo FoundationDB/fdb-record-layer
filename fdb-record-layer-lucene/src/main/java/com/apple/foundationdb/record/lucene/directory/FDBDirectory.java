@@ -78,6 +78,9 @@ public class FDBDirectory extends Directory {
     public static final int DEFAULT_MAXIMUM_SIZE = 1024;
     public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
     public static final int DEFAULT_INITIAL_CAPACITY = 128;
+    private static final int SEQUENCE_SUBSPACE = 0;
+    private static final int META_SUBSPACE = 1;
+    private static final int DATA_SUBSPACE = 2;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     private final Subspace subspace;
@@ -104,10 +107,10 @@ public class FDBDirectory extends Directory {
         Verify.verify(lockFactory != null);
         this.context = context;
         this.subspace = subspace;
-        final Subspace sequenceSubspace = subspace.subspace(Tuple.from(0));
+        final Subspace sequenceSubspace = subspace.subspace(Tuple.from(SEQUENCE_SUBSPACE));
         this.sequenceSubspaceKey = sequenceSubspace.pack();
-        this.metaSubspace = subspace.subspace(Tuple.from(1));
-        this.dataSubspace = subspace.subspace(Tuple.from(2));
+        this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
+        this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = CacheBuilder.newBuilder()
