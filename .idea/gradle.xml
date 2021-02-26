@@ -14,6 +14,7 @@
             <option value="$PROJECT_DIR$/fdb-record-layer-core" />
             <option value="$PROJECT_DIR$/fdb-record-layer-core-shaded" />
             <option value="$PROJECT_DIR$/fdb-record-layer-icu" />
+            <option value="$PROJECT_DIR$/fdb-record-layer-jmh" />
             <option value="$PROJECT_DIR$/fdb-record-layer-lucene" />
             <option value="$PROJECT_DIR$/fdb-record-layer-spatial" />
           </set>

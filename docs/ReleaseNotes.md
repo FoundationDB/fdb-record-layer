@@ -29,6 +29,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** `VersionstampSaveBehavior.IF_PRESENT` allows the user to specify that a record should be saved with a version only if one is explicitly provided [(Issue #958)](https://github.com/FoundationDB/fdb-record-layer/issues/958)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Introduce JMH framework [(Issue #1157)](https://github.com/FoundationDB/fdb-record-layer/issues/1157)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
