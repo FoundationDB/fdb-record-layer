@@ -44,6 +44,7 @@ plugins {
 
 ext {
     SpotBugsTask = com.github.spotbugs.snom.SpotBugsTask
+    fdbEnvironment = [:]
 }
 
 defaultTasks 'build'
@@ -272,18 +273,18 @@ if (!JavaVersion.current().isJava8Compatible()) {
     throw new Exception("Java 8 is required to build fdb-record-layer")
 }
 
-def fdbEnvironment = new File("${rootProject.projectDir}/fdb-environment.properties")
-if (fdbEnvironment.exists()) {
-    def env = [:]
-    fdbEnvironment.eachLine { line ->
+def fdbEnvironmentFile = new File("${rootProject.projectDir}/fdb-environment.properties")
+if (fdbEnvironmentFile.exists()) {
+    fdbEnvironmentFile.eachLine { line ->
         def eq = line.indexOf('=')
-        if (eq > 0) env.put(line.substring(0, eq), line.substring(eq + 1))
+        if (eq > 0) ext.fdbEnvironment.put(line.substring(0, eq), line.substring(eq + 1))
     }
-    if (!env.isEmpty()) {
-        allprojects {
-            tasks.withType(Test) { task ->
-                task.environment(env)
-            }
+}
+if (!ext.fdbEnvironment.isEmpty()) {
+    def fdbenv = ext.fdbEnvironment
+    allprojects {
+        tasks.withType(Test) { task ->
+            task.environment(fdbenv)
         }
     }
 }
