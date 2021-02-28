@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
@@ -59,13 +60,17 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
         final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
-        final QueryPredicate filter = call.get(filterMatcher);
+        final QueryPredicate queryPredicate = call.get(filterMatcher);
 
-        call.yield(GroupExpressionRef.of(
-                new RecordQueryPredicateFilterPlan(
-                        Quantifier.physicalBuilder()
-                                .morphFrom(innerQuantifier)
-                                .build(call.ref(innerPlan)),
-                        filter)));
+        if (queryPredicate.isTautology()) {
+            call.yield(GroupExpressionRef.of(innerPlan));
+        } else {
+            call.yield(GroupExpressionRef.of(
+                    new RecordQueryPredicatesFilterPlan(
+                            Quantifier.physicalBuilder()
+                                    .morphFrom(innerQuantifier)
+                                    .build(call.ref(innerPlan)),
+                            AndPredicate.conjuncts(queryPredicate))));
+        }
     }
 }

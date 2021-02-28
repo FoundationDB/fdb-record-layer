@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.TextScan;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -51,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -155,6 +157,12 @@ public class RecordQueryTextIndexPlan implements RecordQueryPlanWithIndex, Recor
     @Override
     public RecordQueryTextIndexPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryTextIndexPlan(getIndexName(), getTextScan(), isReverse());
+    }
+
+    @Nonnull
+    @Override
+    public Optional<PartialMatch> getPartialMatchOptional() {
+        return Optional.empty();
     }
 
     @Override

@@ -23,19 +23,21 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -48,20 +50,15 @@ import java.util.Set;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalFilterExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicate, PlannerGraphRewritable {
+public class LogicalFilterExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicates, PlannerGraphRewritable {
     @Nonnull
-    private final QueryPredicate filter;
+    private final List<QueryPredicate> queryPredicates;
     @Nonnull
     private final Quantifier inner;
 
-    public LogicalFilterExpression(@Nonnull QueryPredicate filter,
-                                   @Nonnull ExpressionRef<RelationalExpression> inner) {
-        this(filter, Quantifier.forEach(inner));
-    }
-
-    public LogicalFilterExpression(@Nonnull QueryPredicate filter,
+    public LogicalFilterExpression(@Nonnull Iterable<? extends QueryPredicate> queryPredicates,
                                    @Nonnull Quantifier inner) {
-        this.filter = filter;
+        this.queryPredicates = ImmutableList.copyOf(queryPredicates);
         this.inner = inner;
     }
 
@@ -78,8 +75,8 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public QueryPredicate getPredicate() {
-        return filter;
+    public List<QueryPredicate> getPredicates() {
+        return queryPredicates;
     }
 
     @Nonnull
@@ -91,7 +88,9 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return filter.getCorrelatedTo();
+        return queryPredicates.stream()
+                .flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream())
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
@@ -105,10 +104,16 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
     @Override
     public LogicalFilterExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                 @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new LogicalFilterExpression(getPredicate().rebase(translationMap),
+        final ImmutableList<QueryPredicate> rebasedQueryPredicates =
+                queryPredicates.stream()
+                        .map(queryPredicate -> queryPredicate.rebase(translationMap))
+                        .collect(ImmutableList.toImmutableList());
+
+        return new LogicalFilterExpression(rebasedQueryPredicates,
                 Iterables.getOnlyElement(rebasedQuantifiers));
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
@@ -118,7 +123,10 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        return filter.semanticEquals(((LogicalFilterExpression)otherExpression).getPredicate(), equivalencesMap);
+        return Streams.zip(queryPredicates.stream(),
+                ((LogicalFilterExpression)otherExpression).getPredicates().stream(),
+                (queryPredicate, otherQueryPredicate) -> queryPredicate.semanticEquals(otherQueryPredicate, equivalencesMap))
+                .allMatch(isSame -> isSame);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -134,7 +142,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getPredicate());
+        return Objects.hash(getPredicates());
     }
 
     @Override
@@ -145,7 +153,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
                         this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
                         ImmutableList.of("WHERE {{pred}}"),
-                        ImmutableMap.of("pred", Attribute.gml(getPredicate().toString()))),
+                        ImmutableMap.of("pred", Attribute.gml(AndPredicate.and(getPredicates()).toString()))),
                 childGraphs);
     }
 }

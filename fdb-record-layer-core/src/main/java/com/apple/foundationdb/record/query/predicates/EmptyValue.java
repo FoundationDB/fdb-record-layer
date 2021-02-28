@@ -1,5 +1,5 @@
 /*
- * RecordTypeValue.java
+ * EmptyValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,57 +25,34 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * A value which is unique for each record type produced by its quantifier.
+ * A value that evaluates to empty.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordTypeValue implements QuantifiedValue {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RecordType-Value");
+public class EmptyValue implements LeafValue {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Empty-Value");
 
-    @Nonnull
-    private final CorrelationIdentifier alias;
-
-    public RecordTypeValue(@Nonnull final CorrelationIdentifier alias) {
-        this.alias = alias;
-    }
-
-    @Nonnull
-    @Override
-    public RecordTypeValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(alias)) {
-            return new RecordTypeValue(translationMap.getTargetOrThrow(alias));
-        }
-        return this;
+    public EmptyValue() {
     }
 
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        if (message == null) {
-            return null;
-        }
-        final Object binding = context.getBinding(alias);
-        if (!(binding instanceof Message)) {
-            return null;
-        }
-
-        return store.getRecordMetaData().getRecordType(((Message)binding).getDescriptorForType().getName()).getRecordTypeKey();
+        return Key.Evaluated.EMPTY;
     }
 
     @Override
-    @Nonnull
-    public CorrelationIdentifier getAlias() {
-        return alias;
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        return true;
     }
 
     @Override
@@ -83,21 +60,30 @@ public class RecordTypeValue implements QuantifiedValue {
         if (this == other) {
             return true;
         }
-        if (other == null || getClass() != other.getClass()) {
-            return false;
-        }
-        final RecordTypeValue that = (RecordTypeValue)other;
-        return equivalenceMap.containsMapping(alias, that.alias);
+        return other != null && getClass() == other.getClass();
     }
 
     @Override
     public int semanticHashCode() {
-        return PlanHashable.objectPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);
+        return 73;
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
+        switch (hashKind) {
+            case LEGACY:
+            case FOR_CONTINUATION:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.planHash(hashKind, BASE_HASH);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "empty()";
     }
 
     @Override
@@ -109,14 +95,6 @@ public class RecordTypeValue implements QuantifiedValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
-    }
-
-    @Override
-    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedObjectValue) {
-            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
-        }
-        return false;
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 }

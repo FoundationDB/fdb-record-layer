@@ -1,5 +1,5 @@
 /*
- * RelationalExpressionWithPredicate.java
+ * RelationalExpressionWithPredicates.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -28,9 +28,9 @@ import java.util.List;
 /**
  * A (relational) expression that has a predicate on it.
  */
-public interface RelationalExpressionWithPredicate extends RelationalExpression {
+public interface RelationalExpressionWithPredicates extends RelationalExpression {
     @Nonnull
-    QueryPredicate getPredicate();
+    List<QueryPredicate> getPredicates();
 
     @Nonnull
     RelationalExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers);

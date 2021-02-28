@@ -53,7 +53,7 @@ public class QuantifiedObjectValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public QuantifiedObjectValue rebase(@Nonnull final AliasMap translationMap) {
+    public QuantifiedObjectValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
             return new QuantifiedObjectValue(translationMap.getTargetOrThrow(alias));
         }
@@ -109,5 +109,13 @@ public class QuantifiedObjectValue implements QuantifiedValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+    }
+
+    @Override
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        if (otherValue instanceof QuantifiedObjectValue) {
+            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
+        }
+        return false;
     }
 }

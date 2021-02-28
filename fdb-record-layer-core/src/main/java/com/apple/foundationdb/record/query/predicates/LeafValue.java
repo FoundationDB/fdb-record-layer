@@ -1,5 +1,5 @@
 /*
- * QuantifiedValue.java
+ * LeafValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,23 +21,28 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 /**
- * A scalar value type that is directly derived from an alias.
+ * A scalar value type that has children.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QuantifiedValue extends LeafValue {
+public interface LeafValue extends Value {
 
-    CorrelationIdentifier getAlias();
+    /**
+     * Method to retrieve a list of children values.
+     * @return a list of children
+     */
+    @Nonnull
+    default Iterable<Value> getChildren() {
+        return ImmutableList.of();
+    }
 
     @Nonnull
     @Override
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of(getAlias());
+    default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+        return this;
     }
 }

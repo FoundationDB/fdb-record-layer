@@ -29,13 +29,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.temp.TreeLike;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -45,7 +48,12 @@ import java.util.Set;
  * e.g. filter a record out of a set of records, etc.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryPredicate extends Bindable, PlanHashable, Correlated<QueryPredicate> {
+public interface QueryPredicate extends Bindable, Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable {
+
+    @Override
+    default QueryPredicate getThis() {
+        return this;
+    }
 
     /**
      * Determines if this predicate implies some other predicate.
@@ -176,4 +184,47 @@ public interface QueryPredicate extends Bindable, PlanHashable, Correlated<Query
 
     @Nullable
     <M extends Message> Boolean eval(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
+
+    @Nonnull
+    @Override
+    default Set<CorrelationIdentifier> getCorrelatedTo() {
+        return fold(QueryPredicate::getCorrelatedToWithoutChildren,
+                (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
+                    ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
+                    correlatedToBuilder.addAll(correlatedToWithoutChildren);
+                    childrenCorrelatedTo.forEach(correlatedToBuilder::addAll);
+                    return correlatedToBuilder.build();
+                });
+    }
+
+    @Nonnull
+    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    default QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
+        return mapLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+    }
+
+    @Nullable
+    @SuppressWarnings("unused")
+    default QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
+        throw new RecordCoreException("implementor must override");
+    }
+
+    @Nonnull
+    default Optional<QueryPredicate> translateValues(@Nonnull final Map<Value, Value> translationMap) {
+        return mapLeavesMaybe(t -> {
+            if (!(t instanceof PredicateWithValue)) {
+                return this;
+            }
+            final PredicateWithValue predicateWithValue = (PredicateWithValue)t;
+            return predicateWithValue.getValue()
+                            .translate(translationMap)
+                    .map(predicateWithValue::withValue)
+                    .orElse(null);
+        });
+    }
 }

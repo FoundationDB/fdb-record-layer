@@ -44,7 +44,7 @@ import java.util.stream.Stream;
  * A predicate with a constant boolean value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantPredicate implements QueryPredicate {
+public class ConstantPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Predicate");
 
     @Nonnull
@@ -84,7 +84,7 @@ public class ConstantPredicate implements QueryPredicate {
 
     @Nonnull
     @Override
-    public QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
+    public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
         return this;
     }
 

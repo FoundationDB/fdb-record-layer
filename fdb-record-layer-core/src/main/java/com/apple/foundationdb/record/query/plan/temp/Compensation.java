@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.rules.DataAccessRule;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -440,7 +439,7 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
          */
         @Override
         public RelationalExpression apply(ExpressionRef<RelationalExpression> reference) {
-            // apply the child is needed
+            // apply the child as needed
             if (childCompensation.isNeeded()) {
                 reference = GroupExpressionRef.of(childCompensation.apply(reference));
             }
@@ -455,7 +454,7 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
                         return queryPredicate.rebase(translationMap);
                     })
                     .collect(ImmutableList.toImmutableList());
-            return new LogicalFilterExpression(AndPredicate.and(rebasedPredicates), quantifier);
+            return new LogicalFilterExpression(rebasedPredicates, quantifier);
         }
     }
 }

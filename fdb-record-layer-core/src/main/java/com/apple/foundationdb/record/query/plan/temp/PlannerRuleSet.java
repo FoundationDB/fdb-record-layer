@@ -21,6 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.DataAccessRule;
@@ -32,6 +35,10 @@ import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.MergeFetchIntoCoveringIndexRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctThroughFetchRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushFilterThroughFetchRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushSetOperationThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
@@ -82,7 +89,13 @@ public class PlannerRuleSet {
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule(),
             new RemoveSortRule(),
-            new PushDistinctFilterBelowFilterRule()
+            new PushDistinctFilterBelowFilterRule(),
+            new MergeFetchIntoCoveringIndexRule(),
+            new PushFilterThroughFetchRule(),
+            new PushDistinctThroughFetchRule(),
+            new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryUnionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryUnorderedUnionPlan.class)
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()

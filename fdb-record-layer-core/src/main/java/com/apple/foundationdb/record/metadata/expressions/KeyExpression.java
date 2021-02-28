@@ -209,7 +209,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull ExpansionVisitor<S> visitor);
+    <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor);
 
     /**
      * Return the key fields for an expression.

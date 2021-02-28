@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.tuple.Tuple;
@@ -50,6 +51,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 
@@ -118,6 +120,12 @@ public abstract class GeophileSpatialObjectQueryPlan implements RecordQueryPlanW
     @Override
     public IndexScanType getScanType() {
         return GeophileScanTypes.GO_TO_Z;
+    }
+
+    @Nonnull
+    @Override
+    public Optional<PartialMatch> getPartialMatchOptional() {
+        return Optional.empty();
     }
 
     @Nonnull

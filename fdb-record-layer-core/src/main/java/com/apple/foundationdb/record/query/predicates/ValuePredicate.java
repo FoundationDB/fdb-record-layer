@@ -67,6 +67,12 @@ public class ValuePredicate implements PredicateWithValue {
         return value;
     }
 
+    @Nonnull
+    @Override
+    public ValuePredicate withValue(@Nonnull final Value value) {
+        return new ValuePredicate(value, comparison);
+    }
+
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
@@ -75,14 +81,14 @@ public class ValuePredicate implements PredicateWithValue {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
+    public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
         Value rebasedValue = value.rebase(translationMap);
         // TODO rebase comparison if needed
         if (value != rebasedValue) { // reference comparison intended

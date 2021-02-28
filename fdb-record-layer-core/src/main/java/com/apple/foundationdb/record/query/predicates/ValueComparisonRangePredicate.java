@@ -70,7 +70,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 
@@ -136,6 +136,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             this.parameterAlias = parameterAlias;
         }
 
+        @Nonnull
+        @Override
+        public Placeholder withValue(@Nonnull final Value value) {
+            return new Placeholder(value, parameterAlias);
+        }
+
         public CorrelationIdentifier getParameterAlias() {
             return parameterAlias;
         }
@@ -162,7 +168,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Nonnull
         @Override
-        public Placeholder rebase(@Nonnull final AliasMap translationMap) {
+        public Placeholder rebaseLeaf(@Nonnull final AliasMap translationMap) {
             return new Placeholder(getValue().rebase(translationMap), parameterAlias);
         }
 
@@ -198,6 +204,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         }
 
         @Nonnull
+        @Override
+        public Sargable withValue(@Nonnull final Value value) {
+            return new Sargable(value, comparisonRange);
+        }
+
+        @Nonnull
         public ComparisonRange getComparisonRange() {
             return comparisonRange;
         }
@@ -220,7 +232,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Nonnull
         @Override
-        public Sargable rebase(@Nonnull final AliasMap translationMap) {
+        public Sargable rebaseLeaf(@Nonnull final AliasMap translationMap) {
             return new Sargable(getValue().rebase(translationMap), comparisonRange);
         }
 
@@ -292,6 +304,5 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         public String toString() {
             return getValue() + " " + comparisonRange;
         }
-
     }
 }

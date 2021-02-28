@@ -48,8 +48,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     private final CorrelationIdentifier alias;
     private final int ordinalPosition;
 
-
-    public QuantifiedColumnValue(@Nonnull final CorrelationIdentifier alias,
+    private QuantifiedColumnValue(@Nonnull final CorrelationIdentifier alias,
                                  final int ordinalPosition) {
         this.alias = alias;
         this.ordinalPosition = ordinalPosition;
@@ -61,7 +60,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public QuantifiedColumnValue rebase(@Nonnull final AliasMap translationMap) {
+    public QuantifiedColumnValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
             return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition);
         }
@@ -120,5 +119,23 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+    }
+
+    @Override
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        if (otherValue instanceof QuantifiedObjectValue) {
+            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
+        }
+        if (otherValue instanceof QuantifiedColumnValue) {
+            final QuantifiedColumnValue otherQuantifierColumnValue = (QuantifiedColumnValue)otherValue;
+            return getAlias().equals(otherQuantifierColumnValue.getAlias()) &&
+                   getOrdinalPosition() == (otherQuantifierColumnValue.getOrdinalPosition());
+        }
+        return false;
+    }
+
+    @Nonnull
+    public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal) {
+        return new QuantifiedColumnValue(alias, ordinal);
     }
 }

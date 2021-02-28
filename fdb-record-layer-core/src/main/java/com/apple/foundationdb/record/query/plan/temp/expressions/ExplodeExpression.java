@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,7 +61,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     public ExplodeExpression(@Nonnull final CorrelationIdentifier correlationIdentifier, @Nonnull final List<String> fieldNames) {
         this.correlationIdentifier = correlationIdentifier;
         this.fieldNames = fieldNames;
-        this.resultValue = new FieldValue(correlationIdentifier, fieldNames);
+        this.resultValue = new FieldValue(QuantifiedColumnValue.of(correlationIdentifier, 0), fieldNames);
     }
 
     @Nonnull
@@ -87,8 +88,10 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         if (this == otherExpression) {
             return true;
         }
+        final ExplodeExpression otherExplodeExpression = (ExplodeExpression)otherExpression;
         return getClass() == otherExpression.getClass() &&
-               fieldNames.equals(((ExplodeExpression)otherExpression).fieldNames);
+               semanticEqualsForResults(otherExpression, equivalencesMap) &&
+               fieldNames.equals(otherExplodeExpression.fieldNames);
     }
 
     @Override
@@ -132,6 +135,6 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Override
     public String toString() {
-        return "$" + correlationIdentifier + "/" + String.join(".", fieldNames);
+        return resultValue.toString();
     }
 }

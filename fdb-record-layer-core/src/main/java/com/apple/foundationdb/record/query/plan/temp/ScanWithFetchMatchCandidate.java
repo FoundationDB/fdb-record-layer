@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithRequiredFields.java
+ * ScanWithFetchMatchCandidate.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,17 +18,19 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
+import java.util.Optional;
 
 /**
- * Interface for query plans that have fields that must be present for successful execution.
+ * Interface to represent a candidate that replaces with an index scan.
  */
-public interface RecordQueryPlanWithRequiredFields extends RecordQueryPlan {
+public interface ScanWithFetchMatchCandidate extends MatchCandidate {
     @Nonnull
-    Set<KeyExpression> getRequiredFields();
+    Optional<Value> pushValueThroughFetch(@Nonnull Value value,
+                                          @Nonnull QuantifiedColumnValue indexRecordColumnValue);
 }

@@ -90,7 +90,7 @@ public class ExpressionMatcherTest {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
-                        new QueryComponentPredicate(Query.field("test").equalsValue(5)),
+                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5))),
                         quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = root.bindTo(null, matcher).findFirst();
@@ -206,7 +206,7 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)));
         LogicalFilterExpression filterPlan =
-                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias()).asAndPredicate(),
+                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias()).getPredicates(),
                         quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
@@ -224,7 +224,7 @@ public class ExpressionMatcherTest {
         assertEquals(root.get(), bindings.get(matcher));
         assertEquals(filterPlan, bindings.get(filterPlanMatcher));
         assertEquals(scanPlan, bindings.get(scanMatcher));
-        assertEquals(filterPlan.getPredicate(), bindings.get(andMatcher));
+        assertEquals(AndPredicate.and(filterPlan.getPredicates()), bindings.get(andMatcher));
         assertEquals(filterPlan.getInner().getRangesOver().get(), bindings.get(filterLeafMatcher).get()); // dereference
     }
 }

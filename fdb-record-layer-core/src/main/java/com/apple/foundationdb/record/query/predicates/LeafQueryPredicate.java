@@ -1,9 +1,9 @@
 /*
- * QuantifiedValue.java
+ * LeafQueryPredicate.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,23 +21,22 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.google.common.collect.ImmutableSet;
-
-import javax.annotation.Nonnull;
-import java.util.Set;
+import com.google.common.collect.ImmutableList;
 
 /**
- * A scalar value type that is directly derived from an alias.
+ * Class to model the concept of a predicate. A predicate is a construct that can be evaluated using
+ * three-values logic for a set of given inputs. The caller can then use that result to take appropriate action,
+ * e.g. filter a record out of a set of records, etc.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QuantifiedValue extends LeafValue {
-
-    CorrelationIdentifier getAlias();
-
-    @Nonnull
+public interface LeafQueryPredicate extends QueryPredicate {
     @Override
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of(getAlias());
+    default Iterable<? extends QueryPredicate> getChildren() {
+        return ImmutableList.of();
+    }
+
+    @Override
+    default QueryPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
+        return this;
     }
 }

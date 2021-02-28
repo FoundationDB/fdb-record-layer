@@ -28,19 +28,16 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * A value representing a version stamp.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionValue implements Value {
+public class VersionValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
     public VersionValue() {
@@ -49,13 +46,7 @@ public class VersionValue implements Value {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.emptySet();
-    }
-
-    @Nonnull
-    @Override
-    public Value rebase(@Nonnull final AliasMap translationMap) {
+    public Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
         return this;
     }
 

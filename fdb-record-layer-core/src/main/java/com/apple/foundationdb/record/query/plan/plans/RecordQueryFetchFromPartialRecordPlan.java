@@ -31,14 +31,16 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -47,6 +49,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -60,12 +63,17 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     private final Quantifier.Physical inner;
 
-    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)));
+    @Nonnull
+    private PushValueFunction pushValueFunction;
+
+    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final PushValueFunction pushValueFunction) {
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), pushValueFunction);
     }
 
-    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner) {
+    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner,
+                                                  @Nonnull final PushValueFunction pushValueFunction) {
         this.inner = inner;
+        this.pushValueFunction = pushValueFunction;
     }
 
     @Nonnull
@@ -76,13 +84,13 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                                                                          @Nonnull final ExecuteProperties executeProperties) {
         // Plan return exactly one (full) record for each (partial) record from inner, so we can preserve all limits.
         return store.fetchIndexRecords(getChild().execute(store, context, continuation, executeProperties)
-                        .map(FDBQueriedRecord::getIndexEntry), IndexOrphanBehavior.ERROR, executeProperties.getState())
+                .map(FDBQueriedRecord::getIndexEntry), IndexOrphanBehavior.ERROR, executeProperties.getState())
                 .map(store::queriedRecord);
     }
 
     @Nonnull
-    public RecordQueryPlan getInner() {
-        return inner.getRangesOverPlan();
+    public Quantifier.Physical getInner() {
+        return inner;
     }
 
     @Nonnull
@@ -119,6 +127,11 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
+    public PushValueFunction getPushValueFunction() {
+        return pushValueFunction;
+    }
+
+    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -127,7 +140,12 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     @Override
     public RecordQueryFetchFromPartialRecordPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
+        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), pushValueFunction);
+    }
+
+    @Nonnull
+    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier newAlias) {
+        return pushValueFunction.pushValue(value, QuantifiedColumnValue.of(inner.getAlias(), 0));
     }
 
     @Override
@@ -179,4 +197,5 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.FETCH_OPERATOR),
                 childGraphs);
     }
+
 }

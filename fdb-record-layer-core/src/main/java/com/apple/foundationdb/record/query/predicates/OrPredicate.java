@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -92,8 +91,8 @@ public class OrPredicate extends AndOrPredicate {
     }
 
     @Override
-    public OrPredicate rebaseWithRebasedChildren(final AliasMap translationMap, final List<QueryPredicate> rebasedChildren) {
-        return new OrPredicate(rebasedChildren);
+    public OrPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
+        return new OrPredicate(ImmutableList.copyOf(newChildren));
     }
 
     public static QueryPredicate or(@Nonnull Collection<QueryPredicate> children) {

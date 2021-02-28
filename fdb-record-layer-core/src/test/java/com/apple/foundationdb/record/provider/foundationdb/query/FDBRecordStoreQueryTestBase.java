@@ -378,12 +378,13 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void setDeferFetchAfterUnionAndIntersection(boolean shouldDeferFetch) {
-        assertTrue(planner instanceof RecordQueryPlanner);
-        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner) planner;
-        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
-                .asBuilder()
-                .setDeferFetchAfterUnionAndIntersection(shouldDeferFetch)
-                .build());
+        if (planner instanceof RecordQueryPlanner) {
+            RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+            recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
+                    .asBuilder()
+                    .setDeferFetchAfterUnionAndIntersection(shouldDeferFetch)
+                    .build());
+        }
     }
 
     protected void setOptimizeForIndexFilters(boolean shouldOptimizeForIndexFilters) {

@@ -35,6 +35,8 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -44,6 +46,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -52,7 +55,7 @@ import java.util.stream.Stream;
  * Common base class for plans that perform stream union operations.
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
+public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren, RecordQuerySetOperationPlan {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlanBase.class);
 
     protected static final String UNION = "∪";    // U+222A
@@ -65,12 +68,12 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     private final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
 
-    public RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
+    protected RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
         this(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))), reverse);
     }
 
-    public RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                    final boolean reverse) {
+    protected RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                       final boolean reverse) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.reverse = reverse;
     }
@@ -216,5 +219,30 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     }
 
     @Nonnull
-    public abstract RecordQueryUnionPlanBase withChildren(@Nonnull List<RecordQueryPlan> newChildren);
+    public abstract RecordQueryUnionPlanBase withChildren(@Nonnull List<? extends RecordQueryPlan> newChildren);
+
+    @Nonnull
+    @Override
+    public PushValueFunction pushValueFunction(final List<PushValueFunction> dependentFunctions) {
+        Verify.verify(!dependentFunctions.isEmpty());
+        return (value, newBaseColumnValue) -> {
+            @Nullable Value previousValue = null;
+            @Nullable AliasMap equivalencesMap = null;
+            for (final PushValueFunction dependentFunction : dependentFunctions) {
+                final Optional<Value> pushedValueOptional = dependentFunction.pushValue(value, newBaseColumnValue);
+                if (!pushedValueOptional.isPresent()) {
+                    return Optional.empty();
+                }
+                if (previousValue == null) {
+                    previousValue = pushedValueOptional.get();
+                    equivalencesMap = AliasMap.identitiesFor(previousValue.getCorrelatedTo());
+                } else {
+                    if (!previousValue.semanticEquals(pushedValueOptional.get(), equivalencesMap)) {
+                        return Optional.empty();
+                    }
+                }
+            }
+            return Optional.ofNullable(previousValue); // cannot be null, but suppress warning
+        };
+    }
 }

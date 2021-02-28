@@ -28,21 +28,18 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A wrapper around a literal of the given type.
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
-public class LiteralValue<T> implements Value {
+public class LiteralValue<T> implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
     @Nullable
@@ -50,18 +47,6 @@ public class LiteralValue<T> implements Value {
 
     public LiteralValue(@Nullable final T value) {
         this.value = value;
-    }
-
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.emptySet();
-    }
-
-    @Nonnull
-    @Override
-    public Value rebase(@Nonnull final AliasMap translationMap) {
-        return this;
     }
 
     @Nullable

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.collect.ImmutableList;
@@ -38,7 +37,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -47,7 +45,7 @@ import java.util.stream.Stream;
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotPredicate implements QueryPredicate {
+public class NotPredicate implements QueryPredicateWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Predicate");
 
     @Nonnull
@@ -73,6 +71,7 @@ public class NotPredicate implements QueryPredicate {
     }
 
     @Nonnull
+    @Override
     public QueryPredicate getChild() {
         return child;
     }
@@ -132,13 +131,7 @@ public class NotPredicate implements QueryPredicate {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return getChild().getCorrelatedTo();
-    }
-
-    @Nonnull
-    @Override
-    public NotPredicate rebase(@Nonnull final AliasMap translationMap) {
-        return new NotPredicate(getChild().rebase(translationMap));
+    public NotPredicate withNewChild(@Nonnull final QueryPredicate newChild) {
+        return new NotPredicate(newChild);
     }
 }

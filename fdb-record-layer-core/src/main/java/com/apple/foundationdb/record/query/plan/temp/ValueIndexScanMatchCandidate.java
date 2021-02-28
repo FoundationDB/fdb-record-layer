@@ -31,21 +31,25 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Case class to represent a match candidate that is backed by an index.
  */
-public class ValueIndexScanMatchCandidate implements MatchCandidate {
+public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate {
     /**
      * Index metadata structure.
      */
@@ -67,7 +71,7 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
      * Value that flows the actual record.
      */
     @Nonnull
-    private final Value recordValue;
+    private final QuantifiedValue recordValue;
 
     /**
      * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
@@ -94,7 +98,7 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
                                         @Nonnull Collection<RecordType> recordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
-                                        @Nonnull final Value recordValue,
+                                        @Nonnull final QuantifiedValue recordValue,
                                         @Nonnull final List<Value> indexKeyValues,
                                         @Nonnull final List<Value> indexValueValues,
                                         @Nonnull final KeyExpression alternativeKeyExpression) {
@@ -144,17 +148,22 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
-        return tryFetchCoveringIndexScan(comparisonRanges, isReverse)
+    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
+                                                       @Nonnull final List<ComparisonRange> comparisonRanges,
+                                                       final boolean isReverse) {
+        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, isReverse)
                 .orElseGet(() ->
-                        new IndexScanExpression(getName(),
+                        new RecordQueryIndexPlan(index.getName(),
                                 IndexScanType.BY_VALUE,
-                                comparisonRanges,
+                                partialMatch,
+                                toScanComparisons(comparisonRanges),
                                 isReverse));
     }
 
     @Nonnull
-    private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
+    private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
+                                                                     @Nonnull final List<ComparisonRange> comparisonRanges,
+                                                                     final boolean isReverse) {
         if (recordTypes.size() > 1) {
             return Optional.empty();
         }
@@ -186,6 +195,7 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
         final RecordQueryPlanWithIndex indexPlan =
                 new RecordQueryIndexPlan(index.getName(),
                         IndexScanType.BY_VALUE,
+                        partialMatch,
                         toScanComparisons(comparisonRanges),
                         isReverse);
 
@@ -194,7 +204,42 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
                 AvailableFields.NO_FIELDS, // not used except for old planner properties
                 builder.build());
 
-        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan));
+        return Optional.of(new RecordQueryFetchFromPartialRecordPlan(coveringIndexPlan, coveringIndexPlan::pushValueThroughFetch));
+    }
+
+    @Nonnull
+    public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
+                                                 @Nonnull QuantifiedColumnValue indexRecordColumnValue) {
+
+        final Set<Value> quantifiedColumnValues = ImmutableSet.copyOf(value.filter(v -> v instanceof QuantifiedColumnValue));
+
+        // if this is a value that is referring to more than one value from its quantifier or two multiple quantifiers
+        if (quantifiedColumnValues.size() != 1) {
+            return Optional.empty();
+        }
+
+        final QuantifiedColumnValue quantifiedColumnValue = (QuantifiedColumnValue)Iterables.getOnlyElement(quantifiedColumnValues);
+
+        // replace the quantified column value inside the given value with the quantified value in the match candidate
+        final Optional<Value> translatedValueOptional =
+                value.translate(ImmutableMap.of(quantifiedColumnValue, QuantifiedColumnValue.of(recordValue.getAlias(), 0)));
+        if (!translatedValueOptional.isPresent()) {
+            return Optional.empty();
+        }
+        final Value translatedValue = translatedValueOptional.get();
+        final AliasMap equivalenceMap = AliasMap.identitiesFor(ImmutableSet.of(recordValue.getAlias()));
+
+        for (final Value matchResultValue : Iterables.concat(ImmutableList.of(recordValue), indexKeyValues, indexValueValues)) {
+            final Set<CorrelationIdentifier> resultValueCorrelatedTo = matchResultValue.getCorrelatedTo();
+            if (resultValueCorrelatedTo.size() != 1) {
+                continue;
+            }
+            if (translatedValue.semanticEquals(matchResultValue, equivalenceMap)) {
+                return matchResultValue.translate(ImmutableMap.of(QuantifiedColumnValue.of(recordValue.getAlias(), 0), indexRecordColumnValue));
+            }
+        }
+
+        return Optional.empty();
     }
 
     @Nonnull
@@ -206,7 +251,6 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
         return builder.build();
     }
 
-
     private static void addCoveringField(@Nonnull IndexKeyValueToPartialRecord.Builder builder,
                                          @Nonnull FieldValue fieldValue,
                                          @Nonnull AvailableFields.FieldData fieldData) {
@@ -216,6 +260,9 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
 
         // TODO not sure what to do with the null standing requirement
 
-        builder.addField(fieldValue.getFieldName(), fieldData.getSource(), fieldData.getIndex());
+        final String fieldName = fieldValue.getFieldName();
+        if (!builder.hasField(fieldName)) {
+            builder.addField(fieldName, fieldData.getSource(), fieldData.getIndex());
+        }
     }
 }

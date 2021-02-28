@@ -141,6 +141,50 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that a complex query with an AND of fields with compatibly ordered indexes generates an intersection plan.
+     */
+    @DualPlannerTest
+    public void testComplexQueryAndWithTwoChildren2() throws Exception {
+        RecordMetaDataHook hook = complexQuerySetupHook();
+        complexQuerySetup(hook);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("str_value_indexed").equalsValue("even"),
+                        Query.field("num_value_3_indexed").equalsValue(3)))
+                .build();
+
+        setDeferFetchAfterUnionAndIntersection(true);
+        RecordQueryPlan plan = planner.plan(query);
+
+        assertThat(plan, fetch(intersection(
+                coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]"))))),
+                coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]"))))),
+                equalTo(field("rec_no")))));
+        assertEquals(-929788310, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(186505602, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1700171047, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertEquals("even", myrec.getStrValueIndexed());
+                    assertTrue((myrec.getNumValue3Indexed() % 5) == 3);
+                    i++;
+                }
+            }
+            assertEquals(10, i);
+            assertDiscardedExactly(50, context);
+            assertLoadRecord(10, context);
+        }
+    }
+
+    /**
      * Verify that a complex query with an AND of more than two fields with compatibly ordered indexes generates an intersection plan.
      */
     @ParameterizedTest

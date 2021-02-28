@@ -28,11 +28,9 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.MessageValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -43,17 +41,17 @@ import java.util.List;
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class FieldValue implements QuantifiedValue {
+public class FieldValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull
-    private final CorrelationIdentifier alias;
+    private final QuantifiedColumnValue columnValue;
     @Nonnull
     private final List<String> fieldPath;
 
-    public FieldValue(@Nonnull CorrelationIdentifier alias, @Nonnull List<String> fieldPath) {
+    public FieldValue(@Nonnull QuantifiedColumnValue columnValue, @Nonnull List<String> fieldPath) {
         Preconditions.checkArgument(!fieldPath.isEmpty());
-        this.alias = alias;
+        this.columnValue = columnValue;
         this.fieldPath = ImmutableList.copyOf(fieldPath);
     }
 
@@ -74,11 +72,14 @@ public class FieldValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public FieldValue rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(alias)) {
-            return new FieldValue(translationMap.getTargetOrThrow(alias), fieldPath);
-        }
-        return this;
+    public Value getChild() {
+        return columnValue;
+    }
+
+    @Nonnull
+    @Override
+    public FieldValue withNewChild(@Nonnull final Value child) {
+        return new FieldValue((QuantifiedColumnValue)child, fieldPath);
     }
 
     @Override
@@ -86,13 +87,11 @@ public class FieldValue implements QuantifiedValue {
         if (message == null) {
             return null;
         }
-        return MessageValue.getFieldValue(message, fieldPath);
-    }
-
-    @Nonnull
-    @Override
-    public CorrelationIdentifier getAlias() {
-        return alias;
+        final Object childResult = columnValue.eval(store, context, record, message);
+        if (!(childResult instanceof Message)) {
+            return null;
+        }
+        return MessageValue.getFieldValue((Message)childResult, fieldPath);
     }
 
     @Override
@@ -104,7 +103,7 @@ public class FieldValue implements QuantifiedValue {
             return false;
         }
         final FieldValue that = (FieldValue)other;
-        return equivalenceMap.containsMapping(alias, that.alias) &&
+        return columnValue.semanticEquals(that.columnValue, equivalenceMap) &&
                fieldPath.equals(that.fieldPath);
     }
 
@@ -120,7 +119,7 @@ public class FieldValue implements QuantifiedValue {
 
     @Override
     public String toString() {
-        return "$" + alias + "/" + String.join(".", fieldPath);
+        return columnValue.toString() + "/" + String.join(".", fieldPath);
     }
 
     @Override
@@ -132,6 +131,6 @@ public class FieldValue implements QuantifiedValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+        return semanticEquals(other, AliasMap.emptyMap());
     }
 }

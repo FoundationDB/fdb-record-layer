@@ -53,7 +53,7 @@ import java.util.stream.Stream;
  * TODO remove this class eventually
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueryComponentPredicate implements QueryPredicate {
+public class QueryComponentPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Predicate-With-Query-Component");
 
     @Nonnull

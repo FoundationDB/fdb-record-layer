@@ -1,5 +1,5 @@
 /*
- * QuantifiedValue.java
+ * ValueWithChild.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,23 +21,40 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
+import java.util.List;
 
 /**
- * A scalar value type that is directly derived from an alias.
+ * A scalar value type that has children.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QuantifiedValue extends LeafValue {
+public interface QueryPredicateWithChild extends QueryPredicate {
 
-    CorrelationIdentifier getAlias();
+    /**
+     * Method to retrieve a list of children values.
+     * @return a list of children
+     */
+    @Nonnull
+    default List<QueryPredicate> getChildren() {
+        return ImmutableList.of(getChild());
+    }
+
+    /**
+     * Method to retrieve the only child predicate.
+     * @return this child {@link QueryPredicate}
+     */
+    @Nonnull
+    QueryPredicate getChild();
 
     @Nonnull
     @Override
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of(getAlias());
+    default QueryPredicateWithChild withChildren(@Nonnull final Iterable<? extends QueryPredicate> newChildren) {
+        return withNewChild(Iterables.getOnlyElement(newChildren));
     }
+
+    @Nonnull
+    QueryPredicateWithChild withNewChild(@Nonnull final QueryPredicate rebasedChild);
 }

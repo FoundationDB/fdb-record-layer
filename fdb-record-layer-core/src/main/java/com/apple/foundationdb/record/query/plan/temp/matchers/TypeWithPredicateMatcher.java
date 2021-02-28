@@ -21,8 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.record.query.plan.temp.Bindable;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
@@ -31,11 +32,11 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * Matches a subclass of {@link RelationalExpressionWithPredicate} with a given predicate (as determined by
- * {@link RelationalExpressionWithPredicate#getPredicate()} and a given matcher against the children.
- * @param <T> the type of {@link RelationalExpressionWithPredicate} to match against
+ * Matches a subclass of {@link RelationalExpressionWithPredicates} with a given predicate (as determined by
+ * {@link RelationalExpressionWithPredicates#getPredicates()} and a given matcher against the children.
+ * @param <T> the type of {@link RelationalExpressionWithPredicates} to match against
  */
-public class TypeWithPredicateMatcher<T extends RelationalExpressionWithPredicate> extends TypeMatcher<T> {
+public class TypeWithPredicateMatcher<T extends RelationalExpressionWithPredicates> extends TypeMatcher<T> {
     @Nonnull
     private final ExpressionMatcher<? extends QueryPredicate> predicateMatcher;
 
@@ -49,23 +50,23 @@ public class TypeWithPredicateMatcher<T extends RelationalExpressionWithPredicat
     @Nonnull
     @Override
     public Stream<PlannerBindings> matchWith(@Nonnull final PlannerBindings outerBindings, @Nonnull final RelationalExpression expression, @Nonnull final List<? extends Bindable> children) {
-        if (!(expression instanceof RelationalExpressionWithPredicate)) {
+        if (!(expression instanceof RelationalExpressionWithPredicates)) {
             return Stream.empty();
         }
         Stream<PlannerBindings> superBindings = super.matchWith(outerBindings, expression, children);
-        QueryPredicate predicate = ((RelationalExpressionWithPredicate)expression).getPredicate();
+        QueryPredicate predicate = AndPredicate.and(((RelationalExpressionWithPredicates)expression).getPredicates());
         return superBindings.flatMap(bindings -> predicate.bindTo(outerBindings, predicateMatcher).map(bindings::mergedWith));
     }
 
-    public static <U extends RelationalExpressionWithPredicate> TypeWithPredicateMatcher<U> ofPredicate(@Nonnull Class<? extends U> expressionClass,
-                                                                                                        @Nonnull ExpressionMatcher<? extends QueryPredicate> predicateMatcher) {
+    public static <U extends RelationalExpressionWithPredicates> TypeWithPredicateMatcher<U> ofPredicate(@Nonnull Class<? extends U> expressionClass,
+                                                                                                         @Nonnull ExpressionMatcher<? extends QueryPredicate> predicateMatcher) {
         return ofPredicate(expressionClass, predicateMatcher, AnyChildrenMatcher.ANY);
     }
 
     @SafeVarargs
-    public static <U extends RelationalExpressionWithPredicate> TypeWithPredicateMatcher<U> ofPredicate(@Nonnull Class<? extends U> expressionClass,
-                                                                                                        @Nonnull ExpressionMatcher<? extends QueryPredicate> predicateMatcher,
-                                                                                                        @Nonnull ExpressionMatcher<? extends Bindable>... children) {
+    public static <U extends RelationalExpressionWithPredicates> TypeWithPredicateMatcher<U> ofPredicate(@Nonnull Class<? extends U> expressionClass,
+                                                                                                         @Nonnull ExpressionMatcher<? extends QueryPredicate> predicateMatcher,
+                                                                                                         @Nonnull ExpressionMatcher<? extends Bindable>... children) {
         ImmutableList.Builder<ExpressionMatcher<? extends Bindable>> builder = ImmutableList.builder();
         for (ExpressionMatcher<? extends Bindable> child : children) {
             builder.add(child);
@@ -73,9 +74,9 @@ public class TypeWithPredicateMatcher<T extends RelationalExpressionWithPredicat
         return ofPredicate(expressionClass, predicateMatcher, ListChildrenMatcher.of(builder.build()));
     }
 
-    public static <U extends RelationalExpressionWithPredicate> TypeWithPredicateMatcher<U> ofPredicate(@Nonnull Class<? extends U> expressionClass,
-                                                                                                        @Nonnull ExpressionMatcher<? extends QueryPredicate> predicateMatcher,
-                                                                                                        @Nonnull ExpressionChildrenMatcher childrenMatcher) {
+    public static <U extends RelationalExpressionWithPredicates> TypeWithPredicateMatcher<U> ofPredicate(@Nonnull Class<? extends U> expressionClass,
+                                                                                                         @Nonnull ExpressionMatcher<? extends QueryPredicate> predicateMatcher,
+                                                                                                         @Nonnull ExpressionChildrenMatcher childrenMatcher) {
         return new TypeWithPredicateMatcher<>(expressionClass, predicateMatcher, childrenMatcher);
     }
 }

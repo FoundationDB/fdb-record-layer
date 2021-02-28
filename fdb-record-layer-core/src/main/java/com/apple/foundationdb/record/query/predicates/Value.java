@@ -23,22 +23,37 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.TreeLike;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Value extends Correlated<Value>, PlanHashable {
+public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, KeyExpressionVisitor.Result {
+
+    @Override
+    default Value getThis() {
+        return this;
+    }
 
     @Nullable
     <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
@@ -124,5 +139,53 @@ public interface Value extends Correlated<Value>, PlanHashable {
      * @param otherValue other value to check if this value is functionally dependent on it
      * @return {@code true} if this value is definitely dependent on {@code otherValue}
      */
-    boolean isFunctionallyDependentOn(@Nonnull final Value otherValue);
+    default boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        if (!(otherValue instanceof QuantifiedValue)) {
+            return false;
+        }
+
+        return StreamSupport.stream(inPreOrder().spliterator(), false)
+                .flatMap(value -> value instanceof QuantifiedValue ? Stream.of((QuantifiedValue)value) : Stream.empty())
+                .allMatch(quantifiedValue -> quantifiedValue.isFunctionallyDependentOn(otherValue));
+    }
+
+    @Nonnull
+    @Override
+    default Set<CorrelationIdentifier> getCorrelatedTo() {
+        return fold(Value::getCorrelatedToWithoutChildren,
+                (correlatedToWithoutChildren, childrenCorrelatedTo) -> {
+                    ImmutableSet.Builder<CorrelationIdentifier> correlatedToBuilder = ImmutableSet.builder();
+                    correlatedToBuilder.addAll(correlatedToWithoutChildren);
+                    childrenCorrelatedTo.forEach(correlatedToBuilder::addAll);
+                    return correlatedToBuilder.build();
+                });
+    }
+
+    @Nonnull
+    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of();
+    }
+
+    @Nonnull
+    @Override
+    default Value rebase(@Nonnull final AliasMap translationMap) {
+        return mapLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
+        throw new RecordCoreException("implementor must override");
+    }
+
+    @Nonnull
+    default Optional<Value> translate(@Nonnull final Map<Value, Value> translationMap) {
+        return mapLeavesMaybe(t -> t.translateLeaf(translationMap));
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    default Value translateLeaf(@Nonnull final Map<Value, Value> translationMap) {
+        return translationMap.getOrDefault(this, this);
+    }
 }

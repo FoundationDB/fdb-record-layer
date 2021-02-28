@@ -40,19 +40,13 @@ import java.util.Set;
  * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-public class BaseValue implements Value {
+public class BaseValue implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Base-Value");
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();
-    }
-
-    @Nonnull
-    @Override
-    public BaseValue rebase(@Nonnull final AliasMap translationMap) {
-        return this;
     }
 
     @Nullable

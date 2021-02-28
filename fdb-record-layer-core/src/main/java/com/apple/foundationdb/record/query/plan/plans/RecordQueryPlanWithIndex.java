@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -41,6 +42,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * A query plan that uses a single index. This is usually by scanning
@@ -61,6 +63,9 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     @Nonnull
     IndexScanType getScanType();
+
+    @Nonnull
+    Optional<PartialMatch> getPartialMatchOptional();
 
     @Nonnull
     <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,

@@ -1,9 +1,9 @@
 /*
- * QuantifiedValue.java
+ * PushValueFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,26 +18,26 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.predicates;
+package com.apple.foundationdb.record.query.plan.plans;
 
-import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.google.common.collect.ImmutableSet;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
+import java.util.Optional;
 
 /**
- * A scalar value type that is directly derived from an alias.
+ * Interface for push functions employed by fetch.
  */
-@API(API.Status.EXPERIMENTAL)
-public interface QuantifiedValue extends LeafValue {
-
-    CorrelationIdentifier getAlias();
+@FunctionalInterface
+public interface PushValueFunction {
+    PushValueFunction UNABLE_TO_PUSH = (v, i) -> Optional.empty();
 
     @Nonnull
-    @Override
-    default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of(getAlias());
+    Optional<Value> pushValue(@Nonnull Value value,
+                              @Nonnull QuantifiedColumnValue newBaseColumnValue);
+
+    static PushValueFunction unableToPush() {
+        return UNABLE_TO_PUSH;
     }
 }

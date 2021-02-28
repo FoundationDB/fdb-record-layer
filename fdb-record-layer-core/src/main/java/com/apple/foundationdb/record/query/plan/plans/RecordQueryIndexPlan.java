@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
@@ -54,11 +55,13 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
  */
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 @API(API.Status.INTERNAL)
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
@@ -68,12 +71,31 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     protected final IndexScanType scanType;
     @Nonnull
+    protected final Optional<PartialMatch> partialMatchOptional;
+    @Nonnull
     protected final ScanComparisons comparisons;
     protected final boolean reverse;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
+        this(indexName, scanType, Optional.empty(), comparisons, reverse);
+    }
+
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nonnull IndexScanType scanType,
+                                @Nonnull PartialMatch partialMatchOptional,
+                                @Nonnull final ScanComparisons comparisons,
+                                final boolean reverse) {
+        this(indexName, scanType, Optional.of(partialMatchOptional), comparisons, reverse);
+    }
+
+    private RecordQueryIndexPlan(@Nonnull final String indexName,
+                                 @Nonnull IndexScanType scanType,
+                                 @Nonnull Optional<PartialMatch> partialMatchOptional,
+                                 @Nonnull final ScanComparisons comparisons,
+                                 final boolean reverse) {
         this.indexName = indexName;
         this.scanType = scanType;
+        this.partialMatchOptional = partialMatchOptional;
         this.comparisons = comparisons;
         this.reverse = reverse;
     }
@@ -103,6 +125,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public IndexScanType getScanType() {
         return scanType;
+    }
+
+    @Nonnull
+    @Override
+    public Optional<PartialMatch> getPartialMatchOptional() {
+        return partialMatchOptional;
     }
 
     @Override
@@ -157,6 +185,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     public RecordQueryIndexPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryIndexPlan(getIndexName(),
                 getScanType(),
+                getPartialMatchOptional(),
                 getComparisons(),
                 isReverse());
     }

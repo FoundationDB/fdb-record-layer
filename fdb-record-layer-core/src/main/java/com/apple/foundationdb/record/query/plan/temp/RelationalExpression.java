@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -143,6 +144,21 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     @Nonnull
     default Optional<List<? extends Value>> getResultValues() {
         return Optional.empty();
+    }
+
+    @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
+    default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
+        if (getResultValues().isPresent() != otherExpression.getResultValues().isPresent()) {
+            return false;
+        } else if (getResultValues().isPresent()) {
+            final List<? extends Value> resultValues = getResultValues().get();
+            final List<? extends Value> otherResultValues = otherExpression.getResultValues().get();
+
+            return Streams.zip(resultValues.stream(), otherResultValues.stream(),
+                    (resultValue, otherResultValue) -> resultValue.semanticEquals(otherResultValue, aliasMap))
+                    .allMatch(isEquals -> isEquals);
+        }
+        return true;
     }
 
     /**

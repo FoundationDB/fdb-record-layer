@@ -253,7 +253,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
         @Nonnull
         @Override
         public Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues() {
-            return Optional.of(ImmutableList.of(new QuantifiedColumnValue(getAlias(), 0)));
+            return Optional.of(ImmutableList.of(QuantifiedColumnValue.of(getAlias(), 0)));
         }
     }
 
@@ -538,7 +538,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     protected Optional<List<? extends QuantifiedColumnValue>> pullUpResultValues() {
         return resolveValuesRangedOver().map(unifiedResultValues ->
                 Streams.mapWithIndex(unifiedResultValues.stream(),
-                        (columnValue, index) -> new QuantifiedColumnValue(getAlias(), Math.toIntExact(index)))
+                        (columnValue, index) -> QuantifiedColumnValue.of(getAlias(), Math.toIntExact(index)))
                         .collect(ImmutableList.toImmutableList()));
     }
 
