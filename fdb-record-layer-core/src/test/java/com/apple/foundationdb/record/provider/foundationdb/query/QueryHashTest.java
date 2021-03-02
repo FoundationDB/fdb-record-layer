@@ -298,9 +298,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        // TODO: https://github.com/FoundationDB/fdb-record-layer/issues/1087
-        //        assertEquals(379475762, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        //        assertEquals(379475762, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(570416498, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(570416498, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
@@ -320,9 +319,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        // TODO: https://github.com/FoundationDB/fdb-record-layer/issues/1087
-        //        assertEquals(2024130897, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        //        assertEquals(2024130897, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1757787510, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1757787510, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
     }
 
