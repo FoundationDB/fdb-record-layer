@@ -294,6 +294,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
                 .setRecordType("TypesRecord")
                 .setFilter(filter)
                 .build();
+        // Index(substr_index [[abd],[abg]])
         RecordQueryPlan plan = planner.plan(query);
 
         if (functionQuery) {

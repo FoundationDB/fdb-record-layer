@@ -87,6 +87,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query = RecordQuery.newBuilder()
                 .setSort(field("etag"))
                 .build();
+
+        // Index(versions <,>)
         RecordQueryPlan plan = planner.plan(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), unbounded())));
         assertEquals(1555932709, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -164,6 +166,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordTypes(Arrays.asList("MySimpleRecord", "MySimpleRecord2"))
                     .setFilter(Query.field("etag").equalsValue(7))
                     .build();
+
+            // Index(partial_versions [[7],[7]])
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, indexScan(allOf(indexName("partial_versions"), bounds(hasTupleString("[[7],[7]]")))));
             assertEquals(-501898489, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -190,6 +194,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("MySimpleRecord2")
                     .setFilter(Query.field("etag").equalsValue(7))
                     .build();
+
+            // Index(partial_versions [[7],[7]]) | [MySimpleRecord2]
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord2"), indexScan(allOf(indexName("partial_versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1724404567, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -216,6 +222,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("MySimpleRecord3")
                     .setFilter(Query.field("etag").equalsValue(7))
                     .build();
+
+            // Index(versions [[7],[7]]) | [MySimpleRecord3]
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, typeFilter(contains("MySimpleRecord3"), indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[7],[7]]"))))));
             assertEquals(-1908726868, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -243,6 +251,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordTypes(Arrays.asList("MySimpleRecord2", "MySimpleRecord3"))
                     .setFilter(Query.field("etag").equalsValue(7))
                     .build();
+
+            // Index(versions [[7],[7]]) | [MySimpleRecord2, MySimpleRecord3]
             RecordQueryPlan plan = planner.plan(query);
             MatcherAssert.assertThat(plan, typeFilter(containsInAnyOrder("MySimpleRecord2", "MySimpleRecord3"),
                     indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[7],[7]]"))))));
@@ -293,6 +303,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("etag").greaterThan(3))
                 .setSort(field("etag"))
                 .build();
+
+        // Index(versions ([3],>)
         RecordQueryPlan plan = planner.plan(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("versions"), bounds(hasTupleString("([3],>")))));
         assertEquals(-1766882004, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -335,6 +347,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("nested").matches(Query.field("etag").greaterThan(1)))
                 .setSort(field("nested").nest("etag"))
                 .build();
+
+        // Index(cross_versions ([1],>)
         RecordQueryPlan plan = planner.plan(query);
         MatcherAssert.assertThat(plan, indexScan(allOf(indexName("cross_versions"), bounds(hasTupleString("([1],>")))));
         assertEquals(552822345, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -380,6 +394,8 @@ public class FDBCrossRecordQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("etag").equalsValue(1),
                         Query.field("nested").matches(Query.field("etag").equalsValue(2))))
                 .build();
+
+        // Index(partial_nested_versions [[2, 1],[2, 1]]) | [MySimpleRecord2, MySimpleRecord3]
         RecordQueryPlan plan = planner.plan(query);
         MatcherAssert.assertThat(plan, typeFilter(containsInAnyOrder("MySimpleRecord2", "MySimpleRecord3"),
                 indexScan(allOf(indexName("partial_nested_versions"), bounds(hasTupleString("[[2, 1],[2, 1]]"))))));
