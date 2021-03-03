@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.ObjectPlanHash;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
@@ -28,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -45,6 +48,8 @@ import java.util.List;
  */
 @API(API.Status.MAINTAINED)
 public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithValue {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Key-Expression");
+
     @Nullable
     private final T value;
     @Nonnull
@@ -198,12 +203,12 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return proto.hashCode();
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, value);
     }
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return proto.hashCode();
+        return HashUtils.queryHash(hashKind, BASE_HASH, value);
     }
 
     @Override
