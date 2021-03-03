@@ -86,7 +86,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testMissingSeek() {
-        assertThrows(RecordCoreArgumentException.class, () -> directory.readBlock("testDescription", directory.getFDBLuceneFileReference("testReference"), 1));
+        assertThrows(IllegalArgumentException.class, () -> directory.readBlock("testDescription", directory.getFDBLuceneFileReference("testReference"), 1));
     }
 
     @Test

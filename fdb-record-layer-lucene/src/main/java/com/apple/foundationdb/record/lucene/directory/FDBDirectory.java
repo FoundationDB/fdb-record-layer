@@ -203,7 +203,7 @@ public class FDBDirectory extends Directory {
      * @param referenceFuture the reference where the data supposedly lives
      * @param block the block where the data is stored
      * @return Completable future of the data returned
-     * @throws IOException if blockCache fails to get the data from the block
+     * @throws RecordCoreException if blockCache fails to get the data from the block
      * @throws NullPointerException if a reference with that id hasn't been written yet.
      */
     @Nonnull
@@ -218,7 +218,7 @@ public class FDBDirectory extends Directory {
                     }
             );
         } catch (ExecutionException e) {
-            throw new RecordCoreException("Execution exception thrown while getting block cache", e);
+            throw new RecordCoreException("Execution exception thrown while getting block cache", e.getCause());
         } catch (NullPointerException e) {
             throw new RecordCoreArgumentException("No reference with that id was found", e);
         }
@@ -247,8 +247,7 @@ public class FDBDirectory extends Directory {
                 try {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
                 } catch (RecordCoreException e) {
-                    LOGGER.warn("Cannot Prefetch resource={}", name);
-                    LOGGER.warn("Prefetch Error", e);
+                    LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception", e));
                 }
             }
             this.fileReferenceCache.put(name, fileReference);
@@ -367,7 +366,7 @@ public class FDBDirectory extends Directory {
         final byte[] key = metaSubspace.pack(source);
         CompletableFuture<byte[]> completableFuture;
         completableFuture = context.ensureActive().get(key).exceptionally( (e) -> {
-            throw new RecordCoreArgumentException("Invalid source name in rename function for source" + source);
+            throw new RecordCoreArgumentException("Invalid source name in rename function for source: " + source);
         });
         completableFuture.thenAcceptAsync( (value) -> {
             this.fileReferenceCache.invalidate(source);
