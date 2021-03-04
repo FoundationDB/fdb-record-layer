@@ -75,8 +75,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     @Nonnull
     private final ScanProperties scanProperties;
     @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-    @Nullable
     private RecordCursorResult<SizeStatisticsResults> nextStatsResult;
     private boolean finalResultsEmitted;
     @Nullable
@@ -148,6 +146,11 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         });
     }
 
+    @Override
+    public void close() {
+
+    }
+
     @Nonnull
     @Override
     public Executor getExecutor() {
@@ -158,41 +161,6 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
     public boolean accept(@Nonnull RecordCursorVisitor visitor) {
         visitor.visitEnter(this);
         return visitor.visitLeave(this);
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public SizeStatisticsResults next() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public RecordCursor.NoNextReason getNoNextReason() {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void close() {
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
     }
 
     //form a continuation that allows us to restart statistics aggregation from where we left off

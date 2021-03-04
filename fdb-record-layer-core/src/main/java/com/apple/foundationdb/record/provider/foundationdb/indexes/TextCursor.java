@@ -40,7 +40,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -66,8 +65,6 @@ class TextCursor implements BaseCursor<IndexEntry> {
     private final Index index;
     @Nonnull
     private final CursorLimitManager limitManager;
-    @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
     @Nullable
     private FDBStoreTimer timer;
     private int limitRemaining;
@@ -139,47 +136,9 @@ class TextCursor implements BaseCursor<IndexEntry> {
         return ByteArrayContinuation.fromNullable(underlying.getContinuation());
     }
 
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public IndexEntry next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
-    }
-
     @Override
     public void close() {
         underlying.cancel();
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
     }
 
     @Nonnull

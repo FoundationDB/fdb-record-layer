@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.cursors.SkipCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.test.BooleanSource;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.Matchers;
@@ -46,9 +45,7 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -124,36 +121,6 @@ public class RecordCursorTest {
                     return RecordCursorResult.withoutNextValue(RecordCursorEndContinuation.END, NoNextReason.SOURCE_EXHAUSTED);
                 }
             }, getExecutor());
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public CompletableFuture<Boolean> onHasNext() {
-            onHasNextCalled++;
-            // Use thenApplyAsync to deliberately introduce a delay.
-            return CompletableFuture.completedFuture(count).thenApplyAsync(c -> c > 0, getExecutor());
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public Integer next() {
-            return count--;
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public byte[] getContinuation() {
-            return null;
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public NoNextReason getNoNextReason() {
-            return NoNextReason.SOURCE_EXHAUSTED;
         }
 
         @Override
@@ -1120,34 +1087,6 @@ public class RecordCursorTest {
             }, getExecutor());
         }
 
-        @Nonnull
-        @Override
-        @Deprecated
-        public CompletableFuture<Boolean> onHasNext() {
-            return onNext().thenApply(RecordCursorResult::hasNext);
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public String next() {
-            throw new NoSuchElementException();
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public byte[] getContinuation() {
-            return null;
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public NoNextReason getNoNextReason() {
-            return NoNextReason.SOURCE_EXHAUSTED;
-        }
-
         @Override
         public void close() {
         }
@@ -1167,9 +1106,9 @@ public class RecordCursorTest {
 
     @Test
     public void hasNextErrorStack() throws Exception {
-        final Iterator<String> erring = new BrokenCursor();
+        final BrokenCursor erring = new BrokenCursor();
         try {
-            Iterators.getLast(erring, null);
+            erring.asList().join();
         } catch (Exception ex) {
             for (Throwable t = ex; t != null; t = t.getCause()) {
                 if (Arrays.stream(t.getStackTrace()).anyMatch(s -> s.getMethodName().equals("getLast"))) {

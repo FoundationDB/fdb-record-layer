@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -57,11 +56,7 @@ public class LazyCursor<T> implements RecordCursor<T> {
     private Executor executor;
 
     @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-    @Nullable
     private RecordCursorResult<T> nextResult;
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
 
     public LazyCursor(@Nonnull CompletableFuture<RecordCursor<T>> futureCursor) {
         this(futureCursor, null);
@@ -91,57 +86,15 @@ public class LazyCursor<T> implements RecordCursor<T> {
         } else {
             return inner.onNext().thenApply(result -> {
                 nextResult = result;
-                mayGetContinuation = !result.hasNext();
                 return result;
             });
         }
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            mayGetContinuation = false;
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override
     public void close() {
         if (inner != null) {
             inner.close();
-        }
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
         }
     }
 

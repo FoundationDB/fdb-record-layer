@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -50,9 +49,6 @@ public class FutureCursor<T> implements RecordCursor<T> {
     @Nullable
     private RecordCursorResult<T> nextResult;
 
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
-
     @Nonnull
     private static final RecordCursorContinuation notDoneContinuation = ByteArrayContinuation.fromNullable(new byte[] {0});
 
@@ -68,49 +64,11 @@ public class FutureCursor<T> implements RecordCursor<T> {
             nextResult = RecordCursorResult.exhausted();
             return CompletableFuture.completedFuture(nextResult);
         }
-        mayGetContinuation = false;
         return future.thenApply(t -> {
             done = true;
             nextResult = RecordCursorResult.withNextValue(t, notDoneContinuation);
             return nextResult;
         });
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override

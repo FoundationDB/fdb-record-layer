@@ -30,7 +30,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -44,7 +43,7 @@ import java.util.function.Function;
 @API(API.Status.MAINTAINED)
 public class MapWhileCursor<T, V> implements RecordCursor<V> {
     /**
-     * What to return for {@link #getContinuation()} after stopping.
+     * What to return for {@code onNext.getContinuation()} after stopping.
      */
     public enum StopContinuation {
         /**
@@ -118,42 +117,6 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
                 return nextResult;
             });
         }
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return nextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public V next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        nextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @Deprecated
-    public byte[] getContinuation() {
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override

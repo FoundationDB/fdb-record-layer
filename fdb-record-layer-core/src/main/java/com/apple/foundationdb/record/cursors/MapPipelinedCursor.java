@@ -26,13 +26,11 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -68,9 +66,6 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     private RecordCursorResult<V> nextResult = null;
 
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
-
     public MapPipelinedCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, CompletableFuture<V>> func,
                               int pipelineSize) {
         this.inner = inner;
@@ -85,7 +80,6 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
         if (nextResult != null && !nextResult.hasNext()) {
             return CompletableFuture.completedFuture(nextResult);
         }
-        mayGetContinuation = false;
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor())
                 // pipeline will necessarily contain something if we stopped looping, so pipeline.remove() is nonnull
                 .thenCompose(vignore -> pipeline.peek()) // future should already be (nearly) ready if we stopped looping
@@ -93,49 +87,9 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
                     if (result.hasNext()) {
                         pipeline.remove();
                     }
-                    mayGetContinuation = !result.hasNext();
                     nextResult = result;
                     return result;
                 });
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return nextFuture;
-    }
-
-    @Nullable
-    @Override
-    @SpotBugsSuppressWarnings(value = "EI2", justification = "copies are expensive")
-    @Deprecated
-    public V next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        nextFuture = null;
-        mayGetContinuation = true;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @SpotBugsSuppressWarnings(value = "EI", justification = "copies are expensive")
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override

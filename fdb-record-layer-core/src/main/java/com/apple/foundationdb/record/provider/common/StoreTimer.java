@@ -38,7 +38,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -841,41 +840,6 @@ public class StoreTimer {
                     nextResult = result;
                     return nextResult;
                 });
-            }
-
-            @Override
-            @Nonnull
-            @Deprecated
-            public CompletableFuture<Boolean> onHasNext() {
-                if (nextFuture == null) {
-                    nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-                }
-                return nextFuture;
-            }
-
-            @Override
-            @Nullable
-            @Deprecated
-            public T next() {
-                if (!hasNext()) {
-                    throw new NoSuchElementException();
-                }
-                nextFuture = null;
-                return nextResult.get();
-            }
-
-            @Override
-            @Nullable
-            @Deprecated
-            public byte[] getContinuation() {
-                return nextResult.getContinuation().toBytes();
-            }
-
-            @Nonnull
-            @Override
-            @Deprecated
-            public NoNextReason getNoNextReason() {
-                return nextResult.getNoNextReason();
             }
 
             @Override

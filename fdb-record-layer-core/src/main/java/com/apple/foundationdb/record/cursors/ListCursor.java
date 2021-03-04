@@ -30,7 +30,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
@@ -49,8 +48,6 @@ public class ListCursor<T> implements RecordCursor<T> {
 
     @Nullable
     private RecordCursorResult<T> nextResult;
-    @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
 
     public ListCursor(@Nonnull List<T> list, byte []continuation) {
         this(ForkJoinPool.commonPool(), list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
@@ -80,46 +77,9 @@ public class ListCursor<T> implements RecordCursor<T> {
         return nextResult;
     }
 
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
-    }
-
     @Override
     public void close() {
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
+
     }
 
     @Override
