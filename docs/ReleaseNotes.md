@@ -4,11 +4,7 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 2.10
-
-### Breaking Changes
-
-In this realase, the various implementations of the `RecordQueryPlan` interface have  moved to API stability level `INTERNAL`. This means that individual implementations may change without notice. Clients that are not creating `RecordQueryPlan` objects directly (but instead using the planner to create plans) should not be affected.
+## 3.0
 
 <!--
 // begin next release
@@ -37,6 +33,12 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+## 2.10
+
+### Breaking Changes
+
+In this realase, the various implementations of the `RecordQueryPlan` interface have  moved to API stability level `INTERNAL`. This means that individual implementations may change without notice. Clients that are not creating `RecordQueryPlan` objects directly (but instead using the planner to create plans) should not be affected.
 
 ### 2.10.158.0
 
