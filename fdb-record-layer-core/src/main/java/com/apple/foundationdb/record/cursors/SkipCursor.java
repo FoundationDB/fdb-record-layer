@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -47,9 +46,6 @@ public class SkipCursor<T> implements RecordCursor<T> {
     @Nullable
     private RecordCursorResult<T> nextResult;
 
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
-
     public SkipCursor(@Nonnull RecordCursor<T> inner, int skip) {
         this.inner = inner;
         this.skipRemaining = skip;
@@ -63,7 +59,6 @@ public class SkipCursor<T> implements RecordCursor<T> {
         }
         if (skipRemaining <= 0) {
             return inner.onNext().thenApply(result -> {
-                mayGetContinuation = !result.hasNext();
                 nextResult = result;
                 return result;
             });
@@ -75,49 +70,7 @@ public class SkipCursor<T> implements RecordCursor<T> {
                 return true;
             }
             return false; // Exhausted while skipping or found the result
-        }), getExecutor()).thenApply(vignore -> {
-            mayGetContinuation = !nextResult.hasNext();
-            return nextResult;
-        });
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            mayGetContinuation = false;
-            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return nextFuture;
-    }
-
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        nextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
+        }), getExecutor()).thenApply(vignore -> nextResult);
     }
 
     @Override

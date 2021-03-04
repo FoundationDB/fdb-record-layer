@@ -169,10 +169,9 @@ abstract class IntersectionCursorBase<T, U> extends MergeCursor<T, U, KeyedMerge
      * of the cursors are exhausted. If any of the cursors have stopped due to an in-band limit, it will return
      * an in-band limit as well. Finally, if all of the stopped cursors have done so due to hitting an out-of-band
      * limit, it will return an out-of-band limit as well. Note that, in practice, because an intersection cursor
-     * will return <code>false</code> from <code>onHasNext</code> if any of its child cursors have stopped, it is
-     * likely that there are only a small number (maybe one or two) cursors that have actually stopped when this
-     * method is called (e.g., the first cursor to exhaust its source or the first cursor to hit a limit imposed
-     * by the element scan limiter).
+     * will return a child with no next element if any of its child cursors have stopped, it is likely that there are
+     * only a small number (maybe one or two) cursors that have actually stopped when this method is called (e.g., the
+     * first cursor to exhaust its source or the first cursor to hit a limit imposed by the element scan limiter).
      * @return the weakest reason for stopping
      */
     @Override

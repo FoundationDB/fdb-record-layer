@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.cursors.EmptyCursor;
-import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -40,7 +39,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -77,9 +75,6 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     private CompletableFuture<Boolean> hasNextFuture;
     @Nullable
     private RecordCursorResult<U> nextResult;
-
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
 
     protected MergeCursor(@Nonnull List<S> cursorStates, @Nullable FDBStoreTimer timer) {
         this.cursorStates = cursorStates;
@@ -292,10 +287,8 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
         if (nextResult != null && !nextResult.hasNext()) {
             return CompletableFuture.completedFuture(nextResult);
         }
-        mayGetContinuation = false;
         return computeNextResultStates().thenApply(resultStates -> {
             boolean hasNext = !resultStates.isEmpty();
-            mayGetContinuation = !hasNext;
             if (!hasNext) {
                 nextResult = RecordCursorResult.withoutNextValue(getContinuationObject(), mergeNoNextReasons());
             } else {
@@ -305,44 +298,6 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
             }
             return nextResult;
         });
-    }
-
-    @Override
-    @Nonnull
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            mayGetContinuation = false;
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Override
-    @Nullable
-    @Deprecated
-    public U next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Override
-    @Nullable
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Override
-    @Nonnull
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Nonnull

@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.StreamingMode;
 import com.apple.foundationdb.Transaction;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterable;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -39,21 +39,18 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
-import com.apple.foundationdb.record.cursors.IllegalContinuationAccessChecker;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -630,9 +627,6 @@ public class SplitHelper {
         @Nullable
         private RecordCursorResult<FDBRawRecord> nextResult;
 
-        // for detecting incorrect cursor usage
-        private boolean mayGetContinuation = false;
-
         public KeyValueUnsplitter(@Nonnull FDBRecordContext context, @Nonnull final Subspace subspace,
                                   @Nonnull final RecordCursor<KeyValue> inner, final boolean oldVersionFormat,
                                   @Nullable final SizeInfo sizeInfo, @Nonnull ScanProperties scanProperties) {
@@ -659,7 +653,6 @@ public class SplitHelper {
                 return CompletableFuture.completedFuture(nextResult);
             }
             if (limitManager.isStopped()) {
-                mayGetContinuation = true;
                 nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
                 return CompletableFuture.completedFuture(nextResult);
             } else {
@@ -707,7 +700,6 @@ public class SplitHelper {
                             LOGGER.trace(msg.toString());
                         }
                     }
-                    mayGetContinuation = next == null;
                     return nextResult;
                 });
             }
@@ -717,55 +709,6 @@ public class SplitHelper {
         @Override
         public RecordCursorResult<FDBRawRecord> getNext() {
             return context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADVANCE_CURSOR, onNext());
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public CompletableFuture<Boolean> onHasNext() {
-            if (nextFuture == null) {
-                mayGetContinuation = false;
-                nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-            }
-            return nextFuture;
-        }
-
-        @Override
-        @Deprecated
-        public boolean hasNext() {
-            try {
-                return context.join(onHasNext());
-            } catch (Exception e) {
-                throw FDBExceptions.wrapException(e);
-            }
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public FDBRawRecord next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            mayGetContinuation = true;
-            nextFuture = null;
-            return nextResult.get();
-        }
-
-        @Override
-        @Nullable
-        @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-        @Deprecated
-        public byte[] getContinuation() {
-            IllegalContinuationAccessChecker.check(mayGetContinuation);
-            return nextResult.getContinuation().toBytes();
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public NoNextReason getNoNextReason() {
-            return nextResult.getNoNextReason();
         }
 
         @Nonnull

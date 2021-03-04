@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.cursors;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -30,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -51,9 +49,6 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
     @Nullable
     protected RecordCursorResult<T> nextResult;
 
-    // for detecting incorrect cursor usage
-    protected boolean mayGetContinuation = false;
-
     protected IteratorCursorBase(@Nonnull Executor executor, @Nonnull C iterator) {
         this.executor = executor;
         this.iterator = iterator;
@@ -61,7 +56,6 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
     }
 
     protected RecordCursorResult<T> computeNextResult(boolean hasNext) {
-        mayGetContinuation = !hasNext;
         if (hasNext) {
             valuesSeen++;
             nextResult = RecordCursorResult.withNextValue(iterator.next(), ByteArrayContinuation.fromInt(valuesSeen));
@@ -69,48 +63,6 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
             nextResult = RecordCursorResult.exhausted();
         }
         return nextResult;
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            mayGetContinuation = false;
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override

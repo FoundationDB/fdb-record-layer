@@ -378,7 +378,7 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_VERSION_STAMP("wait for version stamp"),
         /** Wait to load the the cluster's meta-data version stamp. */
         WAIT_META_DATA_VERSION_STAMP("wait for meta-data version stamp"),
-        /** Wait for a synchronous {@link com.apple.foundationdb.record.RecordCursor#next}. */
+        /** Wait for a synchronous {@link com.apple.foundationdb.record.RecordCursor#getNext()}. */
         WAIT_ADVANCE_CURSOR("wait for advance cursor"),
         /** Wait for scanning a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} to see whether it has data.*/
         WAIT_KEYSPACE_SCAN("wait scanning keyspace"),

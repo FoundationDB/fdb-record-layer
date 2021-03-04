@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -45,11 +44,7 @@ public class MapCursor<T, V> implements RecordCursor<V> {
     private final Function<T, V> func;
 
     @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-    @Nullable
     private RecordCursorResult<V> nextResult;
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
 
     public MapCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, V> func) {
         this.inner = inner;
@@ -62,50 +57,11 @@ public class MapCursor<T, V> implements RecordCursor<V> {
         if (nextResult != null && !nextResult.hasNext()) {
             return CompletableFuture.completedFuture(nextResult);
         }
-        mayGetContinuation = false;
         return inner.onNext().thenApply(result -> result.map(func))
                 .thenApply(result -> {
-                    mayGetContinuation = !result.hasNext();
                     nextResult = result;
                     return result;
                 });
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public V next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        hasNextFuture = null;
-        mayGetContinuation = true;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override

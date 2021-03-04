@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -54,34 +52,6 @@ public class EmptyCursor<T> implements RecordCursor<T> {
     @Override
     public RecordCursorResult<T> getNext() {
         return RecordCursorResult.exhausted();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        return CompletableFuture.completedFuture(Boolean.FALSE);
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        throw new NoSuchElementException();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        return null;
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return NoNextReason.SOURCE_EXHAUSTED;
     }
 
     @Override

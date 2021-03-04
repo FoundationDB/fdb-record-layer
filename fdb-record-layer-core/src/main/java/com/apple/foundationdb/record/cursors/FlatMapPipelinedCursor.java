@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
@@ -30,13 +31,11 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.google.protobuf.ByteString;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -79,9 +78,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nullable
     private RecordCursorResult<V> lastResult;
 
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
-
     @SpotBugsSuppressWarnings("EI_EXPOSE_REP2")
     public FlatMapPipelinedCursor(@Nonnull RecordCursor<T> outerCursor,
                                   @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerCursorFunction,
@@ -113,43 +109,10 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
         if (lastResult != null && !lastResult.hasNext()) {
             return CompletableFuture.completedFuture(lastResult);
         }
-        mayGetContinuation = false;
         return AsyncUtil.whileTrue(this::tryToFillPipeline, getExecutor()).thenApply(vignore -> {
             lastResult = pipeline.peek().nextResult();
-            mayGetContinuation = !lastResult.hasNext();
             return lastResult;
         });
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            mayGetContinuation = false;
-            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return nextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public V next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        nextFuture = null;
-        mayGetContinuation = true;
-        return lastResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return lastResult.getContinuation().toBytes();
     }
 
     @Override
@@ -166,13 +129,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
             outerNextFuture = null;
         }
         outerCursor.close();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return lastResult.getNoNextReason();
     }
 
     @Override

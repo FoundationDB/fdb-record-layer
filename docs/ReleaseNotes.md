@@ -6,6 +6,10 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 
 ## 3.0
 
+### Breaking Changes
+
+This verison of the Record Layer removes some legacy elements of the API that were deprecated in previous releases. Most notably, it removes the methods on the `RecordCursor` interface that were compatible with Java `Iterator`s. That API was deprecated in version [2.6](#26) to make it easier for adopters to reason about continuations in asynchronous code by associating each value returned by the cursor with that value's continuation. Adopters still using the deprecated API can either use the `onNext()` and `getNext()` methods on the `RecordCursor` interface or call `asIterator()` to get a `RecordCursorIterator`, which retains compatibility with the `Iterator` interface.
+
 <!--
 // begin next release
 ### NEXT_RELEASE
@@ -25,7 +29,7 @@ As the [versioning guide](Versioning.md) details, it cannot always be determined
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The iterator style `RecordCursor` API is removed [(Issue #1136)](https://github.com/FoundationDB/fdb-record-layer/issues/1136)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

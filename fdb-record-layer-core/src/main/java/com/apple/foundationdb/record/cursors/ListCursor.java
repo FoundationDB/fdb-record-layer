@@ -30,7 +30,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
@@ -78,41 +77,6 @@ public class ListCursor<T> implements RecordCursor<T> {
             nextResult = RecordCursorResult.exhausted();
         }
         return nextResult;
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override
