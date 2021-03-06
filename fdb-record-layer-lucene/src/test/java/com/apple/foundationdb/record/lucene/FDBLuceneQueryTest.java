@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
@@ -33,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.LuceneQueryComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -41,15 +43,32 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
+import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
+
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -104,7 +123,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            Matcher<RecordQueryPlan> matcher = filter(filter1, indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]")))));
             RecordQueryPlan plan = planner.plan(query);
+            assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(2L), ImmutableSet.copyOf(primaryKeys));
         }
@@ -123,6 +144,12 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = primaryKeyDistinct(
+                    unorderedUnion(
+                            filter(filter1, indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]"))))),
+                            typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.SIMPLE_DOC)), scan(bounds(hasTupleString("([null],[10000])"))))
+                    ));
+            assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(0L, 1L, 2L, 3L), ImmutableSet.copyOf(primaryKeys));
             if (shouldDeferFetch) {
@@ -146,8 +173,92 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> scanMatcher =  filter(filter1, typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.SIMPLE_DOC)), scan(bounds(hasTupleString("([null],[10000])")))));
+            assertThat(plan, scanMatcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(2L), ImmutableSet.copyOf(primaryKeys));
+            if (shouldDeferFetch) {
+                assertLoadRecord(3, context);
+            } else {
+                assertLoadRecord(4, context);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void delayFetchOnUnionOfLuceneScanWithFilters(boolean shouldDeferFetch) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
+            final QueryComponent filter2 = new LuceneQueryComponent("was king from 966 to 1016");
+            // Query for full records
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.or(filter1, filter2))
+                    .build();
+            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = union(
+                            filter(filter1, indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]"))))),
+                            filter(filter2, indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[was king from 966 to 1016],[was king from 966 to 1016]]"))))),
+                            equalTo(field("doc_id"))
+                    );
+            assertThat(plan, matcher);
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(ImmutableSet.of(1L, 2L), ImmutableSet.copyOf(primaryKeys));
+            if (shouldDeferFetch) {
+                assertLoadRecord(3, context);
+            } else {
+                assertLoadRecord(4, context);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void delayFetchOnIntersectionOfLuceneScanWithFilters(boolean shouldDeferFetch) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("the elephant");
+            final QueryComponent filter2 = new LuceneQueryComponent("Two households, both alike in dignity");
+            // Query for full records
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(Query.and(filter1, filter2))
+                    .build();
+            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = filter(AndComponent.from(Lists.newArrayList(filter1, filter2)),
+                    typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.SIMPLE_DOC)), scan()));
+            assertThat(plan, matcher);
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(ImmutableSet.of(2L), ImmutableSet.copyOf(primaryKeys));
+            if (shouldDeferFetch) {
+                assertLoadRecord(3, context);
+            } else {
+                assertLoadRecord(4, context);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void misMatchQueryShouldReturnNoResult(boolean shouldDeferFetch) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("doesNotExist");
+            // Query for full records
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter1)
+                    .build();
+            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            RecordQueryPlan plan = planner.plan(query);
+            Matcher<RecordQueryPlan> matcher = filter(filter1, indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[doesNotExist],[doesNotExist]]")))));
+            assertThat(plan, matcher);
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertEquals(ImmutableSet.of(), ImmutableSet.copyOf(primaryKeys));
             if (shouldDeferFetch) {
                 assertLoadRecord(3, context);
             } else {
