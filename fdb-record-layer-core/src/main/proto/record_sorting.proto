@@ -1,0 +1,59 @@
+/*
+ * record_sorting.proto
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto2";
+
+package com.apple.foundationdb.record;
+import "google/protobuf/descriptor.proto";
+
+option java_outer_classname = "RecordSortingProto";
+
+message SortedRecord {
+    optional bytes primary_key = 1;
+    optional bytes message = 2;
+    optional bytes version = 3;
+}
+
+message MemorySortContinuation {
+    repeated bytes records = 1;
+    optional bytes minimum_key = 2;
+    optional bytes continuation = 3;
+}
+
+message FileSortContinuation {
+    optional bool loading = 1;
+    repeated bytes in_memory_records = 2;
+    repeated string files = 3;
+    optional bytes continuation = 4;
+    optional int32 record_position = 5;
+    optional int64 file_position = 6;
+}
+
+message SortFileHeader {
+    optional fixed32 number_of_sections = 1;
+    optional fixed32 number_of_records = 2;
+}
+
+message SortSectionHeader {
+    optional fixed32 section_number = 1;
+    optional fixed32 start_record_number = 2;
+    optional fixed32 number_of_records = 3;
+    optional fixed64 number_of_bytes = 4;
+    optional bytes encryption_iv = 5;
+}

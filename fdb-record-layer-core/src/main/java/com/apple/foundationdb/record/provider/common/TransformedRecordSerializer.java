@@ -325,6 +325,11 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         return new TransformedRecordSerializer<>(inner.widen(), compressWhenSerializing, compressionLevel, encryptWhenSerializing);
     }
 
+    @Nonnull
+    public RecordSerializer<M> untransformed() {
+        return inner;
+    }
+
     /**
      * Creates a new {@link Builder TransformedRecordSerializer.Builder} instance
      * that is backed by the default serializer for {@link Message}s, namely
