@@ -14,8 +14,8 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix LiteralKeyExpression hash code [(Issue #1066)](https://github.com/FoundationDB/fdb-record-layer/issues/1066)
-* **Bug fix** Stable plan from cost perspective [(Issue #1148)](https://github.com/FoundationDB/fdb-record-layer/issues/1148)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,11 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.159.0
+
+* **Bug fix** Fix LiteralKeyExpression hash code [(Issue #1066)](https://github.com/FoundationDB/fdb-record-layer/issues/1066)
+* **Bug fix** Stable plan from cost perspective [(Issue #1148)](https://github.com/FoundationDB/fdb-record-layer/issues/1148)
 
 ### 2.10.158.0
 
