@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -119,8 +120,22 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         if (distinctFilterPositionCompare != 0) {
             return distinctFilterPositionCompare;
         }
-        return Integer.compare(UnmatchedFieldsProperty.evaluate(planContext, a),
-                UnmatchedFieldsProperty.evaluate(planContext, b));
+
+        int ufpA = UnmatchedFieldsProperty.evaluate(planContext, a);
+        int ufpB = UnmatchedFieldsProperty.evaluate(planContext, b);
+        if (ufpA != ufpB) {
+            return Integer.compare(ufpA, ufpB);
+        }
+
+        // If plans are indistinguishable from a cost perspective, select one by planHash. This would make the cost model stable
+        // (select the same plan on subsequent plannings).
+        if ((a instanceof PlanHashable) && (b instanceof PlanHashable)) {
+            int hA = ((PlanHashable)a).planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS);
+            int hB = ((PlanHashable)b).planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS);
+            return Integer.compare(hA, hB);
+        }
+
+        return 0;
     }
 
     private OptionalInt comparePrimaryScanToIndexScan(@Nonnull Map<Class<? extends RelationalExpression>, Integer> countDataAccessMapPrimaryScan,
