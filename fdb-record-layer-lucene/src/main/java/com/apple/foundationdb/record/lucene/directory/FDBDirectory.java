@@ -22,6 +22,10 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -49,10 +53,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -74,6 +76,12 @@ import java.util.concurrent.atomic.AtomicLong;
 public class FDBDirectory extends Directory {
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDirectory.class);
     public static final int DEFAULT_BLOCK_SIZE = 16_384;
+    public static final int DEFAULT_MAXIMUM_SIZE = 1024;
+    public static final int DEFAULT_CONCURRENCY_LEVEL = 16;
+    public static final int DEFAULT_INITIAL_CAPACITY = 128;
+    private static final int SEQUENCE_SUBSPACE = 0;
+    private static final int META_SUBSPACE = 1;
+    private static final int DATA_SUBSPACE = 2;
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     private final Subspace subspace;
@@ -85,31 +93,38 @@ public class FDBDirectory extends Directory {
     private final int blockSize;
     private final Cache<String, FDBLuceneFileReference> fileReferenceCache;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
-    private final Map<String, Long> reads;
 
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
         this(subspace, context, NoLockFactory.INSTANCE);
     }
 
     FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory) {
-        this(subspace, context, lockFactory, DEFAULT_BLOCK_SIZE);
+        this(subspace, context, lockFactory, DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL);
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory, int blockSize) {
+    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory, int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel) {
         Verify.verify(subspace != null);
         Verify.verify(context != null);
         Verify.verify(lockFactory != null);
         this.context = context;
         this.subspace = subspace;
-        final Subspace sequenceSubspace = subspace.subspace(Tuple.from(0));
+        final Subspace sequenceSubspace = subspace.subspace(Tuple.from(SEQUENCE_SUBSPACE));
         this.sequenceSubspaceKey = sequenceSubspace.pack();
-        this.metaSubspace = subspace.subspace(Tuple.from(1));
-        this.dataSubspace = subspace.subspace(Tuple.from(2));
+        this.metaSubspace = subspace.subspace(Tuple.from(META_SUBSPACE));
+        this.dataSubspace = subspace.subspace(Tuple.from(DATA_SUBSPACE));
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
-        this.fileReferenceCache = CacheBuilder.newBuilder().initialCapacity(128).maximumSize(1024).recordStats().build();
-        this.blockCache = CacheBuilder.newBuilder().concurrencyLevel(16).initialCapacity(128).maximumSize(1024).recordStats().build();
-        this.reads = new ConcurrentHashMap<>();
+        this.fileReferenceCache = CacheBuilder.newBuilder()
+                .initialCapacity(initialCapacity)
+                .maximumSize(maximumSize)
+                .recordStats()
+                .build();
+        this.blockCache = CacheBuilder.newBuilder()
+                .concurrencyLevel(concurrencyLevel)
+                .initialCapacity(initialCapacity)
+                .maximumSize(maximumSize)
+                .recordStats()
+                .build();
     }
 
     /**
@@ -141,7 +156,7 @@ public class FDBDirectory extends Directory {
      * @param name name for the file reference
      * @return FDBLuceneFileReference
      */
-    @Nullable
+    @Nonnull
     public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReference(@Nonnull final String name) {
         LOGGER.trace("getFDBLuceneFileReference {}", name);
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
@@ -189,25 +204,26 @@ public class FDBDirectory extends Directory {
      * @param referenceFuture the reference where the data supposedly lives
      * @param block the block where the data is stored
      * @return Completable future of the data returned
-     * @throws IOException if blockCache fails to get the data from the block
-     * @throws NullPointerException if a reference with that id hasn't been written yet.
+     * @throws RecordCoreException if blockCache fails to get the data from the block
+     * @throws RecordCoreArgumentException if a reference with that id hasn't been written yet.
      */
+    @SuppressWarnings("PMD.UnusedNullCheckInEquals") // checks and throws more relevant exception
     @Nonnull
-    public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws IOException {
+    public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws RecordCoreException {
         try {
             LOGGER.trace("readBlock resourceDescription={}, block={}", resourceDescription, block);
             final FDBLuceneFileReference reference = referenceFuture.join(); // Tried to fully pipeline this but the reality is that this is mostly cached after listAll, delete, etc.
+            if (reference == null) {
+                throw new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription));
+            }
             Long id = reference.getId();
             return blockCache.get(Pair.of(id, block),
                     () -> {
-                        Long value = reads.getOrDefault(resourceDescription + ":" + id, 0L);
-                        value += 1;
-                        reads.put(resourceDescription + ":" + id, value);
-                    return context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)));
-                }
+                        return context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)));
+                    }
             );
         } catch (ExecutionException e) {
-            throw new IOException(e);
+            throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
         }
     }
 
@@ -233,9 +249,8 @@ public class FDBDirectory extends Directory {
             if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
                 try {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
-                } catch (IOException ioe) {
-                    LOGGER.warn("Cannot Prefetch resource={}", name);
-                    LOGGER.warn("Prefetch Error", ioe);
+                } catch (RecordCoreException e) {
+                    LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
                 }
             }
             this.fileReferenceCache.put(name, fileReference);
@@ -352,7 +367,11 @@ public class FDBDirectory extends Directory {
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
         LOGGER.trace("rename -> source={}, dest={}", source, dest);
         final byte[] key = metaSubspace.pack(source);
-        context.ensureActive().get(key).thenAcceptAsync( (value) -> {
+        CompletableFuture<byte[]> completableFuture;
+        completableFuture = context.ensureActive().get(key).exceptionally( (e) -> {
+            throw new RecordCoreArgumentException("Invalid source name in rename function for source: " + source);
+        });
+        completableFuture.thenAcceptAsync( (value) -> {
             this.fileReferenceCache.invalidate(source);
             context.ensureActive().set(metaSubspace.pack(dest), value);
             context.ensureActive().clear(key);
@@ -378,7 +397,8 @@ public class FDBDirectory extends Directory {
      */
     @Override
     public void close() {
-        LOGGER.debug("close called blockCacheStats={}, referenceCacheStats={}", blockCache.stats(), fileReferenceCache.stats());
+        LOGGER.debug(KeyValueLogMessage.of("close called","blockCacheStats", blockCache.stats(),
+                "referenceCacheStats", fileReferenceCache.stats()));
     }
 
     /**
