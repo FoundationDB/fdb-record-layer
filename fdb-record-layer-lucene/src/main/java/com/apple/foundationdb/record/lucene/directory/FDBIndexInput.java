@@ -217,7 +217,6 @@ public class FDBIndexInput extends IndexInput {
      * @param bytes bytes
      * @param offset offset
      * @param length length
-     * @throws IOException exception
      */
     @Override
     public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) {

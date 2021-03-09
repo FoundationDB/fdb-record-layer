@@ -24,6 +24,7 @@ import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.subspace.Subspace;
@@ -204,13 +205,17 @@ public class FDBDirectory extends Directory {
      * @param block the block where the data is stored
      * @return Completable future of the data returned
      * @throws RecordCoreException if blockCache fails to get the data from the block
-     * @throws NullPointerException if a reference with that id hasn't been written yet.
+     * @throws RecordCoreArgumentException if a reference with that id hasn't been written yet.
      */
+    @SuppressWarnings("PMD.UnusedNullCheckInEquals") // checks and throws more relevant exception
     @Nonnull
     public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws RecordCoreException {
         try {
             LOGGER.trace("readBlock resourceDescription={}, block={}", resourceDescription, block);
             final FDBLuceneFileReference reference = referenceFuture.join(); // Tried to fully pipeline this but the reality is that this is mostly cached after listAll, delete, etc.
+            if (reference == null) {
+                throw new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription));
+            }
             Long id = reference.getId();
             return blockCache.get(Pair.of(id, block),
                     () -> {
@@ -218,9 +223,7 @@ public class FDBDirectory extends Directory {
                     }
             );
         } catch (ExecutionException e) {
-            throw new RecordCoreException("Execution exception thrown while getting block cache", e.getCause());
-        } catch (NullPointerException e) {
-            throw new RecordCoreArgumentException("No reference with that id was found", e);
+            throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
         }
     }
 
@@ -247,7 +250,7 @@ public class FDBDirectory extends Directory {
                 try {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
                 } catch (RecordCoreException e) {
-                    LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception", e));
+                    LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
                 }
             }
             this.fileReferenceCache.put(name, fileReference);
@@ -395,7 +398,7 @@ public class FDBDirectory extends Directory {
     @Override
     public void close() {
         LOGGER.debug(KeyValueLogMessage.of("close called","blockCacheStats", blockCache.stats(),
-                "referenceCacheStats", blockCache.stats(), fileReferenceCache.stats()));
+                "referenceCacheStats", fileReferenceCache.stats()));
     }
 
     /**
