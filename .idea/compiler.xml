@@ -57,6 +57,7 @@
         </processorPath>
         <module name="fdb-record-layer.fdb-record-layer-core.main" />
         <module name="fdb-record-layer.fdb-record-layer-spatial.main" />
+        <module name="fdb-record-layer.fdb-record-layer-lucene.main" />
         <module name="fdb-record-layer.fdb-record-layer-core.test" />
         <module name="fdb-record-layer.fdb-record-layer-icu.main" />
       </profile>
