@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.query.expressions.BaseField;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.ComponentWithChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithComparison;
@@ -33,6 +34,8 @@ import com.apple.foundationdb.record.query.expressions.ComponentWithNoChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
@@ -73,9 +76,10 @@ public class InExtractor {
                 String bindingName = Bindings.Internal.IN.bindingName(
                         withComparison.getName() + "__" + bindingIndex.getAndIncrement());
                 List<FieldKeyExpression> nestedFields = null;
-                if (fields != null && withComparison instanceof FieldWithComparison) {
+                if (fields != null && (withComparison instanceof FieldWithComparison || withComparison instanceof OneOfThemWithComparison)) {
                     nestedFields = new ArrayList<>(fields);
-                    nestedFields.add(Key.Expressions.field(((FieldWithComparison) withComparison).getFieldName()));
+                    nestedFields.add(Key.Expressions.field(((BaseField) withComparison).getFieldName(),
+                            withComparison instanceof FieldWithComparison ? KeyExpression.FanType.None : KeyExpression.FanType.FanOut));
                 }
                 KeyExpression orderingKey = getOrderingKey(nestedFields);
 
@@ -139,9 +143,10 @@ public class InExtractor {
         } else if (filter instanceof ComponentWithSingleChild) {
             ComponentWithSingleChild componentWithSingleChild = (ComponentWithSingleChild) filter;
             List<FieldKeyExpression> nestedFields = null;
-            if (fields != null && componentWithSingleChild instanceof NestedField) {
+            if (fields != null && (componentWithSingleChild instanceof NestedField || componentWithSingleChild instanceof OneOfThemWithComponent)) {
                 nestedFields = new ArrayList<>(fields);
-                nestedFields.add(Key.Expressions.field(((NestedField) componentWithSingleChild).getFieldName()));
+                nestedFields.add(Key.Expressions.field(((BaseField) componentWithSingleChild).getFieldName(),
+                        componentWithSingleChild instanceof NestedField ? KeyExpression.FanType.None : KeyExpression.FanType.FanOut));
             }
             return componentWithSingleChild.withOtherChild(
                     mapClauses(componentWithSingleChild.getChild(), mapper, nestedFields));
