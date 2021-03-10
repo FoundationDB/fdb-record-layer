@@ -16,7 +16,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Covering check when chosen index has duplicate fields [(Issue #1139)](https://github.com/FoundationDB/fdb-record-layer/issues/1139)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** `LiteralKeyExpression` fails `hasProperInterfaces` [(Issue #1152)](https://github.com/FoundationDB/fdb-record-layer/issues/1152)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

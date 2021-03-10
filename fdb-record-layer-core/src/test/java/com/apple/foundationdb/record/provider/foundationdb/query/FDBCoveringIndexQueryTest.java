@@ -622,4 +622,31 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("splitCoveringIndex"), bounds(hasTupleString("([0],>"))))));
     }
+
+    /**
+     * Verify that a covering index can have redundant duplicated fields.
+     */
+    @Test
+    public void coveringRedundant() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("MySimpleRecord$num_value_unique");
+            metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_2", "num_value_unique", "num_value_2"));
+        };
+        complexQuerySetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_2").equalsValue(1))
+                .setSort(field("num_value_unique"))
+                .setRequiredResults(Arrays.asList(
+                        field("num_value_unique"),
+                        field("num_value_2")))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[1],[1]]"))))));
+        assertEquals(1372089780, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1041993509, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-892337774, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+    }
+    
 }
