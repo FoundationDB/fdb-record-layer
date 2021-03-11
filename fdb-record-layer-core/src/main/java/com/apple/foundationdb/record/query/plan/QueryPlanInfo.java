@@ -84,7 +84,7 @@ public class QueryPlanInfo {
         @Nonnull
         private final String name;
 
-        QueryPlanInfoKey(@Nonnull String name) {
+        public QueryPlanInfoKey(@Nonnull String name) {
             this.name = name;
         }
 

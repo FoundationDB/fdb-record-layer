@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
@@ -30,11 +31,11 @@ import javax.annotation.Nonnull;
  * This is the result of the call of {@link QueryPlanner#plan(RecordQuery)} call. It contains the actual plan produced coupled
  * with some additional information related to the plan and the planning process.
  */
-public class QueryPlanResult {
+public class QueryPlanResult implements PlanHashable {
     @Nonnull
-    private RecordQueryPlan plan;
+    private final RecordQueryPlan plan;
     @Nonnull
-    private QueryPlanInfo planInfo;
+    private final QueryPlanInfo planInfo;
 
     public QueryPlanResult(@Nonnull final RecordQueryPlan plan) {
         this.plan = plan;
@@ -49,5 +50,20 @@ public class QueryPlanResult {
     @Nonnull
     public QueryPlanInfo getPlanInfo() {
         return planInfo;
+    }
+
+    /**
+     * To make transition from RecordQuertPlan to QueryPlanResult smoother, this implements PlanHashable.
+     * @param hashKind the "kind" of hash to calculate. Each kind of hash has a particular logic with regards to included and excluded items.
+     * @return plan hash for the underlying plan.
+     */
+    @Override
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        return plan.planHash(hashKind);
+    }
+
+    @Override
+    public int planHash() {
+        return plan.planHash();
     }
 }
