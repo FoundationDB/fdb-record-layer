@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -44,8 +43,6 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
     protected final C iterator;
     protected int valuesSeen;
 
-    @Nullable
-    protected CompletableFuture<Boolean> hasNextFuture;
     @Nullable
     protected RecordCursorResult<T> nextResult;
 
@@ -68,9 +65,6 @@ abstract class IteratorCursorBase<T, C extends Iterator<T>> implements RecordCur
     @Override
     public void close() {
         MoreAsyncUtil.closeIterator(iterator);
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
     }
 
     @Nonnull

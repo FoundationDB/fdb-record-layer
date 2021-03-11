@@ -55,10 +55,6 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
     private final int pipelineSize;
     @Nonnull
     private final Queue<CompletableFuture<RecordCursorResult<V>>> pipeline;
-    @Nullable
-    private CompletableFuture<Boolean> nextFuture;
-    @Nullable
-    private CompletableFuture<Boolean> innerFuture;
     private boolean innerExhausted = false;
 
     @Nullable
@@ -94,16 +90,8 @@ public class MapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(false);
-            nextFuture = null;
-        }
         while (!pipeline.isEmpty()) {
             pipeline.remove().cancel(false);
-        }
-        if (innerFuture != null) {
-            innerFuture.cancel(false);
-            innerFuture = null;
         }
         inner.close();
     }

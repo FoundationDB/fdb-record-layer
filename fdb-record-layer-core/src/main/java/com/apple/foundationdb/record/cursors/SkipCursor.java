@@ -40,8 +40,6 @@ public class SkipCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> inner;
     private int skipRemaining;
-    @Nullable
-    private CompletableFuture<Boolean> nextFuture;
 
     @Nullable
     private RecordCursorResult<T> nextResult;
@@ -75,10 +73,6 @@ public class SkipCursor<T> implements RecordCursor<T> {
 
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(false);
-            nextFuture = null;
-        }
         inner.close();
     }
 

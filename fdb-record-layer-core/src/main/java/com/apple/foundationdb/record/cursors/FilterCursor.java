@@ -44,8 +44,6 @@ public class FilterCursor<T> implements RecordCursor<T> {
     private final Function<T, Boolean> pred;
     private boolean hasNext;
     @Nullable
-    private CompletableFuture<Boolean> nextFuture;
-    @Nullable
     private RecordCursorResult<T> nextResult;
 
     public FilterCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<T, Boolean> pred) {
@@ -63,17 +61,11 @@ public class FilterCursor<T> implements RecordCursor<T> {
             nextResult = innerResult;
             hasNext = innerResult.hasNext() && (Boolean.TRUE.equals(pred.apply(innerResult.get()))); // relies on short circuiting
             return innerResult.hasNext() && !hasNext; // keep looping only if we might find more records and we filtered a record out
-        }), getExecutor()).thenApply(vignore -> {
-            return nextResult;
-        });
+        }), getExecutor()).thenApply(vignore -> nextResult);
     }
 
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(false);
-            nextFuture = null;
-        }
         inner.close();
     }
 

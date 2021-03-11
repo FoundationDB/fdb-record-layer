@@ -46,11 +46,6 @@ public class ListCursor<T> implements RecordCursor<T> {
     private final List<T> list;
     private int nextPosition; // position of the next value to return
 
-    @Nullable
-    private RecordCursorResult<T> nextResult;
-    @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-
     public ListCursor(@Nonnull List<T> list, byte []continuation) {
         this(ForkJoinPool.commonPool(), list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
@@ -70,6 +65,7 @@ public class ListCursor<T> implements RecordCursor<T> {
     @Nonnull
     @Override
     public RecordCursorResult<T> getNext() {
+        RecordCursorResult<T> nextResult;
         if (nextPosition < list.size()) {
             nextResult = RecordCursorResult.withNextValue(list.get(nextPosition), new Continuation(nextPosition + 1, list.size()));
             nextPosition++;
@@ -81,9 +77,6 @@ public class ListCursor<T> implements RecordCursor<T> {
 
     @Override
     public void close() {
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
     }
 
     @Override

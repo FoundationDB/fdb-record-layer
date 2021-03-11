@@ -104,8 +104,6 @@ public class ChainedCursor<T> implements BaseCursor<T> {
     private final Function<T, byte[]> continuationEncoder;
     @Nonnull
     private final Executor executor;
-    @Nullable
-    private CompletableFuture<Boolean> nextFuture;
     @Nonnull
     private Optional<T> lastValue;
     @Nullable
@@ -235,9 +233,6 @@ public class ChainedCursor<T> implements BaseCursor<T> {
 
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(true);
-        }
     }
 
     @Nonnull

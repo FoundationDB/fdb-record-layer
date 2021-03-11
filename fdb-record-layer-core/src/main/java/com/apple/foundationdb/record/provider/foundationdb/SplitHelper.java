@@ -599,7 +599,7 @@ public class SplitHelper {
         private final SizeInfo sizeInfo;
         private final boolean reverse;
         @Nonnull
-        private Subspace subspace;
+        private final Subspace subspace;
         @Nullable
         private KeyValue next;
         @Nullable
@@ -611,8 +611,6 @@ public class SplitHelper {
         @Nullable
         private byte[] nextPrefix;
         private long nextIndex;
-        @Nullable
-        private CompletableFuture<Boolean> nextFuture;
         @Nullable
         private NoNextReason innerNoNextReason;
         @Nullable
@@ -721,10 +719,6 @@ public class SplitHelper {
 
         @Override
         public void close() {
-            if (nextFuture != null) {
-                nextFuture.cancel(false);
-                nextFuture = null;
-            }
             inner.close();
         }
 

@@ -69,8 +69,6 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     private final CursorLimitManager limitManager;
     @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-    @Nullable
     private final FDBStoreTimer timer;
     private int limitRemaining;
     @Nullable
@@ -170,9 +168,6 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     public void close() {
         if (indexReader != null) {
             IOUtils.closeWhileHandlingException(indexReader);
-        }
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
         }
     }
 

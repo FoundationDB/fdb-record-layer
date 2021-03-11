@@ -72,8 +72,6 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     @Nonnull
     private final Executor executor;
     @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-    @Nullable
     private RecordCursorResult<U> nextResult;
 
     protected MergeCursor(@Nonnull List<S> cursorStates, @Nullable FDBStoreTimer timer) {
@@ -308,9 +306,6 @@ public abstract class MergeCursor<T, U, S extends MergeCursorState<T>> implement
     @Override
     public void close() {
         cursorStates.forEach(S::close);
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
     }
 
     @Override

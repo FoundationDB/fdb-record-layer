@@ -70,8 +70,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
     @Nonnull
     private final Queue<PipelineQueueEntry> pipeline;
     @Nullable
-    private CompletableFuture<Boolean> nextFuture;
-    @Nullable
     private CompletableFuture<RecordCursorResult<T>> outerNextFuture;
     private boolean outerExhausted = false;
 
@@ -117,10 +115,6 @@ public class FlatMapPipelinedCursor<T, V> implements RecordCursor<V> {
 
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(false);
-            nextFuture = null;
-        }
         while (!pipeline.isEmpty()) {
             pipeline.remove().close();
         }

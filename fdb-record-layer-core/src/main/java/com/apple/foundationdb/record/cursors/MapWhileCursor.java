@@ -67,8 +67,6 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     private final Function<T, Optional<V>> func;
     @Nonnull
     private final StopContinuation stopContinuation;
-    @Nullable
-    private CompletableFuture<Boolean> nextFuture;
     @Nonnull
     private RecordCursorResult<V> nextResult = RecordCursorResult.withNextValue(null, RecordCursorStartContinuation.START);
 
@@ -121,10 +119,6 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
 
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(false);
-            nextFuture = null;
-        }
         inner.close();
     }
 
