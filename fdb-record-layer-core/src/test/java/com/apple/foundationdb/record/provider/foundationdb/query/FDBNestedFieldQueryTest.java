@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -31,7 +32,10 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords5Proto;
 import com.apple.foundationdb.record.TestRecordsNestedMapProto;
 import com.apple.foundationdb.record.TestRecordsWithHeaderProto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -59,6 +63,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScanType;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.intersection;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.queryPredicateDescendant;
@@ -754,6 +759,61 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 assertFalse(cursor.getNext().hasNext());
             }
             TestHelpers.assertDiscardedNone(context);
+        }
+    }
+
+    /**
+     * Verify that a rank index on a map-like repeated nested message can be scanned for rank comparisons.
+     */
+    @Test
+    public void nestedRankMap() throws Exception {
+        final GroupingKeyExpression rankGroup = new GroupingKeyExpression(concat(
+                field("other_id"),
+                field("map").nest(field("entry", KeyExpression.FanType.FanOut).nest(concatenateFields("key", "value")))), 1);
+        final RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsNestedMapProto.getDescriptor());
+        metaDataBuilder.addIndex("OuterRecord", new Index("rank_value_by_key", rankGroup, IndexTypes.RANK));
+        // TODO: This is not a very obvious way to specify this. But we don't have correlation names.
+        final QueryComponent keyCondition = Query.field("map").matches(Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("alpha")));
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+            TestRecordsNestedMapProto.OuterRecord.Builder builder = TestRecordsNestedMapProto.OuterRecord.newBuilder().setOtherId(1);
+            TestRecordsNestedMapProto.MapRecord.Builder mapBuilder = builder.getMapBuilder();
+            builder.setRecId(1);
+            mapBuilder.addEntryBuilder().setKey("alpha").setValue("abc");
+            mapBuilder.addEntryBuilder().setKey("beta").setValue("bcd");
+            recordStore.saveRecord(builder.build());
+            builder.setRecId(2);
+            mapBuilder.clear();
+            mapBuilder.addEntryBuilder().setKey("alpha").setValue("aaa");
+            mapBuilder.addEntryBuilder().setKey("beta").setValue("bbb");
+            recordStore.saveRecord(builder.build());
+            commit(context);
+        }
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("OuterRecord")
+                .setFilter(Query.and(
+                        Query.field("other_id").equalsValue(1L),
+                        Query.rank(rankGroup).lessThan(10L),
+                        keyCondition))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("rank_value_by_key"), indexScanType(IndexScanType.BY_RANK), bounds(hasTupleString("([1, alpha, null],[1, alpha, 10])"))))));
+        assertEquals(1307013946, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(1114475598, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(919661011, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
+                RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
+                assertTrue(result.hasNext());
+                assertEquals(Tuple.from(2), result.get().getPrimaryKey());
+                result = cursor.getNext();
+                assertTrue(result.hasNext());
+                assertEquals(Tuple.from(1), result.get().getPrimaryKey());
+                result = cursor.getNext();
+                assertFalse(result.hasNext());
+            }
         }
     }
 }
