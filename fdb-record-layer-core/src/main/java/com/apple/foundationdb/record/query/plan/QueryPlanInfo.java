@@ -37,17 +37,18 @@ public class QueryPlanInfo {
     }
 
     /**
-     * Returns TRUE if the given key exists in the info table
+     * Returns TRUE if the given key exists in the info table.
      *
      * @param key the key to look for
-     * @return TRUE if teh key exists in the table, FALSE otherwise
+     * @param <T> The type of the value (not used in this method)
+     * @return TRUE if the key exists in the table, FALSE otherwise
      */
     public <T> boolean containsKey(@Nonnull QueryPlanInfoKey<T> key) {
         return info.containsKey(key);
     }
 
     /**
-     * Retrieve a value from the info table
+     * Retrieve a value from the info table.
      *
      * @param key the key to look for
      * @param <T> the type of value returned (determined by the key generic type)
@@ -59,7 +60,7 @@ public class QueryPlanInfo {
     }
 
     /**
-     * Set a value for the given key
+     * Set a value for the given key.
      *
      * @param key   the key to use
      * @param value the value to associate with the key
