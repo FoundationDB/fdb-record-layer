@@ -428,7 +428,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("email").equalsValue("pmp@example.com"),
                         Query.field("stats").matches(Query.field("hometown").equalsValue("Home Town"))))
                 .build();
-        assertEquals(plan, planner.plan(query));
+        assertEquals(plan, planner.plan(query).getPlan());
     }
 
     /**
