@@ -99,6 +99,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+
+        // Index(MySimpleRecord$str_value_indexed [[even],[even]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[3],[3]])
+        // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[even],[even]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∩ Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
 
         if (shouldDeferFetch) {
@@ -162,6 +165,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
+        // Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) ∩ Index(MySimpleRecord$num_value_2 [[1],[1]])
+        // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∩ Covering(Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∩ Covering(Index(MySimpleRecord$num_value_2 [[1],[1]]) -> [num_value_2: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
         if (shouldDeferFetch) {
             assertThat(plan, fetch(intersection(Arrays.asList(
@@ -221,6 +226,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
         setOptimizeForIndexFilters(shouldOptimizeForIndexFilters);
+
+        // Index(MySimpleRecord$str_value_indexed {[e],[e]}) | num_value_3_indexed EQUALS 3
+        // Fetch(Covering(Index(multi_index {[e],[e]}) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[2], rec_no: KEY[3], str_value_indexed: KEY[0]]) | num_value_3_indexed EQUALS 3)
         RecordQueryPlan plan = planner.plan(query);
         // Not an intersection plan, since not compatibly ordered.
         if (shouldOptimizeForIndexFilters) {
@@ -282,6 +290,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsValue(2)))
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+
+        // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∩ Covering(Index(MySimpleRecord$num_value_2 [[2],[2]]) -> [num_value_2: KEY[0], rec_no: KEY[1]])) | str_value_indexed STARTS_WITH e
         RecordQueryPlan plan = planner.plan(query);
         // Should only include compatibly-ordered things in the intersection
 
@@ -345,6 +355,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
         planner.setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_SCAN);
+
+        // Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) | str_value_indexed EQUALS even
         RecordQueryPlan plan = planner.plan(query);
         // Would get Intersection didn't have identical continuations if it did
         assertThat("Should not use grouped index", plan, hasNoDescendant(indexScan("grouped_index")));
@@ -387,6 +399,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(0)))
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+
+        // Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[0],[0]])
+        // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∩ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
         RecordQueryPlan plan = planner.plan(query);
         if (shouldDeferFetch) {
             assertThat(plan, fetch(intersection(
@@ -443,6 +458,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+
+        // Fetch(Covering(Index(str_value_2_index [[even, 1],[even, 1]]) -> [num_value_2: KEY[1], num_value_unique: KEY[2], str_value_indexed: KEY[0]]) ∩ Covering(Index(str_value_3_index [[even, 3],[even, 3]]) -> [num_value_3_indexed: KEY[1], num_value_unique: KEY[2], str_value_indexed: KEY[0]]))
         RecordQueryPlan plan = planner.plan(query);
 
         if (shouldDeferFetch) {
@@ -508,6 +525,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").greaterThanOrEquals(2),
                         Query.field("num_value_3_indexed").lessThanOrEquals(3)))
                 .build();
+
+        // Index(index_2_3 [[1, 2],[1, 3]]) | And([str_value_indexed EQUALS even, num_value_unique EQUALS 0])
         RecordQueryPlan plan = planner.plan(query);
         assertThat("should have range scan in " + plan, plan, descendant(indexScan("index_2_3")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
@@ -534,6 +553,8 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .setSort(field("rec_no"))
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+
+        // Fetch(Covering(Index(color [[10],[10]]) -> [color: KEY[0], rec_name: KEY[2], rec_no: KEY[1]]) ∩ Covering(Index(shape [[200],[200]]) -> [rec_name: KEY[2], rec_no: KEY[1], shape: KEY[0]]))
         RecordQueryPlan plan = planner.plan(query);
         if (shouldDeferFetch) {
             assertThat(plan, fetch(intersection(
@@ -593,6 +614,9 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
                 .setSort(field("rec_no"))
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+
+        // Fetch(Covering(Index(color [[10, 2],[10, 11]]) -> [color: KEY[0], rec_name: KEY[2], rec_no: KEY[1]]) ∩ Covering(Index(shape [[200, 2],[200, 11]]) -> [rec_name: KEY[2], rec_no: KEY[1], shape: KEY[0]]))
+        // Fetch(Covering(Index(color [[10, 2],[10, 11]]) -> [color: KEY[0], rec_name: KEY[2], rec_no: KEY[1]]) ∩ Covering(Index(shape [[200, 2],[200, 11]]) -> [rec_name: KEY[2], rec_no: KEY[1], shape: KEY[0]]))
         RecordQueryPlan plan = planner.plan(query);
         if (shouldDeferFetch) {
             assertThat(plan, fetch(intersection(

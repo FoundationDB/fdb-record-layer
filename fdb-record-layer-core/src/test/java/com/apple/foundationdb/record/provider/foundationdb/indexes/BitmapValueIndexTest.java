@@ -283,6 +283,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             setupPlanner(null);
+            // Covering(Index(rec_no_by_str_num2 [[odd, 3],[odd, 3]] BY_GROUP) -> [rec_no: KEY[2]]) BITAND Covering(Index(rec_no_by_str_num3 [[odd, 4],[odd, 4]] BY_GROUP) -> [rec_no: KEY[2]])
             final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
                     Query.field("str_value").equalsValue("odd"),
                     Query.field("num_value_2").equalsValue(3),
@@ -312,6 +313,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             setupPlanner(null);
+            // Covering(Index(rec_no_by_str_num2 ([odd, 3, 150],[odd, 3]] BY_GROUP) -> [rec_no: KEY[2]]) BITAND Covering(Index(rec_no_by_str_num3 ([odd, 4, 150],[odd, 4]] BY_GROUP) -> [rec_no: KEY[2]])
             final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
                     Query.field("str_value").equalsValue("odd"),
                     Query.field("num_value_2").equalsValue(3),
@@ -342,6 +344,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             setupPlanner(null);
+            // Covering(Index(rec_no_by_str_num2 [[odd, 3],[odd, 3]] BY_GROUP) -> [rec_no: KEY[2]]) BITAND Covering(Index(rec_no_by_str_num3 [[odd, 2],[odd, 2]] BY_GROUP) -> [rec_no: KEY[2]]) BITOR Covering(Index(rec_no_by_str_num3 [[odd, 4],[odd, 4]] BY_GROUP) -> [rec_no: KEY[2]])
             final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
                     Query.field("str_value").equalsValue("odd"),
                     Query.field("num_value_2").equalsValue(3),
@@ -408,6 +411,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             setupPlanner(null);
+            // Covering(Index(rec_no_by_str_num2 [[odd, 3],[odd, 3]] BY_GROUP) -> [rec_no: KEY[2]]) BITAND Covering(Index(rec_no_by_str_num3 [[odd, 0],[odd, 0]] BY_GROUP) -> [rec_no: KEY[2]]) BITOR Covering(Index(rec_no_by_str_num2 [[odd, 3],[odd, 3]] BY_GROUP) -> [rec_no: KEY[2]]) BITAND Covering(Index(rec_no_by_str_num3 [[odd, 4],[odd, 4]] BY_GROUP) -> [rec_no: KEY[2]])
             final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
                     Query.field("str_value").equalsValue("odd"),
                     Query.or(
@@ -443,6 +447,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             setupPlanner(null);
+            // Covering(Index(rec_no_by_str_num2 [[odd, 1],[odd, 1]] BY_GROUP) -> [rec_no: KEY[2]]) BITAND BITNOT Covering(Index(rec_no_by_str_num3 [[odd, 2],[odd, 2]] BY_GROUP) -> [rec_no: KEY[2]])
             final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
                     Query.field("str_value").equalsValue("odd"),
                     Query.field("num_value_2").equalsValue(1),
@@ -485,6 +490,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             setupPlanner(null);
+            // Covering(Index(rec_no_by_str_num2 [[odd, 1],[odd, 1]] BY_GROUP) -> [rec_no: KEY[2]]) BITOR Covering(Index(rec_no_by_str_num3 [[odd, 1],[odd, 1]] BY_GROUP) -> [rec_no: KEY[2]])
             final RecordQueryPlan queryPlan = plan(BITMAP_VALUE_REC_NO_BY_STR, Query.and(
                     Query.field("str_value").equalsValue("odd"),
                     Query.or(Query.field("num_value_2").equalsValue(1),

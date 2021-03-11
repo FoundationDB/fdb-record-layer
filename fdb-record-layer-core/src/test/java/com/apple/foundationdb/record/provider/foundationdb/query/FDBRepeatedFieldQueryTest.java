@@ -116,6 +116,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyRepeatedRecord")
                 .setFilter(Query.field("s1").equalsValue(Arrays.asList("aaa", "bbb")))
                 .build();
+
+        // Index(s1$concat [[[aaa, bbb]],[[aaa, bbb]]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("s1$concat"), bounds(hasTupleString("[[[aaa, bbb]],[[aaa, bbb]]]")))));
         assertEquals(2088320916, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -157,6 +159,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyRepeatedRecord")
                 .setFilter(Query.field("s1").oneOfThem().greaterThan("b"))
                 .build();
+
+        // Scan(<,>) | one of s1 GREATER_THAN b
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), scan(unbounded())));
         assertEquals(972152650, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -173,6 +177,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("s1").equalsValue(Arrays.asList("aaa", "bbb"))
                 ))
                 .build();
+
+        // Index(s1$concat [[[aba]],[[aba]]]) | s2 IS_NOT_EMPTY ∪ Index(s1$concat [[[aaa, bbb]],[[aaa, bbb]]])
         plan = planner.plan(query);
         assertThat(plan, union(
                 filter(Query.field("s2").notEmpty(),
@@ -283,6 +289,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("RestaurantRecord")
                     .setSort(field("reviews", FanType.FanOut).nest("rating"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
+
+            // Index(review_rating <,>)
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("review_rating"), unbounded())));
             assertEquals(406416366, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -293,6 +301,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     TestHelpers::assertDiscardedNone));
 
             query = builder.setRemoveDuplicates(true).build();
+
+            // Index(review_rating <,>) | UnorderedPrimaryKeyDistinct()
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), unbounded()))));
             assertEquals(406416367, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -307,6 +317,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("RestaurantRecord")
                     .setSort(field("reviews", FanType.FanOut).nest("rating"), true);
             RecordQuery query = builder.setRemoveDuplicates(false).build();
+
+            // Index(review_rating <,> REVERSE)
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("review_rating"), unbounded())));
             assertTrue(plan.isReverse());
@@ -318,6 +330,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     TestHelpers::assertDiscardedNone));
 
             query = builder.setRemoveDuplicates(true).build();
+
+            // Index(review_rating <,> REVERSE) | UnorderedPrimaryKeyDistinct()
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), unbounded()))));
             assertTrue(plan.isReverse());
@@ -334,6 +348,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("reviews", FanType.FanOut).nest("rating"))
                     .setFilter(Query.field("name").greaterThan("A"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
+
+            // Index(review_rating <,>) | name GREATER_THAN A
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("review_rating"), unbounded()))));
             assertEquals(1381942688, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -344,6 +360,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     TestHelpers::assertDiscardedNone));
 
             query = builder.setRemoveDuplicates(true).build();
+
+            // Index(review_rating <,>) | UnorderedPrimaryKeyDistinct() | name GREATER_THAN A
             plan = planner.plan(query);
             assertThat(plan, filter(query.getFilter(), primaryKeyDistinct(
                     indexScan(allOf(indexName("review_rating"), unbounded())))));
@@ -361,6 +379,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("customer", FanType.FanOut))
                     .setFilter(Query.field("name").greaterThan("A"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
+
+            // Index(customers <,>) | name GREATER_THAN A
+            // Fetch(Covering(Index(customers-name <,>) -> [name: KEY[1], rest_no: KEY[2]]) | name GREATER_THAN A)
             RecordQueryPlan plan = planner.plan(query);
             if (shouldOptimizeForIndexFilters) {
                 assertThat(plan, fetch(filter(query.getFilter(), coveringIndexScan(indexScan(allOf(indexName("customers-name"), unbounded()))))));
@@ -383,6 +404,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             setOptimizeForIndexFilters(shouldOptimizeForIndexFilters);
             setDeferFetchAfterUnionAndIntersection(true);
             query = builder.setRemoveDuplicates(true).build();
+
+            // Fetch(Covering(Index(customers <,>) -> [rest_no: KEY[1]]) | UnorderedPrimaryKeyDistinct()) | name GREATER_THAN A
+            // Fetch(Covering(Index(customers-name <,>) -> [name: KEY[1], rest_no: KEY[2]]) | UnorderedPrimaryKeyDistinct() | name GREATER_THAN A)
             plan = planner.plan(query);
             if (shouldOptimizeForIndexFilters) {
                 assertThat(plan, fetch(filter(query.getFilter(), primaryKeyDistinct(
@@ -407,6 +431,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("customer").oneOfThem().equalsValue("éponine"))
                     .setSort(field("name"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
+
+            // Index(customers-name [[éponine],[éponine]])
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[éponine],[éponine]]")))));
             assertEquals(-574773820, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -417,6 +443,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     TestHelpers::assertDiscardedNone));
 
             query = builder.setRemoveDuplicates(true).build();
+
+            // Index(customers-name [[éponine],[éponine]]) | UnorderedPrimaryKeyDistinct()
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[éponine],[éponine]]"))))));
             assertEquals(-574773819, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -432,6 +460,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("customer").oneOfThem().equalsValue("gavroche"))
                     .setSort(field("name"));
             RecordQuery query = builder.setRemoveDuplicates(false).build();
+
+            // Index(customers-name [[gavroche],[gavroche]])
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[gavroche],[gavroche]]")))));
             assertEquals(-1720782767, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -442,6 +472,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                     TestHelpers::assertDiscardedNone));
 
             query = builder.setRemoveDuplicates(true).build();
+
+            // Index(customers-name [[gavroche],[gavroche]]) | UnorderedPrimaryKeyDistinct()
             plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("customers-name"), bounds(hasTupleString("[[gavroche],[gavroche]]"))))));
             assertEquals(-1720782766, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -494,6 +526,7 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1337, simplePrimary.getRecNo());
             assertEquals(Collections.singletonList(100), simplePrimary.getRepeaterList());
 
+            // Index(repeater$fanout [[100],[100]]) | UnorderedPrimaryKeyDistinct()
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("repeater$fanout"), bounds(hasTupleString("[[100],[100]]"))))));
             assertEquals(-784887869, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -540,6 +573,9 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
+
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 EQUALS 1
+        // Scan(<,>) | [MySimpleRecord] | $e3eb3251-2675-4566-819e-4840cc2c2400/num_value_2 EQUALS 1
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, filter(Query.field("num_value_2").equalsValue(1), typeFilter(anything(), scan(unbounded()))));
 
@@ -557,6 +593,8 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsValue(1),
                         Query.field("repeater").oneOfThem().equalsValue(1)))
                 .build();
+
+        // Index(prefix_repeated [[1, 1],[1, 1]]) | UnorderedPrimaryKeyDistinct()
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, primaryKeyDistinct(indexScan(allOf(indexName("prefix_repeated"),
                 bounds(hasTupleString("[[1, 1],[1, 1]]"))))));
