@@ -237,7 +237,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      */
     @Nonnull
     @Override
-    public RecordQueryPlan plan(@Nonnull RecordQuery query) {
+    public QueryPlanResult plan(@Nonnull RecordQuery query) {
         query.validate(metaData);
 
         final PlanContext planContext = getPlanContext(query);
@@ -289,7 +289,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             plan = tryToConvertToCoveringPlan(planContext, plan);
         }
 
-        return plan;
+        return new QueryPlanResult(plan);
     }
 
     @Nullable

@@ -65,7 +65,7 @@ public interface QueryPlanner {
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
     @Nonnull
-    RecordQueryPlan plan(@Nonnull RecordQuery query);
+    QueryPlanResult plan(@Nonnull RecordQuery query);
 
     /**
      * Get the {@link RecordMetaData} for this planner.

@@ -95,7 +95,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MySimpleRecord$num_value_unique ([990],>) -> [num_value_unique: KEY[0], rec_no: KEY[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))));
         assertEquals(-158312359, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(2010783390, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -133,7 +133,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MySimpleRecord$num_value_3_indexed <,>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
         assertEquals(413789395, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1773406501, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -157,7 +157,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique ([990],> REVERSE)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
         assertTrue(plan.isReverse());
         assertEquals(-158312358, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -178,7 +178,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$str_value_indexed <,>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
         assertEquals(324762954, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-2077573816, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -200,7 +200,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) | num_value_2 LESS_THAN 2
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
         assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))));
@@ -228,7 +228,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(multi_index ([null],[1])) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[0], rec_no: KEY[2]]) | num_value_2 LESS_THAN 2
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
                 coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([null],[1])")))))));
         assertEquals(-1374002128, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -254,7 +254,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             // Fetch(Covering(Index(multi [[abc],[abc]]) -> [str_value: KEY[0], header: [num: KEY[2], path: KEY[1], rec_no: KEY[3]]]) | header/{num EQUALS 1})
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planner.plan(query).getPlan();
             assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("num").equalsValue(1)),
                     coveringIndexScan(indexScan(allOf(indexName("multi"), bounds(hasTupleString("[[abc],[abc]]"))))))));
             assertEquals(-1536005152, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -284,7 +284,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(multi_index ([990],>) -> [num_value_2: KEY[1], num_value_unique: KEY[0], rec_no: KEY[2]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([990],>"))))));
         assertEquals(291429560, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-25671201, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -334,7 +334,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(multi_index_value ([990],>) -> [num_value_2: VALUE[0], num_value_unique: KEY[0], rec_no: KEY[1]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index_value"), bounds(hasTupleString("([990],>"))))));
         assertEquals(-782505942, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-426823379, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -381,7 +381,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value [[lion],[lion]]) -> [str_value: KEY[0], header: [path: VALUE[0], rec_no: KEY[1]]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
         assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1088409414, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -411,7 +411,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value [[leopard],[leopard]]) -> [str_value: KEY[0], header: [num: VALUE[1], path: VALUE[0], rec_no: KEY[1]]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[leopard],[leopard]]"))))));
         assertEquals(-568702564, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1077090589, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -450,7 +450,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value [[lion],[lion]]) -> [str_value: KEY[0], header: [path: KEY[1], rec_no: KEY[2]]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
         assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1088409414, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -477,7 +477,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MyRecord$str_value {[l],[l]}) -> [str_value: KEY[0], header: [path: KEY[1], rec_no: KEY[2]]])
-        plan = planner.plan(query);
+        plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("{[l],[l]}"))))));
         assertEquals(-1471907004, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1323635281, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -520,7 +520,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Covering(Index(MySimpleRecord$2+3 ([0],[10])) -> [num_value_2: KEY[0], num_value_3_indexed: KEY[1], rec_no: KEY[2]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$2+3"), bounds(hasTupleString("([0],[10])"))))));
         assertEquals(1722836804, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(219378696, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -568,7 +568,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MyRecord$str_value [[lion],[lion]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
         assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1318842998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -649,7 +649,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRemoveDuplicates(false)
                 .build();
 
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("splitCoveringIndex"), bounds(hasTupleString("([0],>"))))));
     }
 
@@ -672,7 +672,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                         field("num_value_unique"),
                         field("num_value_2")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[1],[1]]"))))));
         assertEquals(1372089780, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1041993509, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

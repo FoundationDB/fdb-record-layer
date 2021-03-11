@@ -295,7 +295,7 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
                 .setFilter(filter)
                 .build();
         // Index(substr_index [[abd],[abg]])
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
 
         if (functionQuery) {
             assertThat(plan, indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));

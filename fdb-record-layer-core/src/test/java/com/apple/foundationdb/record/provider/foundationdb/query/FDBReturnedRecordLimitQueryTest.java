@@ -85,7 +85,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
 
         // Index(MySimpleRecord$str_value_indexed <,> REVERSE) | num_value_2 EQUALS 0
         // Fetch(Covering(Index(multi_index <,> REVERSE) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[2], rec_no: KEY[3], str_value_indexed: KEY[0]]) | num_value_2 EQUALS 0)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
 
         if (shouldOptimizeForIndexFilters) {
             assertThat(plan, fetch(filter(query.getFilter(),
@@ -132,7 +132,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(0))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, descendant(scan(unbounded())));
         if (planner instanceof RecordQueryPlanner) {
             assertEquals(913370522, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -169,7 +169,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
 
         // Scan(<,>) | [MySimpleRecord]
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
         assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1955010341, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -202,7 +202,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         RecordQuery query = RecordQuery.newBuilder().setRecordTypes(Arrays.asList("MySimpleRecord", "MyOtherRecord")).build();
 
         // Scan(<,>)
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, scan(unbounded()));
         assertEquals(2, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-371672268, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -236,7 +236,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 .build();
 
         // Index(repeater$fanout [[2],[2]]) | UnorderedPrimaryKeyDistinct()
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("repeater$fanout"), bounds(hasTupleString("[[2],[2]]"))))));
         assertEquals(-784887967, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1467862321, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

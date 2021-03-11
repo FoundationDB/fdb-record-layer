@@ -94,7 +94,7 @@ public class SyntheticRecordPlanner {
     public SyntheticRecordPlan scanForType(@Nonnull SyntheticRecordType<?> syntheticRecordType) {
         final SyntheticRecordFromStoredRecordPlan fromRecord = forType(syntheticRecordType);
         // Query to get all records of the needed type(s).
-        RecordQueryPlan query = queryPlanner.plan(RecordQuery.newBuilder().setRecordTypes(fromRecord.getStoredRecordTypes()).build());
+        RecordQueryPlan query = queryPlanner.plan(RecordQuery.newBuilder().setRecordTypes(fromRecord.getStoredRecordTypes()).build()).getPlan();
         return new SyntheticRecordScanPlan(query, fromRecord, true); // TODO: better needDistinct calculation
     }
 

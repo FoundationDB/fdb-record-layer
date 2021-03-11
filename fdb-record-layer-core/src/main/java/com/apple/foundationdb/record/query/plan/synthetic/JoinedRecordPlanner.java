@@ -167,7 +167,7 @@ class JoinedRecordPlanner {
                         .orElseGet(() -> pendingTypes.stream().max(Comparator.comparing(PendingType::countJoinsBound))
                                 .orElseThrow(() -> new RecordCoreException("did not find any pending types")));
             }
-            queries.add(queryPlanner.plan(buildQuery(pendingType)));
+            queries.add(queryPlanner.plan(buildQuery(pendingType)).getPlan());
             bindAndRemove(pendingType);
         }
         if (!pendingJoins.isEmpty()) {

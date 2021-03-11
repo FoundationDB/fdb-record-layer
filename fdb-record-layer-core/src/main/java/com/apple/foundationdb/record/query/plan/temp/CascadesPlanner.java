@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -213,7 +214,7 @@ public class CascadesPlanner implements QueryPlanner {
 
     @Nonnull
     @Override
-    public RecordQueryPlan plan(@Nonnull RecordQuery query) {
+    public QueryPlanResult plan(@Nonnull RecordQuery query) {
         final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
         Debugger.query(query, context);
         try {
@@ -229,7 +230,7 @@ public class CascadesPlanner implements QueryPlanner {
                         "explain", PlannerGraphProperty.explain(singleRoot)));
             }
 
-            return (RecordQueryPlan)singleRoot;
+            return new QueryPlanResult((RecordQueryPlan)singleRoot);
         } else {
             throw new RecordCoreException("Cascades planner could not plan query")
                     .addLogInfo("query", query)

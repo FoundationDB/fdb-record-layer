@@ -61,6 +61,7 @@ import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
+import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
@@ -200,7 +201,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.field("score").equalsValue(200))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(BasicRankedRecord$score [[200],[200]])", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -265,7 +266,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.rank("score").equalsValue(2L))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(BasicRankedRecord$score [[2],[2]] BY_RANK)", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -340,7 +341,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).greaterThan(0L),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).lessThan(2L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(rank_by_gender ([M, 0],[M, 2]) BY_RANK)", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -362,7 +363,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.rank("score").greaterThan(2L))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(BasicRankedRecord$score ([2],> BY_RANK)", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -384,7 +385,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.rank("score").lessThan(2L))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(BasicRankedRecord$score ([null],[2]) BY_RANK)", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -417,7 +418,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.field("gender").equalsValue("M"),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).lessThan(1L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(rank_by_gender ([M, null],[M, 1]) BY_RANK)", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -521,7 +522,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
             openRecordStore(context);
 
             for (int i = 0; i < queries.size(); i++) {
-                RecordQueryPlan plan = planner.plan(queries.get(i));
+                RecordQueryPlan plan = planner.plan(queries.get(i)).getPlan();
                 assertEquals(planStrings.get(i), plan.toString(), "Iteration " + i);
                 List<String> names = recordStore.executeQuery(plan)
                         .map(record -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(record.getRecord()).getName())
@@ -538,7 +539,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setFilter(Query.field("gender").equalsValue("M"))
                 .setSort(Key.Expressions.field("score"))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         QueryRecordFunction<Long> ranker = Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender")));
 
         try (FDBRecordContext context = openContext()) {
@@ -596,7 +597,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 "Index(BasicRankedRecord$score [[0],> BY_RANK)",
                 "Index(BasicRankedRecord$score ([0],> BY_RANK)"
         );
-        List<RecordQueryPlan> plans = queries.stream().map(planner::plan).collect(Collectors.toList());
+        List<RecordQueryPlan> plans = queries.stream().map(planner::plan).map(QueryPlanResult::getPlan).collect(Collectors.toList());
         for (int i = 0; i < plans.size(); i++) {
             assertEquals(planStrings.get(i), plans.get(i).toString());
         }
@@ -800,7 +801,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(expr).lessThanOrEquals(10L)));
 
         RecordQuery query = builder.setRemoveDuplicates(false).build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(score_by_repeated_field [[4],[10]] BY_RANK)", plan.toString());
         List<String> res;
 
@@ -813,7 +814,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
         assertEquals(Arrays.asList("achilles", "patroclus", "hector", "patroclus", "hector", "hector", "achilles", "hector", "achilles", "hector", "patroclus"), res);
 
         query = builder.setRemoveDuplicates(true).build();
-        plan = planner.plan(query);
+        plan = planner.plan(query).getPlan();
         assertEquals("Index(score_by_repeated_field [[4],[10]] BY_RANK) | UnorderedPrimaryKeyDistinct()", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -938,7 +939,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(expr).withParameterComparison(Comparisons.Type.EQUALS, "RANK_VALUE"));
 
         RecordQuery query = builder.setRemoveDuplicates(false).build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
 
         assertAll(IntStream.range(0, rankWithTies.size()).mapToObj(i -> () -> {
             Set<String> tie = rankWithTies.get(i);
@@ -965,7 +966,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.field("header").matches(Query.field("group").equalsValue("buffaloes")),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("header").nest(Key.Expressions.field("group")))).greaterThan(1L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(score_by_nested_id ([buffaloes, 1],[buffaloes]] BY_RANK)", plan.toString());
     }
 
@@ -976,7 +977,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).equalsValue(1L))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertFalse(plan.hasIndexScan("rank_by_gender"));
         assertTrue(plan.hasRecordScan());
 
@@ -1002,7 +1003,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").ungrouped()).greaterThanOrEquals(1L),
                         Query.rank(Key.Expressions.field("score").ungrouped()).lessThan(3L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         List<String> tupleBounds = Arrays.asList("GREATER_THAN_OR_EQUALS $__rank_0", "LESS_THAN $__rank_1");
         assertThat(plan, scoreForRank(
                 containsInAnyOrder(Arrays.asList(hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank(1)"),
@@ -1032,7 +1033,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").ungrouped()).lessThan(3L),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).equalsValue(1L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, scoreForRank(contains(
                 hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank_else_skip(3)")),
                 fetch(filter(new FieldWithComparison("score",
@@ -1059,7 +1060,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").ungrouped()).in(Arrays.asList(0L, 2L)),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).lessThanOrEquals(1L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, inValues(equalTo(Arrays.asList(0L, 2L)), scoreForRank(
                 containsInAnyOrder(
                         hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank($__in_rank(Field { 'score' None} group 1)__0)")),
@@ -1086,7 +1087,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").ungrouped()).lessThan(3L),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).in("mranks")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, inParameter(equalTo("mranks"), scoreForRank(
                 containsInAnyOrder(
                         hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank_else_skip(3)")),
@@ -1115,7 +1116,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                                 .lessThan(2L)))
                 .build();
         planner.setIndexScanPreference(QueryPlanner.IndexScanPreference.PREFER_SCAN);
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Scan(([buffaloes, 100],[buffaloes]]) | [HeaderRankedRecord] | score LESS_THAN $__rank_0 WHERE __rank_0 = score_by_nested_id.score_for_rank_else_skip(buffaloes, 2)",
                 plan.toString());
 
@@ -1160,7 +1161,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").ungrouped()).lessThan(100L),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).greaterThan(0L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, scoreForRank(
                 containsInAnyOrder(hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank_else_skip(100)")),
                 fetch(filter(rankComparisonFor("score", Comparisons.Type.LESS_THAN, "__rank_0"),
@@ -1185,7 +1186,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.rank(Key.Expressions.field("score").ungrouped()).greaterThan(100L),
                         Query.rank(Key.Expressions.field("score").groupBy(Key.Expressions.field("gender"))).greaterThan(0L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, scoreForRank(containsInAnyOrder(
                 hasToString("__rank_0 = BasicRankedRecord$score.score_for_rank(100)")),
                 fetch(filter(rankComparisonFor("score", Comparisons.Type.GREATER_THAN, "__rank_0"),
@@ -1218,7 +1219,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.field("gender").equalsValue("F"),
                         Query.rank(Key.Expressions.field("score").ungrouped()).equalsValue(2L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Index(rank_by_gender [EQUALS F, EQUALS $__rank_0])" +
                         " WHERE __rank_0 = BasicRankedRecord$score.score_for_rank(2)",
                 plan.toString());
@@ -1244,7 +1245,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         Query.field("gender").notEquals("M"),
                         Query.rank("score").lessThanOrEquals(0L)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertEquals("Scan(<,>) | [BasicRankedRecord] | Or([gender NOT_EQUALS M, rank(Field { 'score' None} group 1) LESS_THAN_OR_EQUALS 0])", plan.toString());
 
         TestRecordsRankProto.BasicRankedRecord recordWithNoGender = TestRecordsRankProto.BasicRankedRecord.newBuilder()
@@ -1354,7 +1355,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setFilter(Query.rank("score").greaterThanOrEquals(2L))
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("name"), Key.Expressions.field("score")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(
                 indexScan(allOf(indexName("BasicRankedRecord$score"), indexScanType(IndexScanType.BY_RANK), bounds(hasTupleString("[[2],>"))))));
 
@@ -1375,7 +1376,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setFilter(Query.field("gender").equalsValue("M"))
                 .setRequiredResults(Arrays.asList(Key.Expressions.field("gender"), Key.Expressions.field("score")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertThat(plan, coveringIndexScan(
                 indexScan(allOf(indexName("rank_by_gender"), indexScanType(IndexScanType.BY_VALUE), bounds(hasTupleString("[[M],[M]]"))))));
 
@@ -1395,7 +1396,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                 .setRecordType("BasicRankedRecord")
                 .setFilter(Query.rank("score").lessThan(100))
                 .build();
-        RecordQueryPlan plan = planner.plan(query);
+        RecordQueryPlan plan = planner.plan(query).getPlan();
         assertTrue(plan.hasIndexScan("BasicRankedRecord$score"));
 
         try (FDBRecordContext context = openContext()) {
@@ -1433,7 +1434,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                             Query.rank("score").equalsValue(2),
                             Query.field("gender").equalsValue("F")))
                     .build();
-            RecordQueryPlan plan = planner.plan(query);
+            RecordQueryPlan plan = planner.plan(query).getPlan();
             assertEquals("Index(BasicRankedRecord$score [[2],[2]] BY_RANK) ∩ Index(BasicRankedRecord$gender [[F],[F]])", plan.toString());
             Set<String> names = new HashSet<>();
             Function<FDBQueriedRecord<Message>, String> name = rec -> TestRecordsRankProto.BasicRankedRecord.newBuilder().mergeFrom(rec.getRecord()).getName();
@@ -1508,7 +1509,7 @@ public class RankIndexTest extends FDBRecordStoreTestBase {
                         .setRecordType("BasicRankedRecord")
                         .setFilter(Query.rank("score").equalsValue(rank))
                         .build();
-                RecordQueryPlan plan = planner.plan(query);
+                RecordQueryPlan plan = planner.plan(query).getPlan();
                 assertEquals("Index(BasicRankedRecord$score [[" + rank + "],[" + rank + "]] BY_RANK)", plan.toString());
 
                 recordStore.executeQuery(plan)
