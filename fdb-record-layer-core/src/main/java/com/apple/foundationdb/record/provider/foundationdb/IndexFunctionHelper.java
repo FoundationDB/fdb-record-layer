@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -108,6 +110,37 @@ public class IndexFunctionHelper {
                 .filter(i -> i.canEvaluateAggregateFunction(function))
                 // Prefer the one that does it in the fewest number of columns, because that will mean less rolling-up.
                 .min(Comparator.comparing(i -> i.state.index.getColumnSize()));
+    }
+
+    /**
+     * Bind a {@link IndexAggregateFunctionCall} to an index and return a resulting {@link IndexAggregateFunction} and
+     * {@link IndexMaintainer}. During the binding process we enumerate all indexes and for each such index we enumerate
+     * all permutations of grouping expressions in order to find an index that can be used to evaluated the aggregate
+     * function call.
+     * @param store the store containing the record types
+     * @param functionCall an {@link IndexAggregateFunctionCall}
+     * @param recordTypeNames the names of the record types for which indexes need to be considered
+     * @return an optional of a bound {@link IndexAggregateFunction} and a {@link IndexMaintainer} if a matching index
+     *         was found, {@code Optional.empty()} otherwise.
+     */
+    protected static Optional<Pair<IndexAggregateFunction, IndexMaintainer>> bindIndexForAggregateFunctionCall(@Nonnull FDBRecordStore store,
+                                                                                                               @Nonnull IndexAggregateFunctionCall functionCall,
+                                                                                                               @Nonnull List<String> recordTypeNames) {
+        return indexesForRecordTypes(store, recordTypeNames)
+                .filter(store::isIndexReadable)
+                .flatMap(index ->
+                        functionCall.enumerateIndexAggregateFunctionCandidates(index.getName())
+                                .flatMap(indexAggregateFunction -> {
+                                    final IndexMaintainer indexMaintainer = store.getIndexMaintainer(index);
+                                    return indexMaintainer.canEvaluateAggregateFunction(indexAggregateFunction)
+                                           ? Stream.of(Pair.of(indexAggregateFunction, indexMaintainer))
+                                           : Stream.empty();
+                                }))
+                .min(Comparator.comparing(pair -> {
+                    // use the minimum spanning index that matches
+                    final IndexMaintainer indexMaintainer = pair.getRight();
+                    return indexMaintainer.state.index.getColumnSize();
+                }));
     }
 
     /**
@@ -263,5 +296,24 @@ public class IndexFunctionHelper {
                                                                          @Nonnull List<String> recordTypeNames) {
         return indexMaintainerForAggregateFunction(store, function, recordTypeNames)
                 .map(i -> function.cloneWithIndex(i.state.index.getName()));
+    }
+
+    /**
+     * (Public) method to bind an {@link IndexAggregateFunctionCall} to an index resulting in an
+     * {@link IndexAggregateFunction} if successful.
+     *
+     * See {@link #bindIndexForAggregateFunctionCall(FDBRecordStore, IndexAggregateFunctionCall, List)} for details.
+     *
+     * @param store the store containing the record types
+     * @param functionCall an {@link IndexAggregateFunctionCall}
+     * @param recordTypeNames the names of the record types for which indexes need to be considered
+     * @return an optional of a bound {@link IndexAggregateFunction} if a matching index
+     *         was found, {@code Optional.empty()} otherwise.
+     */
+    public static Optional<IndexAggregateFunction> bindAggregateFunctionCall(@Nonnull FDBRecordStore store,
+                                                                             @Nonnull IndexAggregateFunctionCall functionCall,
+                                                                             @Nonnull List<String> recordTypeNames) {
+        return bindIndexForAggregateFunctionCall(store, functionCall, recordTypeNames)
+                .map(Pair::getLeft);
     }
 }
