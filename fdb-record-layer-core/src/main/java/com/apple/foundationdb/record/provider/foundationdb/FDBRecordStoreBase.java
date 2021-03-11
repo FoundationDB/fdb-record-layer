@@ -317,6 +317,17 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
         /**
          * Always save the record with a version. If a null version is provided, then the record store will chose
          * a new version.
+         *
+         * <p>
+         * Note: due to <a href="https://github.com/FoundationDB/fdb-record-layer/issues/964">Issue #964</a>, on some
+         * older record stores, namely those that were originally created with a {@linkplain FDBRecordStore#getFormatVersion()
+         * format version} below {@link FDBRecordStore#SAVE_VERSION_WITH_RECORD_FORMAT_VERSION}, records written with a
+         * version on stores where {@link com.apple.foundationdb.record.RecordMetaData#isStoreRecordVersions()} is
+         * {@code false} will not return the version with a record when read, even though the version will be stored.
+         * Users can avoid this by either migrating data to a new store or by setting {@code isStoreRecordVersions()}
+         * to {@code true} in the meta-data and then supplying the {@link #NO_VERSION} when saving any records that
+         * do not need an associated version.
+         * </p>
          */
         WITH_VERSION,
         /**
