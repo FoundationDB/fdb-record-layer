@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.UnstoredRecord;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto;
 import com.apple.foundationdb.record.metadata.ExpressionTestsProto.TestScalarFieldAccess;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.TupleFieldsHelper;
 import com.apple.foundationdb.record.provider.common.text.DefaultTextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
@@ -34,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -608,5 +611,27 @@ public class QueryExpressionTest {
                 Query.field("asdf").greaterThanOrEquals(5L),
                 Query.field("blah").matches(Query.rank("sub-field").lessThan(5L))
         ).isAsync());
+    }
+
+    @Test
+    public void testEqualityBoundFieldExtractions() {
+        assertEquals(ImmutableSet.of(Key.Expressions.field("a")),
+                IndexAggregateFunctionCall.extractEqualityBoundFields(Query.field("a").equalsValue(5L)));
+        assertEquals(ImmutableSet.of(Key.Expressions.field("a").nest("b")),
+                IndexAggregateFunctionCall.extractEqualityBoundFields(Query.field("a").matches(Query.field("b").equalsValue(5L))));
+
+        assertEquals(ImmutableSet.of(),
+                IndexAggregateFunctionCall.extractEqualityBoundFields(Query.field("a").greaterThan(5L)));
+        assertEquals(ImmutableSet.of(),
+                IndexAggregateFunctionCall.extractEqualityBoundFields(Query.field("a").matches(Query.field("b").greaterThan(5L))));
+        assertEquals(ImmutableSet.of(),
+                IndexAggregateFunctionCall.extractEqualityBoundFields(Query.field("a").oneOfThem().greaterThan(5L)));
+
+        assertEquals(ImmutableSet.of(Key.Expressions.field("a"), Key.Expressions.field("a").nest("b")),
+                IndexAggregateFunctionCall.extractEqualityBoundFields(Query.and(Query.field("a").equalsValue(5L),
+                        Query.field("a").matches(Query.field("b").equalsValue(5L)))));
+        assertEquals(ImmutableSet.of(Key.Expressions.field("a").nest("b"), Key.Expressions.field("a").nest("c")),
+                IndexAggregateFunctionCall.extractEqualityBoundFields(
+                        Query.field("a").matches(Query.and(Query.field("b").equalsValue(5L), Query.field("c").equalsValue(10L)))));
     }
 }

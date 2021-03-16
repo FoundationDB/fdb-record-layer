@@ -37,9 +37,11 @@ import com.apple.foundationdb.record.TestRecordsBitmapProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -512,7 +514,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     @Test
     public void nestedAndQuery() {
         final KeyExpression num_by_str = field("nested").nest(field("entry", FanOut).nest(concatenateFields("str_value", "num_value")));
-        final KeyExpression nested_num_by_str = concat(field("num_value_1"), num_by_str).group(1);
+        final GroupingKeyExpression nested_num_by_str = concat(field("num_value_1"), num_by_str).group(1);
         final KeyExpression nested_num_by_str_num2 = concat(field("num_value_1"), field("num_value_2"), num_by_str).group(1);
         final KeyExpression nested_num_by_str_num3 = concat(field("num_value_1"), field("num_value_3"), num_by_str).group(1);
         final RecordMetaDataHook nested_rec_no_by_str_nums_hook = metadata -> {
@@ -520,7 +522,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
             metadata.addIndex(recordType, new Index("nested_num_by_str_num2", nested_num_by_str_num2, IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
             metadata.addIndex(recordType, new Index("nested_num_by_str_num3", nested_num_by_str_num3, IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
         };
-        final IndexAggregateFunction bitmap_value_nested_num_by_str = new IndexAggregateFunction(FunctionNames.BITMAP_VALUE, nested_num_by_str, null);
+        final IndexAggregateFunctionCall bitmap_value_nested_num_by_str = new IndexAggregateFunctionCall(FunctionNames.BITMAP_VALUE, nested_num_by_str);
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(nested_rec_no_by_str_nums_hook));
             for (int recNo = 100; recNo < 200; recNo++) {
@@ -607,16 +609,17 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    protected static final KeyExpression REC_NO_BY_STR = concatenateFields("str_value", "rec_no").group(1);
-    protected static final KeyExpression REC_NO_BY_STR_NUM2 = concatenateFields("str_value", "num_value_2", "rec_no").group(1);
-    protected static final KeyExpression REC_NO_BY_STR_NUM3 = concatenateFields("str_value", "num_value_3", "rec_no").group(1);
+    protected static final GroupingKeyExpression REC_NO_BY_STR = concatenateFields("str_value", "rec_no").group(1);
+    protected static final GroupingKeyExpression REC_NO_BY_STR_NUM2 = concatenateFields("str_value", "num_value_2", "rec_no").group(1);
+    protected static final GroupingKeyExpression REC_NO_BY_STR_NUM3 = concatenateFields("str_value", "num_value_3", "rec_no").group(1);
     protected static final Map<String, String> SMALL_BITMAP_OPTIONS = Collections.singletonMap(IndexOptions.BITMAP_VALUE_ENTRY_SIZE_OPTION, "16");
     protected static final RecordMetaDataHook REC_NO_BY_STR_NUMS_HOOK = metadata -> {
         final RecordTypeBuilder recordType = metadata.getRecordType("MySimpleRecord");
         metadata.addIndex(recordType, new Index("rec_no_by_str_num2", REC_NO_BY_STR_NUM2, IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
         metadata.addIndex(recordType, new Index("rec_no_by_str_num3", REC_NO_BY_STR_NUM3, IndexTypes.BITMAP_VALUE, SMALL_BITMAP_OPTIONS));
     };
-    protected static final IndexAggregateFunction BITMAP_VALUE_REC_NO_BY_STR = new IndexAggregateFunction(FunctionNames.BITMAP_VALUE, REC_NO_BY_STR, null);
+
+    protected static final IndexAggregateFunctionCall BITMAP_VALUE_REC_NO_BY_STR = new IndexAggregateFunctionCall(FunctionNames.BITMAP_VALUE, REC_NO_BY_STR);
 
     protected RecordMetaData metaData(@Nullable RecordMetaDataHook hook) {
         RecordMetaDataBuilder metaData = RecordMetaData.newBuilder().setRecords(TestRecordsBitmapProto.getDescriptor());
@@ -661,13 +664,13 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
         return result;
     }
 
-    protected RecordQueryPlan plan(@Nonnull IndexAggregateFunction function, @Nonnull QueryComponent filter) {
+    protected RecordQueryPlan plan(@Nonnull IndexAggregateFunctionCall functionCall, @Nonnull QueryComponent filter) {
         final RecordQuery recordQuery = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(filter)
                 .setRequiredResults(Collections.singletonList(field("rec_no")))
                 .build();
-        return ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, function)
+        return ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, functionCall)
                 .orElseGet(() -> fail("Cannot plan query"));
     }
 
