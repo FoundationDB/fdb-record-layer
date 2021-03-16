@@ -70,8 +70,7 @@ import java.util.function.Supplier;
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
  * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
- * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined
- * by:
+ * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined by:
  * </p>
  * <ul>
  *     <li>
@@ -150,9 +149,9 @@ import java.util.function.Supplier;
  *     enqueues
  *         {@link OptimizeGroup} for all ranged over groups
  * </pre>
- * <p>
+ *
  * Note: Enqueued tasks are executed in typical stack machine order, that is LIFO.
- * <p>
+ *
  * There are three different kinds of transformations:
  * <ul>
  *     <li>
@@ -328,7 +327,6 @@ public class CascadesPlanner implements QueryPlanner {
      * Set the size limit of the Cascades planner task queue.
      * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
      * Default value is 0, which means "unbound".
-     *
      * @param maxTaskQueueSize the maximum size of the queue.
      */
     public void setMaxTaskQueueSize(final int maxTaskQueueSize) {
@@ -341,7 +339,6 @@ public class CascadesPlanner implements QueryPlanner {
      * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
      * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
      * Default value is 0, which means "unbound".
-     *
      * @param maxTotalTaskCount the maximum number of tasks.
      */
     public void setMaxTotalTaskCount(final int maxTotalTaskCount) {
@@ -378,17 +375,17 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Optimize Group task.
-     * <p>
+     *
      * Simplified enqueue/execute overview:
-     * <p>
+     *
      * {@link OptimizeGroup}
-     * if (not explored)
-     * enqueues
-     * this (again)
-     * {@link ExploreExpression} for each group member
-     * sets explored to {@code true}
-     * else
-     * prune to find best plan; done
+     *     if (not explored)
+     *         enqueues
+     *             this (again)
+     *             {@link ExploreExpression} for each group member
+     *         sets explored to {@code true}
+     *     else
+     *         prune to find best plan; done
      */
     private class OptimizeGroup implements Task {
         @Nonnull
@@ -400,7 +397,7 @@ public class CascadesPlanner implements QueryPlanner {
         public OptimizeGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
             this.context = context;
             if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<RelationalExpression>)ref;
+                this.group = (GroupExpressionRef<RelationalExpression>) ref;
             } else {
                 throw new RecordCoreArgumentException("illegal non-group reference in group expression");
             }
@@ -452,13 +449,13 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Group Task.
-     * <p>
+     *
      * Simplified enqueue/execute overview:
-     * <p>
+     *
      * {@link ExploreGroup}
-     * enqueues
-     * {@link ExploreExpression} for each group member
-     * sets explored to {@code true}
+     *     enqueues
+     *         {@link ExploreExpression} for each group member
+     *     sets explored to {@code true}
      */
     private class ExploreGroup implements Task {
         @Nonnull
@@ -470,7 +467,7 @@ public class CascadesPlanner implements QueryPlanner {
         public ExploreGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
             this.context = context;
             if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<RelationalExpression>)ref;
+                this.group = (GroupExpressionRef<RelationalExpression>) ref;
             } else {
                 throw new RecordCoreArgumentException("illegal non-group reference in group expression");
             }
@@ -543,14 +540,14 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     * <p>
+     *
      * Simplified enqueue/execute overview:
-     * <p>
+     *
      * {@link ExploreExpression}
-     * enqueues
-     * all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
-     * all transformations ({@link TransformExpression} for current (group, expression)
-     * {@link ExploreGroup} for all ranged over groups
+     *     enqueues
+     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
+     *         all transformations ({@link TransformExpression} for current (group, expression)
+     *         {@link ExploreGroup} for all ranged over groups
      */
     private class ExploreExpression extends ExploreTask {
         public ExploreExpression(@Nonnull PlanContext context,
@@ -660,14 +657,14 @@ public class CascadesPlanner implements QueryPlanner {
 
         /**
          * Method that calls the actual rule and reacts to new constructs the rule yielded.
-         * <p>
+         *
          * Simplified enqueue/execute overview:
-         * <p>
+         *
          * executes rule
          * enqueues
-         * {@link AdjustMatch} for each yielded {@link PartialMatch}
-         * {@link OptimizeInputs} followed by {@link ExploreExpression} for each yielded {@link RecordQueryPlan}
-         * {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
+         *     {@link AdjustMatch} for each yielded {@link PartialMatch}
+         *     {@link OptimizeInputs} followed by {@link ExploreExpression} for each yielded {@link RecordQueryPlan}
+         *     {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
          */
         @Override
         public void execute() {
@@ -800,12 +797,12 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Adjust Match Task. Attempts to improve an existing partial partial match on a (group, expression) pair
      * to a better one by enqueuing rules defined on {@link PartialMatch}.
-     * <p>
+     *
      * Simplified enqueue/execute overview:
-     * <p>
+     *
      * {@link AdjustMatch}
-     * enqueues
-     * all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
+     *     enqueues
+     *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
      */
     private class AdjustMatch extends ExploreTask {
         @Nonnull
@@ -841,12 +838,12 @@ public class CascadesPlanner implements QueryPlanner {
      * physical operators. If the current expression is a {@link RecordQueryPlan} all expressions that are considered
      * children and/or descendants must also be of type {@link RecordQueryPlan}. At that moment we know that exploration
      * is done and we can optimize the children (that is we can now prune the plan space of the children).
-     * <p>
+     *
      * Simplified enqueue/execute overview:
-     * <p>
+     *
      * {@link OptimizeInputs}
-     * enqueues
-     * {@link OptimizeGroup} for all ranged over groups
+     *     enqueues
+     *         {@link OptimizeGroup} for all ranged over groups
      */
     private class OptimizeInputs implements Task {
         @Nonnull
