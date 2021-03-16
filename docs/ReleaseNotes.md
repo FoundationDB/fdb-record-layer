@@ -15,15 +15,14 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 ### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** `RecordQueryPlanner.AndWithThenPlanner.planChild` does not have a case like `planAndWithNesting` [(Issue #1140)](https://github.com/FoundationDB/fdb-record-layer/issues/1140)
-* **Bug fix** Covering check when chosen index has duplicate fields [(Issue #1139)](https://github.com/FoundationDB/fdb-record-layer/issues/1139)
+* **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** `LiteralKeyExpression` fails `hasProperInterfaces` [(Issue #1152)](https://github.com/FoundationDB/fdb-record-layer/issues/1152)
-* **Bug fix** `@DualPlannerTest` does not distinguish tests [(Issue #1150)](https://github.com/FoundationDB/fdb-record-layer/issues/1150)
+* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** represent an aggregation function using a set of aggregation keys rather than a KeyExpression [(Issue #1175)](https://github.com/FoundationDB/fdb-record-layer/issues/1175)
+* **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -38,6 +37,14 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.160.0
+
+* **Bug fix** `RecordQueryPlanner.AndWithThenPlanner.planChild` does not have a case like `planAndWithNesting` [(Issue #1140)](https://github.com/FoundationDB/fdb-record-layer/issues/1140)
+* **Bug fix** Covering check when chosen index has duplicate fields [(Issue #1139)](https://github.com/FoundationDB/fdb-record-layer/issues/1139)
+* **Bug fix** `LiteralKeyExpression` fails `hasProperInterfaces` [(Issue #1152)](https://github.com/FoundationDB/fdb-record-layer/issues/1152)
+* **Bug fix** `@DualPlannerTest` does not distinguish tests [(Issue #1150)](https://github.com/FoundationDB/fdb-record-layer/issues/1150)
+* **Performance** represent an aggregation function using a set of aggregation keys rather than a KeyExpression [(Issue #1175)](https://github.com/FoundationDB/fdb-record-layer/issues/1175)
 
 ### 2.10.159.0
 
