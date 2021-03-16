@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
@@ -69,7 +70,8 @@ import java.util.function.Supplier;
  * {@link RelationalExpression}s, {@link PartialMatch}es and {@link MatchPartition}s, each of which describes a
  * particular transformation and encapsulates the logic for determining its applicability and applying it. The planner
  * searches through its {@link PlannerRuleSet} to find a matching rule and then executes that rule, creating zero or
- * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined by:
+ * more additional {@code PlannerExpression}s and/or zero or more additional {@link PartialMatch}es. A rule is defined
+ * by:
  * </p>
  * <ul>
  *     <li>
@@ -148,9 +150,9 @@ import java.util.function.Supplier;
  *     enqueues
  *         {@link OptimizeGroup} for all ranged over groups
  * </pre>
- *
+ * <p>
  * Note: Enqueued tasks are executed in typical stack machine order, that is LIFO.
- *
+ * <p>
  * There are three different kinds of transformations:
  * <ul>
  *     <li>
@@ -182,6 +184,10 @@ import java.util.function.Supplier;
 public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CascadesPlanner.class);
+
+    public static final QueryPlanInfo.QueryPlanInfoKey<Integer> TOTAL_TASK_COUNT = new QueryPlanInfo.QueryPlanInfoKey<>("totalTaskCount");
+    public static final QueryPlanInfo.QueryPlanInfoKey<Integer> MAX_TASK_QUEUE_SIZE = new QueryPlanInfo.QueryPlanInfoKey<>("maxTaskQueueSize");
+
     @Nonnull
     private RecordQueryPlannerConfiguration configuration;
     @Nonnull
@@ -196,6 +202,10 @@ public class CascadesPlanner implements QueryPlanner {
     private AliasResolver aliasResolver;
     @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
+    // total tasks executed for the current plan
+    private int taskCount;
+    // max size of the task queue encountered during the planning
+    private int maxQueueSize;
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, PlannerRuleSet.ALL);
@@ -241,7 +251,10 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     @Override
     public QueryPlanResult planForQuery(@Nonnull final RecordQuery query) {
-        return new QueryPlanResult(plan(query));
+        QueryPlanResult result = new QueryPlanResult(plan(query));
+        result.getPlanInfo().put(TOTAL_TASK_COUNT, taskCount);
+        result.getPlanInfo().put(MAX_TASK_QUEUE_SIZE, maxQueueSize);
+        return result;
     }
 
     @Nonnull
@@ -262,7 +275,8 @@ public class CascadesPlanner implements QueryPlanner {
         Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
-        int taskCount = 0;
+        taskCount = 0;
+        maxQueueSize = 0;
         while (!taskStack.isEmpty()) {
             try {
                 Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
@@ -286,6 +300,7 @@ public class CascadesPlanner implements QueryPlanner {
                             "memo", new GroupExpressionPrinter(currentRoot)));
                 }
 
+                maxQueueSize = Math.max(maxQueueSize, taskStack.size());
                 if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
                     throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
                 }
@@ -313,6 +328,7 @@ public class CascadesPlanner implements QueryPlanner {
      * Set the size limit of the Cascades planner task queue.
      * If the planner tries to add a task to the queue beyond the maximum size, planning will fail.
      * Default value is 0, which means "unbound".
+     *
      * @param maxTaskQueueSize the maximum size of the queue.
      */
     public void setMaxTaskQueueSize(final int maxTaskQueueSize) {
@@ -325,6 +341,7 @@ public class CascadesPlanner implements QueryPlanner {
      * Set a limit on the number of tasks that can be executed as part of the Cascades planner planning.
      * If the planner tries to execute a task after the maximum number was exceeded, planning will fail.
      * Default value is 0, which means "unbound".
+     *
      * @param maxTotalTaskCount the maximum number of tasks.
      */
     public void setMaxTotalTaskCount(final int maxTotalTaskCount) {
@@ -361,17 +378,17 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Optimize Group task.
-     *
+     * <p>
      * Simplified enqueue/execute overview:
-     *
+     * <p>
      * {@link OptimizeGroup}
-     *     if (not explored)
-     *         enqueues
-     *             this (again)
-     *             {@link ExploreExpression} for each group member
-     *         sets explored to {@code true}
-     *     else
-     *         prune to find best plan; done
+     * if (not explored)
+     * enqueues
+     * this (again)
+     * {@link ExploreExpression} for each group member
+     * sets explored to {@code true}
+     * else
+     * prune to find best plan; done
      */
     private class OptimizeGroup implements Task {
         @Nonnull
@@ -383,7 +400,7 @@ public class CascadesPlanner implements QueryPlanner {
         public OptimizeGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
             this.context = context;
             if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<RelationalExpression>) ref;
+                this.group = (GroupExpressionRef<RelationalExpression>)ref;
             } else {
                 throw new RecordCoreArgumentException("illegal non-group reference in group expression");
             }
@@ -435,13 +452,13 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Group Task.
-     *
+     * <p>
      * Simplified enqueue/execute overview:
-     *
+     * <p>
      * {@link ExploreGroup}
-     *     enqueues
-     *         {@link ExploreExpression} for each group member
-     *     sets explored to {@code true}
+     * enqueues
+     * {@link ExploreExpression} for each group member
+     * sets explored to {@code true}
      */
     private class ExploreGroup implements Task {
         @Nonnull
@@ -453,7 +470,7 @@ public class CascadesPlanner implements QueryPlanner {
         public ExploreGroup(@Nonnull PlanContext context, @Nonnull ExpressionRef<? extends RelationalExpression> ref) {
             this.context = context;
             if (ref instanceof GroupExpressionRef) {
-                this.group = (GroupExpressionRef<RelationalExpression>) ref;
+                this.group = (GroupExpressionRef<RelationalExpression>)ref;
             } else {
                 throw new RecordCoreArgumentException("illegal non-group reference in group expression");
             }
@@ -526,14 +543,14 @@ public class CascadesPlanner implements QueryPlanner {
 
     /**
      * Explore Expression Task.
-     *
+     * <p>
      * Simplified enqueue/execute overview:
-     *
+     * <p>
      * {@link ExploreExpression}
-     *     enqueues
-     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
-     *         all transformations ({@link TransformExpression} for current (group, expression)
-     *         {@link ExploreGroup} for all ranged over groups
+     * enqueues
+     * all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
+     * all transformations ({@link TransformExpression} for current (group, expression)
+     * {@link ExploreGroup} for all ranged over groups
      */
     private class ExploreExpression extends ExploreTask {
         public ExploreExpression(@Nonnull PlanContext context,
@@ -643,14 +660,14 @@ public class CascadesPlanner implements QueryPlanner {
 
         /**
          * Method that calls the actual rule and reacts to new constructs the rule yielded.
-         *
+         * <p>
          * Simplified enqueue/execute overview:
-         *
+         * <p>
          * executes rule
          * enqueues
-         *     {@link AdjustMatch} for each yielded {@link PartialMatch}
-         *     {@link OptimizeInputs} followed by {@link ExploreExpression} for each yielded {@link RecordQueryPlan}
-         *     {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
+         * {@link AdjustMatch} for each yielded {@link PartialMatch}
+         * {@link OptimizeInputs} followed by {@link ExploreExpression} for each yielded {@link RecordQueryPlan}
+         * {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
          */
         @Override
         public void execute() {
@@ -661,7 +678,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
 
             final PlannerBindings initialBindings = getInitialBindings();
-            
+
             getBindable().bindTo(initialBindings, rule.getMatcher())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
@@ -783,12 +800,12 @@ public class CascadesPlanner implements QueryPlanner {
     /**
      * Adjust Match Task. Attempts to improve an existing partial partial match on a (group, expression) pair
      * to a better one by enqueuing rules defined on {@link PartialMatch}.
-     *
+     * <p>
      * Simplified enqueue/execute overview:
-     *
+     * <p>
      * {@link AdjustMatch}
-     *     enqueues
-     *         all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
+     * enqueues
+     * all transformations ({@link TransformPartialMatch}) for current (group, expression, partial match)
      */
     private class AdjustMatch extends ExploreTask {
         @Nonnull
@@ -824,12 +841,12 @@ public class CascadesPlanner implements QueryPlanner {
      * physical operators. If the current expression is a {@link RecordQueryPlan} all expressions that are considered
      * children and/or descendants must also be of type {@link RecordQueryPlan}. At that moment we know that exploration
      * is done and we can optimize the children (that is we can now prune the plan space of the children).
-     *
+     * <p>
      * Simplified enqueue/execute overview:
-     *
+     * <p>
      * {@link OptimizeInputs}
-     *     enqueues
-     *         {@link OptimizeGroup} for all ranged over groups
+     * enqueues
+     * {@link OptimizeGroup} for all ranged over groups
      */
     private class OptimizeInputs implements Task {
         @Nonnull
