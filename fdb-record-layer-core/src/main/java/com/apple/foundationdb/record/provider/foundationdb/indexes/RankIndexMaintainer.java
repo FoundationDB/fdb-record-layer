@@ -37,9 +37,9 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -215,16 +215,24 @@ public class RankIndexMaintainer extends StandardIndexMaintainer {
                                                                               @Nonnull IndexRecordFunction<T> function,
                                                                               @Nonnull FDBRecord<M> record) {
         if (function.getName().equals(FunctionNames.RANK)) {
-            return (CompletableFuture<T>)rank(record);
+            return (CompletableFuture<T>)rank(context, (IndexRecordFunction<Long>)function, record);
         } else {
             return unsupportedRecordFunction(function);
         }
     }
 
     public <M extends Message> CompletableFuture<Long> rank(@Nonnull FDBRecord<M> record) {
+        return rank(EvaluationContext.empty(), null, record);
+    }
+
+    protected <M extends Message> CompletableFuture<Long> rank(@Nonnull EvaluationContext context,
+                                                               @Nullable IndexRecordFunction<Long> function,
+                                                               @Nonnull FDBRecord<M> record) {
         final int groupPrefixSize = getGroupingCount();
-        KeyExpression indexExpr = state.index.getRootExpression();
-        Key.Evaluated indexKey = indexExpr.evaluateSingleton(record);
+        Key.Evaluated indexKey = IndexFunctionHelper.recordFunctionIndexEntry(state.store, state.index, context, function, record, groupPrefixSize);
+        if (indexKey == null) {
+            return CompletableFuture.completedFuture(null);
+        }
         Tuple scoreValue = indexKey.toTuple();
         Subspace rankSubspace = getSecondarySubspace();
         if (groupPrefixSize > 0) {

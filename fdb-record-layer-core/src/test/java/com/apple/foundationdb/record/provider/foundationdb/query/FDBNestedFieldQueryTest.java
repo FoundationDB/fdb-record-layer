@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
@@ -43,6 +44,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.expressions.QueryRecordFunction;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.predicates.match.PredicateMatchers;
@@ -774,6 +776,8 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         metaDataBuilder.addIndex("OuterRecord", new Index("rank_value_by_key", rankGroup, IndexTypes.RANK));
         // TODO: This is not a very obvious way to specify this. But we don't have correlation names.
         final QueryComponent keyCondition = Query.field("map").matches(Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("alpha")));
+        final QueryRecordFunction<Long> rank = Query.rank(rankGroup).withAdditionalCondition(keyCondition);
+
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
             TestRecordsNestedMapProto.OuterRecord.Builder builder = TestRecordsNestedMapProto.OuterRecord.newBuilder().setOtherId(1);
@@ -802,6 +806,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1307013946, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1114475598, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(919661011, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaDataBuilder.getRecordMetaData());
             try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan)) {
@@ -811,6 +816,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 result = cursor.getNext();
                 assertTrue(result.hasNext());
                 assertEquals(Tuple.from(1), result.get().getPrimaryKey());
+                assertEquals(1, rank.eval(recordStore, EvaluationContext.EMPTY, result.get().getStoredRecord()).get());
                 result = cursor.getNext();
                 assertFalse(result.hasNext());
             }
