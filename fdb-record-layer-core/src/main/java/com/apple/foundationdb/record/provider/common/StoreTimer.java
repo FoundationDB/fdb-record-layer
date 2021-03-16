@@ -38,7 +38,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -821,7 +820,7 @@ public class StoreTimer {
 
     /**
      * Instrument an asynchronous cursor.
-     * Timing information is recorded for each invocation of the {@link RecordCursor#onHasNext()} asynchronous method.
+     * Timing information is recorded for each invocation of the {@link RecordCursor#onNext()} asynchronous method.
      *
      * @param event the event type to use to record timing
      * @param inner the cursor to record timing information for
@@ -831,7 +830,6 @@ public class StoreTimer {
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {
         return new RecordCursor<T>() {
-            CompletableFuture<Boolean> nextFuture = null;
             RecordCursorResult<T> nextResult;
 
             @Nonnull
@@ -844,46 +842,7 @@ public class StoreTimer {
             }
 
             @Override
-            @Nonnull
-            @Deprecated
-            public CompletableFuture<Boolean> onHasNext() {
-                if (nextFuture == null) {
-                    nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-                }
-                return nextFuture;
-            }
-
-            @Override
-            @Nullable
-            @Deprecated
-            public T next() {
-                if (!hasNext()) {
-                    throw new NoSuchElementException();
-                }
-                nextFuture = null;
-                return nextResult.get();
-            }
-
-            @Override
-            @Nullable
-            @Deprecated
-            public byte[] getContinuation() {
-                return nextResult.getContinuation().toBytes();
-            }
-
-            @Nonnull
-            @Override
-            @Deprecated
-            public NoNextReason getNoNextReason() {
-                return nextResult.getNoNextReason();
-            }
-
-            @Override
             public void close() {
-                if (nextFuture != null) {
-                    nextFuture.cancel(false);
-                    nextFuture = null;
-                }
                 inner.close();
             }
 

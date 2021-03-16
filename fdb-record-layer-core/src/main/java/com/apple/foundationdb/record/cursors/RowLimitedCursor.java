@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -45,11 +44,6 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
 
     @Nullable
     protected RecordCursorResult<T> nextResult;
-    @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
 
     public RowLimitedCursor(@Nonnull RecordCursor<T> inner, int limit) {
         this.inner = inner;
@@ -64,57 +58,17 @@ public class RowLimitedCursor<T> implements RecordCursor<T> {
             return CompletableFuture.completedFuture(nextResult);
         }
         if (limitReached()) {
-            mayGetContinuation = true;
             NoNextReason reason = (!nextResult.hasNext() && nextResult.getContinuation().isEnd())
                                   ? nextResult.getNoNextReason() : NoNextReason.RETURN_LIMIT_REACHED;
             nextResult = RecordCursorResult.withoutNextValue(nextResult.getContinuation(), reason);
             return CompletableFuture.completedFuture(nextResult);
         } else {
-            mayGetContinuation = false;
             return inner.onNext().thenApply(result -> {
                 soFar++;
                 nextResult = result;
-                mayGetContinuation = !result.hasNext();
                 return result;
             });
         }
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        hasNextFuture = null;
-        mayGetContinuation = true;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     protected boolean limitReached() {

@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 
 /**
- * Check that {@link com.apple.foundationdb.record.RecordCursor#getContinuation} is only called when allowed.
+ * Check that {@link com.apple.foundationdb.record.RecordCursorIterator#getContinuation} is only called when allowed.
  *
  * {@code getContinuation} is only legal after {@code hasNext} has returned {@code false} or after {@code next}.
  *

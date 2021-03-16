@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -45,23 +44,19 @@ import java.util.concurrent.Executor;
  *    } ));
  * </pre>
  * Due to the lazy nature of the cursor, it is impermissable to call any synchronous methods that return information
- * about the state of the cursor until <code>onHasNext()</code> has been called.
+ * about the state of the cursor until <code>onNext()</code> has been called.
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.MAINTAINED)
 public class LazyCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final CompletableFuture<RecordCursor<T>> futureCursor;
+    private final Executor executor;
     @Nullable
     private RecordCursor<T> inner;
-    private Executor executor;
 
     @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-    @Nullable
     private RecordCursorResult<T> nextResult;
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
 
     public LazyCursor(@Nonnull CompletableFuture<RecordCursor<T>> futureCursor) {
         this(futureCursor, null);
@@ -91,57 +86,15 @@ public class LazyCursor<T> implements RecordCursor<T> {
         } else {
             return inner.onNext().thenApply(result -> {
                 nextResult = result;
-                mayGetContinuation = !result.hasNext();
                 return result;
             });
         }
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            mayGetContinuation = false;
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override
     public void close() {
         if (inner != null) {
             inner.close();
-        }
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
         }
     }
 
@@ -156,7 +109,7 @@ public class LazyCursor<T> implements RecordCursor<T> {
 
     private RecordCursor<T> getInner() {
         if (inner == null) {
-            throw new RecordCoreException("Inner cursor is not available until onHasNext() is called");
+            throw new RecordCoreException("Inner cursor is not available until onNext() is called");
         }
         return inner;
     }

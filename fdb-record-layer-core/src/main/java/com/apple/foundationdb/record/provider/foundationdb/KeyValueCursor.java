@@ -89,7 +89,6 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             return CompletableFuture.completedFuture(nextResult);
         } else if (limitManager.tryRecordScan()) {
             return iterator.onHasNext().thenApply(hasNext -> {
-                mayGetContinuation = !hasNext;
                 if (hasNext) {
                     KeyValue kv = iterator.next();
                     if (context != null) {

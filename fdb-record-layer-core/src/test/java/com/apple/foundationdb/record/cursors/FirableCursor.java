@@ -27,8 +27,6 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -43,11 +41,6 @@ import java.util.concurrent.Executor;
 public class FirableCursor<T> implements RecordCursor<T> {
     @Nonnull
     private final RecordCursor<T> underlying;
-    private boolean mayGetContinuation;
-    @Nullable
-    private CompletableFuture<Boolean> onHasNextFuture;
-    @Nullable
-    private RecordCursorResult<T> nextResult;
     @Nonnull
     private CompletableFuture<Void> fireSignal;
     private volatile boolean fireWhenReady;
@@ -60,10 +53,7 @@ public class FirableCursor<T> implements RecordCursor<T> {
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
-        mayGetContinuation = false;
         return fireSignal.thenCompose(vignore -> underlying.onNext()).thenApply(result -> {
-            mayGetContinuation = !result.hasNext();
-            nextResult = result;
             if (result.hasNext()) {
                 synchronized (this) {
                     if (!fireWhenReady) {
@@ -77,43 +67,6 @@ public class FirableCursor<T> implements RecordCursor<T> {
             }
             return result;
         });
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (onHasNextFuture == null) {
-            onHasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return onHasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        onHasNextFuture = null;
-        mayGetContinuation = true;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     /**
