@@ -1325,7 +1325,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             queryBuilder.setRequiredResults(requiredResults);
         }
         final RecordQuery query = queryBuilder.build();
-        final RecordQueryPlan plan = planner.plan(query).getPlan();
+        final RecordQueryPlan plan = planner.plan(query);
         LOGGER.info(KeyValueLogMessage.of("planned query",
                         TestLogMessageKeys.QUERY, query,
                         LogMessageKeys.PLAN, plan,
@@ -1544,7 +1544,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setRecordType(SIMPLE_DOC)
                     .setFilter(Query.field("text").text().containsAll("some text"))
                     .build();
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
 
             boolean done = false;
             int totalKeysLoaded = 0;
@@ -1776,7 +1776,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter1)
                     .build();
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null)
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
             assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1101247748, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1789,7 +1789,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter2)
                     .build();
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) | UnorderedPrimaryKeyDistinct()
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))));
             assertEquals(1032989149, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1513880131, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1804,7 +1804,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter1)
                     .build();
             // Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) -> [doc_id: KEY[1]])
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(plan, coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-786467136, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1818,7 +1818,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter2)
                     .build();
             // Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) -> [doc_id: KEY[1]]) | UnorderedPrimaryKeyDistinct()
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(plan, primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2)))))));
             assertEquals(1032989149, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(893372281, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1833,7 +1833,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(Query.and(filter1, Query.field("group").equalsValue(0L)))
                     .build();
             // Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) -> [doc_id: KEY[1]]) | UnorderedPrimaryKeyDistinct()
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(plan, filter(Query.field("group").equalsValue(0L),
                     textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1))))));
             assertEquals(-1328921799, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -1848,7 +1848,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(Query.and(filter2, Query.field("group").equalsValue(0L)))
                     .build();
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) | group EQUALS 0
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             System.out.println(plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             System.out.println(plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             System.out.println(plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -1872,7 +1872,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter1)
                     .build();
             // Fetch(Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) -> [doc_id: KEY[1]]) | UnorderedPrimaryKeyDistinct()) | group EQUALS 0
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(plan, textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison1)))));
             assertEquals(814602491, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1101247748, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1893,7 +1893,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                     .setFilter(filter2)
                     .build();
             // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null)
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(plan, fetch(primaryKeyDistinct(coveringIndexScan(textIndexScan(allOf(indexName(TextIndexTestUtils.SIMPLE_DEFAULT_NAME), textComparison(equalTo(comparison2))))))));
             assertEquals(-1359010536, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1017914160, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -2232,7 +2232,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("text").text().containsPhrase("continuance of their parents' rage")
                     ))
                     .build();
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, coveringIndexScan(textIndexScan(allOf(
                     indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                     groupingBounds(hasTupleString("[[0],[0]]")),
@@ -2259,7 +2259,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
                             Query.field("text").text().containsPhrase("continuance of their parents' rage")
                     ))
                     .build();
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(plan, coveringIndexScan(textIndexScan(allOf(
                     indexName(COMPLEX_TEXT_BY_GROUP.getName()),
                     groupingBounds(hasTupleString("[[0],[0]]")),
@@ -2495,7 +2495,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             final QueryComponent malformedMapFilter = Query.and(
                     Query.field("entry").oneOfThem().matches(Query.field("key").equalsValue("a")),
                     Query.field("entry").oneOfThem().matches(Query.field("value").text().containsAll("civil hands unclean")));
-            RecordQueryPlan malformedMapPlan = planner.plan(RecordQuery.newBuilder().setRecordType(MAP_DOC).setFilter(malformedMapFilter).build()).getPlan();
+            RecordQueryPlan malformedMapPlan = planner.plan(RecordQuery.newBuilder().setRecordType(MAP_DOC).setFilter(malformedMapFilter).build());
             assertThat(malformedMapPlan, descendant(textIndexScan(allOf(
                     indexName(MAP_ON_VALUE_INDEX.getName()),
                     groupingBounds(allOf(notNullValue(), hasTupleString("[[a],[a]]"))),
@@ -2574,7 +2574,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
             RecordQueryPlanner planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-            plan = planner.plan(query).getPlan();
+            plan = planner.plan(query);
             assertThat(filter, instanceOf(FieldWithComparison.class));
             FieldWithComparison fieldFilter = (FieldWithComparison)filter;
             if (fieldFilter.getComparison() instanceof Comparisons.TextContainsAllPrefixesComparison
@@ -2762,7 +2762,7 @@ public class TextIndexTest extends FDBRecordStoreTestBase {
             );
             for (RecordQuery query : queries) {
                 try {
-                    RecordQueryPlan plan = planner.plan(query).getPlan();
+                    RecordQueryPlan plan = planner.plan(query);
                     assertThat(plan.getUsedIndexes(), not(contains(TextIndexTestUtils.SIMPLE_DEFAULT_NAME)));
                 } catch (RecordCoreException e) {
                     assertThat(e.getMessage(), containsString("Cannot sort without appropriate index"));

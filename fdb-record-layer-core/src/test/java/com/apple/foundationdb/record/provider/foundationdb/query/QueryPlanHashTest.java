@@ -795,7 +795,7 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         if (requiredResults != null) {
             builder.setRequiredResults(requiredResults);
         }
-        return planner.plan(builder.build()).getPlan();
+        return planner.plan(builder.build());
     }
 
     protected void runHook(RecordMetaDataHook hook) throws Exception {

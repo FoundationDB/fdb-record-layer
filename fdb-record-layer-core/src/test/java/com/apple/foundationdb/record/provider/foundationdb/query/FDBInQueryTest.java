@@ -109,7 +109,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan(<,>) | [MySimpleRecord] | num_value_2 IN [0, 2]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1139367278, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1907300063, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -131,7 +131,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan(<,>) | [MySimpleRecord] | num_value_2 IN $valuesThree
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1677754212, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-192829430, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -155,7 +155,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
         assertEquals(-2004060310, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -178,7 +178,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN $valueThrees
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
         assertEquals(883815022, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -203,7 +203,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN $valueThrees
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
         assertEquals(883815022, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -234,7 +234,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan(<,>) | [MySimpleRecord] | Not(num_value_3_indexed IN $valueThrees)
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(1667070490, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1804602975, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -263,7 +263,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4] SORTED
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(asList(1, 2, 4)), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
         assertEquals(-2004060309, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -288,7 +288,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$str_value_indexed <,>) | num_value_3_indexed IN [1, 4, 2]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         // IN join is cancelled on account of incompatible sorting.
         assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
         assertEquals(1775865786, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -326,7 +326,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed <,>) | num_value_3_indexed IN [1, 4, 2]
         // Index(compoundIndex [[1],[1]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[4],[4]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[2],[2]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
             assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
@@ -375,7 +375,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build());
 
         // Index(MySimpleRecord$str_value_indexed ([bar],[foo])) | num_value_3_indexed IN [1, 4, 2]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
             assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
@@ -418,7 +418,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.and(conjuncts))
                 .setSort(field("str_value_indexed"))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         // Did not throw an exception
         assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
     }
@@ -449,7 +449,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String6, String1, String25, String11]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"),
                 bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
         assertEquals(1075889283, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -487,7 +487,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS $__in_rec_no__0, EQUALS $__in_path__1]) WHERE __in_path__1 IN [String6, String25, String1, String34] WHERE __in_rec_no__0 IN [1, 4]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         Matcher<RecordQueryPlan> indexMatcher = indexScan(allOf(indexName("ind"),
                 bounds(hasTupleString("[EQUALS $__in_rec_no__0, EQUALS $__in_path__1]"))));
         assertThat(plan, anyOf(
@@ -528,7 +528,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS $__in_rec_no__1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String1, String25, String34, String6] SORTED WHERE __in_rec_no__1 IN [1, 4] SORTED
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         List<String> sortedStringList = asList("String1", "String25", "String34", "String6");
         List<Long> sortedLongList = asList(1L, 4L);
         assertThat(plan, inValues(equalTo(sortedLongList), inValues(equalTo(sortedStringList),
@@ -567,7 +567,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String6, String1, String25, String11]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
         assertEquals(1075889283, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-347431998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -603,7 +603,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String1, String6, String25, String11]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
         assertEquals(1075745133, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-347576148, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -617,7 +617,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                     continuation.value = result.getContinuation().toBytes();
                 },
                 TestHelpers::assertDiscardedNone);
-        queryRecordsWithHeader(recordMetaDataHook, planner.plan(query).getPlan(),
+        queryRecordsWithHeader(recordMetaDataHook, planner.plan(query),
                 continuation.value, 10,
                 cursor -> {
                     RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
@@ -638,7 +638,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         // and is just the id, so we want the id of the continuation point from before ("_56") to be greater than the
         // first id of the new continuation ("_11")
         queryRecordsWithHeader(recordMetaDataHook,
-                planner.plan(query2).getPlan(),
+                planner.plan(query2),
                 continuation.value, 10,
                 cursor -> {
                     RecordCursorResult<TestRecordsWithHeaderProto.MyRecord.Builder> result = cursor.getNext();
@@ -667,7 +667,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS $__in_repeater__0]) | UnorderedPrimaryKeyDistinct() WHERE __in_repeater__0 IN [13, 22]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), primaryKeyDistinct(
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
         assertEquals(503365581, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -693,7 +693,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(ind [EQUALS $__in_repeater__0]) | UnorderedPrimaryKeyDistinct() WHERE __in_repeater__0 IN $values
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("values"), primaryKeyDistinct(
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
         assertEquals(-320448635, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -722,7 +722,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("repeater").oneOfThem().in(reversed))
                 .setSort(field("repeater", FanType.FanOut))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), primaryKeyDistinct(
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
         assertEquals(503365582, plan.planHash());
@@ -753,7 +753,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(rank_by_string [EQUALS str0, EQUALS $__in_rank([Field { 'str_value_indexed' None}, Field { 'num_value_2' None}] group 1)__0] BY_RANK) WHERE __in_rank([Field { 'str_value_indexed' None}, Field { 'num_value_2' None}] group 1)__0 IN [1, 3, 5]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("rank_by_string"), indexScanType(IndexScanType.BY_RANK)))));
         assertEquals(-778840248, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1033565169, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -783,7 +783,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(rank [EQUALS $__in_rank(Field { 'num_value_2' None} group 1)__0] BY_RANK) WHERE __in_rank(Field { 'num_value_2' None} group 1)__0 IN [1, 3, 5]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("rank"), indexScanType(IndexScanType.BY_RANK)))));
         assertEquals(1518925028, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-2030955860, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -810,7 +810,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique [EQUALS $__in_num_value_unique__0]) WHERE __in_num_value_unique__0 IN [901, 903, 905] SORTED ∪[Field { 'num_value_unique' None}, Field { 'rec_no' None}] Index(MySimpleRecord$num_value_unique ([950],>)
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 indexScan("MySimpleRecord$num_value_unique"),
                 inValues(equalTo(Arrays.asList(901, 903, 905)),
@@ -839,7 +839,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_unique [EQUALS $__in_num_value_unique__0]) WHERE __in_num_value_unique__0 IN [901, 903, 905] SORTED ∪[Field { 'num_value_unique' None}, Field { 'rec_no' None}] Index(MySimpleRecord$num_value_unique [EQUALS $__in_num_value_unique__0]) WHERE __in_num_value_unique__0 IN [904, 905, 906] SORTED
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         // Ordinary equality comparisons would be ordered just by the primary key so that would be the union comparison key.
         // Must compare the IN field here; they are ordered, but not trivially (same value for each).
         assertThat(plan, union(
@@ -872,7 +872,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("num_value_unique").greaterThan(990),
                                 Query.field("num_value_2").in(Arrays.asList(2, 0)))))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         // Without the join, these would be using the same index and so compatible, even though inequalities.
         // TODO: IN join in filter can prevent index scan merging (https://github.com/FoundationDB/fdb-record-layer/issues/9)
         assertThat(plan, primaryKeyDistinct(unorderedUnion(
@@ -908,7 +908,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [EQUALS odd, EQUALS 0, EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 3] SORTED ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[odd, 0, 4],[odd, 0]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 inValues(equalTo(Arrays.asList(1, 3)),
                         indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[EQUALS odd, EQUALS 0, EQUALS $__in_num_value_3_indexed__0]"))))),
@@ -938,7 +938,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("odd"),
                         Query.field("num_value_3_indexed").in(Arrays.asList(1, 3))))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         // Two ordinary equals single-column index scans would be compatible on the following primary key, but
         // the IN loop inside one branch prevents that here. A regular filter would not.
         // TODO: IN join in filter can prevent index scan merging (https://github.com/FoundationDB/fdb-record-layer/issues/9)
@@ -975,7 +975,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(color [EQUALS $__in_color__0]) WHERE __in_color__0 IN [RED, BLUE]
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(indexScan("color")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(-520431454, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -1012,7 +1012,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan(<,>) | [MySimpleRecord] | num_value_2 IN []
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1139440895, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1907402540, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

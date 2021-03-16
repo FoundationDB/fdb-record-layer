@@ -180,7 +180,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
                         Query.field("str_field").equalsValue("hello_3"),
                         Query.field("str_field").equalsValue("hello_6")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, hook);
@@ -209,7 +209,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
                         Query.field("int_value").greaterThanOrEquals(1),
                         Query.field("int_value").lessThanOrEquals(2)))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         Assertions.assertEquals("Scan([[1],[2]])", plan.toString());
 
         try (FDBRecordContext context = openContext()) {
@@ -236,7 +236,7 @@ public class FunctionKeyRecordTest extends FDBRecordStoreTestBase {
                 .setRecordType("StringRecordId")
                 .setFilter(Query.field("rec_id").equalsValue("/s:foo_3_blah"))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         Assertions.assertEquals("Scan(<,>) | rec_id EQUALS /s:foo_3_blah", plan.toString());
 
         try (FDBRecordContext context = openContext()) {

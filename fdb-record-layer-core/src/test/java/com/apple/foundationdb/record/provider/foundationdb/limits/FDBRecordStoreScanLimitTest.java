@@ -286,12 +286,12 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").startsWith("ev"))
                 .build()
-        ).getPlan();
+        );
         RecordQueryPlan rightPlan = planner.plan(RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").lessThanOrEquals(1))
                 .build()
-        ).getPlan();
+        );
         int maximumToScan;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);

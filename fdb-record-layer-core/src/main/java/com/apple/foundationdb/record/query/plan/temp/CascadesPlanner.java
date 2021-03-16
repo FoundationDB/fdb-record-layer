@@ -214,7 +214,7 @@ public class CascadesPlanner implements QueryPlanner {
 
     @Nonnull
     @Override
-    public QueryPlanResult plan(@Nonnull RecordQuery query) {
+    public RecordQueryPlan plan(@Nonnull RecordQuery query) {
         final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
         Debugger.query(query, context);
         try {
@@ -230,12 +230,18 @@ public class CascadesPlanner implements QueryPlanner {
                         "explain", PlannerGraphProperty.explain(singleRoot)));
             }
 
-            return new QueryPlanResult((RecordQueryPlan)singleRoot);
+            return (RecordQueryPlan)singleRoot;
         } else {
             throw new RecordCoreException("Cascades planner could not plan query")
                     .addLogInfo("query", query)
                     .addLogInfo("finalExpression", currentRoot.get());
         }
+    }
+
+    @Nonnull
+    @Override
+    public QueryPlanResult planForQuery(@Nonnull final RecordQuery query) {
+        return new QueryPlanResult(plan(query));
     }
 
     @Nonnull

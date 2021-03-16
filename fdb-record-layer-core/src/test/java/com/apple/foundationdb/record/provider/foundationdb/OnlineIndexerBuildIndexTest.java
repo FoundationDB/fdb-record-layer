@@ -323,7 +323,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
     }
 
     <T> void executeQuery(@Nonnull RecordQuery query, @Nonnull String planString, @Nonnull List<T> expected, @Nonnull Function<FDBQueriedRecord<Message>, T> projection) {
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertEquals(planString, plan.toString());
         List<T> retrieved = recordStore.executeQuery(plan).map(projection).asList().join();
         assertEquals(expected, retrieved);

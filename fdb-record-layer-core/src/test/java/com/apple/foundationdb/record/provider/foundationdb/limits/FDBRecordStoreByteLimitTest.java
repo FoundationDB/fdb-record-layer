@@ -379,7 +379,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
                 .setRecordType(SIMPLE_DOC)
                 .setFilter(Query.field("text").text().containsAll("some text"))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         final List<Long> byteCountsByRecord;
         try (FDBRecordContext context = openContext()) {
@@ -448,7 +448,7 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
         }
 
         setupPlanner(null);
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(unorderedUnion(Collections.nCopies(numPredicates, any(RecordQueryPlan.class)))));
 
         long totalBytes;

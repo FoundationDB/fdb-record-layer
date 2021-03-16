@@ -105,7 +105,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlanner planner = new RecordQueryPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), recordStore.getTimer());
 
             // Scan(<,>) | [MySimpleRecord] | num_value_3_indexed GREATER_THAN_OR_EQUALS 5
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("num_value_3_indexed")))));
             assertEquals(-625770219, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(2115232442, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -133,7 +133,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     recordStore.getRecordMetaData(), new RecordStoreState(null, null), recordStore.getTimer());
 
             // Index(MySimpleRecord$num_value_3_indexed [[5],>)
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                     bounds(hasTupleString("[[5],>")))));
             assertEquals(1008857208, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -176,7 +176,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.saveRecord(record);
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, hasNoDescendant(indexScan(indexName(containsString("str_value_indexed")))));
             if (planner instanceof RecordQueryPlanner) {
                 assertEquals(423324477, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -203,7 +203,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context);
 
             // Index(MySimpleRecord$str_value_indexed [[not_actually_indexed],[not_actually_indexed]])
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"),
                     bounds(hasTupleString("[[not_actually_indexed],[not_actually_indexed]]")))));
             assertEquals(-1270285984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -392,7 +392,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(limited_str_value_index [[abc],[abc]])
         // Scan(<,>) | [MySimpleRecord] | str_value_indexed EQUALS abc
-        RecordQueryPlan plan1 = planner.plan(query1).getPlan();
+        RecordQueryPlan plan1 = planner.plan(query1);
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         if (planner instanceof RecordQueryPlanner) {
@@ -423,7 +423,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(limited_str_value_index [[abc],[abc]])
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
         assertThat("explicitly use prohibited index", plan2, descendant(indexScan("limited_str_value_index")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
         assertEquals(-1573180774, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -465,7 +465,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan(<,>) | num_value_2 EQUALS 123
-        RecordQueryPlan plan1 = planner.plan(query1).getPlan();
+        RecordQueryPlan plan1 = planner.plan(query1);
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("universal_num_value_2")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         if (planner instanceof RecordQueryPlanner) {
@@ -482,7 +482,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(universal_num_value_2 [[123],[123]])
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
         assertThat("explicitly use prohibited index", plan2, descendant(indexScan("universal_num_value_2")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
         assertEquals(-1692774119, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -515,7 +515,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Scan(<,>) | [MySimpleRecord] | str_value_indexed EQUALS abc
         // Scan(<,>) | [MySimpleRecord] | $5eb5afb5-7c31-4fa4-bd7a-cec3027b6ade/str_value_indexed EQUALS abc
-        RecordQueryPlan plan1 = planner.plan(query1).getPlan();
+        RecordQueryPlan plan1 = planner.plan(query1);
         assertThat("should not use prohibited index", plan1, hasNoDescendant(indexScan("limited_str_value_index")));
         assertTrue(plan1.hasFullRecordScan(), "should use full record scan");
         if (planner instanceof RecordQueryPlanner) {
@@ -533,7 +533,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(limited_str_value_index [[abc],[abc]])
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
         assertThat("explicitly use any index", plan2, descendant(indexScan("limited_str_value_index")));
         assertFalse(plan2.hasRecordScan(), "should not use record scan");
         assertEquals(-1573180774, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -548,7 +548,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(limited_str_value_index [[abc],[abc]])
-        RecordQueryPlan plan3 = planner.plan(query3).getPlan();
+        RecordQueryPlan plan3 = planner.plan(query3);
         assertThat("should use allowed index despite index queryability filter", plan3, descendant(indexScan("limited_str_value_index")));
         assertFalse(plan3.hasRecordScan(), "should not use record scan");
         assertEquals(-1573180774, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));

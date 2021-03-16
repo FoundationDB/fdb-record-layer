@@ -1661,7 +1661,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     @Nonnull
     public RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
         final RecordQueryPlanner planner = new RecordQueryPlanner(getRecordMetaData(), getRecordStoreState());
-        return planner.plan(query).getPlan();
+        return planner.plan(query);
     }
 
 

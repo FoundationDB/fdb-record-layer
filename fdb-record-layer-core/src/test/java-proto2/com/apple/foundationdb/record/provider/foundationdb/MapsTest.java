@@ -110,7 +110,7 @@ public class MapsTest extends FDBRecordStoreTestBase {
 
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsMapsProto.getDescriptor(), context, hook);
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
             List<Tuple> results = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).asList().join();
             assertEquals(Collections.singletonList(Tuple.from(2)), results);
             assertThat(plan, primaryKeyDistinct(indexScan(allOf(

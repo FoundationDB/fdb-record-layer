@@ -228,7 +228,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
         }
 
         public RecordQueryPlan planQuery(RecordQuery query) {
-            return planner.plan(query.toBuilder().setRemoveDuplicates(false).build()).getPlan();
+            return planner.plan(query.toBuilder().setRemoveDuplicates(false).build());
         }
 
         public RecordCursor<Message> executeQuery(RecordQueryPlan plan) {

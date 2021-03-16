@@ -132,7 +132,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan([[photos],[photos]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("[[photos],[photos]]"))));
         assertEquals(1063779424, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-623055281, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -147,7 +147,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan({[photos],[photos]})
-        plan = planner.plan(query).getPlan();
+        plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("{[photos],[photos]}"))));
         assertEquals(224213141, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1663787616, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -214,7 +214,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(review_rating ([5],>) | UnorderedPrimaryKeyDistinct()
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), bounds(hasTupleString("([5],>"))))));
         assertEquals(1378568952, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-282604226, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -232,7 +232,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(tag [[Lilliput, 5],[Lilliput]]) | UnorderedPrimaryKeyDistinct()
-        plan = planner.plan(query).getPlan();
+        plan = planner.plan(query);
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("tag"), bounds(hasTupleString("[[Lilliput, 5],[Lilliput]]"))))));
         assertEquals(-1197819382, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1134509911, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -308,7 +308,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rest_no").equalsValue(1L),
                         nestedComponent))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         if (planner instanceof RecordQueryPlanner) {
             assertThat(plan,
@@ -339,7 +339,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([0],>) | stats/{school_name EQUALS Human University}
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(Query.field("stats").matches(Query.field("school_name").equalsValue("Human University")),
                 indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([0],>"))))));
         if (planner instanceof RecordQueryPlanner) {
@@ -368,7 +368,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(stats$school ([null],[1000]]) | stats/{And([school_name LESS_THAN University of Procrastination, hometown STARTS_WITH H])}
         // Index(stats$school ([null],[1000]]) | And([$85876e0f-5bbb-4a78-baaf-b3b0eae60423/stats.hometown STARTS_WITH H, $85876e0f-5bbb-4a78-baaf-b3b0eae60423/stats.school_name LESS_THAN University of Procrastination])
-        plan = planner.plan(query).getPlan();
+        plan = planner.plan(query);
         if (planner instanceof RecordQueryPlanner) {
             assertThat(plan, filter(Query.field("stats").matches(
                     Query.and(Query.field("school_name").lessThan("University of Procrastination"),
@@ -412,7 +412,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("hometown").equalsValue("Home Town"))),
                         Query.field("email").equalsValue("pmp@example.com")))
                 .build();
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("emailHometown"), bounds(hasTupleString("([pmp@example.com, Home Town, null],[pmp@example.com, Home Town, 0]]")))));
         assertEquals(-688450117, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-453057696, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -428,7 +428,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("email").equalsValue("pmp@example.com"),
                         Query.field("stats").matches(Query.field("hometown").equalsValue("Home Town"))))
                 .build();
-        assertEquals(plan, planner.plan(query).getPlan());
+        assertEquals(plan, planner.plan(query));
     }
 
     /**
@@ -461,7 +461,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(key_index [[1, alpha],[1, alpha]]) | UnorderedPrimaryKeyDistinct() | map/{one of entry/{And([key EQUALS alpha, value NOT_EQUALS test])}}
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         // verify that the value filter that can't be satisfied by the index isn't dropped from the filter expression
 
         assertThat(plan, filter(
@@ -506,7 +506,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([Human University, 0],[Human University]])
-        RecordQueryPlan plan1 = planner.plan(query1).getPlan();
+        RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Human University, 0],[Human University]]")))));
         assertEquals(-1854785243, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1516102185, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -525,7 +525,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([Human University, 0],[Human University]])
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Human University, 0],[Human University]]")))));
         assertEquals(-1854785243, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1516102185, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -558,7 +558,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(stats$school ([Newt A. Robot, 100],[Newt A. Robot, 2000]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("stats$school"), bounds(hasTupleString("([Newt A. Robot, 100],[Newt A. Robot, 2000])")))));
         assertEquals(1355996214, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(852895263, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -622,7 +622,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(event_start ([10],>) | UnorderedPrimaryKeyDistinct()
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("event_start"), bounds(hasTupleString("([10],>"))))));
         assertEquals(667993366, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(853766432, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -663,7 +663,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions [[3],[3]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[3],[3]]")))));
         assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(963408882, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -681,7 +681,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions [[2, 6],[2, 6]])
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, indexScan(allOf(indexName("versions"), bounds(hasTupleString("[[2, 6],[2, 6]]")))));
         assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(963408882, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -698,7 +698,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(versions ([1],>)
-        RecordQueryPlan plan3 = planner.plan(query3).getPlan();
+        RecordQueryPlan plan3 = planner.plan(query3);
         assertThat(plan3, indexScan(allOf(indexName("versions"), bounds(hasTupleString("([1],>")))));
         assertEquals(-686220795, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(963408882, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -739,7 +739,7 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Scan([[a, 2],[a, 2]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, scan(bounds(hasTupleString("[[a, 2],[a, 2]]"))));
         assertEquals(1265534819, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(136710600, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));

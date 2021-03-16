@@ -116,7 +116,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         if (shouldDeferFetch) {
             assertThat(plan, fetch(union(
@@ -172,7 +172,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .setRemoveDuplicates(true)
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldPushFetchAboveUnionToIntersection);
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -224,7 +224,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[4],[4]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         if (shouldDeferFetch) {
             assertThat(plan, fetch(union(Arrays.asList(
@@ -282,7 +282,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(4)))
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -292,7 +292,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(1)))
                 .build();
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
 
         // plan is physically different but returns the same result
         assertThat(plan.hashCode(), not(equalTo(plan2.hashCode())));
@@ -319,7 +319,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed ([3],>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         if (shouldDeferFetch) {
             assertThat(plan, fetch(union(Arrays.asList(
@@ -379,7 +379,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed ([null],[2])) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Covering(Index(MySimpleRecord$num_value_3_indexed ([3],>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         if (shouldDeferFetch) {
             assertThat(plan, fetch(union(
                     coveringIndexScan(indexScan(allOf(
@@ -443,7 +443,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[even],[even]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         if (shouldDeferFetch) {
             assertThat(plan, fetch(union(Arrays.asList(
@@ -506,7 +506,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Unordered(Index(MySimpleRecord$str_value_indexed ([null],[m])) ∪ Index(MySimpleRecord$num_value_3_indexed ([3],>))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         Matcher<RecordQueryPlan> planMatcher = unorderedUnion(
                 indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([null],[m])")))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>"))))
@@ -563,7 +563,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Unordered(Index(MySimpleRecord$str_value_indexed ([null],[m])) ∪ Index(MySimpleRecord$num_value_3_indexed ([3],>))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         Matcher<RecordQueryPlan> planMatcher = unorderedUnion(
                 indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([null],[m])")))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([3],>"))))
@@ -636,7 +636,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(str_value_3_index ([even, 3],[even]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(MySimpleRecord$num_value_3_indexed ([null],[1]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("([even, 3],[even]]")))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("([null],[1])"))))));
@@ -688,7 +688,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Unordered(Index(multi_index ([even, null],[even, 1]]) ∪ Index(multi_index_2 [[even, 3],[even]]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         Matcher<RecordQueryPlan> planMatcher = unorderedUnion(
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([even, null],[even, 1]]")))),
                 indexScan(allOf(indexName("multi_index_2"), bounds(hasTupleString("[[even, 3],[even]]"))))
@@ -743,7 +743,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(str_value_3_index [[even, 1],[even, 1]]) ∪[Field { 'str_value_indexed' None}, Field { 'num_value_3_indexed' None}, Field { 'num_value_unique' None}] Index(str_value_3_index ([even, 3],[even]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("[[even, 1],[even, 1]]")))),
                 indexScan(allOf(indexName("str_value_3_index"), bounds(hasTupleString("([even, 3],[even]]")))),
@@ -791,7 +791,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'str_value_indexed' None}, Field { 'num_value_unique' None}] Index(MySimpleRecord$num_value_3_indexed [[3],[3]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]")))),
                 indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[3],[3]]")))),
@@ -836,7 +836,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan1 = planner.plan(query1).getPlan();
+        RecordQueryPlan plan1 = planner.plan(query1);
         RecordQuery query2 = query1.toBuilder()
                 .setFilter(Query.or(
                         Query.field("num_value_3_indexed").equalsValue(0),
@@ -845,7 +845,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) ∪ Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]))
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
         assertNotEquals(plan1.hashCode(), plan2.hashCode());
         assertNotEquals(plan1, plan2);
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
@@ -912,14 +912,14 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan1 = planner.plan(query1).getPlan();
+        RecordQueryPlan plan1 = planner.plan(query1);
         RecordQuery query2 = query1.toBuilder()
                 .setFilter(Query.or(Lists.reverse(((OrComponent)query1.getFilter()).getChildren())))
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE) ∪ Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) ∪ Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE)
         // Fetch(Covering(Index(MySimpleRecord$num_value_3_indexed [[3],[3]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]] REVERSE) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]) ∪ Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]] REVERSE) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]))
-        RecordQueryPlan plan2 = planner.plan(query2).getPlan();
+        RecordQueryPlan plan2 = planner.plan(query2);
         assertNotEquals(plan1.hashCode(), plan2.hashCode());
         assertNotEquals(plan1, plan2);
         assertEquals(plan1.semanticHashCode(), plan2.semanticHashCode());
@@ -987,7 +987,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
         // Fetch(Covering(Index(MySimpleRecord$str_value_indexed [[odd],[odd]]) -> [rec_no: KEY[1], str_value_indexed: KEY[0]]) ∪ Covering(Index(MySimpleRecord$num_value_3_indexed [[0],[0]]) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]]))
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         if (shouldDeferFetch) {
             assertThat(plan, fetch(union(
@@ -1050,7 +1050,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(multi_index [[even, 0, 0],[even, 0, 0]]) ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[even, 0, 2],[even, 0, 3]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 0],[even, 0, 0]]")))),
                 indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]"))))));
@@ -1104,7 +1104,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) ∪ Index(MySimpleRecord$num_value_3_indexed [[3],[3]]) ∪ Index(MySimpleRecord$num_value_3_indexed [[5],[5]])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         Matcher<RecordQueryPlan> leaf = indexScan(allOf(
                 indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(anyOf(hasTupleString("[[1],[1]]"), hasTupleString("[[3],[3]]"), hasTupleString("[[5],[5]]")))));
@@ -1156,7 +1156,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // Index(MySimpleRecord$str_value_indexed [[even],[even]]) | Or([num_value_3_indexed EQUALS 1, num_value_3_indexed EQUALS 2, num_value_3_indexed EQUALS 4])
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(orComponent, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("[[even],[even]]"))))));
         assertEquals(-1553701984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(925115369, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -1231,7 +1231,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                         ))
                 .build();
         setDeferFetchAfterUnionAndIntersection(true);
-        RecordQueryPlan plan = planner.plan(query).getPlan();
+        RecordQueryPlan plan = planner.plan(query);
 
         assertThat(plan, fetch(primaryKeyDistinct(unorderedUnion(ImmutableList.of(
                 coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("{[foo],[foo]}"))))),

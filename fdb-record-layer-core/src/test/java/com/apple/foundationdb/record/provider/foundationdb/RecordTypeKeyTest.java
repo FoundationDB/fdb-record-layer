@@ -198,7 +198,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord")
                     .build();
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
 
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
@@ -225,7 +225,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("MySimpleRecord")
                     .build();
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
 
             assertEquals(recs.subList(0, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
@@ -275,7 +275,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("MySimpleRecord")
                     .setFilter(Query.field("rec_no").lessThan(400L))
                     .build();
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
 
             assertEquals(recs.subList(0, 1), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
@@ -296,7 +296,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                             Query.field("rec_no").greaterThan(200L),
                             Query.field("rec_no").lessThan(500L)))
                     .build();
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
 
             assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());
@@ -336,7 +336,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                             Query.field("rec_no").lessThan(500L)))
                     .setSort(sortExpr, reverse)
                     .build();
-            final RecordQueryPlan plan = planner.plan(query).getPlan();
+            final RecordQueryPlan plan = planner.plan(query);
 
             List<FDBStoredRecord<Message>> expectedResults = recs.subList(1, 2);
             if (reverse) {
@@ -379,7 +379,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("MySimpleRecord")
                     .setSort(sortExpr, reverse)
                     .build();
-            final RecordQueryPlan plan = planner.plan(query).getPlan();
+            final RecordQueryPlan plan = planner.plan(query);
 
             List<FDBStoredRecord<Message>> expectedResults = recs.subList(0, 2);
             if (reverse) {
@@ -425,7 +425,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("num_value_2").equalsValue(2))
                     .setSort(sortExpr, reverse)
                     .build();
-            final RecordQueryPlan plan = planner.plan(query).getPlan();
+            final RecordQueryPlan plan = planner.plan(query);
 
             List<FDBStoredRecord<Message>> expectedResults = Arrays.asList(recs.get(1), additionalRecord);
             if (reverse) {
@@ -469,7 +469,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType("MyOtherRecord")
                     .build();
-            RecordQueryPlan plan = planner.plan(query).getPlan();
+            RecordQueryPlan plan = planner.plan(query);
 
             assertEquals(recs.subList(2, 3), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());

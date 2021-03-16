@@ -98,7 +98,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                               descriptor.findFieldByNumber(TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER));
         };
         assertEquals(Arrays.asList(8L, 108L),
-                fetchResultValues(planner.plan(query).getPlan(), this::uncheckedOpenNestedRecordStore, getIds));
+                fetchResultValues(planner.plan(query), this::uncheckedOpenNestedRecordStore, getIds));
 
         // Adds an index for that query.
         RecordMetaDataHook hook = metaData -> metaData.addUniversalIndex(new Index("new_index", "name"));
@@ -119,7 +119,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
 
         // Only sees new record added after index.
         assertEquals(Arrays.asList(18L, 118L),
-                fetchResultValues(planner.plan(query).getPlan(), openWithNewIndex, getIds));
+                fetchResultValues(planner.plan(query), openWithNewIndex, getIds));
 
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenNestedRecordStore(context, hook);
@@ -130,7 +130,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
 
         // Now see both records from indexed query.
         assertEquals(Arrays.asList(8L, 18L, 108L, 118L),
-                fetchResultValues(planner.plan(query).getPlan(), openWithNewIndex, getIds, TestHelpers::assertDiscardedNone));
+                fetchResultValues(planner.plan(query), openWithNewIndex, getIds, TestHelpers::assertDiscardedNone));
     }
 
     /**
@@ -156,7 +156,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(6))
                 .build();
         assertEquals(Arrays.asList(6L),
-                fetchResultValues(planner.plan(query).getPlan(),
+                fetchResultValues(planner.plan(query),
                         TestRecords1Proto.MySimpleRecord.REC_NO_FIELD_NUMBER,
                         this::uncheckedOpenSimpleRecordStore,
                         context -> assertDiscardedAtLeast(9, context)));
@@ -180,7 +180,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
 
         // Only sees new record added after index.
         assertEquals(Arrays.asList(16L),
-                fetchResultValues(planner.plan(query).getPlan(),
+                fetchResultValues(planner.plan(query),
                         TestRecords1Proto.MySimpleRecord.REC_NO_FIELD_NUMBER,
                         openWithNewIndex,
                         TestHelpers::assertDiscardedNone));
@@ -194,7 +194,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreQueryTestBase {
 
         // Now see both records from indexed query.
         assertEquals(Arrays.asList(6L, 16L),
-                fetchResultValues(planner.plan(query).getPlan(),
+                fetchResultValues(planner.plan(query),
                         TestRecords1Proto.MySimpleRecord.REC_NO_FIELD_NUMBER,
                         openWithNewIndex,
                         TestHelpers::assertDiscardedNone));
