@@ -29,8 +29,10 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -45,6 +47,7 @@ public class IndexingCommon {
 
     @Nonnull private final FDBDatabaseRunner runner;
     @Nullable private SynchronizedSessionRunner synchronizedSessionRunner = null;
+    @Nonnull private final List<RetriableTaskRunner<?>> retriableTaskRunnerToClose = new ArrayList<>();
 
     @Nonnull private final FDBRecordStore.Builder recordStoreBuilder;
     @Nonnull private final Index index;
@@ -132,6 +135,10 @@ public class IndexingCommon {
         this.synchronizedSessionRunner = synchronizedSessionRunner;
     }
 
+    void addRetriableTaskRunnerToClose(RetriableTaskRunner<?> retriableTaskRunner) {
+        retriableTaskRunnerToClose.add(retriableTaskRunner);
+    }
+
     @Nonnull
     public OnlineIndexer.IndexStatePrecondition getIndexStatePrecondition() {
         return indexStatePrecondition;
@@ -173,5 +180,6 @@ public class IndexingCommon {
         if (synchronizedSessionRunner != null) {
             synchronizedSessionRunner.close();
         }
+        retriableTaskRunnerToClose.forEach(RetriableTaskRunner::close);
     }
 }

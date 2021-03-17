@@ -24,7 +24,6 @@ import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
@@ -43,11 +42,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
@@ -121,22 +119,12 @@ public class IndexingThrottle {
         }
     }
 
-    void decreaseLimit(@Nonnull FDBException fdbException,
-                       @Nullable List<Object> additionalLogMessageKeyValues) {
+    void decreaseLimit(@Nonnull List<Object> logKeysAndValues) {
         limit = Math.max(1, (3 * limit) / 4);
-        if (LOGGER.isInfoEnabled()) {
-            final KeyValueLogMessage message = KeyValueLogMessage.build("Lessening limit of online index build",
-                    LogMessageKeys.ERROR, fdbException.getMessage(),
-                    LogMessageKeys.ERROR_CODE, fdbException.getCode(),
-                    LogMessageKeys.LIMIT, limit,
-                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                    LogMessageKeys.INDEXER_ID, common.getUuid()
-                    );
-            if (additionalLogMessageKeyValues != null) {
-                message.addKeysAndValues(additionalLogMessageKeyValues);
-            }
-            LOGGER.info(message.toString(), fdbException);
-        }
+        logKeysAndValues.addAll(Arrays.asList(
+                LogMessageKeys.LESSEN_LIMIT, true,
+                LogMessageKeys.LIMIT, limit
+        ));
     }
 
     private void tryToIncreaseLimit(@Nullable Throwable exception) {
@@ -181,22 +169,21 @@ public class IndexingThrottle {
         return null;
     }
 
-    @Nonnull
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
+                                               @Nullable final Consumer<List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
                 LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                LogMessageKeys.INDEXER_ID, common.getUuid()));
+                LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                LogMessageKeys.INDEXER_ID, common.getUuid(),
+                getSubspaceProvider().logKey(), getSubspaceProvider()
+        ));
         if (additionalLogMessageKeyValues != null) {
             onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
         }
 
-        AtomicInteger tries = new AtomicInteger(0);
-        CompletableFuture<R> ret = new CompletableFuture<>();
-        AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
-        AsyncUtil.whileTrue(() -> {
+        RetriableTaskRunner.Builder<R> builder = RetriableTaskRunner.newBuilder(ignore -> {
             loadConfig();
             final Index index = common.getIndex();
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
@@ -204,45 +191,49 @@ public class IndexingThrottle {
                 if (indexState != IndexState.WRITE_ONLY) {
                     throw new RecordCoreStorageException("Attempted to build non-write-only index",
                             LogMessageKeys.INDEX_NAME, index.getName(),
-                            common.getRecordStoreBuilder().getSubspaceProvider().logKey(), common.getRecordStoreBuilder().getSubspaceProvider().toString(context),
+                            getSubspaceProvider().logKey(), getSubspaceProvider().toString(context),
                             LogMessageKeys.INDEX_STATE, indexState);
                 }
                 return function.apply(store);
-            }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {
-                if (e == null) {
-                    ret.complete(value);
-                    return AsyncUtil.READY_FALSE;
+            }), handlePostTransaction, onlineIndexerLogMessageKeyValues);
+        }, common.config.getMaxRetries() + 1);
+
+        builder.setPossiblyRetry(states -> {
+            final Throwable e = states.getPossibleException();
+            if (e == null) {
+                return AsyncUtil.READY_FALSE;
+            } else {
+                FDBException fdbE = getFDBException(e);
+                if (fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
+                    states.getLocalLogs().addAll(Arrays.asList(
+                            LogMessageKeys.ERROR, fdbE.getMessage(),
+                            LogMessageKeys.ERROR_CODE, fdbE.getCode()
+                    ));
+                    return AsyncUtil.READY_TRUE;
                 } else {
-                    int currTries = tries.getAndIncrement();
-                    FDBException fdbE = getFDBException(e);
-                    if (currTries < common.config.getMaxRetries() && fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
-                        if (handleLessenWork != null) {
-                            handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
-                        }
-                        long delay = (long)(Math.random() * toWait.get());
-                        toWait.set(Math.min(toWait.get() * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
-                        if (LOGGER.isWarnEnabled()) {
-                            final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
-                                    LogMessageKeys.INDEXER_CURR_RETRY, currTries,
-                                    LogMessageKeys.INDEXER_MAX_RETRIES, common.config.getMaxRetries(),
-                                    LogMessageKeys.DELAY, delay,
-                                    LogMessageKeys.LIMIT, limit);
-                            message.addKeysAndValues(onlineIndexerLogMessageKeyValues);
-                            LOGGER.warn(message.toString(), e);
-                        }
-                        return MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
-                    } else {
-                        return completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
-                    }
+                    return AsyncUtil.READY_FALSE;
                 }
-            }).thenCompose(Function.identity());
-        }, common.getRunner().getExecutor()).whenComplete((vignore, e) -> {
-            if (e != null) {
-                // Just update ret and ignore the returned future.
-                completeExceptionally(ret, e, onlineIndexerLogMessageKeyValues);
             }
         });
-        return ret;
+
+        if (handleLessenWork != null) {
+            builder.setHandleIfDoRetry(taskState -> handleLessenWork.accept(taskState.getLocalLogs()));
+        }
+
+        RetriableTaskRunner<R> retriableTaskRunner = builder
+                .setInitDelayMillis(FDBDatabaseFactory.instance().getInitialDelayMillis())
+                .setMaxDelayMillis(FDBDatabaseFactory.instance().getMaxDelayMillis())
+                .setLogger(LOGGER)
+                .setAdditionalLogMessageKeyValues(additionalLogMessageKeyValues)
+                .setExecutor(common.getRunner().getExecutor())
+                .build();
+
+        common.addRetriableTaskRunnerToClose(retriableTaskRunner);
+        return retriableTaskRunner.runAsync();
+    }
+
+    private SubspaceProvider getSubspaceProvider() {
+        return common.getRecordStoreBuilder().getSubspaceProvider();
     }
 
     private <R> CompletableFuture<Boolean> completeExceptionally(CompletableFuture<R> ret, Throwable e, List<Object> additionalLogMessageKeyValues) {

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
@@ -55,8 +54,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -267,7 +266,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Get the current number of records to process in one transaction.
-     * This may go up or down while {@link #throttledRunAsync(Function, BiFunction, BiConsumer, List)} is running, if there are failures committing or
+     * This may go up or down while {@link #throttledRunAsync(Function, BiFunction, Consumer, List)} is running, if there are failures committing or
      * repeated successes.
      * @return the current number of records to process in one transaction
      */
@@ -291,21 +290,20 @@ public class OnlineIndexer implements AutoCloseable {
      * other adjustments (given {@code handleLessenWork}) in the case that we encounter FDB errors which can occur if
      * there is too much work to be done in a single transaction (like transaction_too_large). The error may not be
      * retriable itself but may be addressed after applying {@code handleLessenWork} to lessen the work.
-     *
+     *  @param <R> return type of function to run
      * @param function the database operation to run transactionally
      * @param handlePostTransaction after the transaction is committed, or fails to commit, this function is called with
-     * the result or exception respectively. This handler should return a new pair with either the result to return from
-     * {@code runAsync} or an exception to be checked whether {@code retriable} should be retried.
+ * the result or exception respectively. This handler should return a new pair with either the result to return from
+ * {@code runAsync} or an exception to be checked whether {@code retriable} should be retried.
      * @param handleLessenWork if it there is too much work to be done in a single transaction, this function is called
-     * with the FDB exception and additional logging. It should make necessary adjustments to lessen the work.
+* with the a list which it can log. It should make necessary adjustments to lessen the work.
      * @param additionalLogMessageKeyValues additional key/value pairs to be included in logs
-     * @param <R> return type of function to run
      */
     @Nonnull
     @VisibleForTesting
     <R> CompletableFuture<R> throttledRunAsync(@Nonnull final Function<FDBRecordStore, CompletableFuture<R>> function,
                                                @Nonnull final BiFunction<R, Throwable, Pair<R, Throwable>> handlePostTransaction,
-                                               @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
+                                               @Nullable final Consumer<List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         // test only
         return getIndexer().throttledRunAsync(function, handlePostTransaction, handleLessenWork, additionalLogMessageKeyValues);
@@ -319,10 +317,9 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @VisibleForTesting
-    void decreaseLimit(@Nonnull FDBException fdbException,
-                       @Nullable List<Object> additionalLogMessageKeyValues) {
+    void decreaseLimit(@Nullable List<Object> additionalLogMessageKeyValues) {
         // test only
-        getIndexer().decreaseLimit(fdbException, additionalLogMessageKeyValues);
+        getIndexer().decreaseLimit(additionalLogMessageKeyValues);
     }
 
     /**
