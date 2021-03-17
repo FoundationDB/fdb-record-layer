@@ -1,5 +1,5 @@
 /*
- * QueryPlanRsultTest.java
+ * QueryPlanResultTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
-import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +39,7 @@ import java.util.List;
  * Tests for QueryPlanResult by cascades planner.
  */
 @Tag(Tags.RequiresFDB)
-public class QueryPlanRsultTest extends FDBRecordStoreQueryTestBase {
+public class QueryPlanResultTest extends FDBRecordStoreQueryTestBase {
 
     @BeforeEach
     public void setup() throws Exception {
