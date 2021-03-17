@@ -303,7 +303,7 @@ public class RecordQueryPlanner implements QueryPlanner {
      */
     @Nonnull
     @Override
-    public QueryPlanResult planForQuery(@Nonnull final RecordQuery query) {
+    public QueryPlanResult planQuery(@Nonnull final RecordQuery query) {
         return new QueryPlanResult(plan(query));
     }
 

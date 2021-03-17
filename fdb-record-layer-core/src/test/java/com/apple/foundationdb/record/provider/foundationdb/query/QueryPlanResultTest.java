@@ -69,6 +69,6 @@ public class QueryPlanResultTest extends FDBRecordStoreQueryTestBase {
         if (requiredResults != null) {
             builder.setRequiredResults(requiredResults);
         }
-        return planner.planForQuery(builder.build());
+        return planner.planQuery(builder.build());
     }
 }

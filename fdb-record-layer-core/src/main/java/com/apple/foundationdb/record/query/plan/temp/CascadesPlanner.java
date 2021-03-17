@@ -246,7 +246,7 @@ public class CascadesPlanner implements QueryPlanner {
 
     @Nonnull
     @Override
-    public QueryPlanResult planForQuery(@Nonnull final RecordQuery query) {
+    public QueryPlanResult planQuery(@Nonnull final RecordQuery query) {
         QueryPlanResult result = new QueryPlanResult(plan(query));
         result.getPlanInfo().put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount);
         result.getPlanInfo().put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize);

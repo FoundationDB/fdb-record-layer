@@ -69,7 +69,7 @@ public interface QueryPlanner {
 
     /**
      * Create a plan to get the results of the provided query.
-     * This method returns a {@link QueryPlanResult} that contains the same plan ass returned by {@link #plan(RecordQuery)}
+     * This method returns a {@link QueryPlanResult} that contains the same plan as returned by {@link #plan(RecordQuery)}
      * with additional information provided in the {@link QueryPlanInfo}
      *
      * @param query a query for records on this planner's metadata
@@ -77,7 +77,7 @@ public interface QueryPlanner {
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
     @Nonnull
-    QueryPlanResult planForQuery(@Nonnull RecordQuery query);
+    QueryPlanResult planQuery(@Nonnull RecordQuery query);
 
     /**
      * Get the {@link RecordMetaData} for this planner.
