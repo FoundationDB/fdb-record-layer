@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.google.common.base.Verify;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import org.apache.commons.lang3.tuple.Pair;
@@ -128,9 +129,10 @@ public class IndexFunctionHelper {
      * @return an optional of a bound {@link IndexAggregateFunction} and a {@link IndexMaintainer} if a matching index
      *         was found, {@code Optional.empty()} otherwise.
      */
-    protected static Optional<Pair<IndexAggregateFunction, IndexMaintainer>> bindIndexForAggregateFunctionCall(@Nonnull FDBRecordStore store,
-                                                                                                               @Nonnull IndexAggregateFunctionCall functionCall,
-                                                                                                               @Nonnull List<String> recordTypeNames) {
+    protected static Optional<Pair<IndexAggregateFunction, IndexMaintainer>> bindIndexForPermutableAggregateFunctionCall(@Nonnull FDBRecordStore store,
+                                                                                                                         @Nonnull IndexAggregateFunctionCall functionCall,
+                                                                                                                         @Nonnull List<String> recordTypeNames) {
+        Verify.verify(functionCall.isGroupingPermutable());
         return indexesForRecordTypes(store, recordTypeNames)
                 .filter(store::isIndexReadable)
                 .flatMap(index ->
@@ -307,7 +309,7 @@ public class IndexFunctionHelper {
      * (Public) method to bind an {@link IndexAggregateFunctionCall} to an index resulting in an
      * {@link IndexAggregateFunction} if successful.
      *
-     * See {@link #bindIndexForAggregateFunctionCall(FDBRecordStore, IndexAggregateFunctionCall, List)} for details.
+     * See {@link #bindIndexForPermutableAggregateFunctionCall(FDBRecordStore, IndexAggregateFunctionCall, List)} for details.
      *
      * @param store the store containing the record types
      * @param functionCall an {@link IndexAggregateFunctionCall}
@@ -318,8 +320,12 @@ public class IndexFunctionHelper {
     public static Optional<IndexAggregateFunction> bindAggregateFunctionCall(@Nonnull FDBRecordStore store,
                                                                              @Nonnull IndexAggregateFunctionCall functionCall,
                                                                              @Nonnull List<String> recordTypeNames) {
-        return bindIndexForAggregateFunctionCall(store, functionCall, recordTypeNames)
-                .map(Pair::getLeft);
+        if (functionCall.isGroupingPermutable()) {
+            return bindIndexForPermutableAggregateFunctionCall(store, functionCall, recordTypeNames)
+                    .map(Pair::getLeft);
+        } else {
+            return bindAggregateFunction(store, functionCall.toIndexAggregateFunction(null), recordTypeNames);
+        }
     }
 
     static class IndexRecordFunctionWithSubrecordValues<T> extends IndexRecordFunction<T> {

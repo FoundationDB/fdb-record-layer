@@ -167,6 +167,10 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().getSubKey(0, getGroupingCount());
     }
 
+    public boolean isGroupingPermutable() {
+        return !createsDuplicates(); // TODO this can be optimized
+    }
+
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder(getWholeKey().toString());
