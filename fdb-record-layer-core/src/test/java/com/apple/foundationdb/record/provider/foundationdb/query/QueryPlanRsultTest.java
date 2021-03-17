@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.test.Tags;
@@ -51,10 +52,10 @@ public class QueryPlanRsultTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testSingleEqualsFilter() throws Exception {
         QueryPlanResult res = createPlan(Collections.singletonList("MySimpleRecord"), Query.field("num_value_2").equalsValue(1), null, null);
-        Integer taskCount = res.getPlanInfo().get(CascadesPlanner.TOTAL_TASK_COUNT);
+        Integer taskCount = res.getPlanInfo().get(QueryPlanInfoKeys.TOTAL_TASK_COUNT);
         Assertions.assertNotNull(taskCount);
         Assertions.assertTrue(taskCount > 0);
-        Integer maxQueueSize = res.getPlanInfo().get(CascadesPlanner.MAX_TASK_QUEUE_SIZE);
+        Integer maxQueueSize = res.getPlanInfo().get(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE);
         Assertions.assertNotNull(maxQueueSize);
         Assertions.assertTrue(maxQueueSize > 0);
     }
