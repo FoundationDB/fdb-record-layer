@@ -167,6 +167,12 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
         return getWholeKey().getSubKey(0, getGroupingCount());
     }
 
+    /**
+     * Method that indicates to the caller if the grouping expression defined in this expression is freely
+     * permutable, i.e., would another grouping key expression with a different order of gr
+     * @return
+     */
+    @API(API.Status.INTERNAL)
     public boolean isGroupingPermutable() {
         return !createsDuplicates(); // TODO this can be optimized
     }

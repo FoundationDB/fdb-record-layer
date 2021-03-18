@@ -70,7 +70,7 @@ import java.util.stream.StreamSupport;
  * in order to yield meaningful results:
  *
  * <pre>
- * {@code groupingKeyExpression = concat(groupingExpressions, groupedExpression).group(groupedExpression.getColumnSize()}
+ * {@code groupingKeyExpression = concat(groupingExpressions, groupedExpression).group(groupedExpression.getColumnSize())}
  * </pre>
  *
  * which ideally is true, but may be violated in the presence of repeated structures.
