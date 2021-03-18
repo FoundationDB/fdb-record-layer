@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -35,15 +36,19 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.query.QueryToKeyMatcher;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -315,5 +320,142 @@ public class IndexFunctionHelper {
                                                                              @Nonnull List<String> recordTypeNames) {
         return bindIndexForAggregateFunctionCall(store, functionCall, recordTypeNames)
                 .map(Pair::getLeft);
+    }
+
+    static class IndexRecordFunctionWithSubrecordValues<T> extends IndexRecordFunction<T> {
+        private final int scalarPrefixCount;
+        @Nonnull
+        private final QueryToKeyMatcher.Match match;
+
+        protected IndexRecordFunctionWithSubrecordValues(@Nonnull IndexRecordFunction<T> recordFunction, @Nonnull Index index,
+                                                         int scalarPrefixCount, @Nonnull QueryToKeyMatcher.Match match) {
+            super(recordFunction.getName(), recordFunction.getOperand(), index.getName());
+            this.scalarPrefixCount = scalarPrefixCount;
+            this.match = match;
+        }
+
+        public int getScalarPrefixCount() {
+            return scalarPrefixCount;
+        }
+
+        public Key.Evaluated getValues(@Nonnull FDBRecordStore store, @Nonnull EvaluationContext context) {
+            return match.getEquality(store, context);
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            if (!super.equals(o)) {
+                return false;
+            }
+            final IndexRecordFunctionWithSubrecordValues<?> that = (IndexRecordFunctionWithSubrecordValues<?>)o;
+            return scalarPrefixCount == that.scalarPrefixCount && match.equals(that.match);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(super.hashCode(), scalarPrefixCount, match);
+        }
+    }
+
+    /**
+     * Given an index record function and condition on repeated fields (such as a key for a map-like field), return a function suitable for use with
+     * {@link #recordFunctionIndexEntry} to get the matching index entry.
+     * @param store store against which function will be evaluated
+     * @param recordFunction function to be evaluated
+     * @param record record against which to evaluate
+     * @param condition condition on fields of index entry
+     * @param <T> return type of function
+     * @return a new function that remembers the condition for matching
+     */
+    @Nonnull
+    public static <T> IndexRecordFunction<T> recordFunctionWithSubrecordCondition(@Nonnull FDBRecordStore store,
+                                                                                  @Nonnull IndexRecordFunction<T> recordFunction,
+                                                                                  @Nonnull FDBRecord<?> record,
+                                                                                  @Nonnull QueryComponent condition) {
+        final IndexMaintainer indexMaintainer = indexMaintainerForRecordFunction(store, recordFunction, record)
+                .orElseThrow(() -> new RecordCoreException("Record function " + recordFunction +
+                                                           " requires appropriate index on " + record.getRecordType().getName()));
+        final Index index = indexMaintainer.state.index;
+        final List<KeyExpression> indexFields = index.getRootExpression().normalizeKeyForPositions();
+        int scalarPrefixCount = 0;
+        KeyExpression firstRepeated = null;
+        for (KeyExpression indexField : indexFields) {
+            if (indexField.createsDuplicates()) {
+                firstRepeated = indexField;
+                break;
+            }
+            scalarPrefixCount++;
+        }
+        if (firstRepeated == null) {
+            throw new RecordCoreException("Record function " + recordFunction +
+                                          " condition " + condition +
+                                          " does not select a repeated field in " + indexMaintainer.state.index.getName());
+        }
+        final QueryToKeyMatcher matcher = new QueryToKeyMatcher(condition);
+        final QueryToKeyMatcher.Match match = matcher.matchesSatisfyingQuery(firstRepeated);
+        if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
+            throw new RecordCoreException("Record function " + recordFunction +
+                                          " condition " + condition +
+                                          " does not match " + indexMaintainer.state.index.getName());
+        }
+        return new IndexRecordFunctionWithSubrecordValues<>(recordFunction, index, scalarPrefixCount, match);
+    }
+
+    /**
+     * Get the index entry for use by the given index to evaluate the given record function.
+     *
+     * In most cases, this is the same as {@link KeyExpression#evaluateSingleton}. But if {@code recordFunction} is
+     * the result of {@link #recordFunctionWithSubrecordCondition}, a matching entry will be found.
+     * @param store store against which function will be evaluated
+     * @param index index for which to evaluate
+     * @param context context for parameter bindings
+     * @param recordFunction record function for which to evaluate
+     * @param record record against which to evaluate
+     * @param groupSize grouping size for the given index
+     * @return an index entry or {@code null} if none matches a bound condition
+     */
+    @Nullable
+    public static Key.Evaluated recordFunctionIndexEntry(@Nonnull FDBRecordStore store,
+                                                         @Nonnull Index index,
+                                                         @Nonnull EvaluationContext context,
+                                                         @Nullable IndexRecordFunction<?> recordFunction,
+                                                         @Nonnull FDBRecord<?> record,
+                                                         int groupSize) {
+        final KeyExpression expression = index.getRootExpression();
+        if (!(recordFunction instanceof IndexRecordFunctionWithSubrecordValues)) {
+            return expression.evaluateSingleton(record);
+        }
+        final IndexRecordFunctionWithSubrecordValues<?> recordFunctionWithSubrecordValues = (IndexRecordFunctionWithSubrecordValues<?>)recordFunction;
+        final int scalarPrefixCount = recordFunctionWithSubrecordValues.getScalarPrefixCount();
+        final List<Object> toMatch = recordFunctionWithSubrecordValues.getValues(store, context).values();
+        List<Object> prev = null;
+        Key.Evaluated match = null;
+        for (Key.Evaluated key : expression.evaluate(record)) {
+            final List<Object> subrecord = key.values();
+            for (int i = 0; i < groupSize; i++) {
+                if (i < scalarPrefixCount) {
+                    if (prev != null) {
+                        if (!Objects.equals(prev.get(i), subrecord.get(i))) {
+                            throw new RecordCoreException("All subrecords should match for non-constrained keys");
+                        }
+                    }
+                } else {
+                    if (toMatch.get(i - scalarPrefixCount).equals(subrecord.get(i))) {
+                        if (match != null) {
+                            throw new RecordCoreException("More than one matching subrecord");
+                        }
+                        match = key;
+                    }
+                }
+            }
+            prev = subrecord;
+        }
+        return match;
     }
 }
