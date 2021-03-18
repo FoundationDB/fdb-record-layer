@@ -62,12 +62,24 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Transform a tree of Boolean expressions into a tree of bitwise operations on streams of bitmaps.
+ * Transform a tree of Boolean expressions into a tree of bitwise operations on streams of bitmaps from multiple
+ * {@link IndexTypes#BITMAP_VALUE} indexes with common group and position keys.
  *
  * So, {@code AND} turns into {@code BITAND} and {@code OR} into {@code BITOR}, with the leaves of the streams
  * being scans of a {@code BITMAP_VALUE} index keyed by the leaf condition.
  *
  * Optional additional grouping predicates for all indexes are also preserved.
+ *
+ * This means dividing a set of conditions into three categories:
+ * <ol>
+ * <li>group predicates common to all indexes</li>
+ * <li>group predicates for a single bitmap index</li>
+ * <li>position predicates applied to every scan</li>
+ * </ol>
+ * Each of the second set of group predicates is turned into a single bitmap index scan by prepending the common group
+ * and appending the common position. These scans yield bitmaps with one bits for each unique position matching that single predicate.
+ * Applying bit operations on these bitmaps corresponding to the complex Boolean expression on the original predicates
+ * gives bitmaps with one bits for positions satisfying that complex condition.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComposedBitmapIndexAggregate {
