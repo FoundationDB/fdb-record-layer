@@ -292,6 +292,21 @@ public class RecordQueryPlanner implements QueryPlanner {
         return plan;
     }
 
+    /**
+     * Create a plan to get the results of the provided query.
+     * This method returns a {@link QueryPlanResult} that contains the same plan ass returned by {@link #plan(RecordQuery)}
+     * with additional information provided in the {@link QueryPlanInfo}
+     *
+     * @param query a query for records on this planner's metadata
+     * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
+     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     */
+    @Nonnull
+    @Override
+    public QueryPlanResult planQuery(@Nonnull final RecordQuery query) {
+        return new QueryPlanResult(plan(query));
+    }
+
     @Nullable
     private RecordQueryPlan planNoFilter(PlanContext planContext, KeyExpression sort, boolean sortReverse) {
         ScoredPlan bestPlan = null;

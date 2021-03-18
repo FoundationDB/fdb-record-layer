@@ -24,7 +24,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Add QueryPlanResult to hold planned query and PlanInfo. [(Issue #1176)](https://github.com/FoundationDB/fdb-record-layer/issues/1176)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Rank by grouped map-like values [(Issue #1183)](https://github.com/FoundationDB/fdb-record-layer/issues/1183)
 * **Feature** `VersionstampSaveBehavior.IF_PRESENT` allows the user to specify that a record should be saved with a version only if one is explicitly provided [(Issue #958)](https://github.com/FoundationDB/fdb-record-layer/issues/958)
