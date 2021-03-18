@@ -865,7 +865,7 @@ public class MoreAsyncUtil {
      * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
      * @param <V> return type of original future
      * @return future with same completion properties as the future returned by the handler
-     * @see #composeWhenCompleteAndHandle(CompletableFuture, BiFunction, Function)
+     * @see #composeWhenCompleteAndHandle(CompletableFuture, BiFunction, boolean, Function)
      */
     public static <V> CompletableFuture<V> composeWhenComplete(
             @Nonnull CompletableFuture<V> future,
@@ -874,6 +874,7 @@ public class MoreAsyncUtil {
         return composeWhenCompleteAndHandle(
                 future,
                 (result, exception) -> handler.apply(result, exception).thenApply(vignore -> result),
+                false,
                 exceptionMapper);
     }
 
@@ -893,12 +894,15 @@ public class MoreAsyncUtil {
     public static <V, T> CompletableFuture<T> composeWhenCompleteAndHandle(
             @Nonnull CompletableFuture<V> future,
             @Nonnull BiFunction<V,Throwable,? extends CompletableFuture<T>> handler,
+            boolean suppressFutureException,
             @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
         return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
             try {
+                System.out.println("wawawa 899 " + futureResult + " " + futureException);
                 RuntimeException mappedFutureException = futureException == null ? null : getRuntimeException(futureException, exceptionMapper);
                 return handler.apply(futureResult, mappedFutureException).handle((handlerResult, handlerAsyncException) -> {
-                    if (mappedFutureException != null) {
+                    System.out.println("wawawa 902 " + handlerResult + " " + handlerAsyncException);
+                    if (!suppressFutureException && mappedFutureException != null) {
                         throw mappedFutureException;
                     } else if (handlerAsyncException != null) {
                         // This is for the case where the function call handler.apply returns an exceptional future.
@@ -908,6 +912,48 @@ public class MoreAsyncUtil {
                     }
                 });
             } catch (Exception handlerSyncException) {
+                System.out.println("wawawa 913 " + handlerSyncException);
+
+                // This is for the case where the function call handler.apply throws an error.
+                throw getRuntimeException(handlerSyncException, exceptionMapper);
+            }
+        });
+    }
+
+    /**
+     * Compose a handler bi-function to the result of a future. Unlike the
+     *  {@link CompletableFuture#handle(BiFunction) CompletableFuture.handle()}
+     *  function, which requires that the handler return a regular value, this
+     *  method requires that the handler return a {@link CompletableFuture}.
+     *  The returned future will then be ready with the result of the
+     *  handler's future (or an error if that future completes exceptionally).
+     *
+     * @param future future to compose the handler onto
+     * @param handler handler bi-function to compose onto the passed future
+     * @param <V> return type of original future
+     * @param <T> return type of final future
+     *
+     * @return future with same completion properties as the future returned by the handler
+     */
+    public static <V, T> CompletableFuture<T> composeHandle(CompletableFuture<V> future,
+                                                            BiFunction<V,Throwable,? extends CompletableFuture<T>> handler,
+                                                            @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
+        return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
+            try {
+                System.out.println("wawawa 899 " + futureResult + " " + futureException);
+                RuntimeException mappedFutureException = futureException == null ? null : getRuntimeException(futureException, exceptionMapper);
+                return handler.apply(futureResult, mappedFutureException).handle((handlerResult, handlerAsyncException) -> {
+                    System.out.println("wawawa 902 " + handlerResult + " " + handlerAsyncException);
+                     if (handlerAsyncException != null) {
+                        // This is for the case where the function call handler.apply returns an exceptional future.
+                        throw getRuntimeException(handlerAsyncException, exceptionMapper);
+                    } else {
+                        return handlerResult;
+                    }
+                });
+            } catch (Exception handlerSyncException) {
+                System.out.println("wawawa 913 " + handlerSyncException);
+
                 // This is for the case where the function call handler.apply throws an error.
                 throw getRuntimeException(handlerSyncException, exceptionMapper);
             }

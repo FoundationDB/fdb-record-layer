@@ -304,32 +304,18 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
-        final RetriableTaskRunner.Builder<T> builder = RetriableTaskRunner.newBuilder(taskState -> {
-            FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0);
-            return retriable.apply(ctx).thenCompose(val ->
-                    ctx.commitAsync().thenApply(vignore -> val)
-            ).handle((result, ex) -> {
-                Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
-                ctx.close();
-                if (newResult.getRight() == null) {
-                    return newResult.getLeft();
-                } else {
-                    RuntimeException runtimeException = database.mapAsyncToSyncException(newResult.getRight());
-                    throw runtimeException;
-                }
-            });
-        }, getMaxAttempts());
+        final RetriableTaskRunner.Builder<T> builder = RetriableTaskRunner.newBuilder(getMaxAttempts());
 
         builder.setPossiblyRetry(states -> {
             if (closed) {
                 // Outermost future should be cancelled, but be sure that this doesn't appear to be successful.
                 states.setPossibleException(new RunnerClosed());
-                return AsyncUtil.READY_FALSE;
+                return false;
             }
             final Throwable e = states.getPossibleException();
             if (e == null) {
                 // Successful completion. We are done.
-                return AsyncUtil.READY_FALSE;
+                return false;
             } else {
                 Throwable t = e;
                 String fdbMessage = null;
@@ -350,7 +336,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                         LogMessageKeys.MESSAGE, fdbMessage,
                         LogMessageKeys.CODE, code
                 ));
-                return retry ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+                return retry;
             }
         });
 
@@ -365,7 +351,27 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                 .build();
 
         addRetriableTaskRunnerToClose(retriableTaskRunner);
-        return retriableTaskRunner.runAsync();
+
+        return retriableTaskRunner.runAsync(taskState -> {
+            FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0);
+            return retriable.apply(ctx).thenCompose(val ->
+                    ctx.commitAsync().thenApply(vignore -> val)
+            ).handleAsync((result, ex) -> {
+//                try {
+                    Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
+                    ctx.close();
+                    if (newResult.getRight() == null) {
+                        return newResult.getLeft();
+                    } else {
+                        RuntimeException runtimeException = database.mapAsyncToSyncException(newResult.getRight());
+                        throw runtimeException;
+                    }
+//                } finally {
+//                    ctx.close();
+//                }
+
+            });
+        });
     }
 
     @Override

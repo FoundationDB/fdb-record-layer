@@ -71,7 +71,7 @@ public class IndexingThrottle {
             FDBError.TRANSACTION_TOO_LARGE.code()));
 
     /**
-     * The number of successful transactions in a row as called by {@link #throttledRunAsync(Function, BiFunction, BiConsumer, List)}.
+     * The number of successful transactions in a row as called by {@link #throttledRunAsync(Function, BiFunction, Consumer, List)}.
      */
     private int successCount = 0;
 
@@ -183,25 +183,12 @@ public class IndexingThrottle {
             onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
         }
 
-        RetriableTaskRunner.Builder<R> builder = RetriableTaskRunner.newBuilder(ignore -> {
-            loadConfig();
-            final Index index = common.getIndex();
-            return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
-                IndexState indexState = store.getIndexState(index);
-                if (indexState != IndexState.WRITE_ONLY) {
-                    throw new RecordCoreStorageException("Attempted to build non-write-only index",
-                            LogMessageKeys.INDEX_NAME, index.getName(),
-                            getSubspaceProvider().logKey(), getSubspaceProvider().toString(context),
-                            LogMessageKeys.INDEX_STATE, indexState);
-                }
-                return function.apply(store);
-            }), handlePostTransaction, onlineIndexerLogMessageKeyValues);
-        }, common.config.getMaxRetries() + 1);
+        RetriableTaskRunner.Builder<R> builder = RetriableTaskRunner.newBuilder(common.config.getMaxRetries() + 1);
 
         builder.setPossiblyRetry(states -> {
             final Throwable e = states.getPossibleException();
             if (e == null) {
-                return AsyncUtil.READY_FALSE;
+                return false;
             } else {
                 FDBException fdbE = getFDBException(e);
                 if (fdbE != null && lessenWorkCodes.contains(fdbE.getCode())) {
@@ -209,9 +196,9 @@ public class IndexingThrottle {
                             LogMessageKeys.ERROR, fdbE.getMessage(),
                             LogMessageKeys.ERROR_CODE, fdbE.getCode()
                     ));
-                    return AsyncUtil.READY_TRUE;
+                    return true;
                 } else {
-                    return AsyncUtil.READY_FALSE;
+                    return false;
                 }
             }
         });
@@ -229,7 +216,21 @@ public class IndexingThrottle {
                 .build();
 
         common.addRetriableTaskRunnerToClose(retriableTaskRunner);
-        return retriableTaskRunner.runAsync();
+
+        return retriableTaskRunner.runAsync(ignore -> {
+            loadConfig();
+            final Index index = common.getIndex();
+            return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
+                IndexState indexState = store.getIndexState(index);
+                if (indexState != IndexState.WRITE_ONLY) {
+                    throw new RecordCoreStorageException("Attempted to build non-write-only index",
+                            LogMessageKeys.INDEX_NAME, index.getName(),
+                            getSubspaceProvider().logKey(), getSubspaceProvider().toString(context),
+                            LogMessageKeys.INDEX_STATE, indexState);
+                }
+                return function.apply(store);
+            }), handlePostTransaction, onlineIndexerLogMessageKeyValues);
+        });
     }
 
     private SubspaceProvider getSubspaceProvider() {
