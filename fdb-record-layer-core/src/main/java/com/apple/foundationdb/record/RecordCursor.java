@@ -468,7 +468,8 @@ public interface RecordCursor<T> extends AutoCloseable {
      * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor
      * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start
      * @param pipelineSize the number of cursors from applications of the mapping function to open ahead of time
-     * @param <V> the result type of the mapping function
+     * @param <T> the result type of the outer cursor
+     * @param <V> the result type of the inner cursor produced by the mapping function
      * @return a new cursor that applies the given function to produce a cursor of records that gets flattened
      */
     @Nonnull
