@@ -67,7 +67,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         return new Builder<>(maxAttempts);
     }
 
-    public T run(@Nonnull final Function<TaskState<T>, ? extends T> retriableTask, FDBDatabaseRunner runner) throws Throwable {
+    public T run(@Nonnull final Function<TaskState<T>, ? extends T> retriableTask, FDBDatabaseRunner runner) {
         final TaskState<T> taskState = initializeTaskState();
         boolean again = true;
         while (again) {

@@ -291,6 +291,21 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         }
     }
 
+
+//    @Override
+//    @API(API.Status.EXPERIMENTAL)
+//    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
+//                     @Nullable List<Object> additionalLogMessageKeyValues) {
+//        RetriableTaskRunner<T> retriableTaskRunner = gettRetriableTaskRunner(additionalLogMessageKeyValues);
+//        return retriableTaskRunner.run(taskState -> {
+//            try (FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0)) {
+//                T ret = retriable.apply(ctx);
+//                ctx.commit();
+//                return ret;
+//            }
+//        }, this);
+//    }
+
     @Override
     @API(API.Status.EXPERIMENTAL)
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
@@ -304,6 +319,27 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     public <T> CompletableFuture<T> runAsync(@Nonnull final Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                              @Nonnull final BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
                                              @Nullable List<Object> additionalLogMessageKeyValues) {
+        RetriableTaskRunner<T> retriableTaskRunner = gettRetriableTaskRunner(additionalLogMessageKeyValues);
+
+        return retriableTaskRunner.runAsync(taskState -> {
+            FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0);
+            return retriable.apply(ctx).thenCompose(val ->
+                    ctx.commitAsync().thenApply(vignore -> val)
+            ).handleAsync((result, ex) -> {
+                Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
+                ctx.close();
+                if (newResult.getRight() == null) {
+                    return newResult.getLeft();
+                } else {
+                    RuntimeException runtimeException = database.mapAsyncToSyncException(newResult.getRight());
+                    throw runtimeException;
+                }
+            });
+        });
+    }
+
+    @Nonnull
+    private <T> RetriableTaskRunner<T> gettRetriableTaskRunner(final @Nullable List<Object> additionalLogMessageKeyValues) {
         final RetriableTaskRunner.Builder<T> builder = RetriableTaskRunner.newBuilder(getMaxAttempts());
 
         builder.setPossiblyRetry(states -> {
@@ -351,27 +387,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
                 .build();
 
         addRetriableTaskRunnerToClose(retriableTaskRunner);
-
-        return retriableTaskRunner.runAsync(taskState -> {
-            FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0);
-            return retriable.apply(ctx).thenCompose(val ->
-                    ctx.commitAsync().thenApply(vignore -> val)
-            ).handleAsync((result, ex) -> {
-//                try {
-                    Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
-                    ctx.close();
-                    if (newResult.getRight() == null) {
-                        return newResult.getLeft();
-                    } else {
-                        RuntimeException runtimeException = database.mapAsyncToSyncException(newResult.getRight());
-                        throw runtimeException;
-                    }
-//                } finally {
-//                    ctx.close();
-//                }
-
-            });
-        });
+        return retriableTaskRunner;
     }
 
     @Override
