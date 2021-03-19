@@ -68,8 +68,9 @@ public class ScopedInterningLayerTest extends LocatableResolverTest {
             globalScope.updateMetadataAndVersion("some-key-that-does-not-exist", metadata).join();
             fail("should throw NoSuchElementException");
         } catch (CompletionException ex) {
-            assertThat(ex.getCause(), is(instanceOf(NoSuchElementException.class)));
-            assertThat(ex.getCause(), hasMessageContaining("updateMetadata must reference key that already exists"));
+            Throwable cause = ex.getCause().getCause();
+            assertThat(cause, is(instanceOf(NoSuchElementException.class)));
+            assertThat(cause, hasMessageContaining("updateMetadata must reference key that already exists"));
         }
     }
 

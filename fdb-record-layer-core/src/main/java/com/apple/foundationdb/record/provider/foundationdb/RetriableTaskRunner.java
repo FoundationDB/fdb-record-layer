@@ -67,35 +67,41 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         return new Builder<>(maxAttempts);
     }
 
-//    public T run(@Nonnull final Function<TaskState<T>, ? extends T> retriableTask) {
-//        final TaskState<T> taskState = initializeTaskState();
-//        boolean again = true;
-//        while (again) {
-//            try {
-//                T ret = retriableTask.apply(taskState);
-//            }
-//        }
-//        return AsyncUtil.whileTrue(() -> MoreAsyncUtil.composeWhenCompleteAndHandle(
-//                retriableTask.apply(taskState),
-//                (result, ex) -> handleResultOrException(taskState, result, ex),
-//                exceptionMapper
-//        ), executor)
-//                .handle((vignore, otherException) -> {
-//                    if (taskState.getPossibleException() == null) {
-//                        // This handles the possible exceptions in handleIfDoRetry.
-//                        taskState.setPossibleException(otherException);
-//                    }
-//                    return null;
-//                })
-//                .thenCompose(vignore -> getResultOrException(taskState));
-//    }
+    public T run(@Nonnull final Function<TaskState<T>, ? extends T> retriableTask, FDBDatabaseRunner runner) throws Throwable {
+        final TaskState<T> taskState = initializeTaskState();
+        boolean again = true;
+        while (again) {
+            T result = null;
+            Exception ex = null;
+            try {
+                result = retriableTask.apply(taskState);
+
+            } catch (Exception taskException) {
+                ex = taskException;
+            }
+            // There shouldn't be any exception coming out of handleResultOrException (it is saved in TaskState instead),
+            // so no need wrap with try.
+            again = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handleResultOrException(taskState, result, ex));
+        }
+        return getResultOrExceptionForRun(taskState);
+    }
+
+    private T getResultOrExceptionForRun(final TaskState<T> taskState) {
+        RuntimeException e = taskState.getPossibleException();
+        if (e != null) {
+            throw addLogsToException(taskState, e);
+        } else {
+            return taskState.getPossibleResult();
+        }
+    }
+
 
     public CompletableFuture<T> runAsync(@Nonnull final Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask) {
         final TaskState<T> taskState = initializeTaskState();
-        // There shouldn't be any exception coming out (it is saved in TaskState instead), so just use simple AsyncUtil.composeHandle.
+        // There shouldn't be any exception coming out of handleResultOrException (it is saved in TaskState instead),
+        // so just use simple AsyncUtil.composeHandle.
         return AsyncUtil.whileTrue(() -> AsyncUtil.composeHandle(
                 CompletableFuture.runAsync(() -> System.out.println("wawawa doing " + taskState.currAttempt + " for " + taskState.getUuid())).thenCompose(ignore -> retriableTask.apply(taskState)),
-                // There shouldn't be any expection comeping
                 (result, ex) -> handleResultOrException(taskState, result, ex)
 //                true,
 //                exceptionMapper
@@ -109,7 +115,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
 //            }
 //            return null;
 //        })
-        .thenCompose(vignore -> getResultOrException(taskState));
+        .thenCompose(vignore -> getResultOrExceptionForRunAsync(taskState));
     }
 
     @Nonnull
@@ -118,10 +124,10 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     }
 
     @Nonnull
-    private CompletableFuture<T> getResultOrException(final TaskState<T> taskState) {
+    private CompletableFuture<T> getResultOrExceptionForRunAsync(final TaskState<T> taskState) {
         CompletableFuture<T> ret = new CompletableFuture<>();
         addFutureToCompleteExceptionally(ret);
-        Throwable e = taskState.getPossibleException();
+        RuntimeException e = taskState.getPossibleException();
         if (e != null) {
             ret.completeExceptionally(addLogsToException(taskState, e));
         } else {
@@ -175,9 +181,11 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
 //        }
     }
 
-    private Throwable mapException(Throwable e) {
-        if (exceptionMapper == null || e == null) {
-            return e;
+    private RuntimeException mapException(Throwable e) {
+        if (e == null) {
+            return null;
+        } else if (exceptionMapper == null) {
+            return new RuntimeException(e);
         } else {
             return exceptionMapper.apply(e);
         }
@@ -215,7 +223,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         message.addKeysAndValues(additionalLogMessageKeyValues);
     }
 
-    private Throwable addLogsToException(TaskState<T> taskState, Throwable e) {
+    private LoggableException addLogsToException(TaskState<T> taskState, RuntimeException e) {
         LoggableException loggableException = (e instanceof LoggableException) ?
                                               (LoggableException)e : new LoggableException(e);
         return loggableException
@@ -256,7 +264,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         @Nullable
         private T possibleResult;
         @Nullable
-        private Throwable possibleException;
+        private RuntimeException possibleException;
         private int currAttempt = 0;
         private long currMaxDelayMillis;
         // Keep the logs for the current attempt.
@@ -288,11 +296,11 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         }
 
         @Nullable
-        public Throwable getPossibleException() {
+        public RuntimeException getPossibleException() {
             return possibleException;
         }
 
-        public void setPossibleException(@Nullable Throwable possibleException) {
+        public void setPossibleException(@Nullable RuntimeException possibleException) {
             this.possibleException = possibleException;
         }
 
