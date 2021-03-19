@@ -425,16 +425,6 @@ public interface RecordCursor<T> extends AutoCloseable {
     }
 
     /**
-     * @deprecated Use {@link #limitRowsTo(int)} instead.
-     * @param limit the maximum number of records to return
-     * @return a new cursor that will return at most {@code limit} records
-     */
-    @Deprecated
-    default RecordCursor<T> limitTo(int limit) {
-        return limitRowsTo(limit);
-    }
-
-    /**
      * Get a new cursor that will only return records up to the given limit.
      * @param limit the maximum number of records to return
      * @return a new cursor that will return at most {@code limit} records
@@ -470,44 +460,49 @@ public interface RecordCursor<T> extends AutoCloseable {
     }
 
     /**
-     * Get a new cursor by applying the given cursor generating function to the records in this cursor.
-     * @param func the function to apply to each record
+     * Apply a given cursor generating function to each result from an outer cursor and chain the results together.
+     * Users should typically supply a {@code checker} function for safety. For more details, see
+     * {@link #flatMapPipelined(Function, BiFunction, Function, byte[], int)}.
+     *
+     * @param outerFunc a function that takes the outer continuation and returns the outer cursor
+     * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor
+     * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start
      * @param pipelineSize the number of cursors from applications of the mapping function to open ahead of time
-     * @param <V> the result type of the mapping function
+     * @param <T> the result type of the outer cursor
+     * @param <V> the result type of the inner cursor produced by the mapping function
      * @return a new cursor that applies the given function to produce a cursor of records that gets flattened
-     * @deprecated because it does not support continuations and is easy to misuse.
-     *             Use {@link #flatMapPipelined(Function, BiFunction, byte[], int)} instead.
      */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    @Nonnull
-    default <V> RecordCursor<V> flatMapPipelined(@Nonnull Function<T, ? extends RecordCursor<V>> func, int pipelineSize) {
-        return new FlatMapPipelinedCursor<>(this, (t, cignore) -> func.apply(t),
-                null, null, null, null,
-                pipelineSize);
-    }
-
     @Nonnull
     static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
-                                                          @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
-                                                          @Nullable byte[] continuation,
-                                                          int pipelineSize) {
+                                                   @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
+                                                   @Nullable byte[] continuation,
+                                                   int pipelineSize) {
         return flatMapPipelined(outerFunc, innerFunc, null, continuation, pipelineSize);
     }
 
     /**
-     * Resume a nested cursor with the given continuation or start if <code>null</code>.
-     * @param outerFunc a function that takes the outer continuation and returns the outer cursor.
-     * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor.
-     * @param checker a function that takes an outer record and returns a way of recognizing it again or <code>null</code>.
+     * Apply a given cursor generating function to each result from an outer cursor and chain the results together. The
+     * resulting cursor can be resumed with the given continuation or started from the beginning if the continuation is
+     * {@code null}.
+     *
+     * <p>
+     * The {@code checker} function, if specified, allows the cursor to determine if the outer cursor has been resumed
+     * from a continuation to the same place where it left off the last time, and it is intended as a safety guarantee.
      * When computing the continuation, this is called on the current outer record and the result, if not <code>null</code>,
      * becomes part of the continuation. When this continuation is used, the function (presumably the same one) is called
      * on the outer record again. If the results match, the inner cursor picks up where it left off. If not, the entire
-     * inner cursor is run.
+     * inner cursor is run again from the start.
      * This handles common cases of the data changing between transactions, such as the outer record being deleted (skip rest of inner record)
      * or a new record being inserted right before it (do full inner cursor, not partial based on previous).
-     * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start.
-     * @param pipelineSize the number of outer items to work ahead; inner cursors for these will be started in parallel.
+     * If a null {@code checker} function is passed in, this check is skipped, and the cursor assumes the outer
+     * cursor is correctly positioned.
+     * </p>
+     *
+     * @param outerFunc a function that takes the outer continuation and returns the outer cursor
+     * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor
+     * @param checker a function that takes an outer record and returns a way of recognizing it again
+     * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start
+     * @param pipelineSize the number of outer items to work ahead; inner cursors for these will be started in parallel
      * @param <T> the result type of the outer cursor
      * @param <V> the result type of the inner cursor produced by the mapping function
      * @return a {@link FlatMapPipelinedCursor} that maps the inner function across the results of the outer function
@@ -692,21 +687,6 @@ public interface RecordCursor<T> extends AutoCloseable {
                 return AsyncUtil.READY_FALSE;
             }
         }), getExecutor()).thenApply(ignore -> holder.get());
-    }
-
-    /**
-     * Get a new cursor that substitutes another cursor if this cursor is empty.
-     * @param func function to be called if the cursor is empty to give another source of records
-     * @return a new cursor that returns the same records as this cursor 
-     * or the result of {@code func} if this cursor does not produce any records
-     * @deprecated because it does not support continuations and is easy to misuse.
-     *             Use {@link #flatMapPipelined(Function, BiFunction, byte[], int)} instead.
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<T> orElse(@Nonnull Function<Executor, RecordCursor<T>> func) {
-        return new OrElseCursor<>(this, func);
     }
 
     /**

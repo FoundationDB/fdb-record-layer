@@ -55,20 +55,6 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     @Nullable
     private RecordCursorResult<T> nextResult;
 
-    /**
-     * Deprecated constructor that does not support continuations.
-     * @param inner the inner branch of the cursor
-     * @param func a function to generate the else branch
-     * @deprecated in favor of the a constructor that does support continuations
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public OrElseCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<Executor, RecordCursor<T>> func) {
-        this.inner = inner;
-        this.func = func;
-        this.state = RecordCursorProto.OrElseContinuation.State.UNDECIDED;
-    }
-
     @API(API.Status.INTERNAL)
     public OrElseCursor(@Nonnull Function<byte[], ? extends RecordCursor<T>> innerFunc,
                         @Nonnull BiFunction<Executor, byte[], ? extends RecordCursor<T>> elseFunc,
