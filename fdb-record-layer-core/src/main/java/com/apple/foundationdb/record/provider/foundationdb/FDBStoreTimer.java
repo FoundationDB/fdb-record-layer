@@ -116,12 +116,6 @@ public class FDBStoreTimer extends StoreTimer {
          * This time includes fetching from the database and deserialization.
          */
         LOAD_RECORD("load record"),
-        /**
-         * The amount of time taken loading record versions.
-         * @deprecated this is no longer published
-         */
-        @Deprecated
-        LOAD_RECORD_VERSION("load record version"),
         /** The amount of time taken scanning records directly without any index. */
         SCAN_RECORDS("scan records"),
         /**
@@ -175,12 +169,6 @@ public class FDBStoreTimer extends StoreTimer {
         INTERNING_LAYER_CREATE("create the value in the interning layer"),
         /** The amount of time spent loading boundary keys. */
         LOAD_BOUNDARY_KEYS("load boundary keys"),
-        /**
-         * The amount of time spent computing boundary keys.
-         * @deprecated this is no longer used
-         */
-        @Deprecated
-        COMPUTE_BOUNDARY_KEYS("compute boundary keys"),
         /** The amount of time spent reading a sample key to measure read latency. */
         READ_SAMPLE_KEY("read sample key"),
         /** The amount of time spent planning a query. */
@@ -311,7 +299,7 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_ERROR_CHECK("check for error completion"),
         /** Wait for performing a no-op operation.*/
         WAIT_PERFORM_NO_OP("wait for performing a no-op"),
-        /** Wait for explicit call to {@link FDBDatabase#getReadVersion}. */
+        /** Wait for explicit call to {@link FDBRecordContext#getReadVersionAsync}. */
         WAIT_GET_READ_VERSION("get_read_version"),
         /** Wait for a transaction to commit. */
         WAIT_COMMIT("wait for commit"),

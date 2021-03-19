@@ -208,20 +208,6 @@ public class QueryToKeyMatcher {
         return matches(rootQuery, expression, MatchingMode.SATISFY_QUERY, filterMask);
     }
 
-    /**
-     * Attempt to match the expression to this matcher's root query and satisfy every filter.
-     * This has been deprecated in favor of {@link #matchesSatisfyingQuery(KeyExpression)}.
-     *
-     * @param expression the key expression to match the root query to
-     * @return a match if the entire expression is satisfied by this expression
-     * @deprecated use {@link #matchesSatisfyingQuery(KeyExpression)} instead
-     */
-    @Nonnull
-    @Deprecated
-    public Match matches(@Nonnull KeyExpression expression) {
-        return matchesSatisfyingQuery(expression);
-    }
-
     @Nonnull
     private Match matches(@Nonnull AndComponent query, @Nonnull KeyExpression key, @Nonnull MatchingMode matchingMode,
                           @Nullable FilterSatisfiedMask filterMask) {

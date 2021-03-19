@@ -27,13 +27,11 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -108,7 +106,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.indexEntryKey;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasEntry;
@@ -2483,40 +2480,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // The number of scans is about the number of index entries (orphan validation) plus the number of records
             // (missing validation).
             assertThat(generatorCount.get(), greaterThanOrEqualTo((5 + 10) / 4));
-        }
-    }
-
-    @SuppressWarnings("deprecation") // testing deprecated method
-    @Test
-    public void loadEntryFromWrongIndex() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            Index strValueIndex = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-            IndexEntry entry = new IndexEntry(strValueIndex, Tuple.from("bar", 1066L), TupleHelpers.EMPTY);
-            Index numValue3Index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed");
-            RecordCoreArgumentException e = assertThrows(RecordCoreArgumentException.class, () ->
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, recordStore.loadIndexEntryRecord(numValue3Index, entry, IndexOrphanBehavior.SKIP))
-            );
-            assertThat(e.getMessage(), containsString("index entry's index MySimpleRecord$str_value_indexed differs from specified index MySimpleRecord$num_value_3_indexed"));
-            e = assertThrows(RecordCoreArgumentException.class, () ->
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, recordStore.loadIndexEntryRecord(numValue3Index, entry, IndexOrphanBehavior.SKIP, ExecuteState.NO_LIMITS))
-            );
-            assertThat(e.getMessage(), containsString("index entry's index MySimpleRecord$str_value_indexed differs from specified index MySimpleRecord$num_value_3_indexed"));
-        }
-    }
-
-    @SuppressWarnings("deprecation") // testing deprecated method
-    @Test
-    public void hasEntryFromWrongIndex() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            Index strValueIndex = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-            IndexEntry entry = new IndexEntry(strValueIndex, Tuple.from("bar", 1066L), TupleHelpers.EMPTY);
-            Index numValue3Index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed");
-            RecordCoreArgumentException e = assertThrows(RecordCoreArgumentException.class, () ->
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_RECORD_EXISTS, recordStore.hasIndexEntryRecord(numValue3Index, entry, IsolationLevel.SERIALIZABLE))
-            );
-            assertThat(e.getMessage(), containsString("index entry's index MySimpleRecord$str_value_indexed differs from specified index MySimpleRecord$num_value_3_indexed"));
         }
     }
 

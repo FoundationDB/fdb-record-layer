@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.RecordFunction;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -721,29 +720,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                        @Nonnull ScanProperties scanProperties);
 
     /**
-     * Scan the entries in an index.
-     * @param index the index to scan
-     * @param scanType the type of scan to perform
-     * @param range range to scan
-     * @param continuation any continuation from a previous scan
-     * @param scanProperties skip, limit and other scan properties
-     * @param recordScanLimiter the scan limit to use
-     * @return a cursor that will scan the index, picking up at continuation, and honoring the given scan properties
-     * @deprecated because the {@link RecordScanLimiter} should be specified as part of the {@link ScanProperties} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
-                                               @Nonnull TupleRange range,
-                                               @Nullable byte[] continuation,
-                                               @Nonnull ScanProperties scanProperties,
-                                               @Nullable RecordScanLimiter recordScanLimiter) {
-        // The RecordScanLimiter was never used, anyway.
-        return scanIndex(index, scanType, range, continuation, scanProperties);
-    }
-
-    /**
      * Scan the records pointed to by an index.
      * @param indexName the name of the index
      * @return a cursor that return records pointed to by the index
@@ -789,28 +765,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param scanType the type of scan to perform
      * @param range the range of the index to scan
      * @param continuation any continuation from a previous scan
-     * @param scanProperties skip, limit and other scan properties
-     * @param recordScanLimiter the scan limit to use
-     * @return a cursor that return records pointed to by the index
-     * @deprecated because the {@link RecordScanLimiter} should be specified as part of the {@link ScanProperties} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName, @Nonnull final IndexScanType scanType,
-                                                               @Nonnull final TupleRange range,
-                                                               @Nullable byte[] continuation,
-                                                               @Nonnull ScanProperties scanProperties,
-                                                               @Nullable RecordScanLimiter recordScanLimiter) {
-        return scanIndexRecords(indexName, scanType, range, continuation, IndexOrphanBehavior.ERROR, scanProperties, recordScanLimiter);
-    }
-
-    /**
-     * Scan the records pointed to by an index.
-     * @param indexName the name of the index
-     * @param scanType the type of scan to perform
-     * @param range the range of the index to scan
-     * @param continuation any continuation from a previous scan
      * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
      *    there is no associated record
      * @param scanProperties skip, limit and other scan properties
@@ -824,54 +778,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
                                                                @Nonnull ScanProperties scanProperties) {
         final Index index = getRecordMetaData().getIndex(indexName);
-        return fetchIndexRecords(index, scanIndex(index, scanType, range, continuation, scanProperties), orphanBehavior,
+        return fetchIndexRecords(scanIndex(index, scanType, range, continuation, scanProperties), orphanBehavior,
                 scanProperties.getExecuteProperties().getState());
-    }
-
-    /**
-     * Scan the records pointed to by an index.
-     * @param indexName the name of the index
-     * @param scanType the type of scan to perform
-     * @param range the range of the index to scan
-     * @param continuation any continuation from a previous scan
-     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
-     *    there is no associated record
-     * @param scanProperties skip, limit and other scan properties
-     * @param recordScanLimiter the scan limit to use
-     * @return a cursor that return records pointed to by the index
-     * @deprecated because the {@link RecordScanLimiter} should be specified as part of the {@link ScanProperties} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> scanIndexRecords(@Nonnull final String indexName,
-                                                               @Nonnull final IndexScanType scanType,
-                                                               @Nonnull final TupleRange range,
-                                                               @Nullable byte[] continuation,
-                                                               @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                               @Nonnull ScanProperties scanProperties,
-                                                               @Nullable RecordScanLimiter recordScanLimiter) {
-        // The RecordScanLimiter was never used by scanIndex(), anyway.
-        return scanIndexRecords(indexName, scanType, range, continuation, orphanBehavior, scanProperties);
-    }
-
-    /**
-     * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
-     *
-     * @param index the definition of the index being scanned
-     * @param indexCursor a cursor iterating over entries in the index
-     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
-     *    there is no associated record
-     * @return a cursor returning indexed record entries
-     * @deprecated use {@link #fetchIndexRecords(RecordCursor, IndexOrphanBehavior)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(@Nonnull Index index,
-                                                                @Nonnull RecordCursor<IndexEntry> indexCursor,
-                                                                @Nonnull IndexOrphanBehavior orphanBehavior) {
-        return fetchIndexRecords(index, indexCursor, orphanBehavior, ExecuteState.NO_LIMITS);
     }
 
     /**
@@ -886,32 +794,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(@Nonnull RecordCursor<IndexEntry> indexCursor,
                                                                 @Nonnull IndexOrphanBehavior orphanBehavior) {
         return fetchIndexRecords(indexCursor, orphanBehavior, ExecuteState.NO_LIMITS);
-    }
-
-    /**
-     * Given a cursor that iterates over entries in an index, attempts to fetch the associated records for those entries.
-     *
-     * @param index the definition of the index being scanned
-     * @param indexCursor a cursor iterating over entries in the index
-     * @param orphanBehavior how the iteration process should respond in the face of entries in the index for which
-     *    there is no associated record
-     * @param executeState the {@link ExecuteState} associated with this query execution
-     * @return a cursor returning indexed record entries
-     * @deprecated use {@link #fetchIndexRecords(RecordCursor, IndexOrphanBehavior, ExecuteState)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<FDBIndexedRecord<M>> fetchIndexRecords(@Nonnull Index index,
-                                                                @Nonnull RecordCursor<IndexEntry> indexCursor,
-                                                                @Nonnull IndexOrphanBehavior orphanBehavior,
-                                                                @Nonnull ExecuteState executeState) {
-        RecordCursor<FDBIndexedRecord<M>> recordCursor = indexCursor.mapPipelined(entry ->
-                loadIndexEntryRecord(index, entry, orphanBehavior, executeState), getPipelineSize(PipelineOperation.INDEX_TO_RECORD));
-        if (orphanBehavior == IndexOrphanBehavior.SKIP) {
-            recordCursor = recordCursor.filter(Objects::nonNull);
-        }
-        return recordCursor;
     }
 
     /**
@@ -967,24 +849,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Determine if a given index entry points to a record.
-     * @param index the index to check
-     * @param entry the index entry to check
-     * @param isolationLevel whether to use snapshot read
-     * @return a future that completes with {@code true} if the given index entry still points to a record
-     * @deprecated use {@link #hasIndexEntryRecord(IndexEntry, IsolationLevel)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default CompletableFuture<Boolean> hasIndexEntryRecord(@Nonnull final Index index,
-                                                           @Nonnull final IndexEntry entry,
-                                                           @Nonnull final IsolationLevel isolationLevel) {
-        entry.validateInIndex(index);
-        return hasIndexEntryRecord(entry, isolationLevel);
-    }
-
-    /**
-     * Determine if a given index entry points to a record.
      * @param entry the index entry to check
      * @param isolationLevel whether to use snapshot read
      * @return a future that completes with {@code true} if the given index entry still points to a record
@@ -997,23 +861,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Using the given index entry, resolve the primary key and asynchronously return the referenced record.
-     * @param index the index being scanned
-     * @param entry the index entry to be resolved
-     * @param orphanBehavior the {@link IndexOrphanBehavior} to apply if the record is not found
-     * @return the record referred to by the given index entry
-     * @deprecated use {@link #loadIndexEntryRecord(IndexEntry, IndexOrphanBehavior)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default CompletableFuture<FDBIndexedRecord<M>> loadIndexEntryRecord(@Nonnull final Index index,
-                                                                        @Nonnull final IndexEntry entry,
-                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior) {
-        return loadIndexEntryRecord(index, entry, orphanBehavior, ExecuteState.NO_LIMITS);
-    }
-
-    /**
-     * Using the given index entry, resolve the primary key and asynchronously return the referenced record.
      * @param entry the index entry to be resolved
      * @param orphanBehavior the {@link IndexOrphanBehavior} to apply if the record is not found
      * @return the record referred to by the given index entry
@@ -1022,26 +869,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     default CompletableFuture<FDBIndexedRecord<M>> loadIndexEntryRecord(@Nonnull final IndexEntry entry,
                                                                         @Nonnull final IndexOrphanBehavior orphanBehavior) {
         return loadIndexEntryRecord(entry, orphanBehavior, ExecuteState.NO_LIMITS);
-    }
-
-    /**
-     * Using the given index entry, resolve the primary key and asynchronously return the referenced record.
-     * @param index the index being scanned
-     * @param entry the index entry to be resolved
-     * @param orphanBehavior the {@link IndexOrphanBehavior} to apply if the record is not found
-     * @param executeState an execution state object to be used to enforce limits on query execution
-     * @return the record referred to by the given index entry
-     * @deprecated use {@link #loadIndexEntryRecord(IndexEntry, IndexOrphanBehavior, ExecuteState)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default CompletableFuture<FDBIndexedRecord<M>> loadIndexEntryRecord(@Nonnull final Index index,
-                                                                        @Nonnull final IndexEntry entry,
-                                                                        @Nonnull final IndexOrphanBehavior orphanBehavior,
-                                                                        @Nonnull final ExecuteState executeState) {
-        entry.validateInIndex(index);
-        return loadIndexEntryRecord(entry, orphanBehavior, executeState);
     }
 
     /**
@@ -1078,20 +905,6 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
             }
             return new FDBIndexedRecord<>(entry, record);
         });
-    }
-
-    /**
-     * Get the primary key portion of an index entry.
-     * @param index the index associated with this entry
-     * @param entry the index entry
-     * @return the primary key extracted from the entry
-     * @deprecated use {@link Index#getEntryPrimaryKey(Tuple)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    static Tuple indexEntryPrimaryKey(@Nonnull Index index, @Nonnull Tuple entry) {
-        return index.getEntryPrimaryKey(entry);
     }
 
     /**

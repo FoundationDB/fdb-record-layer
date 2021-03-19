@@ -47,21 +47,6 @@ public class FDBIndexedRecord<M extends Message> implements FDBRecord<M>, FDBSto
     private final FDBStoredRecord<M> storedRecord;
 
     /**
-     * Wrap a stored record with an index entry that pointed to it.
-     *
-     * @param index the index that this record originated from
-     * @param indexEntry the index entry that produced this record
-     * @param storedRecord the {@link FDBStoredRecord} containing the record's data
-     * @deprecated use {@link FDBIndexedRecord#FDBIndexedRecord(IndexEntry, FDBStoredRecord)} instead
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public FDBIndexedRecord(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nullable FDBStoredRecord<M> storedRecord) {
-        this(indexEntry, storedRecord);
-        indexEntry.validateInIndex(index);
-    }
-
-    /**
      * Wrap a stored record with an index entry that pointed to it. This method is internal, and it generally
      * should not be called be external clients.
      *

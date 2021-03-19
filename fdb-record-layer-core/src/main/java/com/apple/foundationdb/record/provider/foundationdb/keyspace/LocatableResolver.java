@@ -664,21 +664,6 @@ public abstract class LocatableResolver {
     protected abstract CompletableFuture<Subspace> getStateSubspaceAsync();
 
     /**
-     * The {@link Subspace} where this resolver stores the mappings from <code>key</code> {@link String}s to
-     * <code>value</code> {@link Long}. Direct access to this subspace is not needed by general users and extreme care
-     * should be taken when interacting with it.
-     * @deprecated blocks until the mapping subspace is fetched from the database, instead use
-     * {@link #getMappingSubspaceAsync()}
-     * @return the mapping subspace
-     */
-    @Nonnull
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public Subspace getMappingSubspace() {
-        return database.join(getMappingSubspaceAsync());
-    }
-
-    /**
      * Get a {@link CompletableFuture} that will contain the {@link Subspace} where this resolver stores
      * the mappings from <code>key</code> {@link String}s to <code>value</code> {@link Long}. Direct access
      * to this subspace is not needed by general users and extreme care should be taken when interacting with it.
@@ -686,22 +671,6 @@ public abstract class LocatableResolver {
      */
     @Nonnull
     public abstract CompletableFuture<Subspace> getMappingSubspaceAsync();
-
-    /**
-     * Get the {@link Subspace} that this resolver is rooted at (e.g. the global resolver
-     * {@link ExtendedDirectoryLayer#global(FDBDatabase)} has a base subspace at the root of the FDB keyspace.
-     * Note that this is not the subspace where the resolver maintains its allocation keys
-     * (see {@link #getMappingSubspaceAsync()}).
-     * @deprecated blocks until the mapping subspace is fetched from the database, instead use
-     * {@link #getBaseSubspaceAsync()}
-     * @return the base subspace
-     */
-    @Nonnull
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public Subspace getBaseSubspace() {
-        return database.join(getBaseSubspaceAsync());
-    }
 
     /**
      * Get a {@link CompletableFuture} that will contain the {@link Subspace} this resolver is rooted

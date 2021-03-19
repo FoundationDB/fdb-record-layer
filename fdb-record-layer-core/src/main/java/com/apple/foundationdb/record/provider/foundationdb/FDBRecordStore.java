@@ -68,7 +68,6 @@ import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.RecordTypeOrBuilder;
 import com.apple.foundationdb.record.metadata.StoreRecordFunction;
@@ -3677,16 +3676,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return true;
             }
         }
-    }
-
-    /**
-     * Validate the current meta-data for this store.
-     * @deprecated validation is done by {@link com.apple.foundationdb.record.RecordMetaDataBuilder}
-     */
-    @Deprecated
-    public void validateMetaData() {
-        final MetaDataValidator validator = new MetaDataValidator(metaDataProvider, indexMaintainerRegistry);
-        validator.validate();
     }
 
     @Nonnull

@@ -22,7 +22,6 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
@@ -59,23 +58,6 @@ import java.util.stream.Collectors;
  */
 @API(API.Status.MAINTAINED)
 public class RecordStoreState {
-    /**
-     * Empty <code>RecordStoreState</code>. This is the state of an empty record store that has not yet been
-     * used. Calling the argument-less constructor of this class will produce a logically-equivalent object,
-     * but having this code around avoids having to instantiate this class unnecessarily.
-     *
-     * <p>
-     * When this object was initially introduced, the only information included in the record store state
-     * was index readability information. This was the common case, and therefore sharing the same object
-     * for most record stores was desirable. However, the store header information is not likely to be
-     * the same for multiple record stores, so using this record store state is usually not recommended.
-     * </p>
-     *
-     * @deprecated as this object usually has the wrong store header
-     */
-    @Deprecated
-    @Nonnull
-    public static final RecordStoreState EMPTY = new RecordStoreState();
 
     @Nonnull
     protected final AtomicReference<RecordMetaDataProto.DataStoreInfo> storeHeader;
@@ -99,35 +81,6 @@ public class RecordStoreState {
         }
         this.storeHeader = new AtomicReference<>(storeHeader == null ? RecordMetaDataProto.DataStoreInfo.getDefaultInstance() : storeHeader);
         this.indexStateMap = new AtomicReference<>(copy);
-    }
-
-    /**
-     * Creates a <code>RecordStoreState</code> with the given index states.
-     * Only indexes that are not in the default state ({@link IndexState#READABLE IndexState.READABLE})
-     * need to be included in the map. This initializes the record store state with a default store header, which
-     * is not the expected state for most record stores. As a result, this constructor has been deprecated in favor
-     * of the constructor where a store header must be provided.
-     *
-     * @param indexStateMap mapping from index name to index state
-     * @deprecated as the default store header is incorrect for most record stores
-     */
-    @Deprecated
-    public RecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
-        this(null, indexStateMap);
-    }
-
-    /**
-     * Creates an empty <code>RecordStoreState</code> instance. This is the state that an empty {@link FDBRecordStoreBase}
-     * would be expected to be in. All indexes are assumed to be readable with this constructor. This also
-     * initializes the record store state with the default store header, which is not the expected state for
-     * most record stores. As a result, this constructor has been deprecated in favor of the constructor where
-     * a store header must be provided.
-     *
-     * @deprecated as the default store header is incorrect for most record stores
-     */
-    @Deprecated
-    public RecordStoreState() {
-        this(null);
     }
 
     /**

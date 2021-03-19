@@ -900,23 +900,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Run all of the after commit hooks.
-     *
-     * @deprecated this method probably should never have been public
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public void runAfterCommits() {
-        synchronized (postCommits) {
-            @Nullable
-            AfterCommitPostCommit adapter = (AfterCommitPostCommit) postCommits.get(AFTER_COMMIT_HOOK_NAME);
-            if (adapter != null) {
-                adapter.run();
-            }
-        }
-    }
-
-    /**
      * Return the eight byte version assigned to this context at commit time. This version is
      * used internally by the database to determine which transactions should be visible
      * by which reads. (In other words, only transactions assigned a read version greater than
@@ -1180,24 +1163,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     Optional<Integer> getLocalVersion(@Nonnull byte[] recordVersionKey) {
         return Optional.ofNullable(localVersionCache.get(recordVersionKey));
-    }
-
-    /**
-     * Add a {@link MutationType#SET_VERSIONSTAMPED_KEY SET_VERSIONSTAMPED_KEY}
-     * mutation to be run at commit time. This method is deprecated in favor of
-     * {@link #addVersionMutation(MutationType, byte[], byte[])} which
-     * behaves like this method except that the choice of <code>SET_VERSIONSTAMPED_KEY</code>
-     * as the mutation type must be made explicitly.
-     *
-     * @param key key bytes for the mutation
-     * @param value parameter bytes for the mutation
-     * @return the previous value set for the given key or <code>null</code> if unset
-     * @deprecated use #addVersionMutation(MutationType, byte[], byte[]) instead
-     */
-    @Deprecated
-    @Nullable
-    public byte[] addVersionMutation(@Nonnull byte[] key, @Nonnull byte[] value) {
-        return addVersionMutation(MutationType.SET_VERSIONSTAMPED_KEY, key, value);
     }
 
     /**

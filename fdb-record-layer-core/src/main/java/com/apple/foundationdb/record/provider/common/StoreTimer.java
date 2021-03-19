@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.util.MapUtils;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -323,21 +322,6 @@ public class StoreTimer {
          * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
          * @param events the events that are to be aggregated into the resulting {@code Counteer}
          * @return the computed result or null if none of the value that comprise this aggregate were available
-         * @deprecated use {@link #compute(StoreTimer, Set)} instead
-         */
-        @Nullable
-        @Deprecated
-        @API(API.Status.DEPRECATED)
-        default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Event...events) {
-            return compute(storeTimer, ImmutableSet.copyOf(events));
-        }
-
-        /**
-         * Compute the value for this aggregate.
-         *
-         * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
-         * @param events the events that are to be aggregated into the resulting {@code Counteer}
-         * @return the computed result or null if none of the value that comprise this aggregate were available
          */
         @Nullable
         default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Set<? extends Event> events) {
@@ -531,19 +515,6 @@ public class StoreTimer {
      */
     public void record(Event event, long timeDifferenceNanos) {
         getCounter(event, true).record(timeDifferenceNanos);
-    }
-
-    /**
-     * Deprecated. Record that an event occurred once. Users should use
-     * {@link #increment(Count)} instead.
-     *
-     * @param event the event being recorded
-     *
-     * @deprecated replaced with {@link #increment(Count)}
-     */
-    @Deprecated
-    public void record(@Nonnull Count event) {
-        increment(event);
     }
 
     /**
