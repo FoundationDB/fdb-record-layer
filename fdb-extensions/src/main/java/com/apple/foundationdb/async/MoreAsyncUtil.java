@@ -874,17 +874,25 @@ public class MoreAsyncUtil {
         return composeWhenCompleteAndHandle(
                 future,
                 (result, exception) -> handler.apply(result, exception).thenApply(vignore -> result),
-                false,
+                true,
                 exceptionMapper);
     }
 
     /**
-     * Compose a handler bi-function to the result of a future. Unlike the
-     * {@link AsyncUtil#composeHandle(CompletableFuture, BiFunction)}, which completes exceptionally only when the
-     * <code>handler</code> completes exceptionally, it completes exceptionally even if the supplied action itself
-     * (<code>future</code>) encounters an exception.
+     * Compose a handler bi-function to the result of a future. It is different from the vanilla
+     * {@link AsyncUtil#composeHandle(CompletableFuture, BiFunction)} in two ways:
+     * <ul>
+     * <li>
+     * If <code>throwFutureException</code> is set, it not only completes exceptionally when the
+     * <code>handler</code> completes exceptionally, but also completes exceptionally when the supplied action
+     * itself (<code>future</code>) encounters an exception. (The both encounter exceptions, throw the
+     * <code>future</code>'s)
+     * </li>
+     * If <code>exceptionMapper</code> is set, it maps the underlying exception to a {@link RuntimeException}
+     * </ul>
      * @param future future to compose the handler onto
      * @param handler handler bi-function to compose onto the passed future
+     * @param throwFutureException completes exceptionally even if (<code>future</code>) encounters an exception
      * @param exceptionMapper function for mapping the underlying exception to a {@link RuntimeException}
      * @param <V> type of original future
      * @param <T> type of final future
@@ -894,57 +902,19 @@ public class MoreAsyncUtil {
     public static <V, T> CompletableFuture<T> composeWhenCompleteAndHandle(
             @Nonnull CompletableFuture<V> future,
             @Nonnull BiFunction<V,Throwable,? extends CompletableFuture<T>> handler,
-            boolean suppressFutureException,
+            boolean throwFutureException,
             @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
         return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
             try {
                 System.out.println("wawawa 899 " + futureResult + " " + futureException);
                 RuntimeException mappedFutureException = futureException == null ? null : getRuntimeException(futureException, exceptionMapper);
+                System.out.println("wawawa 911 " + mappedFutureException);
+
                 return handler.apply(futureResult, mappedFutureException).handle((handlerResult, handlerAsyncException) -> {
                     System.out.println("wawawa 902 " + handlerResult + " " + handlerAsyncException);
-                    if (!suppressFutureException && mappedFutureException != null) {
+                    if (throwFutureException && mappedFutureException != null) {
                         throw mappedFutureException;
                     } else if (handlerAsyncException != null) {
-                        // This is for the case where the function call handler.apply returns an exceptional future.
-                        throw getRuntimeException(handlerAsyncException, exceptionMapper);
-                    } else {
-                        return handlerResult;
-                    }
-                });
-            } catch (Exception handlerSyncException) {
-                System.out.println("wawawa 913 " + handlerSyncException);
-
-                // This is for the case where the function call handler.apply throws an error.
-                throw getRuntimeException(handlerSyncException, exceptionMapper);
-            }
-        });
-    }
-
-    /**
-     * Compose a handler bi-function to the result of a future. Unlike the
-     *  {@link CompletableFuture#handle(BiFunction) CompletableFuture.handle()}
-     *  function, which requires that the handler return a regular value, this
-     *  method requires that the handler return a {@link CompletableFuture}.
-     *  The returned future will then be ready with the result of the
-     *  handler's future (or an error if that future completes exceptionally).
-     *
-     * @param future future to compose the handler onto
-     * @param handler handler bi-function to compose onto the passed future
-     * @param <V> return type of original future
-     * @param <T> return type of final future
-     *
-     * @return future with same completion properties as the future returned by the handler
-     */
-    public static <V, T> CompletableFuture<T> composeHandle(CompletableFuture<V> future,
-                                                            BiFunction<V,Throwable,? extends CompletableFuture<T>> handler,
-                                                            @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
-        return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
-            try {
-                System.out.println("wawawa 899 " + futureResult + " " + futureException);
-                RuntimeException mappedFutureException = futureException == null ? null : getRuntimeException(futureException, exceptionMapper);
-                return handler.apply(futureResult, mappedFutureException).handle((handlerResult, handlerAsyncException) -> {
-                    System.out.println("wawawa 902 " + handlerResult + " " + handlerAsyncException);
-                     if (handlerAsyncException != null) {
                         // This is for the case where the function call handler.apply returns an exceptional future.
                         throw getRuntimeException(handlerAsyncException, exceptionMapper);
                     } else {
