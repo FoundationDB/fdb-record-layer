@@ -604,20 +604,6 @@ public class FDBDatabase {
         return resolverStateCache.orElseGet(resolver, loader);
     }
 
-    /**
-     * Get the read version (GRV) for the given context.
-     * An explicit get read version is no more expensive than the implicit one that every operation will entail.
-     * Measuring it explicitly gives an indication of the cluster's GRV latency, which is driven by its rate keeping.
-     * @param context transaction to use to access the database
-     * @return a future that will be completed with the read version of the current transaction
-     * @deprecated use {@link FDBRecordContext#getReadVersionAsync()} instead
-     */
-    @Deprecated
-    @Nonnull
-    public CompletableFuture<Long> getReadVersion(@Nonnull FDBRecordContext context) {
-        return context.getReadVersionAsync();
-    }
-
     // Update lastSeenFDBVersion if readVersion is newer
     @API(API.Status.INTERNAL)
     public void updateLastSeenFDBVersion(long startTime, long readVersion) {
@@ -743,26 +729,6 @@ public class FDBDatabase {
 
     protected Executor newContextExecutor(@Nullable Map<String, String> mdcContext) {
         return factory.newContextExecutor(mdcContext);
-    }
-
-    /**
-     * Creates a new transaction against the database.
-     *
-     * @param executor the executor to be used for asynchronous operations
-     * @param mdcContext if not [@code null} and tracing is enabled, information in the context will be included
-     *      in tracing log messages
-     * @param transactionIsTraced unused
-     * @return newly created transaction
-     * @deprecated use {@link #openContext()} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public Transaction createTransaction(Executor executor, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
-        return createTransaction(
-                FDBRecordContextConfig.newBuilder()
-                        .setMdcContext(mdcContext)
-                        .build(),
-                executor);
     }
 
     /**
@@ -1303,11 +1269,6 @@ public class FDBDatabase {
 
         // Whether the transaction should be set with a causal read risky flag.
         private boolean isCausalReadRisky;
-
-        @Deprecated
-        public WeakReadSemantics(long minVersion, long stalenessBoundMillis) {
-            this(minVersion, stalenessBoundMillis, false);
-        }
 
         public WeakReadSemantics(long minVersion, long stalenessBoundMillis, boolean isCausalReadRisky) {
             this.minVersion = minVersion;

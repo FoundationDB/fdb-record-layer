@@ -51,7 +51,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * A query plan that executes by taking the union of records from two or more compatibly-sorted child plans.
@@ -69,48 +68,6 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
     @Nonnull
     private final KeyExpression comparisonKey;
     private final boolean showComparisonKey;
-
-    /**
-     * Construct a new union of two compatibly-ordered plans. This constructor has been deprecated in favor
-     * of the static initializer {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression, boolean)}.
-     *
-     * @param left the first plan to union
-     * @param right the second plan to union
-     * @param comparisonKey a key expression by which the results of both plans are ordered
-     * @param reverse whether both plans return results in reverse (i.e., descending) order by the comparison key
-     * @param showComparisonKey whether the comparison key should be included in string representations of the plan
-     * @deprecated in favor of {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression, boolean)}
-     */
-    @Deprecated
-    public RecordQueryUnionPlan(@Nonnull final RecordQueryPlan left,
-                                @Nonnull final RecordQueryPlan right,
-                                @Nonnull final KeyExpression comparisonKey,
-                                final boolean reverse,
-                                final boolean showComparisonKey) {
-        this(ImmutableList.of(left, right), comparisonKey, reverse, showComparisonKey);
-    }
-
-    /**
-     * Construct a union of two or more compatibly-ordered plans. This constructor has been deprecated in favor
-     * of the static initializer {@link #from(List, KeyExpression, boolean)}.
-     *
-     * @param children the list of compatibly-ordered plans to take the union of
-     * @param comparisonKey a key expression by which the results of all plans are ordered
-     * @param reverse whether all plans return results in reverse (i.e., descending) order by the comparison key
-     * @param showComparisonKey whether the comparison key should be included in string representations of the plan
-     * @deprecated in favor of {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression, boolean)}
-     */
-    @Deprecated
-    public RecordQueryUnionPlan(@Nonnull final List<RecordQueryPlan> children,
-                                @Nonnull final KeyExpression comparisonKey,
-                                final boolean reverse,
-                                final boolean showComparisonKey) {
-        this(Quantifiers.fromPlans(children.stream().map(GroupExpressionRef::of).collect(Collectors.toList())),
-                comparisonKey,
-                reverse,
-                showComparisonKey,
-                false);
-    }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryUnionPlan(@Nonnull final List<Quantifier.Physical> quantifiers,

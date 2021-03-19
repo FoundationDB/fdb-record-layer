@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordMetaDataOptionsProto;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecords2Proto;
-import com.apple.foundationdb.record.TestRecords3Proto;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords5Proto;
 import com.apple.foundationdb.record.TestRecords6Proto;
@@ -236,53 +235,6 @@ public class MetaDataProtoTest {
             RecordMetaData metaDataRedone = builder.setRecords(metaData.toProto()).getRecordMetaData();
             verifyEquals(metaData, metaDataRedone);
         }
-    }
-
-    @Test
-    @SuppressWarnings("deprecation")
-    public void metadataProtoComplex() throws KeyExpression.DeserializationException, KeyExpression.SerializationException {
-        RecordMetaDataBuilder metaDataBuilder = new RecordMetaDataBuilder(TestRecords3Proto.getDescriptor());
-        metaDataBuilder.getOnlyRecordType().setPrimaryKey(Key.Expressions.concatenateFields("parent_path", "child_name"));
-        metaDataBuilder.addIndex("MyHierarchicalRecord", new Index("MHR$child$parentpath", Key.Expressions.concatenateFields("child_name", "parent_path"), IndexTypes.VALUE));
-        RecordMetaData metaData = metaDataBuilder.getRecordMetaData();
-        RecordMetaData metaDataRedone = RecordMetaData.newBuilder()
-                .addDependencies(BASE_DEPENDENCIES)
-                .setRecords(metaData.toProto())
-                .getRecordMetaData();
-        verifyEquals(metaData, metaDataRedone);
-
-        metaDataBuilder = new RecordMetaDataBuilder(TestRecords4Proto.getDescriptor());
-        metaDataBuilder.addIndex("RestaurantRecord", new Index("RR$ratings", Key.Expressions.field("reviews", KeyExpression.FanType.FanOut).nest("rating").ungrouped(), IndexTypes.RANK));
-        metaDataBuilder.removeIndex("RestaurantReviewer$name");
-        metaData = metaDataBuilder.getRecordMetaData();
-        metaDataRedone = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES).setRecords(metaData.toProto()).getRecordMetaData();
-        assertEquals(1, metaData.getFormerIndexes().size());
-        assertFalse(metaData.isSplitLongRecords());
-        assertFalse(metaData.isStoreRecordVersions());
-        verifyEquals(metaData, metaDataRedone);
-
-        metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsMultiProto.getDescriptor());
-        metaDataBuilder.addMultiTypeIndex(Arrays.asList(
-                    metaDataBuilder.getRecordType("MultiRecordOne"),
-                    metaDataBuilder.getRecordType("MultiRecordTwo"),
-                    metaDataBuilder.getRecordType("MultiRecordThree")),
-                new Index("all$elements", Key.Expressions.field("element", KeyExpression.FanType.Concatenate),
-                        Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-        metaDataBuilder.addMultiTypeIndex(Arrays.asList(
-                    metaDataBuilder.getRecordType("MultiRecordTwo"),
-                    metaDataBuilder.getRecordType("MultiRecordThree")),
-                new Index("two&three$ego", Key.Expressions.field("ego"), Index.EMPTY_VALUE, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
-        metaDataBuilder.addIndex("MultiRecordOne", new Index("one$name", Key.Expressions.field("name"), IndexTypes.VALUE));
-        metaDataBuilder.setRecordCountKey(Key.Expressions.field("blah"));
-        metaDataBuilder.removeIndex("one$name");
-        metaDataBuilder.setStoreRecordVersions(true);
-        metaData = metaDataBuilder.getRecordMetaData();
-        assertEquals(2, metaData.getAllIndexes().size());
-        assertEquals(1, metaData.getFormerIndexes().size());
-        assertTrue(metaData.isSplitLongRecords());
-        assertTrue(metaData.isStoreRecordVersions());
-        metaDataRedone = RecordMetaData.newBuilder().addDependencies(BASE_DEPENDENCIES).setRecords(metaData.toProto()).getRecordMetaData();
-        verifyEquals(metaData, metaDataRedone);
     }
 
     @Test

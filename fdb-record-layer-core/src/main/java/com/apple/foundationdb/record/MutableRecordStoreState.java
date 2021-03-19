@@ -51,11 +51,6 @@ public class MutableRecordStoreState extends RecordStoreState {
         this(recordStoreState.getStoreHeader(), recordStoreState.getIndexStates());
     }
 
-    @Deprecated
-    public MutableRecordStoreState(@Nullable Map<String, IndexState> indexStateMap) {
-        super(indexStateMap);
-    }
-
     private static long readIncrement(long u) {
         return ((((u >> 32) + 1) << 32) & READ_MASK) | (u & WRITE_MASK);
     }

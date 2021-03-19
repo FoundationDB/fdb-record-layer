@@ -84,40 +84,6 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     private final boolean reverse;
 
-    /**
-     * Construct a new intersection of two compatibly-ordered plans. This constructor has been deprecated in favor
-     * of the static initializer {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression)}.
-     *
-     * @param left the first plan to intersect
-     * @param right the second plan to intersect
-     * @param comparisonKey a key expression by which the results of both plans are ordered
-     * @param reverse whether both plans return results in reverse (i.e., descending) order by the comparison key
-     * @deprecated in favor of {@link #from(RecordQueryPlan, RecordQueryPlan, KeyExpression)}
-     */
-    @Deprecated
-    public RecordQueryIntersectionPlan(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right,
-                                       @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        this(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))),
-                comparisonKey,
-                reverse,
-                false);
-    }
-
-    /**
-     * Construct a new intersection of two or more compatibly-ordered plans. This constructor has been deprecated in favor
-     * of the static initializer {@link #from(List, KeyExpression)}.
-     *
-     * @param plans the list of plans to take the intersection of
-     * @param comparisonKey a key expression by which the results of both plans are ordered
-     * @param reverse whether all plans return results in reverse (i.e., descending) order by the comparison key
-     * @deprecated in favor of {@link #from(List, KeyExpression)}
-     */
-    @Deprecated
-    public RecordQueryIntersectionPlan(@Nonnull List<RecordQueryPlan> plans,
-                                       @Nonnull KeyExpression comparisonKey, boolean reverse) {
-        this(Quantifiers.fromPlans(plans.stream().map(GroupExpressionRef::of).collect(Collectors.toList())), comparisonKey, reverse, false);
-    }
-
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
                                         @Nonnull KeyExpression comparisonKey,

@@ -656,22 +656,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * Wait for an index build to complete. This method has been deprecated in favor
-     * of {@link #asyncToSync(StoreTimer.Wait, CompletableFuture)} which gives the user more
-     * control over which {@link StoreTimer.Wait} to instrument.
-     *
-     * @param buildIndexFuture a task to build an index
-     * @param <T> the return type of the asynchronous task
-     * @return the result of {@code buildIndexFuture} when it completes
-     * @deprecated in favor of {@link #asyncToSync(StoreTimer.Wait, CompletableFuture)}
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public <T> T asyncToSync(@Nonnull CompletableFuture<T> buildIndexFuture) {
-        return asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, buildIndexFuture);
-    }
-
-    /**
      * Wait for an asynchronous task to complete. This returns the result from the future or propagates
      * the error if the future completes exceptionally.
      *
