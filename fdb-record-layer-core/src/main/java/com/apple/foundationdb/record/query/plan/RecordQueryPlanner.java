@@ -1229,6 +1229,31 @@ public class RecordQueryPlanner implements QueryPlanner {
         return null;
     }
 
+    private ScanComparisons getScanForAndLucene(@Nonnull AndComponent filter, @Nullable FilterSatisfiedMask filterMask) {
+        final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
+        final List<QueryComponent> filters = filter.getChildren();
+        ScanComparisons scanComparisons = ScanComparisons.EMPTY;
+        for (QueryComponent subFilter : filters) {
+            final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
+            ScanComparisons children = getComparisonsForLuceneFilter(subFilter, childMask);
+            if (children != null) {
+                childMask.setSatisfied(true);
+                return children;
+            }
+        }
+        return scanComparisons;
+    }
+
+    private ScanComparisons getComparisonsForLuceneFilter(@Nonnull QueryComponent filter, FilterSatisfiedMask filterMask) {
+        if (filter instanceof AndComponent) {
+            return getScanForAndLucene((AndComponent) filter, filterMask);
+        } else if (filter instanceof LuceneQueryComponent) {
+            return ScanComparisons.from(((LuceneQueryComponent)filter).getComparison());
+        }
+        return null;
+    }
+
+
     @Nullable
     private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
                                 @Nonnull Index index, @Nonnull QueryComponent filter,
@@ -1237,18 +1262,16 @@ public class RecordQueryPlanner implements QueryPlanner {
             // TODO: Full Text: Sorts are not supported with full text queries (https://github.com/FoundationDB/fdb-record-layer/issues/55)
             return null;
         }
+
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
-        if (filter instanceof LuceneQueryComponent) {
-            RecordQueryPlan plan = new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_LUCENE,
-                    ScanComparisons.from( ((LuceneQueryComponent) filter).getComparison()), false);
-            // TODO: Check the rest of the fields of the text index expression to see if the sort and unsatisfied filters can be helped.
-            // Add a type filter if the index is over more types than those the query specifies
-            Set<String> possibleTypes = getPossibleTypes(index);
-            plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);
-            return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), 10, false, null);
-        } else {
+        final ScanComparisons scans = getComparisonsForLuceneFilter(filter, filterMask);
+        if (scans == null) {
             return null;
         }
+        RecordQueryPlan plan;
+        plan = new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_LUCENE, scans, false);
+        plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
+        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), 10, false, null);
     }
 
     @Nullable

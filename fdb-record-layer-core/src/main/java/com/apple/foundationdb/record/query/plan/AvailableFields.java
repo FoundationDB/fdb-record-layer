@@ -101,7 +101,7 @@ public class AvailableFields {
 
         final List<KeyExpression> keyFields = new ArrayList<>();
         final List<KeyExpression> valueFields = new ArrayList<>();
-        if (indexTypes.getTextTypes().contains(index.getType())) {
+        if (indexTypes.getTextTypes().contains(index.getType()) || indexTypes.getLuceneTypes().contains(index.getType())) {
             // Full text index entries have all of their fields except the tokenized one.
             keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
         } else if (indexTypes.getValueTypes().contains(index.getType()) ||
