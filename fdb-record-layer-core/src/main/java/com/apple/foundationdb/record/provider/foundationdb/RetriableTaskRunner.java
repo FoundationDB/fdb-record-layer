@@ -109,15 +109,22 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
 //        ), executor)
 
 
-        AsyncUtil.whileTrue(() -> AsyncUtil.composeHandleAsync(
-//                CompletableFuture.runAsync(() -> System.out.println("wawawa doing " + taskState.currAttempt + " for " + taskState.getUuid())).thenCompose(ignore -> retriableTask.apply(taskState)),
-//                CompletableFuture.runAsync(() -> {}).thenCompose(ignore -> retriableTask.apply(taskState)),
-//                AsyncUtil.DONE.thenCompose(ignore -> retriableTask.apply(taskState)),
-                retriableTask.apply(taskState),
-                (result, ex) -> handleResultOrException(taskState, result, ex)
-//                true,
-//                exceptionMapper
-        ), executor)
+        AsyncUtil.whileTrue(() -> {
+
+            return AsyncUtil.composeHandle(
+    //                CompletableFuture.runAsync(() -> System.out.println("wawawa doing " + taskState.currAttempt + " for " + taskState.getUuid())).thenCompose(ignore -> retriableTask.apply(taskState)),
+    //                CompletableFuture.runAsync(() -> {}).thenCompose(ignore -> retriableTask.apply(taskState)),
+
+                    // Make sure sync exceptions in retriableTask are also handled by the handler
+                    // TODO: AsyncUtil.whileTrue hangs if we simply use `retriableTask.apply(taskState)`, this seems unexpected even if we might be doing it wrong. We need to reproduce it and fdb-java and may need a fix.
+                    AsyncUtil.DONE.thenCompose(ignore -> retriableTask.apply(taskState)),
+//                    result1,
+//                    retriableTask.apply(taskState),
+                    (result, ex) -> handleResultOrException(taskState, result, ex)
+//                    true,
+//                    exceptionMapper
+            );
+        }, executor)
 //        .handle((vignore, eventualException) -> {
 //            System.out.println("wawawa 102 " + eventualException);
 //            // If the possibleException is not null, it means
@@ -131,6 +138,10 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         return ret;
     }
 
+    private synchronized CompletableFuture<? extends T> getApply(final @Nonnull Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask, final TaskState<T> taskState) {
+        return retriableTask.apply(taskState);
+    }
+
     @Nonnull
     private TaskState<T> initializeTaskState() {
         return new TaskState<>(initDelayMillis, initGlobalLogs());
@@ -138,15 +149,19 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<T> getResultOrExceptionForRunAsync(final CompletableFuture<T> ret, final TaskState<T> taskState) {
+        System.out.println("wawawa getResultOrExceptionForRunAsync");
 //        CompletableFuture<T> ret = new CompletableFuture<>();
 //        addFutureToCompleteExceptionally(ret);
         RuntimeException e = taskState.getPossibleException();
         if (e != null) {
+            System.out.println("wawawa getResultOrExceptionForRunAsync e " + e);
             LoggableException ex = addLogsToException(taskState, e);
             System.out.println("wawawa 133 " + ex);
             ret.completeExceptionally(ex);
 //            throw ex;
         } else {
+            System.out.println("wawawa getResultOrExceptionForRunAsync complete " + taskState.getPossibleResult());
+
             ret.complete(taskState.getPossibleResult());
 //            return CompletableFuture.completedFuture(taskState.getPossibleResult());
         }
