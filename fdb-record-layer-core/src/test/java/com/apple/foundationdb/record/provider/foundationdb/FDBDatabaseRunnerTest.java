@@ -82,9 +82,18 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                 throw new IllegalStateException("Cannot run.");
             });
             fail("Did not error on first non-retriable exception");
-        } catch (IllegalStateException e) {
-            assertEquals("Cannot run.", e.getMessage());
+        } catch (Exception loggableException) {
+            assertLoggableCannotRunException(loggableException);
         }
+    }
+
+    private void assertLoggableCannotRunException(final Throwable loggableException) {
+        assertNotNull(loggableException);
+        assertThat(loggableException, is(instanceOf(LoggableException.class)));
+        final Throwable e = loggableException.getCause();
+        assertNotNull(e);
+        assertThat(e, is(instanceOf(IllegalStateException.class)));
+        assertEquals("Cannot run.", e.getMessage());
     }
 
     @Test
@@ -213,12 +222,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             runner.runAsync(context -> {
                 throw new IllegalStateException("Cannot run.");
             }).handle((ignore, loggableException) -> {
-                assertNotNull(loggableException);
-                assertThat(loggableException, is(instanceOf(LoggableException.class)));
-                final Throwable e = loggableException.getCause();
-                assertNotNull(e);
-                assertThat(e, is(instanceOf(IllegalStateException.class)));
-                assertEquals("Cannot run.", e.getMessage());
+                assertLoggableCannotRunException(loggableException);
                 return null;
             }).join();
         }

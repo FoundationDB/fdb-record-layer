@@ -292,26 +292,26 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     }
 
 
-//    @Override
-//    @API(API.Status.EXPERIMENTAL)
-//    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
-//                     @Nullable List<Object> additionalLogMessageKeyValues) {
-//        RetriableTaskRunner<T> retriableTaskRunner = gettRetriableTaskRunner(additionalLogMessageKeyValues);
-//        return retriableTaskRunner.run(taskState -> {
-//            try (FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0)) {
-//                T ret = retriable.apply(ctx);
-//                ctx.commit();
-//                return ret;
-//            }
-//        }, this);
-//    }
-
     @Override
     @API(API.Status.EXPERIMENTAL)
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
                      @Nullable List<Object> additionalLogMessageKeyValues) {
-        return new RunRetriable<T>(additionalLogMessageKeyValues).run(retriable);
+        RetriableTaskRunner<T> retriableTaskRunner = gettRetriableTaskRunner(additionalLogMessageKeyValues);
+        return retriableTaskRunner.run(taskState -> {
+            try (FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0)) {
+                T ret = retriable.apply(ctx);
+                ctx.commit();
+                return ret;
+            }
+        }, this);
     }
+
+//    @Override
+//    @API(API.Status.EXPERIMENTAL)
+//    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
+//                     @Nullable List<Object> additionalLogMessageKeyValues) {
+//        return new RunRetriable<T>(additionalLogMessageKeyValues).run(retriable);
+//    }
 
     @Override
     @Nonnull
