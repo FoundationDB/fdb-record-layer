@@ -100,8 +100,20 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         final TaskState<T> taskState = initializeTaskState();
         // There shouldn't be any exception coming out of handleResultOrException (it is saved in TaskState instead),
         // so just use simple AsyncUtil.composeHandle.
-        return AsyncUtil.whileTrue(() -> AsyncUtil.composeHandle(
-                CompletableFuture.runAsync(() -> System.out.println("wawawa doing " + taskState.currAttempt + " for " + taskState.getUuid())).thenCompose(ignore -> retriableTask.apply(taskState)),
+        CompletableFuture<T> ret = new CompletableFuture<>();
+        addFutureToCompleteExceptionally(ret);
+
+//        AsyncUtil.whileTrue(() -> AsyncUtil.composeHandle(
+//                AsyncUtil.DONE.thenCompose(ignore -> retriableTask.apply(taskState)),
+//                ...
+//        ), executor)
+
+
+        AsyncUtil.whileTrue(() -> AsyncUtil.composeHandleAsync(
+//                CompletableFuture.runAsync(() -> System.out.println("wawawa doing " + taskState.currAttempt + " for " + taskState.getUuid())).thenCompose(ignore -> retriableTask.apply(taskState)),
+//                CompletableFuture.runAsync(() -> {}).thenCompose(ignore -> retriableTask.apply(taskState)),
+                AsyncUtil.DONE.thenCompose(ignore -> retriableTask.apply(taskState)),
+//                retriableTask.apply(taskState),
                 (result, ex) -> handleResultOrException(taskState, result, ex)
 //                true,
 //                exceptionMapper
@@ -115,7 +127,8 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
 //            }
 //            return null;
 //        })
-        .thenCompose(vignore -> getResultOrExceptionForRunAsync(taskState));
+        .thenCompose(vignore -> getResultOrExceptionForRunAsync(ret, taskState));
+        return ret;
     }
 
     @Nonnull
@@ -124,26 +137,33 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     }
 
     @Nonnull
-    private CompletableFuture<T> getResultOrExceptionForRunAsync(final TaskState<T> taskState) {
-        CompletableFuture<T> ret = new CompletableFuture<>();
-        addFutureToCompleteExceptionally(ret);
+    private CompletableFuture<T> getResultOrExceptionForRunAsync(final CompletableFuture<T> ret, final TaskState<T> taskState) {
+//        CompletableFuture<T> ret = new CompletableFuture<>();
+//        addFutureToCompleteExceptionally(ret);
         RuntimeException e = taskState.getPossibleException();
         if (e != null) {
-            ret.completeExceptionally(addLogsToException(taskState, e));
+            LoggableException ex = addLogsToException(taskState, e);
+            System.out.println("wawawa 133 " + ex);
+            ret.completeExceptionally(ex);
+//            throw ex;
         } else {
             ret.complete(taskState.getPossibleResult());
+//            return CompletableFuture.completedFuture(taskState.getPossibleResult());
         }
-        return ret;
+        return null;
+//        return ret;
     }
 
     // It doesn't return any result or throw any exception. Result and exceptions are saved in taskState.
     private CompletableFuture<Boolean> handleResultOrException(final TaskState<T> taskState, final T result, final Throwable ex) {
         try {
             if (closed) {
+                System.out.println("wawawa RetriableTaskRunnerClosed");
                 taskState.setPossibleException(new RetriableTaskRunnerClosed());
                 return AsyncUtil.READY_FALSE;
             }
             taskState.setPossibleResult(result);
+            System.out.println("wawawa 147 " + ex + " --- " + mapException(ex));
             taskState.setPossibleException(mapException(ex));
 
             final boolean possible = possiblyRetry.apply(taskState);
@@ -165,6 +185,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
                     return true;
                 });
             } else {
+                System.out.println("wawawa 169");
                 return AsyncUtil.READY_FALSE;
             }
         } catch (Exception handlersException) {
@@ -172,6 +193,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
                 // This handles the possible exceptions in handleResultOrException.
                 taskState.setPossibleException(mapException(handlersException));
             }
+            System.out.println("wawawa 177");
             return AsyncUtil.READY_FALSE;
         }
 

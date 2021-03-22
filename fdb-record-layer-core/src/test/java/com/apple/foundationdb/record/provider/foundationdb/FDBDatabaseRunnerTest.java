@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -53,6 +54,7 @@ import static com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseTes
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -210,9 +212,12 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
                 throw new IllegalStateException("Cannot run.");
-            }).handle((ignore, e) -> {
+            }).handle((ignore, loggableException) -> {
+                assertNotNull(loggableException);
+                assertThat(loggableException, is(instanceOf(LoggableException.class)));
+                final Throwable e = loggableException.getCause();
                 assertNotNull(e);
-                assertTrue(e instanceof IllegalStateException);
+                assertThat(e, is(instanceOf(IllegalStateException.class)));
                 assertEquals("Cannot run.", e.getMessage());
                 return null;
             }).join();
@@ -223,10 +228,11 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
     public void runAsyncNonRetriableException() {
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
+                System.out.println("wawawa throw something");
                 throw new RecordCoreException("Encountered an I/O error", new FDBException("io_error", 1510));
             }).handle((ignore, e) -> {
                 assertNotNull(e);
-                assertTrue(e instanceof RecordCoreException);
+                assertThat(e, is(instanceOf(RecordCoreException.class)));
                 assertEquals("Encountered an I/O error", e.getMessage());
                 assertNotNull(e.getCause());
                 assertTrue(e.getCause() instanceof FDBException);
@@ -238,6 +244,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
+                System.out.println("wawawa throw something more");
                 throw new RecordCoreException("Internal error");
             }).handle((ignore, e) -> {
                 assertNotNull(e);
@@ -245,7 +252,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
                 assertEquals("Internal error", e.getMessage());
                 assertNull(e.getCause());
                 return null;
-            });
+            }).join();
         }
     }
 
@@ -430,6 +437,7 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             runner.setMaxDelayMillis(100);
 
             future = runner.runAsync(context -> {
+                System.out.println("wawawa increase");
                 iteration.incrementAndGet();
                 throw new RecordCoreRetriableTransactionException("Have to try again!", new FDBException("not_committed", 1020));
             });

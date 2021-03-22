@@ -425,6 +425,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @return a future that is complete when commit is done
      */
     public CompletableFuture<Void> commitAsync() {
+        System.out.println("wawawa commiting");
         long startTimeNanos = System.nanoTime();
         ensureActive();
         CompletableFuture<Void> checks = runCommitChecks();

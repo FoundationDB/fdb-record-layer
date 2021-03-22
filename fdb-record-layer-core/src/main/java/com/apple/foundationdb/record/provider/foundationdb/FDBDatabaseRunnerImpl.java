@@ -322,11 +322,22 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         RetriableTaskRunner<T> retriableTaskRunner = gettRetriableTaskRunner(additionalLogMessageKeyValues);
 
         return retriableTaskRunner.runAsync(taskState -> {
+            System.out.println("wawawa ctx beferore");
             FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0);
-            return retriable.apply(ctx).thenCompose(val ->
-                    ctx.commitAsync().thenApply(vignore -> val)
-            ).handleAsync((result, ex) -> {
+            return retriable.apply(ctx)
+
+                    .thenComposeAsync(val ->
+                            ctx.commitAsync().thenApply( vignore -> val)
+                    )
+
+//                    .thenComposeAsync(val -> {
+//                System.out.println("wawawa before commit");
+//                    return ctx.commitAsync().thenApply(vignore -> { System.out.println("wawawa after commit");
+//                        return val;});
+//                })
+                    .handleAsync((result, ex) -> {
                 Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
+                System.out.println("wawawa ctx after");
                 ctx.close();
                 if (newResult.getRight() == null) {
                     return newResult.getLeft();
