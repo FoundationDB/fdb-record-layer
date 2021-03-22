@@ -112,8 +112,8 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         AsyncUtil.whileTrue(() -> AsyncUtil.composeHandleAsync(
 //                CompletableFuture.runAsync(() -> System.out.println("wawawa doing " + taskState.currAttempt + " for " + taskState.getUuid())).thenCompose(ignore -> retriableTask.apply(taskState)),
 //                CompletableFuture.runAsync(() -> {}).thenCompose(ignore -> retriableTask.apply(taskState)),
-                AsyncUtil.DONE.thenCompose(ignore -> retriableTask.apply(taskState)),
-//                retriableTask.apply(taskState),
+//                AsyncUtil.DONE.thenCompose(ignore -> retriableTask.apply(taskState)),
+                retriableTask.apply(taskState),
                 (result, ex) -> handleResultOrException(taskState, result, ex)
 //                true,
 //                exceptionMapper

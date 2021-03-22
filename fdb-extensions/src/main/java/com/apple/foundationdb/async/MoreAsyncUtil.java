@@ -888,7 +888,9 @@ public class MoreAsyncUtil {
      * itself (<code>future</code>) encounters an exception. (The both encounter exceptions, throw the
      * <code>future</code>'s)
      * </li>
+     * <li>
      * If <code>exceptionMapper</code> is set, it maps the underlying exception to a {@link RuntimeException}
+     * </li>
      * </ul>
      * @param future future to compose the handler onto
      * @param handler handler bi-function to compose onto the passed future
