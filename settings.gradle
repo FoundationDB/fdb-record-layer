@@ -43,10 +43,6 @@ rootProject.children.each { project ->
     recursiveRenameBuildfiles('', project)
 }
 
-// Prepare build for gradle 5.0 by turning on normal evaluation of publishing block
-// https://docs.gradle.org/4.8/userguide/publishing_maven.html#publishing_maven:deferred_configuration
-enableFeaturePreview('STABLE_PUBLISHING')
-
 def protoMajorVersion
 if ( System.getenv('PROTO_VERSION') != null) {
     protoMajorVersion = System.getenv('PROTO_VERSION')
