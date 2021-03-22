@@ -29,13 +29,13 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.github.ben-manes:gradle-versions-plugin:0.13.0'
+        classpath 'com.github.ben-manes:gradle-versions-plugin:0.38.0'
         classpath 'org.jboss.tattletale:tattletale:1.2.0.Beta2'
-        classpath 'de.undercouch:gradle-download-task:4.0.4'
-        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.7'
-        classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.2'
+        classpath 'de.undercouch:gradle-download-task:4.1.1'
+        classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.15'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:5.2.0'
         //classpath 'gradle.plugin.com.github.spotbugs:spotbugs-gradle-plugin:1.6.9'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.4'
+        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.5'
     }
 }
 
