@@ -232,7 +232,6 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
     public void runAsyncNonRetriableException() {
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
-                System.out.println("wawawa throw something");
                 throw new RecordCoreException("Encountered an I/O error", new FDBException("io_error", 1510));
             }).handle((ignore, e) -> {
                 assertNotNull(e);
@@ -248,7 +247,6 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
 
         try (FDBDatabaseRunner runner = database.newRunner()) {
             runner.runAsync(context -> {
-                System.out.println("wawawa throw something more");
                 throw new RecordCoreException("Internal error");
             }).handle((ignore, e) -> {
                 assertNotNull(e);
@@ -441,7 +439,6 @@ public class FDBDatabaseRunnerTest extends FDBTestBase {
             runner.setMaxDelayMillis(100);
 
             future = runner.runAsync(context -> {
-                System.out.println("wawawa increase");
                 iteration.incrementAndGet();
                 throw new RecordCoreRetriableTransactionException("Have to try again!", new FDBException("not_committed", 1020));
             });

@@ -908,12 +908,8 @@ public class MoreAsyncUtil {
             @Nullable Function<Throwable,RuntimeException> exceptionMapper) {
         return AsyncUtil.composeHandle(future, (futureResult, futureException) -> {
             try {
-                System.out.println("wawawa 899 " + futureResult + " " + futureException);
                 RuntimeException mappedFutureException = futureException == null ? null : getRuntimeException(futureException, exceptionMapper);
-                System.out.println("wawawa 911 " + mappedFutureException);
-
                 return handler.apply(futureResult, mappedFutureException).handle((handlerResult, handlerAsyncException) -> {
-                    System.out.println("wawawa 902 " + handlerResult + " " + handlerAsyncException);
                     if (throwFutureException && mappedFutureException != null) {
                         throw mappedFutureException;
                     } else if (handlerAsyncException != null) {
@@ -924,8 +920,6 @@ public class MoreAsyncUtil {
                     }
                 });
             } catch (Exception handlerSyncException) {
-                System.out.println("wawawa 913 " + handlerSyncException);
-
                 // This is for the case where the function call handler.apply throws an error.
                 throw getRuntimeException(handlerSyncException, exceptionMapper);
             }

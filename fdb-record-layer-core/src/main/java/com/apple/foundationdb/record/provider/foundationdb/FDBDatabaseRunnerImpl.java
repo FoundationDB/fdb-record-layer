@@ -189,109 +189,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         return context;
     }
 
-    // TODO: Use RetryTask (which only supports runAsync currently) for run as well.
-    private class RunRetriable<T> {
-        private int currAttempt = 0;
-        private long currDelay = getInitialDelayMillis();
-        @Nullable private FDBRecordContext context;
-        @Nullable T retVal = null;
-        @Nullable RuntimeException exception = null;
-        @Nullable private final List<Object> additionalLogMessageKeyValues;
-
-        @SpotBugsSuppressWarnings(value = "NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE", justification = "maybe https://github.com/spotbugs/spotbugs/issues/616?")
-        private RunRetriable(@Nullable List<Object> additionalLogMessageKeyValues) {
-            this.additionalLogMessageKeyValues = additionalLogMessageKeyValues;
-        }
-
-        @Nonnull
-        private CompletableFuture<Boolean> handle(@Nullable T val, @Nullable Throwable e) {
-            if (context != null) {
-                context.close();
-                context = null;
-            }
-
-            if (closed) {
-                // Outermost future should be cancelled, but be sure that this doesn't appear to be successful.
-                this.exception = new RunnerClosed();
-                return AsyncUtil.READY_FALSE;
-            } else if (e == null) {
-                // Successful completion. We are done.
-                retVal = val;
-                return AsyncUtil.READY_FALSE;
-            } else {
-                // Unsuccessful. Possibly retry.
-                Throwable t = e;
-                String fdbMessage = null;
-                int code = -1;
-                boolean retry = false;
-                while (t != null) {
-                    if (t instanceof FDBException) {
-                        FDBException fdbE = (FDBException)t;
-                        retry = retry || fdbE.isRetryable();
-                        fdbMessage = fdbE.getMessage();
-                        code = fdbE.getCode();
-                    } else if (t instanceof RecordCoreRetriableTransactionException) {
-                        retry = true;
-                    }
-                    t = t.getCause();
-                }
-
-                if (currAttempt + 1 < getMaxAttempts() && retry) {
-                    long delay = (long)(Math.random() * currDelay);
-
-                    if (LOGGER.isWarnEnabled()) {
-                        final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying FDB Exception",
-                                                                LogMessageKeys.MESSAGE, fdbMessage,
-                                                                LogMessageKeys.CODE, code,
-                                                                LogMessageKeys.CURR_ATTEMPT, currAttempt,
-                                                                LogMessageKeys.MAX_ATTEMPTS, getMaxAttempts(),
-                                                                LogMessageKeys.DELAY, delay);
-                        if (additionalLogMessageKeyValues != null) {
-                            message.addKeysAndValues(additionalLogMessageKeyValues);
-                        }
-                        LOGGER.warn(message.toString(), e);
-                    }
-                    CompletableFuture<Void> future = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
-                    addFutureToCompleteExceptionally(future);
-                    return future.thenApply(vignore -> {
-                        currAttempt += 1;
-                        currDelay = Math.max(Math.min(delay * 2, getMaxDelayMillis()), getMinDelayMillis());
-                        return true;
-                    });
-                } else {
-                    this.exception = database.mapAsyncToSyncException(e);
-                    return AsyncUtil.READY_FALSE;
-                }
-            }
-        }
-
-        @SuppressWarnings("squid:S1181")
-        public T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable) {
-            boolean again = true;
-            while (again) {
-                try {
-                    context = openContext(currAttempt == 0);
-                    T ret = retriable.apply(context);
-                    context.commit();
-                    again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(ret, null));
-                } catch (Exception e) {
-                    again = asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handle(null, e));
-                } finally {
-                    if (context != null) {
-                        context.close();
-                        context = null;
-                    }
-                }
-            }
-            if (exception == null) {
-                return retVal;
-            } else {
-                throw exception;
-            }
-        }
-    }
-
-
     @Override
     @API(API.Status.EXPERIMENTAL)
     public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
@@ -306,13 +203,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         }, this);
     }
 
-//    @Override
-//    @API(API.Status.EXPERIMENTAL)
-//    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
-//                     @Nullable List<Object> additionalLogMessageKeyValues) {
-//        return new RunRetriable<T>(additionalLogMessageKeyValues).run(retriable);
-//    }
-
     @Override
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
@@ -322,30 +212,20 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         RetriableTaskRunner<T> retriableTaskRunner = gettRetriableTaskRunner(additionalLogMessageKeyValues);
 
         return retriableTaskRunner.runAsync(taskState -> {
-            System.out.println("wawawa ctx beferore");
             FDBRecordContext ctx = openContext(taskState.getCurrAttempt() == 0);
             return retriable.apply(ctx)
-
-                    .thenComposeAsync(val ->
-                            ctx.commitAsync().thenApply( vignore -> val)
-                    )
-
-//                    .thenComposeAsync(val -> {
-//                System.out.println("wawawa before commit");
-//                    return ctx.commitAsync().thenApply(vignore -> { System.out.println("wawawa after commit");
-//                        return val;});
-//                })
-                    .handleAsync((result, ex) -> {
-                Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
-                System.out.println("wawawa ctx after");
-                ctx.close();
-                if (newResult.getRight() == null) {
-                    return newResult.getLeft();
-                } else {
-                    RuntimeException runtimeException = database.mapAsyncToSyncException(newResult.getRight());
-                    throw runtimeException;
-                }
-            });
+                .thenComposeAsync(val -> ctx.commitAsync().thenApply(vignore -> val))
+                // TODO: Change handleAndCheckRetriable to able to return a future, so that these can be handled there.
+                .handleAsync((result, ex) -> {
+                    Pair<? extends T, ? extends Throwable> newResult = handlePostTransaction.apply(result, ex);
+                    ctx.close();
+                    if (newResult.getRight() == null) {
+                        return newResult.getLeft();
+                    } else {
+                        RuntimeException runtimeException = database.mapAsyncToSyncException(newResult.getRight());
+                        throw runtimeException;
+                    }
+                });
         });
     }
 
@@ -353,7 +233,7 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private <T> RetriableTaskRunner<T> gettRetriableTaskRunner(final @Nullable List<Object> additionalLogMessageKeyValues) {
         final RetriableTaskRunner.Builder<T> builder = RetriableTaskRunner.newBuilder(getMaxAttempts());
 
-        builder.setPossiblyRetry(states -> {
+        builder.setHandleAndCheckRetriable(states -> {
             if (closed) {
                 // Outermost future should be cancelled, but be sure that this doesn't appear to be successful.
                 states.setPossibleException(new RunnerClosed());

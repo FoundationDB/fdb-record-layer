@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -185,7 +184,7 @@ public class IndexingThrottle {
 
         RetriableTaskRunner.Builder<R> builder = RetriableTaskRunner.newBuilder(common.config.getMaxRetries() + 1);
 
-        builder.setPossiblyRetry(states -> {
+        builder.setHandleAndCheckRetriable(states -> {
             final Throwable e = states.getPossibleException();
             if (e == null) {
                 return false;
