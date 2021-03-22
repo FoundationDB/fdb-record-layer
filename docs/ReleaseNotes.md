@@ -34,7 +34,7 @@ This verison of the Record Layer removes some legacy elements of the API that we
 * **Breaking change** The `RecordCursor::orElse` and `RecordCursor::flatMapPipelined` methods have been removed in favor of variants that allow for continuations to be correctly handled [(Issue #1189)](https://github.com/FoundationDB/fdb-record-layer/issues/1189)
 * **Breaking change** Remove non-controversial deprecated methods [(Issue #1191)](https://github.com/FoundationDB/fdb-record-layer/issues/1191)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Increased the versions of our dependencies, including Protobuf (to 3.15.6) and Guava (to 30.1-jre) [(Issue #1193)](https://github.com/FoundationDB/fdb-record-layer/issues/1193)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
