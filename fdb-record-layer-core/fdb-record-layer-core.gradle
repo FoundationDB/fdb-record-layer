@@ -43,9 +43,9 @@ dependencies {
     annotationProcessor "com.google.auto.service:auto-service:${autoServiceVersion}"
 
     testCompile project(path: ':fdb-extensions', configuration: 'tests')
-    testCompile "org.hamcrest:hamcrest:2.2"
-    testCompile "com.beust:jcommander:1.78"
-    testCompile "org.apache.commons:commons-math3:3.6.1"
+    testCompile "org.hamcrest:hamcrest:${hamcrestVersion}"
+    testCompile "com.beust:jcommander:${jcommanderVersion}"
+    testCompile "org.apache.commons:commons-math3:${commonsMath3Version}"
     testCompile "org.apache.commons:commons-lang3:${commonsLang3Version}"
     testCompileOnly "com.google.code.findbugs:jsr305:${jsr305Version}"
     testCompileOnly "com.google.auto.service:auto-service:${autoServiceVersion}"
