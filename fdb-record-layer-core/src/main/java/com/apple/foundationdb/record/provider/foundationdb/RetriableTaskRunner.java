@@ -35,20 +35,30 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+/**
+ * A runner that can run and retry a task synchronously ({@link #run(Function, FDBDatabaseRunner)}) or asynchronously
+ * ({@link #runAsync(Function)}). Users can configure the maximum number of retries, decide whether or not retry given
+ * the exception. It supports back off (controled by <code>initDelayMillis</code>, <code>minDelayMillis</code>,
+ * <code>maxDelayMillis</code>) and jitter when retrying. It also provides convenient API for logging information scoped
+ * to the current attempt ({@link TaskState#getLocalLogs()}) or then entire run ({@link TaskState#getGlobalLogs()}).
+ * All exceptions are wrapped with {@link LoggableException} (if they are not originally) and combined with internal or
+ * user-provided logs through {@link TaskState} API.
+ * @param <T> the type of the task's result
+ */
+@SuppressWarnings({"PMD.MoreThanOneLogger", "PMD.LoggerIsNotStaticFinal"})
 public class RetriableTaskRunner<T> implements AutoCloseable {
     private static final Logger DEFAULT_LOGGER = LoggerFactory.getLogger(RetriableTaskRunner.class);
-
-    @Nonnull private final Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask;
     private final int maxAttempts;
 
     // This can also handle other things need to be done post the retriable task.
-    @Nonnull private final Function<TaskState<T>, CompletableFuture<Boolean>> possiblyRetry;
+    @Nonnull private final Function<TaskState<T>, Boolean> handleAndCheckRetriable;
     @Nonnull private final Consumer<TaskState<T>> handleIfDoRetry;
     private final long initDelayMillis;
     private final long minDelayMillis;
@@ -62,55 +72,118 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     @Nonnull
     private final List<CompletableFuture<?>> futuresToCompleteExceptionally = new ArrayList<>();
 
-    public static <T> Builder<T> newBuilder(Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask, int maxAttempts) {
-        return new Builder<>(retriableTask, maxAttempts);
+    public static <T> Builder<T> newBuilder(int maxAttempts) {
+        return new Builder<>(maxAttempts);
     }
 
-    public CompletableFuture<T> runAsync() {
-        final TaskState<T> taskState = new TaskState<>(initDelayMillis, initGlobalLogs());
-        return AsyncUtil.whileTrue(() -> MoreAsyncUtil.composeWhenCompleteAndHandle(retriableTask.apply(taskState), (result, ex) -> {
+    public T run(@Nonnull final Function<TaskState<T>, ? extends T> retriableTask, FDBDatabaseRunner runner) {
+        final TaskState<T> taskState = initializeTaskState();
+        boolean again = true;
+        while (again) {
+            T result = null;
+            Exception ex = null;
+            try {
+                result = retriableTask.apply(taskState);
+
+            } catch (Exception taskException) {
+                ex = taskException;
+            }
+            // There shouldn't be any exception coming out of handleResultOrException (it is saved in TaskState instead),
+            // so no need wrap with try.
+            again = runner.asyncToSync(FDBStoreTimer.Waits.WAIT_RETRY_DELAY, handleResultOrException(taskState, result, ex));
+        }
+        return getResultOrExceptionForRun(taskState);
+    }
+
+    private T getResultOrExceptionForRun(final TaskState<T> taskState) {
+        RuntimeException e = taskState.getPossibleException();
+        if (e != null) {
+            throw addLogsToException(taskState, e);
+        } else {
+            return taskState.getPossibleResult();
+        }
+    }
+
+    public CompletableFuture<T> runAsync(@Nonnull final Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask) {
+        final TaskState<T> taskState = initializeTaskState();
+        // There shouldn't be any exception coming out of handleResultOrException (it is saved in TaskState instead),
+        // so just use simple AsyncUtil.composeHandle.
+        CompletableFuture<T> ret = new CompletableFuture<>();
+        addFutureToCompleteExceptionally(ret);
+
+        AsyncUtil.whileTrue(() -> AsyncUtil.composeHandle(
+                // Make sure sync exceptions in retriableTask are also handled by the handler
+                // TODO: AsyncUtil.whileTrue hangs if we simply use `retriableTask.apply(taskState)`, this seems unexpected even if we might be doing it wrong. We need to reproduce it and fdb-java and may need a fix.
+                AsyncUtil.DONE.thenCompose(ignore -> retriableTask.apply(taskState)),
+                (result, ex) -> handleResultOrException(taskState, result, ex)
+        ), executor)
+                .thenCompose(vignore -> getResultOrExceptionForRunAsync(ret, taskState));
+        return ret;
+    }
+
+    private CompletableFuture<Void> getResultOrExceptionForRunAsync(final CompletableFuture<T> ret, final TaskState<T> taskState) {
+        RuntimeException e = taskState.getPossibleException();
+        if (e != null) {
+            LoggableException ex = addLogsToException(taskState, e);
+            ret.completeExceptionally(ex);
+        } else {
+            ret.complete(taskState.getPossibleResult());
+        }
+        return AsyncUtil.DONE;
+    }
+
+    @Nonnull
+    private TaskState<T> initializeTaskState() {
+        return new TaskState<>(initDelayMillis, initGlobalLogs());
+    }
+
+    // It doesn't return any result or throw any exception. Result and exceptions are saved in taskState.
+    private CompletableFuture<Boolean> handleResultOrException(final TaskState<T> taskState,
+                                                               final T result,
+                                                               final Throwable ex) {
+        try {
             if (closed) {
                 taskState.setPossibleException(new RetriableTaskRunnerClosed());
                 return AsyncUtil.READY_FALSE;
             }
             taskState.setPossibleResult(result);
-            taskState.setPossibleException(ex);
-            return AsyncUtil.applySafely(possiblyRetry, taskState).thenCompose(possible -> {
-                if (possible && (taskState.getCurrAttempt() + 1 < maxAttempts)) {
-                    handleIfDoRetry.accept(taskState); // Exceptions in handleIfDoRetry should be caught by handle later.
-                    taskState.setCurrAttempt(taskState.getCurrAttempt() + 1);
+            taskState.setPossibleException(mapException(ex));
 
-                    long delay = clampByDelayLimits((long)(Math.random() * taskState.getCurrMaxDelayMillis()));
-                    // Double the current max delay for the next iteration. Note that it should be doubled from the
-                    // iteration's max delay rather than actual delay, because multiplying by Math.random() * 2
-                    // repeatedly will converge it to 0.
-                    taskState.setCurrMaxDelayMillis(clampByDelayLimits(taskState.getCurrMaxDelayMillis() * 2));
+            final boolean possible = handleAndCheckRetriable.apply(taskState);
+            if (possible && (taskState.getCurrAttempt() + 1 < maxAttempts)) {
+                handleIfDoRetry.accept(taskState); // Exceptions in handleIfDoRetry should be caught by handle later.
+                taskState.setCurrAttempt(taskState.getCurrAttempt() + 1);
 
-                    logCurrentAttempt(taskState, delay);
-                    CompletableFuture<Void> delayedFuture = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
-                    addFutureToCompleteExceptionally(delayedFuture);
-                    return delayedFuture.thenApply(vignore -> true);
-                } else {
-                    return AsyncUtil.READY_FALSE;
-                }
-            });
-        }, exceptionMapper), executor).handle((vignore, otherException) -> {
-            if (taskState.getPossibleException() == null) {
-                // This handles the possible exceptions in handleIfDoRetry.
-                taskState.setPossibleException(otherException);
-            }
-            return null;
-        }).thenCompose(vignore -> {
-            CompletableFuture<T> ret = new CompletableFuture<>();
-            addFutureToCompleteExceptionally(ret);
-            Throwable e = taskState.getPossibleException();
-            if (e != null) {
-                ret.completeExceptionally(addLogsToException(taskState, e));
+                long delay = clampByDelayLimits((long)(Math.random() * taskState.getCurrMaxDelayMillis()));
+                // Double the current max delay for the next iteration. Note that it should be doubled from the
+                // iteration's max delay rather than actual delay, because multiplying by Math.random() * 2
+                // repeatedly will converge it to 0.
+                taskState.setCurrMaxDelayMillis(clampByDelayLimits(taskState.getCurrMaxDelayMillis() * 2));
+
+                logCurrentAttempt(taskState, delay);
+                CompletableFuture<Void> delayedFuture = MoreAsyncUtil.delayedFuture(delay, TimeUnit.MILLISECONDS);
+                addFutureToCompleteExceptionally(delayedFuture);
+                return delayedFuture.thenApply(vignore -> true);
             } else {
-                ret.complete(taskState.getPossibleResult());
+                return AsyncUtil.READY_FALSE;
             }
-            return ret;
-        });
+        } catch (Exception handlersException) {
+            if (taskState.getPossibleException() == null) {
+                // This handles the possible exceptions in handleResultOrException.
+                taskState.setPossibleException(mapException(handlersException));
+            }
+            return AsyncUtil.READY_FALSE;
+        }
+    }
+
+    private RuntimeException mapException(Throwable e) {
+        if (e == null) {
+            return null;
+        } else if (exceptionMapper == null) {
+            return new RuntimeException(e);
+        } else {
+            return exceptionMapper.apply(e);
+        }
     }
 
     private long clampByDelayLimits(long delay) {
@@ -120,7 +193,10 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     private List<Object> initGlobalLogs() {
         List<Object> globalLogs = new ArrayList<>(additionalLogMessageKeyValues);
         globalLogs.addAll(Arrays.asList(
-                LogMessageKeys.MAX_ATTEMPTS, maxAttempts
+                LogMessageKeys.MAX_ATTEMPTS, maxAttempts,
+                LogMessageKeys.INIT_DELAY_MILLIS, initDelayMillis,
+                LogMessageKeys.MIN_DELAY_MILLIS, minDelayMillis,
+                LogMessageKeys.MAX_DELAY_MILLIS, maxDelayMillis
         ));
         return globalLogs;
     }
@@ -130,14 +206,19 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
             final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Exception",
                     LogMessageKeys.CURR_ATTEMPT, taskState.getCurrAttempt(),
                     LogMessageKeys.DELAY, delay);
-            message.addKeysAndValues(taskState.getLocalLogs());
-            message.addKeysAndValues(additionalLogMessageKeyValues);
+            addOtherLogs(taskState, message);
             logger.warn(message.toString(), taskState.getPossibleException());
         }
         taskState.getLocalLogs().clear();
     }
 
-    private Throwable addLogsToException(TaskState<T> taskState, Throwable e) {
+    private void addOtherLogs(final TaskState<T> taskState, final KeyValueLogMessage message) {
+        message.addKeysAndValues(taskState.getLocalLogs());
+        message.addKeysAndValues(taskState.getGlobalLogs());
+        message.addKeysAndValues(additionalLogMessageKeyValues);
+    }
+
+    private LoggableException addLogsToException(TaskState<T> taskState, RuntimeException e) {
         LoggableException loggableException = (e instanceof LoggableException) ?
                                               (LoggableException)e : new LoggableException(e);
         return loggableException
@@ -174,11 +255,16 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         }
     }
 
+    /**
+     * <code>TaskState</code> includes possible result and exception, current attemp and delay, and other important
+     * information that may be useful in logging.
+     * @param <T> the type of the task's result
+     */
     public static class TaskState<T> {
         @Nullable
         private T possibleResult;
         @Nullable
-        private Throwable possibleException;
+        private RuntimeException possibleException;
         private int currAttempt = 0;
         private long currMaxDelayMillis;
         // Keep the logs for the current attempt.
@@ -187,10 +273,17 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         // Keep the logs for the entire run, including the additional ones provided by caller.
         @Nonnull
         private final List<Object> globalLogs;
+        @Nonnull
+        private UUID uuid;
 
         TaskState(long initDelayMillis, List<Object> globalLogs) {
             this.currMaxDelayMillis = initDelayMillis;
             this.globalLogs = new ArrayList<>(globalLogs);
+
+            uuid = UUID.randomUUID();
+            this.globalLogs.addAll(Arrays.asList(
+                    LogMessageKeys.UUID, uuid
+            ));
         }
 
         @Nullable
@@ -203,11 +296,11 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         }
 
         @Nullable
-        public Throwable getPossibleException() {
+        public RuntimeException getPossibleException() {
             return possibleException;
         }
 
-        public void setPossibleException(@Nullable Throwable possibleException) {
+        public void setPossibleException(@Nullable RuntimeException possibleException) {
             this.possibleException = possibleException;
         }
 
@@ -236,14 +329,22 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         public List<Object> getGlobalLogs() {
             return globalLogs;
         }
+
+        @Nonnull
+        public UUID getUuid() {
+            return uuid;
+        }
     }
 
+    /**
+     * Builder of {@link RetriableTaskRunner}.
+     * @param <T> the type of the task's result
+     */
     public static class Builder<T> {
-        @Nonnull private final Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask;
         private final int maxAttempts;
 
-        @Nonnull private Function<TaskState<T>, CompletableFuture<Boolean>> possiblyRetry =
-                taskState -> (taskState.getPossibleResult() == null) ? AsyncUtil.READY_TRUE : AsyncUtil.READY_FALSE;
+        @Nonnull private Function<TaskState<T>, Boolean> handleAndCheckRetriable =
+                taskState -> taskState.getPossibleResult() == null;
         @Nonnull private Consumer<TaskState<T>> handleIfDoRetry = taskState -> { };
         private long initDelayMillis = 0;
         private long minDelayMillis = 0;
@@ -253,16 +354,17 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
         @Nonnull private Executor executor = FDB.DEFAULT_EXECUTOR;
         @Nullable private Function<Throwable,RuntimeException> exceptionMapper = FDBExceptions::wrapException;
 
-        private Builder(Function<TaskState<T>, CompletableFuture<? extends T>> retriableTask, int maxAttempts) {
-            this.retriableTask = retriableTask;
+        private Builder(int maxAttempts) {
             this.maxAttempts = maxAttempts;
         }
 
-        public Builder<T> setPossiblyRetry(Function<TaskState<T>, CompletableFuture<Boolean>> possiblyRetry) {
-            this.possiblyRetry = possiblyRetry;
+        // Note this should not be blocking.
+        public Builder<T> setHandleAndCheckRetriable(Function<TaskState<T>, Boolean> handleAndCheckRetriable) {
+            this.handleAndCheckRetriable = handleAndCheckRetriable;
             return this;
         }
 
+        // Note this should not be blocking.
         public Builder<T> setHandleIfDoRetry(Consumer<TaskState<T>> handleIfDoRetry) {
             this.handleIfDoRetry = handleIfDoRetry;
             return this;
@@ -311,9 +413,8 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     }
 
     private RetriableTaskRunner(Builder<T> builder) {
-        retriableTask = builder.retriableTask;
         maxAttempts = builder.maxAttempts;
-        possiblyRetry = builder.possiblyRetry;
+        handleAndCheckRetriable = builder.handleAndCheckRetriable;
         handleIfDoRetry = builder.handleIfDoRetry;
         initDelayMillis = builder.initDelayMillis;
         minDelayMillis = builder.minDelayMillis;

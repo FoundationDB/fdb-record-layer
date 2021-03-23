@@ -508,7 +508,7 @@ public abstract class IndexingBase {
         return throttle.throttledRunAsync(function, handlePostTransaction, handleLessenWork, additionalLogMessageKeyValues);
     }
 
-    void decreaseLimit(@Nullable List<Object> additionalLogMessageKeyValues) {
+    void decreaseLimit(@Nonnull List<Object> additionalLogMessageKeyValues) {
         throttle.decreaseLimit(additionalLogMessageKeyValues);
     }
 }

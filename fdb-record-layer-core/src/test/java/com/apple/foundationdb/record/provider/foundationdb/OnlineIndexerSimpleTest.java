@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LoggableException;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.ThreadContext;
@@ -382,7 +383,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             runAndHandleLessenWorkCodes(indexBuilder, store -> {
                 attempts.incrementAndGet();
                 throw new IllegalStateException("illegal state");
-            }).handle((val, e) -> {
+            }).handle((val, loggableException) -> {
+                assertNotNull(loggableException);
+                assertThat(loggableException, instanceOf(LoggableException.class));
+                final Throwable e = loggableException.getCause();
                 assertNotNull(e);
                 assertThat(e, instanceOf(IllegalStateException.class));
                 assertEquals("illegal state", e.getMessage());

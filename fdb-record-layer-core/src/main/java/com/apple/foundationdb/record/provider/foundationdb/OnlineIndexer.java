@@ -317,7 +317,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @VisibleForTesting
-    void decreaseLimit(@Nullable List<Object> additionalLogMessageKeyValues) {
+    void decreaseLimit(@Nonnull List<Object> additionalLogMessageKeyValues) {
         // test only
         getIndexer().decreaseLimit(additionalLogMessageKeyValues);
     }
