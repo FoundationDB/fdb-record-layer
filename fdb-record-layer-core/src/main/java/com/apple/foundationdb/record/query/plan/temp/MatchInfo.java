@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -120,6 +121,7 @@ public class MatchInfo {
         return accumulatedPredicateMapSupplier.get();
     }
 
+    @SpotBugsSuppressWarnings("NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE")
     private void collectPredicateMappings(@Nonnull PredicateMap.Builder targetBuilder) {
         targetBuilder.putAll(predicateMap);
 

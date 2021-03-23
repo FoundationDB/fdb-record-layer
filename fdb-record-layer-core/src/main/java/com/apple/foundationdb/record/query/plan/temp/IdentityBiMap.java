@@ -45,6 +45,7 @@ import java.util.stream.Collector;
  * @param <K> key type
  * @param <V> value type
  */
+@SpotBugsSuppressWarnings("NP_METHOD_PARAMETER_TIGHTENS_ANNOTATION")
 public class IdentityBiMap<K, V> implements BiMap<Wrapper<K>, Wrapper<V>> {
 
     private static final Equivalence<Object> identity = Equivalence.identity();
