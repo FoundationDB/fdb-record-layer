@@ -152,8 +152,8 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     }
 
     @Override
-    public boolean isFullySorted() {
-        return indexPlan.isFullySorted();
+    public boolean isStrictlySorted() {
+        return indexPlan.isStrictlySorted();
     }
 
     @Nonnull

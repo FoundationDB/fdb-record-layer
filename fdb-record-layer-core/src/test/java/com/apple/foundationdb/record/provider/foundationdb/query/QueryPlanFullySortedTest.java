@@ -32,9 +32,9 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan#isFullySorted}.
+ * Tests for {@link com.apple.foundationdb.record.query.plan.plans.QueryPlan#isStrictlySorted}.
  */
 @Tag(Tags.RequiresFDB)
 public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
@@ -57,37 +57,39 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
             hook.apply(builder);
         }
         metaData = builder.getRecordMetaData();
-        planner = new RecordQueryPlanner(metaData, new RecordStoreState(null, null));
+        planner = useRewritePlanner ?
+                  new CascadesPlanner(metaData, new RecordStoreState(null, null)) :
+                  new RecordQueryPlanner(metaData, new RecordStoreState(null, null));
     }
 
-    @Test
+    @DualPlannerTest
     public void unsorted() {
         setup(null);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("a"))
                 .build();
-        assertFalse(planner.plan(query).isFullySorted());
+        assertFalse(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void singleSort() {
         setup(null);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setSort(Key.Expressions.field("str_value_indexed"))
                 .build();
-        assertFalse(planner.plan(query).isFullySorted());
+        assertFalse(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void primaryKey() {
         setup(null);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setSort(Key.Expressions.field("rec_no"))
                 .build();
-        assertTrue(planner.plan(query).isFullySorted());
+        assertTrue(planner.plan(query).isStrictlySorted());
     }
 
     private static void compoundPrimaryKey(@Nonnull RecordMetaDataBuilder metaData) {
@@ -95,7 +97,7 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
         metaData.addIndex("MySimpleRecord", "multi", Key.Expressions.concatenateFields("num_value_2", "num_value_3_indexed"));
     }
 
-    @Test
+    @DualPlannerTest
     public void primaryKeyPartial() {
         setup(QueryPlanFullySortedTest::compoundPrimaryKey);
         RecordQuery query = RecordQuery.newBuilder()
@@ -103,10 +105,10 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .setSort(Key.Expressions.field("num_value_3_indexed"))
                 .build();
-        assertFalse(planner.plan(query).isFullySorted());
+        assertFalse(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void primaryKeyFull() {
         setup(QueryPlanFullySortedTest::compoundPrimaryKey);
         RecordQuery query = RecordQuery.newBuilder()
@@ -114,10 +116,10 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .setSort(Key.Expressions.concatenateFields("num_value_3_indexed", "rec_no"))
                 .build();
-        assertTrue(planner.plan(query).isFullySorted());
+        assertTrue(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void intersection() {
         setup(null);
         RecordQuery query = RecordQuery.newBuilder()
@@ -125,10 +127,10 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.and(Query.field("num_value_3_indexed").equalsValue(1), Query.field("str_value_indexed").equalsValue("a")))
                 .setSort(Key.Expressions.field("rec_no"))
                 .build();
-        assertTrue(planner.plan(query).isFullySorted());
+        assertTrue(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void union() {
         setup(null);
         RecordQuery query = RecordQuery.newBuilder()
@@ -136,10 +138,10 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.or(Query.field("num_value_3_indexed").equalsValue(1), Query.field("str_value_indexed").equalsValue("a")))
                 .setSort(Key.Expressions.field("rec_no"))
                 .build();
-        assertTrue(planner.plan(query).isFullySorted());
+        assertTrue(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void sortingUnion() {
         setup(null);
         RecordQuery query = RecordQuery.newBuilder()
@@ -147,10 +149,10 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.or(Query.field("num_value_3_indexed").equalsValue(1), Query.field("num_value_3_indexed").equalsValue(3)))
                 .setSort(Key.Expressions.field("num_value_3_indexed"))
                 .build();
-        assertFalse(planner.plan(query).isFullySorted());
+        assertFalse(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void sortingUnionFull() {
         setup(null);
         RecordQuery query = RecordQuery.newBuilder()
@@ -158,7 +160,7 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.or(Query.field("num_value_3_indexed").equalsValue(1), Query.field("num_value_3_indexed").equalsValue(3)))
                 .setSort(Key.Expressions.concatenateFields("num_value_3_indexed", "rec_no"))
                 .build();
-        assertTrue(planner.plan(query).isFullySorted());
+        assertTrue(planner.plan(query).isStrictlySorted());
     }
 
     private static void compoundUnique(@Nonnull RecordMetaDataBuilder metaData) {
@@ -167,17 +169,17 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS));
     }
 
-    @Test
+    @DualPlannerTest
     public void sortingUniquePrefix() {
         setup(QueryPlanFullySortedTest::compoundUnique);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setSort(Key.Expressions.field("num_value_2"))
                 .build();
-        assertFalse(planner.plan(query).isFullySorted());
+        assertFalse(planner.plan(query).isStrictlySorted());
     }
 
-    @Test
+    @DualPlannerTest
     public void sortingUnique() {
         setup(QueryPlanFullySortedTest::compoundUnique);
         RecordQuery query = RecordQuery.newBuilder()
@@ -185,7 +187,7 @@ public class QueryPlanFullySortedTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.and(Query.field("num_value_2").equalsValue(1), Query.field("num_value_unique").lessThan(10)))
                 .setSort(Key.Expressions.field("num_value_unique"))
                 .build();
-        assertTrue(planner.plan(query).isFullySorted());
+        assertTrue(planner.plan(query).isStrictlySorted());
     }
 
 

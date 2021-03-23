@@ -148,7 +148,7 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      * That is, each new record will have a different value for that sort key.
      * @return {@code true} if this plan is fully sorted according to the query definition
      */
-    default boolean isFullySorted() {
+    default boolean isStrictlySorted() {
         return false;
     }
 

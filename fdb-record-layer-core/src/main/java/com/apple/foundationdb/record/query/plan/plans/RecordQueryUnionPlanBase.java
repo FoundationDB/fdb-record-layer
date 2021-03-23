@@ -216,8 +216,8 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     }
 
     @Override
-    public boolean isFullySorted() {
-        return getChildren().stream().allMatch(RecordQueryPlan::isFullySorted);
+    public boolean isStrictlySorted() {
+        return getChildren().stream().allMatch(RecordQueryPlan::isStrictlySorted);
     }
 
     @Nonnull

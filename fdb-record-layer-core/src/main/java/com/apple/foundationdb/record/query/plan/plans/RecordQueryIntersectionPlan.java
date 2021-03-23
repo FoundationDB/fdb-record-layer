@@ -276,8 +276,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     }
 
     @Override
-    public boolean isFullySorted() {
-        return getChildren().stream().allMatch(RecordQueryPlan::isFullySorted);
+    public boolean isStrictlySorted() {
+        return getChildren().stream().allMatch(RecordQueryPlan::isStrictlySorted);
     }
 
     /**
