@@ -356,9 +356,9 @@ public class BunchedMapScanTest extends FDBTestBase {
                     assertEquals(toAdd, iterator.next());
                     if (lastEntry != null) {
                         if (toAdd.getSubspaceTag().equals(lastEntry.getSubspaceTag())) {
-                            assertEquals(reverse ? 1 : -1, lastEntry.getKey().compareTo(toAdd.getKey()));
+                            assertEquals(reverse ? 1 : -1, Integer.signum(lastEntry.getKey().compareTo(toAdd.getKey())));
                         } else {
-                            assertEquals(reverse ? 1 : -1, lastEntry.getSubspaceTag().compareTo(toAdd.getSubspaceTag()));
+                            assertEquals(reverse ? 1 : -1, Integer.signum(lastEntry.getSubspaceTag().compareTo(toAdd.getSubspaceTag())));
                         }
                     }
                     entryList.add(toAdd);
@@ -545,6 +545,15 @@ public class BunchedMapScanTest extends FDBTestBase {
 
     @Test
     public void scanMulti() throws InterruptedException, ExecutionException {
+        scanMultiTest(false);
+    }
+
+    @Test
+    public void scanMultiReversed() throws InterruptedException,ExecutionException {
+        scanMultiTest(true);
+    }
+
+    private void scanMultiTest(boolean reversed) throws InterruptedException,ExecutionException {
         clearAndPopulateMulti();
         final List<Integer> limits = Arrays.asList(ReadTransaction.ROW_LIMIT_UNLIMITED, 100, 50, 10, 7, 1);
 
@@ -554,15 +563,13 @@ public class BunchedMapScanTest extends FDBTestBase {
         }
 
         for (int limit : limits) {
-            scanFullMulti(limit, false, keyLists);
-            scanFullMulti(limit, true, keyLists);
+            scanFullMulti(limit, reversed, keyLists);
         }
 
         // Scan over only those beginning with 1L.
         final List<List<Tuple>> keyLists1 = Arrays.asList(Collections.emptyList(), keyLists.get(1));
         for (int limit : limits) {
-            scanOneMulti(limit, false, keyLists1);
-            scanOneMulti(limit, true, keyLists1);
+            scanOneMulti(limit, reversed, keyLists1);
         }
 
         // Scan over those beginning with the type code indicating a 1 byte long
@@ -570,16 +577,14 @@ public class BunchedMapScanTest extends FDBTestBase {
                 .mapToObj(i -> (Tuple.from(i).pack().length == 2 ? keyLists.get(i) : Collections.<Tuple>emptyList()))
                 .collect(Collectors.toList());
         for (int limit : limits) {
-            scanOneByteMulti(limit, false, keyLists1Byte);
-            scanOneByteMulti(limit, true, keyLists1Byte);
+            scanOneByteMulti(limit, reversed, keyLists1Byte);
         }
 
         for (int limit : limits) {
-            scanEmptyRangeMulti(limit, false);
-            scanEmptyRangeMulti(limit, true);
+            scanEmptyRangeMulti(limit, reversed);
         }
 
-        scanTagAligned(false, keyLists);
-        scanTagAligned(true, keyLists);
+        scanTagAligned(reversed, keyLists);
+
     }
 }

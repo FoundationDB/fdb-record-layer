@@ -199,6 +199,16 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         return underlying.getExecutor();
     }
 
+    @Override
+    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final byte[] begin, final byte[] end) {
+        return underlying.getEstimatedRangeSizeBytes(begin, end);
+    }
+
+    @Override
+    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final Range range) {
+        return underlying.getEstimatedRangeSizeBytes(range);
+    }
+
     @Nullable
     protected byte[] recordRead(@Nullable byte[] value) {
         if (value != null) {
