@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolverTest;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedDirectoryLayer;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LoggableException;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +69,9 @@ public class ScopedInterningLayerTest extends LocatableResolverTest {
             globalScope.updateMetadataAndVersion("some-key-that-does-not-exist", metadata).join();
             fail("should throw NoSuchElementException");
         } catch (CompletionException ex) {
-            Throwable cause = ex.getCause().getCause();
+            Throwable loggableException = ex.getCause();
+            assertThat(loggableException, is(instanceOf(LoggableException.class)));
+            Throwable cause = loggableException.getCause();
             assertThat(cause, is(instanceOf(NoSuchElementException.class)));
             assertThat(cause, hasMessageContaining("updateMetadata must reference key that already exists"));
         }

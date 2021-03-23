@@ -333,7 +333,6 @@ public interface FDBDatabaseRunner extends AutoCloseable {
      * @return future that will contain the result of {@code retriable} after successful run and commit
      * @see #run(Function)
      */
-    // TODO: Deprecate this.
     @Nonnull
     default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
                                               @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction) {

@@ -52,6 +52,7 @@ import java.util.function.Function;
  * user-provided logs through {@link TaskState} API.
  * @param <T> the type of the task's result
  */
+@SuppressWarnings({"PMD.MoreThanOneLogger", "PMD.LoggerIsNotStaticFinal"})
 public class RetriableTaskRunner<T> implements AutoCloseable {
     private static final Logger DEFAULT_LOGGER = LoggerFactory.getLogger(RetriableTaskRunner.class);
     private final int maxAttempts;
@@ -336,7 +337,7 @@ public class RetriableTaskRunner<T> implements AutoCloseable {
     }
 
     /**
-     * Builder of {@link #RetriableTaskRunner(Builder)}
+     * Builder of {@link #RetriableTaskRunner(Builder)}.
      * @param <T> the type of the task's result
      */
     public static class Builder<T> {

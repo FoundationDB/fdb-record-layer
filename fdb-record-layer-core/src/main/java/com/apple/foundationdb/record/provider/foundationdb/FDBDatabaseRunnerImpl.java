@@ -22,12 +22,8 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncUtil;
-import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.subspace.Subspace;
@@ -44,7 +40,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -71,8 +66,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
     private final List<FDBRecordContext> contextsToClose;
     @Nonnull
     private final List<RetriableTaskRunner<?>> retriableTaskRunnerToClose;
-    @Nonnull
-    private final List<CompletableFuture<?>> futuresToCompleteExceptionally;
 
     @API(API.Status.INTERNAL)
     FDBDatabaseRunnerImpl(@Nonnull FDBDatabase database, FDBRecordContextConfig.Builder contextConfigBuilder) {
@@ -87,7 +80,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
 
         contextsToClose = new ArrayList<>();
         retriableTaskRunnerToClose = new ArrayList<>();
-        futuresToCompleteExceptionally = new ArrayList<>();
     }
 
     @Override
@@ -293,12 +285,6 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
             return;
         }
         closed = true;
-        if (!futuresToCompleteExceptionally.stream().allMatch(CompletableFuture::isDone)) {
-            final Exception exception = new RunnerClosed();
-            for (CompletableFuture<?> future : futuresToCompleteExceptionally) {
-                future.completeExceptionally(exception);
-            }
-        }
         contextsToClose.forEach(FDBRecordContext::close);
         retriableTaskRunnerToClose.forEach(RetriableTaskRunner::close);
     }
@@ -335,15 +321,4 @@ public class FDBDatabaseRunnerImpl implements FDBDatabaseRunner {
         retriableTaskRunnerToClose.removeIf(RetriableTaskRunner::isClosed);
         retriableTaskRunnerToClose.add(retriableTaskRunner);
     }
-
-    private synchronized void addFutureToCompleteExceptionally(@Nonnull CompletableFuture<?> future) {
-        if (closed) {
-            final RunnerClosed exception = new RunnerClosed();
-            future.completeExceptionally(exception);
-            throw exception;
-        }
-        futuresToCompleteExceptionally.removeIf(CompletableFuture::isDone);
-        futuresToCompleteExceptionally.add(future);
-    }
-
 }

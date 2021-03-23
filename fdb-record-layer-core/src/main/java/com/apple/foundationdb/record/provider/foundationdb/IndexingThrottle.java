@@ -23,13 +23,11 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.util.LoggableException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -234,14 +232,6 @@ public class IndexingThrottle {
 
     private SubspaceProvider getSubspaceProvider() {
         return common.getRecordStoreBuilder().getSubspaceProvider();
-    }
-
-    private <R> CompletableFuture<Boolean> completeExceptionally(CompletableFuture<R> ret, Throwable e, List<Object> additionalLogMessageKeyValues) {
-        if (e instanceof LoggableException) {
-            ((LoggableException)e).addLogInfo(additionalLogMessageKeyValues.toArray());
-        }
-        ret.completeExceptionally(common.getRunner().getDatabase().mapAsyncToSyncException(e));
-        return AsyncUtil.READY_FALSE;
     }
 
     public int getLimit() {
