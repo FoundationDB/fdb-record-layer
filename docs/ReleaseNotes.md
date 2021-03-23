@@ -38,7 +38,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Breaking change** Indexes on existing stores will now default to the `DISABLED` `IndexState` instead of `WRITE_ONLY` if they cannot be built inline [(Issue #1213)](https://github.com/FoundationDB/fdb-record-layer/issues/1213)
 * **Breaking change** Increased the versions of our dependencies, including Protobuf (to 3.15.6) and Guava (to 30.1-jre) [(Issue #1193)](https://github.com/FoundationDB/fdb-record-layer/issues/1193)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-
+* **Breaking change** Requires a minimum FoundationDB client and server version of 6.3 [(Issue #1201)](https://github.com/FoundationDB/fdb-record-layer/issues/1201)
 // end next release
 -->
 
