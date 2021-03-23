@@ -69,12 +69,13 @@ quickCheck.dependsOn checkstyleMandatory
 apply plugin: 'com.github.spotbugs'
 
 spotbugs {
-    toolVersion = '3.1.7'
+//  toolVersion = '4.2.1'
     ignoreFailures = false
     effort = 'max'
-    sourceSets = [sourceSets.main]
     excludeFilter = rootProject.file('gradle/codequality/spotbugs_exclude.xml')
 }
+
+spotbugsTest.enabled = false
 
 def spotbugsFailed = false
 
@@ -87,7 +88,6 @@ def printInstructionsOnRunningWithHtmlOutput = task('printInstructionsOnRunningW
 }
 
 tasks.withType(rootProject.SpotBugsTask) { task ->
-    task.exclude '**/protogen/**'
     if (project.hasProperty('spotbugsEnableHtmlReport')) {
         // SpotBugs task can only have one report type enabled at a time
         reports {
@@ -100,14 +100,6 @@ tasks.withType(rootProject.SpotBugsTask) { task ->
 
     task.doFirst {
         spotbugsFailed = true
-        def  ft = task.classes
-        if (task.classes == null) {
-            return
-        }
-        task.classes = files(ft.files).filter {
-          !(it.path.contains('Proto$')
-            || it.path.contains('Proto.class'))
-        }
     }
     task.doLast {
         spotbugsFailed = false
