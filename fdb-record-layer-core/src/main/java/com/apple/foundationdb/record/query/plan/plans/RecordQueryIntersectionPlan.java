@@ -280,6 +280,11 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         return getChildren().stream().allMatch(RecordQueryPlan::isStrictlySorted);
     }
 
+    @Override
+    public RecordQueryIntersectionPlan strictlySorted() {
+        return new RecordQueryIntersectionPlan(Quantifiers.fromPlans(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList())), comparisonKey, reverse, true);
+    }
+
     /**
      * Construct a new union of two compatibly-ordered plans. The resulting plan will return all results that are
      * returned by both the {@code left} or {@code right} child plans. Each plan should return results in the same

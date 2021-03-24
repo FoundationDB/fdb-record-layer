@@ -1299,21 +1299,13 @@ public class RecordQueryPlanner implements QueryPlanner {
             } else {
                 possibleTypes = metaData.getRecordTypes().keySet();
             }
-            plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse);
-            if (strictlySorted) {
-                // TODO: Make this a plan property, when that exists.
-                ((RecordQueryScanPlan)plan).setStrictlySorted(true);
-            }
+            plan = new RecordQueryScanPlan(possibleTypes, scanComparisons, candidateScan.reverse, strictlySorted);
         } else {
             if (scanType == null) {
                 scanType = IndexScanType.BY_VALUE;
             }
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse);
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
-            if (strictlySorted) {
-                // TODO: Make this a plan property, when that exists.
-                ((RecordQueryIndexPlan)plan).setStrictlySorted(true);
-            }
         }
         // Add a type filter if the query plan might return records of more types than the query specified
         plan = addTypeFilterIfNeeded(candidateScan, plan, possibleTypes);

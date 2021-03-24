@@ -79,6 +79,11 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     }
 
     @Override
+    default RecordQueryPlanWithChild strictlySorted() {
+        return withChild((RecordQueryPlan)getChild().strictlySorted());
+    }
+
+    @Override
     default boolean hasLoadBykeys() {
         return getChild().hasLoadBykeys();
     }
@@ -88,4 +93,7 @@ public interface RecordQueryPlanWithChild extends RecordQueryPlanWithChildren {
     default AvailableFields getAvailableFields() {
         return getChild().getAvailableFields();
     }
+
+    @Nonnull
+    RecordQueryPlanWithChild withChild(@Nonnull RecordQueryPlan child);
 }

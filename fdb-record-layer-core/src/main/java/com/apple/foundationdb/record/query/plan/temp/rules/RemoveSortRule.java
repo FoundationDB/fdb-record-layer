@@ -99,13 +99,12 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
             }
         }
 
-        if (!orderingKeysIterator.hasNext()) {
-            // If we have exhausted the ordering info's keys, too, then its constituents are strictly ordered.
-            orderingInfo.setStrictlyOrdred(true);
-        } else {
-            orderingInfo.strictlyOrderedIfUnique(call.getContext()::getIndexByName, normalizedSortExpressions.size() + equalityBoundUnsorted);
-        }
+        final boolean strictOrdered =
+                // If we have exhausted the ordering info's keys, too, then its constituents are strictly ordered.
+                !orderingKeysIterator.hasNext() ||
+                // Also a unique index if have gone through declared fields.
+                orderingInfo.strictlyOrderedIfUnique(call.getContext()::getIndexByName, normalizedSortExpressions.size() + equalityBoundUnsorted);
 
-        call.yield(call.ref(innerPlan));
+        call.yield(call.ref(strictOrdered ? innerPlan.strictlySorted() : innerPlan));
     }
 }

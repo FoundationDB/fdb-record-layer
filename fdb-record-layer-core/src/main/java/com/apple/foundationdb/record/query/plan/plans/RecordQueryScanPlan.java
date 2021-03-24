@@ -67,18 +67,17 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Nonnull
     private final ScanComparisons comparisons;
     private final boolean reverse;
-
-    private boolean strictlySorted = false;
+    private final boolean strictlySorted;
 
     /**
      * Overloaded constructor.
-     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, ScanComparisons, boolean)}
+     * Use the overloaded constructor {@link #RecordQueryScanPlan(Set, ScanComparisons, boolean, boolean)}
      * to also pass in a set of record types.
      * @param comparisons comparisons to be applied by the operator
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nonnull ScanComparisons comparisons, boolean reverse) {
-        this(null, comparisons, reverse);
+        this(null, comparisons, reverse, false);
     }
 
     /**
@@ -88,9 +87,21 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
      * @param reverse indicator whether this scan is reverse
      */
     public RecordQueryScanPlan(@Nullable Set<String> recordTypes, @Nonnull ScanComparisons comparisons, boolean reverse) {
+        this(recordTypes, comparisons, reverse, false);
+    }
+
+    /**
+     * Overloaded constructor.
+     * @param recordTypes a super set of record types of the records that this scan operator can produce
+     * @param comparisons comparisons to be applied by the operator
+     * @param reverse indicator whether this scan is reverse
+     * @param strictlySorted whether scan is stricted sorted for original query
+     */
+    public RecordQueryScanPlan(@Nullable Set<String> recordTypes, @Nonnull ScanComparisons comparisons, boolean reverse, boolean strictlySorted) {
         this.recordTypes = recordTypes == null ? null : ImmutableSet.copyOf(recordTypes);
         this.comparisons = comparisons;
         this.reverse = reverse;
+        this.strictlySorted = strictlySorted;
     }
 
     @Nonnull
@@ -159,9 +170,9 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         return strictlySorted;
     }
 
-    public RecordQueryScanPlan setStrictlySorted(final boolean strictlySorted) {
-        this.strictlySorted = strictlySorted;
-        return this;
+    @Override
+    public RecordQueryScanPlan strictlySorted() {
+        return new RecordQueryScanPlan(recordTypes, comparisons, reverse, true);
     }
 
     @Nonnull

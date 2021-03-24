@@ -330,29 +330,16 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
             return orderingKeyParts;
         }
 
-        // TODO: Make this a plan property, when that exists.
-        public void setStrictlyOrdred(boolean strictlyOrdred) {
-            if (orderedPlan instanceof RecordQueryIndexPlan) {
-                ((RecordQueryIndexPlan)orderedPlan).setStrictlySorted(strictlyOrdred);
-            } else if (orderedPlan instanceof RecordQueryScanPlan) {
-                ((RecordQueryScanPlan)orderedPlan).setStrictlySorted(strictlyOrdred);
-            }
-            if (children != null) {
-                for (OrderingInfo child : children) {
-                    child.setStrictlyOrdred(strictlyOrdred);
-                }
-            }
-        }
-
         // TODO: This suggests that ordering and distinct should be tracked together.
-        public void strictlyOrderedIfUnique(Function<String,Index> getIndex, int nkeys) {
+        public boolean strictlyOrderedIfUnique(Function<String,Index> getIndex, int nkeys) {
             if (orderedPlan instanceof RecordQueryIndexPlan) {
                 RecordQueryIndexPlan indexPlan = (RecordQueryIndexPlan)orderedPlan;
                 Index index = getIndex.apply(indexPlan.getIndexName());
                 if (index.isUnique() && nkeys >= index.getColumnSize()) {
-                    indexPlan.setStrictlySorted(true);
+                    return true;
                 }
             }
+            return false;
         }
     }
 

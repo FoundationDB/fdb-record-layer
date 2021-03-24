@@ -153,6 +153,14 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
     }
 
     /**
+     * Return a copy of this plan that has the {@link #isStrictlySorted} property.
+     * @return a copy of this plan
+     */
+    default QueryPlan<T> strictlySorted() {
+        return this;
+    }
+
+    /**
      * Adds one to an appropriate {@link StoreTimer} counter for each plan and subplan of this plan, allowing tracking
      * of which plans are being chosen (e.g. index scan vs. full scan).
      * @param timer the counters to increment

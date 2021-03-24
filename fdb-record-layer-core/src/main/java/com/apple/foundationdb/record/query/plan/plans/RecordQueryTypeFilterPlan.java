@@ -130,6 +130,12 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                 getRecordTypes());
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryTypeFilterPlan(child, getRecordTypes());
+    }
+
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {

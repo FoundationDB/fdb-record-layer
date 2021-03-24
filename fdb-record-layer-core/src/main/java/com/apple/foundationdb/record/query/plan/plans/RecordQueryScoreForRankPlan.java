@@ -172,6 +172,12 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                 getRanks());
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryScoreForRankPlan(child, getRanks());
+    }
+
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {

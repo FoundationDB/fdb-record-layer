@@ -127,6 +127,12 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
                 getFilters());
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryFilterPlan(child, getFilters());
+    }
+
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
