@@ -70,6 +70,7 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
 
         final OrderingInfo orderingInfo = orderingInfoOptional.get();
         final Set<KeyExpression> equalityBoundKeys = orderingInfo.getEqualityBoundKeys();
+        int equalityBoundUnsorted = equalityBoundKeys.size();
         final List<KeyPart> orderingKeys = orderingInfo.getOrderingKeyParts();
         final Iterator<KeyPart> orderingKeysIterator = orderingKeys.iterator();
 
@@ -84,6 +85,7 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
             }
 
             if (equalityBoundKeys.contains(normalizedSortExpression)) {
+                equalityBoundUnsorted--;
                 continue;
             }
             if (!orderingKeysIterator.hasNext()) {
@@ -97,6 +99,12 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
             }
         }
 
-        call.yield(call.ref(innerPlan));
+        final boolean strictOrdered =
+                // If we have exhausted the ordering info's keys, too, then its constituents are strictly ordered.
+                !orderingKeysIterator.hasNext() ||
+                // Also a unique index if have gone through declared fields.
+                orderingInfo.strictlyOrderedIfUnique(call.getContext()::getIndexByName, normalizedSortExpressions.size() + equalityBoundUnsorted);
+
+        call.yield(call.ref(strictOrdered ? innerPlan.strictlySorted() : innerPlan));
     }
 }

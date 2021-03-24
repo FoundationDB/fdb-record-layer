@@ -731,7 +731,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
      */
     @Test
     public void testOrQuery7() throws Exception {
-        RecordMetaDataHook hook = complexPrimaryKeyHook();
+        RecordMetaDataHook hook = complexPrimaryKeyHook(true);
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -817,6 +817,11 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             assertEquals(20 + 20, i);
             assertDiscardedNone(context);
         }
+
+        query = query.toBuilder()
+                .setSort(concat(field("num_value_3_indexed"), primaryKey("MySimpleRecord")))
+                .build();
+        assertEquals(plan, planner.plan(query));
     }
 
     @ParameterizedTest

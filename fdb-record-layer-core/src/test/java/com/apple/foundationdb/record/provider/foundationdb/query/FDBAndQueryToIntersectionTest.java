@@ -448,7 +448,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
     @ParameterizedTest
     @BooleanSource
     public void testAndQuery7(boolean shouldDeferFetch) throws Exception {
-        RecordMetaDataHook hook = complexPrimaryKeyHook();
+        RecordMetaDataHook hook = complexPrimaryKeyHook(true);
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")

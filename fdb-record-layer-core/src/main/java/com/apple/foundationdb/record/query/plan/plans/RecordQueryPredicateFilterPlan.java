@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
@@ -111,6 +112,12 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         return new RecordQueryPredicateFilterPlan(
                 Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
                 getPredicate().rebase(translationMap));
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryPredicateFilterPlan(Quantifier.physical(GroupExpressionRef.of(child)), getPredicate());
     }
 
     @Override

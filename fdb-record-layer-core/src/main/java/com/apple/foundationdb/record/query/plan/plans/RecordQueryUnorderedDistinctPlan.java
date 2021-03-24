@@ -147,6 +147,12 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
                 getComparisonKey());
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryUnorderedDistinctPlan(child, getComparisonKey());
+    }
+
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {

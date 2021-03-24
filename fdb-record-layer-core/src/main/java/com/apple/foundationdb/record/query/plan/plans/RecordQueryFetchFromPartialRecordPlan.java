@@ -130,6 +130,12 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
         return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryFetchFromPartialRecordPlan(child);
+    }
+
     @Override
     public boolean equalsWithoutChildren(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap equivalences) {
         if (this == otherExpression) {
