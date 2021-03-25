@@ -452,8 +452,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 throw recordCoreException("Nonnull version supplied with a NO_VERSION behavior: " + version);
             }
             return null;
-        }
-        if (version == null && (behavior.equals(VersionstampSaveBehavior.WITH_VERSION) || metaData.isStoreRecordVersions())) {
+        } else if (behavior.equals(VersionstampSaveBehavior.IF_PRESENT)) {
+            return version;
+        } else if (version == null && (behavior.equals(VersionstampSaveBehavior.WITH_VERSION) || metaData.isStoreRecordVersions())) {
             return FDBRecordVersion.incomplete(context.claimLocalVersion());
         }
         return version;

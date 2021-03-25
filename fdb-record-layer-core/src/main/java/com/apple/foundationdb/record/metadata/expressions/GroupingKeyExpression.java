@@ -166,7 +166,7 @@ public class GroupingKeyExpression extends BaseKeyExpression implements KeyExpre
     public KeyExpression getGroupingSubKey() {
         return getWholeKey().getSubKey(0, getGroupingCount());
     }
-
+    
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder(getWholeKey().toString());

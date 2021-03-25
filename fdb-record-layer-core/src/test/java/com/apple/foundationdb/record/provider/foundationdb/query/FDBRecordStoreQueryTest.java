@@ -155,6 +155,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setRecordType("ByteStringRecord")
                     .setFilter(Query.field("secondary").equalsValue(byteString(0, 1, 3)))
                     .build();
+
+            // Index(ByteStringRecord$secondary [[[0, 1, 3]],[[0, 1, 3]]])
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("ByteStringRecord$secondary"),
                     bounds(hasTupleString("[[[0, 1, 3]],[[0, 1, 3]]]")))));
@@ -184,6 +186,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                             Query.and(Query.field("secondary").lessThanOrEquals(byteString(0, 1, 2)), Query.field("name").notNull()),
                             Query.field("secondary").greaterThanOrEquals(byteString(0, 1, 3))))
                     .build();
+
+            // Index(ByteStringRecord$secondary ([null],[[0, 1, 2]]]) | name NOT_NULL ∪[Field { 'secondary' None}, Field { 'pkey' None}] Index(ByteStringRecord$secondary [[[0, 1, 3]],>)
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, union(
                     filter(Query.field("name").notNull(),
@@ -227,6 +231,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, null);
 
             RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
+
+            // Scan(<,>) | [MySimpleRecord]
             RecordQueryPlan plan = planner.plan(query);
             assertThat(plan, typeFilter(contains("MySimpleRecord"), scan(unbounded())));
             assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -259,6 +265,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             query = RecordQuery.newBuilder().setRecordType("MySimpleRecord")
                     .setFilter(Query.field("str_value_indexed").equalsValue("odd"))
                     .build();
+
+            // Index(MySimpleRecord$str_value_indexed [[odd],[odd]])
             plan = planner.plan(query);
             assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"),
                     bounds(hasTupleString("[[odd],[odd]]")))));
@@ -392,6 +400,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsParameter("1"),
                         Query.field("num_value_2").equalsParameter("2")))
                 .build();
+
+        // Index(multi_index [EQUALS $1, EQUALS $2])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(
                 indexName("multi_index"),
@@ -472,6 +482,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MyShapeRecord")
                 .setFilter(Query.field("color").equalsValue(TestRecordsEnumProto.MyShapeRecord.Color.RED))
                 .build();
+
+        // Index(color [[10],[10]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan("color"));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
@@ -639,6 +651,9 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("element").oneOfThem().greaterThan("A"))
                     .setRemoveDuplicates(true)
                     .build();
+
+            // Scan(<,>) | [MultiRecordOne, MultiRecordTwo] | one of element GREATER_THAN A
+            // Index(onetwo$element ([A],>) | UnorderedPrimaryKeyDistinct()
             plan = planner.plan(query);
             if (planner instanceof RecordQueryPlanner) {
                 // RecordQueryPlanner doesn't notice that the requested record type match the record types for onetwo$element.

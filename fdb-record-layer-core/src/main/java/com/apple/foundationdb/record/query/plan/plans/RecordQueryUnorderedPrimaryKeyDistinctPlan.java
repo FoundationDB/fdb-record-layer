@@ -133,6 +133,12 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
         return new RecordQueryUnorderedPrimaryKeyDistinctPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryUnorderedPrimaryKeyDistinctPlan(child);
+    }
+
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {

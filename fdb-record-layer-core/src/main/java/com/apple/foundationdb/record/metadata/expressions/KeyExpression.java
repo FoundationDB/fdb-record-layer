@@ -195,6 +195,19 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     /**
+     * Method that indicates to the caller if this key expression can be normalized and re-composed in a way
+     * that yields the original expression.
+     *
+     * @return {@code true} if the key expression has a lossless normalization, {@code false} otherwise
+     */
+    @API(API.Status.INTERNAL)
+    default boolean hasLosslessNormalization() {
+        // TODO make this more adequate to detect subtle semantics changes
+        //      between the original and the derived (normalized) key expression
+        return !createsDuplicates();
+    }
+
+    /**
      * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
      * of the key expression as composition of relational expressions and operators
      * ({@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s). Note that implementors should

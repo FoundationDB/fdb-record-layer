@@ -215,6 +215,16 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         return quantifiers.size();
     }
 
+    @Override
+    public boolean isStrictlySorted() {
+        return getChildren().stream().allMatch(RecordQueryPlan::isStrictlySorted);
+    }
+
+    @Override
+    public QueryPlan<FDBQueriedRecord<Message>> strictlySorted() {
+        return withChildren(getChildren().stream().map(p -> (RecordQueryPlan)p.strictlySorted()).collect(Collectors.toList()));
+    }
+
     @Nonnull
     public abstract RecordQueryUnionPlanBase withChildren(@Nonnull List<RecordQueryPlan> newChildren);
 }

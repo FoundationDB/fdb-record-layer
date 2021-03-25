@@ -14,7 +14,7 @@ This verison of the Record Layer removes some legacy elements of the API that we
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix LiteralKeyExpression hash code [(Issue #1066)](https://github.com/FoundationDB/fdb-record-layer/issues/1066)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -45,6 +45,33 @@ This verison of the Record Layer removes some legacy elements of the API that we
 ### Breaking Changes
 
 In this realase, the various implementations of the `RecordQueryPlan` interface have  moved to API stability level `INTERNAL`. This means that individual implementations may change without notice. Clients that are not creating `RecordQueryPlan` objects directly (but instead using the planner to create plans) should not be affected.
+
+### 2.10.162.0
+
+* **Bug fix** Planner's key from index should include primary keys [(Issue #1138)](https://github.com/FoundationDB/fdb-record-layer/issues/1138)
+* **Performance** RecordQueryPlanner.getKeyForMerge can build redundant merge keys [(Issue #1154)](https://github.com/FoundationDB/fdb-record-layer/issues/1154)
+* **Feature** Need a way to tell whether the result of planning a query is only sorted by the requested keys [(Issue #1155)](https://github.com/FoundationDB/fdb-record-layer/issues/1155)
+
+### 2.10.161.0
+
+* **Bug fix** represent an aggregation function as using a set of aggregation keys [(Issue #1175)](https://github.com/FoundationDB/fdb-record-layer/issues/1175)
+* **Bug fix** `GroupingValidator` only does one level of nesting [(Issue #1172)](https://github.com/FoundationDB/fdb-record-layer/issues/1172)
+* **Feature** Add QueryPlanResult to hold planned query and PlanInfo. [(Issue #1176)](https://github.com/FoundationDB/fdb-record-layer/issues/1176)
+* **Feature** Rank by grouped map-like values [(Issue #1183)](https://github.com/FoundationDB/fdb-record-layer/issues/1183)
+* **Feature** `VersionstampSaveBehavior.IF_PRESENT` allows the user to specify that a record should be saved with a version only if one is explicitly provided [(Issue #958)](https://github.com/FoundationDB/fdb-record-layer/issues/958)
+
+### 2.10.160.0
+
+* **Bug fix** `RecordQueryPlanner.AndWithThenPlanner.planChild` does not have a case like `planAndWithNesting` [(Issue #1140)](https://github.com/FoundationDB/fdb-record-layer/issues/1140)
+* **Bug fix** Covering check when chosen index has duplicate fields [(Issue #1139)](https://github.com/FoundationDB/fdb-record-layer/issues/1139)
+* **Bug fix** `LiteralKeyExpression` fails `hasProperInterfaces` [(Issue #1152)](https://github.com/FoundationDB/fdb-record-layer/issues/1152)
+* **Bug fix** `@DualPlannerTest` does not distinguish tests [(Issue #1150)](https://github.com/FoundationDB/fdb-record-layer/issues/1150)
+* **Performance** represent an aggregation function using a set of aggregation keys rather than a KeyExpression [(Issue #1175)](https://github.com/FoundationDB/fdb-record-layer/issues/1175)
+
+### 2.10.159.0
+
+* **Bug fix** Fix LiteralKeyExpression hash code [(Issue #1066)](https://github.com/FoundationDB/fdb-record-layer/issues/1066)
+* **Bug fix** Stable plan from cost perspective [(Issue #1148)](https://github.com/FoundationDB/fdb-record-layer/issues/1148)
 
 ### 2.10.158.0
 

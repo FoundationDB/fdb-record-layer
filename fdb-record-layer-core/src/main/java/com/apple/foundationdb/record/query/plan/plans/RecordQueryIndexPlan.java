@@ -70,12 +70,18 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     protected final ScanComparisons comparisons;
     protected final boolean reverse;
+    protected final boolean strictlySorted;
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
+    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse, final boolean strictlySorted) {
         this.indexName = indexName;
         this.scanType = scanType;
         this.comparisons = comparisons;
         this.reverse = reverse;
+        this.strictlySorted = strictlySorted;
+    }
+
+    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
+        this(indexName, scanType, comparisons, reverse, false);
     }
 
     @Nonnull
@@ -139,6 +145,16 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         } else {
             return UNKNOWN_MAX_CARDINALITY;
         }
+    }
+
+    @Override
+    public boolean isStrictlySorted() {
+        return strictlySorted;
+    }
+
+    @Override
+    public RecordQueryIndexPlan strictlySorted() {
+        return new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse, true);
     }
 
     @Override

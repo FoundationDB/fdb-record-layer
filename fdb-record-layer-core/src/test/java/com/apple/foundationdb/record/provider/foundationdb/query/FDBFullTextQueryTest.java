@@ -112,6 +112,8 @@ public class FDBFullTextQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
 
+            // Unordered(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) ∪ TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) | UnorderedPrimaryKeyDistinct()) | UnorderedPrimaryKeyDistinct()
+            // Fetch(Unordered(Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PHRASE civil blood makes civil hands unclean, null) -> [doc_id: KEY[1]]) ∪ Covering(TextIndex(SimpleDocument$text null, TEXT_CONTAINS_PREFIX [th], null) -> [doc_id: KEY[1]]) | UnorderedPrimaryKeyDistinct()) | UnorderedPrimaryKeyDistinct())
             RecordQueryPlan plan = planner.plan(query);
             if (shouldDeferFetch) {
                 assertThat(plan, fetch(primaryKeyDistinct(unorderedUnion(

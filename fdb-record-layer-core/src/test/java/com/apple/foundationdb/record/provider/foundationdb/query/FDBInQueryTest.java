@@ -107,6 +107,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").in(asList(0, 2)))
                 .build();
+
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN [0, 2]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1139367278, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -127,6 +129,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").in("valuesThree"))    // num_value_2 is i%3
                 .build();
+
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN $valuesThree
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1677754212, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -149,6 +153,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").in(ls))
                 .build();
+
+        // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
@@ -170,6 +176,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").in("valueThrees"))
                 .build();
+
+        // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN $valueThrees
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
@@ -193,6 +201,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").in("valueThrees"))
                 .build();
+
+        // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN $valueThrees
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
@@ -222,6 +232,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.not(Query.field("num_value_3_indexed").in("valueThrees")))
                 .build();
+
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_3_indexed IN $valueThrees)
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(1667070490, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -249,6 +261,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_3_indexed").in(asList(1, 4, 2)))
                 .setSort(field("num_value_3_indexed"))
                 .build();
+
+        // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4] SORTED
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(asList(1, 2, 4)), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
                 bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
@@ -272,6 +286,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_3_indexed").in(asList(1, 4, 2)))
                 .setSort(field("str_value_indexed"))
                 .build();
+
+        // Index(MySimpleRecord$str_value_indexed <,>) | num_value_3_indexed IN [1, 4, 2]
         RecordQueryPlan plan = planner.plan(query);
         // IN join is cancelled on account of incompatible sorting.
         assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
@@ -308,6 +324,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
                 .build());
 
+        // Index(MySimpleRecord$str_value_indexed <,>) | num_value_3_indexed IN [1, 4, 2]
+        // Index(compoundIndex [[1],[1]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[4],[4]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[2],[2]])
         RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
@@ -356,6 +374,7 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
                 .build());
 
+        // Index(MySimpleRecord$str_value_indexed ([bar],[foo])) | num_value_3_indexed IN [1, 4, 2]
         RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
@@ -428,6 +447,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rec_no").equalsValue(1L),
                         Query.field("path").in(ls))))
                 .build();
+
+        // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String6, String1, String25, String11]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"),
                 bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
@@ -464,6 +485,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rec_no").in(longList),
                         Query.field("path").in(stringList))))
                 .build();
+
+        // Index(ind [EQUALS $__in_rec_no__0, EQUALS $__in_path__1]) WHERE __in_path__1 IN [String6, String25, String1, String34] WHERE __in_rec_no__0 IN [1, 4]
         RecordQueryPlan plan = planner.plan(query);
         Matcher<RecordQueryPlan> indexMatcher = indexScan(allOf(indexName("ind"),
                 bounds(hasTupleString("[EQUALS $__in_rec_no__0, EQUALS $__in_path__1]"))));
@@ -503,6 +526,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rec_no").in(asList(4L, 1L)))))
                 .setSort(field("header").nest(field("rec_no"), field("path")))
                 .build();
+
+        // Index(ind [EQUALS $__in_rec_no__1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String1, String25, String34, String6] SORTED WHERE __in_rec_no__1 IN [1, 4] SORTED
         RecordQueryPlan plan = planner.plan(query);
         List<String> sortedStringList = asList("String1", "String25", "String34", "String6");
         List<Long> sortedLongList = asList(1L, 4L);
@@ -540,6 +565,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rec_no").equalsValue(1L),
                         Query.field("path").in(ls))))
                 .build();
+
+        // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String6, String1, String25, String11]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
         assertEquals(1075889283, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -574,6 +601,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("rec_no").equalsValue(1L),
                         Query.field("path").in(ls))))
                 .build();
+
+        // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String1, String6, String25, String11]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
         assertEquals(1075745133, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -636,6 +665,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("repeater").oneOfThem().in(ls))
                 .build();
+
+        // Index(ind [EQUALS $__in_repeater__0]) | UnorderedPrimaryKeyDistinct() WHERE __in_repeater__0 IN [13, 22]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), primaryKeyDistinct(
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
@@ -660,6 +691,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("repeater").oneOfThem().in("values"))
                 .build();
+
+        // Index(ind [EQUALS $__in_repeater__0]) | UnorderedPrimaryKeyDistinct() WHERE __in_repeater__0 IN $values
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inParameter(equalTo("values"), primaryKeyDistinct(
                 indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
@@ -669,6 +702,32 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan,
                 () -> EvaluationContext.forBinding("values", Arrays.asList(13L, 11L)),
                 record -> assertThat(record.getRecNo() % 4, anyOf(is(3L), is(1L))),
+                TestHelpers::assertDiscardedNone));
+    }
+
+    /**
+     * Verify that one-of-them queries work with IN when sorted on the repeated field.
+     */
+    @Test
+    public void testOneOfThemInSorted() throws Exception {
+        RecordMetaDataHook recordMetaDataHook = metadata ->
+                metadata.addIndex("MySimpleRecord", "ind", field("repeater", FanType.FanOut));
+        setupSimpleRecordStore(recordMetaDataHook,
+                (i, builder) -> builder.setRecNo(i).addAllRepeater(Arrays.asList(10 + i % 4, 20 + i % 4)));
+        List<Integer> ls = Arrays.asList(13, 22);
+        List<Integer> reversed = new ArrayList<>(ls);
+        Collections.reverse(reversed);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("repeater").oneOfThem().in(reversed))
+                .setSort(field("repeater", FanType.FanOut))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, inValues(equalTo(ls), primaryKeyDistinct(
+                indexScan(allOf(indexName("ind"), bounds(hasTupleString("[EQUALS $__in_repeater__0]")))))));
+        assertEquals(503365582, plan.planHash());
+        assertEquals(50, querySimpleRecordStore(recordMetaDataHook, plan, EvaluationContext::empty,
+                record -> assertThat(record.getRecNo() % 4, anyOf(is(3L), is(2L))),
                 TestHelpers::assertDiscardedNone));
     }
 
@@ -692,6 +751,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 .groupBy(Key.Expressions.field("str_value_indexed")))
                                 .in(ls)))
                 .build();
+
+        // Index(rank_by_string [EQUALS str0, EQUALS $__in_rank([Field { 'str_value_indexed' None}, Field { 'num_value_2' None}] group 1)__0] BY_RANK) WHERE __in_rank([Field { 'str_value_indexed' None}, Field { 'num_value_2' None}] group 1)__0 IN [1, 3, 5]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("rank_by_string"), indexScanType(IndexScanType.BY_RANK)))));
         assertEquals(-778840248, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -720,6 +781,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.rank("num_value_2").in(ls))
                 .build();
+
+        // Index(rank [EQUALS $__in_rank(Field { 'num_value_2' None} group 1)__0] BY_RANK) WHERE __in_rank(Field { 'num_value_2' None} group 1)__0 IN [1, 3, 5]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("rank"), indexScanType(IndexScanType.BY_RANK)))));
         assertEquals(1518925028, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -745,6 +808,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_unique").in(Arrays.asList(903, 905, 901)),
                         Query.field("num_value_unique").greaterThan(950)))
                 .build();
+
+        // Index(MySimpleRecord$num_value_unique [EQUALS $__in_num_value_unique__0]) WHERE __in_num_value_unique__0 IN [901, 903, 905] SORTED ∪[Field { 'num_value_unique' None}, Field { 'rec_no' None}] Index(MySimpleRecord$num_value_unique ([950],>)
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 indexScan("MySimpleRecord$num_value_unique"),
@@ -772,6 +837,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_unique").in(Arrays.asList(903, 905, 901)),
                         Query.field("num_value_unique").in(Arrays.asList(906, 905, 904))))
                 .build();
+
+        // Index(MySimpleRecord$num_value_unique [EQUALS $__in_num_value_unique__0]) WHERE __in_num_value_unique__0 IN [901, 903, 905] SORTED ∪[Field { 'num_value_unique' None}, Field { 'rec_no' None}] Index(MySimpleRecord$num_value_unique [EQUALS $__in_num_value_unique__0]) WHERE __in_num_value_unique__0 IN [904, 905, 906] SORTED
         RecordQueryPlan plan = planner.plan(query);
         // Ordinary equality comparisons would be ordered just by the primary key so that would be the union comparison key.
         // Must compare the IN field here; they are ordered, but not trivially (same value for each).
@@ -839,6 +906,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                                 Query.field("num_value_3_indexed").in(Arrays.asList(1, 3)),
                                 Query.field("num_value_3_indexed").greaterThanOrEquals(4))))
                 .build();
+
+        // Index(multi_index [EQUALS odd, EQUALS 0, EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 3] SORTED ∪[Field { 'num_value_3_indexed' None}, Field { 'rec_no' None}] Index(multi_index [[odd, 0, 4],[odd, 0]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, union(
                 inValues(equalTo(Arrays.asList(1, 3)),
@@ -904,6 +973,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         TestRecordsEnumProto.MyShapeRecord.Color.RED,
                         TestRecordsEnumProto.MyShapeRecord.Color.BLUE)))
                 .build();
+
+        // Index(color [EQUALS $__in_color__0]) WHERE __in_color__0 IN [RED, BLUE]
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(indexScan("color")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
@@ -939,6 +1010,8 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").in(ls))
                 .build();
+
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN []
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
         assertEquals(-1139440895, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
