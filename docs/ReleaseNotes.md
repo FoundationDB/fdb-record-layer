@@ -16,10 +16,10 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Planner's key from index should include primary keys [(Issue #1138)](https://github.com/FoundationDB/fdb-record-layer/issues/1138)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Performance** RecordQueryPlanner.getKeyForMerge can build redundant merge keys [(Issue #1154)](https://github.com/FoundationDB/fdb-record-layer/issues/1154)
+* **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -28,7 +28,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Need a way to tell whether the result of planning a query is only sorted by the requested keys [(Issue #1155)](https://github.com/FoundationDB/fdb-record-layer/issues/1155)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,12 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.162.0
+
+* **Bug fix** Planner's key from index should include primary keys [(Issue #1138)](https://github.com/FoundationDB/fdb-record-layer/issues/1138)
+* **Performance** RecordQueryPlanner.getKeyForMerge can build redundant merge keys [(Issue #1154)](https://github.com/FoundationDB/fdb-record-layer/issues/1154)
+* **Feature** Need a way to tell whether the result of planning a query is only sorted by the requested keys [(Issue #1155)](https://github.com/FoundationDB/fdb-record-layer/issues/1155)
 
 ### 2.10.161.0
 
