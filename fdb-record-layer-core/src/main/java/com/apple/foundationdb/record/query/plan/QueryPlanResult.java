@@ -66,4 +66,9 @@ public class QueryPlanResult implements PlanHashable {
     public int planHash() {
         return plan.planHash();
     }
+
+    @Override
+    public String toString() {
+        return plan.toString();
+    }
 }
