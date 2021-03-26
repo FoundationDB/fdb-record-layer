@@ -437,6 +437,41 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that matching part of a nested field only uses part of the index.
+     */
+    @DualPlannerTest
+    public void nestedThenWithAndPartial() throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("RestaurantReviewer", "hometownEmail", concat(field("stats").nest(concatenateFields("hometown", "school_name", "start_date")), field("email")));
+        };
+        nestedWithAndSetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("stats").matches(Query.and(
+                                Query.field("hometown").equalsValue("Home Town"),
+                                Query.field("school_name").equalsValue("University of Learning"))),
+                        Query.field("email").equalsValue("pmp@example.com")))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(Query.field("email").equalsValue("pmp@example.com"),
+                indexScan(allOf(indexName("hometownEmail"), bounds(hasTupleString("[[Home Town, University of Learning],[Home Town, University of Learning]]"))))));
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(895882018, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1929345776, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(391991162, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertEquals(-1385621911, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1566008386, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1191604296, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+        assertEquals(Collections.singletonList(1L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
+                context -> openNestedRecordStore(context, hook),
+                TestHelpers::assertDiscardedNone));
+    }
+
+    /**
      * Verify that an AND query on a nested record store that can be mostly implemented by a scan of a concatenated index
      * still filters on predicates that are not satisfied by scanning that index.
      * Specifically, verify that an AND query with a predicate on an outer record and a predicate on an inner, map-like

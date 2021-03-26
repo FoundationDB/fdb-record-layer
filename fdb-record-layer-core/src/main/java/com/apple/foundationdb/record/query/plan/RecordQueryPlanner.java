@@ -1828,6 +1828,10 @@ public class RecordQueryPlanner implements QueryPlanner {
          */
         private boolean foundComparison;
         /**
+         * True if {@code foundComparison} completely accounted for the child.
+         */
+        private boolean foundCompleteComparison;
+        /**
          * Accumulate matching comparisons here.
          */
         @Nonnull
@@ -1881,8 +1885,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             for (KeyExpression child : indexChildren) {
                 if (!doneComparing) {
                     planChild(child);
-                    if (!comparisons.isEquality() || !foundComparison) {
-                        // Didn't add another equality; done matching filters to index.
+                    if (!comparisons.isEquality() || !foundCompleteComparison) {
+                        // Didn't add another equality or only did part of child; done matching filters to index.
                         doneComparing = true;
                     }
                 }
@@ -1941,12 +1945,13 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
 
         private void planChild(@Nonnull KeyExpression child) {
-            foundComparison = false;
+            foundCompleteComparison = foundComparison = false;
             if (child instanceof RecordTypeKeyExpression) {
                 if (candidateScan.planContext.query.getRecordTypes().size() == 1) {
                     // Can scan just the one requested record type.
                     final RecordTypeKeyComparison recordTypeKeyComparison = new RecordTypeKeyComparison(candidateScan.planContext.query.getRecordTypes().iterator().next());
                     addToComparisons(recordTypeKeyComparison.getComparison());
+                    foundCompleteComparison = true;
                 }
                 return;
             }
@@ -1971,10 +1976,14 @@ public class RecordQueryPlanner implements QueryPlanner {
                     }
                     if (nestedFilters.size() > 1) {
                         final NestedField nestedAnd = new NestedField(parent.getFieldName(), Query.and(nestedChildren));
-                        if (planNestedFieldChild(child, nestedAnd, null)) {
-                            unsatisfiedFilters.removeAll(nestedFilters);
+                        final List<QueryComponent> saveUnsatisfiedFilters = new ArrayList<>(unsatisfiedFilters);
+                        unsatisfiedFilters.removeAll(nestedFilters);
+                        unsatisfiedFilters.add(nestedAnd);
+                        if (planNestedFieldChild(child, nestedAnd, nestedAnd)) {
                             return;
                         }
+                        unsatisfiedFilters.clear();
+                        unsatisfiedFilters.addAll(saveUnsatisfiedFilters);
                     }
                 }
             }
@@ -1998,7 +2007,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         }
 
-        private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nullable QueryComponent filterChild) {
+        private boolean planNestedFieldChild(@Nonnull KeyExpression child, @Nonnull NestedField filterField, @Nonnull QueryComponent filterChild) {
             ScoredPlan scoredPlan = planNestedField(candidateScan, child, filterField, null);
             ScanComparisons nextComparisons = getPlanComparisons(scoredPlan);
             if (nextComparisons != null) {
@@ -2014,15 +2023,17 @@ public class RecordQueryPlanner implements QueryPlanner {
                     } else if (currentSort != null) {
                         // Didn't plan to equality, need to try with sorting.
                         scoredPlan = planNestedField(candidateScan, child, filterField, currentSort);
+                        if (scoredPlan != null) {
+                            advanceCurrentSort();
+                        }
                     }
                     if (scoredPlan != null) {
-                        if (filterChild != null) {
-                            unsatisfiedFilters.remove(filterChild);
-                        }
+                        unsatisfiedFilters.remove(filterChild);
                         unsatisfiedFilters.addAll(scoredPlan.unsatisfiedFilters);
                         comparisons.addAll(nextComparisons);
                         if (nextComparisons.isEquality()) {
                             foundComparison = true;
+                            foundCompleteComparison = nextComparisons.getEqualitySize() == child.getColumnSize();
                         }
                         return true;
                     }
@@ -2053,10 +2064,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 FieldKeyExpression indexField = (FieldKeyExpression) child;
                 if (Objects.equals(field.getFieldName(), indexField.getFieldName())) {
                     if (addToComparisons(field.getComparison())) {
-                        unsatisfiedFilters.remove(filterChild);
-                        if (foundComparison && currentSortMatches(child)) {
-                            advanceCurrentSort();
-                        }
+                        addedComparison(child, filterChild);
                     }
                 }
             }
@@ -2065,10 +2073,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         private void planWithComparisonChild(@Nonnull KeyExpression child, @Nonnull QueryKeyExpressionWithComparison queryKeyExpression, @Nonnull QueryComponent filterChild) {
             if (child.equals(queryKeyExpression.getKeyExpression())) {
                 if (addToComparisons(queryKeyExpression.getComparison())) {
-                    unsatisfiedFilters.remove(filterChild);
-                    if (foundComparison && currentSortMatches(child)) {
-                        advanceCurrentSort();
-                    }
+                    addedComparison(child, filterChild);
                 }
             }
         }
@@ -2078,10 +2083,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                 FieldKeyExpression indexField = (FieldKeyExpression) child;
                 if (Objects.equals(oneOfThem.getFieldName(), indexField.getFieldName()) && indexField.getFanType() == FanType.FanOut) {
                     if (addToComparisons(oneOfThem.getComparison())) {
-                        unsatisfiedFilters.remove(filterChild);
-                        if (foundComparison && currentSortMatches(child)) {
-                            advanceCurrentSort();
-                        }
+                        addedComparison(child, filterChild);
                     }
                 }
             }
@@ -2090,10 +2092,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         private void planWithVersionComparisonChild(@Nonnull KeyExpression child, @Nonnull QueryRecordFunctionWithComparison filter, @Nonnull QueryComponent filterChild) {
             if (child instanceof VersionKeyExpression) {
                 if (addToComparisons(filter.getComparison())) {
-                    unsatisfiedFilters.remove(filterChild);
-                    if (foundComparison && currentSortMatches(child)) {
-                        advanceCurrentSort();
-                    }
+                    addedComparison(child, filterChild);
                 }
             }
         }
@@ -2117,6 +2116,16 @@ public class RecordQueryPlanner implements QueryPlanner {
                     break;
             }
             return false;
+        }
+
+        private void addedComparison(@Nonnull KeyExpression child, @Nonnull QueryComponent filterChild) {
+            unsatisfiedFilters.remove(filterChild);
+            if (foundComparison) {
+                foundCompleteComparison = true;
+                if (currentSortMatches(child)) {
+                    advanceCurrentSort();
+                }
+            }
         }
 
     }
