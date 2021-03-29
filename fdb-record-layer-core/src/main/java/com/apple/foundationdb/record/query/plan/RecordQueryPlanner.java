@@ -481,13 +481,13 @@ public class RecordQueryPlanner implements QueryPlanner {
         return null;
     }
 
-    // Get the key expression for the index entries, which includes primary key fields for normal indexes.
+    // Get the key expression for the index entries of the given index, which includes primary key fields for normal indexes.
     private KeyExpression indexKeyExpressionForPlan(@Nullable KeyExpression commonPrimaryKey, @Nonnull Index index) {
         KeyExpression indexKeyExpression = index.getRootExpression();
         if (indexKeyExpression instanceof KeyWithValueExpression) {
             indexKeyExpression = ((KeyWithValueExpression) indexKeyExpression).getKeyExpression();
         }
-        if (commonPrimaryKey != null && indexTypes.getValueTypes().contains(index.getType())) {
+        if (commonPrimaryKey != null && indexTypes.getValueTypes().contains(index.getType()) && configuration.shouldUseFullKeyForValueIndex()) {
             final List<KeyExpression> keys = new ArrayList<>(commonPrimaryKey.normalizeKeyForPositions());
             index.trimPrimaryKey(keys);
             if (!keys.isEmpty()) {
