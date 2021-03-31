@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -90,7 +91,7 @@ public class QueryPlanInfo {
     @SuppressWarnings("java:S1452")
     @Nonnull
     public Set<QueryPlanInfoKey<?>> keySet() {
-        return info.keySet();
+        return Collections.unmodifiableSet(info.keySet());
     }
 
     /**
