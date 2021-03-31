@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -55,7 +56,7 @@ public class QueryPlanInfo {
      * @param <T> the type of value returned (determined by the key generic type)
      * @return the value for the key, null if not found
      */
-    @Nonnull
+    @Nullable
     public <T> T get(@Nonnull QueryPlanInfoKey<T> key) {
         return key.narrow(info.get(key));
     }
