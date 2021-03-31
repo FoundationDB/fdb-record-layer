@@ -24,6 +24,7 @@ import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * This class holds some additional information regarding the query plan that can be attached to the plan itself, without
@@ -71,6 +72,24 @@ public class QueryPlanInfo {
     public <T> QueryPlanInfo put(@Nonnull QueryPlanInfoKey<T> key, @Nonnull T value) {
         info.put(key, value);
         return this;
+    }
+
+    /**
+     * Return TRUE if the info set is empty.
+     * @return TRUE if the info set is empty
+     */
+    public boolean isEmpty() {
+        return info.isEmpty();
+    }
+
+    /**
+     * Return the Key Set for info map.
+     * @return the Key Sey for the info map
+     */
+    @SuppressWarnings("java:S1452")
+    @Nonnull
+    public Set<QueryPlanInfoKey<?>> keySet() {
+        return info.keySet();
     }
 
     /**
