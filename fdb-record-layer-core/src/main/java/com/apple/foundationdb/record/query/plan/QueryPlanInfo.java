@@ -21,9 +21,12 @@
 package com.apple.foundationdb.record.query.plan;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * This class holds some additional information regarding the query plan that can be attached to the plan itself, without
@@ -54,7 +57,7 @@ public class QueryPlanInfo {
      * @param <T> the type of value returned (determined by the key generic type)
      * @return the value for the key, null if not found
      */
-    @Nonnull
+    @Nullable
     public <T> T get(@Nonnull QueryPlanInfoKey<T> key) {
         return key.narrow(info.get(key));
     }
@@ -71,6 +74,24 @@ public class QueryPlanInfo {
     public <T> QueryPlanInfo put(@Nonnull QueryPlanInfoKey<T> key, @Nonnull T value) {
         info.put(key, value);
         return this;
+    }
+
+    /**
+     * Return TRUE if the info set is empty.
+     * @return TRUE if the info set is empty
+     */
+    public boolean isEmpty() {
+        return info.isEmpty();
+    }
+
+    /**
+     * Return the Key Set for info map.
+     * @return the Key Sey for the info map
+     */
+    @SuppressWarnings("java:S1452")
+    @Nonnull
+    public Set<QueryPlanInfoKey<?>> keySet() {
+        return Collections.unmodifiableSet(info.keySet());
     }
 
     /**
