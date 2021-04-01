@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -70,6 +71,28 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexer.buildIndex(true);
         }
+    }
+
+    private void buildIndexAndCrashHalfway(Index tgtIndex, int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.IndexFromIndexPolicy policy) {
+        final AtomicLong counter = new AtomicLong(0);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(policy)
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .setConfigLoader(old -> {
+                    if (counter.incrementAndGet() > count) {
+                        throw new RecordCoreException("Intentionally crash during test");
+                    }
+                    return old;
+                })
+                .build()) {
+
+            assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            // The index should be partially built
+        }
+        final int expected = policy == null ? count + 1 : count; // by-records performs an extra range while building endpoints
+        assertEquals(expected , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
     }
 
     @Test
@@ -287,7 +310,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     public void testIndexFromIndexPersistentContinuation() {
-        // start indexing by Index, verify refusal to continue by records
+        // start indexing by Index, verify continuation
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 1329;
         final int chunkSize  = 42;
@@ -304,27 +327,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        final AtomicLong counter = new AtomicLong(0);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
-                        .setSourceIndex("src_index")
-                        .forbidRecordScan()
-                        .build())
-                .setLimit(chunkSize)
-                .setTimer(timer)
-                .setConfigLoader(old -> {
-                    if (counter.incrementAndGet() > 4) {
-                        throw new RecordCoreException("Intentionally crash during test");
-                    }
-                    return old;
-                })
-                .build()) {
-
-            assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            // The index should be partially built
-        }
-        assertEquals(4 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 4, timer,
+                OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                .setSourceIndex("src_index")
+                .forbidRecordScan()
+                .build());
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
@@ -347,7 +354,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     public void testIndexFromIndexPersistentPreventBadContinuation() {
-        // start indexing by Index, verify refusal to continue by records
+        // start indexing by index, verify refusal to continue by records, then continue by index
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 1328;
         final int chunkSize  = 42;
@@ -365,31 +372,16 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        final AtomicLong counter = new AtomicLong(0);
-        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
-                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+                OnlineIndexer.IndexFromIndexPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .build())
-                .setLimit(chunkSize)
-                .setTimer(timer)
-                .setConfigLoader(old -> {
-                    if (counter.incrementAndGet() > 7) {
-                        throw new RecordCoreException("Intentionally crash during test");
-                    }
-                    return old;
-                })
-                .build()) {
-            // build by index
-            assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
-            // The index should be partially built by index
-        }
-        assertEquals(7 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+                        .build());
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
                 .setTimer(timer)
                 .build()) {
 
@@ -418,8 +410,309 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    public void testIndexFromIndexRebuild() {
+    public void testIndexFromIndexPersistentContinuePreviousByIndex() {
+        // start indexing by Index, verify refusal to continue by records, then allow continuation of the previous by index method - overriding the by records request
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1328;
+        final int chunkSize  = 42;
 
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+                OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .setForbidRecordScan(true)
+                        .build());
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
+                .setTimer(timer)
+                .build()) {
+
+            // now try building by records, a failure is expected
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+        }
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setTimer(timer)
+                .build()) { // IndexStatePrecondition gets the default BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY)
+
+            // now continue building, overriding the requested method with the previous one
+            indexBuilder.buildIndex(true);
+        }
+
+        // counters should demonstrate a continuation to completion
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testIndexFromIndexPersistentContinuePreviousByRecords() {
+        // start indexing by records, allow continuation of previous by records method - overriding the by-index request
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1328;
+        final int chunkSize  = 42;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer, null);
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setTimer(timer)
+                .build()) {
+
+            // now try building by records, a failure is expected
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+        }
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setTimer(timer)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .build()) { // IndexStatePrecondition gets the default BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY)
+
+            // now continue building, overriding the requested method with the previous one
+            indexBuilder.buildIndex(true);
+        }
+
+        // counters should demonstrate a continuation to completion
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testIndexFromIndexPersistentContinuePreviousByRecordsWithoutTypeStamp() {
+        // start indexing by records, earse the type stamp to simulate old code, verify refusal to continue, then allow continuation of previous by records method - overriding the by-index request
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1328;
+        final int chunkSize  = 42;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer, null);
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setTimer(timer)
+                .build()) {
+            // erase the previous type stamp - of the by-records
+            indexBuilder.eraseIndexingTypeStampTestOnly().join();
+
+            // now try building by records, a failure is expected
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+        }
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setTimer(timer)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .build()) { // IndexStatePrecondition gets the default BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY)
+
+            // now continue building, overriding the requested method with the previous one
+            indexBuilder.buildIndex(true);
+        }
+
+        // counters should demonstrate a continuation to completion
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+    @Test
+    public void testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange() {
+        // start indexing by records, request a rebuild - by index - if the indexing type stamp had changed
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1328;
+        final int chunkSize  = 42;
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer, null);
+
+        openSimpleMetaData(hook);
+        timer.reset();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setTimer(timer)
+                .build()) {
+
+            indexBuilder.buildIndex(true);
+        }
+
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+    }
+
+
+    @Test
+    public void testIndexFromIndexRebuildIfWriteOnlyAndForceBuildAndBuildIfDisabled() {
+        // test various IndexStatePrecondition options to ensure coverage (note that the last section will disable and rebuild the source index)
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1329;
+        final int chunkSize  = 42;
+        final int numChunks  = 1 + (numRecords / chunkSize);
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 5, timer, null);
+
+        openSimpleMetaData(hook);
+        timer.reset();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY)
+                .build()) {
+            // now continue building from the last successful range
+            indexBuilder.buildIndex(true);
+        }
+        // counters should demonstrate a continuation to completion
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+
+        // now check FORCE_BUILD
+        openSimpleMetaData(hook);
+        timer.reset();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.FORCE_BUILD)
+                .build()) {
+            // now force building (but leave it write_only)
+            indexBuilder.buildIndex(false);
+        }
+        // counters should demonstrate a continuation to completion
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+
+        // now check BUILD_IF_DISABLED when WRITE_ONLY (from previous test)
+        openSimpleMetaData(hook);
+        timer.reset();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED)
+                .setTimer(timer)
+                .build()) {
+
+            // now try building if disabled, nothing should be happening
+            indexBuilder.buildIndex(true);
+        }
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+
+        // to test BUILD_IF_DISABLED when disabled - disable the src and build again
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            recordStore.markIndexDisabled(srcIndex).join();
+            context.commit();
+        }
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(srcIndex).setSubspace(subspace)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED)
+                .setTimer(timer)
+                .build()) {
+            indexer.buildIndex(true);
+        }
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+    }
+
+    @Test
+    public void testIndexFromIndexRebuild() {
+        // test the inline rebuildIndex function by-index
         final FDBStoreTimer timer = new FDBStoreTimer();
         final long numRecords = 1000;
 

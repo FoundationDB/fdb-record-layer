@@ -22,8 +22,10 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
+import com.apple.foundationdb.Range;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
@@ -79,7 +81,7 @@ public abstract class IndexingBase {
     private long timeOfLastProgressLogMillis = 0;
     private boolean forceStampOverwrite = false;
 
-    IndexingBase(IndexingCommon common) {
+    IndexingBase(@Nonnull IndexingCommon common) {
         this.common = common;
         this.throttle = new IndexingThrottle(common);
     }
@@ -151,10 +153,12 @@ public abstract class IndexingBase {
         }
         return buildIndexAsyncFuture.whenComplete((vignore, ex) -> {
             if (LOGGER.isWarnEnabled() && (ex != null)) {
-                message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
+                message.addKeyAndValue(LogMessageKeys.RESULT, "failure")
+                        .addKeysAndValues(common.indexLogMessageKeyValues());
                 LOGGER.warn(message.toString(), ex);
             } else if (LOGGER.isInfoEnabled()) {
-                message.addKeyAndValue(LogMessageKeys.RESULT, "success");
+                message.addKeyAndValue(LogMessageKeys.RESULT, "success")
+                        .addKeysAndValues(common.indexLogMessageKeyValues());
                 LOGGER.info(message.toString());
             }
         });
@@ -170,9 +174,13 @@ public abstract class IndexingBase {
                 if (newSynchronizedRunner.equals(currentSynchronizedRunner2)) {
                     common.setSynchronizedSessionRunner(null);
                 } else {
-                    LOGGER.warn(KeyValueLogMessage.of("synchronizedSessionRunner was modified during the run",
-                            LogMessageKeys.SESSION_ID, newSynchronizedRunner.getSessionId(),
-                            LogMessageKeys.INDEXER_SESSION_ID, currentSynchronizedRunner2 == null ? null : currentSynchronizedRunner2.getSessionId()));
+                    if (LOGGER.isWarnEnabled()) {
+                        LOGGER.warn(KeyValueLogMessage.build("synchronizedSessionRunner was modified during the run",
+                                LogMessageKeys.SESSION_ID, newSynchronizedRunner.getSessionId(),
+                                LogMessageKeys.INDEXER_SESSION_ID, currentSynchronizedRunner2 == null ? null : currentSynchronizedRunner2.getSessionId())
+                                .addKeysAndValues(common.indexLogMessageKeyValues())
+                                .toString());
+                    }
                 }
                 return newSynchronizedRunner.endSessionAsync();
             }, getRunner().getDatabase()::mapAsyncToSyncException);
@@ -190,122 +198,189 @@ public abstract class IndexingBase {
 
         OnlineIndexer.IndexStatePrecondition indexStatePrecondition = common.getIndexStatePrecondition();
         message.addKeyAndValue(LogMessageKeys.INDEX_STATE_PRECONDITION, indexStatePrecondition);
-        if (indexStatePrecondition == OnlineIndexer.IndexStatePrecondition.ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY) {
-            message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, true);
-            return doBuildIndexAsync(markReadable);
-        }
         final Index index = common.getIndex();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(index);
-            boolean shouldBuild = shouldBuildIndex(indexState, indexStatePrecondition);
+            boolean shouldBuild = true;         // defaults are the common cases
+            boolean shouldClear = false;        // (will clear only if shouldBuild)
+            boolean shouldMarkWriteOnly = indexState != IndexState.WRITE_ONLY; // may avoid it to allow error if not WRITE_ONLY
+            switch (indexStatePrecondition) {
+                case FORCE_BUILD:
+                    shouldClear = true;
+                    break;
+
+                case BUILD_IF_DISABLED:
+                    shouldBuild = indexState == IndexState.DISABLED;
+                    break;
+
+                case BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY:
+                    shouldBuild = indexState == IndexState.DISABLED || indexState == IndexState.WRITE_ONLY;
+                    shouldClear = indexState == IndexState.WRITE_ONLY;
+                    break;
+
+                case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY:
+                case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED:
+                case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED:
+                    shouldBuild = indexState == IndexState.DISABLED || indexState == IndexState.WRITE_ONLY;
+                    break;
+
+                case ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY:
+                    shouldMarkWriteOnly = false; // let it err if not write only (why wait? je)
+                    break;
+
+                default:
+                    throw new RecordCoreException("unknown index state precondition " + indexStatePrecondition);
+            }
+
             message.addKeyAndValue(LogMessageKeys.INITIAL_INDEX_STATE, indexState);
             message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, shouldBuild);
-            if (shouldBuild) {
-                boolean shouldClear = shouldClearExistingIndexEntries(indexState, indexStatePrecondition);
-                message.addKeyAndValue(LogMessageKeys.SHOULD_CLEAR_EXISTING_DATA, shouldClear);
-                if (shouldClear) {
-                    store.clearIndexData(index);
-                }
-                return store.markIndexWriteOnly(index).thenApply(vignore -> true);
-            } else {
-                return AsyncUtil.READY_FALSE;
+            message.addKeyAndValue(LogMessageKeys.SHOULD_CLEAR_EXISTING_DATA, shouldClear);
+            if (!shouldBuild) {
+                return AsyncUtil.READY_FALSE; // do not index
             }
-        })).thenCompose(shouldBuild -> shouldBuild != null && shouldBuild ? doBuildIndexAsync(markReadable) : AsyncUtil.DONE);
+            if (shouldClear) {
+                store.clearIndexData(index);
+                forceStampOverwrite = true; // The code can work without this line, but it'll save probing the missing ranges
+            }
+            if (shouldMarkWriteOnly || shouldClear) {
+                // a fresh build
+                return store.markIndexWriteOnly(index).thenCompose(ignore -> setIndexingTypeOrThrow(store, false)).thenApply(ignore -> true);
+            } else {
+                // a continuation of another session
+                return setIndexingTypeOrThrow(store, true).thenApply(ignore -> true);
+            }
+        })
+        ).thenCompose(doIndex ->
+                Boolean.TRUE.equals(doIndex) ?
+                buildIndexInternalAsync().thenApply(ignore -> markReadable) :
+                AsyncUtil.READY_FALSE
+        ).thenCompose(this::markIndexReadable);
     }
 
-    @SuppressWarnings("fallthrough")
-    private boolean shouldBuildIndex(@Nonnull IndexState indexState, @Nonnull OnlineIndexer.IndexStatePrecondition indexStatePrecondition) {
-        switch (indexStatePrecondition) {
-            case BUILD_IF_DISABLED:
-                return indexState == IndexState.DISABLED;
-
-            case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY:
-            case BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY:
-                return indexState == IndexState.DISABLED || indexState == IndexState.WRITE_ONLY;
-
-            case FORCE_BUILD:
-                return true;
-
-            default:
-                throw new RecordCoreException("unknown index state precondition " + indexStatePrecondition);
+    private CompletableFuture<Void> markIndexReadable(boolean markReadablePlease) {
+        if (!markReadablePlease) {
+            return AsyncUtil.DONE; // they didn't say please..
         }
+        return getRunner().runAsync(context -> openRecordStore(context)
+                .thenCompose(store -> store.markIndexReadable(common.getIndex()))
+                .thenApply(ignore -> null));
     }
 
-    private boolean shouldClearExistingIndexEntries(@Nonnull IndexState indexState,
-                                                    @Nonnull OnlineIndexer.IndexStatePrecondition indexStatePrecondition) {
-        // If the index state is DISABLED, it is expected that there is no existing index entry. But we would like
-        // to clear it anyway to play safe.
-        return !(indexState == IndexState.WRITE_ONLY && indexStatePrecondition.isContinueIfWriteOnly());
-    }
-
-    @Nonnull
-    private CompletableFuture<Void> doBuildIndexAsync(boolean markReadable) {
-        CompletableFuture<Void> buildFuture =
-                setIndexingTypeOrThrow()
-                        .thenCompose(ignore -> buildIndexInternalAsync());
-
-        if (markReadable) {
-            return buildFuture.thenCompose(vignore ->
-                    getRunner().runAsync(context -> openRecordStore(context)
-                            .thenCompose(store -> store.markIndexReadable(common.getIndex()))
-                            .thenApply(ignore -> null)));
-        } else {
-            return buildFuture;
-        }
-    }
-
-    @Nonnull
     public void setFallbackMode() {
         forceStampOverwrite = true; // must overwrite a previous indexing method's stamp
     }
 
     @Nonnull
-    private CompletableFuture<Void> setIndexingTypeOrThrow() {
-        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
-            Transaction transaction = store.getContext().ensureActive();
-            IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp();
-            byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
-            return transaction.get(stampKey)
-                    .thenApply( bytes -> {
-                        if (bytes == null || forceStampOverwrite) {
-                            transaction.set(stampKey, indexingTypeStamp.toByteArray());
-                        } else {
-                            IndexBuildProto.IndexBuildIndexingStamp savedStamp;
-                            try {
-                                savedStamp = IndexBuildProto.IndexBuildIndexingStamp.parseFrom(bytes);
-                            } catch (InvalidProtocolBufferException ex) {
-                                RecordCoreException protoEx = new RecordCoreException("invalid indexing type stamp",
-                                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                                        LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
-                                        LogMessageKeys.INDEXER_ID, common.getUuid(),
-                                        LogMessageKeys.EXPECTED, indexingTypeStamp,
-                                        LogMessageKeys.ACTUAL, bytes);
-                                protoEx.initCause(ex);
-                                throw protoEx;
-                            }
-                            if ( savedStamp == null || ! matchingIndexingTypeStamp(savedStamp)) {
-                                throw new RecordCoreException("This index was partly built by another method",
-                                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                                        LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
-                                        LogMessageKeys.INDEXER_ID, common.getUuid(),
-                                        LogMessageKeys.EXPECTED, indexingTypeStamp,
-                                        LogMessageKeys.ACTUAL, savedStamp);
-                            }
+    private CompletableFuture<Void> setIndexingTypeOrThrow(FDBRecordStore store, boolean continuedBuild) {
+        // continuedBuild is set if this session isn't a continuation of a previous indexing
+        Transaction transaction = store.getContext().ensureActive();
+        IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
+        byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
+        if (forceStampOverwrite && !continuedBuild) {
+            // Fresh session + overwrite = no questions asked
+            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+            return AsyncUtil.DONE;
+        }
+        return transaction.get(stampKey)
+                .thenCompose( bytes -> {
+                    if (bytes == null) {
+                        if (continuedBuild && indexingTypeStamp.getMethod() !=
+                                          IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
+                            // backward compatibility - maybe continuing an old BY_RECORD session
+                            return isWriteOnlyButNoRecordScanned(store, transaction)
+                                    .thenCompose(noRecordScanned -> {
+                                        if (Boolean.TRUE.equals(noRecordScanned)) {
+                                            // an empty type stamp, and nothing was indexed - it is safe to write stamp
+                                            if (LOGGER.isInfoEnabled()) {
+                                                LOGGER.info(KeyValueLogMessage.build("no scanned ranges - continue indexing")
+                                                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                                                        .toString());
+                                            }
+                                            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+                                            return AsyncUtil.DONE;
+                                        }
+                                        // Here: there is no type stamp, but indexing is ongoing. For backward compatibility reasons, we'll consider it a BY_RECORDS stamp
+                                        if (LOGGER.isInfoEnabled()) {
+                                            LOGGER.info(KeyValueLogMessage.build("continuation with null type stamp, assuming previous by-records scan")
+                                                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                                                    .toString());
+                                        }
+                                        final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingByRecords.compileIndexingTypeStamp();
+                                        throw newPartlyBuildException(true, fakeSavedStamp, indexingTypeStamp);
+                                    });
                         }
-                        return null;
-                    });
-        } ));
+                        // Here: either not a continuedBuild (new session), or a BY_RECORD session (allowed to overwrite the null stamp)
+                        transaction.set(stampKey, indexingTypeStamp.toByteArray());
+                        return AsyncUtil.DONE;
+                    }
+                    // Here: has non-null type stamp
+                    IndexBuildProto.IndexBuildIndexingStamp savedStamp = parseTypeStampOrThrow(bytes);
+                    if (indexingTypeStamp.equals(savedStamp)) {
+                        // A matching stamp is already there - One less thing to worry about
+                        return AsyncUtil.DONE;
+                    }
+                    if (forceStampOverwrite) {  // and a continued Build
+                        // check if partly built
+                        return isWriteOnlyButNoRecordScanned(store, transaction)
+                                .thenCompose(noRecordScanned -> {
+                                    if (Boolean.TRUE.equals(noRecordScanned)) {
+                                        // we can safely overwrite the previous type stamp
+                                        transaction.set(stampKey, indexingTypeStamp.toByteArray());
+                                        return AsyncUtil.DONE;
+                                    }
+                                    // A force overwrite cannot be allowed when partly built
+                                    throw newPartlyBuildException(continuedBuild, savedStamp, indexingTypeStamp);
+                                });
+                    }
+                    // fall down to exception
+                    throw newPartlyBuildException(continuedBuild, savedStamp, indexingTypeStamp);
+                });
     }
 
     @Nonnull
-    abstract IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp();
-
-    @Nonnull
-    private boolean matchingIndexingTypeStamp(@Nonnull final IndexBuildProto.IndexBuildIndexingStamp stamp) {
-        return getIndexingTypeStamp().equals(stamp);
-    }
+    abstract IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store);
 
     abstract CompletableFuture<Void> buildIndexInternalAsync();
+
+    private IndexBuildProto.IndexBuildIndexingStamp parseTypeStampOrThrow(byte[] bytes) {
+        try {
+            return IndexBuildProto.IndexBuildIndexingStamp.parseFrom(bytes);
+        } catch (InvalidProtocolBufferException ex) {
+            RecordCoreException protoEx = new RecordCoreException("invalid indexing type stamp",
+                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                    LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                    LogMessageKeys.INDEXER_ID, common.getUuid(),
+                    LogMessageKeys.ACTUAL, bytes);
+            protoEx.initCause(ex);
+            throw protoEx;
+        }
+    }
+
+    private CompletableFuture<Boolean> isWriteOnlyButNoRecordScanned(FDBRecordStore store, Transaction transaction) {
+        RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
+        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
+        return ranges.onHasNext().thenCompose(hasNext -> {
+                    if (Boolean.TRUE.equals(hasNext)) {
+                        final Range range = ranges.next();
+                        return CompletableFuture.completedFuture(RangeSet.isFirstKey(range.begin) && RangeSet.isFinalKey(range.end));
+                    }
+                    return AsyncUtil.READY_FALSE; // fully built - no missing ranges
+                }
+            );
+    }
+
+    RecordCoreException newPartlyBuildException(boolean continuedBuild,
+                                                IndexBuildProto.IndexBuildIndexingStamp savedStamp,
+                                                IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
+        return new PartlyBuiltException(savedStamp,
+                "This index was partly built by another method",
+                LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
+                LogMessageKeys.INDEXER_ID, common.getUuid(),
+                LogMessageKeys.CONTINUED_BUILD, continuedBuild,
+                LogMessageKeys.EXPECTED, indexingTypeStamp,
+                LogMessageKeys.ACTUAL, savedStamp);
+    }
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
     protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
@@ -316,14 +391,11 @@ public abstract class IndexingBase {
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
             final Index index = common.getIndex();
             LOGGER.info(KeyValueLogMessage.build("Built Range",
-                    LogMessageKeys.INDEX_NAME, index.getName(),
-                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
                     subspaceProvider.logKey(), subspaceProvider,
-                    LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get(),
                     LogMessageKeys.LIMIT, limit,
-                    LogMessageKeys.DELAY, toWait,
-                    LogMessageKeys.INDEXER_ID, common.getUuid())
+                    LogMessageKeys.DELAY, toWait)
                     .addKeysAndValues(additionalLogMessageKeyValues)
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
                     .toString());
         }
 
@@ -513,6 +585,20 @@ public abstract class IndexingBase {
                        @Nullable List<Object> additionalLogMessageKeyValues) {
         throttle.decreaseLimit(fdbException, additionalLogMessageKeyValues);
     }
+
+    /**
+     * thrown when IndexFromIndex validation fails.
+     */
+    @SuppressWarnings("serial")
+    public static class  PartlyBuiltException extends RecordCoreException {
+        final IndexBuildProto.IndexBuildIndexingStamp savedStamp;
+
+        public PartlyBuiltException(@Nonnull IndexBuildProto.IndexBuildIndexingStamp savedStamp, @Nonnull String msg, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
+            this.savedStamp = savedStamp;
+        }
+    }
+
 }
 
 
