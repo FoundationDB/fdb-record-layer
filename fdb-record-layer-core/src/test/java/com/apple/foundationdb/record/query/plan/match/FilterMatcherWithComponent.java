@@ -86,7 +86,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
                 return predicate.semanticEquals(componentAsPredicateSupplier.get(), AliasMap.of(planBaseAlias, baseAlias))
                        && super.matchesSafely(plan);
             } else if (predicate instanceof QueryComponentPredicate) {
-                return component.equals(((QueryComponentPredicate)predicate).getQueryComponent());
+                return component.equals(((QueryComponentPredicate)predicate).getQueryComponent()) && super.matchesSafely(plan);
             } else {
                 return false;
             }

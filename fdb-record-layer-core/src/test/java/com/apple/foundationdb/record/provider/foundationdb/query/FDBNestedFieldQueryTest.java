@@ -69,8 +69,10 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexS
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.queryPredicateDescendant;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -246,6 +248,33 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(Collections.singletonList(101L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
                 this::openNestedRecordStore,
                 TestHelpers::assertDiscardedNone));
+
+        QueryComponent reviewFilter = Query.field("reviews").oneOfThem().matches(Query.and(
+                Query.field("rating").equalsValue(5),
+                Query.field("reviewer").equalsValue(1L)));
+        query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantRecord")
+                .setFilter(reviewFilter)
+                .build();
+        plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            assertThat(plan, filter(reviewFilter, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), bounds(hasTupleString("[[5],[5]]")))))));
+            assertEquals(1252155441, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1754925686, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1387591835, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                    this::openNestedRecordStore,
+                    TestHelpers::assertDiscardedNone));
+        } else {
+            // TODO: Costing issue with full scan versus index scan.
+            assertThat(plan, filter(reviewFilter, typeFilter(contains("RestaurantRecord"), scan())));
+            assertEquals(277825167, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(49070805, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1447620295, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(Collections.singletonList(102L), fetchResultValues(plan, TestRecords4Proto.RestaurantRecord.REST_NO_FIELD_NUMBER,
+                    this::openNestedRecordStore,
+                    context -> TestHelpers.assertDiscardedAtMost(3, context)));
+        }
     }
 
     /**
@@ -434,6 +463,41 @@ public class FDBNestedFieldQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("stats").matches(Query.field("hometown").equalsValue("Home Town"))))
                 .build();
         assertEquals(plan, planner.plan(query));
+    }
+
+    /**
+     * Verify that matching part of a nested field only uses part of the index.
+     */
+    @DualPlannerTest
+    public void nestedThenWithAndPartial() throws Exception {
+        final RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("RestaurantReviewer", "hometownEmail", concat(field("stats").nest(concatenateFields("hometown", "school_name", "start_date")), field("email")));
+        };
+        nestedWithAndSetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("RestaurantReviewer")
+                .setFilter(Query.and(
+                        Query.field("stats").matches(Query.and(
+                                Query.field("hometown").equalsValue("Home Town"),
+                                Query.field("school_name").equalsValue("University of Learning"))),
+                        Query.field("email").equalsValue("pmp@example.com")))
+                .build();
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, filter(Query.field("email").equalsValue("pmp@example.com"),
+                indexScan(allOf(indexName("hometownEmail"), bounds(hasTupleString("[[Home Town, University of Learning],[Home Town, University of Learning]]"))))));
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(895882018, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1929345776, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(391991162, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertEquals(-1385621911, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1566008386, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1191604296, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+        assertEquals(Collections.singletonList(1L), fetchResultValues(plan, TestRecords4Proto.RestaurantReviewer.ID_FIELD_NUMBER,
+                context -> openNestedRecordStore(context, hook),
+                TestHelpers::assertDiscardedNone));
     }
 
     /**
