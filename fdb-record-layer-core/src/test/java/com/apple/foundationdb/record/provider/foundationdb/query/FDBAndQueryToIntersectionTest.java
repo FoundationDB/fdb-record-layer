@@ -142,7 +142,7 @@ public class FDBAndQueryToIntersectionTest extends FDBRecordStoreQueryTestBase {
             }
         }
     }
-
+    
     /**
      * Verify that a complex query with an AND of more than two fields with compatibly ordered indexes generates an intersection plan.
      */

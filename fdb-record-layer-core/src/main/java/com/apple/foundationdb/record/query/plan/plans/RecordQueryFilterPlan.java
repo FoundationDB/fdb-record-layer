@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +52,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that do not satisfy a filter component.
@@ -62,9 +65,10 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Nonnull
     private final List<QueryComponent> filters;
-
     @Nonnull
     private final QueryComponent filter;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public RecordQueryFilterPlan(@Nonnull RecordQueryPlan inner, @Nonnull List<QueryComponent> filters) {
         this(Quantifier.physical(GroupExpressionRef.of(inner)), filters);
@@ -79,6 +83,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
         super(inner);
         this.filters = ImmutableList.copyOf(filters);
         this.filter = this.filters.size() == 1 ? Iterables.getOnlyElement(this.filters) : Query.and(this.filters);
+        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Override
@@ -131,6 +136,12 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
         return new RecordQueryFilterPlan(child, getFilters());
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @Override

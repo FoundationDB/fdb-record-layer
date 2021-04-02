@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -101,7 +102,7 @@ public class FieldWithComparison extends BaseField implements ComponentWithCompa
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        return GraphExpansion.ofPredicate(new FieldValue(baseAlias, fieldNames).withComparison(comparison));
+        return GraphExpansion.ofPredicate(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames).withComparison(comparison));
     }
 
     @Override

@@ -37,7 +37,9 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -52,6 +54,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A query plan that removes duplicates by means of a hash table of primary keys already seen.
@@ -64,6 +67,8 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     private final Quantifier.Physical inner;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
     @Nonnull
     private static final Set<StoreTimer.Event> duringEvents = Collections.singleton(FDBStoreTimer.Events.QUERY_PK_DISTINCT);
     @Nonnull
@@ -78,6 +83,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     public RecordQueryUnorderedPrimaryKeyDistinctPlan(@Nonnull Quantifier.Physical inner) {
         this.inner = inner;
+        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -137,6 +143,12 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
         return new RecordQueryUnorderedPrimaryKeyDistinctPlan(child);
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @Override

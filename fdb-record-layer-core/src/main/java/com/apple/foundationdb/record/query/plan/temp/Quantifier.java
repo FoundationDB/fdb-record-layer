@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -37,9 +38,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -87,7 +86,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
      * As a quantifier is immutable, the columns that flow along the quantifier can be lazily computed.
      */
     @Nonnull
-    private final Supplier<Optional<List<? extends QuantifiedColumnValue>>> flowedValuesSupplier;
+    private final Supplier<List<? extends QuantifiedColumnValue>> flowedValuesSupplier;
 
     /**
      * Builder class for quantifiers.
@@ -162,7 +161,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues() {
+        public List<? extends QuantifiedColumnValue> computeFlowedValues() {
             return pullUpResultValues();
         }
     }
@@ -252,8 +251,8 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues() {
-            return Optional.of(ImmutableList.of(new QuantifiedColumnValue(getAlias(), 0)));
+        public List<? extends QuantifiedColumnValue> computeFlowedValues() {
+            return ImmutableList.of(QuantifiedColumnValue.of(getAlias(), 0));
         }
     }
 
@@ -384,7 +383,7 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
 
         @Nonnull
         @Override
-        public Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues() {
+        public List<? extends QuantifiedColumnValue> computeFlowedValues() {
             return pullUpResultValues();
         }
     }
@@ -526,43 +525,36 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
     }
 
     @Nonnull
-    public Optional<List<? extends QuantifiedColumnValue>> getFlowedValues() {
+    public List<? extends QuantifiedColumnValue> getFlowedValues() {
         return flowedValuesSupplier.get();
     }
 
     @Nonnull
-    protected abstract Optional<List<? extends QuantifiedColumnValue>> computeFlowedValues();
+    protected abstract List<? extends QuantifiedColumnValue> computeFlowedValues();
 
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
-    protected Optional<List<? extends QuantifiedColumnValue>> pullUpResultValues() {
-        return resolveValuesRangedOver().map(unifiedResultValues ->
-                Streams.mapWithIndex(unifiedResultValues.stream(),
-                        (columnValue, index) -> new QuantifiedColumnValue(getAlias(), Math.toIntExact(index)))
-                        .collect(ImmutableList.toImmutableList()));
+    protected List<? extends QuantifiedColumnValue> pullUpResultValues() {
+        return Streams.mapWithIndex(resolveValuesRangedOver().stream(),
+                (columnValue, index) -> QuantifiedColumnValue.of(getAlias(), Math.toIntExact(index)))
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
-    protected Optional<List<? extends Value>> resolveValuesRangedOver() {
+    protected List<? extends Value> resolveValuesRangedOver() {
         final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
 
         return rangesOver.getMembers()
                 .stream()
                 .map(RelationalExpression::getResultValues)
-                .reduce((leftOptional, rightOptional) -> {
-                    if (!leftOptional.isPresent() || !rightOptional.isPresent()) {
-                        return Optional.empty();
-                    }
-                    final List<? extends Value> left = leftOptional.get();
-                    final List<? extends Value> right = rightOptional.get();
-
+                .reduce((left, right) -> {
                     Preconditions.checkArgument(!left.isEmpty() && !right.isEmpty());
 
                     // TODO type check -- for now just return the prefix common in both
                     final int commonPrefixLength = Math.min(left.size(), right.size());
 
-                    return Optional.of(ImmutableList.copyOf(left.subList(0, commonPrefixLength)));
+                    return ImmutableList.copyOf(left.subList(0, commonPrefixLength));
                 })
-                .flatMap(Function.identity());
+                .orElseThrow(() -> new RecordCoreException("unable to resolve result values"));
     }
 }

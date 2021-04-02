@@ -21,7 +21,8 @@
 package com.apple.foundationdb.record.query.plan.match;
 
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -43,8 +44,8 @@ public class FilterMatcher extends PlanMatcherWithChild {
     @Override
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         final QueryPredicate predicate;
-        if (plan instanceof RecordQueryPredicateFilterPlan) {
-            predicate = ((RecordQueryPredicateFilterPlan)plan).getPredicate();
+        if (plan instanceof RecordQueryPredicatesFilterPlan) {
+            predicate = AndPredicate.and(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
         } else {
             return false;
         }

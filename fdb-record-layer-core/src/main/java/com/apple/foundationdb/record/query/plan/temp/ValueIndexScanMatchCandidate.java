@@ -21,11 +21,17 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -33,16 +39,39 @@ import java.util.List;
  */
 public class ValueIndexScanMatchCandidate implements MatchCandidate {
     /**
-     * Name of the match candidate. This name is also the name of the index.
+     * Index metadata structure.
      */
     @Nonnull
-    private final String name;
+    private final Index index;
+
+    /**
+     * Record types this index is defined over.
+     */
+    private final List<RecordType> recordTypes;
 
     /**
      * Holds the parameter names for all necessary parameters that need to be bound during matching.
      */
     @Nonnull
     private final List<CorrelationIdentifier> parameters;
+
+    /**
+     * Value that flows the actual record.
+     */
+    @Nonnull
+    private final QuantifiedValue recordValue;
+
+    /**
+     * List of values that represent the key parts of the index represented by the candidate in the expanded graph.
+     */
+    @Nonnull
+    private final List<Value> indexKeyValues;
+
+    /**
+     * List of values that represent the value parts of the index represented by the candidate in the expanded graph.
+     */
+    @Nonnull
+    private final List<Value> indexValueValues;
 
     /**
      * Traversal object of the expanded index scan graph.
@@ -53,20 +82,32 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
     @Nonnull
     private final KeyExpression alternativeKeyExpression;
 
-    public ValueIndexScanMatchCandidate(@Nonnull String name,
+    public ValueIndexScanMatchCandidate(@Nonnull Index index,
+                                        @Nonnull Collection<RecordType> recordTypes,
                                         @Nonnull final ExpressionRefTraversal traversal,
                                         @Nonnull final List<CorrelationIdentifier> parameters,
+                                        @Nonnull final QuantifiedValue recordValue,
+                                        @Nonnull final List<Value> indexKeyValues,
+                                        @Nonnull final List<Value> indexValueValues,
                                         @Nonnull final KeyExpression alternativeKeyExpression) {
-        this.name = name;
+        this.index = index;
+        this.recordTypes = ImmutableList.copyOf(recordTypes);
         this.traversal = traversal;
         this.parameters = ImmutableList.copyOf(parameters);
+        this.recordValue = recordValue;
+        this.indexKeyValues = ImmutableList.copyOf(indexKeyValues);
+        this.indexValueValues = ImmutableList.copyOf(indexValueValues);
         this.alternativeKeyExpression = alternativeKeyExpression;
     }
 
     @Nonnull
     @Override
     public String getName() {
-        return name;
+        return index.getName();
+    }
+
+    public List<RecordType> getRecordTypes() {
+        return recordTypes;
     }
 
     @Nonnull
@@ -82,6 +123,21 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
     }
 
     @Nonnull
+    public QuantifiedValue getRecordValue() {
+        return recordValue;
+    }
+
+    @Nonnull
+    public List<Value> getIndexKeyValues() {
+        return indexKeyValues;
+    }
+
+    @Nonnull
+    public List<Value> getIndexValueValues() {
+        return indexValueValues;
+    }
+
+    @Nonnull
     @Override
     public KeyExpression getAlternativeKeyExpression() {
         return alternativeKeyExpression;
@@ -89,10 +145,21 @@ public class ValueIndexScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
-        return new IndexScanExpression(getName(),
+    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
+                                                       @Nonnull final List<ComparisonRange> comparisonRanges,
+                                                       final boolean isReverse) {
+        return new RecordQueryIndexPlan(index.getName(),
                 IndexScanType.BY_VALUE,
-                comparisonRanges,
+                toScanComparisons(comparisonRanges),
                 isReverse);
+    }
+
+    @Nonnull
+    private static ScanComparisons toScanComparisons(@Nonnull final List<ComparisonRange> comparisonRanges) {
+        ScanComparisons.Builder builder = new ScanComparisons.Builder();
+        for (ComparisonRange comparisonRange : comparisonRanges) {
+            builder.addComparisonRange(comparisonRange);
+        }
+        return builder.build();
     }
 }

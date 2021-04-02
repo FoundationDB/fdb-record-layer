@@ -28,21 +28,18 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A wrapper around a literal of the given type.
  * @param <T> the type of the literal
  */
 @API(API.Status.EXPERIMENTAL)
-public class LiteralValue<T> implements Value {
+public class LiteralValue<T> implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
     @Nullable
@@ -52,32 +49,29 @@ public class LiteralValue<T> implements Value {
         this.value = value;
     }
 
-    @Nonnull
-    @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.emptySet();
-    }
-
-    @Nonnull
-    @Override
-    public Value rebase(@Nonnull final AliasMap translationMap) {
-        return this;
-    }
-
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         return value;
     }
 
+    @Nonnull
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
+    public Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
+        return this;
+    }
+
+    @Override
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        return true;
+    }
+
+    @Override
+    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
+        if (!LeafValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
+
         final LiteralValue<?> that = (LiteralValue<?>)other;
         return Objects.equals(value, that.value);
     }

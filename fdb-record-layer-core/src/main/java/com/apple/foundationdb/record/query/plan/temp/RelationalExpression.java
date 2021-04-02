@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedSc
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
@@ -42,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -141,8 +143,18 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
     }
 
     @Nonnull
-    default Optional<List<? extends Value>> getResultValues() {
-        return Optional.empty();
+    List<? extends Value> getResultValues();
+
+    @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
+    default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
+        final List<? extends Value> resultValues = getResultValues();
+        final List<? extends Value> otherResultValues = otherExpression.getResultValues();
+        if (resultValues.size() != otherResultValues.size()) {
+            return false;
+        }
+        return Streams.zip(resultValues.stream(), otherResultValues.stream(),
+                (resultValue, otherResultValue) -> resultValue.semanticEquals(otherResultValue, aliasMap))
+                .allMatch(isEquals -> isEquals);
     }
 
     /**
@@ -169,7 +181,7 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
      * In order for a correlation to be meaningful, the anchor must define how data is bound and used by all
      * dependents. For most expressions it is not meaningful or even possible to define correlation in such a way.
      *
-     * For instance, a {@link com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression}
+     * For instance, a {@link LogicalUnionExpression}
      * cannot correlate (this method returns {@code false}) because it is not meaningful to bind a record from one child
      * of the union while providing bound values to another.
      *

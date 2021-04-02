@@ -43,6 +43,8 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.IndexedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -174,6 +176,12 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
+    public List<? extends Value> getResultValues() {
+        return ImmutableList.of(new IndexedValue());
+    }
+
+    @Nonnull
+    @Override
     public String toString() {
         return "Covering(" + indexPlan + " -> " + toRecord + ")";
     }
@@ -190,7 +198,6 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
         return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, availableFields, toRecord);
     }
 
-    @Nonnull
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {

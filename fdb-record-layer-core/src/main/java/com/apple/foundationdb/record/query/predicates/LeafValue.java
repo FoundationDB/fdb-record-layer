@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithRequiredFields.java
+ * LeafValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,17 +18,32 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.query.predicates;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.annotation.API;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
 
 /**
- * Interface for query plans that have fields that must be present for successful execution.
+ * A scalar value type that has children.
  */
-public interface RecordQueryPlanWithRequiredFields extends RecordQueryPlan {
+@API(API.Status.EXPERIMENTAL)
+public interface LeafValue extends Value {
+
+    /**
+     * Method to retrieve a list of children values.
+     * @return a list of children
+     */
     @Nonnull
-    Set<KeyExpression> getRequiredFields();
+    @Override
+    default Iterable<? extends Value> getChildren() {
+        return ImmutableList.of();
+    }
+
+    @Nonnull
+    @Override
+    default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+        return this;
+    }
 }

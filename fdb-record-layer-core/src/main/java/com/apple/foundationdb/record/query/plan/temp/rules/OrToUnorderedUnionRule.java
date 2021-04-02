@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
@@ -29,7 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
@@ -50,13 +49,13 @@ import java.util.List;
 
 /**
  * Convert a filter on an {@linkplain OrPredicate or} expression into a plan on the union. In particular, this will
- * produce a {@link LogicalUnorderedUnionExpression} with simple filter plans on each child.
+ * produce a {@link LogicalUnionExpression} with simple filter plans on each child.
  *
  * <pre>
  * {@code
  *     +----------------------------+                 +-----------------------------------+
  *     |                            |                 |                                   |
- *     |  SelectExpression          |                 |  LogicalUnorderedUnionExpression  |
+ *     |  SelectExpression          |                 |  LogicalUnionExpression           |
  *     |       p1 v p2 v ... v pn   |                 |                                   |
  *     |                            |                 +-----------------------------------+
  *     +-------------+--------------+                        /        |               \
@@ -106,15 +105,13 @@ public class OrToUnorderedUnionRule extends PlannerRule<SelectExpression> {
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final SelectExpression selectExpression = bindings.get(root);
-        final List<? extends Value> resultValues =
-                selectExpression.getResultValues()
-                        .orElseThrow(() -> new RecordCoreException("result values not set"));
+        final List<? extends Value> resultValues = selectExpression.getResultValues();
         final List<Quantifier> quantifiers = bindings.getAll(qunMatcher);
         final List<QueryPredicate> orTermPredicates = bindings.getAll(orTermPredicateMatcher);
         final List<ExpressionRef<RelationalExpression>> relationalExpressionRefs = new ArrayList<>(orTermPredicates.size());
         for (final QueryPredicate orTermPredicate : orTermPredicates) {
             relationalExpressionRefs.add(call.ref(new SelectExpression(resultValues, quantifiers, ImmutableList.of(orTermPredicate))));
         }
-        call.yield(GroupExpressionRef.of(new LogicalUnorderedUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionRefs))));
+        call.yield(GroupExpressionRef.of(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionRefs))));
     }
 }

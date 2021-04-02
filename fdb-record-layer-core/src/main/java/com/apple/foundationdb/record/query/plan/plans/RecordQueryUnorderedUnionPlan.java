@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -89,7 +90,7 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Nonnull
-    public static RecordQueryUnorderedUnionPlan from(@Nonnull List<RecordQueryPlan> children) {
+    public static RecordQueryUnorderedUnionPlan from(@Nonnull List<? extends RecordQueryPlan> children) {
         final boolean reverse = children.get(0).isReverse();
         ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> builder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
@@ -120,8 +121,14 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    public RecordQueryUnorderedUnionPlan withChildren(@Nonnull final List<RecordQueryPlan> newChildren) {
+    public RecordQueryUnorderedUnionPlan withChildren(@Nonnull final List<? extends RecordQueryPlan> newChildren) {
         return from(newChildren);
+    }
+
+    @Nonnull
+    @Override
+    public Set<KeyExpression> getRequiredFields() {
+        return ImmutableSet.of();
     }
 
     @Nonnull

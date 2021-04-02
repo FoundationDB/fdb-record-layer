@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
@@ -108,9 +107,8 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
                 Quantifier.forEach(inner, upperQun.getAlias());
                         
         final QueryPredicate newLowerPred = lowerPred.rebase(Quantifiers.translate(lowerQun, newUpperQun));
-        final QueryPredicate combinedPred = new AndPredicate(ImmutableList.of(upperPred, newLowerPred));
         call.yield(call.ref(
-                new LogicalFilterExpression(combinedPred,
+                new LogicalFilterExpression(ImmutableList.of(upperPred, newLowerPred),
                         newUpperQun)));
     }
 }

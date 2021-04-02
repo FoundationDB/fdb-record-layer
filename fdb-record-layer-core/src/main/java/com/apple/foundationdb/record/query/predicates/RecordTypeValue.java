@@ -34,34 +34,26 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * A value which is unique for each record type produced by its quantifier.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordTypeValue implements Value {
+public class RecordTypeValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RecordType-Value");
 
     @Nonnull
-    private final CorrelationIdentifier identifier;
+    private final CorrelationIdentifier alias;
 
-    public RecordTypeValue(@Nonnull final CorrelationIdentifier identifier) {
-        this.identifier = identifier;
+    public RecordTypeValue(@Nonnull final CorrelationIdentifier alias) {
+        this.alias = alias;
     }
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.singleton(identifier);
-    }
-
-    @Nonnull
-    @Override
-    public RecordTypeValue rebase(@Nonnull final AliasMap translationMap) {
-        if (translationMap.containsSource(identifier)) {
-            return new RecordTypeValue(translationMap.getTargetOrThrow(identifier));
+    public RecordTypeValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
+        if (translationMap.containsSource(alias)) {
+            return new RecordTypeValue(translationMap.getTargetOrThrow(alias));
         }
         return this;
     }
@@ -72,7 +64,7 @@ public class RecordTypeValue implements Value {
         if (message == null) {
             return null;
         }
-        final Object binding = context.getBinding(identifier);
+        final Object binding = context.getBinding(alias);
         if (!(binding instanceof Message)) {
             return null;
         }
@@ -81,15 +73,9 @@ public class RecordTypeValue implements Value {
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
-            return false;
-        }
-        final RecordTypeValue that = (RecordTypeValue)other;
-        return equivalenceMap.containsMapping(identifier, that.identifier);
+    @Nonnull
+    public CorrelationIdentifier getAlias() {
+        return alias;
     }
 
     @Override
@@ -111,6 +97,14 @@ public class RecordTypeValue implements Value {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(identifier)));
+        return semanticEquals(other, AliasMap.identitiesFor(ImmutableSet.of(alias)));
+    }
+
+    @Override
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        if (otherValue instanceof QuantifiedObjectValue) {
+            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
+        }
+        return false;
     }
 }

@@ -27,10 +27,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -189,7 +187,7 @@ public class ThenKeyExpression extends BaseKeyExpression implements KeyExpressio
 
     @Nonnull
     @Override
-    public <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+    public <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull final KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 

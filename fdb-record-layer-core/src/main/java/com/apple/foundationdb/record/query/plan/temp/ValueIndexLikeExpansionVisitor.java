@@ -30,7 +30,9 @@ import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.ValueIndexLikeExpansionVisitor.VisitorState;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.predicates.EmptyValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
@@ -83,7 +85,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
      * @return {@code t}
      */
     public <T> T pop(final T t) {
-        states.pop();
+        pop();
         return t;
     }
 
@@ -104,7 +106,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final EmptyKeyExpression emptyKeyExpression) {
-        return GraphExpansion.empty();
+        return GraphExpansion.ofResultValue(new EmptyValue());
     }
 
     @Nonnull
@@ -141,7 +143,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
                         .seal()
                         .derivedWithQuantifier(childQuantifier);
             case None:
-                value = new FieldValue(baseAlias, fieldNames);
+                value = new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames);
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
                     return GraphExpansion.ofPlaceholder(value, predicate);
@@ -169,11 +171,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
     @Nonnull
     @Override
     public GraphExpansion visitExpression(@Nonnull final KeyWithValueExpression keyWithValueExpression) {
-        // Push a new state to indicate that we have to watch out for a split point between keys and values.
-        return pop(keyWithValueExpression
-                .getInnerKey()
-                .expand(push(getCurrentState()
-                        .withSplitPointForValues(keyWithValueExpression.getSplitPoint()))));
+        throw new RecordCoreException("expression should have been handled at top level");
     }
 
     @Nonnull

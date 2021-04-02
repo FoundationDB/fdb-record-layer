@@ -53,7 +53,7 @@ import java.util.stream.Stream;
  * TODO remove this class eventually
  */
 @API(API.Status.EXPERIMENTAL)
-public class QueryComponentPredicate implements QueryPredicate {
+public class QueryComponentPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Predicate-With-Query-Component");
 
     @Nonnull
@@ -97,15 +97,12 @@ public class QueryComponentPredicate implements QueryPredicate {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.emptyMap());
+        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
         final QueryComponentPredicate that = (QueryComponentPredicate)other;
@@ -141,9 +138,9 @@ public class QueryComponentPredicate implements QueryPredicate {
         return correlation == null ? ImmutableSet.of() : ImmutableSet.of(correlation);
     }
 
-    @Nonnull
+    @Nullable
     @Override
-    public QueryComponentPredicate rebase(@Nonnull final AliasMap translationMap) {
+    public QueryComponentPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (correlation != null && translationMap.containsSource(correlation)) {
             return new QueryComponentPredicate(getQueryComponent(), translationMap.getTargetOrThrow(correlation));
         }

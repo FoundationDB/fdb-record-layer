@@ -40,12 +40,12 @@ import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.Predicate
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -55,7 +55,7 @@ import java.util.stream.Stream;
  * An existential predicate that is true if the inner correlation produces any values, and false otherwise.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ExistsPredicate implements QueryPredicate {
+public class ExistsPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Exists-Predicate");
     @Nonnull
     private final CorrelationIdentifier existentialAlias;
@@ -87,13 +87,13 @@ public class ExistsPredicate implements QueryPredicate {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.singleton(existentialAlias);
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+        return ImmutableSet.of(existentialAlias);
     }
 
     @Nonnull
     @Override
-    public ExistsPredicate rebase(@Nonnull final AliasMap translationMap) {
+    public ExistsPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(existentialAlias)) {
             return new ExistsPredicate(translationMap.getTargetOrThrow(existentialAlias), alternativeComponent);
         } else {
@@ -115,15 +115,12 @@ public class ExistsPredicate implements QueryPredicate {
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
         final ExistsPredicate that = (ExistsPredicate)other;
-        return aliasMap.containsMapping(existentialAlias, that.existentialAlias);
+        return equivalenceMap.containsMapping(existentialAlias, that.existentialAlias);
     }
 
     @Override

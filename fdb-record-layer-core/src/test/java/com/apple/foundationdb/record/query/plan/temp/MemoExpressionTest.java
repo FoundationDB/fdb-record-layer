@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
@@ -240,6 +241,12 @@ public class MemoExpressionTest {
         @Override
         public SyntheticPlannerExpression rebase(@Nonnull final AliasMap translationMap) {
             return this;
+        }
+
+        @Nonnull
+        @Override
+        public List<? extends Value> getResultValues() {
+            return ImmutableList.of();
         }
     }
 }
