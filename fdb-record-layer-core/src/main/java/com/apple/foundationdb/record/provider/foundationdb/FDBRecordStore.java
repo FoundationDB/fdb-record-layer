@@ -1664,12 +1664,49 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
 
+    /**
+     * Utility method to be used to specify that new indexes should be {@link IndexState#WRITE_ONLY}
+     * if an index is not on new record types and there are too many records to build in-line. This method
+     * can be used by an implementor of {@link UserVersionChecker#needRebuildIndex(Index, long, boolean)}, which
+     * has more details on its usage. This was the default behavior prior to Record Layer version 3.0.
+     *
+     * @param recordCount the number of records in the store
+     * @param indexOnNewRecordTypes whether the index is defined on entirely new record types
+     * @return {@link IndexState#READABLE} if the index should be built in-line when the store is opened or
+     *      {@link IndexState#WRITE_ONLY} otherwise
+     * @see UserVersionChecker#needRebuildIndex(Index, long, boolean)
+     */
     @Nonnull
     public static IndexState writeOnlyIfTooManyRecordsForRebuild(long recordCount, boolean indexOnNewRecordTypes) {
+        return readableIfNewTypeOrFewRecordsForRebuild(recordCount, indexOnNewRecordTypes, IndexState.WRITE_ONLY);
+    }
+
+    /**
+     * Utility method to be used to specify that new indexes should be {@link IndexState#DISABLED}
+     * if an index is not on new record types and there are too many records to build in-line. This method
+     * can be used by an implementor of {@link UserVersionChecker#needRebuildIndex(Index, long, boolean)}, which
+     * has more details on its usage. This is also used by the default implementation of that method, and this
+     * is used by default if no {@link UserVersionChecker} is supplied to an {@link FDBRecordStore}.
+     *
+     * @param recordCount the number of records in the store
+     * @param indexOnNewRecordTypes whether the index is defined on entirely new record types
+     * @return {@link IndexState#READABLE} if the index should be built in-line when the store is opened or
+     *      {@link IndexState#DISABLED} otherwise
+     * @see UserVersionChecker#needRebuildIndex(Index, long, boolean)
+     */
+    @Nonnull
+    public static IndexState disabledIfTooManyRecordsForRebuild(long recordCount, boolean indexOnNewRecordTypes) {
+        return readableIfNewTypeOrFewRecordsForRebuild(recordCount, indexOnNewRecordTypes, IndexState.DISABLED);
+    }
+
+    @Nonnull
+    private static IndexState readableIfNewTypeOrFewRecordsForRebuild(long recordCount,
+                                                                      boolean indexOnNewRecordTypes,
+                                                                      @Nonnull IndexState defaultState) {
         if (indexOnNewRecordTypes || recordCount <= MAX_RECORDS_FOR_REBUILD) {
             return IndexState.READABLE;
         } else {
-            return IndexState.WRITE_ONLY;
+            return defaultState;
         }
     }
 
@@ -3484,7 +3521,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             List<RecordType> recordTypes = entry.getValue();
             boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
             IndexState state = userVersionChecker == null ?
-                    FDBRecordStore.writeOnlyIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes) :
+                    FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes) :
                     userVersionChecker.needRebuildIndex(index, recordCount, indexOnNewRecordTypes);
             if (index.getType().equals(IndexTypes.VERSION)
                     && !newStore
@@ -3494,7 +3531,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 // Do not rebuild any version indexes while the format conversion is going on.
                 // Otherwise, the process moving the versions might race against the index
                 // build and some versions won't be indexed correctly.
-                state = IndexState.WRITE_ONLY;
+                state = IndexState.DISABLED;
             }
             newStates.put(index, state);
         }

@@ -1839,6 +1839,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
             metaDataBuilder.addIndex("MyBasicRecord", "value2$filtered", field("num_value_2"));
         };
+        // rebuild the index so that it is in a READABLE state
+        try (FDBRecordContext context = openContext()) {
+            openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context, hook);
+            try (OnlineIndexer indexer = OnlineIndexer.forRecordStoreAndIndex(recordStore, "value2$filtered")) {
+                indexer.buildIndex();
+            }
+        }
 
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context, hook);
@@ -2034,7 +2041,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testChangeIndexDefinitionWriteOnly() throws Exception {
+    public void testChangeIndexDefinitionNotReadable() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
@@ -2052,8 +2059,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final Index index = new Index("index", "rec_no");
             builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
-            // Since there were 200 records already, the new index is write-only.
-            assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
+            // Since there were 200 records already, the new index is disabled.
+            assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(index.getName()));
             // Add 100 more records. Only these records will be stored in the new index.
             for (int i = 200; i < 300; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
@@ -2071,8 +2078,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             recordMetaData = recordStore.getRecordMetaData();
-            // The changed index is again write-only because there are 300 records.
-            assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
+            // The changed index is again disabled because there are 300 records.
+            assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(index.getName()));
             // Add 100 more records. These will be recorded in the new index.
             for (int i = 300; i < 400; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
