@@ -308,7 +308,11 @@ public abstract class IndexingBase {
     abstract CompletableFuture<Void> buildIndexInternalAsync();
 
     // Helpers for implementing modules. Some of them are public to support unit-testing.
-    protected void maybeLogBuildProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+    protected CompletableFuture<Boolean> throttleDelayAndMaybeLogProgress(SubspaceProvider subspaceProvider, List<Object> additionalLogMessageKeyValues) {
+        int limit = getLimit();
+        int recordsPerSecond = common.config.getRecordsPerSecond();
+        int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
+
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
             final Index index = common.getIndex();
             LOGGER.info(KeyValueLogMessage.build("Built Range",
@@ -316,10 +320,14 @@ public abstract class IndexingBase {
                     LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
                     subspaceProvider.logKey(), subspaceProvider,
                     LogMessageKeys.RECORDS_SCANNED, common.getTotalRecordsScanned().get(),
+                    LogMessageKeys.LIMIT, limit,
+                    LogMessageKeys.DELAY, toWait,
                     LogMessageKeys.INDEXER_ID, common.getUuid())
                     .addKeysAndValues(additionalLogMessageKeyValues)
                     .toString());
         }
+
+        return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
     }
 
     private boolean shouldLogBuildProgress() {
@@ -336,14 +344,6 @@ public abstract class IndexingBase {
         // made public to support tests
         return throttle.getLimit();
     }
-
-    protected CompletableFuture<Boolean> throttleDelay() {
-        int limit = getLimit();
-        int recordsPerSecond = common.config.getRecordsPerSecond();
-        int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
-        return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
-    }
-
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
                                                           boolean limitControl,
