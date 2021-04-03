@@ -136,12 +136,11 @@ public class IndexingByIndex extends IndexingBase {
                     additionalLogMessageKeyValues)
                     .handle((hasMore, ex) -> {
                         if (ex == null) {
-                            maybeLogBuildProgress(subspaceProvider, Collections.emptyList());
                             if (Boolean.FALSE.equals(hasMore)) {
                                 // all done
                                 return AsyncUtil.READY_FALSE;
                             }
-                            return throttleDelay(); // returns true after an appropriate delay (to avoid an overload)
+                            return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
                         }
                         final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                         if (LOGGER.isInfoEnabled()) {

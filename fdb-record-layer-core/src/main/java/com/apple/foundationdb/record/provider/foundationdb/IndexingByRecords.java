@@ -383,11 +383,10 @@ public class IndexingByRecords extends IndexingBase {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            maybeLogBuildProgress(subspaceProvider, Arrays.asList(
+            return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
                     LogMessageKeys.START_TUPLE, startTuple,
                     LogMessageKeys.END_TUPLE, endTuple,
                     LogMessageKeys.REAL_END, realEnd));
-            return throttleDelay();
         } else {
             Throwable cause = unwrappedEx;
             while (cause != null) {
@@ -395,7 +394,11 @@ public class IndexingByRecords extends IndexingBase {
                     return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
                             .thenCompose(list -> {
                                 rangeDeque.addAll(list);
-                                return throttleDelay();
+                                return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
+                                        LogMessageKeys.REASON, "RecordBuiltRangeException",
+                                        LogMessageKeys.START_TUPLE, startTuple,
+                                        LogMessageKeys.END_TUPLE, endTuple,
+                                        LogMessageKeys.REAL_END, realEnd));
                             });
                 } else {
                     cause = cause.getCause();
