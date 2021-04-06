@@ -174,16 +174,48 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                     RecordMetaDataProvider metaData);
 
         /**
-         * Determine what to do about an index needing to be built.
+         * Determine what to do about an index needing to be built. When a {@link FDBRecordStore} is opened,
+         * this method will be called on any index that has been added to the
+         * {@link com.apple.foundationdb.record.RecordMetaData RecordMetaData} since the last time the record store was
+         * opened. The index will then be initialized with the {@link IndexState} returned, which in turn determines
+         * whether the index must be maintained during record inserts and deletes and also whether the index
+         * can be read (for queries, for example). In general, an index is only really useful if it is
+         * {@link IndexState#READABLE}, but if this method returns {@link IndexState#READABLE}, then the
+         * index must be built in the same transaction that opens the record store, which can lead to errors
+         * on large stores if the index cannot be built in the
+         * <a href="https://apple.github.io/foundationdb/known-limitations.html#long-running-transactions">five second
+         * FoundationDB transaction time limit</a>.
+         *
+         * <p>
+         * By default, this will return {@link IndexState#READABLE} for any indexes on new types (which
+         * can be used right away without doing any I/O) or if the number of records in the store is small (below
+         * {@link FDBRecordStore#MAX_RECORDS_FOR_REBUILD}). However, if the record store is large, this will return
+         * {@link IndexState#DISABLED}, which indicates that the index should not be maintained and that it cannot be
+         * used until the index is built by the {@link OnlineIndexer}.
+         * </p>
+         *
+         * <p>
+         * For adopters, two utility methods are provided that can be used to make implementing this method easier.
+         * The first is {@link FDBRecordStore#disabledIfTooManyRecordsForRebuild(long, boolean)}, which replicates
+         * the default behavior. The second is
+         * {@link FDBRecordStore#writeOnlyIfTooManyRecordsForRebuild(long, boolean)}, which is similar to the default
+         * except that it returns {@link IndexState#WRITE_ONLY} instead of {@link IndexState#DISABLED} and was the
+         * default prior to Record Layer 3.0. Note that all indexes must be made {@link IndexState#WRITE_ONLY} before
+         * they can be built, but the {@link OnlineIndexer} should generally handle that index state transition, and so
+         * most adopters should return {@link IndexState#DISABLED} on indexes that cannot be built in-line.
+         * </p>
+         *
          * @param index the index that has not been built for this store
          * @param recordCount the number of records already in the store
          * @param indexOnNewRecordTypes <code>true</code> if all record types for the index are new (the number of
          *                              records related to this index is 0), in which case the index is able to be
          *                              "rebuilt" instantly with no cost.
          * @return the desired state of the new index. If this is {@link IndexState#READABLE}, the index will be built right away
+         * @see FDBRecordStore#disabledIfTooManyRecordsForRebuild(long, boolean)
+         * @see FDBRecordStore#writeOnlyIfTooManyRecordsForRebuild(long, boolean)
          */
         default IndexState needRebuildIndex(Index index, long recordCount, boolean indexOnNewRecordTypes) {
-            return FDBRecordStore.writeOnlyIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes);
+            return FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes);
         }
     }
 
