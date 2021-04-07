@@ -44,10 +44,10 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class,
+    private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class,
             AnyChildrenMatcher.ANY);
     private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerMatcher);
-    private static ExpressionMatcher<LogicalTypeFilterExpression> root =
+    private static final ExpressionMatcher<LogicalTypeFilterExpression> root =
             TypeMatcher.of(LogicalTypeFilterExpression.class, innerQuantifierMatcher);
 
     public ImplementTypeFilterRule() {

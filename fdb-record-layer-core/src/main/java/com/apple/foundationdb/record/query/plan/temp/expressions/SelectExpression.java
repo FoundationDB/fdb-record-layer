@@ -36,11 +36,10 @@ import com.apple.foundationdb.record.query.plan.temp.PredicateMap;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
-import com.apple.foundationdb.record.query.predicates.ConstantPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -77,7 +76,7 @@ import java.util.stream.Stream;
  * A select expression.
  */
 @API(API.Status.EXPERIMENTAL)
-public class SelectExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicate, InternalPlannerGraphRewritable {
+public class SelectExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
     @Nonnull
     private final List<? extends Value> resultValues;
     @Nonnull
@@ -97,8 +96,14 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Nonnull
     @Override
-    public Optional<List<? extends Value>> getResultValues() {
-        return Optional.of(resultValues);
+    public List<? extends Value> getResultValues() {
+        return resultValues;
+    }
+
+    @Nonnull
+    @Override
+    public List<QueryPredicate> getPredicates() {
+        return predicates;
     }
 
     @Nonnull
@@ -113,17 +118,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     }
 
     @Override
-    @Nonnull
-    public QueryPredicate getPredicate() {
-        return predicates.isEmpty() ? ConstantPredicate.TRUE : AndPredicate.and(predicates);
-    }
-
-    @Nonnull
-    public List<QueryPredicate> getPredicates() {
-        return predicates;
-    }
-
-    @Override
     public boolean canCorrelate() {
         return true;
     }
@@ -131,7 +125,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return Streams.concat(getPredicate().getCorrelatedTo().stream(),
+        return Streams.concat(predicates.stream().flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream()),
                 resultValues.stream().flatMap(resultValue -> resultValue.getCorrelatedTo().stream()))
                 .collect(ImmutableSet.toImmutableSet());
     }
@@ -161,9 +155,10 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return semanticHashCode();
     }
 
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
+                                         @Nonnull final AliasMap aliasMap) {
         if (this == otherExpression) {
             return true;
         }
@@ -171,12 +166,18 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return false;
         }
 
-        return getPredicate().semanticEquals(((SelectExpression)otherExpression).getPredicate(), equivalencesMap);
+        final List<QueryPredicate> otherPredicates = ((SelectExpression)otherExpression).getPredicates();
+        return semanticEqualsForResults(otherExpression, aliasMap) &&
+               predicates.size() == otherPredicates.size() &&
+               Streams.zip(predicates.stream(),
+                       otherPredicates.stream(),
+                       (queryPredicate, otherQueryPredicate) -> queryPredicate.semanticEquals(otherQueryPredicate, aliasMap))
+                .allMatch(isSame -> isSame);
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getPredicate());
+        return Objects.hash(getPredicates());
     }
 
     @Nonnull
@@ -361,14 +362,14 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "Select",
-                        ImmutableList.of("SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) +  " WHERE " + getPredicate()),
+                        ImmutableList.of("SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) +  " WHERE " + AndPredicate.and(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "WHERE " + getPredicate();
+        return "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "WHERE " + AndPredicate.and(getPredicates());
     }
 
     @SuppressWarnings("UnstableApiUsage")

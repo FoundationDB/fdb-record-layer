@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.google.common.collect.Sets;
@@ -125,7 +125,7 @@ public class RecordTypesProperty implements PlannerProperty<Set<String>> {
                 if (expression instanceof RecordQueryUnionPlan ||
                         expression instanceof RecordQueryUnorderedUnionPlan ||
                         expression instanceof RecordQueryIntersectionPlan ||
-                        expression instanceof LogicalUnorderedUnionExpression) {
+                        expression instanceof LogicalUnionExpression) {
                     final Set<String> union = new HashSet<>();
                     for (Set<String> childResulSet : childResults) {
                         union.addAll(childResulSet);

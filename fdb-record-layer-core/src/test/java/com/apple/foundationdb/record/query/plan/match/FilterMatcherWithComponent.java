@@ -23,10 +23,11 @@ package com.apple.foundationdb.record.query.plan.match;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicateFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -41,12 +42,12 @@ import java.util.function.Supplier;
 
 /**
  * A specialized Hamcrest matcher that recognizes both {@link RecordQueryFilterPlan}s and the {@link QueryComponent}s
- * that they use <em>and</em> {@link RecordQueryPredicateFilterPlan}s and the {@link QueryPredicate}s that they use.
+ * that they use <em>and</em> {@link RecordQueryPredicatesFilterPlan}s and the {@link QueryPredicate}s that they use.
  * This is designed to support the current {@link com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest}
  * infrastructure where we run exactly the same unit tests using both the
  * {@link com.apple.foundationdb.record.query.plan.RecordQueryPlanner} (which produces {@link RecordQueryFilterPlan}s)
  * and the {@link com.apple.foundationdb.record.query.plan.temp.CascadesPlanner} (which produces
- * {@link RecordQueryPredicateFilterPlan}).
+ * {@link RecordQueryPredicatesFilterPlan}).
  */
 public class FilterMatcherWithComponent extends PlanMatcherWithChild {
     @Nonnull
@@ -73,13 +74,13 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
     @Override
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         if (plan instanceof RecordQueryFilterPlan) {
-            return component.equals(((RecordQueryFilterPlan)plan).getFilter()) && super.matchesSafely(plan);
-        } else if (plan instanceof RecordQueryPredicateFilterPlan) {
+            return component.equals(((RecordQueryFilterPlan)plan).getConjunctedFilter()) && super.matchesSafely(plan);
+        } else if (plan instanceof RecordQueryPredicatesFilterPlan) {
             // todo make more robust as this will currently only work with the simplest of all cases
 
             // we lazily convert the given component to a predicate and let semantic equals establish equality
             // under the given equivalence: baseAlias <-> planBaseAlias
-            final QueryPredicate predicate = ((RecordQueryPredicateFilterPlan)plan).getPredicate();
+            final QueryPredicate predicate = AndPredicate.and(((RecordQueryPredicatesFilterPlan)plan).getPredicates());
             final CorrelationIdentifier planBaseAlias = Iterables.getOnlyElement(plan.getQuantifiers()).getAlias();
 
             if (predicate instanceof PredicateWithValue) {

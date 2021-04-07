@@ -41,6 +41,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -204,6 +206,12 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
     @Override
     public RecordQueryScanPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryScanPlan(getRecordTypes(), getComparisons(), isReverse());
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return ImmutableList.of(new QueriedValue());
     }
 
     @Override

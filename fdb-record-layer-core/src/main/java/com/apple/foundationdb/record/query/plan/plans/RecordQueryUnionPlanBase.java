@@ -35,6 +35,9 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.MergeValue;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -45,6 +48,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -52,7 +56,7 @@ import java.util.stream.Stream;
  * Common base class for plans that perform stream union operations.
  */
 @API(API.Status.INTERNAL)
-public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren {
+public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChildren, RecordQuerySetPlan {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlanBase.class);
 
     protected static final String UNION = "∪";    // U+222A
@@ -64,15 +68,18 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     @Nonnull
     private final List<Quantifier.Physical> quantifiers;
     private final boolean reverse;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
-    public RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
+    protected RecordQueryUnionPlanBase(@Nonnull RecordQueryPlan left, @Nonnull RecordQueryPlan right, boolean reverse) {
         this(Quantifiers.fromPlans(ImmutableList.of(GroupExpressionRef.of(left), GroupExpressionRef.of(right))), reverse);
     }
 
-    public RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
-                                    final boolean reverse) {
+    protected RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                       final boolean reverse) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.reverse = reverse;
+        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
     }
 
     @Nonnull
@@ -129,6 +136,12 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         return AvailableFields.intersection(quantifiers.stream()
                 .map(child -> child.getRangesOverPlan().getAvailableFields())
                 .collect(Collectors.toList()));
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @Override
@@ -224,7 +237,4 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
     public QueryPlan<FDBQueriedRecord<Message>> strictlySorted() {
         return withChildren(getChildren().stream().map(p -> (RecordQueryPlan)p.strictlySorted()).collect(Collectors.toList()));
     }
-
-    @Nonnull
-    public abstract RecordQueryUnionPlanBase withChildren(@Nonnull List<RecordQueryPlan> newChildren);
 }

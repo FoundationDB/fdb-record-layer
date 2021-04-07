@@ -43,6 +43,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -181,6 +183,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return ImmutableList.of(new QueriedValue());
     }
 
     @Override

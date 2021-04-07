@@ -45,6 +45,8 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -140,6 +142,12 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
     @API(API.Status.EXPERIMENTAL)
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return ImmutableList.of(new QueriedValue());
     }
 
     @Nonnull

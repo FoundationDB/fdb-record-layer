@@ -34,6 +34,9 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.MergeValue;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -43,6 +46,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -63,12 +67,16 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     private final List<Quantifier.ForEach> quantifiers;
     @Nonnull
     private final KeyExpression comparisonKey;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private LogicalIntersectionExpression(@Nonnull List<Quantifier.ForEach> quantifiers,
                                           @Nonnull KeyExpression comparisonKey) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKey = comparisonKey;
+
+        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
     }
 
     @Nonnull
@@ -101,6 +109,12 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
         return new LogicalIntersectionExpression(
                 Quantifiers.narrow(Quantifier.ForEach.class, rebasedQuantifiers),
                 getComparisonKey());
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @Override

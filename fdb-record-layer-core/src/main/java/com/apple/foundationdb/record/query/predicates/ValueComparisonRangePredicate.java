@@ -58,7 +58,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
     @Nonnull
     private final Value value;
 
-    public ValueComparisonRangePredicate(@Nonnull final Value value) {
+    protected ValueComparisonRangePredicate(@Nonnull final Value value) {
         this.value = value;
     }
 
@@ -70,7 +70,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 
@@ -84,19 +84,16 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.emptyMap());
+        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+        if (!PredicateWithValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
         final ValueComparisonRangePredicate that = (ValueComparisonRangePredicate)other;
-        return value.semanticEquals(that.value, aliasMap);
+        return value.semanticEquals(that.value, equivalenceMap);
     }
 
     @Override
@@ -136,6 +133,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
             this.parameterAlias = parameterAlias;
         }
 
+        @Nonnull
+        @Override
+        public Placeholder withValue(@Nonnull final Value value) {
+            return new Placeholder(value, parameterAlias);
+        }
+
         public CorrelationIdentifier getParameterAlias() {
             return parameterAlias;
         }
@@ -147,9 +150,8 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         }
 
         @Override
-        @SuppressWarnings({"ConstantConditions", "java:S2259"})
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (!semanticEqualsWithoutParameterAlias(other, aliasMap)) {
+        public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+            if (!super.equalsWithoutChildren(other, equivalenceMap)) {
                 return false;
             }
 
@@ -162,7 +164,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Nonnull
         @Override
-        public Placeholder rebase(@Nonnull final AliasMap translationMap) {
+        public Placeholder rebaseLeaf(@Nonnull final AliasMap translationMap) {
             return new Placeholder(getValue().rebase(translationMap), parameterAlias);
         }
 
@@ -198,6 +200,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         }
 
         @Nonnull
+        @Override
+        public Sargable withValue(@Nonnull final Value value) {
+            return new Sargable(value, comparisonRange);
+        }
+
+        @Nonnull
         public ComparisonRange getComparisonRange() {
             return comparisonRange;
         }
@@ -209,9 +217,8 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         }
 
         @Override
-        @SuppressWarnings({"ConstantConditions", "java:S2259"})
-        public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
-            if (!super.semanticEquals(other, aliasMap)) {
+        public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+            if (!super.equalsWithoutChildren(other, equivalenceMap)) {
                 return false;
             }
 
@@ -220,7 +227,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Nonnull
         @Override
-        public Sargable rebase(@Nonnull final AliasMap translationMap) {
+        public Sargable rebaseLeaf(@Nonnull final AliasMap translationMap) {
             return new Sargable(getValue().rebase(translationMap), comparisonRange);
         }
 
@@ -292,6 +299,5 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         public String toString() {
             return getValue() + " " + comparisonRange;
         }
-
     }
 }

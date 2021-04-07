@@ -69,7 +69,7 @@ public class IntersectionVisitor extends RecordQueryPlannerSubstitutionVisitor {
     public RecordQueryPlan postVisit(@Nonnull final RecordQueryPlan recordQueryPlan) {
         if (recordQueryPlan instanceof RecordQueryIntersectionPlan) {
             RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan) recordQueryPlan;
-            Set<KeyExpression> requiredFields = ((RecordQueryIntersectionPlan)recordQueryPlan).getRequiredFields();
+            Set<KeyExpression> requiredFields = intersectionPlan.getRequiredFields();
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(intersectionPlan.getChildren().size());
             for (RecordQueryPlan plan : intersectionPlan.getChildren()) {

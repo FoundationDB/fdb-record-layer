@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
@@ -49,7 +49,7 @@ import java.util.Set;
 
 /**
  * A rule that implements a distinct union of its (already implemented) children. This will extract the
- * {@link RecordQueryPlan} from each child of a {@link LogicalUnorderedUnionExpression} and create a
+ * {@link RecordQueryPlan} from each child of a {@link LogicalUnionExpression} and create a
  * {@link RecordQueryUnionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -57,8 +57,8 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
     @Nonnull
     private static final ExpressionMatcher<RecordQueryPlan> unionLegExpressionMatcher = TypeMatcher.of(RecordQueryPlan.class, MultiChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
     @Nonnull
-    private static final ExpressionMatcher<LogicalUnorderedUnionExpression> unionExpressionMatcher =
-            TypeMatcher.of(LogicalUnorderedUnionExpression.class,
+    private static final ExpressionMatcher<LogicalUnionExpression> unionExpressionMatcher =
+            TypeMatcher.of(LogicalUnionExpression.class,
                     MultiChildrenMatcher.allMatching(QuantifierMatcher.forEach(unionLegExpressionMatcher)));
 
     @Nonnull
@@ -75,8 +75,8 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
         final PlanContext context = call.getContext();
         final PlannerBindings bindings = call.getBindings();
         final List<RecordQueryPlan> unionLegExpressions = bindings.getAll(unionLegExpressionMatcher);
-        final LogicalUnorderedUnionExpression logicalUnorderedUnionExpression = bindings.get(unionExpressionMatcher);
-        final Optional<OrderingInfo> orderingInfoOptional = OrderingProperty.evaluate(logicalUnorderedUnionExpression, context);
+        final LogicalUnionExpression logicalUnionExpression = bindings.get(unionExpressionMatcher);
+        final Optional<OrderingInfo> orderingInfoOptional = OrderingProperty.evaluate(logicalUnionExpression, context);
         if (!orderingInfoOptional.isPresent()) {
             return;
         }

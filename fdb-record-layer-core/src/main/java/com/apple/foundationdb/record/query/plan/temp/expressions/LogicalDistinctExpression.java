@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -34,6 +36,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A relational planner expression representing a stream of unique records. This expression has a single child which
@@ -46,17 +49,20 @@ import java.util.Set;
 public class LogicalDistinctExpression implements RelationalExpressionWithChildren {
     @Nonnull
     private final Quantifier inner;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public LogicalDistinctExpression(@Nonnull RelationalExpression inner) {
         this(GroupExpressionRef.of(inner));
     }
 
     public LogicalDistinctExpression(@Nonnull ExpressionRef<RelationalExpression> innerRef) {
-        this.inner = Quantifier.forEach(innerRef);
+        this(Quantifier.forEach(innerRef));
     }
 
     public LogicalDistinctExpression(@Nonnull Quantifier inner) {
         this.inner = inner;
+        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Override
@@ -88,6 +94,12 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     public LogicalDistinctExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                   @Nonnull final List<Quantifier> rebasedChildren) {
         return new LogicalDistinctExpression(Iterables.getOnlyElement(rebasedChildren));
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @Override

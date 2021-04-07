@@ -44,7 +44,7 @@ import java.util.stream.Stream;
  * A predicate with a constant boolean value.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ConstantPredicate implements QueryPredicate {
+public class ConstantPredicate implements LeafQueryPredicate {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Constant-Predicate");
 
     @Nonnull
@@ -84,16 +84,13 @@ public class ConstantPredicate implements QueryPredicate {
 
     @Nonnull
     @Override
-    public QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
+    public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
         return this;
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+        if (!LeafQueryPredicate.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
         final ConstantPredicate that = (ConstantPredicate)other;

@@ -28,7 +28,10 @@ import javax.annotation.Nonnull;
  * A predicate consisting of a {@link Value}.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface PredicateWithValue extends QueryPredicate {
+public interface PredicateWithValue extends LeafQueryPredicate {
     @Nonnull
     Value getValue();
+
+    @Nonnull
+    PredicateWithValue withValue(@Nonnull Value value);
 }

@@ -1362,7 +1362,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (allHaveSameBasePlan) {
             final RecordQueryPlan combinedOrFilter = new RecordQueryFilterPlan(commonFilteredBasePlan,
                     new OrComponent(subplans.stream()
-                            .map(subplan -> ((RecordQueryFilterPlan)subplan.plan).getFilter())
+                            .map(subplan -> ((RecordQueryFilterPlan)subplan.plan).getConjunctedFilter())
                             .collect(Collectors.toList())));
             ScoredPlan firstSubPlan = subplans.get(0);
             return new ScoredPlan(combinedOrFilter, Collections.emptyList(), Collections.emptyList(), firstSubPlan.score,
