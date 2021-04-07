@@ -113,7 +113,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * Note that this variant of fold does not permit {@code null} values to be produced and consumed by the map and
      * fold functions passed in. In return this method guarantees that the result of the folding the tree rooted at
      * {@code this} is well-defined and not {@code null}.
-     * @param mapFunction a mapping {@link Function} that computes a scalar value from a node of type {@code M}.
+     * @param mapFunction a mapping {@link Function} that computes a scalar value of type {@code M} from a node of type {@code T}.
      * @param foldFunction a folding {@link Function} that computes the result of the fold of a node {@code n} given
      *        an instance of type {@code M} (which is the result of applying {@code mapFunction})
      *        and an iterable of instances of type {@code F} that are the result of folding the children of that node.
@@ -146,7 +146,7 @@ public interface TreeLike<T extends TreeLike<T>> {
      * of the absence of a well-defined fold for the respective sub tree that is being considered at the time.
      * However, this method does not enforce this view meaning that callers can react to and pass on {@code null}s as
      * they see fit (by means of the provided lambdas for map and fold functions).
-     * @param mapFunction a mapping {@link Function} that computes a scalar value from a node of type {@code M}.
+     * @param mapFunction a mapping {@link Function} that computes a scalar value of type {@code M} from a node of type {@code T}.
      * @param foldFunction a folding {@link Function} that computes the result of the fold of a node {@code n} given
      *        an instance of type {@code M} (which is the result of applying {@code mapFunction})
      *        and an iterable of instances of type {@code F} that are the result of folding the children of that node.
@@ -191,12 +191,12 @@ public interface TreeLike<T extends TreeLike<T>> {
      * tree-like rooted at {@code this}.
      * @param replaceOperator an operator that translates a tree-like of {@code T} into another tree-like of type
      *        {@code T}.
-     * @return an {@link Optional} of a new tree-like object that is result of the tree-map operation if the fold of the
+     * @return an {@link Optional} of a tree-like object that is result of the tree-map operation if the fold of the
      *         tree rooted at {@code this} exists, {@code Optional.empty()} otherwise
      */
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     @Nonnull
-    default Optional<T> mapLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator) {
+    default Optional<T> replaceLeavesMaybe(@Nonnull final UnaryOperator<T> replaceOperator) {
         return mapMaybe((t, foldedChildren) -> {
             if (Iterables.isEmpty(foldedChildren)) {
                 return replaceOperator.apply(t);

@@ -36,7 +36,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class QueriedValue implements LeafValue, Value.CompileTimeValue {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Base-Value");
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
     @Nonnull
     @Override

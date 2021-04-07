@@ -219,7 +219,7 @@ public class TreeLikeTest {
                                 node("e")));
 
         final Optional<TreeNode> mappedTreeOptional =
-                t.mapLeavesMaybe(n -> {
+                t.replaceLeavesMaybe(n -> {
                     if (n.getContents().equals("d")) {
                         return node("d'");
                     } else if (n.getContents().equals("e")) {

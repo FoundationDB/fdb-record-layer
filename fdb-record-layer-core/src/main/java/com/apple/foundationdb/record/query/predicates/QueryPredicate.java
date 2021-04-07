@@ -253,7 +253,7 @@ public interface QueryPredicate extends Bindable, Correlated<QueryPredicate>, Tr
     @Nonnull
     @Override
     default QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
-        return mapLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+        return replaceLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nullable
@@ -264,7 +264,7 @@ public interface QueryPredicate extends Bindable, Correlated<QueryPredicate>, Tr
 
     @Nonnull
     default Optional<QueryPredicate> translateValues(@Nonnull final Map<Value, Value> translationMap) {
-        return mapLeavesMaybe(t -> {
+        return replaceLeavesMaybe(t -> {
             if (!(t instanceof PredicateWithValue)) {
                 return this;
             }

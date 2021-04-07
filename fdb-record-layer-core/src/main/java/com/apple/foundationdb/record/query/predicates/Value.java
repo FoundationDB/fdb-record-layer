@@ -171,7 +171,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     @Nonnull
     @Override
     default Value rebase(@Nonnull final AliasMap translationMap) {
-        return mapLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
+        return replaceLeavesMaybe(t -> t.rebaseLeaf(translationMap)).orElseThrow(() -> new RecordCoreException("unable to map tree"));
     }
 
     @Nonnull
@@ -182,7 +182,7 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
 
     @Nonnull
     default Optional<Value> translate(@Nonnull final Map<Value, Value> translationMap) {
-        return mapLeavesMaybe(t -> t.translateLeaf(translationMap));
+        return replaceLeavesMaybe(t -> t.translateLeaf(translationMap));
     }
 
     @Nonnull

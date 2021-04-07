@@ -66,7 +66,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Nonnull
     private final List<QueryComponent> filters;
     @Nonnull
-    private final QueryComponent filter;
+    private final QueryComponent conjunctedFilter;
     @Nonnull
     private final Supplier<List<? extends Value>> resultValuesSupplier;
 
@@ -82,13 +82,13 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
                                  @Nonnull List<QueryComponent> filters) {
         super(inner);
         this.filters = ImmutableList.copyOf(filters);
-        this.filter = this.filters.size() == 1 ? Iterables.getOnlyElement(this.filters) : Query.and(this.filters);
+        this.conjunctedFilter = this.filters.size() == 1 ? Iterables.getOnlyElement(this.filters) : Query.and(this.filters);
         this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Override
     protected boolean hasAsyncFilter() {
-        return filter.isAsync();
+        return conjunctedFilter.isAsync();
     }
 
     @Nullable
@@ -96,7 +96,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
                                                      @Nonnull EvaluationContext context,
                                                      @Nullable FDBRecord<M> record) {
-        return filter.eval(store, context, record);
+        return conjunctedFilter.eval(store, context, record);
     }
 
     @Nullable
@@ -104,7 +104,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
                                                                              @Nonnull EvaluationContext context,
                                                                              @Nullable FDBRecord<M> record) {
-        return filter.evalAsync(store, context, record);
+        return conjunctedFilter.evalAsync(store, context, record);
     }
 
     @Override
@@ -115,7 +115,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | " + getFilter();
+        return getInnerPlan() + " | " + getConjunctedFilter();
     }
 
     @Nonnull
@@ -154,7 +154,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
             return false;
         }
         final RecordQueryFilterPlan otherPlan = (RecordQueryFilterPlan)otherExpression;
-        return filter.equals(otherPlan.getFilter());
+        return conjunctedFilter.equals(otherPlan.getConjunctedFilter());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -170,17 +170,17 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getFilter());
+        return Objects.hash(getConjunctedFilter());
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return getInnerPlan().planHash(hashKind) + getFilter().planHash(hashKind);
+                return getInnerPlan().planHash(hashKind) + getConjunctedFilter().planHash(hashKind);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.planHash(hashKind, BASE_HASH, getInnerPlan(), getFilter());
+                return PlanHashable.planHash(hashKind, BASE_HASH, getInnerPlan(), getConjunctedFilter());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -192,8 +192,8 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
     }
 
     @Nonnull
-    public QueryComponent getFilter() {
-        return filter;
+    public QueryComponent getConjunctedFilter() {
+        return conjunctedFilter;
     }
 
     @Nonnull
@@ -203,7 +203,7 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
                         ImmutableList.of("WHERE {{pred}}"),
-                        ImmutableMap.of("pred", Attribute.gml(getFilter().toString()))),
+                        ImmutableMap.of("pred", Attribute.gml(getConjunctedFilter().toString()))),
                 childGraphs);
     }
 }

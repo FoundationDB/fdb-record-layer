@@ -74,7 +74,7 @@ public class FilterMatcherWithComponent extends PlanMatcherWithChild {
     @Override
     public boolean matchesSafely(@Nonnull RecordQueryPlan plan) {
         if (plan instanceof RecordQueryFilterPlan) {
-            return component.equals(((RecordQueryFilterPlan)plan).getFilter()) && super.matchesSafely(plan);
+            return component.equals(((RecordQueryFilterPlan)plan).getConjunctedFilter()) && super.matchesSafely(plan);
         } else if (plan instanceof RecordQueryPredicatesFilterPlan) {
             // todo make more robust as this will currently only work with the simplest of all cases
 

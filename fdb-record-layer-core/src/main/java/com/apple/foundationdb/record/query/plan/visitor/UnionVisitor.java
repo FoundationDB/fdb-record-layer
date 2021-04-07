@@ -74,9 +74,9 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
             boolean shouldPullOutFilter = false;
             QueryComponent filter = null;
             if (unionPlan.getChildren().stream().allMatch(child -> child instanceof RecordQueryFilterPlan)) {
-                filter = ((RecordQueryFilterPlan) unionPlan.getChildren().get(0)).getFilter();
+                filter = ((RecordQueryFilterPlan) unionPlan.getChildren().get(0)).getConjunctedFilter();
                 final QueryComponent finalFilter = filter; // needed for lambda expression
-                shouldPullOutFilter = unionPlan.getChildren().stream().allMatch(plan -> ((RecordQueryFilterPlan) plan).getFilter().equals(finalFilter));
+                shouldPullOutFilter = unionPlan.getChildren().stream().allMatch(plan -> ((RecordQueryFilterPlan) plan).getConjunctedFilter().equals(finalFilter));
             }
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(unionPlan.getChildren().size());
