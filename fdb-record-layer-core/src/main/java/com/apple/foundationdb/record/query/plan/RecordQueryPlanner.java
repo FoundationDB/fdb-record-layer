@@ -47,7 +47,6 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
-import com.apple.foundationdb.record.query.expressions.LuceneQueryComponent;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComparison;
 import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
@@ -1124,7 +1123,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    private Set<String> getPossibleTypes(@Nonnull Index index) {
+    protected Set<String> getPossibleTypes(@Nonnull Index index) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() == 1) {
             final RecordType singleRecordType = recordTypes.iterator().next();
@@ -1135,8 +1134,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    private RecordQueryPlan addTypeFilterIfNeeded(@Nonnull CandidateScan candidateScan, @Nonnull RecordQueryPlan plan,
-                                                  @Nonnull Set<String> possibleTypes) {
+    protected RecordQueryPlan addTypeFilterIfNeeded(@Nonnull CandidateScan candidateScan, @Nonnull RecordQueryPlan plan,
+                                                    @Nonnull Set<String> possibleTypes) {
         Collection<String> allowedTypes = candidateScan.planContext.query.getRecordTypes();
         if (!allowedTypes.isEmpty() && !allowedTypes.containsAll(possibleTypes)) {
             return new RecordQueryTypeFilterPlan(plan, allowedTypes);
@@ -1229,49 +1228,11 @@ public class RecordQueryPlanner implements QueryPlanner {
         return null;
     }
 
-    private ScanComparisons getScanForAndLucene(@Nonnull AndComponent filter, @Nullable FilterSatisfiedMask filterMask) {
-        final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
-        final List<QueryComponent> filters = filter.getChildren();
-        ScanComparisons scanComparisons = ScanComparisons.EMPTY;
-        for (QueryComponent subFilter : filters) {
-            final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
-            ScanComparisons children = getComparisonsForLuceneFilter(subFilter, childMask);
-            if (children != null) {
-                childMask.setSatisfied(true);
-                return children;
-            }
-        }
-        return scanComparisons;
-    }
-
-    private ScanComparisons getComparisonsForLuceneFilter(@Nonnull QueryComponent filter, FilterSatisfiedMask filterMask) {
-        if (filter instanceof AndComponent) {
-            return getScanForAndLucene((AndComponent) filter, filterMask);
-        } else if (filter instanceof LuceneQueryComponent) {
-            return ScanComparisons.from(((LuceneQueryComponent)filter).getComparison());
-        }
-        return null;
-    }
-
-
     @Nullable
-    private ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
+    protected ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
                                 @Nonnull Index index, @Nonnull QueryComponent filter,
                                 @Nullable KeyExpression sort) {
-        if (sort != null) {
-            // TODO: Full Text: Sorts are not supported with full text queries (https://github.com/FoundationDB/fdb-record-layer/issues/55)
-            return null;
-        }
-
-        FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
-        final ScanComparisons scans = getComparisonsForLuceneFilter(filter, filterMask);
-        if (scans == null) {
-            return null;
-        }
-        RecordQueryPlan plan;
-        plan = new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_LUCENE, scans, false);
-        plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
-        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), 10, false, null);
+        return null;
     }
 
     @Nullable
@@ -1676,7 +1637,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    private static class CandidateScan {
+    protected static class CandidateScan {
         @Nonnull
         final PlanContext planContext;
         @Nullable

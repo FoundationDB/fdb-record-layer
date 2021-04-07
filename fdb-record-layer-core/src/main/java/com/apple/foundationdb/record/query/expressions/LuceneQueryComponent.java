@@ -22,11 +22,12 @@ package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
-import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import jdk.jfr.Experimental;
@@ -54,7 +55,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     @Nonnull
     @Override
     public <M extends Message> Boolean evalMessage(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final Message message) {
-        return true;
+        throw new RecordCoreException("Multiple lucene components are not yet supported");
     }
 
     @Override
@@ -85,13 +86,8 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     }
 
     @Override
-    public int planHash() {
-        return query.hashCode();
-    }
-
-    @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, query);
+        return comparison.planHash(hashKind);
     }
 
     @Override
@@ -102,6 +98,6 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return 0;
+        return HashUtils.queryHash(hashKind, BASE_HASH, query);
     }
 }

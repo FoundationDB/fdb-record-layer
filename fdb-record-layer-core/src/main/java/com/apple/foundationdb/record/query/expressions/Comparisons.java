@@ -549,7 +549,7 @@ public class Comparisons {
         TEXT_CONTAINS_ANY_PREFIX,
         FULL_TEXT_LUCENE_QUERY,
         FULL_TEXT_LUCENE_QUERY_HIGHLIGHT,
-        FULL_TEXT_AUTO_COMPLETE,
+        FULL_TEXT_LUCENE_AUTO_COMPLETE,
         @API(API.Status.EXPERIMENTAL)
         SORT(false);
 
@@ -1727,26 +1727,13 @@ public class Comparisons {
         }
 
         @Override
-        public int planHash() {
-            return query.hashCode();
-        }
-
-        @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
-            switch (hashKind) {
-                case LEGACY:
-                    return PlanHashable.objectsPlanHash(hashKind, query);
-                case FOR_CONTINUATION:
-                case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, query);
-                default:
-                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
-            }
+            return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, query);
         }
 
         @Override
         public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
-            return 0;
+            return HashUtils.queryHash(hashKind, BASE_HASH, query);
         }
     }
 
