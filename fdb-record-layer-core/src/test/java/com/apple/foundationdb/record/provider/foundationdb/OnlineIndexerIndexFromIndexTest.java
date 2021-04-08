@@ -789,7 +789,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     public void testIndexFromIndexOtherSrcIndexWithFallback() {
-        // start indexing by index, change src index' last modified version, assert failing to continue, continue with REBUILD_IF.. option
+        // start indexing by src_index, attempt continue with src_index2
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 1328;
         final int chunkSize  = 42;
