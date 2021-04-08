@@ -183,8 +183,9 @@ public class OnlineIndexer implements AutoCloseable {
         if (ex == null) {
             return AsyncUtil.DONE;
         }
-        if (ex.getCause() instanceof IndexingBase.PartlyBuiltException) {
-            IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = ((IndexingBase.PartlyBuiltException)ex.getCause()).savedStamp;
+        IndexingBase.PartlyBuiltException partlyBuiltException = IndexingBase.getAPartlyBuildExceptionIfApplicable(ex);
+        if (partlyBuiltException != null) {
+            IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.savedStamp;
             // Here: an indexing type stamp already exists, with a different type. Few precondition cases are handled
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",

@@ -711,6 +711,83 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
+    public void testIndexFromIndexSrcVersionModifiedWithFallback() {
+        // start indexing by index, change src index' last modified version, assert failing to continue, continue with REBUILD_IF.. option
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1328;
+        final int chunkSize  = 42;
+        final int numChunks  = 1 + (numRecords / chunkSize);
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(srcIndex, tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        // partly build by-index
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+                OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build());
+
+        // update src index last modified version (and its subspace key)
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setMetaData(metaData).setIndex(srcIndex).setSubspace(subspace)
+                    .build()) {
+                recordStore.markIndexWriteOnly(srcIndex).join();
+                srcIndex.setLastModifiedVersion(srcIndex.getLastModifiedVersion() + 1);
+                indexBuilder.rebuildIndex(recordStore);
+                recordStore.markIndexReadable(srcIndex).join();
+                context.commit();
+            }
+        }
+
+        // try index continuation, expect failure
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setTimer(timer)
+                .build()) {
+
+            RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("This index was partly built by another method"));
+        }
+
+        // try index continuation, but allow rebuild
+        openSimpleMetaData(hook);
+        timer.reset();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexFromIndex(OnlineIndexer.IndexFromIndexPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build())
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED)
+                .build()) {
+            indexBuilder.buildIndex(true);
+        }
+
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+    }
+
+    @Test
     public void testIndexFromIndexRebuild() {
         // test the inline rebuildIndex function by-index
         final FDBStoreTimer timer = new FDBStoreTimer();

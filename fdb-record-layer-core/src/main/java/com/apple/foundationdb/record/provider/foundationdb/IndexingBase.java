@@ -251,7 +251,7 @@ public abstract class IndexingBase {
             }
         })
         ).thenCompose(doIndex ->
-                Boolean.TRUE.equals(doIndex) ?
+                doIndex ?
                 buildIndexInternalAsync().thenApply(ignore -> markReadable) :
                 AsyncUtil.READY_FALSE
         ).thenCompose(this::markIndexReadable);
@@ -282,14 +282,14 @@ public abstract class IndexingBase {
             return AsyncUtil.DONE;
         }
         return transaction.get(stampKey)
-                .thenCompose( bytes -> {
+                .thenCompose(bytes -> {
                     if (bytes == null) {
                         if (continuedBuild && indexingTypeStamp.getMethod() !=
-                                          IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
+                                              IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                             // backward compatibility - maybe continuing an old BY_RECORD session
                             return isWriteOnlyButNoRecordScanned(store, transaction)
                                     .thenCompose(noRecordScanned -> {
-                                        if (Boolean.TRUE.equals(noRecordScanned)) {
+                                        if (noRecordScanned) {
                                             // an empty type stamp, and nothing was indexed - it is safe to write stamp
                                             if (LOGGER.isInfoEnabled()) {
                                                 LOGGER.info(KeyValueLogMessage.build("no scanned ranges - continue indexing")
@@ -323,7 +323,7 @@ public abstract class IndexingBase {
                         // check if partly built
                         return isWriteOnlyButNoRecordScanned(store, transaction)
                                 .thenCompose(noRecordScanned -> {
-                                    if (Boolean.TRUE.equals(noRecordScanned)) {
+                                    if (noRecordScanned) {
                                         // we can safely overwrite the previous type stamp
                                         transaction.set(stampKey, indexingTypeStamp.toByteArray());
                                         return AsyncUtil.DONE;
@@ -360,13 +360,13 @@ public abstract class IndexingBase {
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
         return ranges.onHasNext().thenCompose(hasNext -> {
-                    if (Boolean.TRUE.equals(hasNext)) {
+                    if (hasNext) {
                         final Range range = ranges.next();
                         return CompletableFuture.completedFuture(RangeSet.isFirstKey(range.begin) && RangeSet.isFinalKey(range.end));
                     }
                     return AsyncUtil.READY_FALSE; // fully built - no missing ranges
                 }
-            );
+        );
     }
 
     RecordCoreException newPartlyBuildException(boolean continuedBuild,
@@ -432,13 +432,16 @@ public abstract class IndexingBase {
 
     /**
      * iterate cursor's items and index them.
+     *
      * @param store the record store.
      * @param cursor iteration items.
      * @param getRecord function to convert cursor's item to a record.
-     * @param nextResultCont when return, if hasMore is true, holds the last cursored result - unprocessed - as a continuation item.
+     * @param nextResultCont when return, if hasMore is true, holds the last cursored result - unprocessed - as a
+     * continuation item.
      * @param hasMore when return, true if the cursor's source is not exhausted (not more items in range).
      * @param recordsScanned when return, number of scanned records.
      * @param <T> cursor result's type.
+     *
      * @return hasMore, nextResultCont, and recordsScanned.
      */
     protected <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
@@ -473,7 +476,7 @@ public abstract class IndexingBase {
             } else {
                 // end of the cursor list
                 timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
-                if (! result.getNoNextReason().isSourceExhausted()) {
+                if (!result.getNoNextReason().isSourceExhausted()) {
                     nextResultCont.set(nextResult.get());
                     hasMore.set(true);
                     return AsyncUtil.READY_FALSE;
@@ -524,7 +527,6 @@ public abstract class IndexingBase {
                         }
                         return true;
                     }));
-
         }), cursor.getExecutor()
         ).thenApply(vignore -> {
             long recordsScannedInTransaction = recordsScannedCounter.get();
@@ -597,6 +599,17 @@ public abstract class IndexingBase {
             super(msg, keyValues);
             this.savedStamp = savedStamp;
         }
+    }
+
+    public static PartlyBuiltException getAPartlyBuildExceptionIfApplicable(@Nullable Throwable ex) {
+        for (Throwable current = ex;
+                current != null;
+                current = current.getCause()) {
+            if (current instanceof PartlyBuiltException) {
+                return (PartlyBuiltException) current;
+            }
+        }
+        return null;
     }
 
 }

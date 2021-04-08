@@ -87,7 +87,7 @@ public class IndexingByRecords extends IndexingBase {
     }
 
     @Nonnull
-    public static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
+    static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
         return
                 IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                         .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
