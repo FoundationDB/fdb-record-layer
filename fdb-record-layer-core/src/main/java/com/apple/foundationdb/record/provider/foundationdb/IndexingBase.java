@@ -287,7 +287,7 @@ public abstract class IndexingBase {
                         if (continuedBuild && indexingTypeStamp.getMethod() !=
                                               IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                             // backward compatibility - maybe continuing an old BY_RECORD session
-                            return isWriteOnlyButNoRecordScanned(store, transaction)
+                            return isWriteOnlyButNoRecordScanned(store)
                                     .thenCompose(noRecordScanned -> {
                                         if (noRecordScanned) {
                                             // an empty type stamp, and nothing was indexed - it is safe to write stamp
@@ -321,7 +321,7 @@ public abstract class IndexingBase {
                     }
                     if (forceStampOverwrite) {  // and a continued Build
                         // check if partly built
-                        return isWriteOnlyButNoRecordScanned(store, transaction)
+                        return isWriteOnlyButNoRecordScanned(store)
                                 .thenCompose(noRecordScanned -> {
                                     if (noRecordScanned) {
                                         // we can safely overwrite the previous type stamp
@@ -356,7 +356,7 @@ public abstract class IndexingBase {
         }
     }
 
-    private CompletableFuture<Boolean> isWriteOnlyButNoRecordScanned(FDBRecordStore store, Transaction transaction) {
+    private CompletableFuture<Boolean> isWriteOnlyButNoRecordScanned(FDBRecordStore store) {
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(common.getIndex()));
         AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive()).iterator();
         return ranges.onHasNext().thenCompose(hasNext -> {
@@ -389,7 +389,6 @@ public abstract class IndexingBase {
         int toWait = (recordsPerSecond == IndexingCommon.UNLIMITED) ? 0 : 1000 * limit / recordsPerSecond;
 
         if (LOGGER.isInfoEnabled() && shouldLogBuildProgress()) {
-            final Index index = common.getIndex();
             LOGGER.info(KeyValueLogMessage.build("Built Range",
                     subspaceProvider.logKey(), subspaceProvider,
                     LogMessageKeys.LIMIT, limit,
