@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
@@ -35,6 +36,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * Lucene query plan for including sort parameters.
@@ -42,13 +44,42 @@ import javax.annotation.Nullable;
 public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     private KeyExpression sort;
 
-    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse, KeyExpression sort) {
-        super(indexName, scanType, comparisons, reverse);
-        this.sort = sort;
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        final LuceneIndexQueryPlan that = (LuceneIndexQueryPlan)o;
+        return Objects.equals(sort, that.sort);
     }
 
-    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
-        this(indexName, scanType, comparisons, reverse, null);
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), sort);
+    }
+
+    @Override
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        switch (hashKind) {
+            case LEGACY:
+                return indexName.hashCode() + scanType.planHash(hashKind) + comparisons.planHash(hashKind) + sort.planHash() + (reverse ? 1 : 0);
+            case FOR_CONTINUATION:
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanType, comparisons, sort, reverse);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
+    }
+
+    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse, @Nullable KeyExpression sort) {
+        super(indexName, scanType, comparisons, reverse);
+        this.sort = sort;
     }
 
     @Nonnull

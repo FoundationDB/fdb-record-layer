@@ -61,7 +61,7 @@ import java.util.Set;
  */
 @API(API.Status.INTERNAL)
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
+    protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
     @Nonnull
     protected final String indexName;

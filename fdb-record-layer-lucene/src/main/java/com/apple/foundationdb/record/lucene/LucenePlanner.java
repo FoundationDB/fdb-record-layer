@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -49,7 +48,7 @@ import java.util.List;
 public class LucenePlanner extends RecordQueryPlanner {
 
     public LucenePlanner(@Nonnull final RecordMetaData metaData, @Nonnull final RecordStoreState recordStoreState, final PlannableIndexTypes indexTypes, final FDBStoreTimer timer) {
-        super(metaData, recordStoreState);
+        super(metaData, recordStoreState, indexTypes, timer);
     }
 
     private ScanComparisons getScanForAndLucene(@Nonnull AndComponent filter, @Nullable FilterSatisfiedMask filterMask) {
@@ -59,7 +58,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         for (QueryComponent subFilter : filters) {
             final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
             ScanComparisons children = getComparisonsForLuceneFilter(subFilter, childMask);
-            if (children != null) {
+            if (children != null && childMask != null) {
                 childMask.setSatisfied(true);
                 return children;
             }
@@ -88,9 +87,9 @@ public class LucenePlanner extends RecordQueryPlanner {
             return null;
         }
         RecordQueryPlan plan;
-        plan = new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_LUCENE, scans, false);
+        plan = new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE, scans, false, sort);
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
-        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), 100,
+        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), 10,
                 false, null);
     }
 }

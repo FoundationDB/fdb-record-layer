@@ -146,9 +146,11 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(filter1)
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
-            Matcher<RecordQueryPlan> matcher = filter(filter1, indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]")))));
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"),
+                    indexScanType(IndexScanType.BY_LUCENE),
+                    bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]"))));
             RecordQueryPlan plan = planner.plan(query);
-//            assertThat(plan, matcher);
+            assertThat(plan, matcher);
             RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
             RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
             List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
@@ -178,7 +180,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnUnionOfLuceneScanWithFilter(boolean shouldDeferFetch) throws Exception {
+    public void delayFetchOnOrOfLuceneScanWithFieldFilter(boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
@@ -191,13 +193,13 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             RecordQueryPlan plan = planner.plan(query);
             Matcher<RecordQueryPlan> matcher = primaryKeyDistinct(
                     unorderedUnion(
-                            filter(filter1, indexScan(allOf(indexScan("Complex$text_index"),
+                            indexScan(allOf(indexScan("Complex$text_index"),
                                     indexScanType(IndexScanType.BY_LUCENE),
-                                    bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]"))))),
+                                    bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]")))),
                             typeFilter(equalTo(Collections.singleton(TextIndexTestUtils.SIMPLE_DOC)),
                                     scan(bounds(hasTupleString("([null],[10000])"))))
                     ));
-//            assertThat(plan, matcher);
+            assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(2L, 4L, 0L, 1L, 3L, 5L), ImmutableSet.copyOf(primaryKeys));
             if (shouldDeferFetch) {
@@ -210,7 +212,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnUnionOfLuceneScanWithFilterAndSort(boolean shouldDeferFetch) throws Exception {
+    public void delayFetchOnLuceneFilterWithSort(boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
@@ -234,7 +236,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnIntersectionOfLuceneScans(boolean shouldDeferFetch) throws Exception {
+    public void delayFetchOnAndOfLuceneAndFieldFilter(boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
@@ -246,12 +248,9 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> scanMatcher = fetch(coveringIndexScan(filter(filter2, indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE),
-                    indexScan("Complex$text_index"),
+            Matcher<RecordQueryPlan> scanMatcher = fetch(filter(filter2, coveringIndexScan(indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE), indexScan("Complex$text_index"),
                     bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]")))))));
-            scanMatcher = fetch(filter(filter2, coveringIndexScan(indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE), indexScan("Complex$text_index"),
-                    bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]")))))));
-//            assertThat(plan, scanMatcher);
+            assertThat(plan, scanMatcher);
             RecordCursor<FDBQueriedRecord<Message>> primaryKeys;
             primaryKeys = recordStore.executeQuery(plan);
             final List<Long> keys = primaryKeys.map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
@@ -266,7 +265,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnUnionOfLuceneScanWithFilters(boolean shouldDeferFetch) throws Exception {
+    public void delayFetchOnOrOfLuceneFiltersGivesUnion(boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
@@ -279,15 +278,24 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
             Matcher<RecordQueryPlan> matcher = union(
-                            filter(filter1, indexScan(allOf(indexScan("Complex$text_index"),
-                                    indexScanType(IndexScanType.BY_LUCENE),
-                                    bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]"))))),
-                            filter(filter2, indexScan(allOf(indexScan("Complex$text_index"),
-                                    indexScanType(IndexScanType.BY_LUCENE),
-                                    bounds(hasTupleString("[[was king from 966 to 1016],[was king from 966 to 1016]]"))))),
-                            equalTo(field("doc_id"))
-                    );
-//            assertThat(plan, matcher);
+                    indexScan(allOf(indexScan("Complex$text_index"),
+                            indexScanType(IndexScanType.BY_LUCENE),
+                            bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]")))),
+                    indexScan(allOf(indexScan("Complex$text_index"),
+                            indexScanType(IndexScanType.BY_LUCENE),
+                            bounds(hasTupleString("[[was king from 966 to 1016],[was king from 966 to 1016]]")))),
+                    equalTo(field("doc_id")));
+            if (shouldDeferFetch) {
+                matcher = fetch(union(
+                        coveringIndexScan(indexScan(allOf(indexScan("Complex$text_index"),
+                                indexScanType(IndexScanType.BY_LUCENE),
+                                bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]"))))),
+                        coveringIndexScan(indexScan(allOf(indexScan("Complex$text_index"),
+                                indexScanType(IndexScanType.BY_LUCENE),
+                                bounds(hasTupleString("[[was king from 966 to 1016],[was king from 966 to 1016]]"))))),
+                        equalTo(field("doc_id"))));
+            }
+            assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(1L, 2L, 4L), ImmutableSet.copyOf(primaryKeys));
             if (shouldDeferFetch) {
@@ -300,7 +308,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnIntersectionOfLuceneScanWitFilters(boolean shouldDeferFetch) throws Exception {
+    public void delayFetchOnAndOfLuceneFiltersThrowsException(boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("the continuance");
@@ -315,14 +323,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = filter(filter2, indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE),
                     indexName("Complex$text_index"),
                     bounds(hasTupleString("[[the continuance],[the continuance]]")))));
-//            assertThat(plan, matcher);
+            assertThat(plan, matcher);
             assertThrows(ExecutionException.class, () -> recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get());
         }
     }
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnIntersectionOfLuceneScanWithComplexString(boolean shouldDeferFetch) throws Exception {
+    public void delayFetchOnLuceneComplexStringAnd(boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("the continuance AND grudge");
@@ -333,9 +341,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = filter(filter1, indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE),
-                    indexName("Complex$text_index"))));
-//            assertThat(plan, matcher);
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE),
+                    indexName("Complex$text_index"),
+                    bounds(hasTupleString("[[the continuance AND grudge],[the continuance AND grudge]]"))));
+            assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(4L), ImmutableSet.copyOf(primaryKeys));
             if (shouldDeferFetch) {
@@ -348,7 +357,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     @ParameterizedTest
     @BooleanSource
-    public void delayFetchOnUnionOfLuceneScanWithComplexQueryString(boolean shouldDeferFetch) throws Exception {
+    public void delayFetchOnLuceneComplexStringOr(boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("the continuance OR grudge");
@@ -359,9 +368,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = filter(filter1, indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE),
-                    indexName("Complex$text_index"))));
-//            assertThat(plan, matcher);
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE),
+                    indexName("Complex$text_index"),
+                    bounds(hasTupleString("[[the continuance OR grudge],[the continuance OR grudge]]"))));
+            assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(4L, 5L, 2L), ImmutableSet.copyOf(primaryKeys));
             if (shouldDeferFetch) {
@@ -385,8 +395,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
-            Matcher<RecordQueryPlan> matcher = filter(filter1, indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[doesNotExist],[doesNotExist]]")))));
-//            assertThat(plan, matcher);
+            Matcher<RecordQueryPlan> matcher = indexScan(allOf(indexScan("Complex$text_index"), indexScanType(IndexScanType.BY_LUCENE), bounds(hasTupleString("[[doesNotExist],[doesNotExist]]"))));
+            assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(), ImmutableSet.copyOf(primaryKeys));
             if (shouldDeferFetch) {
