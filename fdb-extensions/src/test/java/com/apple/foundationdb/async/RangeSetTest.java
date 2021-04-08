@@ -341,6 +341,21 @@ public class RangeSetTest extends FDBTestBase {
     }
 
     @Test
+    public void isFirstOrFinalKey() {
+        final byte[] firstKey = new byte[]{(byte)0x00};
+        final byte[] finalKey = new byte[]{(byte)0xff};
+        final byte[] justAKey = new byte[]{(byte)0x77};
+
+        assertTrue(RangeSet.isFirstKey(firstKey));
+        assertFalse(RangeSet.isFirstKey(finalKey));
+        assertFalse(RangeSet.isFirstKey(justAKey));
+
+        assertFalse(RangeSet.isFinalKey(firstKey));
+        assertTrue(RangeSet.isFinalKey(finalKey));
+        assertFalse(RangeSet.isFinalKey(justAKey));
+    }
+
+    @Test
     public void missingRanges() {
         // First, from empty.
         List<Range> ranges = db.readAsync(tr -> rs.missingRanges(tr).asList()).join();
