@@ -38,6 +38,9 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // end next release
 -->
 
+### 2.10.167.0
+
+
 ### 2.10.166.0
 
 * **Feature** Indexing: Handle the case of requested method mismatches a previous session. Options are: use previous, rebuild, and error [(Issue #1198)](https://github.com/FoundationDB/fdb-record-layer/issues/1198)
