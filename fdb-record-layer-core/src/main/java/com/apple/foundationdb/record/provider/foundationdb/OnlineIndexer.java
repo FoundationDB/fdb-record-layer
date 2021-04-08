@@ -1778,6 +1778,7 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Build the index from a source index. Source index must be readable, idempotent, and fully cover the target index.
          * @param sourceIndex source index
+         * @param sourceIndexSubspaceKey if non-null, overrides the sourceIndex param
          * @param allowRecordScan allow fallback to record scan
          */
         public IndexFromIndexPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean allowRecordScan) {
