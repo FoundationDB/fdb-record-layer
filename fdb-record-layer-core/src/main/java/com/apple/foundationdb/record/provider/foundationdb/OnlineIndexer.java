@@ -142,7 +142,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final Index index;
-    @Nonnull private IndexFromIndexPolicy indexFromIndexPolicy;
+    @Nonnull private IndexingPolicy indexingPolicy;
     private boolean fallbackToRecordsScan = false;
 
     @SuppressWarnings("squid:S00107")
@@ -155,10 +155,10 @@ public class OnlineIndexer implements AutoCloseable {
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
                   boolean trackProgress,
-                  @Nonnull IndexFromIndexPolicy indexFromIndex) {
+                  @Nonnull IndexingPolicy indexingPolicy) {
         this.runner = runner;
         this.index = index;
-        this.indexFromIndexPolicy = indexFromIndex;
+        this.indexingPolicy = indexingPolicy;
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
@@ -173,7 +173,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private IndexingByIndex getIndexerByIndex() {
         if (! (indexer instanceof IndexingByIndex)) { // this covers null pointer
-            indexer = new IndexingByIndex(common, indexFromIndexPolicy);
+            indexer = new IndexingByIndex(common, indexingPolicy);
         }
         return (IndexingByIndex)indexer;
     }
@@ -206,7 +206,7 @@ public class OnlineIndexer implements AutoCloseable {
                 }
                 if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX) {
                     Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
-                    indexFromIndexPolicy = IndexFromIndexPolicy.newBuilder()
+                    indexingPolicy = IndexingPolicy.newBuilder()
                             .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
                             .forbidRecordScan() // no third chance
                             .build();
@@ -225,8 +225,8 @@ public class OnlineIndexer implements AutoCloseable {
                 throw FDBExceptions.wrapException(ex); // error it is
             }
         }
-        if (indexFromIndexPolicy.isActive() &&
-                indexFromIndexPolicy.isAllowRecordScan() &&
+        if (indexingPolicy.isByIndex() &&
+                ! indexingPolicy.isForbidRecordScan() &&
                 ! fallbackToRecordsScan &&
                 (ex.getCause() instanceof IndexingByIndex.ValidationException)) {
             // fallback to a records scan
@@ -258,8 +258,8 @@ public class OnlineIndexer implements AutoCloseable {
         if (fallbackToRecordsScan) {
             return getIndexerByRecords();
         }
-        if (indexFromIndexPolicy.isActive()) {
-            throw new RecordCoreException("indexFromIndex makes no sense here");
+        if (indexingPolicy.isByIndex()) {
+            throw new RecordCoreException("Indexing by index makes no sense here");
         }
         // default
         return getIndexerByRecords();
@@ -272,7 +272,7 @@ public class OnlineIndexer implements AutoCloseable {
             indexingBase.setFallbackMode();
             return indexingBase;
         }
-        if (indexFromIndexPolicy.isActive()) {
+        if (indexingPolicy.isByIndex()) {
             return getIndexerByIndex();
         }
         // default
@@ -981,7 +981,7 @@ public class OnlineIndexer implements AutoCloseable {
         @Nullable
         protected Collection<RecordType> recordTypes;
         @Nonnull
-        private IndexFromIndexPolicy indexFromIndex = IndexFromIndexPolicy.INACTIVE;
+        private IndexingPolicy indexingPolicy = IndexingPolicy.DEFAULT;
         @Nonnull
         protected Function<Config, Config> configLoader = old -> old;
         protected int limit = DEFAULT_LIMIT;
@@ -1429,16 +1429,16 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Add an {@link IndexFromIndexPolicy} policy. If set, this policy will be used to build the target index by only
+         * Add an {@link IndexingPolicy} policy. If set, this policy will be used to build the target index by only
          * scanning records of a source index, avoiding  a full record scan.
-         * @param indexFromIndex see {@link IndexFromIndexPolicy}
+         * @param indexingPolicy see {@link IndexingPolicy}
          * @return this Builder
          */
-        public Builder setIndexFromIndex(@Nullable final IndexFromIndexPolicy indexFromIndex) {
-            if (indexFromIndex == null) {
-                this.indexFromIndex = IndexFromIndexPolicy.INACTIVE;
+        public Builder setIndexingPolicy(@Nullable final IndexingPolicy indexingPolicy) {
+            if (indexingPolicy == null) {
+                this.indexingPolicy = IndexingPolicy.DEFAULT;
             } else {
-                this.indexFromIndex = indexFromIndex;
+                this.indexingPolicy = indexingPolicy;
             }
             return this;
         }
@@ -1718,7 +1718,7 @@ public class OnlineIndexer implements AutoCloseable {
             validate();
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
             return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
-                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress, indexFromIndex);
+                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
         }
 
         protected void validate() {
@@ -1767,32 +1767,32 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * A builder for the  indexFromIndex policy. Let the caller set a source index and a fallback policy.
+     * A builder for the  indexing policy. Let the caller set a source index and a fallback policy.
      */
-    public static class IndexFromIndexPolicy {
-        public static final IndexFromIndexPolicy INACTIVE = new IndexFromIndexPolicy();
+    public static class IndexingPolicy {
+        public static final IndexingPolicy DEFAULT = new IndexingPolicy();
         @Nullable private final String sourceIndex;
         @Nullable private final Object sourceIndexSubspaceKey; // overrides the sourceIndex
-        private final boolean allowRecordScan;
+        private final boolean forbidRecordScan;
 
         /**
          * Build the index from a source index. Source index must be readable, idempotent, and fully cover the target index.
          * @param sourceIndex source index
          * @param sourceIndexSubspaceKey if non-null, overrides the sourceIndex param
-         * @param allowRecordScan allow fallback to record scan
+         * @param forbidRecordScan forbid fallback to a by-records scan
          */
-        public IndexFromIndexPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean allowRecordScan) {
+        public IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan) {
             this.sourceIndex = sourceIndex;
-            this.allowRecordScan = allowRecordScan;
+            this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
         }
 
         /**
          * Build a non-active object.
          */
-        public IndexFromIndexPolicy() {
+        public IndexingPolicy() {
             this.sourceIndex = null;
-            this.allowRecordScan = true;
+            this.forbidRecordScan = false;
             this.sourceIndexSubspaceKey = null;
         }
 
@@ -1800,7 +1800,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Check if active.
          * @return True if active
          */
-        public boolean isActive() {
+        public boolean isByIndex() {
             return sourceIndex != null || sourceIndexSubspaceKey != null;
         }
 
@@ -1813,6 +1813,7 @@ public class OnlineIndexer implements AutoCloseable {
             return sourceIndex;
         }
 
+        @Nullable
         public Object getSourceIndexSubspaceKey() {
             return sourceIndexSubspaceKey;
         }
@@ -1821,13 +1822,13 @@ public class OnlineIndexer implements AutoCloseable {
          * If source index is not available, check if allowed to scan the records.
          * @return  {@code true} if a record scan is allowed
          */
-        public boolean isAllowRecordScan() {
-            return allowRecordScan;
+        public boolean isForbidRecordScan() {
+            return forbidRecordScan;
         }
 
         /**
          * Create a index from index policy builder.
-         * @return a new {@link IndexFromIndexPolicy} builder
+         * @return a new {@link IndexingPolicy} builder
          */
         @Nonnull
         public static Builder newBuilder() {
@@ -1835,21 +1836,21 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Builder for {@link IndexFromIndexPolicy}.
+         * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
-         * OnlineIndexer.IndexFromIndexPolicy.newBuilder().setSourceIndex("src_index").build()
+         * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").build()
          * </code></pre>
          *
          * Forbid fallback:
          * <pre><code>
-         * OnlineIndexer.IndexFromIndexPolicy.newBuilder().setSourceIndex("src_index").forbidRecordScan().build()
+         * OnlineIndexer.IndexingPolicy.newBuilder().setSourceIndex("src_index").forbidRecordScan().build()
          * </code></pre>
          *
          */
         @API(API.Status.UNSTABLE)
         public static class Builder {
-            boolean allowRecordScan = true;
+            boolean forbidRecordScan = false;
             String sourceIndex = null;
             private Object sourceIndexSubspaceKey = null;
 
@@ -1857,9 +1858,9 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set a source index to scan.
-             * Some sanity checks will be performed, but it is the caller's responsibility to verify that this source is
-             * indexing all the relevant records for the target index.
+             * Use this source index to scan records for indexing.
+             * Some sanity checks will be performed, but it is the caller's responsibility to verify that this source-index
+             * covers *all* the relevant records for the target-index.
              *
              * @param sourceIndex an existing, readable, index.
              * @return this builder
@@ -1870,7 +1871,9 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set a source index's subspace key to scan. This subspace key overrides the sourceIndex (typically using one or the other).
+             * Use this source index's subspace key to scan records for indexing.
+             * This subspace key, if set, overrides the {@link #setSourceIndex(String)} option (a typical use would be
+             * one or the other).
              *
              * @param sourceIndexSubspaceKey an existing, readable, index.
              * @return this builder
@@ -1881,30 +1884,30 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * After calling this function, throw an exception if the source index cannot be used to build the target
-             * index.
-             * The default behaviour (if this function isn't called) would be performing a full record scan.
-             *
-             * @return this builder
-             */
-            public Builder forbidRecordScan() {
-                this.allowRecordScan = false;
-                return this;
-            }
-
-            /**
-             * Set fallback to record-scan policy.
+             * If set to true, throw an exception if the requested indexing cannot be used for this indexing.
+             * If false (also the default), fallback to a records scan indexing when the requested policy
+             * validation fails.
              *
              * @param forbidRecordScan if true, do not allow fallback to a record scan method
              * @return this builder
              */
             public Builder setForbidRecordScan(boolean forbidRecordScan) {
-                this.allowRecordScan = !forbidRecordScan;
+                this.forbidRecordScan = forbidRecordScan;
                 return this;
             }
 
-            public IndexFromIndexPolicy build() {
-                return new IndexFromIndexPolicy(sourceIndex, sourceIndexSubspaceKey, allowRecordScan);
+            /**
+             * same as calling {@link #setForbidRecordScan(boolean)} with the value true.
+             *
+             * @return this builder
+             */
+            public Builder forbidRecordScan() {
+                this.forbidRecordScan = true;
+                return this;
+            }
+
+            public IndexingPolicy build() {
+                return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan);
             }
         }
 
@@ -1985,6 +1988,5 @@ public class OnlineIndexer implements AutoCloseable {
          * {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} should be adopted instead.
          */
         ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY,
-        ;
     }
 }
