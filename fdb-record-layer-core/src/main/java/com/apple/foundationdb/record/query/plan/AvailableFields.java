@@ -106,7 +106,8 @@ public class AvailableFields {
             // Full text index entries have all of their fields except the tokenized one.
             keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
         } else if (indexTypes.getValueTypes().contains(index.getType()) ||
-                   indexTypes.getRankTypes().contains(index.getType())) {
+                   indexTypes.getRankTypes().contains(index.getType()) ||
+                   indexTypes.getLuceneTypes().contains(index.getType())) {
             keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
             valueFields.addAll(KeyExpression.getValueFields(rootExpression));
         } else {

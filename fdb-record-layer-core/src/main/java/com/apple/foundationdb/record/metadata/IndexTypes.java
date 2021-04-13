@@ -143,6 +143,11 @@ public class IndexTypes {
     public static final String TEXT = "text";
 
     /**
+     * An index backed by a Lucene Index.
+     */
+    public static final String LUCENE = "lucene";
+
+    /**
      * An index storing bitmaps of which records meet a specific condition.
      */
     public static final String BITMAP_VALUE = "bitmap_value";

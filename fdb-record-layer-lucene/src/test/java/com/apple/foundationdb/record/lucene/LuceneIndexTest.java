@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
@@ -45,7 +46,6 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.Random;
 
-import static com.apple.foundationdb.record.lucene.LuceneIndexScanTypes.BY_LUCENE_QUERY;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
@@ -116,8 +116,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             recordStore.saveRecord(createSimpleDocument(1623L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY, TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN);
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN);
+            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
@@ -136,7 +136,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1625L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1626L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(2, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(2, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), Ints.toByteArray(2), ScanProperties.FORWARD_SCAN)
                     .getCount().join());
         }
@@ -152,7 +152,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 200; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
             }
-            assertEquals(50, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(50, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null,
                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
                     .getCount().join());
@@ -169,7 +169,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 50; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
             }
-            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null,
                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false))
                     .getCount().join());
@@ -186,7 +186,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 50; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
             }
-            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(40, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null,
                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).setSkip(10).build().asScanProperties(false))
                     .getCount().join());
@@ -203,7 +203,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 200; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
             }
-            assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), Ints.toByteArray(2),
                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
                     .getCount().join());
@@ -219,7 +219,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             recordStore.saveRecord(createComplexDocument(1623L, DYLAN, "john_leach@apple.com", 2));
             recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
-            assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, BY_LUCENE_QUERY,
+            assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("text:\"idiot\" AND text2:\"john_leach@apple.com\"")),
                     null, ScanProperties.FORWARD_SCAN).getCount().join());
         }
@@ -234,7 +234,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             recordStore.saveRecord(createComplexDocument(1623L, DYLAN, "john_leach@apple.com", 2));
             recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
-            assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, BY_LUCENE_QUERY,
+            assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("text:\"idiot\" AND text2:jonleach@apple.com\\~")),
                     null, ScanProperties.FORWARD_SCAN).getCount().join());
         }
@@ -250,10 +250,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1623L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1624L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 2));
-            assertEquals(2, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(2, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN).getCount().join());
             assertTrue(recordStore.deleteRecord(Tuple.from(1624L)));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN).getCount().join());
         }
     }
@@ -267,7 +267,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             recordStore.saveRecord(createSimpleDocument(1623L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             commit(context);
@@ -277,7 +277,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             });
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
         }
@@ -292,7 +292,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             recordStore.saveRecord(createSimpleDocument(1623L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             context.ensureActive().cancel();
@@ -303,11 +303,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             });
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(0, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(0, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             recordStore.saveRecord(createSimpleDocument(1623L, DYLAN, 2));
-            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, BY_LUCENE_QUERY,
+            assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
                     TupleRange.allOf(Tuple.from("idiot")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
 

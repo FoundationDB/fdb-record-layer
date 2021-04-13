@@ -109,7 +109,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull ScanProperties scanProperties) {
         LOG.trace("scan scanType={}", scanType);
         Verify.verify(range.getLow() != null);
-        Verify.verify(scanType.equals(LuceneIndexScanTypes.BY_LUCENE_QUERY));
+        Verify.verify(scanType == IndexScanType.BY_LUCENE);
         try {
             final MultiFieldQueryParser parser = new MultiFieldQueryParser(fieldNames.toArray(new String[0]) , analyzer);
             Query query = parser.parse(range.getLow().getString(0));

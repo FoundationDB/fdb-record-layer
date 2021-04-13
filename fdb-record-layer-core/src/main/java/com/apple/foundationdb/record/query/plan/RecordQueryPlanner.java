@@ -558,6 +558,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                     p = computeIndexFilters(planContext, p);
                 }
                 return p;
+            } else if (indexTypes.getLuceneTypes().contains(index.getType())) {
+                p = planLucene(candidateScan, index, filter, sort);
+                if (p != null) {
+                    p = planRemoveDuplicates(planContext, p);
+                }
+                if (p != null) {
+                    p = computeIndexFilters(planContext, p);
+                }
+                return p;
             } else if (!indexTypes.getValueTypes().contains(index.getType())) {
                 return null;
             }
@@ -1131,7 +1140,7 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    private Set<String> getPossibleTypes(@Nonnull Index index) {
+    protected Set<String> getPossibleTypes(@Nonnull Index index) {
         final Collection<RecordType> recordTypes = metaData.recordTypesForIndex(index);
         if (recordTypes.size() == 1) {
             final RecordType singleRecordType = recordTypes.iterator().next();
@@ -1142,8 +1151,8 @@ public class RecordQueryPlanner implements QueryPlanner {
     }
 
     @Nonnull
-    private RecordQueryPlan addTypeFilterIfNeeded(@Nonnull CandidateScan candidateScan, @Nonnull RecordQueryPlan plan,
-                                                  @Nonnull Set<String> possibleTypes) {
+    protected RecordQueryPlan addTypeFilterIfNeeded(@Nonnull CandidateScan candidateScan, @Nonnull RecordQueryPlan plan,
+                                                    @Nonnull Set<String> possibleTypes) {
         Collection<String> allowedTypes = candidateScan.planContext.query.getRecordTypes();
         if (!allowedTypes.isEmpty() && !allowedTypes.containsAll(possibleTypes)) {
             return new RecordQueryTypeFilterPlan(plan, allowedTypes);
@@ -1233,6 +1242,13 @@ public class RecordQueryPlanner implements QueryPlanner {
                 }
             }
         }
+        return null;
+    }
+
+    @Nullable
+    protected ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
+                                @Nonnull Index index, @Nonnull QueryComponent filter,
+                                @Nullable KeyExpression sort) {
         return null;
     }
 
@@ -1664,7 +1680,7 @@ public class RecordQueryPlanner implements QueryPlanner {
         }
     }
 
-    private static class CandidateScan {
+    protected static class CandidateScan {
         @Nonnull
         final PlanContext planContext;
         @Nullable
