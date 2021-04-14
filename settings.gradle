@@ -58,4 +58,5 @@ if (protoMajorVersion != "2") {
     project(':fdb-record-layer-core-shaded').name = "fdb-record-layer-core-pb${protoMajorVersion}-shaded"
     project(':fdb-record-layer-icu').name = "fdb-record-layer-icu-pb${protoMajorVersion}"
     project(':fdb-record-layer-spatial').name = "fdb-record-layer-spatial-pb${protoMajorVersion}"
+    project(':fdb-record-layer-lucene').name = "fdb-record-layer-lucene-pb${protoMajorVersion}"
 }
