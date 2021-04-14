@@ -19,7 +19,6 @@
     <module name="SuppressionFilter">
       <property name="file" value="${projectDir}/gradle/codequality/suppressions.xml"/>
     </module>
-    <module name="SuppressionCommentFilter"/>
     <module name="SuppressWarningsFilter" />
 
     <module name="JavadocPackage"/>
@@ -36,6 +35,7 @@
         </module>
 
     <module name="TreeWalker">
+        <module name="SuppressionCommentFilter"/>
 
         <module name="SuppressWarningsHolder" />
 

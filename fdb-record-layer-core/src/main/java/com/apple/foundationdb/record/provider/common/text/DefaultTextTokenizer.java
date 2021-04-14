@@ -62,7 +62,8 @@ public class DefaultTextTokenizer implements TextTokenizer {
     @Nonnull
     public static final String NAME = "default";
 
-    private DefaultTextTokenizer() {}
+    private DefaultTextTokenizer() {
+    }
 
     /**
      * Get this class's singleton. This text tokenizer maintains no state,

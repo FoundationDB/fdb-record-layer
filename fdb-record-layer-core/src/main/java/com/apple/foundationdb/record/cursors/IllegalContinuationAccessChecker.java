@@ -49,5 +49,6 @@ public class IllegalContinuationAccessChecker {
         return shouldCheckContinuationAccess;
     }
 
-    private IllegalContinuationAccessChecker() {}
+    private IllegalContinuationAccessChecker() {
+    }
 }
