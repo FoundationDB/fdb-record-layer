@@ -1791,9 +1791,7 @@ public class OnlineIndexer implements AutoCloseable {
          * Build a non-active object.
          */
         public IndexingPolicy() {
-            this.sourceIndex = null;
-            this.forbidRecordScan = false;
-            this.sourceIndexSubspaceKey = null;
+            this(null, null, false);
         }
 
         /**
@@ -1860,7 +1858,7 @@ public class OnlineIndexer implements AutoCloseable {
             /**
              * Use this source index to scan records for indexing.
              * Some sanity checks will be performed, but it is the caller's responsibility to verify that this source-index
-             * covers *all* the relevant records for the target-index.
+             * covers <em>all</em> the relevant records for the target-index.
              *
              * @param sourceIndex an existing, readable, index.
              * @return this builder
@@ -1897,7 +1895,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * same as calling {@link #setForbidRecordScan(boolean)} with the value true.
+             * Same as calling {@link #setForbidRecordScan(boolean)} with the value true.
              *
              * @return this builder
              */
