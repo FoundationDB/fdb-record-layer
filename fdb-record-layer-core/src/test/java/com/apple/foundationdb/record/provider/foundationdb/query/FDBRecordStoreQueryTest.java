@@ -370,7 +370,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 }
                 count++;
                 try (RecordCursor<Long> cursor = recordStore.executeQuery(plan, continuation, executeProperties)
-                     .map(record -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(record.getRecord()).getRecNo())) {
+                        .map(record -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(record.getRecord()).getRecNo())) {
                     cursor.forEach(list::add).join();
                     RecordCursorResult<Long> result = cursor.getNext();
                     continuation = result.getContinuation().toBytes();

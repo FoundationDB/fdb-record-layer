@@ -36,7 +36,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * A {@link QueryPredicate} that is satisfied when all of its child components are;
+ * A {@link QueryPredicate} that is satisfied when all of its child components are.
  *
  * For tri-valued logic:
  * <ul>

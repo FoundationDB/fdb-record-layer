@@ -507,6 +507,8 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     /**
+     * Get a new cursor that will only return records up to the given limit. This is deprecated, and callers should
+     * use {@link #limitRowsTo(int)} instead.
      * @deprecated Use {@link #limitRowsTo(int)} instead.
      * @param limit the maximum number of records to return
      * @return a new cursor that will return at most {@code limit} records

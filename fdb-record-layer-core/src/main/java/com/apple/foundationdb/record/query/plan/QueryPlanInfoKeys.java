@@ -27,5 +27,6 @@ public class QueryPlanInfoKeys {
     public static final QueryPlanInfo.QueryPlanInfoKey<Integer> TOTAL_TASK_COUNT = new QueryPlanInfo.QueryPlanInfoKey<>("totalTaskCount");
     public static final QueryPlanInfo.QueryPlanInfoKey<Integer> MAX_TASK_QUEUE_SIZE = new QueryPlanInfo.QueryPlanInfoKey<>("maxTaskQueueSize");
 
-    private QueryPlanInfoKeys() {}
+    private QueryPlanInfoKeys() {
+    }
 }

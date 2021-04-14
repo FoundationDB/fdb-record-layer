@@ -63,7 +63,8 @@ public class Key {
         @Nonnull
         public static final String MAP_VALUE_FIELD = "value";
 
-        private Expressions() {}
+        private Expressions() {
+        }
 
         /**
          * Create an expression of a single scalar (i.e. not repeated) field. This sets the {@link Evaluated.NullStandin}
@@ -657,5 +658,6 @@ public class Key {
         }
     }
 
-    private Key() {}
+    private Key() {
+    }
 }

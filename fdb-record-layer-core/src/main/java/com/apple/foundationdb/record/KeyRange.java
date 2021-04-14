@@ -83,7 +83,10 @@ public class KeyRange {
     }
 
     /**
-     * @return how the lower boundary key of the range is to be interpreted by the scan (e.g. inclusive or exclusive)
+     * How the lower boundary key of the range is to be interpreted by the scan. For example, this can
+     * be inclusive or exclusive.
+     * @return how the lower boundary key of the range is to be interpreted by the scan
+     * @see EndpointType
      */
     @Nonnull
     public EndpointType getLowEndpoint() {
@@ -105,7 +108,10 @@ public class KeyRange {
     }
 
     /**
-     * @return how the upper boundary key of the range is to be interpreted by the scan (e.g. inclusive or exclusive)
+     * How the upper boundary key of the range is to be interpreted by the scan. For example, this can
+     * be inclusive or exclusive.
+     * @return how the upper boundary key of the range is to be interpreted by the scan
+     * @see EndpointType
      */
     @Nonnull
     public EndpointType getHighEndpoint() {

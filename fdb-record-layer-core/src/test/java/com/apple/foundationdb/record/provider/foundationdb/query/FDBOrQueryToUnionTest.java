@@ -876,7 +876,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1).asIterator();
-                 RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
+                    RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();
@@ -951,7 +951,7 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             openSimpleRecordStore(context, hook);
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor1 = recordStore.executeQuery(plan1).asIterator();
-                 RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
+                    RecordCursorIterator<FDBQueriedRecord<Message>> cursor2 = recordStore.executeQuery(plan2).asIterator()) {
                 while (cursor1.hasNext()) {
                     assertThat(cursor2.hasNext(), is(true));
                     FDBQueriedRecord<Message> rec1 = cursor1.next();
