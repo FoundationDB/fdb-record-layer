@@ -70,11 +70,11 @@ import java.util.function.Function;
 public class IndexingByIndex extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByIndex.class);
 
-    @Nonnull private final OnlineIndexer.IndexFromIndexPolicy policy;
+    @Nonnull private final OnlineIndexer.IndexingPolicy policy;
     private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
 
     IndexingByIndex(@Nonnull IndexingCommon common,
-                    @Nonnull OnlineIndexer.IndexFromIndexPolicy policy) {
+                    @Nonnull OnlineIndexer.IndexingPolicy policy) {
         super(common);
         this.policy = policy;
     }
@@ -291,7 +291,7 @@ public class IndexingByIndex extends IndexingBase {
     }
 
     /**
-     * thrown when IndexFromIndex validation fails.
+     * thrown when indexing validation fails.
      */
     @SuppressWarnings("serial")
     public static class ValidationException extends RecordCoreException {
