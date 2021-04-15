@@ -32,10 +32,15 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -87,9 +92,24 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer analyzer) {
         super(state);
         this.analyzer = analyzer;
-        this.state.index.getRootExpression()
-                .normalizeKeyForPositions().forEach( (fke) -> this.fieldNames.add( ((FieldKeyExpression) fke).getFieldName()));
+        this.state.index.getRootExpression().normalizeKeyForPositions().forEach(
+                (expression) -> parseFieldNames(expression, ""));
         this.executor = executor;
+    }
+
+    private void parseFieldNames(KeyExpression expression, @Nonnull String parentFieldName) {
+        if (expression instanceof FieldKeyExpression) {
+            this.fieldNames.add(parentFieldName + ((FieldKeyExpression)expression).getFieldName());
+        } else if (expression instanceof NestingKeyExpression) {
+            parseFieldNames(((NestingKeyExpression)expression).getChild(),
+                    parentFieldName + ((NestingKeyExpression)expression).getParent().getFieldName() + ".");
+        } else if (expression instanceof ThenKeyExpression) {
+            for (KeyExpression childExpression : ((ThenKeyExpression)expression).getChildren()) {
+                parseFieldNames(childExpression, parentFieldName);
+            }
+        } else {
+            throw new MetaDataException("Unsupported field", LogMessageKeys.KEY_EXPRESSION, expression);
+        }
     }
 
     /**
@@ -150,7 +170,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
                         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
                         for (int i = 0; i < fieldNames.size(); i++) {
-                            document.add(new TextField(fieldNames.get(i), entry.getKey().getString(i), Field.Store.NO));
+                            String value = entry.getKey().getString(i);
+                            if (value == null) {
+                                value = "";
+                            }
+                            document.add(new TextField(fieldNames.get(i), value, Field.Store.NO));
                         }
                         writer.addDocument(document);
                     }
