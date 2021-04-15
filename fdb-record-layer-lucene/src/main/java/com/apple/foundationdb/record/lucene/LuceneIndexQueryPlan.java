@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.protobuf.Message;
@@ -76,8 +77,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         }
     }
 
-    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse, @Nullable KeyExpression sort) {
-        super(indexName, scanType, comparisons, reverse);
+    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse, @Nullable KeyExpression sort) {
+        super(indexName, scanType, Objects.requireNonNull(ScanComparisons.from(comparison)), reverse);
         this.sort = sort;
     }
 

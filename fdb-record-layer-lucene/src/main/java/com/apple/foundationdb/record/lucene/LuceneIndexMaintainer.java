@@ -135,7 +135,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             Query query = parser.parse(range.getLow().getString(0));
             return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, fieldNames);
         } catch (Exception ioe) {
-            throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range, ioe);
+            throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
+                    "internalException", ioe);
         }
     }
 
