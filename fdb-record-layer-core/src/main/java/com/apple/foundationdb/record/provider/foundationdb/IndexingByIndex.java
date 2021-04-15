@@ -299,4 +299,15 @@ public class IndexingByIndex extends IndexingBase {
             super(msg, keyValues);
         }
     }
+
+    public static boolean isValidationException(@Nullable Throwable ex) {
+        for (Throwable current = ex;
+                current != null;
+                current = current.getCause()) {
+            if (current instanceof ValidationException) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
