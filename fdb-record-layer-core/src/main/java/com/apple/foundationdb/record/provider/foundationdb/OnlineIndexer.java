@@ -1817,8 +1817,8 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * If source index is not available, check if allowed to scan the records.
-         * @return  {@code true} if a record scan is allowed
+         * If another indexing method is not possible, indicate if a fallback to records scan is forbidden.
+         * @return  {@code true} if a record scan is forbidden
          */
         public boolean isForbidRecordScan() {
             return forbidRecordScan;
@@ -1882,9 +1882,8 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * If set to true, throw an exception if the requested indexing cannot be used for this indexing.
-             * If false (also the default), fallback to a records scan indexing when the requested policy
-             * validation fails.
+             * If set to {@code true}, throw an exception when the requested indexing method cannot be used.
+             * If {@code false} (also the default), allow a fallback to records scan.
              *
              * @param forbidRecordScan if true, do not allow fallback to a record scan method
              * @return this builder
@@ -1895,8 +1894,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Same as calling {@link #setForbidRecordScan(boolean)} with the value true.
-             *
+             * Same as calling {@link #setForbidRecordScan(boolean)} with the value {@code true}.
              * @return this builder
              */
             public Builder forbidRecordScan() {
