@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
@@ -51,7 +51,7 @@ public interface PlannerRuleCall {
      * Return the map of bindings that this rule's matcher expression produced, which includes (by contract) all of the
      * bindings specified by the rule associated with this call.
      * This method should be implemented by rule call implementations, but users of the rule should usually access these
-     * via {@link #get(ExpressionMatcher)}.
+     * via {@link #get(BindingMatcher)}.
      * @return the map of bindings that the rule's matcher expression produced
      */
     @Nonnull
@@ -73,7 +73,7 @@ public interface PlannerRuleCall {
      * @throws java.util.NoSuchElementException when <code>key</code> is not a valid binding, or is not bound to a bindable
      */
     @Nonnull
-    default <U extends Bindable> U get(@Nonnull ExpressionMatcher<U> key) {
+    default <U> U get(@Nonnull BindingMatcher<U> key) {
         return getBindings().get(key);
     }
 

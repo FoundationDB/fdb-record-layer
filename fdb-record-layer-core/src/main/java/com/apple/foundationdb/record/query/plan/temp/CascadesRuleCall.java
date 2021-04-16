@@ -44,7 +44,7 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class CascadesRuleCall implements PlannerRuleCall {
     @Nonnull
-    private final PlannerRule<? extends Bindable> rule;
+    private final PlannerRule<?> rule;
     @Nonnull
     private final GroupExpressionRef<RelationalExpression> root;
     @Nonnull
@@ -59,7 +59,7 @@ public class CascadesRuleCall implements PlannerRuleCall {
     private final Set<PartialMatch> newPartialMatches;
 
     public CascadesRuleCall(@Nonnull PlanContext context,
-                            @Nonnull PlannerRule<? extends Bindable> rule,
+                            @Nonnull PlannerRule<?> rule,
                             @Nonnull GroupExpressionRef<RelationalExpression> root,
                             @Nonnull AliasResolver aliasResolver,
                             @Nonnull PlannerBindings bindings) {

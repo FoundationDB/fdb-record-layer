@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Suppliers;
 import org.slf4j.Logger;
@@ -608,12 +607,12 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         private final RelationalExpression expression;
         @Nonnull
-        private final PlannerRule<? extends Bindable> rule;
+        private final PlannerRule<?> rule;
 
         protected AbstractTransform(@Nonnull PlanContext context,
                                     @Nonnull GroupExpressionRef<RelationalExpression> group,
                                     @Nonnull RelationalExpression expression,
-                                    @Nonnull PlannerRule<? extends Bindable> rule) {
+                                    @Nonnull PlannerRule<?> rule) {
             this.context = context;
             this.group = group;
             this.expression = expression;
@@ -636,12 +635,12 @@ public class CascadesPlanner implements QueryPlanner {
         }
 
         @Nonnull
-        public PlannerRule<? extends Bindable> getRule() {
+        public PlannerRule<?> getRule() {
             return rule;
         }
 
         @Nonnull
-        protected abstract Bindable getBindable();
+        protected abstract Object getBindable();
 
         @Nonnull
         protected PlannerBindings getInitialBindings() {
@@ -666,14 +665,15 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         public void execute() {
             final GroupExpressionRef<RelationalExpression> group = getGroup();
-            final PlannerRule<? extends Bindable> rule = getRule();
+            final PlannerRule<?> rule = getRule();
             if (!shouldExecute()) {
                 return;
             }
 
             final PlannerBindings initialBindings = getInitialBindings();
 
-            getBindable().bindTo(initialBindings, rule.getMatcher())
+            rule.getMatcher()
+                    .bindMatches(initialBindings, getBindable())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
                         // we notify the debugger (if installed) that the transform task is succeeding and
@@ -725,7 +725,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Nonnull
         @Override
-        protected Bindable getBindable() {
+        protected Object getBindable() {
             // note that the bindable is the current expression itself
             return getExpression();
         }
@@ -740,8 +740,6 @@ public class CascadesPlanner implements QueryPlanner {
         protected PlannerBindings getInitialBindings() {
             return PlannerBindings.newBuilder()
                     .putAll(super.getInitialBindings())
-                    .putAll(PartialMatchMatcher.expressionWithCurrentPartialMatches(),
-                            getGroup().getPartialMatchesForExpression(getExpression()))
                     .build();
         }
     }
@@ -763,7 +761,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Nonnull
         @Override
-        protected Bindable getBindable() {
+        protected Object getBindable() {
             return matchPartitionSupplier.get();
         }
     }
@@ -786,7 +784,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Nonnull
         @Override
-        protected Bindable getBindable() {
+        protected Object getBindable() {
             return partialMatch;
         }
     }

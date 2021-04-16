@@ -39,6 +39,10 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -52,6 +56,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
 
 /**
  * A query plan that executes by taking the union of records from two or more compatibly-sorted child plans.
@@ -274,5 +280,15 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNION_OPERATOR),
                 childGraphs);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryUnionPlan.class, AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryUnionPlan.class, downstream);
     }
 }

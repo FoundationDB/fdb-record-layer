@@ -30,16 +30,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -49,7 +45,6 @@ import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * An existential predicate that is true if the inner correlation produces any values, and false otherwise.
@@ -99,12 +94,6 @@ public class ExistsPredicate implements LeafQueryPredicate {
         } else {
             return this;
         }
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, ImmutableList.of());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -167,7 +156,7 @@ public class ExistsPredicate implements LeafQueryPredicate {
         final Optional<Compensation> compensationOptional = childPartialMatchOptional.map(childPartialMatch -> childPartialMatch.compensate(boundParameterPrefixMap));
         if (!compensationOptional.isPresent() || compensationOptional.get().isNeeded()) {
             // TODO we are presently unable to do much better than a reapplication of the alternative QueryComponent
-            // TODO make a predicate that can evaluate a QueryComponent
+            //      make a predicate that can evaluate a QueryComponent
             return Optional.of(reapplyPredicate());
         }
         return Optional.empty();

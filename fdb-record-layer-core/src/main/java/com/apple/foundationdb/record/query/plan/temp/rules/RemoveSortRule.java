@@ -28,10 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty.OrderingInfo;
 
@@ -41,18 +38,22 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression.logicalSortExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
+
 /**
  * A rule that implements a sort expression by removing this expression if appropriate.
  */
 @API(API.Status.EXPERIMENTAL)
 public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
     @Nonnull
-    private static final ExpressionMatcher<RecordQueryPlan> innerPlanMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
+    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
-    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerPlanMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
     @Nonnull
-    private static final ExpressionMatcher<LogicalSortExpression> root =
-            TypeMatcher.of(LogicalSortExpression.class, innerQuantifierMatcher);
+    private static final BindingMatcher<LogicalSortExpression> root = logicalSortExpression(exactly(innerQuantifierMatcher));
 
     public RemoveSortRule() {
         super(root);

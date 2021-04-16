@@ -39,6 +39,9 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -71,6 +74,9 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeWithPredicatesAndOwning;
 
 /**
  * A select expression.
@@ -504,5 +510,27 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         }
 
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation, toBeReappliedPredicatesMap);
+    }
+
+    @Nonnull
+    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(SelectExpression.class, AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(SelectExpression.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
+                                                                    @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
+        return ofTypeWithPredicatesAndOwning(SelectExpression.class, AnyMatcher.any(downstreamPredicates), AnyMatcher.any(downstreamQuantifiers));
+    }
+
+    @Nonnull
+    public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
+                                                                    @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
+        return ofTypeWithPredicatesAndOwning(SelectExpression.class, downstreamPredicates, downstreamQuantifiers);
     }
 }

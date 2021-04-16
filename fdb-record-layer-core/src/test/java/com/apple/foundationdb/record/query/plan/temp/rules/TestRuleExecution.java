@@ -20,13 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,7 +57,7 @@ public class TestRuleExecution {
 
     @SuppressWarnings("unchecked")
     @Nullable
-    public <T extends Bindable> T getResultMemberWithClass(@Nonnull Class<T> clazz) {
+    public <T> T getResultMemberWithClass(@Nonnull Class<T> clazz) {
         for (RelationalExpression member : result.getMembers()) {
             if (clazz.isInstance(member)) {
                 return (T) member;
@@ -71,7 +71,7 @@ public class TestRuleExecution {
                                               @Nonnull GroupExpressionRef<RelationalExpression> group) {
         boolean ruleMatched = false;
         for (RelationalExpression expression : group.getMembers()) {
-            final Iterator<CascadesRuleCall> ruleCalls = expression.bindTo(null, rule.getMatcher())
+            final Iterator<CascadesRuleCall> ruleCalls = rule.getMatcher().bindMatches(PlannerBindings.empty(), rule.getMatcher())
                     .map(bindings -> new CascadesRuleCall(context, rule, group, Quantifiers.AliasResolver.withRoot(group), bindings))
                     .iterator();
             while (ruleCalls.hasNext()) {

@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
@@ -49,7 +48,7 @@ import java.util.Set;
  * e.g. filter a record out of a set of records, etc.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface QueryPredicate extends Bindable, Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable {
+public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<QueryPredicate>, PlanHashable {
 
     @Nonnull
     @Override

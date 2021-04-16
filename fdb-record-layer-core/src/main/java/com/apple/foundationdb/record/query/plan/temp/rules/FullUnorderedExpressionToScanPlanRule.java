@@ -25,17 +25,18 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 
 import javax.annotation.Nonnull;
+
+import static com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression.fullUnorderedScanExpression;
 
 /**
  * A rule for implementing a {@link FullUnorderedScanExpression} as a {@link RecordQueryScanPlan} of the full primary
  * key space. This rule is used to generate "fallback" plans in the case that the planner does not find anything better.
  */
 public class FullUnorderedExpressionToScanPlanRule extends PlannerRule<FullUnorderedScanExpression> {
-    private static ExpressionMatcher<FullUnorderedScanExpression> root = TypeMatcher.of(FullUnorderedScanExpression.class);
+    private static final BindingMatcher<FullUnorderedScanExpression> root = fullUnorderedScanExpression();
 
     public FullUnorderedExpressionToScanPlanRule() {
         super(root);

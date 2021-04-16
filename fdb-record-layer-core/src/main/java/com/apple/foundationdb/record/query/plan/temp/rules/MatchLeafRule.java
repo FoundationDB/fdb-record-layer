@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRefTraversal;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
@@ -34,9 +33,9 @@ import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ListChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 
 import javax.annotation.Nonnull;
@@ -52,8 +51,8 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class MatchLeafRule extends PlannerRule<RelationalExpression> {
     // match any relational expression that is a leaf, that is, any expression that does not have any children
-    private static final ExpressionMatcher<RelationalExpression> root =
-            TypeMatcher.of(RelationalExpression.class, ListChildrenMatcher.empty());
+    private static final BindingMatcher<RelationalExpression> root =
+            RelationalExpressionMatchers.ofTypeOwning(RelationalExpression.class, CollectionMatcher.empty());
 
     public MatchLeafRule() {
         super(root);
@@ -67,7 +66,7 @@ public class MatchLeafRule extends PlannerRule<RelationalExpression> {
      * @return {@code Optional.empty()}
      */
     @Override
-    public Optional<Class<? extends Bindable>> getRootOperator() {
+    public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 

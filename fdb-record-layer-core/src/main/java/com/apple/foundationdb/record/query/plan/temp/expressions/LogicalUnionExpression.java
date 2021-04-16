@@ -25,6 +25,10 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -34,6 +38,8 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
 
 /**
  * A relational planner expression that represents an unimplemented union of its children.
@@ -110,5 +116,15 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren 
     @Override
     public int hashCodeWithoutChildren() {
         return 31;
+    }
+
+    @Nonnull
+    public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(LogicalUnionExpression.class, AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return RelationalExpressionMatchers.ofTypeOwning(LogicalUnionExpression.class, downstream);
     }
 }

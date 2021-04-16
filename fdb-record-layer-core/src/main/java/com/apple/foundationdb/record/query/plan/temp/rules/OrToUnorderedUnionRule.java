@@ -30,14 +30,9 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -46,6 +41,11 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.anyQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
 
 /**
  * Convert a filter on an {@linkplain OrPredicate or} expression into a plan on the union. In particular, this will
@@ -84,18 +84,13 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class OrToUnorderedUnionRule extends PlannerRule<SelectExpression> {
     @Nonnull
-    private static final ReferenceMatcher<? extends RelationalExpression> innerMatcher = ReferenceMatcher.anyRef();
+    private static final BindingMatcher<Quantifier> qunMatcher = anyQuantifier();
     @Nonnull
-    private static final QuantifierMatcher<Quantifier> qunMatcher = QuantifierMatcher.any(innerMatcher);
+    private static final BindingMatcher<QueryPredicate> orTermPredicateMatcher = anyPredicate();
     @Nonnull
-    private static final ExpressionMatcher<QueryPredicate> orTermPredicateMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
+    private static final BindingMatcher<OrPredicate> orMatcher = QueryPredicateMatchers.ofTypeWithChildren(OrPredicate.class, all(orTermPredicateMatcher));
     @Nonnull
-    private static final ExpressionMatcher<OrPredicate> orMatcher = TypeMatcher.of(OrPredicate.class, MultiChildrenMatcher.allMatching(orTermPredicateMatcher));
-    @Nonnull
-    private static final ExpressionMatcher<SelectExpression> root =
-            TypeWithPredicateMatcher.ofPredicate(SelectExpression.class,
-                    orMatcher,
-                    MultiChildrenMatcher.allMatching(qunMatcher));
+    private static final BindingMatcher<SelectExpression> root = SelectExpression.selectExpression(exactly(orMatcher), all(qunMatcher)); // TODO make this better to include other predicates
 
     public OrToUnorderedUnionRule() {
         super(root);
@@ -106,8 +101,8 @@ public class OrToUnorderedUnionRule extends PlannerRule<SelectExpression> {
         final PlannerBindings bindings = call.getBindings();
         final SelectExpression selectExpression = bindings.get(root);
         final List<? extends Value> resultValues = selectExpression.getResultValues();
-        final List<Quantifier> quantifiers = bindings.getAll(qunMatcher);
-        final List<QueryPredicate> orTermPredicates = bindings.getAll(orTermPredicateMatcher);
+        final List<? extends Quantifier> quantifiers = bindings.getAll(qunMatcher);
+        final List<? extends QueryPredicate> orTermPredicates = bindings.getAll(orTermPredicateMatcher);
         final List<ExpressionRef<RelationalExpression>> relationalExpressionRefs = new ArrayList<>(orTermPredicates.size());
         for (final QueryPredicate orTermPredicate : orTermPredicates) {
             relationalExpressionRefs.add(call.ref(new SelectExpression(resultValues, quantifiers, ImmutableList.of(orTermPredicate))));

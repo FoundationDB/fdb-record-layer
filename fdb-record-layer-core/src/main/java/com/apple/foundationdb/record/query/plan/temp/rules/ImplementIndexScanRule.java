@@ -25,11 +25,12 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 
 import javax.annotation.Nonnull;
 import java.util.Objects;
+
+import static com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression.indexScanExpression;
 
 /**
  * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts
@@ -38,7 +39,7 @@ import java.util.Objects;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementIndexScanRule extends PlannerRule<IndexScanExpression> {
-    private static final ExpressionMatcher<IndexScanExpression> root = TypeMatcher.of(IndexScanExpression.class);
+    private static final BindingMatcher<IndexScanExpression> root = indexScanExpression();
 
     public ImplementIndexScanRule() {
         super(root);

@@ -24,15 +24,11 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 /**
  * Common base class for predicates with many children, such as {@link AndPredicate} and {@link OrPredicate}.
@@ -54,12 +50,6 @@ public abstract class AndOrPredicate implements QueryPredicate {
     @Override
     public List<? extends QueryPredicate> getChildren() {
         return children;
-    }
-
-    @Override
-    @Nonnull
-    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, getChildren());
     }
 
     @Override

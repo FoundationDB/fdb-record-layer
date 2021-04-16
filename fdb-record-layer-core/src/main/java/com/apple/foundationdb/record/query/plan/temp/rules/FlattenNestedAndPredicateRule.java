@@ -25,20 +25,19 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildWithRestMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.OneOfThemAndRestMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
 
 /**
  * A simple rule that performs some basic Boolean normalization by flattening a nested {@link AndPredicate} into a single,
@@ -61,16 +60,15 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<QueryPredicate> andChildrenMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<QueryPredicate> otherInnerComponentsMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(ReferenceMatcher.anyRef());
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-            TypeMatcher.of(AndPredicate.class,
-                    AnyChildWithRestMatcher.anyMatchingWithRest(
-                            TypeMatcher.of(AndPredicate.class, MultiChildrenMatcher.allMatching(andChildrenMatcher)),
-                    otherInnerComponentsMatcher)),
-            innerQuantifierMatcher);
+    private static final BindingMatcher<QueryPredicate> nestedPredicateMatcher = anyPredicate();
+    private static final BindingMatcher<QueryPredicate> otherPredicateMatcher = anyPredicate();
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
 
+    private static final BindingMatcher<LogicalFilterExpression> root =
+            LogicalFilterExpression.logicalFilterExpression(
+                    OneOfThemAndRestMatcher.oneOfThemAndRest(
+                            AndPredicate.andPredicate(all(nestedPredicateMatcher)), all(otherPredicateMatcher)),
+                    all(innerQuantifierMatcher));
 
     public FlattenNestedAndPredicateRule() {
         super(root);
@@ -78,8 +76,9 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final List<QueryPredicate> innerAndChildren = call.getBindings().getAll(andChildrenMatcher);
-        final List<QueryPredicate> otherOuterAndChildren = call.getBindings().getAll(otherInnerComponentsMatcher);
+        final PlannerBindings bindings = call.getBindings();
+        final List<? extends QueryPredicate> innerAndChildren = bindings.getAll(nestedPredicateMatcher);
+        final List<? extends QueryPredicate> otherOuterAndChildren = bindings.getAll(otherPredicateMatcher);
         final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
         List<QueryPredicate> allConjuncts = new ArrayList<>(innerAndChildren);
         allConjuncts.addAll(otherOuterAndChildren);

@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.MatchPartition;
@@ -40,13 +39,14 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MatchPartitionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.MatchPartitionMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Verify;
@@ -70,6 +70,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.some;
+
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create a logical expression
  * for data access. While this rule delegates specifics to the {@link MatchCandidate}s, the following are possible
@@ -85,8 +87,8 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.EXPERIMENTAL)
 public class DataAccessRule extends PlannerRule<MatchPartition> {
-    private static final ExpressionMatcher<PartialMatch> completeMatchMatcher = PartialMatchMatcher.completeMatch();
-    private static final ExpressionMatcher<MatchPartition> rootMatcher = MatchPartitionMatcher.some(completeMatchMatcher);
+    private static final BindingMatcher<PartialMatch> completeMatchMatcher = PartialMatchMatchers.completeMatch();
+    private static final BindingMatcher<MatchPartition> rootMatcher = MatchPartitionMatchers.containing(some(completeMatchMatcher));
     
     public DataAccessRule() {
         super(rootMatcher);
@@ -96,7 +98,7 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
     @SuppressWarnings("java:S135")
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
-        final List<PartialMatch> completeMatches = bindings.getAll(completeMatchMatcher);
+        final List<? extends PartialMatch> completeMatches = bindings.getAll(completeMatchMatcher);
 
         if (completeMatches.isEmpty()) {
             return;

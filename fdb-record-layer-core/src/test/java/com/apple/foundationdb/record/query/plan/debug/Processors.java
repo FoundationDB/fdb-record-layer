@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
@@ -32,7 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeGrou
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.OptimizeInputsEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformEvent;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.TransformRuleCallEvent;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableListMultimap;
 import org.jline.reader.ParsedLine;
@@ -207,7 +206,7 @@ public class Processors {
             plannerRepl.printlnReference(event.getRootReference(), "  ");
             plannerRepl.printlnKeyValue("current group reference", "");
             plannerRepl.printlnReference(event.getCurrentGroupReference(), "  ");
-            final Bindable bindable = event.getBindable();
+            final Object bindable = event.getBindable();
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printlnExpression((RelationalExpression)bindable);
             } else {
@@ -223,7 +222,7 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
-            final Bindable bindable = event.getBindable();
+            final Object bindable = event.getBindable();
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
             } else {
@@ -255,10 +254,10 @@ public class Processors {
             plannerRepl.printlnKeyValue("rule", event.getRule().toString());
             plannerRepl.printlnKeyValue("bindings", "");
             final CascadesRuleCall ruleCall = event.getRuleCall();
-            final ImmutableListMultimap<ExpressionMatcher<? extends Bindable>, Bindable> bindings = ruleCall.getBindings().asMultiMap();
-            for (final Map.Entry<ExpressionMatcher<? extends Bindable>, Collection<Bindable>> entry : bindings.asMap().entrySet()) {
+            final ImmutableListMultimap<BindingMatcher<?>, ?> bindings = ruleCall.getBindings().asMultiMap();
+            for (final Map.Entry<BindingMatcher<?>, ? extends Collection<?>> entry : bindings.asMap().entrySet()) {
                 plannerRepl.printlnKeyValue("  " + entry.getKey().getClass().getSimpleName(), "");
-                for (Bindable bindable : entry.getValue()) {
+                for (Object bindable : entry.getValue()) {
                     plannerRepl.println("    " + plannerRepl.nameForObjectOrNotInCache(bindable));
                 }
             }
@@ -279,7 +278,7 @@ public class Processors {
             plannerRepl.printKeyValue("description", event.getDescription() + "; ");
             plannerRepl.printKeyValue("root", plannerRepl.nameForObjectOrNotInCache(event.getRootReference()) + "; ");
             plannerRepl.printKeyValue("group", plannerRepl.nameForObjectOrNotInCache(event.getCurrentGroupReference()) + "; ");
-            final Bindable bindable = event.getBindable();
+            final Object bindable = event.getBindable();
             if (bindable instanceof RelationalExpression) {
                 plannerRepl.printKeyValue("expression", plannerRepl.nameForObjectOrNotInCache(bindable) + "; ");
             } else {

@@ -28,8 +28,8 @@ import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -56,7 +56,7 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AdjustMatchRule extends PlannerRule<PartialMatch> {
-    private static final ExpressionMatcher<PartialMatch> rootMatcher = PartialMatchMatcher.incompleteMatch();
+    private static final BindingMatcher<PartialMatch> rootMatcher = PartialMatchMatchers.incompleteMatch();
 
     public AdjustMatchRule() {
         super(rootMatcher);

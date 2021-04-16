@@ -25,8 +25,6 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Preconditions;
@@ -40,7 +38,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * Models the concept of quantification.
@@ -68,7 +65,7 @@ import java.util.stream.Stream;
  */
 @SuppressWarnings("unused")
 @API(API.Status.EXPERIMENTAL)
-public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
+public abstract class Quantifier implements Correlated<Quantifier> {
     /**
      * The alias (some identification) for this quantifier.
      */
@@ -298,14 +295,14 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
      */
     @SuppressWarnings("squid:S2160") // sonarqube thinks .equals() and hashCode() should be overwritten which is not necessary
     public static final class Physical extends Quantifier {
-        @Nonnull private final ExpressionRef<? extends RecordQueryPlan> rangesOver;
+        @Nonnull private final ExpressionRef<? extends RelationalExpression> rangesOver;
 
         /**
          * Builder subclass for physical quantifiers.
          */
         public static class PhysicalBuilder extends Builder<Physical, PhysicalBuilder> {
             @Nonnull
-            public Physical build(@Nonnull final ExpressionRef<? extends RecordQueryPlan> rangesOver) {
+            public Physical build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
                 return new Physical(alias == null ? CorrelationIdentifier.uniqueID() : alias, rangesOver);
             }
 
@@ -323,20 +320,20 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
         }
 
         private Physical(@Nonnull final CorrelationIdentifier alias,
-                         @Nonnull final ExpressionRef<? extends RecordQueryPlan> rangesOver) {
+                         @Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
             super(alias);
             this.rangesOver = rangesOver;
         }
 
         @Override
         @Nonnull
-        public ExpressionRef<? extends RecordQueryPlan> getRangesOver() {
+        public ExpressionRef<? extends RelationalExpression> getRangesOver() {
             return rangesOver;
         }
 
         @Nonnull
         public RecordQueryPlan getRangesOverPlan() {
-            return getRangesOver().get();
+            return (RecordQueryPlan)getRangesOver().get();
         }
 
         @Override
@@ -396,13 +393,13 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
         return new Physical.PhysicalBuilder();
     }
 
-    public static Physical physical(@Nonnull final ExpressionRef<? extends RecordQueryPlan> reference) {
+    public static Physical physical(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
         return physicalBuilder()
                 .build(reference);
     }
 
     @Nonnull
-    public static Physical physical(@Nonnull final ExpressionRef<? extends RecordQueryPlan> reference,
+    public static Physical physical(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
                                     @Nonnull final CorrelationIdentifier alias) {
         return physicalBuilder()
                 .withAlias(alias)
@@ -436,12 +433,6 @@ public abstract class Quantifier implements Bindable, Correlated<Quantifier> {
      */
     @Nonnull
     public abstract String getShorthand();
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, ImmutableList.of(getRangesOver()));
-    }
 
     /**
      * Allow the computation of {@link PlannerProperty}s across the quantifiers in the data flow graph.

@@ -37,6 +37,10 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
@@ -206,5 +210,14 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this, NodeInfo.UNORDERED_PRIMARY_KEY_DISTINCT_OPERATOR),
                 childGraphs);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinctPlan(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, AnyMatcher.any(downstream));
+    }
+
+    public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinctPlan(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, downstream);
     }
 }

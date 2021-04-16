@@ -38,6 +38,10 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -215,5 +219,16 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                         ImmutableList.of("WHERE record IS {{types}}"),
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
+    }
+
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryTypeFilterPlan> typeFilterPlan(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryTypeFilterPlan.class, AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryTypeFilterPlan> typeFilterPlan(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryTypeFilterPlan.class, downstream);
     }
 }

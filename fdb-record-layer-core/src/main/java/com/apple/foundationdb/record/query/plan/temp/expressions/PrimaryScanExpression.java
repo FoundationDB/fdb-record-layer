@@ -30,6 +30,9 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -177,5 +180,10 @@ public class PrimaryScanExpression implements RelationalExpression, PlannerGraph
                 ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(
                         dataNodeWithInfo,
                         childGraphs)));
+    }
+
+    @Nonnull
+    public static BindingMatcher<PrimaryScanExpression> primaryScanExpression() {
+        return RelationalExpressionMatchers.ofTypeOwning(PrimaryScanExpression.class, CollectionMatcher.empty());
     }
 }

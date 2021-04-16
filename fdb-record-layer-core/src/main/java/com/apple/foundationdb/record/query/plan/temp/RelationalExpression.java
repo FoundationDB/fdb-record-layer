@@ -30,8 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpr
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
@@ -57,7 +55,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -96,7 +93,7 @@ import java.util.stream.StreamSupport;
  * implementations of each.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RelationalExpression extends Bindable, Correlated<RelationalExpression> {
+public interface RelationalExpression extends Correlated<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
@@ -127,19 +124,6 @@ public interface RelationalExpression extends Bindable, Correlated<RelationalExp
         }
 
         return quantifier.getRangesOver().get();
-    }
-
-    /**
-     * Matches a matcher expression to an expression tree rooted at this node, adding to some existing bindings.
-     *
-     * @param outerBindings preexisting bindings to be used by the matcher
-     * @param matcher the matcher to match against
-     * @return the existing bindings extended with some new ones if the match was successful or <code>Optional.empty()</code> otherwise
-     */
-    @Override
-    @Nonnull
-    default Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, getQuantifiers());
     }
 
     @Nonnull

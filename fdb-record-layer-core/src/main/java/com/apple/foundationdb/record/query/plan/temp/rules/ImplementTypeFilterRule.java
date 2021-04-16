@@ -28,15 +28,16 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
 
 /**
  * A rule that implements a logical type filter on an (already implemented) {@link RecordQueryPlan} as a
@@ -44,11 +45,10 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static final ExpressionMatcher<RecordQueryPlan> innerMatcher = TypeMatcher.of(RecordQueryPlan.class,
-            AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerMatcher);
-    private static final ExpressionMatcher<LogicalTypeFilterExpression> root =
-            TypeMatcher.of(LogicalTypeFilterExpression.class, innerQuantifierMatcher);
+    private static final BindingMatcher<RecordQueryPlan> innerMatcher = RelationalExpressionMatchers.anyPlan();
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatchers.forEachQuantifier(innerMatcher);
+    private static final BindingMatcher<LogicalTypeFilterExpression> root =
+            LogicalTypeFilterExpression.logicalTypeFilterExpression(exactly(innerQuantifierMatcher));
 
     public ImplementTypeFilterRule() {
         super(root);

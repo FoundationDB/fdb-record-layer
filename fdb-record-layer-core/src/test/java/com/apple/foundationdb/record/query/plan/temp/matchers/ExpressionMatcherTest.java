@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -52,20 +51,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Check that expression matchers are able to properly match planner expressions and references using the
- * {@link Bindable#bindTo(PlannerBindings, ExpressionMatcher)} method.
+ * {@link BindingMatcher#bindMatches(PlannerBindings, Object)} method.
  * These tests rely on dereferencing references in a number of places since we use equality checking to make sure that
  * the bindings are returning the correct values. Technically, this violates the contract (that planner expression
  * children might not be present, might be masked, etc.). This test might break in the future if that were to happen.
  */
 public class ExpressionMatcherTest {
-    private static final List<ExpressionMatcher<? extends Bindable>> existingMatchers = ImmutableList.of(
-            TypeMatcher.of(RecordQueryIndexPlan.class),
-            TypeMatcher.of(RelationalExpression.class));
-    private static final List<Bindable> existingBindables = ImmutableList.of(
+    private static final List<BindingMatcher<? extends RecordQueryPlan>> existingMatchers = ImmutableList.of(
+            RecordQueryIndexPlan.indexPlan(),
+            RelationalExpressionMatchers.ofType(RecordQueryPlan.class));
+    private static final List<? extends RecordQueryPlan> existingBindables = ImmutableList.of(
             new RecordQueryIndexPlan("fake_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false),
             new RecordQueryScanPlan(ScanComparisons.EMPTY, false));
-
-
 
     @Nonnull
     private PlannerBindings getExistingBindings() {
@@ -86,14 +83,14 @@ public class ExpressionMatcherTest {
     @Test
     public void anyRefMatcher() {
         // create a matcher and expression to match
-        ReferenceMatcher<? extends RelationalExpression> matcher = ReferenceMatcher.anyRef();
+        BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> matcher = ReferenceMatchers.anyRef();
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
                         ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5))),
                         quantifier));
         // try to match to expression
-        Optional<PlannerBindings> newBindings = root.bindTo(null, matcher).findFirst();
+        Optional<PlannerBindings> newBindings = matcher.bindMatches(PlannerBindings.empty(), root).findFirst();
         // check the the bindings are what we expect, and that none of the existing ones were clobbered
         assertTrue(newBindings.isPresent());
         PlannerBindings allBindings = newBindings.get().mergedWith(getExistingBindings());
@@ -106,9 +103,10 @@ public class ExpressionMatcherTest {
     @Test
     public void singleTypeMatcher() {
         // we already have a different RecordQueryIndexPlan matcher, but this should still work
-        ExpressionMatcher<RecordQueryIndexPlan> matcher = TypeMatcher.of(RecordQueryIndexPlan.class);
-        ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
-        Optional<PlannerBindings> newBindings = root.bindTo(null, matcher).findFirst();
+        BindingMatcher<RecordQueryIndexPlan> matcher = RecordQueryIndexPlan.indexPlan();
+        final ExpressionRef<RelationalExpression> root =
+                GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true));
+        Optional<PlannerBindings> newBindings = matcher.bindMatches(PlannerBindings.empty(), root.get()).findFirst();
         // check the the bindings are what we expect, and that none of the existing ones were clobbered
         assertTrue(newBindings.isPresent());
         PlannerBindings allBindings = newBindings.get().mergedWith(getExistingBindings());
@@ -121,85 +119,84 @@ public class ExpressionMatcherTest {
 
     @Test
     public void nestedTypeMatchers() {
-        ExpressionMatcher<RecordQueryIndexPlan> childMatcher1 = TypeMatcher.of(RecordQueryIndexPlan.class);
-        ExpressionMatcher<RecordQueryScanPlan> childMatcher2 = TypeMatcher.of(RecordQueryScanPlan.class);
-        ExpressionMatcher<RecordQueryUnionPlan> parentMatcher = TypeMatcher.of(RecordQueryUnionPlan.class,
-                QuantifierMatcher.physical(childMatcher1),
-                QuantifierMatcher.physical(childMatcher2));
+        BindingMatcher<RecordQueryIndexPlan> childMatcher1 = RecordQueryIndexPlan.indexPlan();
+        BindingMatcher<RecordQueryScanPlan> childMatcher2 = RecordQueryScanPlan.scanPlan();
+        BindingMatcher<RecordQueryUnionPlan> parentMatcher = RecordQueryUnionPlan.unionPlan(
+                TListMatcher.exactly(QuantifierMatchers.physicalQuantifier(childMatcher1),
+                        QuantifierMatchers.physicalQuantifier(childMatcher2)));
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
 
         // check matches if the children are in the right order
-        ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
-                child1, child2, EmptyKeyExpression.EMPTY, false));
-        Optional<PlannerBindings> possibleBindings = root.bindTo(null, parentMatcher).findFirst();
+        RelationalExpression root = RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child1, child2, EmptyKeyExpression.EMPTY, false);
+        Optional<PlannerBindings> possibleBindings = parentMatcher.bindMatches(PlannerBindings.empty(), root).findFirst();
         assertTrue(possibleBindings.isPresent());
         PlannerBindings allBindings = possibleBindings.get().mergedWith(getExistingBindings());
         assertExistingBindingsSurvived(allBindings);
-        assertEquals(root.get(), allBindings.get(parentMatcher));
+        assertEquals(root, allBindings.get(parentMatcher));
         assertEquals(child1, allBindings.get(childMatcher1));
         assertEquals(child2, allBindings.get(childMatcher2));
 
         // check that we fail to match if the children are in the wrong order
-        root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
-                child2, child1, EmptyKeyExpression.EMPTY, false));
-        assertFalse(root.bindTo(null, parentMatcher).findFirst().isPresent());
+        root = RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child2, child1, EmptyKeyExpression.EMPTY, false);
+        assertFalse(parentMatcher.bindMatches(PlannerBindings.empty(), root).findFirst().isPresent());
     }
 
     @Test
     public void matchChildOrder() {
-        ExpressionMatcher<RecordQueryUnionPlan> parentMatcher =
-                TypeMatcher.of(RecordQueryUnionPlan.class,
-                        // types are wrong based on ordering of children in getPlannerExpressionChildren()
-                        QuantifierMatcher.physical(TypeMatcher.of(RecordQueryIndexPlan.class)),
-                        QuantifierMatcher.physical(TypeMatcher.of(RecordQueryScanPlan.class)));
+        BindingMatcher<RecordQueryUnionPlan> parentMatcher = RecordQueryUnionPlan.unionPlan(
+                TListMatcher.exactly(QuantifierMatchers.physicalQuantifier(RecordQueryIndexPlan.indexPlan()),
+                        QuantifierMatchers.physicalQuantifier(RecordQueryScanPlan.scanPlan())));
+
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
-                child1, child2, EmptyKeyExpression.EMPTY, false));
-        assertTrue(root.bindTo(null, parentMatcher).findFirst().isPresent());
+        RelationalExpression root = RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child1, child2, EmptyKeyExpression.EMPTY, false);
+        assertTrue(parentMatcher.bindMatches(PlannerBindings.empty(), root).findFirst().isPresent());
 
-        root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
-                child2, child1, EmptyKeyExpression.EMPTY, false));
-        assertFalse(root.bindTo(null, parentMatcher).findFirst().isPresent());
+        root = RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child2, child1, EmptyKeyExpression.EMPTY, false);
+        assertFalse(parentMatcher.bindMatches(PlannerBindings.empty(), root).findFirst().isPresent());
     }
 
     @Test
     public void matchChildrenAsReferences() {
-        ReferenceMatcher<? extends RelationalExpression> childMatcher1 = ReferenceMatcher.anyRef();
-        ReferenceMatcher<? extends RelationalExpression> childMatcher2 = ReferenceMatcher.anyRef();
-        ExpressionMatcher<RecordQueryUnionPlan> matcher =
-                TypeMatcher.of(RecordQueryUnionPlan.class,
-                        QuantifierMatcher.physical(childMatcher1),
-                        QuantifierMatcher.physical(childMatcher2));
+        BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> childMatcher1 = ReferenceMatchers.anyRef();
+        BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> childMatcher2 = ReferenceMatchers.anyRef();
+        BindingMatcher<RecordQueryUnionPlan> matcher = RecordQueryUnionPlan.unionPlan(
+                TListMatcher.exactly(QuantifierMatchers.physicalQuantifierOverRef(childMatcher1),
+                        QuantifierMatchers.physicalQuantifierOverRef(childMatcher2)));
+
         RecordQueryIndexPlan child1 = new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true);
         RecordQueryScanPlan child2 = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(RecordQueryUnionPlan.from( // union with arbitrary comparison key
-                child1, child2, EmptyKeyExpression.EMPTY, false));
+        RelationalExpression root = RecordQueryUnionPlan.from( // union with arbitrary comparison key
+                child1, child2, EmptyKeyExpression.EMPTY, false);
 
-        Optional<PlannerBindings> possibleBindings = root.bindTo(null, matcher).findFirst();
+        Optional<PlannerBindings> possibleBindings = matcher.bindMatches(PlannerBindings.empty(), root).findFirst();
         assertTrue(possibleBindings.isPresent());
         PlannerBindings newBindings = possibleBindings.get().mergedWith(getExistingBindings());
         assertExistingBindingsSurvived(newBindings);
-        assertEquals(root.get(), newBindings.get(matcher)); // check that root matches
+        assertEquals(root, newBindings.get(matcher)); // check that root matches
         // check that children are behind references
         assertEquals(child1, newBindings.get(childMatcher1).get());
         assertEquals(child2, newBindings.get(childMatcher2).get());
     }
+    
 
     @Test
     public void treeDescentWithMixedBindings() {
         // build a relatively complicated matcher
-        ReferenceMatcher<? extends RelationalExpression> filterLeafMatcher = ReferenceMatcher.anyRef();
-        ExpressionMatcher<QueryPredicate> andMatcher = TypeMatcher.of(AndPredicate.class, AnyChildrenMatcher.ANY);
-        ExpressionMatcher<LogicalFilterExpression> filterPlanMatcher =
-                TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-                        andMatcher,
-                        QuantifierMatcher.forEach(filterLeafMatcher));
-        ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
-        ExpressionMatcher<LogicalUnionExpression> matcher = TypeMatcher.of(LogicalUnionExpression.class,
-                QuantifierMatcher.forEach(filterPlanMatcher),
-                QuantifierMatcher.forEach(scanMatcher));
+        BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> filterLeafMatcher = ReferenceMatchers.anyRef();
+        BindingMatcher<QueryPredicate> predicateMatcher = QueryPredicateMatchers.anyPredicate();
+        final BindingMatcher<LogicalFilterExpression> filterPlanMatcher =
+                LogicalFilterExpression.logicalFilterExpression(TMultiMatcher.TAllMatcher.all(predicateMatcher), AnyMatcher.any(QuantifierMatchers.forEachQuantifierOverRef(filterLeafMatcher)));
+
+        BindingMatcher<RecordQueryScanPlan> scanMatcher = RecordQueryScanPlan.scanPlan();
+        BindingMatcher<LogicalUnionExpression> matcher = LogicalUnionExpression.logicalUnionExpression(
+                TListMatcher.exactly(QuantifierMatchers.forEachQuantifier(filterPlanMatcher),
+                        QuantifierMatchers.forEachQuantifier(scanMatcher)));
 
         // build a relatively complicated expression
         QueryComponent andBranch1 = Query.field("field1").greaterThan(6);
@@ -209,22 +206,22 @@ public class ExpressionMatcherTest {
                 new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias()).getPredicates(),
                         quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
-        ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
+        RelationalExpression root =
                 new LogicalUnionExpression(
                         Quantifiers.forEachQuantifiers(ImmutableList.of(GroupExpressionRef.of(filterPlan),
-                                GroupExpressionRef.of(scanPlan)))));
+                                GroupExpressionRef.of(scanPlan))));
 
-        assertTrue(filterPlan.bindTo(null, filterPlanMatcher).findFirst().isPresent());
+        assertTrue(filterPlanMatcher.bindMatches(PlannerBindings.empty(), filterPlan).findFirst().isPresent());
 
         // try to bind
-        Optional<PlannerBindings> possibleBindings = root.bindTo(null, matcher).findFirst();
+        Optional<PlannerBindings> possibleBindings = matcher.bindMatches(PlannerBindings.empty(), root).findFirst();
         // check that all the bindings match what we expect
         assertTrue(possibleBindings.isPresent());
         PlannerBindings bindings = possibleBindings.get().mergedWith(getExistingBindings());
-        assertEquals(root.get(), bindings.get(matcher));
+        assertEquals(root, bindings.get(matcher));
         assertEquals(filterPlan, bindings.get(filterPlanMatcher));
         assertEquals(scanPlan, bindings.get(scanMatcher));
-        assertEquals(AndPredicate.and(filterPlan.getPredicates()), bindings.get(andMatcher));
+        assertEquals(filterPlan.getPredicates(), bindings.getAll(predicateMatcher));
         assertEquals(filterPlan.getInner().getRangesOver().get(), bindings.get(filterLeafMatcher).get()); // dereference
     }
 }

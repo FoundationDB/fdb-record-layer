@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -28,15 +27,20 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan.predicatesFilterPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan.unorderedPrimaryKeyDistinctPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.anyRefOverOnlyPlans;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
 
 /**
  * A rule that moves a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan}
@@ -74,12 +78,15 @@ import java.util.List;
  * where pred' is rebased along the translation from qun to newQun.
  */
 public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
-    private static final ReferenceMatcher<RecordQueryPlan> innerMatcher = ReferenceMatcher.allOf(TypeMatcher.of(RecordQueryPlan.class));
-    private static final ExpressionMatcher<Quantifier.Physical> innerQuantifierMatcher = QuantifierMatcher.physical(innerMatcher);
-    private static final ExpressionMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher =
-            TypeMatcher.of(RecordQueryPredicatesFilterPlan.class, innerQuantifierMatcher);
-    private static final ExpressionMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
-            TypeMatcher.of(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, QuantifierMatcher.physical(filterPlanMatcher));
+    @Nonnull
+    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerRefMatcher = anyRefOverOnlyPlans();
+    @Nonnull
+    private static final BindingMatcher<Quantifier.Physical> innerQuantifierMatcher = physicalQuantifierOverRef(innerRefMatcher);
+    @Nonnull
+    private static final BindingMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher = predicatesFilterPlan(exactly(innerQuantifierMatcher));
+    @Nonnull
+    private static final BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
+            unorderedPrimaryKeyDistinctPlan(exactly(physicalQuantifier(filterPlanMatcher)));
 
     public PushDistinctFilterBelowFilterRule() {
         super(root);
@@ -87,7 +94,7 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
+        final ExpressionRef<? extends RelationalExpression> inner = call.get(innerRefMatcher);
         final Quantifier.Physical qun = call.get(innerQuantifierMatcher);
         final RecordQueryPredicatesFilterPlan filterPlan = call.get(filterPlanMatcher);
 

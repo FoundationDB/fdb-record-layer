@@ -43,6 +43,9 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
@@ -317,5 +320,10 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                         PlannerGraph.fromNodeAndChildGraphs(
                                 new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryIndexPlan> indexPlan() {
+        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryIndexPlan.class, CollectionMatcher.empty());
     }
 }

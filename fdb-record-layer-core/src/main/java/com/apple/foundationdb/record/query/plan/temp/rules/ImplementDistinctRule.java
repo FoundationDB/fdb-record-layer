@@ -28,13 +28,14 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.CreatesDuplicatesProperty;
 
 import javax.annotation.Nonnull;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
 
 /**
  * A rule that implements a distinct expression by adding a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}
@@ -53,12 +54,11 @@ import javax.annotation.Nonnull;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression> {
     @Nonnull
-    private static final ExpressionMatcher<RecordQueryPlan> innerPlanMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
+    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
-    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerPlanMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
     @Nonnull
-    private static final ExpressionMatcher<LogicalDistinctExpression> root =
-            TypeMatcher.of(LogicalDistinctExpression.class, innerQuantifierMatcher);
+    private static final BindingMatcher<LogicalDistinctExpression> root = LogicalDistinctExpression.logicalDistinctExpression(exactly(innerQuantifierMatcher));
 
     public ImplementDistinctRule() {
         super(root);

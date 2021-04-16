@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -31,19 +30,24 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan.predicatesFilterPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.anyRefOverOnlyPlans;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
 
 /**
  * A rule that moves a {@link RecordQueryTypeFilterPlan} below a {@link RecordQueryFilterPlan}. While this doesn't make
@@ -81,14 +85,11 @@ import java.util.List;
  */
 @API(API.Status.EXPERIMENTAL)
 public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFilterPlan> {
-    private static final ReferenceMatcher<RecordQueryPlan> innerMatcher = ReferenceMatcher.allOf(TypeMatcher.of(RecordQueryPlan.class));
-    private static final ExpressionMatcher<Quantifier.Physical> qunMatcher = QuantifierMatcher.physical(innerMatcher);
-    private static final ExpressionMatcher<QueryPredicate> predMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher =
-            TypeWithPredicateMatcher.ofPredicate(RecordQueryPredicatesFilterPlan.class, predMatcher, qunMatcher);
-    private static final QuantifierMatcher<Quantifier.Physical> filterPlanQuantifierMatcher = QuantifierMatcher.physical(filterPlanMatcher);
-    private static final ExpressionMatcher<RecordQueryTypeFilterPlan> root =
-            TypeMatcher.of(RecordQueryTypeFilterPlan.class, filterPlanQuantifierMatcher);
+    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = anyRefOverOnlyPlans();
+    private static final BindingMatcher<Quantifier.Physical> qunMatcher = physicalQuantifierOverRef(innerMatcher);
+    private static final BindingMatcher<QueryPredicate> predMatcher = anyPredicate();
+    private static final BindingMatcher<RecordQueryTypeFilterPlan> root =
+            typeFilterPlan(exactly(physicalQuantifier(predicatesFilterPlan(all(predMatcher), exactly(qunMatcher)))));
 
     public PushTypeFilterBelowFilterRule() {
         super(root);
@@ -96,10 +97,11 @@ public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFi
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<RecordQueryPlan> inner = call.get(innerMatcher);
-        final Quantifier.Physical qun = call.get(qunMatcher);
-        final List<? extends QueryPredicate> predicates = AndPredicate.conjuncts(call.get(predMatcher));
-        final Collection<String> recordTypes = call.get(root).getRecordTypes();
+        final PlannerBindings bindings = call.getBindings();
+        final ExpressionRef<? extends RelationalExpression> inner = bindings.get(innerMatcher);
+        final Quantifier.Physical qun = bindings.get(qunMatcher);
+        final List<? extends QueryPredicate> predicates = bindings.getAll(predMatcher);
+        final Collection<String> recordTypes = bindings.get(root).getRecordTypes();
 
         final RecordQueryTypeFilterPlan newTypeFilterPlan = new RecordQueryTypeFilterPlan(Quantifier.physical(inner), recordTypes);
         final Quantifier.Physical newQun = Quantifier.physical(call.ref(newTypeFilterPlan));

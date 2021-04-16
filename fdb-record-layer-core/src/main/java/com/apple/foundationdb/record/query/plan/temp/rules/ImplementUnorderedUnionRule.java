@@ -26,14 +26,15 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression.logicalUnionExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
 
 /**
  * A rule that implements an unordered union of its (already implemented) children. This will extract the
@@ -43,11 +44,10 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpression> {
     @Nonnull
-    private static final ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class, MultiChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
+    private static final BindingMatcher<RecordQueryPlan> unionLegMatcher = RelationalExpressionMatchers.anyPlan();
     @Nonnull
-    private static final ExpressionMatcher<LogicalUnionExpression> root =
-            TypeMatcher.of(LogicalUnionExpression.class,
-                    MultiChildrenMatcher.allMatching(QuantifierMatcher.forEach(childMatcher)));
+    private static final BindingMatcher<LogicalUnionExpression> root =
+            logicalUnionExpression(all(forEachQuantifier(unionLegMatcher)));
 
     public ImplementUnorderedUnionRule() {
         super(root);
@@ -55,7 +55,7 @@ public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpress
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final List<RecordQueryPlan> planChildren = call.getBindings().getAll(childMatcher);
+        final List<? extends RecordQueryPlan> planChildren = call.getBindings().getAll(unionLegMatcher);
         call.yield(call.ref(RecordQueryUnorderedUnionPlan.from(planChildren)));
     }
 }

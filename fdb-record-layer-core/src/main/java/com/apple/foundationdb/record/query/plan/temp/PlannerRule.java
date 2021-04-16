@@ -21,8 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 
 import javax.annotation.Nonnull;
 import java.util.Optional;
@@ -33,7 +32,7 @@ import java.util.Optional;
  * expressions.
  *
  * The rule matching occurs in two stages: first, the planner examines the {@link #matcher} of the rule,
- * which is a {@link TypeMatcher} expression that expresses the operators that the rule applies to and the hierarchical
+ * which is a {@link BindingMatcher} expression that expresses the operators that the rule applies to and the hierarchical
  * structure that they take on in the expression tree. If the rule matches the binding, its {@link #onMatch(PlannerRuleCall)}
  * method is called, with a parameter that provides the planner's {@link PlanContext} and access to the map of bindings,
  * among other things. This method can inspect the operators bound during the structural matching and implement other
@@ -58,9 +57,9 @@ import java.util.Optional;
  * @see PlannerRuleCall
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class PlannerRule<T extends Bindable> {
+public abstract class PlannerRule<T> {
     @Nonnull
-    private final ExpressionMatcher<T> matcher;
+    private final BindingMatcher<T> matcher;
 
     /**
      * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
@@ -68,18 +67,18 @@ public abstract class PlannerRule<T extends Bindable> {
      * @return the class of the root of this rule's binding, or <code>Optional.empty()</code> if the rule matches anything
      * @see PlannerRuleSet
      */
-    public Optional<Class<? extends Bindable>> getRootOperator() {
+    public Optional<Class<?>> getRootOperator() {
         return Optional.of(matcher.getRootClass());
     }
 
-    public PlannerRule(@Nonnull ExpressionMatcher<T> matcher) {
+    public PlannerRule(@Nonnull BindingMatcher<T> matcher) {
         this.matcher = matcher;
     }
 
     public abstract void onMatch(@Nonnull PlannerRuleCall call);
 
     @Nonnull
-    public ExpressionMatcher<T> getMatcher() {
+    public BindingMatcher<? super T> getMatcher() {
         return matcher;
     }
 
