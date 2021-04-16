@@ -135,6 +135,8 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public static final int DO_NOT_RE_INCREASE_LIMIT = -1;
 
+    public static final int INDEXING_ATTEMPTS_RECURSION_LIMIT = 5; // Safety net - our algorithm should never reach this depth
+
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexer.class);
 
     @Nonnull private final IndexingCommon common;
@@ -204,7 +206,7 @@ public class OnlineIndexer implements AutoCloseable {
             return AsyncUtil.DONE;
         }
 
-        if (attemptCount > 5) {
+        if (attemptCount > INDEXING_ATTEMPTS_RECURSION_LIMIT) {
             // Safety net, this should never happen
             if (LOGGER.isErrorEnabled()) {
                 LOGGER.error(KeyValueLogMessage.build("Too many indexing attempts",
@@ -253,17 +255,10 @@ public class OnlineIndexer implements AutoCloseable {
                             .build();
                     return indexingLauncher(indexingFunc, attemptCount, origPolicy);
                 }
-
                 // No other methods (yet). This line should never be reached.
-                if (LOGGER.isErrorEnabled()) {
-                    LOGGER.error(KeyValueLogMessage.build("Invalid previous indexing type stamp",
-                            LogMessageKeys.CURR_ATTEMPT, attemptCount,
-                            LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp)
-                            .addKeysAndValues(common.indexLogMessageKeyValues())
-                            .toString());
-                }
-                common.setIndexStatePrecondition(IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY);
-                return indexingLauncher(indexingFunc, attemptCount);
+                throw new RecordCoreException("Invalid previous indexing type stamp",
+                        LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                        LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp);
             }
 
             if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED) {
