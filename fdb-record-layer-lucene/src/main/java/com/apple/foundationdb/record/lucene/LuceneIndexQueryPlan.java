@@ -68,7 +68,6 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return indexName.hashCode() + scanType.planHash(hashKind) + comparisons.planHash(hashKind) + sort.planHash() + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanType, comparisons, sort, reverse);
