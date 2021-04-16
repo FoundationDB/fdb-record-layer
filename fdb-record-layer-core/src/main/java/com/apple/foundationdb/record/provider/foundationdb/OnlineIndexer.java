@@ -206,8 +206,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         if (attemptCount > 5) {
             // Safety net, this should never happen
-            if (LOGGER.isWarnEnabled()) {
-                LOGGER.warn(KeyValueLogMessage.build("Too many indexing attempts",
+            if (LOGGER.isErrorEnabled()) {
+                LOGGER.error(KeyValueLogMessage.build("Too many indexing attempts",
                         LogMessageKeys.CURR_ATTEMPT, attemptCount)
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
@@ -215,7 +215,10 @@ public class OnlineIndexer implements AutoCloseable {
             throw FDBExceptions.wrapException(ex);
         }
 
-        indexer = null; // clear cache - avoid reuse of the same indexer
+        // clear the indexer, forcing indexingLauncher - if called again - to build a new indexer according to
+        // the modified parameters.
+        indexer = null;
+
         final IndexStatePrecondition indexStatePrecondition = common.getIndexStatePrecondition();
         final IndexingBase.PartlyBuiltException partlyBuiltException = IndexingBase.getAPartlyBuildExceptionIfApplicable(ex);
         if (partlyBuiltException != null) {
@@ -250,7 +253,17 @@ public class OnlineIndexer implements AutoCloseable {
                             .build();
                     return indexingLauncher(indexingFunc, attemptCount, origPolicy);
                 }
+
                 // No other methods (yet). This line should never be reached.
+                if (LOGGER.isErrorEnabled()) {
+                    LOGGER.error(KeyValueLogMessage.build("Invalid previous indexing type stamp",
+                            LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                            LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp)
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .toString());
+                }
+                common.setIndexStatePrecondition(IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY);
+                return indexingLauncher(indexingFunc, attemptCount);
             }
 
             if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED) {
