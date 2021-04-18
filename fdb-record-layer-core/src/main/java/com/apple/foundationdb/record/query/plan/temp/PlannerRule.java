@@ -78,7 +78,7 @@ public abstract class PlannerRule<T> {
     public abstract void onMatch(@Nonnull PlannerRuleCall call);
 
     @Nonnull
-    public BindingMatcher<? super T> getMatcher() {
+    public BindingMatcher<?> getMatcher() {
         return matcher;
     }
 

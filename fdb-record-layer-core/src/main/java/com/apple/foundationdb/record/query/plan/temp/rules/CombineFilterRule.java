@@ -30,9 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -41,8 +38,12 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression.logicalFilterExpression;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.anyRef;
 
 /**
  * A simple rule that combines two nested filter plans and combines them into a single filter plan with a conjunction
@@ -80,17 +81,18 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatch
  * quantifier but it shares the same name.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = ReferenceMatchers.anyRef();
-    private static final BindingMatcher<Quantifier.ForEach> lowerQunMatcher = QuantifierMatchers.forEachQuantifierOverRef(innerMatcher);
-    private static final BindingMatcher<QueryPredicate> lowerMatcher = QueryPredicateMatchers.anyPredicate();
+    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = anyRef();
+    private static final BindingMatcher<Quantifier.ForEach> lowerQunMatcher = forEachQuantifierOverRef(innerMatcher);
+    private static final BindingMatcher<QueryPredicate> lowerMatcher = anyPredicate();
     private static final BindingMatcher<Quantifier.ForEach> upperQunMatcher =
-            QuantifierMatchers.forEachQuantifier(
+            forEachQuantifier(
                     logicalFilterExpression(
                             all(lowerMatcher),
                             exactly(lowerQunMatcher)));
 
-    private static final BindingMatcher<QueryPredicate> upperMatcher = QueryPredicateMatchers.anyPredicate();
+    private static final BindingMatcher<QueryPredicate> upperMatcher = anyPredicate();
     private static final BindingMatcher<LogicalFilterExpression> root =
             logicalFilterExpression(all(upperMatcher),
                     exactly(upperQunMatcher));

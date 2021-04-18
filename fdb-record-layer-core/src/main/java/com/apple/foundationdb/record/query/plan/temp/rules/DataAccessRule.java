@@ -70,7 +70,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.some;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create a logical expression

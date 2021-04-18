@@ -34,7 +34,7 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression.logicalUnionExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A rule that implements an unordered union of its (already implemented) children. This will extract the

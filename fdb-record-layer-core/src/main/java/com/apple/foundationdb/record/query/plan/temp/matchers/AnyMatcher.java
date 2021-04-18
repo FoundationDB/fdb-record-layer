@@ -21,23 +21,24 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.stream.Stream;
 
 /**
- * A <code>BindingMatcher</code> is an expression that can be matched against a
- * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
- * The bindings can be retrieved from the rule call once the binding is matched.
+ * A binding matcher that is a {@link CollectionMatcher} that binds to individual elements contained in a collection
+ * separately.
  *
- * <p>
- * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
- * </p>
- * @param <T> the bindable type that this matcher binds to
+ * As an example
+ *
+ * {@code
+ * any(equalsObject(5)).matches(ImmutableList.of(1, 5, 2, 3, 5))
+ * }
+ *
+ * produces a stream of two bindings which both bind to {@code 5} each.
+ *
+ * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
 public class AnyMatcher<T> implements CollectionMatcher<T> {
@@ -48,15 +49,14 @@ public class AnyMatcher<T> implements CollectionMatcher<T> {
     }
 
     /**
-     * Attempt to match this matcher against the given expression reference.
-     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
-     * expression or attempt to access the members of the given reference.
+     * Attempt to match this matcher against the given object.
      *
      * @param outerBindings preexisting bindings to be used by the matcher
-     * @param in the bindable we attempt to match
+     * @param in the object we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
+    @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
         return in.stream()
                 .flatMap(item -> downstream.bindMatches(outerBindings, item));

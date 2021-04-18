@@ -35,7 +35,7 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression.logicalTypeFilterExpression;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 
 /**
  * A rule that eliminates logical type filters that are completely redundant; that is, when the child of the logical

@@ -42,17 +42,17 @@ import java.util.stream.Stream;
  * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
  * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
  * </p>
- * @param <T> the bindable type that this matcher binds to
+ * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public class OneOfThemAndRestMatcher<T, T1 extends T, T2 extends T> implements CollectionMatcher<T> {
+public class MatchOneAndRestMatcher<T> implements CollectionMatcher<T> {
     @Nonnull
-    private final BindingMatcher<T1> selectedDownstream;
+    private final BindingMatcher<?> selectedDownstream;
     @Nonnull
-    private final CollectionMatcher<T2> remainingDownstream;
+    private final CollectionMatcher<?> remainingDownstream;
 
-    private OneOfThemAndRestMatcher(@Nonnull final BindingMatcher<T1> selectedDownstream,
-                                    @Nonnull final CollectionMatcher<T2> remainingDownstream) {
+    private MatchOneAndRestMatcher(@Nonnull final BindingMatcher<?> selectedDownstream,
+                                   @Nonnull final CollectionMatcher<?> remainingDownstream) {
         this.selectedDownstream = selectedDownstream;
         this.remainingDownstream = remainingDownstream;
     }
@@ -66,8 +66,8 @@ public class OneOfThemAndRestMatcher<T, T1 extends T, T2 extends T> implements C
      * @param in the bindable we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
-
     @Nonnull
+    @Override
     @SuppressWarnings("java:S3958")
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
         final Stream.Builder<Stream<PlannerBindings>> streams = Stream.builder();
@@ -95,8 +95,8 @@ public class OneOfThemAndRestMatcher<T, T1 extends T, T2 extends T> implements C
     }
 
     @Nonnull
-    public static <T, T1 extends T, T2 extends T> OneOfThemAndRestMatcher<T, T1, T2> oneOfThemAndRest(@Nonnull final BindingMatcher<T1> selectedDownstream,
-                                                                                                      @Nonnull final CollectionMatcher<T2> remainingDownstream) {
-        return new OneOfThemAndRestMatcher<>(selectedDownstream, remainingDownstream);
+    public static <T> MatchOneAndRestMatcher<T> matchOneAndRest(@Nonnull final BindingMatcher<? super T> selectedDownstream,
+                                                                @Nonnull final CollectionMatcher<? super T> remainingDownstream) {
+        return new MatchOneAndRestMatcher<>(selectedDownstream, remainingDownstream);
     }
 }

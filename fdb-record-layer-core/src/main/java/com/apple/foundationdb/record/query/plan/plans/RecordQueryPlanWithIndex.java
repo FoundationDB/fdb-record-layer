@@ -32,6 +32,9 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -111,4 +114,11 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                                          @Nonnull final NodeInfo nodeInfo,
                                          @Nonnull final List<String> additionalDetails,
                                          @Nonnull final Map<String, Attribute> additionalAttributeMap);
+
+    @Nonnull
+    static BindingMatcher<RecordQueryPlanWithIndex> indexName(@Nonnull String indexName) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(RecordQueryPlanWithIndex.class,
+                RecordQueryPlanWithIndex::getIndexName,
+                PrimitiveMatchers.equalsObject(indexName));
+    }
 }

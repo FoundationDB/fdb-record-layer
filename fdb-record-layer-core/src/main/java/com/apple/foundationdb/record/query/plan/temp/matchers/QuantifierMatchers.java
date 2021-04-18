@@ -30,15 +30,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 
 /**
- * A <code>BindingMatcher</code> is an expression that can be matched against a
- * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
- * The bindings can be retrieved from the rule call once the binding is matched.
- *
- * <p>
- * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
- * </p>
+ * Matchers for {@link Quantifier}s.
  */
 @API(API.Status.EXPERIMENTAL)
 public class QuantifierMatchers {
@@ -52,14 +44,14 @@ public class QuantifierMatchers {
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOver(@Nonnull final Class<Q> bindableClass,
                                                                              @Nonnull final BindingMatcher<? extends Collection<? extends RelationalExpression>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.of(bindableClass,
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
                 q -> q.getRangesOver().getMembers(),
                 downstream);
     }
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOverRef(@Nonnull final Class<Q> bindableClass,
                                                                                 @Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
-        return TypedMatcherWithExtractAndDownstream.of(bindableClass,
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
                 Quantifier::getRangesOver,
                 downstream);
     }

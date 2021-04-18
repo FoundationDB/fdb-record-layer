@@ -41,15 +41,15 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class TypedMatcher<T> implements BindingMatcher<T> {
 
-    private final Class<? extends T> bindableClass;
+    private final Class<T> bindableClass;
 
-    public TypedMatcher(final Class<? extends T> bindableClass) {
+    public TypedMatcher(final Class<T> bindableClass) {
         this.bindableClass = bindableClass;
     }
 
     @Nonnull
     @Override
-    public Class<? extends T> getRootClass() {
+    public Class<T> getRootClass() {
         return bindableClass;
     }
 
@@ -63,11 +63,13 @@ public class TypedMatcher<T> implements BindingMatcher<T> {
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
+    @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         return Stream.of(PlannerBindings.from(this, in));
     }
 
-    public static <T> TypedMatcher<T> typed(@Nonnull final Class<? extends T> bindableClass) {
+    @Nonnull
+    public static <T> TypedMatcher<T> typed(@Nonnull final Class<T> bindableClass) {
         return new TypedMatcher<>(bindableClass);
     }
 }

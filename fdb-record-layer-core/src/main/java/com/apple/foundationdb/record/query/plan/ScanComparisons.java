@@ -31,6 +31,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -341,6 +346,37 @@ public class ScanComparisons implements PlanHashable {
                             .collect(Collectors.joining(" && ", "[", "]"))));
         }
         return strs.collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    @Nonnull
+    public static BindingMatcher<ScanComparisons> range(@Nonnull String tupleString) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(ScanComparisons.class,
+                scanComparisons -> {
+                    try {
+                        return scanComparisons.toTupleRange().toString();
+                    } catch (Comparisons.EvaluationContextRequiredException ex) {
+                        return scanComparisons.toString();
+                    }
+                },
+                PrimitiveMatchers.equalsObject(tupleString));
+    }
+
+    @Nonnull
+    public static BindingMatcher<ScanComparisons> unbounded() {
+        return new TypedMatcher<ScanComparisons>(ScanComparisons.class) {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final ScanComparisons in) {
+                return super.bindMatchesSafely(outerBindings, in)
+                        .flatMap(bindings -> {
+                            if (in.isEmpty()) {
+                                return Stream.of(bindings);
+                            } else {
+                                return Stream.empty();
+                            }
+                        });
+            }
+        };
     }
 
     private static class InequalityRangeCombiner {

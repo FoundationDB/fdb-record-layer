@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewrita
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -187,7 +186,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(LogicalFilterExpression.class, downstream);
+        return ofTypeOwning(LogicalFilterExpression.class, downstream);
     }
 
     @Nonnull

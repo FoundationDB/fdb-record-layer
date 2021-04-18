@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -197,6 +196,6 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Nonnull
     public static BindingMatcher<LogicalIntersectionExpression> logicalIntersectionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(LogicalIntersectionExpression.class, downstream);
+        return ofTypeOwning(LogicalIntersectionExpression.class, downstream);
     }
 }

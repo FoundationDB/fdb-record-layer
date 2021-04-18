@@ -26,9 +26,14 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AllOfMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -37,22 +42,22 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * A predicate consisting of a {@link Value} and a {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}.
+ * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nonnull
-    private final Comparisons.Comparison comparison;
+    private final Comparison comparison;
 
-    public ValuePredicate(@Nonnull Value value, @Nonnull Comparisons.Comparison comparison) {
+    public ValuePredicate(@Nonnull Value value, @Nonnull Comparison comparison) {
         this.value = value;
         this.comparison = comparison;
     }
 
     @Nonnull
-    public Comparisons.Comparison getComparison() {
+    public Comparison getComparison() {
         return comparison;
     }
 
@@ -127,5 +132,21 @@ public class ValuePredicate implements PredicateWithValue {
     @Override
     public String toString() {
         return value.toString() + " " + comparison.toString();
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                  @Nonnull final Comparison comparison) {
+        return valuePredicate(downstreamValue, PrimitiveMatchers.equalsObject(comparison));
+    }
+
+    @Nonnull
+    public static <V extends Value, C extends Comparison> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                                        @Nonnull final BindingMatcher<C> downstreamComparison) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class,
+                t -> t,
+                AllOfMatcher.matchingAllOf(ValuePredicate.class,
+                        ImmutableList.of(TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getValue, downstreamValue),
+                                TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getComparison, downstreamComparison))));
     }
 }

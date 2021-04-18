@@ -28,16 +28,16 @@ import java.util.stream.Stream;
 
 /**
  * Tag interface used for overloads for matchers.
- * @param <T> the bindable type that this matcher binds to
+ * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
 public interface CollectionMatcher<T> extends BindingMatcher<Collection<? extends T>> {
     @SuppressWarnings("unchecked")
     @Nonnull
     @Override
-    default Class<? extends Collection<T>> getRootClass() {
-        // the usual Java shenanigans to get a properly typed object out of the class object
-        return (Class<Collection<T>>)(Class<?>)Collection.class;
+    default Class<Collection<? extends T>> getRootClass() {
+        // the usual Java shenanigans to get a properly typed class object out of the class object
+        return (Class<Collection<? extends T>>)(Class<?>)Collection.class;
     }
 
     static <T> CollectionMatcher<T> empty() {

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -125,6 +124,6 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren 
 
     @Nonnull
     public static BindingMatcher<LogicalUnionExpression> logicalUnionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(LogicalUnionExpression.class, downstream);
+        return ofTypeOwning(LogicalUnionExpression.class, downstream);
     }
 }

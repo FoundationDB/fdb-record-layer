@@ -21,78 +21,64 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
- * A <code>BindingMatcher</code> is an expression that can be matched against a
- * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
- * The bindings can be retrieved from the rule call once the binding is matched.
+ * A matcher that only matches anything if all of its downstream matchers produce bindings. This matcher is
+ * intended to be used to express a logical <em>and</em> between matchers on an object.
  *
- * <p>
- * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
- * </p>
- * @param <T> the bindable type that this matcher binds to
+ * As an example
+ *
+ * {@code
+ * matchinAllOf(greaterThan(0), divisibleBy(2)).matches(2))
+ * }
+ *
+ * produces a stream of one binding which binds to {@code 2}.
+ *
+ * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
 public class AllOfMatcher<T> implements BindingMatcher<T> {
-    private final Class<? extends T> staticClassOfT;
-    private final List<ExtractingMatcher<T>> extractingMatchers;
+    private final Class<T> staticClassOfT;
+    private final List<BindingMatcher<?>> extractingMatchers;
 
-    private AllOfMatcher(@Nonnull final Class<? extends T> staticClassOfT, @Nonnull final Iterable<ExtractingMatcher<T>> matchingExtractors) {
+    private AllOfMatcher(@Nonnull final Class<T> staticClassOfT, @Nonnull final Collection<? extends BindingMatcher<?>> matchingExtractors) {
         this.staticClassOfT = staticClassOfT;
         this.extractingMatchers = ImmutableList.copyOf(matchingExtractors);
     }
 
     @Nonnull
     @Override
-    public Class<? extends T> getRootClass() {
+    public Class<T> getRootClass() {
         return staticClassOfT;
     }
 
     /**
-     * Attempt to match this matcher against the given expression reference.
-     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
-     * expression or attempt to access the members of the given reference.
+     * Attempts to match this matcher against the given object.
      *
      * @param outerBindings preexisting bindings to be used by the matcher
      * @param in the bindable we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
+    @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
-        for (final ExtractingMatcher<T> extractingMatcher : extractingMatchers) {
-            bindingStream = bindingStream.flatMap(bindings -> extractingMatcher.unapplyAndBindExtractedMatches(outerBindings, in).map(bindings::mergedWith));
+        for (final BindingMatcher<?> extractingMatcher : extractingMatchers) {
+            bindingStream = bindingStream.flatMap(bindings -> extractingMatcher.bindMatches(outerBindings, in).map(bindings::mergedWith));
         }
 
         return bindingStream;
     }
 
-    public static <T> AllOfMatcher<T> matchingAllOf(@Nonnull final Class<? extends T> staticClassOfT,
-                                                    @Nonnull final Collection<ExtractingMatcher<T>> matchingExtractors) {
+    public static <T> AllOfMatcher<T> matchingAllOf(@Nonnull final Class<T> staticClassOfT,
+                                                    @Nonnull final Collection<? extends BindingMatcher<?>> matchingExtractors) {
         return new AllOfMatcher<>(staticClassOfT, matchingExtractors);
-    }
-
-    public static <T> BindingMatcher<T> matchingAllOf(@Nonnull final Collection<BindingMatcher<T>> bindingMatchers) {
-        final BindingMatcher<T> oneMatcher = Objects.requireNonNull(Iterables.getFirst(bindingMatchers, null));
-
-        final ImmutableList<ExtractingMatcher<T>> extractingMatchers =
-                bindingMatchers
-                        .stream()
-                        .map(bindingMatcher -> ExtractingMatcher.<T, T>of(t -> t, bindingMatcher))
-                        .collect(ImmutableList.toImmutableList());
-
-        return AllOfMatcher.matchingAllOf(oneMatcher.getRootClass(), extractingMatchers);
     }
 }

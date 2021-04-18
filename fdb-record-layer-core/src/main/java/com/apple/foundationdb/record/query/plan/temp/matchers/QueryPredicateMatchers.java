@@ -54,7 +54,7 @@ public class QueryPredicateMatchers {
 
     public static <P extends QueryPredicate, C extends Collection<? extends QueryPredicate>> BindingMatcher<P> ofTypeWithChildren(@Nonnull final Class<P> bindableClass,
                                                                                                                                   @Nonnull final BindingMatcher<C> downstream) {
-        return TypedMatcherWithExtractAndDownstream.of(bindableClass,
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
                 QueryPredicate::getChildren,
                 downstream);
     }

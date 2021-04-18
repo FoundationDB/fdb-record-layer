@@ -44,8 +44,8 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.anyQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * Convert a filter on an {@linkplain OrPredicate or} expression into a plan on the union. In particular, this will

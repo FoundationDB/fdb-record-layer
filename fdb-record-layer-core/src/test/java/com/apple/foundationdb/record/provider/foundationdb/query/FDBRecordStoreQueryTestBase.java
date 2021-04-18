@@ -408,5 +408,4 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     protected static class Holder<T> {
         public T value;
     }
-
 }

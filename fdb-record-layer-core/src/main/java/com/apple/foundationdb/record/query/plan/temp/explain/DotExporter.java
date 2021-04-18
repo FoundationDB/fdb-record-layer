@@ -25,8 +25,8 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.escape.Escaper;
+import com.google.common.escape.Escapers;
 import com.google.common.graph.ImmutableNetwork;
-import com.google.common.html.HtmlEscapers;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
@@ -77,7 +77,16 @@ public class DotExporter<N extends PlannerGraph.Node, E extends PlannerGraph.Edg
 
     private static final String INDENT = "  ";
 
-    private static final Escaper escaper = HtmlEscapers.htmlEscaper();
+    private static final Escaper escaper =
+            Escapers.builder()
+                    .addEscape('"', "&quot;")
+                    // Note: "&apos;" is not defined in HTML 4.01.
+                    .addEscape('\'', "&#39;")
+                    .addEscape('&', "&amp;")
+                    .addEscape('<', "&lt;")
+                    .addEscape('>', "&gt;")
+                    .addEscape('\\', "&#92;")
+                    .build();
 
     /**
      * Constructs a new DotExporter object with the given ID, label, attribute, and graph ID

@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.OneOfThemAndRestMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.MatchOneAndRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -37,7 +37,7 @@ import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A simple rule that performs some basic Boolean normalization by flattening a nested {@link AndPredicate} into a single,
@@ -66,7 +66,7 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
 
     private static final BindingMatcher<LogicalFilterExpression> root =
             LogicalFilterExpression.logicalFilterExpression(
-                    OneOfThemAndRestMatcher.oneOfThemAndRest(
+                    MatchOneAndRestMatcher.matchOneAndRest(
                             AndPredicate.andPredicate(all(nestedPredicateMatcher)), all(otherPredicateMatcher)),
                     all(innerQuantifierMatcher));
 

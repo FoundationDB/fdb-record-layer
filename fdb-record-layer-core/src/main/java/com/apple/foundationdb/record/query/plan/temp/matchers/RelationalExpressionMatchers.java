@@ -27,9 +27,15 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.Collection;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.SetMatcher.exactlyInAnyOrder;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
 /**
  * A <code>BindingMatcher</code> is an expression that can be matched against a
@@ -52,16 +58,23 @@ public class RelationalExpressionMatchers {
         return new TypedMatcher<>(bindableClass);
     }
 
+    public static <R extends RelationalExpression> BindingMatcher<R> ofType(@Nonnull final Class<R> bindableClass,
+                                                                            @Nonnull final BindingMatcher<R> downstream) {
+        return typedWithDownstream(bindableClass,
+                Extractor.identity(),
+                downstream);
+    }
+
     public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeOwning(@Nonnull final Class<R> bindableClass,
                                                                                                                               @Nonnull final BindingMatcher<C> downstream) {
-        return TypedMatcherWithExtractAndDownstream.of(bindableClass,
+        return typedWithDownstream(bindableClass,
                 RelationalExpression::getQuantifiers,
                 downstream);
     }
 
     public static <R extends RelationalExpressionWithPredicates, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicates(@Nonnull final Class<R> bindableClass,
                                                                                                                                                     @Nonnull final BindingMatcher<C> downstream) {
-        return TypedMatcherWithExtractAndDownstream.of(bindableClass,
+        return typedWithDownstream(bindableClass,
                 RelationalExpressionWithPredicates::getPredicates,
                 downstream);
     }
@@ -69,19 +82,68 @@ public class RelationalExpressionMatchers {
     public static <R extends RelationalExpressionWithPredicates, C1 extends Collection<? extends QueryPredicate>, C2 extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicatesAndOwning(@Nonnull final Class<R> bindableClass,
                                                                                                                                                                                                                @Nonnull final BindingMatcher<C1> downstreamPredicates,
                                                                                                                                                                                                                @Nonnull final BindingMatcher<C2> downstreamQuantifiers) {
-        final ExtractingMatcher<RelationalExpressionWithPredicates> predicatesExtractingMatcher =
-                ExtractingMatcher.of(RelationalExpressionWithPredicates::getPredicates, downstreamPredicates);
-
-        final ExtractingMatcher<RelationalExpressionWithPredicates> quantifiersExtractingMatcher =
-                ExtractingMatcher.of(RelationalExpressionWithPredicates::getQuantifiers, downstreamQuantifiers);
-
-        return TypedMatcherWithExtractAndDownstream.of(bindableClass,
-                t -> t,
+        return typedWithDownstream(bindableClass,
+                Extractor.identity(),
                 AllOfMatcher.matchingAllOf(RelationalExpressionWithPredicates.class,
-                        ImmutableList.of(predicatesExtractingMatcher, quantifiersExtractingMatcher)));
+                        ImmutableList.of(typedWithDownstream(bindableClass, RelationalExpressionWithPredicates::getPredicates, downstreamPredicates),
+                                typedWithDownstream(bindableClass, RelationalExpression::getQuantifiers, downstreamQuantifiers))));
     }
 
     public static BindingMatcher<RecordQueryPlan> anyPlan() {
-        return RelationalExpressionMatchers.ofType(RecordQueryPlan.class);
+        return ofType(RecordQueryPlan.class);
+    }
+
+    @Nonnull
+    public static <R extends RecordQueryPlan> BindingMatcher<R> childrenPlans(@Nonnull final Class<R> bindableClass, @Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
+        return typedWithDownstream(bindableClass,
+                RecordQueryPlan::getQueryPlanChildren,
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryPlan> descendantPlans(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return typedWithDownstream(RecordQueryPlan.class,
+                plan -> ImmutableList.copyOf(plan.collectDescendantPlans()),
+                AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryPlan> descendantPlans(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
+        return typedWithDownstream(RecordQueryPlan.class,
+                plan -> ImmutableList.copyOf(plan.collectDescendantPlans()),
+                downstream);
+    }
+
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryPlan> selfOrDescendantPlans(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return typedWithDownstream(RecordQueryPlan.class,
+                plan -> ImmutableList.copyOf(Iterables.concat(plan.collectDescendantPlans(), ImmutableList.of(plan))),
+                AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryPlan> selfOrDescendantPlans(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
+        return typedWithDownstream(RecordQueryPlan.class,
+                plan -> ImmutableList.copyOf(Iterables.concat(plan.collectDescendantPlans(), ImmutableList.of(plan))),
+                downstream);
+    }
+
+    @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static ListMatcher<? extends RecordQueryPlan> exactlyPlans(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
+        return exactly(Arrays.asList(downstreams));
+    }
+
+    @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static SetMatcher<? extends RecordQueryPlan> exactlyPlansInAnyOrder(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
+        return exactlyInAnyOrder(Arrays.asList(downstreams));
+    }
+
+    public static SetMatcher<? extends RecordQueryPlan> exactlyPlansInAnyOrder(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
+        return exactlyInAnyOrder(downstreams);
     }
 }

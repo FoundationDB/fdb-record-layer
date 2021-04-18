@@ -73,7 +73,7 @@ import java.util.function.Supplier;
  * </p>
  * <ul>
  *     <li>
- *         An {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher} that defines a
+ *         An {@link com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher} that defines a
  *         finite-depth tree of matchers that inspect the structure (i.e., the type-level information) of some subgraph
  *         of the current planner expression, the current partial match, or the current match partition.
  *     </li>
@@ -595,9 +595,8 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     /**
-     * Abstract base class for all transformations. All transformations are defined on a sub class of {@link Bindable}.
-     * This base class uses just {@link Bindable} itself as it never has to reason or pass on the actual defined type
-     * of the transform rule.
+     * Abstract base class for all transformations. All transformations are defined on a sub class of
+     * {@link RelationalExpression}, {@link PartialMatch}, of {@link MatchPartition}.
      */
     private abstract class AbstractTransform implements Task {
         @Nonnull

@@ -1,5 +1,5 @@
 /*
- * TMultiMatcher.java
+ * MultiMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -31,29 +30,22 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * A <code>BindingMatcher</code> is an expression that can be matched against a
- * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
- * The bindings can be retrieved from the rule call once the binding is matched.
- *
- * <p>
- * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
- * </p>
+ * A multi matcher is a {@link CollectionMatcher} and by extension also a {@link BindingMatcher} that binds to a sub
+ * collection of objects in the presented collection. The multi matcher is abstract and only implemented by
+ * {@link AllMatcher} and {@link SomeMatcher} that provided different semantics in the way they deal with non-matching
+ * downstreams.
  * @param <T> the bindable type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class TMultiMatcher<T> implements CollectionMatcher<T> {
+public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
     private final BindingMatcher<T> downstream;
 
-    protected TMultiMatcher(@Nonnull final BindingMatcher<T> downstream) {
+    protected MultiMatcher(@Nonnull final BindingMatcher<T> downstream) {
         this.downstream = downstream;
     }
 
     /**
-     * Attempt to match this matcher against the given expression reference.
-     * Note that implementations of {@code matchWith()} should only attempt to match the given root with this planner
-     * expression or attempt to access the members of the given reference.
+     * Attempt to match this matcher against the given object.
      *
      * @param outerBindings preexisting bindings to be used by the matcher
      * @param in the bindable we attempt to match
@@ -87,11 +79,13 @@ public abstract class TMultiMatcher<T> implements CollectionMatcher<T> {
     protected abstract Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream);
 
     /**
-     * TODO.
+     * A multi matcher that binds a sub collection of objects of the collection it is being matched. That includes the empty
+     * collection which is the minimal sub collection this matcher binds, that is if no down stream matchers match
+     * this matcher still binds the empty collection.
      * @param <T> type param
      */
-    public static class TSomeMatcher<T> extends TMultiMatcher<T> {
-        public TSomeMatcher(@Nonnull final BindingMatcher<T> downstream) {
+    public static class SomeMatcher<T> extends MultiMatcher<T> {
+        public SomeMatcher(@Nonnull final BindingMatcher<T> downstream) {
             super(downstream);
         }
 
@@ -103,11 +97,12 @@ public abstract class TMultiMatcher<T> implements CollectionMatcher<T> {
     }
 
     /**
-     * TODO.
+     * A multi matcher that binds to all objects in the collection it is being matched or it does not match anything at all,
+     * i.e. nothing is bound.
      * @param <T> type param
      */
-    public static class TAllMatcher<T> extends TMultiMatcher<T> {
-        public TAllMatcher(@Nonnull final BindingMatcher<T> downstream) {
+    public static class AllMatcher<T> extends MultiMatcher<T> {
+        public AllMatcher(@Nonnull final BindingMatcher<T> downstream) {
             super(downstream);
         }
 
@@ -119,12 +114,12 @@ public abstract class TMultiMatcher<T> implements CollectionMatcher<T> {
     }
 
     @Nonnull
-    public static <T> TAllMatcher<? extends T> all(@Nonnull final BindingMatcher<T> downstream) {
-        return new TAllMatcher<>(downstream);
+    public static <T> AllMatcher<T> all(@Nonnull final BindingMatcher<T> downstream) {
+        return new AllMatcher<>(downstream);
     }
 
     @Nonnull
-    public static <T> TSomeMatcher<? extends T> some(@Nonnull final BindingMatcher<T> downstream) {
-        return new TSomeMatcher<>(downstream);
+    public static <T> SomeMatcher<T> some(@Nonnull final BindingMatcher<T> downstream) {
+        return new SomeMatcher<>(downstream);
     }
 }

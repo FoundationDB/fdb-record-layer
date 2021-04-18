@@ -41,7 +41,7 @@ import java.util.Set;
 import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression.logicalSortExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 
 /**
  * A rule that implements a sort expression by removing this expression if appropriate.

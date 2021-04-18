@@ -27,7 +27,7 @@
  * a relational planner expression produces is a property, but whether or not it has a filter that contains an AND
  * clause is not a property. Properties generally need to be evaluated against an expression, instead of arising from
  * the structural features of a planner expression (which could be matched using an
- * {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher}.
+ * {@link com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher}.
  * </p>
  *
  * <p>

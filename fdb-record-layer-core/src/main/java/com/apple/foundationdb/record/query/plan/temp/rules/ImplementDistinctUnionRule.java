@@ -45,9 +45,10 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression.logicalDistinctExpression;
+import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression.logicalUnionExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A rule that implements a distinct union of its (already implemented) children. This will extract the
@@ -55,12 +56,13 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatch
  * {@link RecordQueryUnionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpression> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> unionLegExpressionMatcher = RelationalExpressionMatchers.anyPlan();
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> unionExpressionMatcher =
-            LogicalUnionExpression.logicalUnionExpression(all(forEachQuantifier(unionLegExpressionMatcher)));
+            logicalUnionExpression(all(forEachQuantifier(unionLegExpressionMatcher)));
 
     @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =

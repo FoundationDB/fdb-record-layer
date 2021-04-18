@@ -57,7 +57,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * Expression-based transformation rule that matches any non-leaf expression (called an intermediate expression)

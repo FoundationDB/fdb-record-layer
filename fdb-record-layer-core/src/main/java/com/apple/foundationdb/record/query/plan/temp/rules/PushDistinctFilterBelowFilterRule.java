@@ -35,12 +35,10 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan.predicatesFilterPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan.unorderedPrimaryKeyDistinctPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.anyRefOverOnlyPlans;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
 
 /**
  * A rule that moves a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan}
@@ -83,10 +81,10 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
     @Nonnull
     private static final BindingMatcher<Quantifier.Physical> innerQuantifierMatcher = physicalQuantifierOverRef(innerRefMatcher);
     @Nonnull
-    private static final BindingMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher = predicatesFilterPlan(exactly(innerQuantifierMatcher));
+    private static final BindingMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher = RecordQueryPredicatesFilterPlan.predicatesFilter(exactly(innerQuantifierMatcher));
     @Nonnull
     private static final BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
-            unorderedPrimaryKeyDistinctPlan(exactly(physicalQuantifier(filterPlanMatcher)));
+            RecordQueryUnorderedPrimaryKeyDistinctPlan.unorderedPrimaryKeyDistinct(exactly(physicalQuantifier(filterPlanMatcher)));
 
     public PushDistinctFilterBelowFilterRule() {
         super(root);

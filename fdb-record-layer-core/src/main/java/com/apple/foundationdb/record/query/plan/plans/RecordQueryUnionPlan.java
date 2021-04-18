@@ -42,7 +42,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -51,12 +52,15 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.childrenPlans;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.exactlyPlansInAnyOrder;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
 
 /**
@@ -283,12 +287,38 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<RecordQueryUnionPlan> union(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(RecordQueryUnionPlan.class, AnyMatcher.any(downstream));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryUnionPlan.class, downstream);
+    public static BindingMatcher<RecordQueryUnionPlan> union(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryUnionPlan.class, downstream);
+    }
+
+    @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
+        return childrenPlans(RecordQueryUnionPlan.class, exactlyPlansInAnyOrder(downstreams));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUnionPlan> unionPlan(@Nonnull final Collection<? extends BindingMatcher<? extends RecordQueryPlan>> downstreams) {
+        return childrenPlans(RecordQueryUnionPlan.class, exactlyPlansInAnyOrder(downstreams));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUnionPlan> comparisonKey(@Nonnull BindingMatcher<KeyExpression> comparisonKeyMatcher) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(RecordQueryUnionPlan.class,
+                RecordQueryUnionPlan::getComparisonKey,
+                comparisonKeyMatcher);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUnionPlan> comparisonKey(@Nonnull KeyExpression probe) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(RecordQueryUnionPlan.class,
+                RecordQueryUnionPlan::getComparisonKey,
+                PrimitiveMatchers.equalsObject(probe));
     }
 }

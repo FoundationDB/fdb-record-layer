@@ -49,7 +49,7 @@ public class PlannerBindings {
     }
 
     /**
-     * Checks whether there is a bindable bound to {@code key}.
+     * Checks whether there is an object bound to {@code key}.
      * @param key a matcher
      * @return whether there is an object bound to {@code key}
      */
@@ -127,12 +127,13 @@ public class PlannerBindings {
     /**
      * Build a new set of bindings containing a single binding from the given key to the given bindable.
      * @param key an expression matcher
-     * @param bindable a bindable object
+     * @param object an object
+     * @param <T> type of object
      * @return a new set of bindings containing a single binding from {@code key} to {@code bindable}
      */
     @Nonnull
-    public static <T> PlannerBindings from(@Nonnull BindingMatcher<T> key, @Nonnull T bindable) {
-        return new PlannerBindings(ImmutableListMultimap.of(key, bindable));
+    public static <T> PlannerBindings from(@Nonnull BindingMatcher<T> key, @Nonnull T object) {
+        return new PlannerBindings(ImmutableListMultimap.of(key, object));
     }
 
     /**

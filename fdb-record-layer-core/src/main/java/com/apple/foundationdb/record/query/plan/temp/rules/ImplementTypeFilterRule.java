@@ -37,7 +37,7 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 
 /**
  * A rule that implements a logical type filter on an (already implemented) {@link RecordQueryPlan} as a

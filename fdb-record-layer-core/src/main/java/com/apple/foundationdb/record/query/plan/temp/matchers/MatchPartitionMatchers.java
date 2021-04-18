@@ -27,7 +27,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 
 /**
- * Matches a subclass of {@link MatchPartition} and a given matcher against the children.
+ * Matchers for {@link MatchPartition}.
  */
 public class MatchPartitionMatchers {
     private MatchPartitionMatchers() {
@@ -36,7 +36,7 @@ public class MatchPartitionMatchers {
 
     @Nonnull
     public static <C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> containing(@Nonnull final BindingMatcher<C> downstream) {
-        return TypedMatcherWithExtractAndDownstream.of(MatchPartition.class,
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(MatchPartition.class,
                 MatchPartition::getPartialMatches,
                 downstream);
     }

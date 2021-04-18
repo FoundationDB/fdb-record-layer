@@ -37,15 +37,14 @@ import java.util.stream.Stream;
  * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
  * </p>
  * @param <T> the bindable type that this matcher binds to
- * @param <U> the bindable type that is produced by an extractor to bind downstream to
  */
 @API(API.Status.EXPERIMENTAL)
-public class TypedMatcherWithExtractAndDownstream<T, U> extends TypedMatcher<T> {
-    private final Extractor<T, U> extractor;
+public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
+    private final Extractor<? super T, ?> extractor;
     private final BindingMatcher<?> downstream;
 
-    private TypedMatcherWithExtractAndDownstream(@Nonnull final Class<? extends T> bindableClass,
-                                                 @Nonnull final Extractor<T, U> extractor,
+    private TypedMatcherWithExtractAndDownstream(@Nonnull final Class<T> bindableClass,
+                                                 @Nonnull final Extractor<? super T, ?> extractor,
                                                  @Nonnull final BindingMatcher<?> downstream) {
         super(bindableClass);
         this.extractor = extractor;
@@ -62,6 +61,7 @@ public class TypedMatcherWithExtractAndDownstream<T, U> extends TypedMatcher<T> 
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
+    @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         return super.bindMatchesSafely(outerBindings, in)
                 .flatMap(bindings ->
@@ -70,9 +70,10 @@ public class TypedMatcherWithExtractAndDownstream<T, U> extends TypedMatcher<T> 
                                 .map(bindings::mergedWith));
     }
 
-    public static <T, U> TypedMatcherWithExtractAndDownstream<T, U> of(@Nonnull final Class<? extends T> bindableClass,
-                                                                       @Nonnull final Extractor<T, U> extractor,
-                                                                       @Nonnull final BindingMatcher<?> downstream) {
+    @Nonnull
+    public static <S, T extends S> TypedMatcherWithExtractAndDownstream<T> typedWithDownstream(@Nonnull final Class<T> bindableClass,
+                                                                                               @Nonnull final Extractor<? super T, ?> extractor,
+                                                                                               @Nonnull final BindingMatcher<?> downstream) {
         return new TypedMatcherWithExtractAndDownstream<>(bindableClass, extractor, downstream);
     }
 }

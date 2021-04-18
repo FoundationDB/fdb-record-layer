@@ -27,13 +27,16 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -52,7 +55,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalE
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalDistinctExpression implements RelationalExpressionWithChildren {
+public class LogicalDistinctExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     @Nonnull
     private final Quantifier inner;
     @Nonnull
@@ -133,12 +136,23 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     }
 
     @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.UNORDERED_DISTINCT_OPERATOR,
+                        ImmutableList.of(),
+                        ImmutableMap.of()),
+                childGraphs);
+    }
+
+    @Nonnull
     public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalDistinctExpression.class, AnyMatcher.any(downstream));
     }
 
     @Nonnull
     public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(LogicalDistinctExpression.class, downstream);
+        return ofTypeOwning(LogicalDistinctExpression.class, downstream);
     }
 }

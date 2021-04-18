@@ -40,14 +40,14 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan.predicatesFilterPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan.predicatesFilter;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan.typeFilter;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.anyRefOverOnlyPlans;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.physicalQuantifierOverRef;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A rule that moves a {@link RecordQueryTypeFilterPlan} below a {@link RecordQueryFilterPlan}. While this doesn't make
@@ -84,12 +84,13 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatch
  * where pred' is rebased along the translation from qun to newQun.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class PushTypeFilterBelowFilterRule extends PlannerRule<RecordQueryTypeFilterPlan> {
     private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = anyRefOverOnlyPlans();
     private static final BindingMatcher<Quantifier.Physical> qunMatcher = physicalQuantifierOverRef(innerMatcher);
     private static final BindingMatcher<QueryPredicate> predMatcher = anyPredicate();
     private static final BindingMatcher<RecordQueryTypeFilterPlan> root =
-            typeFilterPlan(exactly(physicalQuantifier(predicatesFilterPlan(all(predMatcher), exactly(qunMatcher)))));
+            typeFilter(exactly(physicalQuantifier(predicatesFilter(all(predMatcher), exactly(qunMatcher)))));
 
     public PushTypeFilterBelowFilterRule() {
         super(root);

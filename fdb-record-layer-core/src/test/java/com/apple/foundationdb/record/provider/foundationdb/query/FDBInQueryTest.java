@@ -40,7 +40,11 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -56,11 +60,11 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.anyFilter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.descendant;
@@ -76,6 +80,21 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan.filterPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan.queryComponents;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan.inParameterJoinPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan.inValuesJoinPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan.inValuesList;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan.indexPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan.scanPlan;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan.comparisonKey;
+import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan.unionPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.descendantPlans;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.selfOrDescendantPlans;
 import static java.util.Arrays.asList;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -103,14 +122,18 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testInQueryNoIndex() throws Exception {
         complexQuerySetup(NO_HOOK);
+        final QueryComponent filter = Query.field("num_value_2").in(asList(0, 2));
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_2").in(asList(0, 2)))
+                .setFilter(filter)
                 .build();
 
         // Scan(<,>) | [MySimpleRecord] | num_value_2 IN [0, 2]
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
+        
+        assertTrue(filterPlan(descendantPlans(scanPlan().where(scanComparisons(ScanComparisons.unbounded()))))
+                .where(queryComponents(exactly(equalsObject(filter)))).matchesExactly(plan));
+
         assertEquals(-1139367278, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1907300063, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(-1694772440, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -125,14 +148,16 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testInQueryNoIndexWithParameter() throws Exception {
         complexQuerySetup(NO_HOOK);
+        final QueryComponent filter = Query.field("num_value_2").in("valuesThree");
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_2").in("valuesThree"))    // num_value_2 is i%3
+                .setFilter(filter)    // num_value_2 is i%3
                 .build();
 
         // Scan(<,>) | [MySimpleRecord] | num_value_2 IN $valuesThree
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
+        assertTrue(filterPlan(descendantPlans(scanPlan().where(scanComparisons(ScanComparisons.unbounded()))))
+                .where(queryComponents(exactly(equalsObject(filter)))).matchesExactly(plan));
         assertEquals(-1677754212, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-192829430, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(871680640, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -156,8 +181,12 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4]
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
-                bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
+        assertTrue(
+                inValuesJoinPlan(
+                        indexPlan()
+                                .where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$num_value_3_indexed"))
+                                .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__0]")))
+                ).where(inValuesList(equalsObject(ls))).matchesExactly(plan));
         assertEquals(-2004060310, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1111143844, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(619086974, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -179,8 +208,12 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN $valueThrees
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
-                bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
+        assertTrue(
+                inParameterJoinPlan(
+                        indexPlan()
+                                .where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$num_value_3_indexed"))
+                                .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__0]")))
+                ).where(RecordQueryInParameterJoinPlan.inParameter(equalsObject("valueThrees"))).matchesExactly(plan));
         assertEquals(883815022, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1054651695, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(562625673, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -204,8 +237,12 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN $valueThrees
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, inParameter(equalTo("valueThrees"), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
-                bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
+        assertTrue(
+                inParameterJoinPlan(
+                        indexPlan()
+                                .where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$num_value_3_indexed"))
+                                .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__0]")))
+                ).where(RecordQueryInParameterJoinPlan.inParameter(equalsObject("valueThrees"))).matchesExactly(plan));
         assertEquals(883815022, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1054651695, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(562625673, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -228,14 +265,16 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testNotInQueryParameterBad() throws Exception {
         complexQuerySetup(NO_HOOK);
+        final QueryComponent filter = Query.not(Query.field("num_value_3_indexed").in("valueThrees"));
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.not(Query.field("num_value_3_indexed").in("valueThrees")))
+                .setFilter(filter)
                 .build();
 
         // Scan(<,>) | [MySimpleRecord] | Not(num_value_3_indexed IN $valueThrees)
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(query.getFilter(), descendant(scan(unbounded()))));
+        assertTrue(filterPlan(descendantPlans(scanPlan().where(scanComparisons(ScanComparisons.unbounded()))))
+                .where(queryComponents(exactly(equalsObject(filter)))).matchesExactly(plan));
         assertEquals(1667070490, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1804602975, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(-557106421, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -264,8 +303,12 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4] SORTED
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, inValues(equalTo(asList(1, 2, 4)), indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"),
-                bounds(hasTupleString("[EQUALS $__in_num_value_3_indexed__0]"))))));
+        assertTrue(
+                inValuesJoinPlan(
+                        indexPlan()
+                                .where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$num_value_3_indexed"))
+                                .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__0]")))
+                ).where(inValuesList(equalsObject(asList(1, 2, 4)))).matchesExactly(plan));
         assertEquals(-2004060309, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(1111138078, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(619081208, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -281,16 +324,18 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void testInQueryIndexSortedDifferently() throws Exception {
         complexQuerySetup(NO_HOOK);
+        final QueryComponent filter = Query.field("num_value_3_indexed").in(asList(1, 4, 2));
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_3_indexed").in(asList(1, 4, 2)))
+                .setFilter(filter)
                 .setSort(field("str_value_indexed"))
                 .build();
 
         // Index(MySimpleRecord$str_value_indexed <,>) | num_value_3_indexed IN [1, 4, 2]
         RecordQueryPlan plan = planner.plan(query);
         // IN join is cancelled on account of incompatible sorting.
-        assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+        assertTrue(filterPlan(selfOrDescendantPlans(indexPlan().where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(ScanComparisons.unbounded()))))
+                .where(queryComponents(exactly(equalsObject(filter)))).matchesExactly(plan));
         assertEquals(1775865786, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-590700400, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(-379100142, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -312,9 +357,10 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
         complexQuerySetup(hook);
         final List<Integer> inList = asList(1, 4, 2);
+        final QueryComponent filter = Query.field("num_value_3_indexed").in(inList);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_3_indexed").in(inList))
+                .setFilter(filter)
                 .setSort(field("str_value_indexed"))
                 .build();
 
@@ -328,15 +374,23 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         // Index(compoundIndex [[1],[1]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[4],[4]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[2],[2]])
         RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
-            // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
-            assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
-                    bounds(hasTupleString(String.format("[[%d],[%d]]", number, number)))))).collect(Collectors.toList()),
-                    equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
+            assertTrue(
+                    RecordQueryUnionPlan
+                            .unionPlan(inList.stream().map(number ->
+                                    indexPlan().where(RecordQueryPlanWithIndex.indexName("compoundIndex"))
+                                            .and(scanComparisons(range(String.format("[[%d],[%d]]", number, number)))))
+                                    .collect(ImmutableList.toImmutableList()))
+                            .where(comparisonKey(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))).matchesExactly(plan));
             assertEquals(-1813975352, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-530950667, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-148115282, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+            assertTrue(
+                    filterPlan(indexPlan()
+                            .where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$str_value_indexed"))
+                            .and(scanComparisons(ScanComparisons.unbounded()))
+                    ).where(queryComponents(exactly(equalsObject(filter)))).matchesExactly(plan));
+
             assertEquals(1775865786, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-590700400, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-379100142, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -378,14 +432,20 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         if (shouldAttemptInAsOr) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
-            assertThat(plan, union(inList.stream().map(number -> indexScan(allOf(indexName("compoundIndex"),
-                    bounds(hasTupleString(String.format("([%d, bar],[%d, foo])", number, number)))))).collect(Collectors.toList()),
-                    equalTo(concat(field("str_value_indexed"), primaryKey("MySimpleRecord")))));
+            assertTrue(
+                    unionPlan(
+                            inList.stream()
+                                    .map(number -> indexPlan().where(RecordQueryPlanWithIndex.indexName("compoundIndex")).and(scanComparisons(range(String.format("([%d, bar],[%d, foo])", number, number)))))
+                                    .collect(ImmutableList.toImmutableList()))
+                            .where(RecordQueryUnionPlan.comparisonKey(equalsObject(concat(field("str_value_indexed"), primaryKey("MySimpleRecord"))))).matchesExactly(plan));
             assertEquals(651476052, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(2072307751, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(661634447, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertThat(plan, filter(Query.field("num_value_3_indexed").in(inList), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), bounds(hasTupleString("([bar],[foo])"))))));
+            assertTrue(
+                    filterPlan(indexPlan()
+                            .where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("([bar],[foo])")))
+                    ).where(queryComponents(only(equalsObject(Query.field("num_value_3_indexed").in(inList))))).matchesExactly(plan));
             assertEquals(-1681846586, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1498477022, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1666766577, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));

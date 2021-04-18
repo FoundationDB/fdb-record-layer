@@ -26,7 +26,7 @@ import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
- * Matches a subclass of {@link PartialMatch} and a given matcher against the children.
+ * Matchers of {@link PartialMatch}.
  */
 public class PartialMatchMatchers {
     private PartialMatchMatchers() {

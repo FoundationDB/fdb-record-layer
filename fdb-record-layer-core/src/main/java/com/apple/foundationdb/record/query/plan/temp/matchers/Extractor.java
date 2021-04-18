@@ -20,6 +20,13 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
+import javax.annotation.Nonnull;
+
+/**
+ * Interface for the unapply function using in a variety of matchers.
+ * @param <T> the type that is extracted from
+ * @param <U> the type that is extracted into
+ */
 @FunctionalInterface
 public interface Extractor<T, U> {
     /**
@@ -28,5 +35,10 @@ public interface Extractor<T, U> {
      * @param t the function argument
      * @return the function result
      */
-    U unapply(T t);
+    @Nonnull
+    U unapply(@Nonnull T t);
+
+    static <T> Extractor<T, T> identity() {
+        return t -> t;
+    }
 }

@@ -35,7 +35,7 @@ import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 
 /**
  * A rule that implements a distinct expression by adding a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}

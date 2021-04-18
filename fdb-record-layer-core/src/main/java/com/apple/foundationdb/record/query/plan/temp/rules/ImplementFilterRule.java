@@ -37,16 +37,17 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression.logicalFilterExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TListMatcher.exactly;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
 
 /**
  * A rule that implements a logical filter around a {@link RecordQueryPlan} as a {@link RecordQueryFilterPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);

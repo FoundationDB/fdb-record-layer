@@ -29,13 +29,23 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.MessageValue;
+import com.apple.foundationdb.record.query.plan.temp.matchers.AllOfMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.Extractor;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
 /**
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
@@ -130,5 +140,27 @@ public class FieldValue implements ValueWithChild {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(columnValue.getCorrelatedTo()));
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                           @Nonnull final String fieldPathAsString) {
+        final ImmutableList<BindingMatcher<String>> fieldPathMatchers =
+                Arrays.stream(fieldPathAsString.split("\\."))
+                        .map(PrimitiveMatchers::equalsObject)
+                        .collect(ImmutableList.toImmutableList());
+        return fieldValue(downstreamValue, exactly(fieldPathMatchers));
+    }
+
+    @Nonnull
+    public static <V1 extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V1> downstreamValue,
+                                                                           @Nonnull final CollectionMatcher<String> downstreamFieldPath) {
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
+                typedWithDownstream(FieldValue.class, FieldValue::getChild, downstreamValue);
+        final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
+                typedWithDownstream(FieldValue.class, FieldValue::getFieldPath, downstreamFieldPath);
+        return typedWithDownstream(FieldValue.class,
+                Extractor.identity(),
+                AllOfMatcher.matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));
     }
 }

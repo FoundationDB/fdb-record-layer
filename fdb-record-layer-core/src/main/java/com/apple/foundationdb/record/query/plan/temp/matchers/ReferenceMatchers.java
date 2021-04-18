@@ -28,18 +28,10 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
- * A <code>BindingMatcher</code> is an expression that can be matched against a
- * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
- * The bindings can be retrieved from the rule call once the binding is matched.
- *
- * <p>
- * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
- * </p>
+ * Matchers for {@link ExpressionRef}s.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ReferenceMatchers {
@@ -58,8 +50,8 @@ public class ReferenceMatchers {
 
     @SuppressWarnings("unchecked")
     public static <R extends ExpressionRef<? extends RelationalExpression>, C extends Collection<? extends RelationalExpression>> BindingMatcher<R> grouping(@Nonnull final BindingMatcher<C> downstream) {
-        return TypedMatcherWithExtractAndDownstream.of((Class<R>)(Class<?>)ExpressionRef.class,
-                ExpressionRef::getMembers,
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)ExpressionRef.class,
+                r -> r.getMembers(),
                 downstream);
     }
 }

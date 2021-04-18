@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
@@ -59,6 +58,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher.any;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A query plan that removes duplicates by means of a hash table of primary keys already seen.
@@ -213,11 +215,16 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinctPlan(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, AnyMatcher.any(downstream));
+    public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinct(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, any(downstream));
     }
 
-    public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinctPlan(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+    public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinct(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
         return RelationalExpressionMatchers.ofTypeOwning(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinctPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return RelationalExpressionMatchers.childrenPlans(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, all(downstream));
     }
 }

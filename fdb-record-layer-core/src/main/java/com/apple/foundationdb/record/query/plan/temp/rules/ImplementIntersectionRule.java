@@ -35,7 +35,7 @@ import java.util.List;
 import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression.logicalIntersectionExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TMultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A rule that implements an intersection of its (already implemented) children. This will extract the
