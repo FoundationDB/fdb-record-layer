@@ -135,6 +135,8 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public static final int DO_NOT_RE_INCREASE_LIMIT = -1;
 
+    public static final int INDEXING_ATTEMPTS_RECURSION_LIMIT = 5; // Safety net - our algorithm should never reach this depth
+
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(OnlineIndexer.class);
 
     @Nonnull private final IndexingCommon common;
@@ -179,69 +181,132 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private CompletableFuture<Void> handleIndexerReturnOrFallback(Throwable ex, Supplier<CompletableFuture<Void>> fallbackFunction) {
+    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc) {
+        return indexingLauncher(indexingFunc, 0);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount) {
+        return indexingLauncher(indexingFunc, attemptCount, null);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
+        // The launcher calls the indexing function, letting the results be handled by the catcher.
+        // The catcher may, on some cases, call the launcher in its retry path. The attemptCount limits the recursion level as a safety net.
+        return AsyncUtil.composeHandle( indexingFunc.get(),
+                (ignore, ex) -> indexingCatcher(ex, indexingFunc, attemptCount + 1, requestedPolicy));
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> indexingCatcher(Throwable ex, Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
+        // (skeleton function, a little long but broken to distinct cases)
         if (ex == null) {
+            // A happy index it is
             return AsyncUtil.DONE;
         }
-        IndexingBase.PartlyBuiltException partlyBuiltException = IndexingBase.getAPartlyBuildExceptionIfApplicable(ex);
+
+        if (attemptCount > INDEXING_ATTEMPTS_RECURSION_LIMIT) {
+            // Safety net, this should never happen
+            if (LOGGER.isErrorEnabled()) {
+                LOGGER.error(KeyValueLogMessage.build("Too many indexing attempts",
+                        LogMessageKeys.CURR_ATTEMPT, attemptCount)
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
+            throw FDBExceptions.wrapException(ex);
+        }
+
+        // clear the indexer, forcing indexingLauncher - if called again - to build a new indexer according to
+        // the modified parameters.
+        indexer = null;
+
+        final IndexStatePrecondition indexStatePrecondition = common.getIndexStatePrecondition();
+        final IndexingBase.PartlyBuiltException partlyBuiltException = IndexingBase.getAPartlyBuildExceptionIfApplicable(ex);
         if (partlyBuiltException != null) {
+            // An ongoing indexing process with a different method type was found. Some precondition cases should be handled.
             IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.savedStamp;
-            // Here: an indexing type stamp already exists, with a different type. Few precondition cases are handled
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",
-                        LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                        LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
-                        LogMessageKeys.INDEXER_ID, common.getUuid(),
-                        LogMessageKeys.INDEX_STATE_PRECONDITION, common.getIndexStatePrecondition(),
-                        LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp
-                ).toString());
+                        LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                        LogMessageKeys.INDEX_STATE_PRECONDITION, indexStatePrecondition,
+                        LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp)
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
             }
-            if (common.getIndexStatePrecondition() == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY) {
+
+            if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY) {
+                // Make best effort to finish indexing. Attempt continuation of the previous method
                 indexer = null;
-                // now, match the policy to the previous run
+                // Now, match the policy to the previous run
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
-                if ( method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
+                if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
+                    // Partly built by records. The fallback indicator should handle the policy
                     fallbackToRecordsScan = true;
-                    return fallbackFunction.get();
+                    return indexingLauncher(indexingFunc, attemptCount);
                 }
                 if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_INDEX) {
+                    // Partly built by index. Retry with the old policy, but preserve the requested policy - in case the old one fails.
                     Object sourceIndexSubspaceKey = decodeSubspaceKey(conflictingIndexingTypeStamp.getSourceIndexSubspaceKey());
+                    IndexingPolicy origPolicy = indexingPolicy;
                     indexingPolicy = IndexingPolicy.newBuilder()
                             .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
-                            .forbidRecordScan() // no third chance
+                            .setForbidRecordScan(origPolicy.forbidRecordScan)
                             .build();
-                    return fallbackFunction.get();
+                    return indexingLauncher(indexingFunc, attemptCount, origPolicy);
                 }
-                // None of the above? let it fall through
+                // No other methods (yet). This line should never be reached.
+                throw new RecordCoreException("Invalid previous indexing type stamp",
+                        LogMessageKeys.CURR_ATTEMPT, attemptCount,
+                        LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp);
             }
 
-            if (common.getIndexStatePrecondition() == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED) {
+            if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED) {
+                // Just rebuild
                 common.setIndexStatePrecondition(IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY);
-                indexer = null;
-                return fallbackFunction.get();
+                return indexingLauncher(indexingFunc, attemptCount);
             }
 
-            if (common.getIndexStatePrecondition() == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED) {
-                throw FDBExceptions.wrapException(ex); // error it is
+            if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED) {
+                // Error it is
+                throw FDBExceptions.wrapException(ex);
+            }
+
+            // All other precondition will be handled below
+        }
+
+        if (indexingPolicy.isByIndex() && IndexingByIndex.isValidationException(ex)) {
+            // Validation failed - the source index cannot be used for records scanning
+            if (requestedPolicy != null) {
+                // We tried to continue a previous indexing session, but failed. The best recovery, as it seems,
+                // is to rebuild with requested policy.
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.build("The previous method's source index isn't usable. Rebuild by the requested policy",
+                            LogMessageKeys.CURR_ATTEMPT, attemptCount)
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .toString());
+                }
+                // rebuild by the requested policy
+                indexingPolicy = requestedPolicy;
+                common.setIndexStatePrecondition(IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY);
+                return indexingLauncher(indexingFunc, attemptCount);
+            }
+
+            if (! indexingPolicy.isForbidRecordScan() && ! fallbackToRecordsScan) {
+                // requested by-index failed, and record scan is allowed. Build by records.
+                if (LOGGER.isWarnEnabled()) {
+                    LOGGER.warn(KeyValueLogMessage.build("Fallback to a by-record scan",
+                            LogMessageKeys.CURR_ATTEMPT, attemptCount)
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .toString());
+                }
+                // build by records
+                fallbackToRecordsScan = true;
+                return indexingLauncher(indexingFunc, attemptCount);
             }
         }
-        if (indexingPolicy.isByIndex() &&
-                ! indexingPolicy.isForbidRecordScan() &&
-                ! fallbackToRecordsScan &&
-                (ex.getCause() instanceof IndexingByIndex.ValidationException)) {
-            // fallback to a records scan
-            if (LOGGER.isWarnEnabled()) {
-                final KeyValueLogMessage message =
-                        KeyValueLogMessage.build("fallback to records scan",
-                                LogMessageKeys.INDEX_VERSION, common.getIndex().getLastModifiedVersion(),
-                                LogMessageKeys.INDEXER_ID, common.getUuid(),
-                                LogMessageKeys.INDEX_NAME, index.getName());
-                LOGGER.warn(message.toString(), ex);
-            }
-            indexer = null;
-            fallbackToRecordsScan = true;
-            return fallbackFunction.get();
-        }
+
+        // No handling, throw the error.
         throw FDBExceptions.wrapException(ex);
     }
 
@@ -488,9 +553,7 @@ public class OnlineIndexer implements AutoCloseable {
      */
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
-        return AsyncUtil.composeHandle( getIndexer().rebuildIndexAsync(store),
-                (ignore, ex) ->
-                        handleIndexerReturnOrFallback(ex, () -> getIndexer().rebuildIndexAsync(store)));
+        return indexingLauncher(() -> getIndexer().rebuildIndexAsync(store));
     }
 
     /**
@@ -624,9 +687,7 @@ public class OnlineIndexer implements AutoCloseable {
     @VisibleForTesting
     @Nonnull
     CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
-        return AsyncUtil.composeHandle(getIndexer().buildIndexAsync(markReadable),
-                (ignore, ex) ->
-                        handleIndexerReturnOrFallback(ex, () -> getIndexer().buildIndexAsync(markReadable)));
+        return indexingLauncher(() -> getIndexer().buildIndexAsync(markReadable));
     }
 
     @Nonnull

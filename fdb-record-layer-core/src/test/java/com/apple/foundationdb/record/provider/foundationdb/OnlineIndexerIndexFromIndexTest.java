@@ -852,7 +852,76 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexBuilder.buildIndex(true);
         }
-        // total of records scan - all with src_index
+        // total of records scan - all by src_index
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
+        assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
+        assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+    }
+
+    @Test
+    public void testIndexFromIndexOtherSrcIndexBecomesUnusable() {
+        // start indexing by src_index, attempt continue with src_index2
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 1328;
+        final int chunkSize  = 42;
+        final int numChunks  = 1 + (numRecords / chunkSize);
+
+        Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index srcIndex2 = new Index("src_index2", field("num_value_unique"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
+
+        FDBRecordStoreTestBase.RecordMetaDataHook hook =
+                metaDataBuilder -> {
+                    metaDataBuilder.addIndex("MySimpleRecord", srcIndex);
+                    metaDataBuilder.addIndex("MySimpleRecord", srcIndex2);
+                    metaDataBuilder.addIndex("MySimpleRecord", tgtIndex);
+                } ;
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex);
+
+        openSimpleMetaData(hook);
+        buildSrcIndex(srcIndex2);
+
+        // partly build by-index src_index
+        openSimpleMetaData(hook);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+                OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index")
+                        .forbidRecordScan()
+                        .build());
+
+        // make 'prev' source unreadable
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                    .setDatabase(fdb).setMetaData(metaData).setIndex(srcIndex).setSubspace(subspace)
+                    .build()) {
+                // change src_index back to writeOnly
+                recordStore.markIndexWriteOnly(srcIndex).join();
+                indexBuilder.rebuildIndex(recordStore);
+                context.commit();
+                assertFalse(recordStore.isIndexReadable(srcIndex));
+            }
+        }
+
+        // try indexing with src_index2. Since src_index isn't usable, it should rebuild
+        openSimpleMetaData(hook);
+        timer.reset();
+        try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setSourceIndex("src_index2")
+                        .build()) // rebuild after failing to continue prev
+                .setLimit(chunkSize)
+                .setTimer(timer)
+                .build()) {
+            indexBuilder.buildIndex(true);
+        }
+        // total of records scan - all by src_index2
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(numChunks , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
