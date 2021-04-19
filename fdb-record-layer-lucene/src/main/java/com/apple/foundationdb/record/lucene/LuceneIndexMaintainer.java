@@ -173,7 +173,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         for (int i = 0; i < fieldNames.size(); i++) {
                             String value = entry.getKey().getString(i);
                             if (value == null) {
-                                value = "";
+                                value = ""; 
                             }
                             document.add(new TextField(fieldNames.get(i), value, Field.Store.NO));
                         }

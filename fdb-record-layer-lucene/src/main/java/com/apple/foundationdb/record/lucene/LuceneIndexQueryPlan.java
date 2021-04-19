@@ -44,6 +44,7 @@ import java.util.Objects;
  */
 public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     private KeyExpression sort;
+    private Boolean duplicates = false;
 
     @Override
     public boolean equals(final Object o) {
@@ -80,6 +81,14 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse, @Nullable KeyExpression sort) {
         super(indexName, scanType, Objects.requireNonNull(ScanComparisons.from(comparison)), reverse);
         this.sort = sort;
+    }
+
+    public boolean createsDuplicates() {
+        return duplicates;
+    }
+
+    public void setCreatesDuplicates() {
+        duplicates = true;
     }
 
     @Nonnull

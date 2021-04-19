@@ -136,9 +136,16 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     if (limitRemaining != Integer.MAX_VALUE) {
                         limitRemaining--;
                     }
+                    Tuple setPrimaryKey = Tuple.fromBytes(pk.bytes);
                     Tuple tuple = Tuple.fromList(fieldNames);
+                    int[] keyPos = new int[setPrimaryKey.size()];
+                    for (int i = 0; i < setPrimaryKey.size(); i++) {
+                        keyPos[i] = i+fieldNames.size();
+                    }
+                    state.index.setPrimaryKeyComponentPositions(keyPos);
+                    tuple = tuple.addAll(setPrimaryKey);
                     nextResult = RecordCursorResult.withNextValue(new IndexEntry(state.index,
-                            tuple.addAll(Tuple.fromBytes(pk.bytes, pk.offset, pk.length)), null), continuationHelper());
+                            tuple, null), continuationHelper());
                     currentPosition++;
                     return nextResult;
                 } catch (Exception e) {
