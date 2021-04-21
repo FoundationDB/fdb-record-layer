@@ -29,12 +29,13 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.CreatesDuplicatesProperty;
 
 import javax.annotation.Nonnull;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 
 /**
@@ -58,7 +59,7 @@ public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression
     @Nonnull
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
     @Nonnull
-    private static final BindingMatcher<LogicalDistinctExpression> root = LogicalDistinctExpression.logicalDistinctExpression(exactly(innerQuantifierMatcher));
+    private static final BindingMatcher<LogicalDistinctExpression> root = RelationalExpressionMatchers.logicalDistinctExpression(exactly(innerQuantifierMatcher));
 
     public ImplementDistinctRule() {
         super(root);

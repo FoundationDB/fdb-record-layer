@@ -30,7 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import javax.annotation.Nonnull;
 import java.util.Objects;
 
-import static com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression.indexScanExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.indexScanExpression;
 
 /**
  * A rule that converts a logical index scan expression to a {@link RecordQueryIndexPlan}. This rule simply converts

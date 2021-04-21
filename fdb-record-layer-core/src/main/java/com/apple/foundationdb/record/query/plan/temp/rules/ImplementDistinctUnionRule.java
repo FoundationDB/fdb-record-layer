@@ -33,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinct
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty.OrderingInfo;
 import com.google.common.collect.ImmutableList;
@@ -44,8 +44,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression.logicalDistinctExpression;
-import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression.logicalUnionExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalDistinctExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalUnionExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
@@ -59,7 +59,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatche
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpression> {
     @Nonnull
-    private static final BindingMatcher<RecordQueryPlan> unionLegExpressionMatcher = RelationalExpressionMatchers.anyPlan();
+    private static final BindingMatcher<RecordQueryPlan> unionLegExpressionMatcher = RecordQueryPlanMatchers.anyPlan();
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> unionExpressionMatcher =
             logicalUnionExpression(all(forEachQuantifier(unionLegExpressionMatcher)));

@@ -36,12 +36,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPre
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -60,9 +54,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
-
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeWithPredicatesAndOwning;
 
 /**
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
@@ -215,45 +206,5 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
                         ImmutableList.of("WHERE {{pred}}"),
                         ImmutableMap.of("pred", Attribute.gml(conjunctedPredicate.toString()))),
                 childGraphs);
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicatesFilter(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(RecordQueryPredicatesFilterPlan.class, AnyMatcher.any(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicatesFilter(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(RecordQueryPredicatesFilterPlan.class, downstream);
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicatesFilter(@Nonnull final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                                   @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
-        return ofTypeWithPredicatesAndOwning(RecordQueryPredicatesFilterPlan.class, AnyMatcher.any(downstreamPredicates), AnyMatcher.any(downstreamQuantifiers));
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicatesFilter(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                                                 @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
-        return ofTypeWithPredicatesAndOwning(RecordQueryPredicatesFilterPlan.class, downstreamPredicates, downstreamQuantifiers);
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicatesFilterPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
-        return RelationalExpressionMatchers.childrenPlans(RecordQueryPredicatesFilterPlan.class, MultiMatcher.AllMatcher.all(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicatesFilterPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
-        return RelationalExpressionMatchers.childrenPlans(RecordQueryPredicatesFilterPlan.class, downstream);
-    }
-
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicates(@Nonnull CollectionMatcher<? extends QueryPredicate> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(RecordQueryPredicatesFilterPlan.class,
-                RecordQueryPredicatesFilterPlan::getPredicates,
-                downstream);
     }
 }

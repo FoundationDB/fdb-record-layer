@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -116,9 +114,5 @@ public class AndPredicate extends AndOrPredicate {
         }
 
         return ImmutableList.of(queryPredicate);
-    }
-
-    public static <C extends Collection<? extends QueryPredicate>> BindingMatcher<AndPredicate> andPredicate(@Nonnull final BindingMatcher<C> downstream) {
-        return QueryPredicateMatchers.ofTypeWithChildren(AndPredicate.class, downstream);
     }
 }

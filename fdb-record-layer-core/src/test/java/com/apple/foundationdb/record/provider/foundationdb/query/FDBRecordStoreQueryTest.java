@@ -46,7 +46,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableSet;
@@ -70,26 +70,26 @@ import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan.filterPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan.queryComponents;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan.indexPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons.scanComparisons;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex.indexName;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan.predicates;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan.predicatesFilterPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan.scanPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan.recordTypes;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan.typeFilterPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan.unionPlan;
-import static com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan.unorderedPrimaryKeyDistinctPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.filterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.queryComponents;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicates;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicatesFilterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.recordTypes;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.typeFilterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unionPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.unorderedPrimaryKeyDistinctPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.containsAll;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.equalsObject;
-import static com.apple.foundationdb.record.query.predicates.FieldValue.fieldValue;
-import static com.apple.foundationdb.record.query.predicates.QueryComponentPredicate.queryComponentPredicate;
-import static com.apple.foundationdb.record.query.predicates.Value.anyValue;
-import static com.apple.foundationdb.record.query.predicates.ValuePredicate.valuePredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers.fieldValue;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.queryComponentPredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers.anyValue;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.valuePredicate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -169,9 +169,9 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Index(ByteStringRecord$secondary [[[0, 1, 3]],[[0, 1, 3]]])
             RecordQueryPlan plan = planner.plan(query);
-            assertTrue(
+            assertMatchesExactly(plan,
                     indexPlan().where(indexName("ByteStringRecord$secondary"))
-                            .and(scanComparisons(range("[[[0, 1, 3]],[[0, 1, 3]]]"))).matchesExactly(plan));
+                            .and(scanComparisons(range("[[[0, 1, 3]],[[0, 1, 3]]]"))));
 
             assertEquals(-1357153726, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1118488785, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -202,13 +202,12 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Index(ByteStringRecord$secondary ([null],[[0, 1, 2]]]) | name NOT_NULL ∪[Field { 'secondary' None}, Field { 'pkey' None}] Index(ByteStringRecord$secondary [[[0, 1, 3]],>)
             RecordQueryPlan plan = planner.plan(query);
-            assertTrue(
+            assertMatchesExactly(plan,
                     unionPlan(
                             filterPlan(
                                     indexPlan().where(indexName("ByteStringRecord$secondary")).and(scanComparisons(range("([null],[[0, 1, 2]]]"))))
                                     .where(queryComponents(exactly(equalsObject(Query.field("name").notNull())))),
-                            indexPlan().where(indexName("ByteStringRecord$secondary")).and(scanComparisons(range("[[[0, 1, 3]],>"))))
-                            .matchesExactly(plan));
+                            indexPlan().where(indexName("ByteStringRecord$secondary")).and(scanComparisons(range("[[[0, 1, 3]],>")))));
 
             assertEquals(1352435039, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1847280450, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -251,11 +250,10 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Scan(<,>) | [MySimpleRecord]
             RecordQueryPlan plan = planner.plan(query);
-            assertTrue(
+            assertMatchesExactly(plan,
                     typeFilterPlan(
                             scanPlan().where(scanComparisons(unbounded())))
-                            .where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord"))))
-                            .matchesExactly(plan));
+                            .where(recordTypes(containsAll(ImmutableSet.of("MySimpleRecord")))));
             assertEquals(1623132336, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1955010341, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1955010341, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -289,10 +287,9 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Index(MySimpleRecord$str_value_indexed [[odd],[odd]])
             plan = planner.plan(query);
-            assertTrue(
+            assertMatchesExactly(plan,
                     indexPlan()
-                            .where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]")))
-                            .matchesExactly(plan));
+                            .where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))));
             assertEquals(-1917280682, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1983438631, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(-1939367966, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -327,19 +324,17 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             plan = planner.plan(query);
             if (planner instanceof RecordQueryPlanner) {
-                assertTrue(
+                assertMatchesExactly(plan,
                         filterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
-                                .where(queryComponents(exactly(equalsObject(filter))))
-                                .matchesExactly(plan));
+                                .where(queryComponents(exactly(equalsObject(filter)))));
 
                 assertEquals(913370522, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             // TODO: https://github.com/FoundationDB/fdb-record-layer/issues/1074
             // assertEquals(389700036, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
-                assertTrue(
+                assertMatchesExactly(plan,
                         predicatesFilterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
-                                .where(predicates(only(valuePredicate(fieldValue(anyValue(), "num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0)))))
-                                .matchesExactly(plan));
+                                .where(predicates(only(valuePredicate(fieldValue(anyValue(), "num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 0))))));
                 assertEquals(-1244637277, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             }
             continuation = null;
@@ -435,10 +430,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(multi_index [EQUALS $1, EQUALS $2])
         RecordQueryPlan plan = planner.plan(query);
-
-        assertTrue(
-                indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[EQUALS $1, EQUALS $2]")))
-                        .matchesExactly(plan));
+        assertMatchesExactly(plan,
+                indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[EQUALS $1, EQUALS $2]"))));
         assertEquals(584809367, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(729798781, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(1546643292, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -518,7 +511,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(color [[10],[10]])
         RecordQueryPlan plan = planner.plan(query);
-        assertTrue(indexPlan().where(indexName("color")).matchesExactly(plan));
+        assertMatchesExactly(plan, indexPlan().where(indexName("color")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(1393755963, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-277575912, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
@@ -667,22 +660,22 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .build();
             RecordQueryPlan plan = planner.plan(query);
             if (planner instanceof RecordQueryPlanner) {
-                assertTrue(
+                assertMatchesExactly(plan,
                         filterPlan(
                                 typeFilterPlan(
                                         scanPlan().where(scanComparisons(unbounded()))
                                 ).where(recordTypes(containsAll(ImmutableSet.of("MultiRecordTwo", "MultiRecordThree"))))
-                        ).where(queryComponents(only(equalsObject(Query.field("element").oneOfThem().greaterThan("A"))))).matchesExactly(plan));
+                        ).where(queryComponents(only(equalsObject(Query.field("element").oneOfThem().greaterThan("A"))))));
                 // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
                 // assertEquals(1399455990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
                 assertEquals(1808059644, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             } else {
-                assertTrue(
+                assertMatchesExactly(plan,
                         predicatesFilterPlan(
                                 typeFilterPlan(
                                         scanPlan().where(scanComparisons(unbounded()))
                                 ).where(recordTypes(containsAll(ImmutableSet.of("MultiRecordTwo", "MultiRecordThree"))))
-                        ).where(predicates(only(queryComponentPredicate(equalsObject(Query.field("element").oneOfThem().greaterThan("A")))))).matchesExactly(plan));
+                        ).where(predicates(only(queryComponentPredicate(equalsObject(Query.field("element").oneOfThem().greaterThan("A")))))));
                 // TODO: Issue https://github.com/FoundationDB/fdb-record-layer/issues/1074
                 // assertEquals(1399455990, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
                 assertEquals(1808059644, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -706,23 +699,20 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
             plan = planner.plan(query);
             if (planner instanceof RecordQueryPlanner) {
                 // RecordQueryPlanner doesn't notice that the requested record type match the record types for onetwo$element.
-
-                assertTrue(
+                assertMatchesExactly(plan,
                         filterPlan(
                                 typeFilterPlan(
                                         scanPlan().where(scanComparisons(unbounded()))
                                 ).where(recordTypes(containsAll(ImmutableSet.of("MultiRecordOne", "MultiRecordTwo"))))
-                        ).where(queryComponents(only(equalsObject(Query.field("element").oneOfThem().greaterThan("A"))))).matchesExactly(plan));
-
+                        ).where(queryComponents(only(equalsObject(Query.field("element").oneOfThem().greaterThan("A"))))));
                 assertEquals(-663593392, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
                 assertEquals(898549447, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
                 assertEquals(1059359340, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 // Cascades planner correctly identifies that the requested record types match the index onetwo$element.
-                assertTrue(
+                assertMatchesExactly(plan,
                         unorderedPrimaryKeyDistinctPlan(
-                                indexPlan().where(indexName("onetwo$element")).and(scanComparisons(range("([A],>"))))
-                                .matchesExactly(plan));
+                                indexPlan().where(indexName("onetwo$element")).and(scanComparisons(range("([A],>")))));
             }
             assertThat(recordStore.executeQuery(plan)
                             .map(FDBQueriedRecord::getRecord)
@@ -757,9 +747,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_3_indexed").lessThan(2))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertTrue(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])")))
-                .matchesExactly(plan));
-
+        assertMatchesExactly(plan,
+                indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))));
         assertEquals(-699045510, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-1099064893, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(1599188861, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -818,8 +807,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setSort(field("uuid"))
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-
-            assertTrue(scanPlan().where(scanComparisons(range(String.format("([null],[%s])", uuids.get(3))))).matchesExactly(plan));
+            assertMatchesExactly(plan, scanPlan().where(scanComparisons(range(String.format("([null],[%s])", uuids.get(3))))));
             assertEquals(uuids.subList(0, 3), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
         }
     }
@@ -834,9 +822,8 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     .setFilter(Query.field("fint32").isNull())
                     .build();
             RecordQueryPlan plan = planner.plan(query);
-
-            assertTrue(indexPlan().where(indexName("MyFieldsRecord$fint32")).and(scanComparisons(range("[[null],[null]]")))
-                    .matchesExactly(plan));
+            assertMatchesExactly(plan,
+                    indexPlan().where(indexName("MyFieldsRecord$fint32")).and(scanComparisons(range("[[null],[null]]"))));
             assertEquals(uuids.subList(3, 4), recordStore.executeQuery(plan).map(r -> r.getPrimaryKey().getUUID(0)).asList().join());
         }
     }
@@ -861,7 +848,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(cnf)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertTrue(filterPlan(RelationalExpressionMatchers.anyPlan()).where(queryComponents(only(equalsObject(cnf)))).matchesExactly(plan));
+        assertMatchesExactly(plan, filterPlan(RecordQueryPlanMatchers.anyPlan()).where(queryComponents(only(equalsObject(cnf)))));
     }
 
     /**
@@ -888,6 +875,6 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(cnf)
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertTrue(filterPlan(RelationalExpressionMatchers.anyPlan()).where(queryComponents(only(equalsObject(cnf)))).matchesExactly(plan));
+        assertMatchesExactly(plan, filterPlan(RecordQueryPlanMatchers.anyPlan()).where(queryComponents(only(equalsObject(cnf)))));
     }
 }

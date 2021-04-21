@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
 import com.google.common.collect.Sets;
@@ -45,10 +46,10 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static final BindingMatcher<RecordQueryPlan> innerMatcher = RelationalExpressionMatchers.anyPlan();
+    private static final BindingMatcher<RecordQueryPlan> innerMatcher = RecordQueryPlanMatchers.anyPlan();
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatchers.forEachQuantifier(innerMatcher);
     private static final BindingMatcher<LogicalTypeFilterExpression> root =
-            LogicalTypeFilterExpression.logicalTypeFilterExpression(exactly(innerQuantifierMatcher));
+            RelationalExpressionMatchers.logicalTypeFilterExpression(exactly(innerQuantifierMatcher));
 
     public ImplementTypeFilterRule() {
         super(root);

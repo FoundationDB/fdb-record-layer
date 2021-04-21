@@ -31,10 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -173,15 +169,5 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
                         ImmutableList.of("BY {{expression}}"),
                         ImmutableMap.of("expression", Attribute.gml(sort.toString()))),
                 childGraphs);
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalSortExpression> logicalSortExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(LogicalSortExpression.class, AnyMatcher.any(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalSortExpression> logicalSortExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(LogicalSortExpression.class, downstream);
     }
 }

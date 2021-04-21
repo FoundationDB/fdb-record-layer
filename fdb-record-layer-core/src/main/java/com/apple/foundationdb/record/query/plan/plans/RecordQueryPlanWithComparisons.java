@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 
 import javax.annotation.Nonnull;
 
@@ -34,11 +32,4 @@ import javax.annotation.Nonnull;
 public interface RecordQueryPlanWithComparisons extends RecordQueryPlan {
     @Nonnull
     ScanComparisons getComparisons();
-
-    @Nonnull
-    static BindingMatcher<RecordQueryPlanWithComparisons> scanComparisons(@Nonnull BindingMatcher<ScanComparisons> scanComparisonsBindingMatcher) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(RecordQueryPlanWithComparisons.class,
-                RecordQueryPlanWithComparisons::getComparisons,
-                scanComparisonsBindingMatcher);
-    }
 }

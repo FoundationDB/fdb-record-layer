@@ -30,9 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -44,8 +41,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
-
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
 
 /**
  * A relational planner expression representing a stream of unique records. This expression has a single child which
@@ -144,15 +139,5 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
                         ImmutableList.of(),
                         ImmutableMap.of()),
                 childGraphs);
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalDistinctExpression.class, AnyMatcher.any(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalDistinctExpression> logicalDistinctExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalDistinctExpression.class, downstream);
     }
 }

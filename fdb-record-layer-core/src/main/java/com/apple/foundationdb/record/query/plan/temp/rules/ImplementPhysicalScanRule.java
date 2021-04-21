@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression.primaryScanExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.primaryScanExpression;
 
 /**
  * A rule that converts a logical index scan expression to a {@link RecordQueryScanPlan}. This rule simply converts

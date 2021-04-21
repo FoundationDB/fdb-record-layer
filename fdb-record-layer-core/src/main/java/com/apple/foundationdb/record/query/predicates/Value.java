@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.TreeLike;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -45,8 +44,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
 
 /**
  * A scalar value type.
@@ -253,10 +250,5 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
                                                 @Nullable M message) {
             throw new RecordCoreException("value is compile-time only and cannot be evaluated");
         }
-    }
-
-    @Nonnull
-    static BindingMatcher<Value> anyValue() {
-        return typed(Value.class);
     }
 }

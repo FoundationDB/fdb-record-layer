@@ -29,11 +29,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AllOfMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -132,21 +127,5 @@ public class ValuePredicate implements PredicateWithValue {
     @Override
     public String toString() {
         return value.toString() + " " + comparison.toString();
-    }
-
-    @Nonnull
-    public static <V extends Value> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                  @Nonnull final Comparison comparison) {
-        return valuePredicate(downstreamValue, PrimitiveMatchers.equalsObject(comparison));
-    }
-
-    @Nonnull
-    public static <V extends Value, C extends Comparison> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
-                                                                                                        @Nonnull final BindingMatcher<C> downstreamComparison) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class,
-                t -> t,
-                AllOfMatcher.matchingAllOf(ValuePredicate.class,
-                        ImmutableList.of(TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getValue, downstreamValue),
-                                TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getComparison, downstreamComparison))));
     }
 }

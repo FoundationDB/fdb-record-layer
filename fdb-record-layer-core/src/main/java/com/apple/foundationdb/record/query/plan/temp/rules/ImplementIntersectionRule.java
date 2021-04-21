@@ -32,9 +32,9 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression.logicalIntersectionExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.logicalIntersectionExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**

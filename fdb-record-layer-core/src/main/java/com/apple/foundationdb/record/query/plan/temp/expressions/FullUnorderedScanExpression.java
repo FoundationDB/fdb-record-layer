@@ -34,9 +34,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
@@ -162,10 +159,5 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
                 ImmutableList.of(PlannerGraph.fromNodeAndChildGraphs(
                         dataNodeWithInfo,
                         childGraphs)));
-    }
-
-    @Nonnull
-    public static BindingMatcher<FullUnorderedScanExpression> fullUnorderedScanExpression() {
-        return RelationalExpressionMatchers.ofTypeOwning(FullUnorderedScanExpression.class, CollectionMatcher.empty());
     }
 }

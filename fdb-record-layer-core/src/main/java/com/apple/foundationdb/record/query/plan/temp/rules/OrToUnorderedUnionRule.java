@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpressio
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -90,7 +91,7 @@ public class OrToUnorderedUnionRule extends PlannerRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<OrPredicate> orMatcher = QueryPredicateMatchers.ofTypeWithChildren(OrPredicate.class, all(orTermPredicateMatcher));
     @Nonnull
-    private static final BindingMatcher<SelectExpression> root = SelectExpression.selectExpression(exactly(orMatcher), all(qunMatcher)); // TODO make this better to include other predicates
+    private static final BindingMatcher<SelectExpression> root = RelationalExpressionMatchers.selectExpression(exactly(orMatcher), all(qunMatcher)); // TODO make this better to include other predicates
 
     public OrToUnorderedUnionRule() {
         super(root);

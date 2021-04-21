@@ -30,9 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -49,9 +46,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
-
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeWithPredicatesAndOwning;
 
 /**
  * A relational planner expression that represents an unimplemented filter on the records produced by its inner
@@ -177,27 +171,5 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
                         ImmutableList.of("WHERE {{pred}}"),
                         ImmutableMap.of("pred", Attribute.gml(AndPredicate.and(getPredicates()).toString()))),
                 childGraphs);
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalFilterExpression.class, AnyMatcher.any(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalFilterExpression.class, downstream);
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final BindingMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                                  @Nonnull final BindingMatcher<? extends Quantifier> downstreamQuantifiers) {
-        return ofTypeWithPredicatesAndOwning(LogicalFilterExpression.class, AnyMatcher.any(downstreamPredicates), AnyMatcher.any(downstreamQuantifiers));
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
-                                                                                  @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
-        return ofTypeWithPredicatesAndOwning(LogicalFilterExpression.class, downstreamPredicates, downstreamQuantifiers);
     }
 }

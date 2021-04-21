@@ -30,15 +30,15 @@ import java.util.List;
 import java.util.stream.Stream;
 
 /**
- * A binding matcher is an object that can be matched against a
- * complex object tree, while binding certain expressions/references in the tree to matcher objects.
- * The bindings can be retrieved from the {@link PlannerBindings} once one ore more bindings are established.
+ * A binding matcher is an object that can be matched against a complex object tree, while binding certain
+ * references in the tree to matcher objects. The bindings can be retrieved from the {@link PlannerBindings} once one
+ * ore more bindings are established.
  *
- * <p>
  * Extreme care should be taken when implementing binding matchers, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of must use the (default) reference equals.
- * </p>
+ * In particular, binding matchers may (or may not) be reused between successive rule calls and should be stateless.
+ * Additionally, implementors of must use the (default) reference equals for any binding matcher as the
+ * class {@link PlannerBindings} keeps an association between a matcher and the matched object(s) in a
+ * multimap.
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
@@ -129,7 +129,7 @@ public interface BindingMatcher<T> {
     }
 
     /**
-     * Combinator to return a matcher that matches the logical or of this matcher and the matcher passed in
+     * Combinator to return a matcher that matches the logical or of this matcher and the matcher passed in.
      * @param downstream a downstream matcher
      * @return a new binding matcher.
      */

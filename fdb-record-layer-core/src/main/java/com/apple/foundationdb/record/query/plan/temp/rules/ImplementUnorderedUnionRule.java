@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression.logicalUnionExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalUnionExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
@@ -44,7 +44,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatche
 @API(API.Status.EXPERIMENTAL)
 public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpression> {
     @Nonnull
-    private static final BindingMatcher<RecordQueryPlan> unionLegMatcher = RelationalExpressionMatchers.anyPlan();
+    private static final BindingMatcher<RecordQueryPlan> unionLegMatcher = RecordQueryPlanMatchers.anyPlan();
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> root =
             logicalUnionExpression(all(forEachQuantifier(unionLegMatcher)));

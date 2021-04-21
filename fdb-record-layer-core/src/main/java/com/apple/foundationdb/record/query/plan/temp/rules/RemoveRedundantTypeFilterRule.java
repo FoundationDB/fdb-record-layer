@@ -34,7 +34,7 @@ import com.google.common.collect.Sets;
 import javax.annotation.Nonnull;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression.logicalTypeFilterExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalTypeFilterExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 
 /**

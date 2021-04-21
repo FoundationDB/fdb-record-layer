@@ -34,9 +34,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -51,8 +48,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofTypeOwning;
 
 /**
  * A query plan that executes by taking the union of records from two or more compatibly-sorted child plans.
@@ -187,15 +182,5 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
                         ImmutableList.of("COMPARE BY {{comparisonKey}}"),
                         ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
                 childGraphs);
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalIntersectionExpression> logicalIntersectionExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalIntersectionExpression.class, AnyMatcher.any(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<LogicalIntersectionExpression> logicalIntersectionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return ofTypeOwning(LogicalIntersectionExpression.class, downstream);
     }
 }

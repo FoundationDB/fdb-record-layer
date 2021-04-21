@@ -38,10 +38,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -59,9 +55,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
-
-import static com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher.any;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
@@ -222,33 +215,5 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
                         ImmutableList.of("WHERE record IS {{types}}"),
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
-    }
-
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryTypeFilterPlan> typeFilter(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryTypeFilterPlan.class, any(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryTypeFilterPlan> typeFilter(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryTypeFilterPlan.class, downstream);
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryTypeFilterPlan> typeFilterPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
-        return RelationalExpressionMatchers.childrenPlans(RecordQueryTypeFilterPlan.class, all(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryTypeFilterPlan> typeFilterPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
-        return RelationalExpressionMatchers.childrenPlans(RecordQueryTypeFilterPlan.class, downstream);
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryTypeFilterPlan> recordTypes(@Nonnull CollectionMatcher<? extends String> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(RecordQueryTypeFilterPlan.class,
-                RecordQueryTypeFilterPlan::getRecordTypes,
-                downstream);
     }
 }

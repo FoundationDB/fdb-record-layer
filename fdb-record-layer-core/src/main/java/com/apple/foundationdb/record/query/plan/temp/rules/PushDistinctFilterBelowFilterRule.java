@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
 
@@ -81,10 +82,10 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
     @Nonnull
     private static final BindingMatcher<Quantifier.Physical> innerQuantifierMatcher = physicalQuantifierOverRef(innerRefMatcher);
     @Nonnull
-    private static final BindingMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher = RecordQueryPredicatesFilterPlan.predicatesFilter(exactly(innerQuantifierMatcher));
+    private static final BindingMatcher<RecordQueryPredicatesFilterPlan> filterPlanMatcher = RecordQueryPlanMatchers.predicatesFilter(exactly(innerQuantifierMatcher));
     @Nonnull
     private static final BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
-            RecordQueryUnorderedPrimaryKeyDistinctPlan.unorderedPrimaryKeyDistinct(exactly(physicalQuantifier(filterPlanMatcher)));
+            RecordQueryPlanMatchers.unorderedPrimaryKeyDistinct(exactly(physicalQuantifier(filterPlanMatcher)));
 
     public PushDistinctFilterBelowFilterRule() {
         super(root);

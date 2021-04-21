@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 
 import javax.annotation.Nonnull;
 
-import static com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression.fullUnorderedScanExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.fullUnorderedScanExpression;
 
 /**
  * A rule for implementing a {@link FullUnorderedScanExpression} as a {@link RecordQueryScanPlan} of the full primary

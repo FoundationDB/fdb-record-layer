@@ -30,8 +30,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
@@ -136,12 +134,5 @@ public class QueryComponentPredicate implements LeafQueryPredicate {
             return new QueryComponentPredicate(getQueryComponent(), translationMap.getTargetOrThrow(correlation));
         }
         return this;
-    }
-
-    @Nonnull
-    public static BindingMatcher<QueryComponentPredicate> queryComponentPredicate(@Nonnull BindingMatcher<? extends QueryComponent> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(QueryComponentPredicate.class,
-                QueryComponentPredicate::getQueryComponent,
-                downstream);
     }
 }

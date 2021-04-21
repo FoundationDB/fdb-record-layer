@@ -21,8 +21,15 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.ValuePredicate;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -57,5 +64,32 @@ public class QueryPredicateMatchers {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
                 QueryPredicate::getChildren,
                 downstream);
+    }
+
+    public static <C extends Collection<? extends QueryPredicate>> BindingMatcher<AndPredicate> andPredicate(@Nonnull final BindingMatcher<C> downstream) {
+        return ofTypeWithChildren(AndPredicate.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<QueryComponentPredicate> queryComponentPredicate(@Nonnull BindingMatcher<? extends QueryComponent> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(QueryComponentPredicate.class,
+                QueryComponentPredicate::getQueryComponent,
+                downstream);
+    }
+
+    @Nonnull
+    public static <V extends Value> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                  @Nonnull final Comparisons.Comparison comparison) {
+        return valuePredicate(downstreamValue, PrimitiveMatchers.equalsObject(comparison));
+    }
+
+    @Nonnull
+    public static <V extends Value, C extends Comparisons.Comparison> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                                                                    @Nonnull final BindingMatcher<C> downstreamComparison) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class,
+                t -> t,
+                AllOfMatcher.matchingAllOf(ValuePredicate.class,
+                        ImmutableList.of(TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getValue, downstreamValue),
+                                TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getComparison, downstreamComparison))));
     }
 }

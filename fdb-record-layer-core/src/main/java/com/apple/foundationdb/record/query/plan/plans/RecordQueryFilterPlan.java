@@ -36,12 +36,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -211,27 +205,5 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
                         ImmutableList.of("WHERE {{pred}}"),
                         ImmutableMap.of("pred", Attribute.gml(getConjunctedFilter().toString()))),
                 childGraphs);
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryFilterPlan> filter(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
-        return RelationalExpressionMatchers.ofTypeOwning(RecordQueryFilterPlan.class, AnyMatcher.any(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryFilterPlan> filterPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
-        return RelationalExpressionMatchers.childrenPlans(RecordQueryFilterPlan.class, MultiMatcher.AllMatcher.all(downstream));
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryFilterPlan> filterPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
-        return RelationalExpressionMatchers.childrenPlans(RecordQueryFilterPlan.class, downstream);
-    }
-
-    @Nonnull
-    public static BindingMatcher<RecordQueryFilterPlan> queryComponents(@Nonnull CollectionMatcher<? extends QueryComponent> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(RecordQueryFilterPlan.class,
-                RecordQueryFilterPlan::getFilters,
-                downstream);
     }
 }

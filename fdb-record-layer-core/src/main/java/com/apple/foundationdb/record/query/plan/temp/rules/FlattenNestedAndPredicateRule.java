@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterEx
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.MatchOneAndRestMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
@@ -65,9 +67,9 @@ public class FlattenNestedAndPredicateRule extends PlannerRule<LogicalFilterExpr
     private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier();
 
     private static final BindingMatcher<LogicalFilterExpression> root =
-            LogicalFilterExpression.logicalFilterExpression(
+            RelationalExpressionMatchers.logicalFilterExpression(
                     MatchOneAndRestMatcher.matchOneAndRest(
-                            AndPredicate.andPredicate(all(nestedPredicateMatcher)), all(otherPredicateMatcher)),
+                            QueryPredicateMatchers.andPredicate(all(nestedPredicateMatcher)), all(otherPredicateMatcher)),
                     all(innerQuantifierMatcher));
 
     public FlattenNestedAndPredicateRule() {
