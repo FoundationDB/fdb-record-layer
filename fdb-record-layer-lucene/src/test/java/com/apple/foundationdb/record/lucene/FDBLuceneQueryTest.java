@@ -49,6 +49,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
@@ -105,7 +106,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             TextSamples.FRENCH
     );
 
-    final List<TestRecordsTextProto.MapDocument> NESTED = IntStream.range(0, textSamples.size() / 2)
+    private List<TestRecordsTextProto.MapDocument> mapDocuments = IntStream.range(0, textSamples.size() / 2)
             .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
                     .setDocId(i)
                     .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
@@ -130,13 +131,18 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
         } else {
             if (indexTypes == null) {
-                indexTypes = PlannableIndexTypes.DEFAULT;
+                indexTypes = new PlannableIndexTypes(
+                        Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
+                        Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
+                        Sets.newHashSet(IndexTypes.TEXT),
+                        Sets.newHashSet(IndexTypes.LUCENE)
+                );
             }
             planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
         }
     }
 
-    protected void openRecordStore(FDBRecordContext context) throws Exception {
+    protected void openRecordStore(FDBRecordContext context) {
         openRecordStore(context, store -> { });
     }
 
@@ -153,17 +159,18 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         setupPlanner(null);
     }
 
-    private void initializeFlat() throws Exception {
+    private void initializeFlat() {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             DOCUMENTS.forEach(recordStore::saveRecord);
             commit(context);
         }
     }
-    private void initializeNested() throws Exception {
+    
+    private void initializeNested() {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            NESTED.forEach(recordStore::saveRecord);
+            mapDocuments.forEach(recordStore::saveRecord);
             commit(context);
         }
     }
@@ -279,7 +286,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
             final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
             // Query for full records
-            QueryComponent filter2 = Query.field("doc_id").equalsValue(Long.valueOf(2));
+            QueryComponent filter2 = Query.field("doc_id").equalsValue(2L);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
                     .setFilter(Query.and(filter2, filter1))
@@ -287,7 +294,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
             Matcher<RecordQueryPlan> scanMatcher = fetch(filter(filter2, coveringIndexScan(indexScan(allOf(indexScanType(IndexScanType.BY_LUCENE), indexScan("Complex$text_index"),
-                    bounds(hasTupleString("[[(civil blood makes civil hands unclean)],[(civil blood makes civil hands unclean)]]")))))));
+                    bounds(hasTupleString("[[civil blood makes civil hands unclean],[civil blood makes civil hands unclean]]")))))));
             assertThat(plan, scanMatcher);
             RecordCursor<FDBQueriedRecord<Message>> primaryKeys;
             primaryKeys = recordStore.executeQuery(plan);
@@ -502,7 +509,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             ));
             assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Arrays.asList(), primaryKeys);
+            assertEquals(Collections.emptyList(), primaryKeys);
         }
     }
 
@@ -522,11 +529,15 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexScanType(IndexScanType.BY_LUCENE),
                     indexScan("Map$entry-value"),
-                    bounds(hasTupleString("[[entry.key:\"king\"],[entry.key:\"king\"]]"))
-            ));
+                    bounds(hasTupleString("[[entry.key:\"king\"],[entry.key:\"king\"]]"))));
+            if (shouldDeferFetch) {
+                matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
+            } else {
+                matcher = primaryKeyDistinct(matcher);
+            }
             assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Arrays.asList(), primaryKeys);
+            assertEquals(Collections.emptyList(), primaryKeys);
         }
     }
 
@@ -549,9 +560,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     indexScanType(IndexScanType.BY_LUCENE),
                     bounds(hasTupleString("[[(entry.key:\"b\") AND (entry.value:(+\"civil blood makes civil hands unclean\"))],[(entry.key:\"b\") AND (entry.value:(+\"civil blood makes civil hands unclean\"))]]"))
                     ));
+            if (shouldDeferFetch) {
+                matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
+            } else {
+                matcher = primaryKeyDistinct(matcher);
+            }
             assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Arrays.asList(), primaryKeys);
+            assertEquals(Collections.emptyList(), primaryKeys);
         }
 
     }
@@ -573,11 +589,16 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexName(MAP_ON_LUCENE_INDEX.getName()),
                     indexScanType(IndexScanType.BY_LUCENE),
-                    bounds(hasTupleString("[[(entry.key:\"b\") OR (entry.value:(+\"civil blood makes civil hands unclean\"))],[(entry.key:\"b\") OR (entry.value:(+\"civil blood makes civil hands unclean\"))]]"))
+                    bounds(hasTupleString("[[(entry.value:(+\"civil blood makes civil hands unclean\")) OR (entry.key:\"b\")],[(entry.value:(+\"civil blood makes civil hands unclean\")) OR (entry.key:\"b\")]]"))
             ));
+            if (shouldDeferFetch) {
+                matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
+            } else {
+                matcher = primaryKeyDistinct(matcher);
+            }
             assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
-            assertEquals(Arrays.asList(0L, 1L, 0L, 1L, 2L), primaryKeys);
+            assertEquals(Arrays.asList(0L, 1L, 2L), primaryKeys);
         }
 
     }
