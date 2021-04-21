@@ -42,9 +42,13 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
@@ -473,14 +477,18 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             conjuncts.add(Query.field("num_value_3_indexed").in(ImmutableList.of(i * 100, i * 100 + 1)));
         }
 
+        final QueryComponent filter = Query.and(conjuncts);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.and(conjuncts))
+                .setFilter(filter)
                 .setSort(field("str_value_indexed"))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
         // Did not throw an exception
-        assertThat(plan, filter(query.getFilter(), indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
+        assertTrue(
+                filterPlan(indexPlan()
+                        .where(RecordQueryPlanWithIndex.indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(ScanComparisons.unbounded()))
+                ).where(queryComponents(exactly(conjuncts.stream().map(PrimitiveMatchers::equalsObject).collect(ImmutableList.toImmutableList())))).matchesExactly(plan));
     }
 
     /**
@@ -510,8 +518,11 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(ind [EQUALS 1, EQUALS $__in_path__0]) WHERE __in_path__0 IN [String6, String1, String25, String11]
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, inValues(equalTo(ls), indexScan(allOf(indexName("ind"),
-                bounds(hasTupleString("[EQUALS 1, EQUALS $__in_path__0]"))))));
+        assertTrue(
+                inValuesJoinPlan(indexPlan()
+                        .where(RecordQueryPlanWithIndex.indexName("ind"))
+                        .and(RecordQueryPlanWithComparisons.scanComparisons(range("[EQUALS 1, EQUALS $__in_path__0]")))
+                ).where(inValuesList(equalsObject(ls))).matchesExactly(plan));
         assertEquals(1075889283, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-347431998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(677597961, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
@@ -532,7 +543,6 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             metaData.addIndex("MyRecord", "ind", field("header").nest(field("rec_no"), field("path")));
         };
 
-
         setupRecordsWithHeader(recordMetaDataHook, (i, record) -> {
             record.setStrValue("_" + i);
             record.getHeaderBuilder().setRecNo(i % 5).setPath("String" + i % 50).setNum(i);
@@ -550,9 +560,20 @@ public class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQueryPlan plan = planner.plan(query);
         Matcher<RecordQueryPlan> indexMatcher = indexScan(allOf(indexName("ind"),
                 bounds(hasTupleString("[EQUALS $__in_rec_no__0, EQUALS $__in_path__1]"))));
-        assertThat(plan, anyOf(
-                inValues(equalTo(longList), inValues(equalTo(stringList), indexMatcher)),
-                inValues(equalTo(stringList), inValues(equalTo(longList), indexMatcher))));
+
+        final BindingMatcher<RecordQueryIndexPlan> indexPlanMatcher =
+                indexPlan()
+                        .where(RecordQueryPlanWithIndex.indexName("ind"))
+                        .and(scanComparisons(range("[EQUALS $__in_rec_no__0, EQUALS $__in_path__1]")));
+        
+        assertTrue(
+                inValuesJoinPlan(
+                        inValuesJoinPlan(indexPlanMatcher).where(inValuesList(equalsObject(stringList)))
+                ).where(inValuesList(equalsObject(longList))
+                ).or(inValuesJoinPlan(
+                        inValuesJoinPlan(indexPlanMatcher).where(inValuesList(equalsObject(longList)))
+                ).where(inValuesList(equalsObject(stringList)))).matchesExactly(plan));
+
         assertEquals(-1869764109, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(12526355, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(1467763781, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));

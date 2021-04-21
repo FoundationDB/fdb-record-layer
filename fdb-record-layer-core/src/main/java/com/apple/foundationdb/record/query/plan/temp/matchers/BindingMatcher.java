@@ -129,6 +129,15 @@ public interface BindingMatcher<T> {
     }
 
     /**
+     * Combinator to return a matcher that matches the logical or of this matcher and the matcher passed in
+     * @param downstream a downstream matcher
+     * @return a new binding matcher.
+     */
+    default BindingMatcher<T> or(@Nonnull final BindingMatcher<? super T> downstream) {
+        return AnyOfMatcher.matchingAnyOf(getRootClass(), ImmutableList.of(this, downstream));
+    }
+
+    /**
      * Method that attempts to match the current binding matcher against the object passed in and just returns whether
      * the matching process produced any matches at all thus forsaking all actual bindings accrued in the matching process.
      * This method is intended to be called e.g. from test code.
