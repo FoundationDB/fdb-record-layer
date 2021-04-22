@@ -70,7 +70,10 @@ publishing {
             publications = ["library"]
             pkg {
                 version{
-                    name = project.name
+                    name = project.version
+                    mavenCentralSync {
+                        sync = false
+                    }
                 }
                 userOrg = "fdb-apple"
                 repo = "fdb-record-layer"
