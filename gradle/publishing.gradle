@@ -18,6 +18,7 @@
  * limitations under the License.
  */
 
+apply plugin: 'com.jfrog.artifactory'
 apply plugin: 'com.jfrog.bintray'
 
 // Add various details to the pom file to allow for publishing
@@ -62,8 +63,8 @@ publishing {
         }
     }
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
+    def isReleaseBuild = Boolean.parseBoolean(findProperty('releaseBuild') ?: 'false')
     if (publishBuild && System.getenv('BINTRAY_USER') != null && System.getenv('BINTRAY_KEY') != null) {
-        def isReleaseBuild = Boolean.parseBoolean(findProperty('releaseBuild') ?: 'false')
         bintray {
             user = System.getenv('BINTRAY_USER')
             key = System.getenv('BINTRAY_KEY')
@@ -80,6 +81,33 @@ publishing {
             }
             override = !isReleaseBuild
             publish = publishBuild
+        }
+    }
+
+    artifactoryPublish {
+        skip = !publishBuild
+        publications(publishing.publications.library)
+    }
+}
+
+if (System.getenv('ARTIFACTORY_USER') != null && System.getenv('ARTIFACTORY_KEY') != null) {
+    artifactory {
+        clientConfig.setIncludeEnvVars(true)
+        publish {
+            def artifactoryUrl = System.getenv('ARTIFACTORY_URL') ?: 'https://ossartifacts.jfrog.io/artifactory/'
+            contextUrl = artifactoryUrl
+            repository {
+                repoKey = System.getenv('ARTIFACTORY_REPO') ?: 'fdb-record-layer'
+                username = System.getenv('ARTIFACTORY_USER')
+                password = System.getenv('ARTIFACTORY_KEY')
+            }
+            defaults {
+                publications('mavenJava')
+                publishPom = publishBuild
+                publishArtifacts = publishBuild
+                publishBuildInfo = publishBuild
+                publishIvy = false
+            }
         }
     }
 }
