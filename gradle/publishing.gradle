@@ -69,6 +69,9 @@ publishing {
             key = System.getenv('BINTRAY_KEY')
             publications = ["library"]
             pkg {
+                version{
+                    name = project.name
+                }
                 userOrg = "fdb-apple"
                 repo = "fdb-record-layer"
                 name = project.name
