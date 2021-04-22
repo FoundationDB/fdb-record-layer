@@ -63,8 +63,8 @@ publishing {
         }
     }
     def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-    def isReleaseBuild = Boolean.parseBoolean(findProperty('releaseBuild') ?: 'false')
     if (publishBuild && System.getenv('BINTRAY_USER') != null && System.getenv('BINTRAY_KEY') != null) {
+        def isReleaseBuild = Boolean.parseBoolean(findProperty('releaseBuild') ?: 'false')
         bintray {
             user = System.getenv('BINTRAY_USER')
             key = System.getenv('BINTRAY_KEY')
