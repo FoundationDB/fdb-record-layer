@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.cursors.CursorLimitManager;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
@@ -136,9 +137,26 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     if (limitRemaining != Integer.MAX_VALUE) {
                         limitRemaining--;
                     }
-                    Tuple tuple = Tuple.fromList(fieldNames);
+                    List<Object> setPrimaryKey = Tuple.fromBytes(pk.bytes).getItems();
+                    List<Object> fields = Lists.newArrayList(fieldNames);
+                    int[] keyPos = state.index.getPrimaryKeyComponentPositions();
+                    Tuple tuple;
+                    if (keyPos != null) {
+                        List<Object> leftovers = Lists.newArrayList();
+                        for (int i = 0; i < keyPos.length; i++) {
+                            if (keyPos[i] > -1) {
+                                fields.set(keyPos[i], setPrimaryKey.get(i));
+                            } else {
+                                leftovers.add(setPrimaryKey.get(i));
+                            }
+                        }
+                        tuple = Tuple.fromList(fields).addAll(leftovers);
+                    } else {
+                        tuple = Tuple.fromList(fields).addAll(setPrimaryKey);
+                    }
+
                     nextResult = RecordCursorResult.withNextValue(new IndexEntry(state.index,
-                            tuple.addAll(Tuple.fromBytes(pk.bytes, pk.offset, pk.length)), null), continuationHelper());
+                            tuple, null), continuationHelper());
                     currentPosition++;
                     return nextResult;
                 } catch (Exception e) {

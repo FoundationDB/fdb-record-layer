@@ -20,20 +20,30 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.LuceneQueryComponent;
+import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
+import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.Lists;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -51,27 +61,174 @@ public class LucenePlanner extends RecordQueryPlanner {
         super(metaData, recordStoreState, indexTypes, timer);
     }
 
-    private ScanComparisons getScanForAndLucene(@Nonnull AndComponent filter, @Nullable FilterSatisfiedMask filterMask) {
-        final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
-        final List<QueryComponent> filters = filter.getChildren();
-        ScanComparisons scanComparisons = ScanComparisons.EMPTY;
-        for (QueryComponent subFilter : filters) {
-            final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
-            ScanComparisons children = getComparisonsForLuceneFilter(subFilter, childMask);
-            if (children != null && childMask != null) {
-                childMask.setSatisfied(true);
-                return children;
+    private List<String> parseFieldNames(KeyExpression expression, @Nonnull String parentFieldName) {
+        if (expression instanceof FieldKeyExpression) {
+            return Lists.newArrayList(parentFieldName + ((FieldKeyExpression)expression).getFieldName());
+        } else if (expression instanceof NestingKeyExpression) {
+            return parseFieldNames(((NestingKeyExpression)expression).getChild(),
+                    parentFieldName + ((NestingKeyExpression)expression).getParent().getFieldName() + ".");
+        } else if (expression instanceof ThenKeyExpression) {
+            List<String> names = Lists.newArrayList();
+            for (KeyExpression childExpression : ((ThenKeyExpression)expression).getChildren()) {
+                names.addAll(parseFieldNames(childExpression, parentFieldName));
             }
+            return names;
+        } else {
+            throw new MetaDataException("Unsupported field", LogMessageKeys.KEY_EXPRESSION, expression);
         }
-        return scanComparisons;
     }
 
-    private ScanComparisons getComparisonsForLuceneFilter(@Nonnull QueryComponent filter, FilterSatisfiedMask filterMask) {
+    private LuceneIndexQueryPlan getScanForFieldWithComparison(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull FieldWithComparison filter,
+                                                               @Nullable FilterSatisfiedMask filterSatisfiedMask) {
+        String completeFieldName = filter.getFieldName();
+        Comparisons.Comparison comparison =  filter.getComparison();
+        if (parentFieldName != null) {
+            completeFieldName = parentFieldName + "." + completeFieldName;
+        }
+        String comparisonString;
+        List<String> fieldNames = Lists.newArrayList();
+        index.getRootExpression().normalizeKeyForPositions().forEach( (expression) -> fieldNames.addAll(parseFieldNames(expression, "")));
+        if (!fieldNames.contains(completeFieldName)) {
+            return null;
+        }
+        Comparisons.Type type = filter.getComparison().getType();
+        switch (type) {
+            case EQUALS:
+                comparisonString = "%s:";
+                break;
+            case TEXT_CONTAINS_ALL:
+            case TEXT_CONTAINS_PHRASE:
+                comparisonString = "%s:(+\"%s\")";
+                break;
+            case IS_NULL:
+                comparisonString = "%s:\"\"";
+                break;
+            case NOT_EQUALS:
+                comparisonString = "NOT %s:";
+                break;
+            case TEXT_CONTAINS_ANY:
+            case TEXT_CONTAINS_PREFIX:
+            default:
+                return null;
+        }
+        if (type != Comparisons.Type.IS_NULL && type != Comparisons.Type.TEXT_CONTAINS_PHRASE && type != Comparisons.Type.TEXT_CONTAINS_ALL) {
+            if (comparison.getComparand() instanceof String) {
+                comparisonString = comparisonString + "\"%s\"";
+            } else {
+                comparisonString = comparisonString + "%s";
+            }
+        }
+        comparisonString = String.format(comparisonString, completeFieldName, filter.getComparison().getComparand());
+        Comparisons.LuceneComparison luceneComparison = new Comparisons.LuceneComparison(comparisonString);
+        if (filterSatisfiedMask != null) {
+            filterSatisfiedMask.setSatisfied(true);
+        }
+        return new LuceneIndexQueryPlan(index.getName(), luceneComparison, false);
+    }
+
+    private LuceneIndexQueryPlan getScanForLuceneComponent(@Nonnull Index index, @Nonnull LuceneQueryComponent filter,
+                                                           @Nullable FilterSatisfiedMask filterMask) {
+        final Comparisons.LuceneComparison comparison;
+        //TODO figure out how to take into account the parentField name here. Or maybe disallow this if its contained within a
+        // oneOfThem. Not sure if thats even allowed via the metadata validation on the query at the start of the planner.
+        if (filter.getComparison() instanceof Comparisons.LuceneComparison) {
+            comparison = (Comparisons.LuceneComparison)filter.getComparison();
+        } else {
+            return null;
+        }
+        if (filterMask != null) {
+            filterMask.setSatisfied(true);
+        }
+        return new LuceneIndexQueryPlan(index.getName(), comparison, false);
+    }
+
+    private LuceneIndexQueryPlan getScanForAndLucene(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull AndComponent filter,
+                                                             @Nullable FilterSatisfiedMask filterMask) {
+        final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
+        final List<QueryComponent> filters = filter.getChildren();
+        LuceneIndexQueryPlan combinedComparison = null;
+        for (QueryComponent subFilter : filters) {
+            final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
+            LuceneIndexQueryPlan childComparison = getComparisonsForLuceneFilter(index, parentFieldName, subFilter, childMask);
+            if (childComparison != null && childMask != null) {
+                childMask.setSatisfied(true);
+                combinedComparison = combinedComparison == null ? childComparison : LuceneIndexQueryPlan.merge(combinedComparison, childComparison, "AND");
+            }
+        }
+        if (filterMask != null && filterMask.getUnsatisfiedFilters().isEmpty()) {
+            filterMask.setSatisfied(true);
+        }
+        return combinedComparison;
+    }
+
+    // TODO Better implementation of nesting that actually takes into account
+    //  positioning of the fields in relation to each other
+    private LuceneIndexQueryPlan getComparisonsForOneOfThem(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull OneOfThemWithComponent filter,
+                                                            @Nullable FilterSatisfiedMask mask) {
+        String fieldName = filter.getFieldName();
+        if (parentFieldName != null) {
+            fieldName = parentFieldName + "." + fieldName;
+        }
+
+        LuceneIndexQueryPlan comparison = getComparisonsForLuceneFilter(index, fieldName, filter.getChild(), (mask != null) ? mask.getChild(filter.getChild()) : null );
+        if (comparison != null ) {
+            if (mask != null) {
+                mask.setSatisfied(true);
+            }
+            comparison.setCreatesDuplicates();
+        }
+        return comparison;
+    }
+
+    private LuceneIndexQueryPlan getScanForNestedField(@Nonnull Index index, String parentFieldName, NestedField filter, FilterSatisfiedMask mask) {
+        String fieldName = filter.getFieldName();
+        if (parentFieldName != null) {
+            fieldName = parentFieldName + "." + fieldName;
+        }
+        LuceneIndexQueryPlan comparison = getComparisonsForLuceneFilter(index, fieldName, filter.getChild(), (mask != null) ? mask.getChild(filter.getChild()) : null);
+        if (comparison != null && mask != null) {
+            mask.setSatisfied(true);
+        }
+        return comparison;
+    }
+
+    private LuceneIndexQueryPlan getScanForOrLucene(@Nonnull Index index, final String parentFieldName,
+                                                    final OrComponent filter, final FilterSatisfiedMask filterMask) {
+        final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
+        final List<QueryComponent> filters = filter.getChildren();
+        LuceneIndexQueryPlan combinedComparison = null;
+        for (QueryComponent subFilter : filters) {
+            final FilterSatisfiedMask childMask = subFilterMasks != null ? subFilterMasks.next() : null;
+            LuceneIndexQueryPlan childComparison = getComparisonsForLuceneFilter(index, parentFieldName, subFilter, childMask);
+            if (childComparison != null && childMask != null) {
+                childMask.setSatisfied(true);
+                combinedComparison = combinedComparison == null ? childComparison : LuceneIndexQueryPlan.merge(childComparison, combinedComparison, "OR");
+            }
+        }
+        if (filterMask != null && filterMask.getUnsatisfiedFilters().isEmpty()) {
+            filterMask.setSatisfied(true);
+        }
+        if (combinedComparison != null) {
+            combinedComparison.setCreatesDuplicates();
+        }
+        return combinedComparison;
+    }
+
+    private LuceneIndexQueryPlan getComparisonsForLuceneFilter(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull QueryComponent filter,
+                                                                       FilterSatisfiedMask filterMask) {
         if (filter instanceof AndComponent) {
-            return getScanForAndLucene((AndComponent) filter, filterMask);
+            return getScanForAndLucene(index, parentFieldName, (AndComponent) filter, filterMask);
         } else if (filter instanceof LuceneQueryComponent) {
             filterMask.setSatisfied(true);
-            return ScanComparisons.from(((LuceneQueryComponent)filter).getComparison());
+            return getScanForLuceneComponent(index, (LuceneQueryComponent)filter, filterMask);
+        } else if (filter instanceof OneOfThemWithComponent) {
+            return getComparisonsForOneOfThem(index, parentFieldName, (OneOfThemWithComponent)filter, filterMask);
+        } else if (filter instanceof FieldWithComparison) {
+            return getScanForFieldWithComparison(index, parentFieldName, (FieldWithComparison) filter, filterMask);
+        } else if (filter instanceof NestedField) {
+            return getScanForNestedField(index, parentFieldName, (NestedField) filter, filterMask);
+        } else if (filter instanceof OrComponent) {
+            return getScanForOrLucene(index, parentFieldName, (OrComponent) filter, filterMask);
         }
         return null;
     }
@@ -82,14 +239,16 @@ public class LucenePlanner extends RecordQueryPlanner {
                                     @Nonnull Index index, @Nonnull QueryComponent filter,
                                     @Nullable KeyExpression sort) {
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
-        final ScanComparisons scans = getComparisonsForLuceneFilter(filter, filterMask);
-        if (scans == null) {
+        LuceneIndexQueryPlan lucenePlan = getComparisonsForLuceneFilter(index, null, filter, filterMask);
+        if (lucenePlan == null) {
             return null;
         }
-        RecordQueryPlan plan;
-        plan = new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE, scans, false, sort);
+        RecordQueryPlan plan = lucenePlan;
         plan = addTypeFilterIfNeeded(candidateScan, plan, getPossibleTypes(index));
-        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(), 10,
-                false, null);
+        if (filterMask.allSatisfied()) {
+            filterMask.setSatisfied(true);
+        }
+        return new ScoredPlan(plan, filterMask.getUnsatisfiedFilters(), Collections.emptyList(),  11,
+                lucenePlan.createsDuplicates(), null);
     }
 }

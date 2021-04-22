@@ -44,7 +44,7 @@ public class PlannableIndexTypes {
             Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
             Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
             Sets.newHashSet(IndexTypes.TEXT),
-            Sets.newHashSet(IndexTypes.LUCENE)
+            Sets.newHashSet()
             );
 
     @Nonnull
@@ -62,7 +62,7 @@ public class PlannableIndexTypes {
     public PlannableIndexTypes(@Nonnull Set<String> valueTypes,
                                @Nonnull Set<String> rankTypes,
                                @Nonnull Set<String> textTypes) {
-        this(valueTypes, rankTypes, textTypes, Sets.newHashSet(IndexTypes.LUCENE));
+        this(valueTypes, rankTypes, textTypes, Sets.newHashSet());
     }
 
     public PlannableIndexTypes(@Nonnull Set<String> valueTypes,

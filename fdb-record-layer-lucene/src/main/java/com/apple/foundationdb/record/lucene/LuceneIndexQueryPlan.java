@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.protobuf.Message;
@@ -38,11 +39,14 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 
+import static com.google.common.base.Verify.verify;
+
 /**
  * Lucene query plan for including sort parameters.
  */
 public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     private KeyExpression sort;
+    private Boolean duplicates = false;
 
     @Override
     public boolean equals(final Object o) {
@@ -76,9 +80,43 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         }
     }
 
-    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse, @Nullable KeyExpression sort) {
-        super(indexName, scanType, comparisons, reverse);
+    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse) {
+        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null);
+    }
+
+    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse, @Nullable KeyExpression sort) {
+        super(indexName, scanType, Objects.requireNonNull(ScanComparisons.from(comparison)), reverse);
         this.sort = sort;
+    }
+
+    public boolean createsDuplicates() {
+        return duplicates;
+    }
+
+    public void setCreatesDuplicates() {
+        duplicates = true;
+    }
+
+    public Comparisons.LuceneComparison getComparison() {
+        return (Comparisons.LuceneComparison)comparisons.getEqualityComparisons().get(0);
+    }
+
+    public String getLuceneQueryString() {
+        return (String)getComparison().getComparand();
+    }
+
+    public static LuceneIndexQueryPlan merge(LuceneIndexQueryPlan plan1, LuceneIndexQueryPlan plan2, String type) {
+        verify(plan1.indexName.equals(plan2.indexName));
+        verify(plan1.sort == null || plan2.sort == null || plan1.sort.equals(plan2.sort));
+        KeyExpression newSort = plan1.sort != null ? plan1.sort : plan2.sort;
+        String newQuery = String.format("(%s) %s (%s)", plan1.getLuceneQueryString(), type, plan2.getLuceneQueryString());
+        Comparisons.LuceneComparison comparison = new Comparisons.LuceneComparison(newQuery);
+        boolean newReverse = plan1.isReverse() ? plan1.isReverse() : plan2.isReverse();
+        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, IndexScanType.BY_LUCENE, comparison, newReverse, newSort);
+        if (plan1.createsDuplicates() || plan2.createsDuplicates()) {
+            plan.setCreatesDuplicates();
+        }
+        return plan;
     }
 
     @Nonnull
