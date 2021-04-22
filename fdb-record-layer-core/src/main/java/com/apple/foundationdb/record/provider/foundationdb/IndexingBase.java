@@ -133,7 +133,9 @@ public abstract class IndexingBase {
     // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
     public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
-                LogMessageKeys.SHOULD_MARK_READABLE, markReadable);
+                LogMessageKeys.SHOULD_MARK_READABLE, markReadable)
+                .addKeysAndValues(indexingLogMessageKeyValues())
+                .addKeysAndValues(common.indexLogMessageKeyValues());
         final CompletableFuture<Void> buildIndexAsyncFuture;
         FDBDatabaseRunner runner = common.getRunner();
         Index index = common.getIndex();
@@ -153,12 +155,10 @@ public abstract class IndexingBase {
         }
         return buildIndexAsyncFuture.whenComplete((vignore, ex) -> {
             if (LOGGER.isWarnEnabled() && (ex != null)) {
-                message.addKeyAndValue(LogMessageKeys.RESULT, "failure")
-                        .addKeysAndValues(common.indexLogMessageKeyValues());
+                message.addKeyAndValue(LogMessageKeys.RESULT, "failure");
                 LOGGER.warn(message.toString(), ex);
             } else if (LOGGER.isInfoEnabled()) {
-                message.addKeyAndValue(LogMessageKeys.RESULT, "success")
-                        .addKeysAndValues(common.indexLogMessageKeyValues());
+                message.addKeyAndValue(LogMessageKeys.RESULT, "success");
                 LOGGER.info(message.toString());
             }
         });
@@ -192,6 +192,8 @@ public abstract class IndexingBase {
             });
         }
     }
+
+    abstract List<Object> indexingLogMessageKeyValues();
 
     @Nonnull
     private CompletableFuture<Void> handleStateAndDoBuildIndexAsync(boolean markReadable, KeyValueLogMessage message) {

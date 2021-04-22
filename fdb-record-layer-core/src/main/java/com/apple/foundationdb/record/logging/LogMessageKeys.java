@@ -148,6 +148,7 @@ public enum LogMessageKeys {
     DIRECTOY("directory"),
     SOURCE_INDEX("source_index"),
     CONTINUED_BUILD("continued_build"),
+    INDEXING_METHOD("indexing_method"),
 
     // comparisons
     COMPARISON_VALUE("comparison_value"),

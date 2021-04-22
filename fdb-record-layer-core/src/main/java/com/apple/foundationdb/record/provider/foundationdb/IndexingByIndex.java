@@ -98,6 +98,16 @@ public class IndexingByIndex extends IndexingBase {
                 .build();
     }
 
+    @Override
+    List<Object> indexingLogMessageKeyValues() {
+        return Arrays.asList(
+                LogMessageKeys.INDEXING_METHOD, "by index",
+                LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
+                LogMessageKeys.SUBSPACE_KEY, policy.getSourceIndexSubspaceKey()
+        );
+    }
+
+
     @Nonnull
     private Index getSourceIndex(RecordMetaData metaData) {
         if (policy.getSourceIndexSubspaceKey() != null) {

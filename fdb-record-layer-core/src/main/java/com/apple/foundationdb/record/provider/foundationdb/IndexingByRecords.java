@@ -94,6 +94,13 @@ public class IndexingByRecords extends IndexingBase {
                         .build();
     }
 
+    @Override
+    List<Object> indexingLogMessageKeyValues() {
+        return Arrays.asList(
+                LogMessageKeys.INDEXING_METHOD, "by records"
+        );
+    }
+
     @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
