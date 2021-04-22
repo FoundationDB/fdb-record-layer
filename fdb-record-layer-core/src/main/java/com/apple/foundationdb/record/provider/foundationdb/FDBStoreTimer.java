@@ -510,6 +510,8 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_COVERING_INDEX("number of covering index plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan}. */
         PLAN_FILTER("number of filter plans", false),
+        /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
+        PLAN_AGGREGATE("number of filter plans", false),
         /** The number of query plans that include an index. */
         PLAN_INDEX("number of index plans", false),
         /** The number of query plans that include an {@code IN} with parameters. */

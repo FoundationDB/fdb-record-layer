@@ -243,13 +243,13 @@ public class AggregateValues {
         }
 
         public AverageState<T> accumulate(BiFunction<T, T, T> op, T nextValue) {
-            // Construct a new state so that the state is immutable
+            // Construct a new state so that the state is immutable (initial state should not be modified)
             return new AverageState<>(op.apply(sum, nextValue), count + 1, initial);
         }
 
         public List<Object> finish(BiFunction<T, Integer, Double> op) {
             if (count == 0) {
-                return Collections.singletonList(initial);
+                return Collections.singletonList(0.0);
             }
             return Collections.singletonList(op.apply(sum, count));
         }

@@ -151,14 +151,12 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     @Override
     public boolean equals(final Object other) {
-        // TODO
         return structuralEquals(other);
     }
 
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
-        // TODO
         if (this == otherExpression) {
             return true;
         }
@@ -170,14 +168,12 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
 
     @Override
     public int hashCode() {
-        // TODO
         return structuralHashCode();
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        // TODO
-        return 17;
+        return BASE_HASH.hashCode();
     }
 
     @Override
@@ -198,8 +194,7 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
 
     @Override
     public void logPlanStructure(StoreTimer timer) {
-        // TODO
-        timer.increment(FDBStoreTimer.Counts.PLAN_TYPE_FILTER);
+        timer.increment(FDBStoreTimer.Counts.PLAN_AGGREGATE);
         getInnerPlan().logPlanStructure(timer);
     }
 

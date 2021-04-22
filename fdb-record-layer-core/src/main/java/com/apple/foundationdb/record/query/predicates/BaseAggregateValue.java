@@ -84,8 +84,7 @@ public abstract class BaseAggregateValue<S, T> implements AggregateValue<S> {
 
     @Override
     public int semanticHashCode() {
-        // todo
-        return 0;
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, baseHash, inner);
     }
 
     @Override
