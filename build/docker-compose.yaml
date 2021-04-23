@@ -41,6 +41,8 @@ services:
       - GIT_COMMITTER_EMAIL='fdbbuild@foundationdb.org'
       - GIT_BRANCH
       - ARTIFACT_VERSION
+      - ARTIFACTORY_USER
+      - ARTIFACTORY_KEY
       - BINTRAY_USER
       - BINTRAY_KEY
 
@@ -92,6 +94,8 @@ services:
   shell:
     <<: *build-setup
     environment:
+      - ARTIFACTORY_USER
+      - ARTIFACTORY_KEY
       - BINTRAY_USER
       - BINTRAY_KEY
     entrypoint: /bin/bash
