@@ -102,4 +102,7 @@ publishing {
             artifact tasks.shadedJavadocJar
         }
     }
+    artifactoryPublish {
+        publications ('shadow')
+    }
 }
