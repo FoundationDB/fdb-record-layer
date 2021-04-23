@@ -63,8 +63,14 @@ publishing {
     }
 
     artifactoryPublish {
+        // As a safeguard, only actually publish to artifactory if -PpublishBuild=true is passed to gradle
+        // Note: skip is documented, but onlyIf seems to also be required to make this work for some reason
+        // See: https://gist.github.com/DALDEI/40925568cef57e16e8a7
         def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
         skip = !publishBuild
+        onlyIf {
+            publishBuild
+        }
         publications(publishing.publications.library)
     }
 }
