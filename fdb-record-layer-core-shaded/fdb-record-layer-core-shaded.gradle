@@ -103,6 +103,6 @@ publishing {
         }
     }
     artifactoryPublish {
-        publications ('shadow')
+        publications (publishing.publications.shadow)
     }
 }
