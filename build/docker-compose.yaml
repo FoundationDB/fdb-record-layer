@@ -43,8 +43,6 @@ services:
       - ARTIFACT_VERSION
       - ARTIFACTORY_USER
       - ARTIFACTORY_KEY
-      - BINTRAY_USER
-      - BINTRAY_KEY
 
   build-snapshot:
     <<: *build-setup
@@ -96,8 +94,6 @@ services:
     environment:
       - ARTIFACTORY_USER
       - ARTIFACTORY_KEY
-      - BINTRAY_USER
-      - BINTRAY_KEY
     entrypoint: /bin/bash
     networks: [test-net]
     environment:

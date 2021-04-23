@@ -19,7 +19,6 @@
  */
 
 apply plugin: 'com.jfrog.artifactory'
-apply plugin: 'com.jfrog.bintray'
 
 // Add various details to the pom file to allow for publishing
 def addPublishingInfo(publication) {
@@ -62,33 +61,16 @@ publishing {
             addPublishingInfo(publication)
         }
     }
-    def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-    if (publishBuild && System.getenv('BINTRAY_USER') != null && System.getenv('BINTRAY_KEY') != null) {
-        def isReleaseBuild = Boolean.parseBoolean(findProperty('releaseBuild') ?: 'false')
-        bintray {
-            user = System.getenv('BINTRAY_USER')
-            key = System.getenv('BINTRAY_KEY')
-            publications = ["library"]
-            pkg {
-                version{
-                    name = project.version
-                    mavenCentralSync {
-                        sync = false
-                    }
-                }
-                userOrg = "fdb-apple"
-                repo = "fdb-record-layer"
-                name = project.name
-                licenses = ["Apache-2.0"]
-                vcsUrl = "https://github.com/FoundationDB/fdb-record-layer.git"
-            }
-            override = !isReleaseBuild
-            publish = publishBuild
-        }
-    }
 
     artifactoryPublish {
+        // As a safeguard, only actually publish to artifactory if -PpublishBuild=true is passed to gradle
+        // Note: skip is documented, but onlyIf seems to also be required to make this work for some reason
+        // See: https://gist.github.com/DALDEI/40925568cef57e16e8a7
+        def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
         skip = !publishBuild
+        onlyIf {
+            publishBuild
+        }
         publications(publishing.publications.library)
     }
 }
