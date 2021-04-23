@@ -38,6 +38,9 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // end next release
 -->
 
+### 2.10.178.0
+
+
 ### 2.10.177.0
 
 * Add indexing method to build 'index online log' message [(Issue #1242)](https://github.com/FoundationDB/fdb-record-layer/issues/1242)
