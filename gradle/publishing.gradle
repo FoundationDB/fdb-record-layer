@@ -19,7 +19,6 @@
  */
 
 apply plugin: 'com.jfrog.artifactory'
-apply plugin: 'com.jfrog.bintray'
 
 // Add various details to the pom file to allow for publishing
 def addPublishingInfo(publication) {
@@ -62,32 +61,9 @@ publishing {
             addPublishingInfo(publication)
         }
     }
-    def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
-    if (publishBuild && System.getenv('BINTRAY_USER') != null && System.getenv('BINTRAY_KEY') != null) {
-        def isReleaseBuild = Boolean.parseBoolean(findProperty('releaseBuild') ?: 'false')
-        bintray {
-            user = System.getenv('BINTRAY_USER')
-            key = System.getenv('BINTRAY_KEY')
-            publications = ["library"]
-            pkg {
-                version{
-                    name = project.version
-                    mavenCentralSync {
-                        sync = false
-                    }
-                }
-                userOrg = "fdb-apple"
-                repo = "fdb-record-layer"
-                name = project.name
-                licenses = ["Apache-2.0"]
-                vcsUrl = "https://github.com/FoundationDB/fdb-record-layer.git"
-            }
-            override = !isReleaseBuild
-            publish = publishBuild
-        }
-    }
 
     artifactoryPublish {
+        def publishBuild = Boolean.parseBoolean(findProperty('publishBuild') ?: 'false')
         skip = !publishBuild
         publications(publishing.publications.library)
     }

@@ -102,7 +102,4 @@ publishing {
             artifact tasks.shadedJavadocJar
         }
     }
-    bintray {
-        publications = ["shadow"]
-    }
 }

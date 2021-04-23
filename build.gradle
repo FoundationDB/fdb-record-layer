@@ -35,7 +35,6 @@ buildscript {
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.7'
         classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.2'
         //classpath 'gradle.plugin.com.github.spotbugs:spotbugs-gradle-plugin:1.6.9'
-        classpath 'com.jfrog.bintray.gradle:gradle-bintray-plugin:1.8.5'
     }
 }
 
