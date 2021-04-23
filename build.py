@@ -136,7 +136,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
             return False
 
         if publish:
-            success = run_gradle(2, 'bintrayUpload', '-PpublishBuild=true',
+            success = run_gradle(2, 'artifactoryPublish', '-PpublishBuild=true',
                                     '-PreleaseBuild={0}'.format('true' if release else 'false'))
             if not success:
                 return False
@@ -154,14 +154,14 @@ def build(release=False, proto2=False, proto3=False, publish=False):
             return False
 
         if publish:
-            # These are enumerated rather than just using the full project bintrayUpload command to avoid uploading
+            # These are enumerated rather than just using the full project artifactoryPublish command to avoid uploading
             # the fdb-extensions subproject twice. (Note that as overwrite is not supported, doing so would result
             # in the build failing.)
-            success = run_gradle(3, ':fdb-record-layer-core-pb3:bintrayUpload',
-                                    ':fdb-record-layer-core-pb3-shaded:bintrayUpload',
-                                    ':fdb-record-layer-icu-pb3:bintrayUpload',
-                                    ':fdb-record-layer-spatial-pb3:bintrayUpload',
-                                    ':fdb-record-layer-lucene-pb3:bintrayUpload',
+            success = run_gradle(3, ':fdb-record-layer-core-pb3:artifactoryPublish',
+                                    ':fdb-record-layer-core-pb3-shaded:artifactoryPublish',
+                                    ':fdb-record-layer-icu-pb3:artifactoryPublish',
+                                    ':fdb-record-layer-spatial-pb3:artifactoryPublish',
+                                    ':fdb-record-layer-lucene-pb3:artifactoryPublish',
                                     '-PcoreNotStrict',
                                     '-PreleaseBuild={0}'.format('true' if release else 'false'),
                                     '-PpublishBuild=true')
