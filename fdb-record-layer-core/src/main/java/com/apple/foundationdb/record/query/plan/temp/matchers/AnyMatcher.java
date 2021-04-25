@@ -26,6 +26,8 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
+
 /**
  * A binding matcher that is a {@link CollectionMatcher} that binds to individual elements contained in a collection
  * separately.
@@ -42,6 +44,7 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AnyMatcher<T> implements CollectionMatcher<T> {
+    @Nonnull
     private final BindingMatcher<T> downstream;
 
     public AnyMatcher(@Nonnull final BindingMatcher<T> downstream) {
@@ -60,6 +63,16 @@ public class AnyMatcher<T> implements CollectionMatcher<T> {
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
         return in.stream()
                 .flatMap(item -> downstream.bindMatches(outerBindings, item));
+    }
+
+    @Override
+    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        final String downstreamId = downstream.identifierFromMatcher();
+        final String nestedIndentation = indentation + INDENTATION;
+        final String doubleNestedIndentation = nestedIndentation + INDENTATION;
+        return "case " + boundId + ": collection =>" + newLine(nestedIndentation) +
+               "match any " + downstreamId + " in " + boundId + " {" + newLine(doubleNestedIndentation) +
+               downstream.explainMatcher(Object.class, downstreamId, nestedIndentation) + newLine(nestedIndentation) + "}";
     }
 
     @Nonnull

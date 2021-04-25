@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -44,6 +46,11 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public interface BindingMatcher<T> {
     /**
+     * Indentation for {@link #explainMatcher(Class, String, String)}.
+     */
+    String INDENTATION = "    ";
+
+    /**
      * Get a class that this matcher can match. Ideally, it should be the lowest such class but it may not be.
      * A planner will generally use this method to quickly determine a set of rules that could match an expression,
      * without considering each rule and trying to apply it. A good implementation of this method helps the planner
@@ -59,7 +66,7 @@ public interface BindingMatcher<T> {
      * all other matching activity to other matchers.
      *
      * @param outerBindings preexisting bindings to be used by the matcher
-     * @param in the type of object we attempt to match
+     * @param in the object we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
     @Nonnull
@@ -69,8 +76,10 @@ public interface BindingMatcher<T> {
      * A matcher is completely agnostic to the actual class of an object that is being passed in meaning that
      * a matcher that can only match e.g. a {@link String} can be asked to match a {@link Long}. By contract it must
      * not ever match that {@code Long} but the call to {@code bindMatches} is allowed and even encouraged.
-     * This method is implemented as a {@code default} which should be {@code final} as well is Java allowed
-     * {@code default}s to be {@code final}. It down-casts into
+     * This method is implemented as a {@code default} which should be {@code final} as well if Java allowed
+     * {@code default}s to be {@code final}. The implementation checks the class of the object that is passed in to be
+     * at least of the class returned by {@link #getRootClass()} and then calls
+     * {@link #bindMatchesSafely(PlannerBindings, Object)} with a down-casted {@code in} argument (to {@code T)}.
      * @param outerBindings the outer bindings passed in from the caller
      * @param in the object to match against
      * @return a stream of planner bindings
@@ -138,6 +147,16 @@ public interface BindingMatcher<T> {
     }
 
     /**
+     * Method that explain what this matcher does. By convention implementors use a somewhat Scala-esque syntax to
+     * provide the explain string.
+     * @param atLeastType the type that we know {@code boundId} is at least of
+     * @param boundId an identifier for the object being matched.
+     * @param indentation the current indentation as a string of spaces
+     * @return a string explaining the semantics of this matcher
+     */
+    String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation);
+
+    /**
      * Method that attempts to match the current binding matcher against the object passed in and just returns whether
      * the matching process produced any matches at all thus forsaking all actual bindings accrued in the matching process.
      * This method is intended to be called e.g. from test code.
@@ -164,5 +183,21 @@ public interface BindingMatcher<T> {
                 bindMatches(PlannerBindings.empty(), in)
                         .collect(ImmutableList.toImmutableList());
         return plannerBindings.size() == 1;
+    }
+
+    default String identifierFromMatcher() {
+        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_CAMEL, unboundRootClass().getSimpleName());
+    }
+
+    default Class<?> unboundRootClass() {
+        try {
+            return getRootClass();
+        } catch (final RecordCoreException e) {
+            return Object.class;
+        }
+    }
+
+    static String newLine(@Nonnull final String indent) {
+        return "\n" + indent;
     }
 }

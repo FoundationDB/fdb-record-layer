@@ -21,40 +21,20 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import javax.annotation.Nonnull;
-import java.util.function.UnaryOperator;
 
 /**
  * Interface for the unapply function using in a variety of matchers.
  * @param <T> the type that is extracted from
  * @param <U> the type that is extracted into
  */
-public class Extractor<T, U> implements Unapply<T, U> {
+@FunctionalInterface
+public interface Unapply<T, U> {
+    /**
+     * Unapplies this function to the given argument.
+     *
+     * @param t the function argument
+     * @return the function result
+     */
     @Nonnull
-    private final Unapply<T, U> unapplyFn;
-    @Nonnull
-    private final UnaryOperator<String> explainFn;
-
-    public Extractor(@Nonnull final Unapply<T, U> unapplyFn, @Nonnull final UnaryOperator<String> explainFn) {
-        this.unapplyFn = unapplyFn;
-        this.explainFn = explainFn;
-    }
-
-    @Override
-    @Nonnull
-    public U unapply(@Nonnull T t) {
-        return unapplyFn.unapply(t);
-    }
-
-    @Nonnull
-    public String explainExtraction(@Nonnull final String name) {
-        return explainFn.apply(name);
-    }
-
-    public static <T> Extractor<T, T> identity() {
-        return new Extractor<>(t -> t, name -> name);
-    }
-
-    public static <T, U> Extractor<T, U> of(@Nonnull final Unapply<T, U> unapply, final UnaryOperator<String> explainFn) {
-        return new Extractor<>(unapply, explainFn);
-    }
+    U unapply(@Nonnull T t);
 }

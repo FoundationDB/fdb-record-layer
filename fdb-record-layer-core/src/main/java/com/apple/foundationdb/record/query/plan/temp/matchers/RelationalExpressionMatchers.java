@@ -39,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
 /**
@@ -51,7 +52,7 @@ public class RelationalExpressionMatchers {
     }
 
     public static <R extends RelationalExpression> TypedMatcher<R> ofType(@Nonnull final Class<R> bindableClass) {
-        return new TypedMatcher<>(bindableClass);
+        return typed(bindableClass);
     }
 
     public static <R extends RelationalExpression> BindingMatcher<R> ofType(@Nonnull final Class<R> bindableClass,
@@ -61,17 +62,17 @@ public class RelationalExpressionMatchers {
                 downstream);
     }
 
-    public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeOwning(@Nonnull final Class<R> bindableClass,
-                                                                                                                              @Nonnull final BindingMatcher<C> downstream) {
-        return typedWithDownstream(bindableClass,
-                RelationalExpression::getQuantifiers,
-                downstream);
-    }
-
     public static <R extends RelationalExpressionWithPredicates, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeWithPredicates(@Nonnull final Class<R> bindableClass,
                                                                                                                                                     @Nonnull final BindingMatcher<C> downstream) {
         return typedWithDownstream(bindableClass,
-                RelationalExpressionWithPredicates::getPredicates,
+                Extractor.of(RelationalExpressionWithPredicates::getPredicates, name -> "predicates(" + name + ")"),
+                downstream);
+    }
+
+    public static <R extends RelationalExpression, C extends Collection<? extends Quantifier>> BindingMatcher<R> ofTypeOwning(@Nonnull final Class<R> bindableClass,
+                                                                                                                              @Nonnull final BindingMatcher<C> downstream) {
+        return typedWithDownstream(bindableClass,
+                Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
                 downstream);
     }
 
@@ -81,8 +82,13 @@ public class RelationalExpressionMatchers {
         return typedWithDownstream(bindableClass,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(RelationalExpressionWithPredicates.class,
-                        ImmutableList.of(typedWithDownstream(bindableClass, RelationalExpressionWithPredicates::getPredicates, downstreamPredicates),
-                                typedWithDownstream(bindableClass, RelationalExpression::getQuantifiers, downstreamQuantifiers))));
+                        ImmutableList.of(
+                                typedWithDownstream(bindableClass,
+                                        Extractor.of(RelationalExpressionWithPredicates::getPredicates, name -> "predicates(" + name + ")"),
+                                        downstreamPredicates),
+                                typedWithDownstream(bindableClass,
+                                        Extractor.of(RelationalExpression::getQuantifiers, name -> "quantifiers(" + name + ")"),
+                                        downstreamQuantifiers))));
     }
 
     @Nonnull

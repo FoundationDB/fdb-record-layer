@@ -29,6 +29,7 @@ import javax.annotation.Nonnull;
 import java.util.Collection;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
 
 /**
  * Matchers for {@link ExpressionRef}s.
@@ -41,7 +42,7 @@ public class ReferenceMatchers {
 
     @SuppressWarnings("unchecked")
     public static <R extends ExpressionRef<? extends RelationalExpression>> BindingMatcher<R> anyRef() {
-        return new TypedMatcher<>((Class<R>)(Class<?>)ExpressionRef.class);
+        return typed((Class<R>)(Class<?>)ExpressionRef.class);
     }
 
     public static BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> anyRefOverOnlyPlans() {
@@ -51,7 +52,7 @@ public class ReferenceMatchers {
     @SuppressWarnings("unchecked")
     public static <R extends ExpressionRef<? extends RelationalExpression>, C extends Collection<? extends RelationalExpression>> BindingMatcher<R> grouping(@Nonnull final BindingMatcher<C> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream((Class<R>)(Class<?>)ExpressionRef.class,
-                r -> r.getMembers(),
+                Extractor.of(r -> r.getMembers(), name -> "members(" + name + ")"),
                 downstream);
     }
 }

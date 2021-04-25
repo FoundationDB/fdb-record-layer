@@ -29,6 +29,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
+
 /**
  * A multi matcher is a {@link CollectionMatcher} and by extension also a {@link BindingMatcher} that binds to a sub
  * collection of objects in the presented collection. The multi matcher is abstract and only implemented by
@@ -38,10 +40,16 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
+    @Nonnull
     private final BindingMatcher<T> downstream;
 
     protected MultiMatcher(@Nonnull final BindingMatcher<T> downstream) {
         this.downstream = downstream;
+    }
+
+    @Nonnull
+    protected BindingMatcher<T> getDownstream() {
+        return downstream;
     }
 
     /**
@@ -85,7 +93,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
      * @param <T> type param
      */
     public static class SomeMatcher<T> extends MultiMatcher<T> {
-        public SomeMatcher(@Nonnull final BindingMatcher<T> downstream) {
+        private SomeMatcher(@Nonnull final BindingMatcher<T> downstream) {
             super(downstream);
         }
 
@@ -93,6 +101,15 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
         @Override
         protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream) {
             return Optional.of(accumulatedStream);
+        }
+
+        @Override
+        public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            final String nestedIndentation = indentation + INDENTATION;
+            final String nestedId = getDownstream().identifierFromMatcher();
+            return "all " + nestedId + " in " + boundId + " that match {" + newLine(nestedIndentation) +
+                   getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
+                   "}";
         }
     }
 
@@ -102,7 +119,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
      * @param <T> type param
      */
     public static class AllMatcher<T> extends MultiMatcher<T> {
-        public AllMatcher(@Nonnull final BindingMatcher<T> downstream) {
+        private AllMatcher(@Nonnull final BindingMatcher<T> downstream) {
             super(downstream);
         }
 
@@ -110,6 +127,15 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
         @Override
         protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream) {
             return Optional.empty();
+        }
+
+        @Override
+        public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            final String nestedIndentation = indentation + INDENTATION;
+            final String nestedId = getDownstream().identifierFromMatcher();
+            return "all " + nestedId + " in " + boundId + " {" + newLine(nestedIndentation) +
+                   getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
+                   "}";
         }
     }
 

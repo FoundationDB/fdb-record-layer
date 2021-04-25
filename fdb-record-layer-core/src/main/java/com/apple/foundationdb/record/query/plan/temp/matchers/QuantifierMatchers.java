@@ -1,5 +1,5 @@
 /*
- * RelationalExpressionMatcher.java
+ * QuantifierMatchers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
+
 /**
  * Matchers for {@link Quantifier}s.
  */
@@ -39,20 +41,20 @@ public class QuantifierMatchers {
     }
 
     public static <Q extends Quantifier> TypedMatcher<Q> ofType(@Nonnull final Class<Q> bindableClass) {
-        return new TypedMatcher<>(bindableClass);
+        return typed(bindableClass);
     }
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOver(@Nonnull final Class<Q> bindableClass,
                                                                              @Nonnull final BindingMatcher<? extends Collection<? extends RelationalExpression>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
-                q -> q.getRangesOver().getMembers(),
+                Extractor.of(q -> q.getRangesOver().getMembers(), name -> "rangesOver(getMembers(" + name + "))"),
                 downstream);
     }
 
     public static <Q extends Quantifier> BindingMatcher<Q> ofTypeRangingOverRef(@Nonnull final Class<Q> bindableClass,
                                                                                 @Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
-                Quantifier::getRangesOver,
+                Extractor.of(Quantifier::getRangesOver, name -> "rangesOver(" + name + ")"),
                 downstream);
     }
 

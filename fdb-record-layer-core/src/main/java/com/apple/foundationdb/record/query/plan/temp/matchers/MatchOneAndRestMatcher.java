@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -32,17 +31,13 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
+
 /**
- * A <code>BindingMatcher</code> is an expression that can be matched against a
- * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
- * The bindings can be retrieved from the rule call once the binding is matched.
+ * A collection matcher that attempts to match exactly one object in a collection with one matcher and then all
+ * remaining objects (as a collection) against another matcher called the rest matcher.
  *
- * <p>
- * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
- * </p>
- * @param <T> the type that this matcher binds to
+ * @param <T> the type of object that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
 public class MatchOneAndRestMatcher<T> implements CollectionMatcher<T> {
@@ -92,6 +87,19 @@ public class MatchOneAndRestMatcher<T> implements CollectionMatcher<T> {
             streams.add(selectedStream.flatMap(selectedBindings -> remainingStream.map(selectedBindings::mergedWith)));
         }
         return streams.build().flatMap(Function.identity());
+    }
+
+    @Override
+    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        final String nestedIndentation = indentation + INDENTATION;
+        final String selectedNestedId = selectedDownstream.identifierFromMatcher();
+        final String remainingNestedId = remainingDownstream.identifierFromMatcher();
+
+        return "one of " + selectedNestedId + " in " + boundId + " {" + newLine(nestedIndentation) +
+               selectedDownstream.explainMatcher(Object.class, selectedNestedId, nestedIndentation) + newLine(indentation) +
+               "} and then remaining " + remainingNestedId + " in " + boundId +  " {" +
+               remainingDownstream.explainMatcher(Object.class, selectedNestedId, nestedIndentation) + newLine(indentation) +
+               "}";
     }
 
     @Nonnull

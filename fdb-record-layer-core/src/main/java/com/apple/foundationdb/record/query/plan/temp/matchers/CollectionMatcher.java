@@ -47,6 +47,15 @@ public interface CollectionMatcher<T> extends BindingMatcher<Collection<? extend
             public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<? extends T> in) {
                 return in.isEmpty() ? Stream.of(PlannerBindings.from(this, in)) : Stream.empty();
             }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                if (Collection.class.isAssignableFrom(atLeastType)) {
+                    return "case " + boundId + " if " + boundId + " isEmpty() => success";
+                } else {
+                    return "case " + boundId + ":Collection if " + boundId + " isEmpty() => success";
+                }
+            }
         };
     }
 }

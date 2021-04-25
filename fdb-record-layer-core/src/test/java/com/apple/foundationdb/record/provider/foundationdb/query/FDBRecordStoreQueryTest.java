@@ -104,9 +104,9 @@ import static org.junit.jupiter.api.Assertions.fail;
  * {@link com.apple.foundationdb.record.provider.foundationdb.query}.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
+class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     @DualPlannerTest
-    public void query() throws Exception {
+    void query() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -148,7 +148,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * generate plan unions.
      */
     @Test
-    public void queryByteString() throws Exception {
+    void queryByteString() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openBytesRecordStore(context);
 
@@ -236,7 +236,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that simple queries execute properly with continuations.
      */
     @DualPlannerTest
-    public void queryWithContinuation() throws Exception {
+    void queryWithContinuation() throws Exception {
         setupSimpleRecordStore(null, (i, builder) -> {
             builder.setRecNo(i);
             builder.setNumValue2(i % 2);
@@ -367,7 +367,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that simple queries execute properly with short time limits.
      */
     @DualPlannerTest
-    public void queryWithShortTimeLimit() throws Exception {
+    void queryWithShortTimeLimit() throws Exception {
         setupSimpleRecordStore(null, (i, builder) -> {
             builder.setRecNo(i);
             builder.setNumValue3Indexed(i / 10);
@@ -418,7 +418,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that index lookups work with parameterized queries.
      */
     @DualPlannerTest
-    public void testParameterQuery1() throws Exception {
+    void testParameterQuery1() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -477,7 +477,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that a record scan can implement a filter on the primary key.
      */
     @DualPlannerTest
-    public void testPartialRecordScan() throws Exception {
+    void testPartialRecordScan() throws Exception {
         RecordMetaDataHook hook = complexPrimaryKeyHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -495,7 +495,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that enum field indexes are used.
      */
     @DualPlannerTest
-    public void enumFields() throws Exception {
+    void enumFields() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             final RecordTypeBuilder type = metaData.getRecordType("MyShapeRecord");
             metaData.addIndex(type, new Index("size", field("size")));
@@ -535,7 +535,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    public void nullQuery() throws Exception {
+    void nullQuery() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -612,7 +612,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * scans, type filters, and filters.
      */
     @DualPlannerTest
-    public void testUncommonPrimaryKey() throws Exception {
+    void testUncommonPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openMultiRecordStore(context);
 
@@ -727,7 +727,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that null is excluded from an index scan.
      */
     @DualPlannerTest
-    public void queryExcludeNull() throws Exception {
+    void queryExcludeNull() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
@@ -771,7 +771,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    public void queryComplexityLimit() throws Exception {
+    void queryComplexityLimit() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
 
@@ -792,7 +792,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    public void uuidPrimaryKey() throws Exception {
+    void uuidPrimaryKey() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final List<UUID> uuids = setupTupleFields(context);
 
@@ -813,7 +813,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
-    public void nullableInt32() throws Exception {
+    void nullableInt32() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final List<UUID> uuids = setupTupleFields(context);
 
@@ -834,7 +834,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
      */
     @Test
-    public void doesNotNormalizeLargeCnf() throws Exception {
+    void doesNotNormalizeLargeCnf() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
 
@@ -857,7 +857,7 @@ public class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
      */
     @Test
-    public void doesNotNormalizeBigExpression() throws Exception {
+    void doesNotNormalizeBigExpression() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
 

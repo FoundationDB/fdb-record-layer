@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
@@ -31,6 +33,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
+
 /**
  * A collection matcher that binds a sub collection of the collection it is being matched by pairing up the items in the
  * collection (in iteration order) with a list of downstream matchers.
@@ -38,9 +42,11 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class ListMatcher<T> implements CollectionMatcher<T> {
+    @Nonnull
     private final List<? extends BindingMatcher<? extends T>> downstreams;
 
     private ListMatcher(@Nonnull final List<? extends BindingMatcher<? extends T>> downstreams) {
+        Preconditions.checkArgument(!downstreams.isEmpty());
         this.downstreams = downstreams;
     }
 
@@ -73,6 +79,20 @@ public class ListMatcher<T> implements CollectionMatcher<T> {
             }
         }
         return bindingStream;
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Override
+    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        final String nestedIndentation = indentation + INDENTATION;
+
+        final ImmutableList<String> downstreamIds = Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
+                .collect(ImmutableList.toImmutableList());
+
+        return "(" + String.join(", ", downstreamIds) + ") in " + boundId + " match all {" + newLine(nestedIndentation) +
+               Streams.zip(downstreams.stream(), downstreamIds.stream(),
+                       (downstream, downstreamId) -> downstream.explainMatcher(Object.class, downstreamId, nestedIndentation))
+                       .collect(Collectors.joining(" && " + newLine(nestedIndentation))) + newLine(indentation) + "}";
     }
 
     @Nonnull

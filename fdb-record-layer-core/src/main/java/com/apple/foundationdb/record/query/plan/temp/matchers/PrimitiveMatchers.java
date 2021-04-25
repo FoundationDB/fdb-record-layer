@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -77,6 +78,11 @@ public class PrimitiveMatchers {
                                     }
                                 });
             }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                return "match " + boundId + " { case " + object.toString() + " => success }";
+            }
         };
     }
 
@@ -95,6 +101,11 @@ public class PrimitiveMatchers {
                                 return Stream.empty();
                             }
                         });
+            }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                return "match " + boundId + " { case {" + elements.stream().map(Object::toString).collect(Collectors.joining(", ")) + "} in " + boundId + " => success }";
             }
         };
     }

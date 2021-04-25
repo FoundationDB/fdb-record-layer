@@ -71,35 +71,35 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static <R extends RecordQueryPlan> BindingMatcher<R> childrenPlans(@Nonnull final Class<R> bindableClass, @Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
         return typedWithDownstream(bindableClass,
-                RecordQueryPlan::getQueryPlanChildren,
+                Extractor.of(RecordQueryPlan::getQueryPlanChildren, name -> "planChildren(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryPlan> descendantPlans(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return typedWithDownstream(RecordQueryPlan.class,
-                plan -> ImmutableList.copyOf(plan.collectDescendantPlans()),
+                Extractor.of(plan -> ImmutableList.copyOf(plan.collectDescendantPlans()), name -> "descendantPlans(" + name + ")"),
                 any(downstream));
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryPlan> descendantPlans(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
         return typedWithDownstream(RecordQueryPlan.class,
-                plan -> ImmutableList.copyOf(plan.collectDescendantPlans()),
+                Extractor.of(plan -> ImmutableList.copyOf(plan.collectDescendantPlans()), name -> "descendantPlans(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryPlan> selfOrDescendantPlans(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return typedWithDownstream(RecordQueryPlan.class,
-                plan -> ImmutableList.copyOf(Iterables.concat(plan.collectDescendantPlans(), ImmutableList.of(plan))),
+                Extractor.of(plan -> ImmutableList.copyOf(Iterables.concat(plan.collectDescendantPlans(), ImmutableList.of(plan))), name -> "selfOrDescendantPlans(" + name + ")"),
                 any(downstream));
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryPlan> selfOrDescendantPlans(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
         return typedWithDownstream(RecordQueryPlan.class,
-                plan -> ImmutableList.copyOf(Iterables.concat(plan.collectDescendantPlans(), ImmutableList.of(plan))),
+                Extractor.of(plan -> ImmutableList.copyOf(Iterables.concat(plan.collectDescendantPlans(), ImmutableList.of(plan))), name -> "selfOrDescendantPlans(" + name + ")"),
                 downstream);
     }
 
@@ -139,7 +139,7 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryFilterPlan> queryComponents(@Nonnull CollectionMatcher<? extends QueryComponent> downstream) {
         return typedWithDownstream(RecordQueryFilterPlan.class,
-                RecordQueryFilterPlan::getFilters,
+                Extractor.of(RecordQueryFilterPlan::getFilters, name -> "filters(" + name + ")"),
                 downstream);
     }
 
@@ -166,7 +166,7 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryInParameterJoinPlan> inParameter(@Nonnull BindingMatcher<String> downstream) {
         return typedWithDownstream(RecordQueryInParameterJoinPlan.class,
-                plan -> Objects.requireNonNull(plan.getExternalBinding()),
+                Extractor.of(plan -> Objects.requireNonNull(plan.getExternalBinding()), name -> "externalBinding(" + name + ")"),
                 downstream);
     }
 
@@ -188,28 +188,28 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryInValuesJoinPlan> inValuesList(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
         return typedWithDownstream(RecordQueryInValuesJoinPlan.class,
-                plan -> Objects.requireNonNull(plan.getInListValues()),
+                Extractor.of(plan -> Objects.requireNonNull(plan.getInListValues()), name -> "values(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryPlanWithComparisons> scanComparisons(@Nonnull BindingMatcher<ScanComparisons> scanComparisonsBindingMatcher) {
         return typedWithDownstream(RecordQueryPlanWithComparisons.class,
-                RecordQueryPlanWithComparisons::getComparisons,
+                Extractor.of(RecordQueryPlanWithComparisons::getComparisons, name -> "comparisons(" + name + ")"),
                 scanComparisonsBindingMatcher);
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryPlanWithIndex> indexName(@Nonnull String indexName) {
         return typedWithDownstream(RecordQueryPlanWithIndex.class,
-                RecordQueryPlanWithIndex::getIndexName,
+                Extractor.of(RecordQueryPlanWithIndex::getIndexName, name -> "indexName(" + name + ")"),
                 PrimitiveMatchers.equalsObject(indexName));
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryPlanWithIndex> indexScanType(@Nonnull IndexScanType scanType) {
         return typedWithDownstream(RecordQueryPlanWithIndex.class,
-                RecordQueryPlanWithIndex::getScanType,
+                Extractor.of(RecordQueryPlanWithIndex::getScanType, name -> "indexScanType(" + name + ")"),
                 PrimitiveMatchers.equalsObject(scanType));
     }
 
@@ -248,7 +248,7 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicates(@Nonnull CollectionMatcher<? extends QueryPredicate> downstream) {
         return typedWithDownstream(RecordQueryPredicatesFilterPlan.class,
-                RecordQueryPredicatesFilterPlan::getPredicates,
+                Extractor.of(RecordQueryPredicatesFilterPlan::getPredicates, name -> "predicates(" + name + ")"),
                 downstream);
     }
 
@@ -280,7 +280,7 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryTypeFilterPlan> recordTypes(@Nonnull CollectionMatcher<? extends String> downstream) {
         return typedWithDownstream(RecordQueryTypeFilterPlan.class,
-                RecordQueryTypeFilterPlan::getRecordTypes,
+                Extractor.of(RecordQueryTypeFilterPlan::getRecordTypes, name -> "recordTypes(" + name + ")"),
                 downstream);
     }
 
@@ -331,14 +331,14 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryUnionPlan> comparisonKey(@Nonnull BindingMatcher<KeyExpression> comparisonKeyMatcher) {
         return typedWithDownstream(RecordQueryUnionPlan.class,
-                RecordQueryUnionPlan::getComparisonKey,
+                Extractor.of(RecordQueryUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
                 comparisonKeyMatcher);
     }
 
     @Nonnull
     public static BindingMatcher<RecordQueryUnionPlan> comparisonKey(@Nonnull KeyExpression probe) {
         return typedWithDownstream(RecordQueryUnionPlan.class,
-                RecordQueryUnionPlan::getComparisonKey,
+                Extractor.of(RecordQueryUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
                 PrimitiveMatchers.equalsObject(probe));
     }
 

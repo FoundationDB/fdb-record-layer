@@ -1,5 +1,5 @@
 /*
- * QuantifierMatcher.java
+ * MatchPartitionMatchers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -37,7 +37,7 @@ public class MatchPartitionMatchers {
     @Nonnull
     public static <C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> containing(@Nonnull final BindingMatcher<C> downstream) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(MatchPartition.class,
-                MatchPartition::getPartialMatches,
+                Extractor.of(MatchPartition::getPartialMatches, name -> "partialMatches(" + name + ")"),
                 downstream);
     }
 }

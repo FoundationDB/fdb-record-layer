@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.Extractor;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher;
@@ -351,13 +352,14 @@ public class ScanComparisons implements PlanHashable {
     @Nonnull
     public static BindingMatcher<ScanComparisons> range(@Nonnull String tupleString) {
         return TypedMatcherWithExtractAndDownstream.typedWithDownstream(ScanComparisons.class,
-                scanComparisons -> {
-                    try {
-                        return scanComparisons.toTupleRange().toString();
-                    } catch (Comparisons.EvaluationContextRequiredException ex) {
-                        return scanComparisons.toString();
-                    }
-                },
+                Extractor.of(
+                        scanComparisons -> {
+                            try {
+                                return scanComparisons.toTupleRange().toString();
+                            } catch (Comparisons.EvaluationContextRequiredException ex) {
+                                return scanComparisons.toString();
+                            }
+                        }, name -> "range(" + name + ")"),
                 PrimitiveMatchers.equalsObject(tupleString));
     }
 

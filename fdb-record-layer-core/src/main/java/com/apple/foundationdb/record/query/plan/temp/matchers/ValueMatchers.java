@@ -58,12 +58,16 @@ public class ValueMatchers {
     }
 
     @Nonnull
-    public static <V1 extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V1> downstreamValue,
-                                                                           @Nonnull final CollectionMatcher<String> downstreamFieldPath) {
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
+                                                                          @Nonnull final CollectionMatcher<String> downstreamFieldPath) {
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamValueMatcher =
-                typedWithDownstream(FieldValue.class, FieldValue::getChild, downstreamValue);
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(FieldValue::getChild, name -> "child(" + name + ")"),
+                        downstreamValue);
         final TypedMatcherWithExtractAndDownstream<FieldValue> downstreamFieldPathMatcher =
-                typedWithDownstream(FieldValue.class, FieldValue::getFieldPath, downstreamFieldPath);
+                typedWithDownstream(FieldValue.class,
+                        Extractor.of(FieldValue::getFieldPath, name -> "fieldPath(" + name + ")"),
+                        downstreamFieldPath);
         return typedWithDownstream(FieldValue.class,
                 Extractor.identity(),
                 AllOfMatcher.matchingAllOf(FieldValue.class, ImmutableList.of(downstreamValueMatcher, downstreamFieldPathMatcher)));

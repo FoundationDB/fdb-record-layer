@@ -40,10 +40,10 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class TypedMatcher<T> implements BindingMatcher<T> {
-
+    @Nonnull
     private final Class<T> bindableClass;
 
-    public TypedMatcher(final Class<T> bindableClass) {
+    public TypedMatcher(@Nonnull final Class<T> bindableClass) {
         this.bindableClass = bindableClass;
     }
 
@@ -66,6 +66,15 @@ public class TypedMatcher<T> implements BindingMatcher<T> {
     @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         return Stream.of(PlannerBindings.from(this, in));
+    }
+
+    @Override
+    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        if (getRootClass().isAssignableFrom(atLeastType)) {
+            return "case _ => success ";
+        } else {
+            return "case _: " + getRootClass().getSimpleName() + " => success ";
+        }
     }
 
     @Nonnull

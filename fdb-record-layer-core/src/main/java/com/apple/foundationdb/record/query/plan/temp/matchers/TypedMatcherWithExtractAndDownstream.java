@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
+
 /**
  * A <code>BindingMatcher</code> is an expression that can be matched against a
  * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
@@ -68,6 +70,23 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
                         downstream
                                 .bindMatches(outerBindings, extractor.unapply(in))
                                 .map(bindings::mergedWith));
+    }
+
+    @Override
+    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        final String nestedId = downstream.identifierFromMatcher();
+        final String nestedIndentation = indentation + INDENTATION;
+        final String doubleNestedIndentation = nestedIndentation + INDENTATION;
+
+        final String typeConstraint =
+                getRootClass().isAssignableFrom(atLeastType)
+                ? ""
+                : " if " + boundId + " instanceOf[" + getRootClass().getSimpleName() + "]";
+
+        return boundId + " match { " + newLine(nestedIndentation) +
+               "case " + extractor.explainExtraction(nestedId) + typeConstraint + " => " + newLine(doubleNestedIndentation) +
+               downstream.explainMatcher(downstream.unboundRootClass(), nestedId, doubleNestedIndentation) + newLine(indentation) +
+               "}";
     }
 
     @Nonnull

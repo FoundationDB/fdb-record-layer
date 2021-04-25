@@ -34,6 +34,9 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
+
 /**
  * A <code>BindingMatcher</code> is an expression that can be matched against a
  * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
@@ -56,13 +59,13 @@ public class QueryPredicateMatchers {
     }
 
     public static <P extends QueryPredicate> TypedMatcher<P> ofType(@Nonnull final Class<P> bindableClass) {
-        return new TypedMatcher<>(bindableClass);
+        return typed(bindableClass);
     }
 
     public static <P extends QueryPredicate, C extends Collection<? extends QueryPredicate>> BindingMatcher<P> ofTypeWithChildren(@Nonnull final Class<P> bindableClass,
                                                                                                                                   @Nonnull final BindingMatcher<C> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(bindableClass,
-                QueryPredicate::getChildren,
+        return typedWithDownstream(bindableClass,
+                Extractor.of(QueryPredicate::getChildren, name -> "children(" + name + ")"),
                 downstream);
     }
 
@@ -72,8 +75,8 @@ public class QueryPredicateMatchers {
 
     @Nonnull
     public static BindingMatcher<QueryComponentPredicate> queryComponentPredicate(@Nonnull BindingMatcher<? extends QueryComponent> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(QueryComponentPredicate.class,
-                QueryComponentPredicate::getQueryComponent,
+        return typedWithDownstream(QueryComponentPredicate.class,
+                Extractor.of(QueryComponentPredicate::getQueryComponent, name -> "queryComponent(" + name + ")"),
                 downstream);
     }
 
@@ -86,10 +89,15 @@ public class QueryPredicateMatchers {
     @Nonnull
     public static <V extends Value, C extends Comparisons.Comparison> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                                                     @Nonnull final BindingMatcher<C> downstreamComparison) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class,
-                t -> t,
+        return typedWithDownstream(ValuePredicate.class,
+                Extractor.identity(),
                 AllOfMatcher.matchingAllOf(ValuePredicate.class,
-                        ImmutableList.of(TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getValue, downstreamValue),
-                                TypedMatcherWithExtractAndDownstream.typedWithDownstream(ValuePredicate.class, ValuePredicate::getComparison, downstreamComparison))));
+                        ImmutableList.of(
+                                typedWithDownstream(ValuePredicate.class,
+                                        Extractor.of(ValuePredicate::getValue, name -> "value(" + name + ")"),
+                                        downstreamValue),
+                                typedWithDownstream(ValuePredicate.class,
+                                        Extractor.of(ValuePredicate::getComparison, name -> "comparison(" + name + ")"),
+                                        downstreamComparison))));
     }
 }

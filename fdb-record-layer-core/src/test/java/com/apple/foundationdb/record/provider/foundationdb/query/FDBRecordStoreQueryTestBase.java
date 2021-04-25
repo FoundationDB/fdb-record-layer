@@ -63,6 +63,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * A base class for common infrastructure used by tests in {@link com.apple.foundationdb.record.provider.foundationdb.query}.
@@ -411,10 +412,22 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected static void assertMatches(@Nonnull final RecordQueryPlan plan, @Nonnull BindingMatcher<? extends RecordQueryPlan> planMatcher) {
-        assertTrue(planMatcher.matches(plan));
+        final boolean matches = planMatcher.matches(plan);
+        if (matches) {
+            return;
+        }
+        System.err.println(plan.toString() + "\n does not match");
+        System.err.println(planMatcher.explainMatcher(RecordQueryPlan.class, "plan", ""));
+        fail();
     }
 
     protected static void assertMatchesExactly(@Nonnull final RecordQueryPlan plan, @Nonnull BindingMatcher<? extends RecordQueryPlan> planMatcher) {
-        assertTrue(planMatcher.matchesExactly(plan));
+        final boolean matchesExactly = planMatcher.matchesExactly(plan);
+        if (matchesExactly) {
+            return;
+        }
+        System.err.println(plan.toString() + "\n does not match exactly");
+        System.err.println(planMatcher.explainMatcher(RecordQueryPlan.class, "plan", ""));
+        fail();
     }
 }

@@ -22,11 +22,15 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
 
 /**
  * A matcher that only matches anything if all of its downstream matchers produce bindings. This matcher is
@@ -35,7 +39,7 @@ import java.util.stream.Stream;
  * As an example
  *
  * {@code
- * matchinAllOf(greaterThan(0), divisibleBy(2)).matches(2))
+ * matchingAllOf(greaterThan(0), divisibleBy(2)).matches(2))
  * }
  *
  * produces a stream of one binding which binds to {@code 2}.
@@ -44,12 +48,14 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class AllOfMatcher<T> implements BindingMatcher<T> {
+    @Nonnull
     private final Class<T> staticClassOfT;
-    private final List<BindingMatcher<?>> extractingMatchers;
+    @Nonnull
+    private final List<BindingMatcher<?>> downstreams;
 
-    private AllOfMatcher(@Nonnull final Class<T> staticClassOfT, @Nonnull final Collection<? extends BindingMatcher<?>> matchingExtractors) {
+    private AllOfMatcher(@Nonnull final Class<T> staticClassOfT, @Nonnull final Collection<? extends BindingMatcher<?>> downstreams) {
         this.staticClassOfT = staticClassOfT;
-        this.extractingMatchers = ImmutableList.copyOf(matchingExtractors);
+        this.downstreams = ImmutableList.copyOf(downstreams);
     }
 
     @Nonnull
@@ -70,11 +76,24 @@ public class AllOfMatcher<T> implements BindingMatcher<T> {
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
-        for (final BindingMatcher<?> extractingMatcher : extractingMatchers) {
+        for (final BindingMatcher<?> extractingMatcher : downstreams) {
             bindingStream = bindingStream.flatMap(bindings -> extractingMatcher.bindMatches(outerBindings, in).map(bindings::mergedWith));
         }
 
         return bindingStream;
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Override
+    public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+        final String nestedIndentation = indentation + INDENTATION;
+        final ImmutableList<String> downstreamIds = Streams.mapWithIndex(downstreams.stream(), (downstream, index) -> downstream.identifierFromMatcher() + index)
+                .collect(ImmutableList.toImmutableList());
+
+        return "all of {" + newLine(nestedIndentation) +
+               Streams.zip(downstreams.stream(), downstreamIds.stream(),
+                       (downstream, downstreamId) -> downstream.explainMatcher(atLeastType, boundId, nestedIndentation))
+                       .collect(Collectors.joining(" && " + newLine(nestedIndentation))) + newLine(indentation) + "}";
     }
 
     public static <T> AllOfMatcher<T> matchingAllOf(@Nonnull final Class<T> staticClassOfT,
