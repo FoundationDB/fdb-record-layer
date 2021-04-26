@@ -41,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -109,15 +110,19 @@ public abstract class LocatableResolver {
     }
 
     @Nonnull
-    private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable) {
+    private <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer,
+                                              @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
+                                              Object...additionalLogMessageKeyValues) {
         return database.runAsync(timer, null, context ->
-                // Explicitly get a read version for instrumentation purposes
-                context.getReadVersionAsync().thenCompose(ignore -> retriable.apply(context))
-        );
+                        // Explicitly get a read version for instrumentation purposes
+                        context.getReadVersionAsync().thenCompose(ignore -> retriable.apply(context)),
+                Arrays.asList(additionalLogMessageKeyValues));
     }
 
     @Nonnull
-    private <T> CompletableFuture<T> runAsyncBorrowingReadVersion(@Nonnull FDBRecordContext parentContext, @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable) {
+    private <T> CompletableFuture<T> runAsyncBorrowingReadVersion(@Nonnull FDBRecordContext parentContext,
+                                                                  @Nonnull Function<FDBRecordContext, CompletableFuture<T>> retriable,
+                                                                  Object...additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = parentContext.newRunner();
         boolean started = false;
         try {
@@ -140,7 +145,7 @@ public abstract class LocatableResolver {
                     readVersionFuture = childContext.getReadVersionAsync();
                 }
                 return readVersionFuture.thenCompose(ignore -> retriable.apply(childContext));
-            });
+            }, Arrays.asList(additionalLogMessageKeyValues));
             started = true;
             return future.whenComplete((valIgnore, errIgnore) -> runner.close());
         } finally {
@@ -419,7 +424,10 @@ public abstract class LocatableResolver {
 
         return context.instrument(
                 FDBStoreTimer.Events.DIRECTORY_READ,
-                runAsyncBorrowingReadVersion(context, childContext -> readOrCreateValue(childContext, scopedName.getData(), hooks))
+                runAsyncBorrowingReadVersion(context, childContext -> readOrCreateValue(childContext, scopedName.getData(), hooks),
+                        LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::readOrCreateValue",
+                        LogMessageKeys.RESOLVER, this,
+                        LogMessageKeys.RESOLVER_KEY, scopedName.getData())
         ).thenApply(fetched -> {
             directoryCache.put(scopedName, fetched);
             return fetched;
@@ -485,14 +493,19 @@ public abstract class LocatableResolver {
 
     @Nonnull
     private CompletableFuture<ResolverStateProto.State> getResolverState(@Nullable FDBStoreTimer timer) {
-        return database.getStateForResolver(this, () -> runAsync(timer, this::loadResolverState));
-
+        return database.getStateForResolver(this, () -> runAsync(timer, this::loadResolverState,
+                LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::loadResolverState",
+                LogMessageKeys.RESOLVER, this,
+                LogMessageKeys.SHARED_READ_VERSION, false));
     }
 
     @Nonnull
     private CompletableFuture<ResolverStateProto.State> getResolverState(@Nonnull FDBRecordContext context) {
         // Note that this doesn't re-use the same transaction, though it does borrow the read version to avoid another get read version request
-        return database.getStateForResolver(this, () -> runAsyncBorrowingReadVersion(context, this::loadResolverState));
+        return database.getStateForResolver(this, () -> runAsyncBorrowingReadVersion(context, this::loadResolverState,
+                LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::loadResolverState",
+                LogMessageKeys.RESOLVER, this,
+                LogMessageKeys.SHARED_READ_VERSION, true));
     }
 
     /**
@@ -571,7 +584,9 @@ public abstract class LocatableResolver {
      */
     @Nonnull
     public CompletableFuture<Integer> getVersion(@Nullable FDBStoreTimer timer) {
-        return runAsync(timer, this::getVersion);
+        return runAsync(timer, this::getVersion,
+                LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::getVersion",
+                LogMessageKeys.RESOLVER, this);
     }
 
     @Nonnull
@@ -615,11 +630,17 @@ public abstract class LocatableResolver {
     public CompletableFuture<Void> updateMetadataAndVersion(@Nonnull final String key,
                                                             @Nullable final byte[] metadata) {
         return runAsync(null, context -> updateMetadata(context, key, metadata)
-                .thenCompose(ignore -> updateResolverState(context, StateMutation.INCREMENT_VERSION)));
+                .thenCompose(ignore -> updateResolverState(context, StateMutation.INCREMENT_VERSION)),
+                LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::updateMetadataAndVersion",
+                LogMessageKeys.RESOLVER, this,
+                LogMessageKeys.RESOLVER_KEY, key);
     }
 
     private CompletableFuture<Void> updateAndCommitResolverState(@Nonnull final StateMutation mutation) {
-        return runAsync(null, context -> updateResolverState(context, mutation));
+        return runAsync(null, context -> updateResolverState(context, mutation),
+                LogMessageKeys.TRANSACTION_NAME, "LocatableResolver::updateAndCommitResolverState",
+                LogMessageKeys.RESOLVER, this,
+                LogMessageKeys.MUTATION, mutation);
     }
 
     private CompletableFuture<Void> updateResolverState(@Nonnull final FDBRecordContext context, @Nonnull final StateMutation mutation) {
@@ -645,6 +666,10 @@ public abstract class LocatableResolver {
     protected final CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context,
                                                        @Nonnull String key) {
         return create(context, key, null);
+    }
+
+    protected CompletableFuture<Optional<String>> readReverse(@Nonnull FDBRecordContext parentContext, Long value) {
+        return readReverse(parentContext.getTimer(), value);
     }
 
     protected abstract CompletableFuture<Optional<String>> readReverse(FDBStoreTimer timer, Long value);

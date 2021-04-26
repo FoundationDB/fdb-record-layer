@@ -53,6 +53,7 @@ public enum LogMessageKeys {
     DELAY("delay"),
     COMMIT_NAME("commit_name"),
     TRANSACTION_ID("transaction_id"),
+    TRANSACTION_NAME("transaction_name"),
     AGE_SECONDS("age_seconds"),
     // record splitting/unsplitting
     KEY("key"),
@@ -210,10 +211,14 @@ public enum LogMessageKeys {
     NEW_OPTION("new_option"),
     INDEX_TYPE("index_type"),
     // resolver
+    RESOLVER("resolver"),
     RESOLVER_KEY("resolver_key"),
     RESOLVER_PATH("resolver_path"),
+    RESOLVER_METADATA("resolver_metadata"),
     CACHED_STATE("cached_state"),
     READ_STATE("read_state"),
+    SHARED_READ_VERSION("shared_read_version"),
+    MUTATION("state_mutation"),
 
     // query plan
     PLAN("plan"),

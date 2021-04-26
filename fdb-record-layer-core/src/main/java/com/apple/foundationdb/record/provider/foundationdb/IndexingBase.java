@@ -42,6 +42,8 @@ import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.S
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
@@ -130,6 +132,7 @@ public abstract class IndexingBase {
 
     // (methods order: as a rule of thumb, let sub-routines follow their callers)
 
+
     // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
     public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
@@ -141,7 +144,8 @@ public abstract class IndexingBase {
         Index index = common.getIndex();
         if (common.isUseSynchronizedSession()) {
             buildIndexAsyncFuture = runner
-                    .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
+                    .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)),
+                            runAsyncDetails("IndexingBase::indexBuildLockSubspace"))
                     .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, common.getLeaseLengthMillis()))
                     .thenCompose(synchronizedRunner -> {
                         message.addKeyAndValue(LogMessageKeys.SESSION_ID, synchronizedRunner.getSessionId());
@@ -251,7 +255,7 @@ public abstract class IndexingBase {
                 // a continuation of another session
                 return setIndexingTypeOrThrow(store, true).thenApply(ignore -> true);
             }
-        })
+        }), runAsyncDetails("IndexingBase::handleIndexingState")
         ).thenCompose(doIndex ->
                 doIndex ?
                 buildIndexInternalAsync().thenApply(ignore -> markReadable) :
@@ -265,7 +269,7 @@ public abstract class IndexingBase {
         }
         return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose(store -> store.markIndexReadable(common.getIndex()))
-                .thenApply(ignore -> null));
+                .thenApply(ignore -> null), runAsyncDetails("IndexingBase::markIndexReadable"));
     }
 
     public void setFallbackMode() {
@@ -613,6 +617,13 @@ public abstract class IndexingBase {
         return null;
     }
 
+    protected List<Object> runAsyncDetails(String transactionName, Object ...keysAndValues) {
+        return new ImmutableList.Builder<>()
+                .add(LogMessageKeys.TRANSACTION_NAME, transactionName)
+                .add(common.indexLogMessageKeyValues())
+                .add(keysAndValues)
+                .build();
+    }
 }
 
 

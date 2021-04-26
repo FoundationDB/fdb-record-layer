@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.synchronizedsession;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
@@ -31,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -76,7 +78,11 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
                                                                                  @Nonnull FDBDatabaseRunnerImpl runner) {
         final UUID newSessionId = UUID.randomUUID();
         SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
-        return runner.runAsync(context -> session.initializeSessionAsync(context.ensureActive()))
+        return runner.runAsync(context -> session.initializeSessionAsync(context.ensureActive()),
+                Lists.newArrayList(
+                        LogMessageKeys.TRANSACTION_NAME, "SynchronizedSessionRunner::startSession",
+                        LogMessageKeys.SESSION_ID, session.getSessionId(),
+                        LogMessageKeys.SUBSPACE, lockSubspace))
                 .thenApply(vignore -> new SynchronizedSessionRunner(runner, session));
     }
 
@@ -154,7 +160,9 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     public CompletableFuture<Void> endSessionAsync() {
         // Using the underlying runner rather than itself because it should not throw any exception if the session
         // does not hold the lock.
-        return underlying.runAsync(context -> session.releaseLock(context.ensureActive()));
+        return underlying.runAsync(context -> session.releaseLock(context.ensureActive()),
+                Lists.newArrayList(LogMessageKeys.TRANSACTION_NAME, "SynchronizedSessionRunner::endSession",
+                        LogMessageKeys.SESSION_ID, session.getSessionId()));
     }
 
     /**
@@ -174,7 +182,9 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
         return underlying.runAsync(context -> {
             session.endAnySession(context.ensureActive());
             return AsyncUtil.DONE;
-        });
+        }, Lists.newArrayList(
+                LogMessageKeys.TRANSACTION_NAME, "SynchronizedSessionRunner::endAnySession",
+                LogMessageKeys.SESSION_ID, session.getSessionId()));
     }
 
     /**

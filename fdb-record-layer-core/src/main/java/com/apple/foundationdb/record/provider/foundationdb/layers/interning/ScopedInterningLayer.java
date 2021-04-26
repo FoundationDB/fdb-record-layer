@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableRes
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.subspace.Subspace;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -138,7 +140,10 @@ public class ScopedInterningLayer extends LocatableResolver {
 
     @Override
     public CompletableFuture<Void> setWindow(long count) {
-        return database.runAsync(context -> interningLayerFuture.thenCompose(layer -> layer.setWindow(context, count)));
+        return database.runAsync(context -> interningLayerFuture.thenCompose(layer -> layer.setWindow(context, count)),
+                Lists.newArrayList(
+                        LogMessageKeys.TRANSACTION_NAME, "ScopedInterningLayer::setWindow",
+                        LogMessageKeys.RESOLVER));
     }
 
     @Override

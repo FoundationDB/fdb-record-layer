@@ -49,6 +49,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.NoSuchElementException;
@@ -939,6 +940,27 @@ public class FDBDatabase {
      * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
      * To better control the lifetime / sharing of the runner, create it separately.
      *
+     * @param retriable the database operation to run transactionally
+     * @param additionalLogMessageKeyValues key/value pairs that will be included in retry exceptions that are logged
+     * @param <T> return type of function to run
+     * @return future that will contain the result of function after successful run and commit
+     * @see #newRunner()
+     * @see FDBDatabaseRunner#runAsync
+     */
+    @Nonnull
+    @API(API.Status.EXPERIMENTAL)
+    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             @Nonnull List<Object> additionalLogMessageKeyValues) {
+        final FDBDatabaseRunner runner = newRunner();
+        return runner.runAsync(retriable, additionalLogMessageKeyValues).whenComplete((t, e) -> runner.close());
+    }
+
+    /**
+     * Runs a transactional function asynchronously against this <code>FDBDatabase</code> with retry logic.
+     *
+     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * To better control the lifetime / sharing of the runner, create it separately.
+     *
      * @param timer the timer to use for instrumentation
      * @param mdcContext logger context to set in running threads
      * @param retriable the database operation to run transactionally
@@ -953,6 +975,30 @@ public class FDBDatabase {
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
         final FDBDatabaseRunner runner = newRunner(timer, mdcContext);
         return runner.runAsync(retriable).whenComplete((t, e) -> runner.close());
+    }
+
+    /**
+     * Runs a transactional function asynchronously against this <code>FDBDatabase</code> with retry logic.
+     *
+     * This creates a new {@link FDBDatabaseRunner runner} and closes it when complete.
+     * To better control the lifetime / sharing of the runner, create it separately.
+     *
+     * @param timer the timer to use for instrumentation
+     * @param mdcContext logger context to set in running threads
+     * @param retriable the database operation to run transactionally
+     * @param additionalLogMessageKeyValues key/value pairs that will be included in retry exceptions that are logged
+     * @param <T> return type of function to run
+     * @return future that will contain the result of function after successful run and commit
+     * @see #newRunner(FDBStoreTimer, Map)
+     * @see FDBDatabaseRunner#runAsync
+     */
+    @Nonnull
+    @API(API.Status.MAINTAINED)
+    public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
+                                             @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             @Nonnull List<Object> additionalLogMessageKeyValues) {
+        final FDBDatabaseRunner runner = newRunner(timer, mdcContext);
+        return runner.runAsync(retriable, additionalLogMessageKeyValues).whenComplete((t, e) -> runner.close());
     }
 
     /**

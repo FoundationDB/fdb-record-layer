@@ -306,10 +306,11 @@ public class FDBReverseDirectoryCache {
         String cachedString = context.getDatabase().getReverseDirectoryInMemoryCache().getIfPresent(scope.wrap(pathValue));
         if (cachedString != null) {
             if (!cachedString.equals(pathString)) {
-                throw new RecordCoreException("Provided value for path key does not match value found in cache")
-                        .addLogInfo("provided_value", pathValue)
-                        .addLogInfo("provided_string", pathString)
-                        .addLogInfo("cached_string", cachedString);
+                throw new RecordCoreException("Provided value for path key does not match existing value in reverse directory layer in-memory cache")
+                        .addLogInfo(LogMessageKeys.RESOLVER, scope)
+                        .addLogInfo(LogMessageKeys.RESOLVER_PATH, pathString)
+                        .addLogInfo(LogMessageKeys.RESOLVER_KEY, pathValue)
+                        .addLogInfo("cached_key", cachedString);
             }
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("In-memory cache contains '" + pathString + "' -> '" + pathValue + "' mapping. No need to put");
@@ -331,8 +332,11 @@ public class FDBReverseDirectoryCache {
             if (valueBytes != null) {
                 String readValue = Tuple.fromBytes(valueBytes).getString(0);
                 if (!readValue.equals(pathString)) {
-                    throw new RecordCoreException("Provided value '" + pathValue + "', for path key '" + pathString
-                            + "' does not match value found in cache: '" + readValue + "'");
+                    throw new RecordCoreException("Provided value for path key does not match existing value in reverse directory layer cache")
+                            .addLogInfo(LogMessageKeys.RESOLVER, scopedPathString.getScope())
+                            .addLogInfo(LogMessageKeys.RESOLVER_PATH, pathString)
+                            .addLogInfo(LogMessageKeys.RESOLVER_KEY, pathValue)
+                            .addLogInfo("cached_key", readValue);
                 }
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("Put unnecessary, found path '" + readValue + "'' in reverse lookup for value '"
