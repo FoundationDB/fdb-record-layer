@@ -26,38 +26,33 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
- * A predicate consisting of a {@link Value} and a {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison}.
+ * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     private final Value value;
     @Nonnull
-    private final Comparisons.Comparison comparison;
+    private final Comparison comparison;
 
-    public ValuePredicate(@Nonnull Value value, @Nonnull Comparisons.Comparison comparison) {
+    public ValuePredicate(@Nonnull Value value, @Nonnull Comparison comparison) {
         this.value = value;
         this.comparison = comparison;
     }
 
     @Nonnull
-    public Comparisons.Comparison getComparison() {
+    public Comparison getComparison() {
         return comparison;
     }
 
@@ -95,12 +90,6 @@ public class ValuePredicate implements PredicateWithValue {
             return new ValuePredicate(rebasedValue, comparison);
         }
         return this;
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, ImmutableList.of());
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

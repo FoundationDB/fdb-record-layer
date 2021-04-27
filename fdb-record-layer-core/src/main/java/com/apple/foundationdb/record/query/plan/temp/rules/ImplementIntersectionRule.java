@@ -26,15 +26,16 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.logicalIntersectionExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * A rule that implements an intersection of its (already implemented) children. This will extract the
@@ -44,11 +45,10 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class ImplementIntersectionRule extends PlannerRule<LogicalIntersectionExpression> {
     @Nonnull
-    private static final ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
+    private static final BindingMatcher<RecordQueryPlan> childMatcher = anyPlan();
     @Nonnull
-    private static final ExpressionMatcher<LogicalIntersectionExpression> root =
-            TypeMatcher.of(LogicalIntersectionExpression.class,
-                    MultiChildrenMatcher.allMatching(QuantifierMatcher.forEach(childMatcher)));
+    private static final BindingMatcher<LogicalIntersectionExpression> root =
+            logicalIntersectionExpression(all(forEachQuantifier(childMatcher)));
 
     public ImplementIntersectionRule() {
         super(root);
@@ -58,7 +58,7 @@ public class ImplementIntersectionRule extends PlannerRule<LogicalIntersectionEx
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final LogicalIntersectionExpression logicalIntersectionExpression = bindings.get(root);
-        final List<RecordQueryPlan> planChildren = bindings.getAll(childMatcher);
+        final List<? extends RecordQueryPlan> planChildren = bindings.getAll(childMatcher);
         call.yield(call.ref(RecordQueryIntersectionPlan.from(planChildren, logicalIntersectionExpression.getComparisonKey())));
     }
 }

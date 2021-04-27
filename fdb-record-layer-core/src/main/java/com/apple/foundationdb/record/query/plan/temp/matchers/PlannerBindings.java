@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -31,9 +30,9 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 /**
- * A map-like structure that supports a map from a binding to a collection of {@link Bindable}s, such as
+ * A map-like structure that supports a map from a binding to a collection of objects, such as
  * {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s and {@link ExpressionRef}s. A binding's
- * key is a pointer to the {@link ExpressionMatcher} that created the binding, eliminating the need for a unique string
+ * key is a pointer to the {@link BindingMatcher} that created the binding, eliminating the need for a unique string
  * or symbol identifier. A {@code PlannerBindings} is immutable but has a {@link Builder} that can be used to build up a
  * set of bindings incrementally. Additionally, bindings can be combined using {@link #mergedWith(PlannerBindings)}.
  */
@@ -43,35 +42,35 @@ public class PlannerBindings {
     private static final PlannerBindings EMPTY = new PlannerBindings(ImmutableListMultimap.of());
 
     @Nonnull
-    private final ImmutableListMultimap<ExpressionMatcher<? extends Bindable>, Bindable> bindings;
+    private final ImmutableListMultimap<BindingMatcher<?>, ?> bindings;
 
-    private PlannerBindings(@Nonnull ImmutableListMultimap<ExpressionMatcher<? extends Bindable>, Bindable> bindings) {
+    private PlannerBindings(@Nonnull ImmutableListMultimap<BindingMatcher<?>, ?> bindings) {
         this.bindings = bindings;
     }
 
     /**
-     * Checks whether there is a bindable bound to {@code key}.
+     * Checks whether there is an object bound to {@code key}.
      * @param key a matcher
      * @return whether there is an object bound to {@code key}
      */
-    public boolean containsKey(@Nonnull ExpressionMatcher<? extends Bindable> key) {
+    public boolean containsKey(@Nonnull BindingMatcher<?> key) {
         return bindings.containsKey(key);
     }
 
     /**
      * Retrieve the single bindable bound to {@code key}. This method is meant to be a convenient shortcut for the case
      * where the developer is certain that precisely one bindable could be bound to this key. If no bindable is bound to
-     * this key, or if there are multiple {@link Bindable}s bound to this key, this throws a {@link NoSuchElementException}.
+     * this key, or if there are multiple objects bound to this key, this throws a {@link NoSuchElementException}.
      * @param key a matcher
-     * @param <T> the type of {@link Bindable} that was bound to {@code key}
+     * @param <T> the type of objects that was bound to {@code key}
      * @return the bindable object bound to key
      * @throws NoSuchElementException if the number of bindables bound to this key is not exactly one
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T extends Bindable> T get(@Nonnull ExpressionMatcher<T> key) {
+    public <T> T get(@Nonnull BindingMatcher<T> key) {
         if (bindings.containsKey(key)) {
-            List<? extends Bindable> bindingsForKey = bindings.get(key);
+            List<?> bindingsForKey = bindings.get(key);
             if (bindingsForKey.size() == 1) {
                 return (T)bindingsForKey.get(0);
             } else {
@@ -82,16 +81,16 @@ public class PlannerBindings {
     }
 
     /**
-     * Retrieve all {@link Bindable}s bound to {@code key} if there is at least one such bindable. The bindables in the returned
+     * Retrieve all objects bound to {@code key} if there is at least one such bindable. The bindables in the returned
      * list appear in same order as they appear in the list of children of the {@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}
      * that produced this set of bindings. If no bindable is bound to this key, throw a {@link NoSuchElementException}.
      * @param key a matcher
-     * @param <T> the type of {@link Bindable} that was bound to {@code key}
+     * @param <T> the type of objects that was bound to {@code key}
      * @return a list of bindable objects bound to the key
      */
     @Nonnull
     @SuppressWarnings("unchecked")
-    public <T extends Bindable> List<T> getAll(@Nonnull ExpressionMatcher<T> key) {
+    public <T> List<? extends T> getAll(@Nonnull BindingMatcher<T> key) {
         if (bindings.containsKey(key)) {
             return (List<T>)bindings.get(key);
         }
@@ -108,7 +107,7 @@ public class PlannerBindings {
      */
     @Nonnull
     public PlannerBindings mergedWith(@Nonnull PlannerBindings other) {
-        ImmutableListMultimap.Builder<ExpressionMatcher<? extends Bindable>, Bindable> combined = ImmutableListMultimap.builder();
+        ImmutableListMultimap.Builder<BindingMatcher<?>, Object> combined = ImmutableListMultimap.builder();
         combined.putAll(this.bindings);
         combined.putAll(other.bindings);
         return new PlannerBindings(combined.build());
@@ -121,19 +120,20 @@ public class PlannerBindings {
      * @return the backing immutable multi map
      */
     @Nonnull
-    public ImmutableListMultimap<ExpressionMatcher<? extends Bindable>, Bindable> asMultiMap() {
+    public ImmutableListMultimap<BindingMatcher<?>, ?> asMultiMap() {
         return bindings;
     }
 
     /**
      * Build a new set of bindings containing a single binding from the given key to the given bindable.
      * @param key an expression matcher
-     * @param bindable a bindable object
+     * @param object an object
+     * @param <T> type of object
      * @return a new set of bindings containing a single binding from {@code key} to {@code bindable}
      */
     @Nonnull
-    public static PlannerBindings from(@Nonnull ExpressionMatcher<? extends Bindable> key, @Nonnull Bindable bindable) {
-        return new PlannerBindings(ImmutableListMultimap.of(key, bindable));
+    public static <T> PlannerBindings from(@Nonnull BindingMatcher<T> key, @Nonnull T object) {
+        return new PlannerBindings(ImmutableListMultimap.of(key, object));
     }
 
     /**
@@ -159,20 +159,20 @@ public class PlannerBindings {
      */
     public static class Builder {
         @Nonnull
-        private final ImmutableListMultimap.Builder<ExpressionMatcher<? extends Bindable>, Bindable> map;
+        private final ImmutableListMultimap.Builder<BindingMatcher<?>, Object> map;
 
         public Builder() {
             this.map = ImmutableListMultimap.builder();
         }
 
         @Nonnull
-        public Builder put(@Nonnull ExpressionMatcher<? extends Bindable> key, @Nonnull Bindable bindable) {
+        public <T> Builder put(@Nonnull BindingMatcher<? extends T> key, @Nonnull T bindable) {
             map.put(key, bindable);
             return this;
         }
 
         @Nonnull
-        public Builder putAll(@Nonnull ExpressionMatcher<? extends Bindable> key, @Nonnull Iterable<? extends Bindable> bindables) {
+        public <T> Builder putAll(@Nonnull BindingMatcher<? extends T> key, @Nonnull Iterable<? extends T> bindables) {
             map.putAll(key, bindables);
             return this;
         }

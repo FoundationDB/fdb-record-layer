@@ -20,20 +20,16 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * Case class to represent a partition of partial matches.
  */
-public class MatchPartition implements Bindable {
+public class MatchPartition {
     /**
      * A set of partial matches.
      */
@@ -46,9 +42,8 @@ public class MatchPartition implements Bindable {
     }
 
     @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, ImmutableList.copyOf(partialMatches));
+    public Set<PartialMatch> getPartialMatches() {
+        return partialMatches;
     }
 
     public static MatchPartition of(@Nonnull final ExpressionRef<? extends RelationalExpression> expressionReference,

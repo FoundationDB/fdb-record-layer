@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
@@ -37,10 +36,10 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier.Existential;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -58,7 +57,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher.allMatching;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
 
 /**
  * Expression-based transformation rule that matches any non-leaf expression (called an intermediate expression)
@@ -151,16 +150,16 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildr
  */
 @API(API.Status.EXPERIMENTAL)
 public class MatchIntermediateRule extends PlannerRule<RelationalExpression> {
-    private static final QuantifierMatcher<Quantifier> quantifierMatcher = QuantifierMatcher.any();
-    private static final ExpressionMatcher<RelationalExpression> root =
-            TypeMatcher.of(RelationalExpression.class, allMatching(quantifierMatcher));
+    private static final BindingMatcher<Quantifier> quantifierMatcher = QuantifierMatchers.anyQuantifier();
+    private static final BindingMatcher<RelationalExpression> root =
+            RelationalExpressionMatchers.ofTypeOwning(RelationalExpression.class, all(quantifierMatcher));
 
     public MatchIntermediateRule() {
         super(root);
     }
 
     @Override
-    public Optional<Class<? extends Bindable>> getRootOperator() {
+    public Optional<Class<?>> getRootOperator() {
         return Optional.empty();
     }
 
@@ -168,7 +167,7 @@ public class MatchIntermediateRule extends PlannerRule<RelationalExpression> {
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final RelationalExpression expression = bindings.get(root);
-        final List<Quantifier> quantifiers = bindings.getAll(quantifierMatcher);
+        final List<? extends Quantifier> quantifiers = bindings.getAll(quantifierMatcher);
         final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> rangesOverRefs =
                 quantifiers.stream()
                         .map(Quantifier::getRangesOver)

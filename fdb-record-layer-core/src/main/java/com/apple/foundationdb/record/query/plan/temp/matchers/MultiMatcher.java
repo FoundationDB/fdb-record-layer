@@ -1,0 +1,151 @@
+/*
+ * MultiMatcher.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.plan.temp.matchers;
+
+import com.apple.foundationdb.annotation.API;
+
+import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
+
+/**
+ * A multi matcher is a {@link CollectionMatcher} and by extension also a {@link BindingMatcher} that binds to a sub
+ * collection of objects in the presented collection. The multi matcher is abstract and only implemented by
+ * {@link AllMatcher} and {@link SomeMatcher} that provided different semantics in the way they deal with non-matching
+ * downstreams.
+ * @param <T> the bindable type that this matcher binds to
+ */
+@API(API.Status.EXPERIMENTAL)
+public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
+    @Nonnull
+    private final BindingMatcher<T> downstream;
+
+    protected MultiMatcher(@Nonnull final BindingMatcher<T> downstream) {
+        this.downstream = downstream;
+    }
+
+    @Nonnull
+    protected BindingMatcher<T> getDownstream() {
+        return downstream;
+    }
+
+    /**
+     * Attempt to match this matcher against the given object.
+     *
+     * @param outerBindings preexisting bindings to be used by the matcher
+     * @param in the bindable we attempt to match
+     * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
+     */
+    @Nonnull
+    @Override
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
+        Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
+
+        // The children need to be merged in the same order that they appear to satisfy the contract of
+        // PlannerBindings.getAll().
+        for (final T item : in) {
+            final List<PlannerBindings> individualBindings = downstream.bindMatches(outerBindings, item).collect(Collectors.toList());
+            if (individualBindings.isEmpty()) {
+                final Optional<Stream<PlannerBindings>> onEmptyStreamOptional =
+                        onEmptyIndividualBindings(bindingStream);
+                if (!onEmptyStreamOptional.isPresent()) {
+                    return Stream.empty();
+                } else {
+                    bindingStream = onEmptyStreamOptional.get();
+                }
+            } else {
+                bindingStream = bindingStream.flatMap(existing -> individualBindings.stream().map(existing::mergedWith));
+            }
+        }
+        return bindingStream;
+    }
+
+    @Nonnull
+    protected abstract Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream);
+
+    /**
+     * A multi matcher that binds a sub collection of objects of the collection it is being matched. That includes the empty
+     * collection which is the minimal sub collection this matcher binds, that is if no down stream matchers match
+     * this matcher still binds the empty collection.
+     * @param <T> type param
+     */
+    public static class SomeMatcher<T> extends MultiMatcher<T> {
+        private SomeMatcher(@Nonnull final BindingMatcher<T> downstream) {
+            super(downstream);
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream) {
+            return Optional.of(accumulatedStream);
+        }
+
+        @Override
+        public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            final String nestedIndentation = indentation + INDENTATION;
+            final String nestedId = getDownstream().identifierFromMatcher();
+            return "all " + nestedId + " in " + boundId + " that match {" + newLine(nestedIndentation) +
+                   getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
+                   "}";
+        }
+    }
+
+    /**
+     * A multi matcher that binds to all objects in the collection it is being matched or it does not match anything at all,
+     * i.e. nothing is bound.
+     * @param <T> type param
+     */
+    public static class AllMatcher<T> extends MultiMatcher<T> {
+        private AllMatcher(@Nonnull final BindingMatcher<T> downstream) {
+            super(downstream);
+        }
+
+        @Nonnull
+        @Override
+        protected Optional<Stream<PlannerBindings>> onEmptyIndividualBindings(@Nonnull final Stream<PlannerBindings> accumulatedStream) {
+            return Optional.empty();
+        }
+
+        @Override
+        public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+            final String nestedIndentation = indentation + INDENTATION;
+            final String nestedId = getDownstream().identifierFromMatcher();
+            return "all " + nestedId + " in " + boundId + " {" + newLine(nestedIndentation) +
+                   getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
+                   "}";
+        }
+    }
+
+    @Nonnull
+    public static <T> AllMatcher<T> all(@Nonnull final BindingMatcher<T> downstream) {
+        return new AllMatcher<>(downstream);
+    }
+
+    @Nonnull
+    public static <T> SomeMatcher<T> some(@Nonnull final BindingMatcher<T> downstream) {
+        return new SomeMatcher<>(downstream);
+    }
+}

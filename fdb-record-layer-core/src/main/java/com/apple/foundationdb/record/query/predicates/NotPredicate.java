@@ -28,16 +28,11 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 /**
  * A {@link QueryPredicate} that is satisfied when its child component is not satisfied.
@@ -74,12 +69,6 @@ public class NotPredicate implements QueryPredicateWithChild {
     @Override
     public QueryPredicate getChild() {
         return child;
-    }
-
-    @Override
-    @Nonnull
-    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, ImmutableList.of(getChild()));
     }
 
     @Override

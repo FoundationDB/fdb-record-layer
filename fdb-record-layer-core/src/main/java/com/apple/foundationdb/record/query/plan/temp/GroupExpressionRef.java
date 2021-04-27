@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
@@ -43,7 +41,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
@@ -223,22 +220,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return members;
     }
 
-    @Nonnull
-    @Override
-    public ExpressionRef<T> getNewRefWith(@Nonnull T expression) {
-        return of(expression);
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindWithin(@Nonnull final PlannerBindings outerBindings, @Nonnull ExpressionMatcher<? extends Bindable> matcher) {
-        Stream.Builder<Stream<PlannerBindings>> memberStreams = Stream.builder();
-        for (T member : members) {
-            memberStreams.add(member.bindTo(outerBindings, matcher));
-        }
-        return memberStreams.build().flatMap(Function.identity()); // concat
-    }
-
     @Nullable
     @Override
     public <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> property) {
@@ -262,19 +243,6 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         RelationalExpressionPointerSet<U> resultMembers = new RelationalExpressionPointerSet<>();
         members.iterator().forEachRemaining(member -> resultMembers.add(func.apply(member)));
         return new GroupExpressionRef<>(resultMembers);
-    }
-
-    @Nullable
-    @Override
-    public <U extends RelationalExpression> ExpressionRef<U> flatMapNullable(@Nonnull Function<T, ExpressionRef<U>> nullableFunc) {
-        RelationalExpressionPointerSet<U> mappedMembers = new RelationalExpressionPointerSet<>();
-        for (T member : members) {
-            ExpressionRef<U> mapped = nullableFunc.apply(member);
-            if (mapped instanceof GroupExpressionRef) {
-                mappedMembers.addAll(((GroupExpressionRef<U>)mapped).members);
-            }
-        }
-        return new GroupExpressionRef<>(mappedMembers);
     }
 
     @Override

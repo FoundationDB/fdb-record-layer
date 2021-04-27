@@ -31,12 +31,9 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty.OrderingInfo;
 import com.google.common.collect.ImmutableList;
@@ -47,24 +44,29 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalDistinctExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalUnionExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
+
 /**
  * A rule that implements a distinct union of its (already implemented) children. This will extract the
  * {@link RecordQueryPlan} from each child of a {@link LogicalUnionExpression} and create a
  * {@link RecordQueryUnionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpression> {
     @Nonnull
-    private static final ExpressionMatcher<RecordQueryPlan> unionLegExpressionMatcher = TypeMatcher.of(RecordQueryPlan.class, MultiChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
+    private static final BindingMatcher<RecordQueryPlan> unionLegExpressionMatcher = RecordQueryPlanMatchers.anyPlan();
     @Nonnull
-    private static final ExpressionMatcher<LogicalUnionExpression> unionExpressionMatcher =
-            TypeMatcher.of(LogicalUnionExpression.class,
-                    MultiChildrenMatcher.allMatching(QuantifierMatcher.forEach(unionLegExpressionMatcher)));
+    private static final BindingMatcher<LogicalUnionExpression> unionExpressionMatcher =
+            logicalUnionExpression(all(forEachQuantifier(unionLegExpressionMatcher)));
 
     @Nonnull
-    private static final ExpressionMatcher<LogicalDistinctExpression> root =
-            TypeMatcher.of(LogicalDistinctExpression.class,
-                    QuantifierMatcher.forEach(unionExpressionMatcher));
+    private static final BindingMatcher<LogicalDistinctExpression> root =
+            logicalDistinctExpression(exactly(forEachQuantifier(unionExpressionMatcher)));
 
     public ImplementDistinctUnionRule() {
         super(root);
@@ -74,7 +76,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlanContext context = call.getContext();
         final PlannerBindings bindings = call.getBindings();
-        final List<RecordQueryPlan> unionLegExpressions = bindings.getAll(unionLegExpressionMatcher);
+        final List<? extends RecordQueryPlan> unionLegExpressions = bindings.getAll(unionLegExpressionMatcher);
         final LogicalUnionExpression logicalUnionExpression = bindings.get(unionExpressionMatcher);
         final Optional<OrderingInfo> orderingInfoOptional = OrderingProperty.evaluate(logicalUnionExpression, context);
         if (!orderingInfoOptional.isPresent()) {

@@ -80,6 +80,11 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     @Override
     @Nullable
     public List<Object> getValues(EvaluationContext context) {
+        return getInListValues();
+    }
+
+    @Nullable
+    public List<Object> getInListValues() {
         return values;
     }
 

@@ -24,8 +24,8 @@
  * <p>
  * The {@link com.apple.foundationdb.record.query.plan.temp Cascades} planner is based on a system of rules, each of which is
  * defined by a matcher expression and a method that is applied when an expression matches a given matcher expression.
- * A matcher is represented by an implementation of the {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher
- * ExpressionMatcher} interface and is responsible for inspecting the structure of a planner expression, determining
+ * A matcher is represented by an implementation of the {@link com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher}
+ * interface and is responsible for inspecting the structure of a planner expression, determining
  * whether it matches an expression, and providing bindings to access particular substructures of the expression during
  * the execution of the rule. These bindings are exposed by the {@link com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings}
  * class.

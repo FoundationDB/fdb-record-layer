@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.debug;
 
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -254,9 +253,9 @@ public interface Debugger {
         @Nonnull
         private final Location location;
 
-        public AbstractEventWithState(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
-                                      @Nonnull final Deque<Task> taskStack,
-                                      @Nonnull final Location location) {
+        protected AbstractEventWithState(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
+                                         @Nonnull final Deque<Task> taskStack,
+                                         @Nonnull final Location location) {
             this.rootReference = rootReference;
             this.taskStack = taskStack;
             this.location = location;
@@ -443,16 +442,16 @@ public interface Debugger {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
-        private final Bindable bindable;
+        private final Object bindable;
         @Nonnull
-        private final PlannerRule<? extends Bindable> rule;
+        private final PlannerRule<?> rule;
 
         public TransformEvent(@Nonnull final GroupExpressionRef<? extends RelationalExpression> rootReference,
                               @Nonnull final Deque<Task> taskStack,
                               @Nonnull final Location location,
                               @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                              @Nonnull final Bindable bindable,
-                              @Nonnull final PlannerRule<? extends Bindable> rule) {
+                              @Nonnull final Object bindable,
+                              @Nonnull final PlannerRule<?> rule) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
             this.bindable = bindable;
@@ -478,12 +477,12 @@ public interface Debugger {
         }
 
         @Nonnull
-        public Bindable getBindable() {
+        public Object getBindable() {
             return bindable;
         }
 
         @Nonnull
-        public PlannerRule<? extends Bindable> getRule() {
+        public PlannerRule<?> getRule() {
             return rule;
         }
     }
@@ -495,9 +494,9 @@ public interface Debugger {
         @Nonnull
         private final GroupExpressionRef<? extends RelationalExpression> currentGroupReference;
         @Nonnull
-        private final Bindable bindable;
+        private final Object bindable;
         @Nonnull
-        private final PlannerRule<? extends Bindable> rule;
+        private final PlannerRule<?> rule;
         @Nonnull
         private final CascadesRuleCall ruleCall;
 
@@ -505,8 +504,8 @@ public interface Debugger {
                                       @Nonnull final Deque<Task> taskStack,
                                       @Nonnull final Location location,
                                       @Nonnull final GroupExpressionRef<? extends RelationalExpression> currentGroupReference,
-                                      @Nonnull final Bindable bindable,
-                                      @Nonnull final PlannerRule<? extends Bindable> rule,
+                                      @Nonnull final Object bindable,
+                                      @Nonnull final PlannerRule<?> rule,
                                       @Nonnull final CascadesRuleCall ruleCall) {
             super(rootReference, taskStack, location);
             this.currentGroupReference = currentGroupReference;
@@ -534,12 +533,12 @@ public interface Debugger {
         }
 
         @Nonnull
-        public Bindable getBindable() {
+        public Object getBindable() {
             return bindable;
         }
 
         @Nonnull
-        public PlannerRule<? extends Bindable> getRule() {
+        public PlannerRule<?> getRule() {
             return rule;
         }
 

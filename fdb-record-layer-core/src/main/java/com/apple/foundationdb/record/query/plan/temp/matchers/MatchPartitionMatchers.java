@@ -1,5 +1,5 @@
 /*
- * AnyChildrenMatcher.java
+ * MatchPartitionMatchers.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,24 +20,24 @@
 
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
-import com.apple.foundationdb.record.query.plan.temp.Bindable;
+import com.apple.foundationdb.record.query.plan.temp.MatchPartition;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.stream.Stream;
+import java.util.Collection;
 
 /**
- * A children matcher that matches any set of children.
+ * Matchers for {@link MatchPartition}.
  */
-public class AnyChildrenMatcher implements ExpressionChildrenMatcher {
-    public static final ExpressionChildrenMatcher ANY = new AnyChildrenMatcher();
-
-    private AnyChildrenMatcher() {
+public class MatchPartitionMatchers {
+    private MatchPartitionMatchers() {
+        // do not instantiate
     }
 
     @Nonnull
-    @Override
-    public Stream<PlannerBindings> matches(@Nonnull final PlannerBindings outerBindings, @Nonnull List<? extends Bindable> children) {
-        return Stream.of(PlannerBindings.empty());
+    public static <C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> containing(@Nonnull final BindingMatcher<C> downstream) {
+        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(MatchPartition.class,
+                Extractor.of(MatchPartition::getPartialMatches, name -> "partialMatches(" + name + ")"),
+                downstream);
     }
 }

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 
@@ -30,7 +28,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.stream.Stream;
 
 /**
  * Case class to represent a partial match. A partial match is stored in a multi map in {@link GroupExpressionRef}s that
@@ -47,7 +44,7 @@ import java.util.stream.Stream;
  * match candidate, we can replace the reference on the query graph side with a scan over the match candidate's
  * materialized version (e.g. an index) and subsequent compensation.
  */
-public class PartialMatch implements Bindable {
+public class PartialMatch {
     /**
      * Alias map of all bound correlated references.
      */
@@ -142,12 +139,6 @@ public class PartialMatch implements Bindable {
 
     private Map<CorrelationIdentifier, ComparisonRange> computeBoundParameterPrefixMap() {
         return getMatchCandidate().computeBoundParameterPrefixMap(getMatchInfo());
-    }
-
-    @Nonnull
-    @Override
-    public Stream<PlannerBindings> bindTo(@Nonnull final PlannerBindings outerBindings, @Nonnull final ExpressionMatcher<? extends Bindable> matcher) {
-        return matcher.matchWith(outerBindings, this, getMatchInfo().getChildPartialMatches());
     }
 
     @Nonnull

@@ -28,16 +28,22 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalFilterExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.anyRef;
 
 /**
  * A simple rule that combines two nested filter plans and combines them into a single filter plan with a conjunction
@@ -75,21 +81,21 @@ import javax.annotation.Nonnull;
  * quantifier but it shares the same name.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ReferenceMatcher<? extends RelationalExpression> innerMatcher = ReferenceMatcher.anyRef();
-    private static final ExpressionMatcher<Quantifier.ForEach> lowerQunMatcher = QuantifierMatcher.forEach(innerMatcher);
-    private static final ExpressionMatcher<QueryPredicate> lowerMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<QueryPredicate> upperMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<Quantifier.ForEach> upperQunMatcher =
-            QuantifierMatcher.forEach(
-                    TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-                            lowerMatcher,
-                            lowerQunMatcher));
+    private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerMatcher = anyRef();
+    private static final BindingMatcher<Quantifier.ForEach> lowerQunMatcher = forEachQuantifierOverRef(innerMatcher);
+    private static final BindingMatcher<QueryPredicate> lowerMatcher = anyPredicate();
+    private static final BindingMatcher<Quantifier.ForEach> upperQunMatcher =
+            forEachQuantifier(
+                    logicalFilterExpression(
+                            all(lowerMatcher),
+                            exactly(lowerQunMatcher)));
 
-    private static final ExpressionMatcher<LogicalFilterExpression> root = TypeWithPredicateMatcher.ofPredicate(
-            LogicalFilterExpression.class,
-            upperMatcher,
-            upperQunMatcher);
+    private static final BindingMatcher<QueryPredicate> upperMatcher = anyPredicate();
+    private static final BindingMatcher<LogicalFilterExpression> root =
+            logicalFilterExpression(all(upperMatcher),
+                    exactly(upperQunMatcher));
 
     public CombineFilterRule() {
         super(root);
@@ -97,18 +103,22 @@ public class CombineFilterRule extends PlannerRule<LogicalFilterExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final ExpressionRef<?> inner = call.get(innerMatcher);
-        final Quantifier.ForEach lowerQun = call.get(lowerQunMatcher);
-        final QueryPredicate lowerPred = call.get(lowerMatcher);
+        final PlannerBindings bindings = call.getBindings();
+        final ExpressionRef<?> inner = bindings.get(innerMatcher);
+        final Quantifier.ForEach lowerQun = bindings.get(lowerQunMatcher);
+        final List<? extends QueryPredicate> lowerPreds = bindings.getAll(lowerMatcher);
         final Quantifier.ForEach upperQun = call.get(upperQunMatcher);
-        final QueryPredicate upperPred = call.get(upperMatcher);
-
+        final List<? extends QueryPredicate> upperPreds = bindings.getAll(upperMatcher);
+        
         final Quantifier.ForEach newUpperQun =
                 Quantifier.forEach(inner, upperQun.getAlias());
                         
-        final QueryPredicate newLowerPred = lowerPred.rebase(Quantifiers.translate(lowerQun, newUpperQun));
+        final List<? extends QueryPredicate> newLowerPred =
+                lowerPreds.stream()
+                        .map(lowerPred -> lowerPred.rebase(Quantifiers.translate(lowerQun, newUpperQun)))
+                        .collect(ImmutableList.toImmutableList());
         call.yield(call.ref(
-                new LogicalFilterExpression(ImmutableList.of(upperPred, newLowerPred),
+                new LogicalFilterExpression(Iterables.concat(upperPreds, newLowerPred),
                         newUpperQun)));
     }
 }

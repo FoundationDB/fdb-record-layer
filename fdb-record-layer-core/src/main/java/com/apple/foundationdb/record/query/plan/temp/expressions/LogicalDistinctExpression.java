@@ -27,9 +27,13 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
+import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
@@ -46,7 +50,7 @@ import java.util.function.Supplier;
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalDistinctExpression implements RelationalExpressionWithChildren {
+public class LogicalDistinctExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
     @Nonnull
     private final Quantifier inner;
     @Nonnull
@@ -124,5 +128,16 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     @Override
     public int hashCode() {
         return semanticHashCode();
+    }
+
+    @Nonnull
+    @Override
+    public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
+        return PlannerGraph.fromNodeAndChildGraphs(
+                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                        NodeInfo.UNORDERED_DISTINCT_OPERATOR,
+                        ImmutableList.of(),
+                        ImmutableMap.of()),
+                childGraphs);
     }
 }

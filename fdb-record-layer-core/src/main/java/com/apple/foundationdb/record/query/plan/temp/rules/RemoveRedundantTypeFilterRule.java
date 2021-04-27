@@ -26,15 +26,16 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalTypeFilterExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 
 /**
  * A rule that eliminates logical type filters that are completely redundant; that is, when the child of the logical
@@ -42,9 +43,8 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RemoveRedundantTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static ExpressionMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatcher.forEach(ReferenceMatcher.anyRef());
-    private static ExpressionMatcher<LogicalTypeFilterExpression> root =
-            TypeMatcher.of(LogicalTypeFilterExpression.class, qunMatcher);
+    private static final BindingMatcher<Quantifier.ForEach> qunMatcher = QuantifierMatchers.forEachQuantifier();
+    private static final BindingMatcher<LogicalTypeFilterExpression> root = logicalTypeFilterExpression(exactly(qunMatcher));
 
     public RemoveRedundantTypeFilterRule() {
         super(root);

@@ -29,6 +29,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -190,4 +192,12 @@ public interface QueryPlan<T> extends PlanHashable, RelationalExpression {
      */
     @SuppressWarnings("squid:S1452") // wildcards in return type
     List<? extends QueryPlan<?>> getQueryPlanChildren();
+
+    default Iterable<? extends QueryPlan<?>> collectDescendantPlans() {
+        Iterable<? extends QueryPlan<?>> result = ImmutableList.of();
+        for (final QueryPlan<?> queryPlanChild : getQueryPlanChildren()) {
+            result = Iterables.concat(result, queryPlanChild.collectDescendantPlans(), ImmutableList.of(queryPlanChild));
+        }
+        return result;
+    }
 }

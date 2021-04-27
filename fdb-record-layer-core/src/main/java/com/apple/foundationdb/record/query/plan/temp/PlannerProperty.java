@@ -32,7 +32,7 @@ import java.util.Objects;
  * An interface for certain Cascades-style properties, which are measurable features of an expression other than the
  * structure of the expression tree. In particular, a {@code PlannerProperty} is a property that depends on (much of)
  * the contents of the subtree rooted at the expression on which it is evaluated, rather than just a finite depth set
- * of paths as a {@link com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher} would. For example,
+ * of paths as a {@link com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher} would. For example,
  * the sort order and set of record types produced by a
  * {@link RelationalExpression} could be a
  * {@code PlannerProperty}.

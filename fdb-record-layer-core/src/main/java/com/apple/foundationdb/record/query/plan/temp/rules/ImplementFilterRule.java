@@ -29,28 +29,31 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.matchers.AnyChildrenMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypeWithPredicateMatcher;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalFilterExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
 
 /**
  * A rule that implements a logical filter around a {@link RecordQueryPlan} as a {@link RecordQueryFilterPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final ExpressionMatcher<RecordQueryPlan> innerPlanMatcher = TypeMatcher.of(RecordQueryPlan.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatcher.forEach(innerPlanMatcher);
-    private static final ExpressionMatcher<QueryPredicate> filterMatcher = TypeMatcher.of(QueryPredicate.class, AnyChildrenMatcher.ANY);
-    private static final ExpressionMatcher<LogicalFilterExpression> root =
-            TypeWithPredicateMatcher.ofPredicate(LogicalFilterExpression.class,
-                    filterMatcher,
-                    innerQuantifierMatcher);
+    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
+    private static final BindingMatcher<QueryPredicate> filterMatcher = anyPredicate();
+    private static final BindingMatcher<LogicalFilterExpression> root =
+            logicalFilterExpression(all(filterMatcher), exactly(innerQuantifierMatcher));
 
     public ImplementFilterRule() {
         super(root);
@@ -58,11 +61,12 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
-        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
-        final QueryPredicate queryPredicate = call.get(filterMatcher);
+        final PlannerBindings bindings = call.getBindings();
+        final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
+        final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
+        final List<? extends QueryPredicate> queryPredicates = bindings.getAll(filterMatcher);
 
-        if (queryPredicate.isTautology()) {
+        if (queryPredicates.stream().allMatch(QueryPredicate::isTautology)) {
             call.yield(GroupExpressionRef.of(innerPlan));
         } else {
             call.yield(GroupExpressionRef.of(
@@ -70,7 +74,7 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
                             Quantifier.physicalBuilder()
                                     .morphFrom(innerQuantifier)
                                     .build(call.ref(innerPlan)),
-                            AndPredicate.conjuncts(queryPredicate))));
+                            queryPredicates)));
         }
     }
 }
