@@ -32,11 +32,12 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
-import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -79,7 +80,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
         final UUID newSessionId = UUID.randomUUID();
         SynchronizedSession session = new SynchronizedSession(lockSubspace, newSessionId, leaseLengthMill);
         return runner.runAsync(context -> session.initializeSessionAsync(context.ensureActive()),
-                Lists.newArrayList(
+                Arrays.asList(
                         LogMessageKeys.TRANSACTION_NAME, "SynchronizedSessionRunner::startSession",
                         LogMessageKeys.SESSION_ID, session.getSessionId(),
                         LogMessageKeys.SUBSPACE, lockSubspace))
@@ -161,7 +162,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
         // Using the underlying runner rather than itself because it should not throw any exception if the session
         // does not hold the lock.
         return underlying.runAsync(context -> session.releaseLock(context.ensureActive()),
-                Lists.newArrayList(LogMessageKeys.TRANSACTION_NAME, "SynchronizedSessionRunner::endSession",
+                Arrays.asList(LogMessageKeys.TRANSACTION_NAME, "SynchronizedSessionRunner::endSession",
                         LogMessageKeys.SESSION_ID, session.getSessionId()));
     }
 
@@ -182,7 +183,7 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
         return underlying.runAsync(context -> {
             session.endAnySession(context.ensureActive());
             return AsyncUtil.DONE;
-        }, Lists.newArrayList(
+        }, Arrays.asList(
                 LogMessageKeys.TRANSACTION_NAME, "SynchronizedSessionRunner::endAnySession",
                 LogMessageKeys.SESSION_ID, session.getSessionId()));
     }
@@ -195,14 +196,26 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     }
 
     @Override
-    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable, @Nullable List<Object> additionalLogMessageKeyValues) {
+    public <T> T run(@Nonnull Function<? super FDBRecordContext, ? extends T> retriable,
+                     @Nullable List<Object> additionalLogMessageKeyValues) {
         return underlying.run(runInSession(retriable), additionalLogMessageKeyValues);
     }
 
     @Override
     @Nonnull
-    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable, @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction, @Nullable List<Object> additionalLogMessageKeyValues) {
-        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction, additionalLogMessageKeyValues);
+    public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                             @Nonnull BiFunction<? super T, Throwable, ? extends Pair<? extends T, ? extends Throwable>> handlePostTransaction,
+                                             @Nullable List<Object> additionalLogMessageKeyValues) {
+        final List<Object> logDetails;
+        if (additionalLogMessageKeyValues == null || additionalLogMessageKeyValues.isEmpty()) {
+            logDetails = Arrays.asList(LogMessageKeys.SESSION_ID, session.getSessionId());
+        } else {
+            logDetails = new ArrayList<>(additionalLogMessageKeyValues);
+            logDetails.add(LogMessageKeys.SESSION_ID);
+            logDetails.add(session.getSessionId());
+        }
+
+        return underlying.runAsync(runInSessionAsync(retriable), handlePostTransaction, logDetails);
     }
 
     // The other methods below simply delegate to the implementations of the underlying runner, including the three
@@ -295,4 +308,6 @@ public class SynchronizedSessionRunner implements FDBDatabaseRunner {
     public SynchronizedSessionRunner joinSynchronizedSession(@Nonnull Subspace lockSubspace, @Nonnull UUID sessionId, long leaseLengthMillis) {
         return underlying.joinSynchronizedSession(lockSubspace, sessionId, leaseLengthMillis);
     }
+
+
 }

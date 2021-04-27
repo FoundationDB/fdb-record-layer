@@ -45,7 +45,6 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -614,7 +613,7 @@ public class OnlineIndexer implements AutoCloseable {
     public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
                 stopOngoingOnlineIndexBuilds(recordStore, index)),
-                runAsyncDetails("OnlineIndexer::stopOngoingOnlineIndexBuilds"));
+                common.indexLogMessageKeyValues("OnlineIndexer::stopOngoingOnlineIndexBuilds"));
     }
 
     /**
@@ -649,7 +648,8 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
-                checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)), runAsyncDetails("OnlineIndexer::checkAnyOngoingOnlineIndexBuilds"));
+                checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)),
+                common.indexLogMessageKeyValues("OnlineIndexer::checkAnyOngoingOnlineIndexBuilds"));
     }
 
     /**
@@ -761,7 +761,7 @@ public class OnlineIndexer implements AutoCloseable {
                                     .thenApply(vignore2 -> true);
                         }
                     });
-        }), runAsyncDetails("OnlineIndexer::markReadableIfBuilt"));
+        }), common.indexLogMessageKeyValues("OnlineIndexer::markReadableIfBuilt"));
     }
 
     /**
@@ -774,7 +774,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public CompletableFuture<Boolean> markReadable() {
         return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose(store -> store.markIndexReadable(index)), runAsyncDetails("OnlineIndexer::markReadable"));
+                .thenCompose(store -> store.markIndexReadable(index)), common.indexLogMessageKeyValues("OnlineIndexer::markReadable"));
     }
 
     /**
@@ -1990,14 +1990,6 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public static OnlineIndexer forRecordStoreAndIndex(@Nonnull FDBRecordStore recordStore, @Nonnull String index) {
         return newBuilder().setRecordStore(recordStore).setIndex(index).build();
-    }
-
-    protected List<Object> runAsyncDetails(String transactionName, Object ...keysAndValues) {
-        return new ImmutableList.Builder<>()
-                .add(LogMessageKeys.TRANSACTION_NAME, transactionName)
-                .add(common.indexLogMessageKeyValues())
-                .add(keysAndValues)
-                .build();
     }
 
     /**

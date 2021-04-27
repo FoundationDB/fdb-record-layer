@@ -215,6 +215,7 @@ public enum LogMessageKeys {
     RESOLVER_KEY("resolver_key"),
     RESOLVER_PATH("resolver_path"),
     RESOLVER_METADATA("resolver_metadata"),
+    CACHED_KEY("cached_key"),
     CACHED_STATE("cached_state"),
     READ_STATE("read_state"),
     SHARED_READ_VERSION("shared_read_version"),

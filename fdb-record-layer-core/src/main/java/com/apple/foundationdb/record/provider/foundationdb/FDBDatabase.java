@@ -930,8 +930,7 @@ public class FDBDatabase {
     @Nonnull
     @API(API.Status.MAINTAINED)
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
-        final FDBDatabaseRunner runner = newRunner();
-        return runner.runAsync(retriable).whenComplete((t, e) -> runner.close());
+        return runAsync(retriable, null);
     }
 
     /**
@@ -950,7 +949,7 @@ public class FDBDatabase {
     @Nonnull
     @API(API.Status.EXPERIMENTAL)
     public <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull List<Object> additionalLogMessageKeyValues) {
+                                             @Nullable List<Object> additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = newRunner();
         return runner.runAsync(retriable, additionalLogMessageKeyValues).whenComplete((t, e) -> runner.close());
     }
@@ -973,8 +972,7 @@ public class FDBDatabase {
     @API(API.Status.MAINTAINED)
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable) {
-        final FDBDatabaseRunner runner = newRunner(timer, mdcContext);
-        return runner.runAsync(retriable).whenComplete((t, e) -> runner.close());
+        return runAsync(timer, mdcContext, retriable, null);
     }
 
     /**
@@ -996,7 +994,7 @@ public class FDBDatabase {
     @API(API.Status.MAINTAINED)
     public <T> CompletableFuture<T> runAsync(@Nullable FDBStoreTimer timer, @Nullable Map<String, String> mdcContext,
                                              @Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
-                                             @Nonnull List<Object> additionalLogMessageKeyValues) {
+                                             @Nullable List<Object> additionalLogMessageKeyValues) {
         final FDBDatabaseRunner runner = newRunner(timer, mdcContext);
         return runner.runAsync(retriable, additionalLogMessageKeyValues).whenComplete((t, e) -> runner.close());
     }

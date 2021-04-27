@@ -310,7 +310,7 @@ public class FDBReverseDirectoryCache {
                         .addLogInfo(LogMessageKeys.RESOLVER, scope)
                         .addLogInfo(LogMessageKeys.RESOLVER_PATH, pathString)
                         .addLogInfo(LogMessageKeys.RESOLVER_KEY, pathValue)
-                        .addLogInfo("cached_key", cachedString);
+                        .addLogInfo(LogMessageKeys.CACHED_KEY, cachedString);
             }
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug("In-memory cache contains '" + pathString + "' -> '" + pathValue + "' mapping. No need to put");
@@ -336,7 +336,7 @@ public class FDBReverseDirectoryCache {
                             .addLogInfo(LogMessageKeys.RESOLVER, scopedPathString.getScope())
                             .addLogInfo(LogMessageKeys.RESOLVER_PATH, pathString)
                             .addLogInfo(LogMessageKeys.RESOLVER_KEY, pathValue)
-                            .addLogInfo("cached_key", readValue);
+                            .addLogInfo(LogMessageKeys.CACHED_KEY, readValue);
                 }
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("Put unnecessary, found path '" + readValue + "'' in reverse lookup for value '"

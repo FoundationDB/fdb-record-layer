@@ -24,11 +24,11 @@ import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.system.SystemKeyspace;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -69,7 +69,7 @@ public class FDBSystemOperations {
             final Transaction tr = context.ensureActive();
             tr.options().setReadSystemKeys();
             return tr.get(SystemKeyspace.PRIMARY_DATACENTER_KEY).thenApply(FDBSystemOperations::nullableUtf8);
-        }, Lists.newArrayList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getPrimaryDatacenterAsync"));
+        }, Arrays.asList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getPrimaryDatacenterAsync"));
     }
 
     /**
@@ -110,7 +110,7 @@ public class FDBSystemOperations {
     @Nonnull
     public static CompletableFuture<String> getConnectionStringAsync(@Nonnull FDBDatabaseRunner runner) {
         return runner.runAsync(FDBSystemOperations::getConnectionStringAsyncInternal,
-                Lists.newArrayList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getConnectionStringAsync"));
+                Arrays.asList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getConnectionStringAsync"));
     }
 
     /**
@@ -144,7 +144,7 @@ public class FDBSystemOperations {
     @Nonnull
     public static CompletableFuture<String> getClusterFilePathAsync(@Nonnull FDBDatabaseRunner runner) {
         return runner.runAsync(FDBSystemOperations::getClusterFilePathAsyncInternal,
-                Lists.newArrayList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getClusterFilePathAsync"));
+                Arrays.asList(LogMessageKeys.TRANSACTION_NAME, "FDBSystemOperations::getClusterFilePathAsync"));
     }
 
     /**

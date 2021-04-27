@@ -143,7 +143,7 @@ public class ScopedInterningLayer extends LocatableResolver {
         return database.runAsync(context -> interningLayerFuture.thenCompose(layer -> layer.setWindow(context, count)),
                 Lists.newArrayList(
                         LogMessageKeys.TRANSACTION_NAME, "ScopedInterningLayer::setWindow",
-                        LogMessageKeys.RESOLVER));
+                        LogMessageKeys.RESOLVER, this));
     }
 
     @Override
