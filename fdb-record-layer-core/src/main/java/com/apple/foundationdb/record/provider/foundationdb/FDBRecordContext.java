@@ -551,7 +551,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 });
         // Instrument batch priority transactions and non-batch priority transactions separately as additional latency
         // is expected from back pressure on batch priority transactions.
-        FDBStoreTimer.Event grvEvent = FDBTransactionPriority.BATCH.equals(priority) ? FDBStoreTimer.Events.BATCH_GET_READ_VERSION : FDBStoreTimer.Events.GET_READ_VERSION;
+        StoreTimer.Event grvEvent = FDBTransactionPriority.BATCH.equals(priority) ? FDBStoreTimer.Events.BATCH_GET_READ_VERSION : FDBStoreTimer.Events.GET_READ_VERSION;
         localReadVersionFuture = instrument(grvEvent, localReadVersionFuture, startTimeNanos);
         readVersionFuture = localReadVersionFuture;
         return localReadVersionFuture;
