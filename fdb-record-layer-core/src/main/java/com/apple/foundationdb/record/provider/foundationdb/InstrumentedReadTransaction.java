@@ -185,12 +185,12 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     @Override
-    public <T> T read(Function<? super ReadTransaction, T> function) {
+    public <U> U read(Function<? super ReadTransaction, U> function) {
         return function.apply(this);
     }
 
     @Override
-    public <T> CompletableFuture<T> readAsync(Function<? super ReadTransaction, ? extends CompletableFuture<T>> function) {
+    public <U> CompletableFuture<U> readAsync(Function<? super ReadTransaction, ? extends CompletableFuture<U>> function) {
         return AsyncUtil.applySafely(function, this);
     }
 
@@ -268,6 +268,8 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     @Nonnull
     protected String loggable(@Nonnull byte[] value) {
         if (value.length <= MAX_LOGGED_BYTES + 20) {
+            // safe because value is @Nonnull, so loggable() won't return null either
+            //noinspection ConstantConditions
             return ByteArrayUtil2.loggable(value);
         }
 
@@ -278,14 +280,25 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
                 + " bytes";
     }
 
+    @Override
+    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final byte[] begin, final byte[] end) {
+        return underlying.getEstimatedRangeSizeBytes(begin,end);
+    }
+
+    @Override
+    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final Range range) {
+        return underlying.getEstimatedRangeSizeBytes(range);
+    }
+
     private class ByteCountingAsyncIterable implements AsyncIterable<KeyValue> {
-        private AsyncIterable<KeyValue> underlying;
+        private final AsyncIterable<KeyValue> underlying;
 
         public ByteCountingAsyncIterable(AsyncIterable<KeyValue> underlying) {
             this.underlying = underlying;
         }
 
         @Override
+        @Nonnull
         public AsyncIterator<KeyValue> iterator() {
             return new ByteCountingAsyncIterator(underlying.iterator());
         }
@@ -304,7 +317,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     private class ByteCountingAsyncIterator implements AsyncIterator<KeyValue> {
-        private AsyncIterator<KeyValue> underlying;
+        private final AsyncIterator<KeyValue> underlying;
 
         public ByteCountingAsyncIterator(AsyncIterator<KeyValue> iterator) {
             this.underlying = iterator;

@@ -158,7 +158,7 @@ public class FDBDatabaseFactory {
             }
             if (runLoopProfilingEnabled) {
                 // Note: will be renamed to "run loop profiling" in FDB 6.3
-                options.setEnableSlowTaskProfiling();
+                options.setEnableRunLoopProfiling();
             }
             if (networkExecutor == null) {
                 fdb.startNetwork();
