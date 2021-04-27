@@ -115,6 +115,7 @@ public class FDBDatabaseFactory {
     private long stateRefreshTimeMillis = TimeUnit.SECONDS.toMillis(FDBDatabase.DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS);
     private long transactionTimeoutMillis = DEFAULT_TR_TIMEOUT_MILLIS;
     private boolean runLoopProfilingEnabled;
+    private int threadsPerClientVersion = 1; //default is 1, which is basically disabled
 
     /**
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
@@ -159,6 +160,7 @@ public class FDBDatabaseFactory {
             if (runLoopProfilingEnabled) {
                 options.setEnableRunLoopProfiling();
             }
+            options.setClientThreadsPerVersion(threadsPerClientVersion);
             if (networkExecutor == null) {
                 fdb.startNetwork();
             } else {
@@ -364,6 +366,26 @@ public class FDBDatabaseFactory {
             throw new RecordCoreException("run loop profiling can not be enabled as the client has already started");
         }
         this.runLoopProfilingEnabled = runLoopProfilingEnabled;
+    }
+
+    /**
+     * Set the number of threads per FDB client version. The default value is 1.
+     *
+     * @param threadsPerClientVersion the number of threads per client version. Cannot be less than 1
+     */
+    public synchronized void setThreadsPerClientVersion(int threadsPerClientVersion) {
+        if (inited) {
+            throw new RecordCoreException("threads per client version cannot be changed as the client has already started");
+        }
+        if (threadsPerClientVersion < 1) {
+            //if the thread count is too low, disable the setting
+            threadsPerClientVersion = 1;
+        }
+        this.threadsPerClientVersion = threadsPerClientVersion;
+    }
+
+    public synchronized int getThreadsPerClientVersion(int threadsPerClientVersion) {
+        return threadsPerClientVersion;
     }
 
     /**
