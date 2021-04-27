@@ -365,7 +365,7 @@ public class StoreTimer {
      * {@link Event}s that are a significant part of a larger process.
      * The time in these events should be accounted for within another event and so should not be added to totals.
      */
-    public interface DetailEvent extends Event {
+    public interface DetailEvent extends StoreTimer.Event {
     }
 
     /**
@@ -373,14 +373,14 @@ public class StoreTimer {
      * The time for a {@code Wait} is the time actually waiting, which may be shorter than the time for the asynchronous
      * operation itself.
      */
-    public interface Wait extends Event {
+    public interface Wait extends StoreTimer.Event {
     }
 
     /**
      * {@link Event}s that only count occurrences or total size.
      * There is no meaningful time duration associated with these events.
      */
-    public interface Count extends Event {
+    public interface Count extends StoreTimer.Event {
         /**
          * Get whether the count value is actually a size in bytes.
          *

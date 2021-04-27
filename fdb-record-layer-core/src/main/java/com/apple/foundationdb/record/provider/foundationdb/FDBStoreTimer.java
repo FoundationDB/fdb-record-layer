@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.EventKeeper;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -36,12 +37,12 @@ import java.util.stream.Stream;
  * A {@link StoreTimer} associated with {@link FDBRecordStore} operations.
  */
 @API(API.Status.STABLE)
-public class FDBStoreTimer extends StoreTimer {
+public class FDBStoreTimer extends StoreTimer implements com.apple.foundationdb.EventKeeper {
 
     /**
      * Ordinary top-level events which surround a single body of code.
      */
-    public enum Events implements Event {
+    public enum Events implements StoreTimer.Event {
         /** The amount of time taken performing a no-op. */
         PERFORM_NO_OP("perform no-op"),
         /**
@@ -212,7 +213,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** The total number of timeouts that have happened during asyncToSync and their durations. */
         TIMEOUTS("timeouts"),
         /** Total number and duration of commits. */
-        COMMITS("commits")
+        COMMITS("commits"),
+        /** Time for FDB fetches.*/
+        FDB_FETCH_TIME("fdb fetch")
         ;
 
         private final String title;
@@ -220,7 +223,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = (logKey != null) ? logKey : Event.super.logKey();
+            this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
         }
 
         Events(String title) {
@@ -610,7 +613,16 @@ public class FDBStoreTimer extends StoreTimer {
         DELETES("deletes", false),
         /** Total number of mutation operations. */
         MUTATIONS("mutations", false),
-        ;
+        /** JNI Calls in FDB.*/
+        FDB_JNI_CALLS("FDB jni calls",false),
+        /**Bytes read from FDB.*/
+        FDB_BYTES_FETCHED("FDB bytes fetched",false),
+        /** Number of network fetches performed by FDB.*/
+        FDB_RANGE_QUERY_FETCHES("FDB Range query fetches",false),
+        /** Number of records fetched during a range scan.*/
+        FDB_RANGE_QUERY_RECORDS_FETCHED("FDB range records ",false ),
+        /** Number of chunk reads that failed.*/
+        FDB_CHUNK_READ_FAILURES("FDB read fails",false );
 
         private final String title;
         private final boolean isSize;
@@ -722,7 +734,7 @@ public class FDBStoreTimer extends StoreTimer {
             .add(CountAggregates.values())
             .build();
 
-    protected static Stream<Event> possibleEvents() {
+    protected static Stream<StoreTimer.Event> possibleEvents() {
         return Stream.of(
                 Events.values(),
                 DetailEvents.values(),
@@ -752,5 +764,65 @@ public class FDBStoreTimer extends StoreTimer {
         final long totalNanos = System.nanoTime() - startTime;
         getCounter(Events.TIMEOUTS, true).record(totalNanos);
         getTimeoutCounter(event, true).record(totalNanos);
+    }
+
+    @Override
+    public void count(final EventKeeper.Event event, final long amt) {
+        if (event instanceof EventKeeper.Events) {
+            EventKeeper.Events fdbEvent = (EventKeeper.Events)event;
+            switch (fdbEvent) {
+            case JNI_CALL:
+                increment(Counts.FDB_JNI_CALLS, (int)amt);
+                break;
+            case BYTES_FETCHED:
+                increment(Counts.FDB_BYTES_FETCHED, (int)amt);
+                break;
+            case RANGE_QUERY_FETCHES:
+                increment(Counts.FDB_RANGE_QUERY_FETCHES, (int)amt);
+                break;
+            case RANGE_QUERY_RECORDS_FETCHED:
+                increment(Counts.FDB_RANGE_QUERY_RECORDS_FETCHED, (int)amt);
+                break;
+            case RANGE_QUERY_CHUNK_FAILED:
+                increment(Counts.FDB_CHUNK_READ_FAILURES, (int)amt);
+                break;
+            case RANGE_QUERY_FETCH_TIME_NANOS:
+                record(Events.FDB_FETCH_TIME,(int)amt);
+                break;
+            default:
+                //do-nothing
+            }
+        }
+    }
+
+    @Override
+    public void timeNanos(final EventKeeper.Event event, final long nanos) {
+        count(event,nanos);
+    }
+
+    @Override
+    public long getCount(final EventKeeper.Event event) {
+        if (event instanceof EventKeeper.Events) {
+            EventKeeper.Events fdbEvent = (EventKeeper.Events)event;
+            switch(fdbEvent){
+            case JNI_CALL:
+                return getCount(Counts.FDB_JNI_CALLS);
+            case BYTES_FETCHED:
+                return getCount(Counts.FDB_BYTES_FETCHED);
+            case RANGE_QUERY_FETCHES:
+                return getCount(Counts.FDB_RANGE_QUERY_FETCHES);
+            case RANGE_QUERY_RECORDS_FETCHED:
+                return getCount(Counts.FDB_RANGE_QUERY_RECORDS_FETCHED);
+            case RANGE_QUERY_CHUNK_FAILED:
+                return getCount(Counts.FDB_CHUNK_READ_FAILURES);
+            }
+        }
+        //by default, just return 0
+        return 0;
+    }
+
+    @Override
+    public long getTimeNanos(final EventKeeper.Event event) {
+        return getCount(event);
     }
 }
