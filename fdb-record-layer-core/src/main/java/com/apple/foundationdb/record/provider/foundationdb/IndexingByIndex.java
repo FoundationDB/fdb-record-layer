@@ -146,7 +146,7 @@ public class IndexingByIndex extends IndexingBase {
                                 return subspaceProvider.getSubspaceAsync(context)
                                         .thenCompose(subspace -> buildIndexFromIndex(subspaceProvider, subspace, null, null));
                             });
-                }));
+                }), common.indexLogMessageKeyValues("IndexingByIndex::buildIndexInternalAsync"));
     }
 
     @Nonnull

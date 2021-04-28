@@ -130,6 +130,7 @@ public abstract class IndexingBase {
 
     // (methods order: as a rule of thumb, let sub-routines follow their callers)
 
+
     // buildIndexAsync - the main indexing function. Builds and commits indexes asynchronously; throttling to avoid overloading the system.
     public CompletableFuture<Void> buildIndexAsync(boolean markReadable) {
         KeyValueLogMessage message = KeyValueLogMessage.build("build index online",
@@ -141,7 +142,8 @@ public abstract class IndexingBase {
         Index index = common.getIndex();
         if (common.isUseSynchronizedSession()) {
             buildIndexAsyncFuture = runner
-                    .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)))
+                    .runAsync(context -> openRecordStore(context).thenApply(store -> indexBuildLockSubspace(store, index)),
+                            common.indexLogMessageKeyValues("IndexingBase::indexBuildLockSubspace"))
                     .thenCompose(lockSubspace -> runner.startSynchronizedSessionAsync(lockSubspace, common.getLeaseLengthMillis()))
                     .thenCompose(synchronizedRunner -> {
                         message.addKeyAndValue(LogMessageKeys.SESSION_ID, synchronizedRunner.getSessionId());
@@ -251,7 +253,7 @@ public abstract class IndexingBase {
                 // a continuation of another session
                 return setIndexingTypeOrThrow(store, true).thenApply(ignore -> true);
             }
-        })
+        }), common.indexLogMessageKeyValues("IndexingBase::handleIndexingState")
         ).thenCompose(doIndex ->
                 doIndex ?
                 buildIndexInternalAsync().thenApply(ignore -> markReadable) :
@@ -265,7 +267,7 @@ public abstract class IndexingBase {
         }
         return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose(store -> store.markIndexReadable(common.getIndex()))
-                .thenApply(ignore -> null));
+                .thenApply(ignore -> null), common.indexLogMessageKeyValues("IndexingBase::markIndexReadable"));
     }
 
     public void setFallbackMode() {
@@ -612,7 +614,6 @@ public abstract class IndexingBase {
         }
         return null;
     }
-
 }
 
 

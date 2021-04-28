@@ -323,6 +323,23 @@ public interface FDBDatabaseRunner extends AutoCloseable {
 
     /**
      * Runs a transactional function asynchronously with retry logic.
+     * This is also a non-blocking call. See the appropriate overload of {@link #run}
+     * for the blocking version of this method.
+     *
+     * @param <T> return type of function to run
+     * @param retriable the database operation to run transactionally
+     * @param additionalLogMessageKeyValues additional key/value pairs to be included in logs
+     * @return future that will contain the result of {@code retriable} after successful run and commit
+     * @see #run(Function)
+     */
+    @Nonnull
+    default <T> CompletableFuture<T> runAsync(@Nonnull Function<? super FDBRecordContext, CompletableFuture<? extends T>> retriable,
+                                              @Nullable List<Object> additionalLogMessageKeyValues) {
+        return runAsync(retriable, Pair::of, additionalLogMessageKeyValues);
+    }
+
+    /**
+     * Runs a transactional function asynchronously with retry logic.
      * This is also a non-blocking call.
      *
      * @param retriable the database operation to run transactionally

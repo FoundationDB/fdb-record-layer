@@ -104,11 +104,24 @@ public class IndexingCommon {
     }
 
     public List<Object> indexLogMessageKeyValues() {
-        return Arrays.asList(
-                LogMessageKeys.INDEX_NAME, index.getName(),
-                LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
-                LogMessageKeys.INDEXER_ID, uuid);
+        return indexLogMessageKeyValues(null);
+    }
+
+    public List<Object> indexLogMessageKeyValues(@Nullable String transactionName) {
+        if (transactionName == null) {
+            return Arrays.asList(
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                    LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
+                    LogMessageKeys.INDEXER_ID, uuid);
+        } else {
+            return Arrays.asList(
+                    LogMessageKeys.TRANSACTION_NAME, transactionName,
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                    LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
+                    LogMessageKeys.INDEXER_ID, uuid);
+        }
     }
 
     @Nonnull

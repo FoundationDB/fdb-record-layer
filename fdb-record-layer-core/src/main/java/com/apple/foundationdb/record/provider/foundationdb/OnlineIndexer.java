@@ -612,7 +612,8 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public CompletableFuture<Void> stopOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenAccept(recordStore ->
-                stopOngoingOnlineIndexBuilds(recordStore, index)));
+                stopOngoingOnlineIndexBuilds(recordStore, index)),
+                common.indexLogMessageKeyValues("OnlineIndexer::stopOngoingOnlineIndexBuilds"));
     }
 
     /**
@@ -647,7 +648,8 @@ public class OnlineIndexer implements AutoCloseable {
      */
     public CompletableFuture<Boolean> checkAnyOngoingOnlineIndexBuildsAsync() {
         return runner.runAsync(context -> openRecordStore(context).thenCompose(recordStore ->
-                checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)));
+                checkAnyOngoingOnlineIndexBuildsAsync(recordStore, index)),
+                common.indexLogMessageKeyValues("OnlineIndexer::checkAnyOngoingOnlineIndexBuilds"));
     }
 
     /**
@@ -759,7 +761,7 @@ public class OnlineIndexer implements AutoCloseable {
                                     .thenApply(vignore2 -> true);
                         }
                     });
-        }));
+        }), common.indexLogMessageKeyValues("OnlineIndexer::markReadableIfBuilt"));
     }
 
     /**
@@ -772,7 +774,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public CompletableFuture<Boolean> markReadable() {
         return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose(store -> store.markIndexReadable(index)));
+                .thenCompose(store -> store.markIndexReadable(index)), common.indexLogMessageKeyValues("OnlineIndexer::markReadable"));
     }
 
     /**

@@ -45,6 +45,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -624,7 +625,10 @@ public class IndexingByRecords extends IndexingBase {
             RecordCursor<Tuple> cursor = common.getRecordStoreBuilder().copyBuilder().setContext(context).open()
                     .getPrimaryKeyBoundaries(tupleRange.getLow(), tupleRange.getHigh());
             return context.asyncToSync(FDBStoreTimer.Waits.WAIT_GET_BOUNDARY, cursor.asList());
-        });
+        }, Lists.newArrayList(
+                LogMessageKeys.TRANSACTION_NAME, "IndexingByRecords::getPrimaryKeyBoundaries",
+                LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                LogMessageKeys.RANGE, tupleRange));
 
         // Add the two endpoints if they are not in the result
         if (boundaries.isEmpty() || tupleRange.getLow().compareTo(boundaries.get(0)) < 0) {

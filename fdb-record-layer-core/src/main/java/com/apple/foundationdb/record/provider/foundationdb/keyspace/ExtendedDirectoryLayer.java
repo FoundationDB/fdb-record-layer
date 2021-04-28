@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBReverseDirectoryCache;
@@ -36,6 +37,7 @@ import com.google.common.primitives.Bytes;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -216,7 +218,10 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     @Override
     public CompletableFuture<Void> setWindow(long count) {
-        return database.runAsync(context -> getHca(context).thenAccept(hca -> hca.setWindow(count)));
+        return database.runAsync(context -> getHca(context).thenAccept(hca -> hca.setWindow(count)),
+                Arrays.asList(
+                        LogMessageKeys.TRANSACTION_NAME, "ExtendedDirectoryLayer::setWindow",
+                        LogMessageKeys.RESOLVER, this));
     }
 
     @Override
