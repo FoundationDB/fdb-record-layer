@@ -18,7 +18,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Uses of FDBDatabaseRunner include logging details for exception logging [(Issue #1255)](https://github.com/FoundationDB/fdb-record-layer/issues/1255)
-* **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** Passing a `RecordContext` to a `LocatableResolver` could fail with a non-retriable error when comparing committed and non-committed data in an in-memory cache [(Issue #1258)](https://github.com/FoundationDB/fdb-record-layer/issues/1258)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

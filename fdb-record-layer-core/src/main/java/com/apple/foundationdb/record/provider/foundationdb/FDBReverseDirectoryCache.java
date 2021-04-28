@@ -28,6 +28,7 @@ import com.apple.foundationdb.directory.DirectoryLayer;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -306,7 +307,11 @@ public class FDBReverseDirectoryCache {
         String cachedString = context.getDatabase().getReverseDirectoryInMemoryCache().getIfPresent(scope.wrap(pathValue));
         if (cachedString != null) {
             if (!cachedString.equals(pathString)) {
-                throw new RecordCoreException("Provided value for path key does not match existing value in reverse directory layer in-memory cache")
+                // If the cachedString does not match the resolvedString, then the provided value was probably allocated
+                // within this transaction and has not yet been committed and so may have allocated a value that was
+                // already allocated for something else. Throw a retriable exception so that it will be retried with a
+                // newer read version
+                throw new RecordCoreRetriableTransactionException("Provided value for path key does not match existing value in reverse directory layer in-memory cache")
                         .addLogInfo(LogMessageKeys.RESOLVER, scope)
                         .addLogInfo(LogMessageKeys.RESOLVER_PATH, pathString)
                         .addLogInfo(LogMessageKeys.RESOLVER_KEY, pathValue)

@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableRes
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.MetadataHook;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverCreateHooks.PreWriteCheck;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -43,6 +44,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import java.util.ArrayList;
@@ -83,6 +85,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
@@ -495,6 +498,37 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         String lookupString = globalScope.reverseLookup(null, value).join();
         assertThat("reverse lookup works in a new context", lookupString, is("something"));
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void testManyReverseLookup(boolean clearInMemoryReverseCache) {
+        final Map<Long, String> allocatedValues = new HashMap<>();
+
+        try (FDBRecordContext context = database.openContext()) {
+            for (int i = 0; i < 100; i++) {
+                String name = "something_" + i;
+                long value = globalScope.resolve(context, name).join();
+                assertThat("same value should not be allocated twice", allocatedValues, not(hasKey(value)));
+                allocatedValues.put(value, name);
+
+                // Immediately do reverse lookup and verify it worked. This also places the value in the in memory reverse cache
+                assertEquals(name, globalScope.reverseLookup(context.getTimer(), value).join());
+
+                if (clearInMemoryReverseCache) {
+                    // Optionally clear the cache. A cleared cache represents the case where two separate processes
+                    // are trying to allocate (potentially conflicting) entries in the resolver. A full cache
+                    // represents a single instance trying to make many allocations at once.
+                    context.getDatabase().getReverseDirectoryInMemoryCache().invalidateAll();
+                }
+            }
+        }
+
+        for (Map.Entry<Long, String> allocatedEntry : allocatedValues.entrySet()) {
+            long value = allocatedEntry.getKey();
+            String name = allocatedEntry.getValue();
+            assertEquals(name, globalScope.reverseLookup(null, value).join());
+        }
     }
 
     @Test
