@@ -73,7 +73,7 @@ public class FDBDatabaseFactory {
      */
     public static final long UNLIMITED_TR_TIMEOUT_MILLIS = 0L;
 
-    private static final int API_VERSION = 620;
+    private static final int API_VERSION = 630;
 
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
@@ -157,8 +157,7 @@ public class FDBDatabaseFactory {
                 options.setTraceLogGroup(traceLogGroup);
             }
             if (runLoopProfilingEnabled) {
-                // Note: will be renamed to "run loop profiling" in FDB 6.3
-                options.setEnableSlowTaskProfiling();
+                options.setEnableRunLoopProfiling();
             }
             if (networkExecutor == null) {
                 fdb.startNetwork();
