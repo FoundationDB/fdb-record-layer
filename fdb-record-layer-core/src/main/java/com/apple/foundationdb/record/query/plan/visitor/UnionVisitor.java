@@ -28,13 +28,11 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithRequiredFields;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlanBase;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -72,19 +70,13 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
         if (recordQueryPlan instanceof RecordQueryUnionPlanBase) {
             RecordQueryUnionPlanBase unionPlan = (RecordQueryUnionPlanBase) recordQueryPlan;
 
-            Set<KeyExpression> requiredFields;
-            if (unionPlan instanceof RecordQueryPlanWithRequiredFields) {
-                requiredFields = ((RecordQueryPlanWithRequiredFields)unionPlan).getRequiredFields();
-            } else {
-                requiredFields = Collections.emptySet();
-            }
-
+            final Set<KeyExpression> requiredFields = unionPlan.getRequiredFields();
             boolean shouldPullOutFilter = false;
             QueryComponent filter = null;
             if (unionPlan.getChildren().stream().allMatch(child -> child instanceof RecordQueryFilterPlan)) {
-                filter = ((RecordQueryFilterPlan) unionPlan.getChildren().get(0)).getFilter();
+                filter = ((RecordQueryFilterPlan) unionPlan.getChildren().get(0)).getConjunctedFilter();
                 final QueryComponent finalFilter = filter; // needed for lambda expression
-                shouldPullOutFilter = unionPlan.getChildren().stream().allMatch(plan -> ((RecordQueryFilterPlan) plan).getFilter().equals(finalFilter));
+                shouldPullOutFilter = unionPlan.getChildren().stream().allMatch(plan -> ((RecordQueryFilterPlan) plan).getConjunctedFilter().equals(finalFilter));
             }
 
             List<RecordQueryPlan> newChildren = new ArrayList<>(unionPlan.getChildren().size());

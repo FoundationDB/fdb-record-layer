@@ -87,6 +87,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -155,6 +156,12 @@ public class VersionIndexTest extends FDBTestBase {
         formatVersion = FDBRecordStore.MAX_SUPPORTED_FORMAT_VERSION;
         splitLongRecords = false;
     }
+
+    @Nonnull
+    private final RecordMetaDataHook noVersionHook = metaDataBuilder -> {
+        metaDataBuilder.setSplitLongRecords(splitLongRecords);
+        metaDataBuilder.setStoreRecordVersions(false);
+    };
 
     @Nonnull
     private final RecordMetaDataHook simpleVersionHook = metaDataBuilder -> {
@@ -620,6 +627,76 @@ public class VersionIndexTest extends FDBTestBase {
         }
     }
 
+    @ParameterizedTest(name = "versionstampSaveBehavior [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionArguments")
+    public void versionstampSaveBehaviorWhenInMetaData(int testFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+        versionststampSaveBehavior(simpleVersionHook);
+    }
+
+    @ParameterizedTest(name = "versionstampSaveBehavior [formatVersion = {0}, splitLongRecords = {1}]")
+    @MethodSource("formatVersionArguments")
+    public void versionstampSaveBehaviorWhenNotInMetaData(int testFormatVersion, boolean testSplitLongRecords) {
+        formatVersion = testFormatVersion;
+        splitLongRecords = testSplitLongRecords;
+        versionststampSaveBehavior(noVersionHook);
+    }
+
+    @SuppressWarnings("try")
+    private void versionststampSaveBehavior(RecordMetaDataHook hook) {
+        System.out.printf("format version = %d ; splitLongRecords = %s%n", formatVersion, splitLongRecords);
+        Map<Tuple, Optional<FDBRecordVersion>> storedVersions = new HashMap<>();
+
+        byte[] commitVersion;
+        try (FDBRecordContext context = openContext(hook)) {
+            // Try saving with a null version
+            FDBRecordVersion version1 = saveRecordAndRecordVersion(storedVersions, 1066L, null, FDBRecordStoreBase.VersionstampSaveBehavior.DEFAULT);
+            if (recordStore.getRecordMetaData().isStoreRecordVersions()) {
+                assertNotNull(version1);
+            } else {
+                assertNull(version1);
+            }
+            assertNull(saveRecordAndRecordVersion(storedVersions, 1215L, null, FDBRecordStoreBase.VersionstampSaveBehavior.NO_VERSION));
+            assertNotNull(saveRecordAndRecordVersion(storedVersions, 1415L, null, FDBRecordStoreBase.VersionstampSaveBehavior.WITH_VERSION));
+            assertNull(saveRecordAndRecordVersion(storedVersions, 800L, null, FDBRecordStoreBase.VersionstampSaveBehavior.IF_PRESENT));
+
+            // Try saving with a non-null version
+            FDBRecordVersion nonNullVersion = FDBRecordVersion.firstInDBVersion(context.getReadVersion());
+            assertEquals(nonNullVersion, saveRecordAndRecordVersion(storedVersions, 1564L, nonNullVersion, FDBRecordStoreBase.VersionstampSaveBehavior.DEFAULT));
+            assertThrows(RecordCoreException.class, () -> saveRecordAndRecordVersion(storedVersions, 10, nonNullVersion, FDBRecordStoreBase.VersionstampSaveBehavior.NO_VERSION));
+            assertEquals(nonNullVersion, saveRecordAndRecordVersion(storedVersions, 1818L, nonNullVersion, FDBRecordStoreBase.VersionstampSaveBehavior.WITH_VERSION));
+            assertEquals(nonNullVersion, saveRecordAndRecordVersion(storedVersions, 191, nonNullVersion, FDBRecordStoreBase.VersionstampSaveBehavior.IF_PRESENT));
+
+            context.commit();
+            commitVersion = context.getVersionStamp();
+        }
+
+        // In older format versions, the version was only read if the meta-data said to include it. This...might be a bug
+        // See: https://github.com/FoundationDB/fdb-record-layer/issues/964
+        if (metaData.isStoreRecordVersions() || formatVersion >= FDBRecordStore.SAVE_VERSION_WITH_RECORD_FORMAT_VERSION) {
+            try (FDBRecordContext context = openContext(hook)) {
+                for (Map.Entry<Tuple, Optional<FDBRecordVersion>> entry : storedVersions.entrySet()) {
+                    final Optional<FDBRecordVersion> completeVersionOptional = entry.getValue()
+                            .map(version -> version.isComplete() ? version : version.withCommittedVersion(commitVersion));
+                    assertEquals(completeVersionOptional,
+                            recordStore.loadRecordVersion(entry.getKey()), "unexpected version for record with key " + entry.getKey());
+                    final FDBStoredRecord<?> record = recordStore.loadRecord(entry.getKey());
+                    assertEquals(completeVersionOptional.orElse(null), record == null ? null : record.getVersion(),
+                            "version mismatch loading record with key " + entry.getKey());
+                }
+                context.commit();
+            }
+        }
+    }
+
+    @Nullable
+    private FDBRecordVersion saveRecordAndRecordVersion(@Nonnull Map<Tuple, Optional<FDBRecordVersion>> storedVersions, long recNo, @Nullable FDBRecordVersion version, FDBRecordStoreBase.VersionstampSaveBehavior behavior) {
+        FDBStoredRecord<?> storedRecord = recordStore.saveRecord(MySimpleRecord.newBuilder().setRecNo(recNo).build(), version, behavior);
+        storedVersions.put(storedRecord.getPrimaryKey(), Optional.ofNullable(storedRecord.getVersion()));
+        return storedRecord.getVersion();
+    }
+
     @ParameterizedTest(name = "enableRecordVersionsAfterTheFact [formatVersion = {0}, splitLongRecords = {1}]")
     @MethodSource("formatVersionArguments")
     @SuppressWarnings("try")
@@ -642,8 +719,7 @@ public class VersionIndexTest extends FDBTestBase {
         Index globalCountIndex = new Index("globalCount", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
 
         RecordMetaDataHook origHook = metaDataBuilder -> {
-            metaDataBuilder.setSplitLongRecords(splitLongRecords);
-            metaDataBuilder.setStoreRecordVersions(false);
+            noVersionHook.apply(metaDataBuilder);
             metaDataBuilder.addIndex((RecordTypeBuilder)null, globalCountIndex);
         };
         try (FDBRecordContext context = openContext(origHook)) {

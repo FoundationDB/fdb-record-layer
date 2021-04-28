@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -85,7 +86,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testMissingSeek() {
-        assertThrows(NullPointerException.class, () -> directory.readBlock("testDescription", directory.getFDBLuceneFileReference("testReference"), 1));
+        assertThrows(RecordCoreArgumentException.class, () -> directory.readBlock("testDescription", directory.getFDBLuceneFileReference("testReference"), 1));
     }
 
     @Test

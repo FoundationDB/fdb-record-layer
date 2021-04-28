@@ -1,5 +1,5 @@
 /*
- * LuceneIndexScanTypes.java
+ * LeafValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,30 +18,32 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.lucene;
+package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.IndexScanType;
+import com.google.common.collect.ImmutableList;
+
+import javax.annotation.Nonnull;
 
 /**
- * Scan Types for Lucene Scans.
+ * A scalar value type that has children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class LuceneIndexScanTypes {
-    /**
-     * Supports Lucene Query Syntax https://lucene.apache.org/core/2_9_4/queryparsersyntax.html
-     *
-     */
-    public static final IndexScanType BY_LUCENE_QUERY = new IndexScanType("BY_LUCENE_QUERY");
-    /**
-     * Return AUTO Complete for Field. (NOT IMPLEMENTED)
-     *
-     */
-    public static final IndexScanType LUCENE_AUTOCOMPLETE = new IndexScanType("LUCENE_AUTOCOMPLETE");
-    /**
-     * Return Lucene Query with positions for syntax highlighting. (NOT IMPLEMENTED)
-     *
-     */
-    public static final IndexScanType BY_LUCENE_QUERY_WITH_POSITIONS = new IndexScanType("BY_LUCENE_QUERY_WITH_POSITIONS");
+public interface LeafValue extends Value {
 
+    /**
+     * Method to retrieve a list of children values.
+     * @return a list of children
+     */
+    @Nonnull
+    @Override
+    default Iterable<? extends Value> getChildren() {
+        return ImmutableList.of();
+    }
+
+    @Nonnull
+    @Override
+    default LeafValue withChildren(@Nonnull final Iterable<? extends Value> newChildren) {
+        return this;
+    }
 }

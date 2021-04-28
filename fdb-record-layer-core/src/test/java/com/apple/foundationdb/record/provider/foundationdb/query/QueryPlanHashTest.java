@@ -66,8 +66,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testSingleEqualsFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 EQUALS 1
         RecordQueryPlan plan1 = createPlan("MySimpleRecord", Query.field("num_value_2").equalsValue(1));
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 EQUALS 2
         RecordQueryPlan plan2 = createPlan("MySimpleRecord", Query.field("num_value_2").equalsValue(2));
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 EQUALS $3
         RecordQueryPlan plan3 = createPlan("MySimpleRecord", Query.field("num_value_2").equalsParameter("3"));
 
         assertEquals(913370523, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -86,7 +89,9 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testSingleGtFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 GREATER_THAN 1
         RecordQueryPlan plan1 = createPlan("MySimpleRecord", Query.field("num_value_2").greaterThan(1));
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 GREATER_THAN 2
         RecordQueryPlan plan2 = createPlan("MySimpleRecord", Query.field("num_value_2").greaterThan(2));
 
         assertEquals(-167290686, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -101,7 +106,9 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testSingleGteFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 GREATER_THAN_OR_EQUALS 1
         RecordQueryPlan plan1 = createPlan("MySimpleRecord", Query.field("num_value_2").greaterThanOrEquals(1));
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 GREATER_THAN_OR_EQUALS 2
         RecordQueryPlan plan2 = createPlan("MySimpleRecord", Query.field("num_value_2").greaterThanOrEquals(2));
 
         assertEquals(-544375458, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -116,14 +123,17 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testOrEqualsFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | Or([num_value_2 EQUALS 1, num_value_2 EQUALS 2])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.or(
                         Query.field("num_value_2").equalsValue(1),
                         Query.field("num_value_2").equalsValue(2)));
+        // Scan(<,>) | [MySimpleRecord] | Or([num_value_2 EQUALS 3, num_value_2 EQUALS 4])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.or(
                         Query.field("num_value_2").equalsValue(3),
                         Query.field("num_value_2").equalsValue(4)));
+        // Scan(<,>) | [MySimpleRecord] | Or([num_value_2 EQUALS $5, num_value_2 EQUALS $6])
         RecordQueryPlan plan3 = createPlan("MySimpleRecord",
                 Query.or(
                         Query.field("num_value_2").equalsParameter("5"),
@@ -145,10 +155,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testAndGtFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | And([num_value_2 GREATER_THAN 1, num_value_2 LESS_THAN 3])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("num_value_2").greaterThan(1),
                         Query.field("num_value_2").lessThan(3)));
+        // Scan(<,>) | [MySimpleRecord] | And([num_value_2 GREATER_THAN 2, num_value_2 LESS_THAN 4])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("num_value_2").greaterThan(2),
@@ -166,10 +178,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testOrGtFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | Or([num_value_2 GREATER_THAN 1, num_value_2 LESS_THAN 3])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.or(
                         Query.field("num_value_2").greaterThan(1),
                         Query.field("num_value_2").lessThan(3)));
+        // Scan(<,>) | [MySimpleRecord] | Or([num_value_2 GREATER_THAN 2, num_value_2 LESS_THAN 4])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.or(
                         Query.field("num_value_2").greaterThan(2),
@@ -188,8 +202,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testNotEqualsFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_2 EQUALS 1)
         RecordQueryPlan plan1 = createPlan("MySimpleRecord", Query.not(Query.field("num_value_2").equalsValue(1)));
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_2 EQUALS 2)
         RecordQueryPlan plan2 = createPlan("MySimpleRecord", Query.not(Query.field("num_value_2").equalsValue(2)));
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_2 EQUALS $3)
         RecordQueryPlan plan3 = createPlan("MySimpleRecord", Query.not(Query.field("num_value_2").equalsParameter("3")));
 
         assertEquals(913370524, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -208,7 +225,9 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testNotGtFilter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_2 GREATER_THAN 1)
         RecordQueryPlan plan1 = createPlan("MySimpleRecord", Query.not(Query.field("num_value_2").greaterThan(1)));
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_2 GREATER_THAN 2)
         RecordQueryPlan plan2 = createPlan("MySimpleRecord", Query.not(Query.field("num_value_2").greaterThan(2)));
 
         assertEquals(-167290685, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -223,7 +242,9 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testRank() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 2
         RecordQueryPlan plan1 = createPlan("MySimpleRecord", Query.rank("num_value_2").equalsValue(2L));
+        // Scan(<,>) | [MySimpleRecord] | rank(Field { 'num_value_2' None} group 1) EQUALS 3
         RecordQueryPlan plan2 = createPlan("MySimpleRecord", Query.rank("num_value_2").equalsValue(3L));
 
         assertEquals(-615528291, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -238,10 +259,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testComplexQuery1g() throws Exception {
+        // Index(MySimpleRecord$str_value_indexed [[a],[a]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[3],[3]])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("str_value_indexed").equalsValue("a"),
                         Query.field("num_value_3_indexed").equalsValue(3)));
+        // Index(MySimpleRecord$str_value_indexed [[b],[b]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[3],[3]])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("str_value_indexed").equalsValue("b"),
@@ -259,10 +282,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testComplexQueryAndWithIncompatibleFilters() throws Exception {
+        // Index(MySimpleRecord$str_value_indexed {[e],[e]}) | num_value_3_indexed EQUALS 3
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("str_value_indexed").startsWith("e"),
                         Query.field("num_value_3_indexed").equalsValue(3)));
+        // Index(MySimpleRecord$str_value_indexed {[f],[f]}) | num_value_3_indexed EQUALS 3
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("str_value_indexed").startsWith("f"),
@@ -287,6 +312,7 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
                 metaData.addIndex("MySimpleRecord", new Index("index_2_3", "num_value_2", "num_value_3_indexed"));
             });
         }
+        // Index(index_2_3 [[1, 2],[1, 3]]) | And([str_value_indexed EQUALS q, num_value_unique EQUALS 0])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("str_value_indexed").equalsValue("q"),
@@ -294,6 +320,7 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsValue(1),
                         Query.field("num_value_3_indexed").greaterThanOrEquals(2),
                         Query.field("num_value_3_indexed").lessThanOrEquals(3)));
+        // Index(index_2_3 [[1, 2],[1, 3]]) | And([str_value_indexed EQUALS w, num_value_unique EQUALS 0])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("str_value_indexed").equalsValue("w"),
@@ -301,6 +328,7 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsValue(1),
                         Query.field("num_value_3_indexed").greaterThanOrEquals(2),
                         Query.field("num_value_3_indexed").lessThanOrEquals(3)));
+        // Index(index_2_3 [[1, 3],[1, 3]]) | And([str_value_indexed EQUALS w, num_value_unique EQUALS 0])
         RecordQueryPlan plan3 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("str_value_indexed").equalsValue("w"),
@@ -324,10 +352,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void sortedIntersectionBounded() throws Exception {
+        // Index(MySimpleRecord$num_value_3_indexed [[2],[2]]) | num_value_unique EQUALS 1
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.and(Query.field("num_value_unique").equalsValue(1),
                         Query.field("num_value_3_indexed").equalsValue(2)),
                 field("num_value_3_indexed"));
+        // Index(MySimpleRecord$num_value_3_indexed [[4],[4]]) | num_value_unique EQUALS 3
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.and(Query.field("num_value_unique").equalsValue(3),
                         Query.field("num_value_3_indexed").equalsValue(4)),
@@ -345,31 +375,38 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void sortedIntersectionUnbound() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | And([num_value_unique EQUALS 1, num_value_3_indexed EQUALS 2])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.and(Query.field("num_value_unique").equalsValue(1),
                         Query.field("num_value_3_indexed").equalsValue(2)),
                 field("rec_no"));
+        // Scan(<,>) | [MySimpleRecord] | And([num_value_unique EQUALS 3, num_value_3_indexed EQUALS 4])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.and(Query.field("num_value_unique").equalsValue(3),
                         Query.field("num_value_3_indexed").equalsValue(4)),
                 field("rec_no"));
 
-        assertEquals(575076824, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(575076888, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
+        // Index(MySimpleRecord$num_value_unique [[1],[1]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[2],[2]])
+        // Index(MySimpleRecord$num_value_unique [[3],[3]]) ∩ Index(MySimpleRecord$num_value_3_indexed [[4],[4]])
 
-        assertEquals(-554014099, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-554014035, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(62126310, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(62126374, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
 
-        assertEquals(-2050705076, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-2050705076, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(380936464, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(440041808, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+
+        assertEquals(-1611765649, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1611765649, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
     public void collateNoIndex() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | collate_jre(Field { 'str_value_indexed' None}) EQUALS collate_jre(a)
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.keyExpression(function("collate_jre", field("str_value_indexed"))).equalsValue("a"),
                 null,
                 Collections.singletonList(field("str_value_indexed")));
+        // Scan(<,>) | [MySimpleRecord] | collate_jre(Field { 'str_value_indexed' None}) EQUALS collate_jre(b)
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.keyExpression(function("collate_jre", field("str_value_indexed"))).equalsValue("b"),
                 null,
@@ -396,10 +433,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
             md.addIndex("MySimpleRecord", "collated_name", indexKey);
         };
         runHook(hook);
+        // Covering(Index(collated_name ([null],[[0, 82, 0, 0, 0, 0]])) -> [rec_no: KEY[1], str_value_indexed: VALUE[0]])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.keyExpression(collateKey).lessThan("a"),
                 null,
                 Collections.singletonList(field("str_value_indexed")));
+        // Covering(Index(collated_name ([null],[[0, 83, 0, 0, 0, 0]])) -> [rec_no: KEY[1], str_value_indexed: VALUE[0]])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.keyExpression(collateKey).lessThan("b"),
                 null,
@@ -422,10 +461,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
             md.addIndex("MySimpleRecord", "collated_name", key);
         };
         runHook(hook);
+        // Index(collated_name [EQUALS collate_jre($name)])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.keyExpression(key).equalsParameter("name"),
                 null,
                 Collections.singletonList(field("str_value_indexed")));
+        // Index(collated_name [EQUALS collate_jre($no-name)])s
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.keyExpression(key).equalsParameter("no-name"),
                 null,
@@ -443,10 +484,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void coveringSimple() throws Exception {
+        // Covering(Index(MySimpleRecord$num_value_unique ([990],>) -> [num_value_unique: KEY[0], rec_no: KEY[1]])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.field("num_value_unique").greaterThan(990),
                 field("num_value_unique"),
                 Collections.singletonList(field("num_value_unique")));
+        // Covering(Index(MySimpleRecord$num_value_unique ([7766],>) -> [num_value_unique: KEY[0], rec_no: KEY[1]])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.field("num_value_unique").greaterThan(7766),
                 field("num_value_unique"),
@@ -464,10 +507,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void coveringSimpleInsufficient() throws Exception {
+        // Index(MySimpleRecord$num_value_unique ([990],>)
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.field("num_value_unique").greaterThan(990),
                 field("num_value_unique"),
                 Arrays.asList(field("num_value_unique"), field("num_value_3_indexed")));
+        // Index(MySimpleRecord$num_value_unique ([7766],>)
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.field("num_value_unique").greaterThan(7766),
                 field("num_value_unique"),
@@ -491,12 +536,14 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         };
         runHook(hook);
 
+        // Covering(Index(multi_index ([null],[1])) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[0], rec_no: KEY[2]]) | num_value_2 LESS_THAN 2
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("num_value_3_indexed").lessThan(1),
                         Query.field("num_value_2").lessThan(2)),
                 null,
                 Collections.singletonList(field("num_value_3_indexed")));
+        // Covering(Index(multi_index ([null],[3])) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[0], rec_no: KEY[2]]) | num_value_2 LESS_THAN 4
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.and(
                         Query.field("num_value_3_indexed").lessThan(3),
@@ -521,10 +568,12 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
             commit(context);
         }
 
+        // Index(partial_versions [[7],[7]])
         RecordQueryPlan plan1 = createPlan(
                 Arrays.asList("MySimpleRecord", "MySimpleRecord2"),
                 Query.field("etag").equalsValue(7),
                 null, null);
+        // Index(partial_versions [[8],[8]])
         RecordQueryPlan plan2 = createPlan(
                 Arrays.asList("MySimpleRecord", "MySimpleRecord2"),
                 Query.field("etag").equalsValue(8),
@@ -542,9 +591,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testInQueryNoIndex() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN [0, 2]
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.field("num_value_2").in(asList(0, 2)),
                 null, null);
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN [1, 3]
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.field("num_value_2").in(asList(1, 3)),
                 null, null);
@@ -561,9 +612,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testInQueryNoIndexWithParameter() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN $valuesThree
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.field("num_value_2").in("valuesThree"),   // num_value_2 is i%3
                 null, null);
+        // Scan(<,>) | [MySimpleRecord] | num_value_2 IN $valuesFour
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.field("num_value_2").in("valuesFour"),   // num_value_2 is i%3
                 null, null);
@@ -580,9 +633,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testInQueryIndex() throws Exception {
+        // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 3, 4]
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.field("num_value_3_indexed").in(asList(1, 2, 3, 4)),
                 null, null);
+        // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [5, 6]
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.field("num_value_3_indexed").in(asList(5, 6)),
                 null, null);
@@ -599,9 +654,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testNotInQuery() throws Exception {
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_2 IN [0, 2])
         RecordQueryPlan plan1 = createPlan("MySimpleRecord",
                 Query.not(Query.field("num_value_2").in(asList(0, 2))),
                 null, null);
+        // Scan(<,>) | [MySimpleRecord] | Not(num_value_2 IN [1, 3])
         RecordQueryPlan plan2 = createPlan("MySimpleRecord",
                 Query.not(Query.field("num_value_2").in(asList(1, 3))),
                 null, null);
@@ -631,9 +688,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
             commit(context);
         }
 
+        // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_ALL [civil], null)
         RecordQueryPlan plan1 = createPlan("SimpleDocument",
                 Query.field("text").text().contains("civil"),
                 null, null);
+        // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_ALL [duty], null)
         RecordQueryPlan plan2 = createPlan("SimpleDocument",
                 Query.field("text").text().contains("duty"),
                 null, null);
@@ -663,9 +722,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
             commit(context);
         }
 
+        // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_ALL_WITHIN(5) civil, null)
         RecordQueryPlan plan1 = createPlan("SimpleDocument",
                 Query.field("text").text().containsAll("civil", 5),
                 null, null);
+        // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_ALL_WITHIN(1) duty, null)
         RecordQueryPlan plan2 = createPlan("SimpleDocument",
                 Query.field("text").text().containsAll("duty", 1),
                 null, null);
@@ -695,9 +756,11 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
             commit(context);
         }
 
+        // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_ALL_PREFIXES(strictly) civil, null) | text TEXT_CONTAINS_ALL_PREFIXES(strictly) civil | UnorderedPrimaryKeyDistinct()
         RecordQueryPlan plan1 = createPlan("SimpleDocument",
                 Query.field("text").text().containsAllPrefixes("civil", true, 1L, 2.0),
                 null, null);
+        // TextIndex(SimpleDocument$text null, TEXT_CONTAINS_ALL_PREFIXES(strictly) duty, null) | text TEXT_CONTAINS_ALL_PREFIXES(strictly) duty | UnorderedPrimaryKeyDistinct()
         RecordQueryPlan plan2 = createPlan("SimpleDocument",
                 Query.field("text").text().containsAllPrefixes("duty", true, 3L, 4.0),
                 null, null);

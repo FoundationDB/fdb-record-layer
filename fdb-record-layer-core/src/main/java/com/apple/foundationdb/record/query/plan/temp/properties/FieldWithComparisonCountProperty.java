@@ -48,7 +48,7 @@ public class FieldWithComparisonCountProperty implements PlannerProperty<Integer
     public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
         int total = 0;
         if (expression instanceof RecordQueryFilterPlan) {
-            QueryComponent filter = ((RecordQueryFilterPlan)expression).getFilter();
+            QueryComponent filter = ((RecordQueryFilterPlan)expression).getConjunctedFilter();
             total = getFieldWithComparisonCount(filter);
         }
 

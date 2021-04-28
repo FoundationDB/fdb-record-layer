@@ -39,6 +39,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Represents a subset of the fields available in a stream of records, including partial records.
@@ -105,7 +106,8 @@ public class AvailableFields {
             // Full text index entries have all of their fields except the tokenized one.
             keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
         } else if (indexTypes.getValueTypes().contains(index.getType()) ||
-                   indexTypes.getRankTypes().contains(index.getType())) {
+                   indexTypes.getRankTypes().contains(index.getType()) ||
+                   indexTypes.getLuceneTypes().contains(index.getType())) {
             keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
             valueFields.addAll(KeyExpression.getValueFields(rootExpression));
         } else {
@@ -157,11 +159,17 @@ public class AvailableFields {
         }
         if (requiredExpr instanceof FieldKeyExpression) {
             FieldKeyExpression fieldKeyExpression = (FieldKeyExpression)requiredExpr;
-            if (!fieldKeyExpression.getNullStandin().equals(Key.Evaluated.NullStandin.NULL) ||
+            // If a key part of an index entry is populated with null stand-ins (it is not NULL in the index but
+            // NULL in the base record), we cannot use the key part of the index tuple in stead of the field from
+            // the fetched record as we don't know if the field is in fact NULL or a non-NULL value
+            // (e.g., a default value).
+            if (fieldKeyExpression.getNullStandin().equals(Key.Evaluated.NullStandin.NOT_NULL) ||
                     fieldKeyExpression.getFanType().equals(KeyExpression.FanType.FanOut)) {
                 return false;
             }
-            builder.addField(fieldKeyExpression.getFieldName(), fieldData.source, fieldData.index);
+            if (!builder.hasField(fieldKeyExpression.getFieldName())) {
+                builder.addField(fieldKeyExpression.getFieldName(), fieldData.source, fieldData.index);
+            }
             return true;
         } else {
             return false;
@@ -177,6 +185,7 @@ public class AvailableFields {
         Map<KeyExpression, FieldData> intersection = null;
         for (AvailableFields fields : toIntersect) {
             if (!fields.hasAllFields()) {
+                Objects.requireNonNull(fields.fields);
                 if (intersection == null) {
                     intersection = new HashMap<>(fields.fields);
                 } else {
@@ -204,6 +213,15 @@ public class AvailableFields {
         private FieldData(@Nonnull final IndexKeyValueToPartialRecord.TupleSource source, final int index) {
             this.source = source;
             this.index = index;
+        }
+
+        @Nonnull
+        public IndexKeyValueToPartialRecord.TupleSource getSource() {
+            return source;
+        }
+
+        public int getIndex() {
+            return index;
         }
 
         @Nonnull

@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -90,7 +90,7 @@ public class ExpressionMatcherTest {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryScanPlan(ScanComparisons.EMPTY, false)));
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
                 new LogicalFilterExpression(
-                        new QueryComponentPredicate(Query.field("test").equalsValue(5)),
+                        ImmutableList.of(new QueryComponentPredicate(Query.field("test").equalsValue(5))),
                         quantifier));
         // try to match to expression
         Optional<PlannerBindings> newBindings = root.bindTo(null, matcher).findFirst();
@@ -197,7 +197,7 @@ public class ExpressionMatcherTest {
                         andMatcher,
                         QuantifierMatcher.forEach(filterLeafMatcher));
         ExpressionMatcher<RecordQueryScanPlan> scanMatcher = TypeMatcher.of(RecordQueryScanPlan.class);
-        ExpressionMatcher<LogicalUnorderedUnionExpression> matcher = TypeMatcher.of(LogicalUnorderedUnionExpression.class,
+        ExpressionMatcher<LogicalUnionExpression> matcher = TypeMatcher.of(LogicalUnionExpression.class,
                 QuantifierMatcher.forEach(filterPlanMatcher),
                 QuantifierMatcher.forEach(scanMatcher));
 
@@ -206,11 +206,11 @@ public class ExpressionMatcherTest {
         QueryComponent andBranch2 = Query.field("field2").equalsParameter("param");
         final Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new RecordQueryIndexPlan("an_index", IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)));
         LogicalFilterExpression filterPlan =
-                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias()).asAndPredicate(),
+                new LogicalFilterExpression(Query.and(andBranch1, andBranch2).expand(quantifier.getAlias()).getPredicates(),
                         quantifier);
         RecordQueryScanPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, true);
         ExpressionRef<RelationalExpression> root = GroupExpressionRef.of(
-                new LogicalUnorderedUnionExpression(
+                new LogicalUnionExpression(
                         Quantifiers.forEachQuantifiers(ImmutableList.of(GroupExpressionRef.of(filterPlan),
                                 GroupExpressionRef.of(scanPlan)))));
 
@@ -224,7 +224,7 @@ public class ExpressionMatcherTest {
         assertEquals(root.get(), bindings.get(matcher));
         assertEquals(filterPlan, bindings.get(filterPlanMatcher));
         assertEquals(scanPlan, bindings.get(scanMatcher));
-        assertEquals(filterPlan.getPredicate(), bindings.get(andMatcher));
+        assertEquals(AndPredicate.and(filterPlan.getPredicates()), bindings.get(andMatcher));
         assertEquals(filterPlan.getInner().getRangesOver().get(), bindings.get(filterLeafMatcher).get()); // dereference
     }
 }

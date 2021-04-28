@@ -33,6 +33,8 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.spatial.common.DoubleValueOrParameter;
 import com.apple.foundationdb.tuple.Tuple;
 import com.geophile.z.SpatialJoin;
@@ -127,6 +129,12 @@ public class GeophilePointWithinDistanceQueryPlan extends GeophileSpatialObjectQ
     @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.NO_FIELDS;
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return ImmutableList.of(new QueriedValue());
     }
 
     @Override

@@ -39,7 +39,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.contains;
 
 /**
- * Tests of {@link QueryPlanner.IndexScanPreference}
+ * Tests of {@link QueryPlanner.IndexScanPreference}.
  */
 @Tag(Tags.RequiresFDB)
 public class FDBRecordStoreIndexScanPreferenceTest extends FDBRecordStoreQueryTestBase {

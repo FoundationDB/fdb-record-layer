@@ -22,8 +22,6 @@ package com.apple.foundationdb.record.metadata.expressions;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ExpansionVisitor;
-import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.predicates.Value;
 
@@ -45,7 +43,7 @@ public interface KeyExpressionWithValue extends KeyExpression {
 
     @Nonnull
     @Override
-    default <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull final ExpansionVisitor<S> visitor) {
+    default <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor) {
         return visitor.visitExpression(this);
     }
 }

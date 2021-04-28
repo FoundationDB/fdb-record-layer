@@ -16,7 +16,7 @@ Another, smaller change that has been made is that by default, new indexes added
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix LiteralKeyExpression hash code [(Issue #1066)](https://github.com/FoundationDB/fdb-record-layer/issues/1066)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -47,6 +47,59 @@ Another, smaller change that has been made is that by default, new indexes added
 ### Breaking Changes
 
 In this realase, the various implementations of the `RecordQueryPlan` interface have  moved to API stability level `INTERNAL`. This means that individual implementations may change without notice. Clients that are not creating `RecordQueryPlan` objects directly (but instead using the planner to create plans) should not be affected.
+
+### 2.10.169.0
+
+* **Feature** Rebuild index when prev by-index continuation isn't possible [(Issue #1232)](https://github.com/FoundationDB/fdb-record-layer/issues/1232)
+
+### 2.10.168.0
+
+* **Feature** Indexing refactor: change OnlineIndexer.IndexFromIndexPolicy to a general OnlineIndexer.IndexingPolicy [(Issue #1223)](https://github.com/FoundationDB/fdb-record-layer/issues/1223)
+
+### 2.10.167.0
+
+
+### 2.10.166.0
+
+* **Feature** Indexing: Handle the case of requested method mismatches a previous session. Options are: use previous, rebuild, and error [(Issue #1198)](https://github.com/FoundationDB/fdb-record-layer/issues/1198)
+
+### 2.10.165.0
+
+* **Bug fix** allow NULL_UNIQUE as a stand-in for fields that are used to compute covering index optimizations [(Issue #1220)](https://github.com/FoundationDB/fdb-record-layer/issues/1220)
+* **Feature** Indexing: log throttle delay [(Issue #1218)](https://github.com/FoundationDB/fdb-record-layer/issues/1218)
+
+### 2.10.164.0
+
+
+### 2.10.163.0
+
+
+### 2.10.162.0
+
+* **Bug fix** Planner's key from index should include primary keys [(Issue #1138)](https://github.com/FoundationDB/fdb-record-layer/issues/1138)
+* **Performance** RecordQueryPlanner.getKeyForMerge can build redundant merge keys [(Issue #1154)](https://github.com/FoundationDB/fdb-record-layer/issues/1154)
+* **Feature** Need a way to tell whether the result of planning a query is only sorted by the requested keys [(Issue #1155)](https://github.com/FoundationDB/fdb-record-layer/issues/1155)
+
+### 2.10.161.0
+
+* **Bug fix** represent an aggregation function as using a set of aggregation keys [(Issue #1175)](https://github.com/FoundationDB/fdb-record-layer/issues/1175)
+* **Bug fix** `GroupingValidator` only does one level of nesting [(Issue #1172)](https://github.com/FoundationDB/fdb-record-layer/issues/1172)
+* **Feature** Add QueryPlanResult to hold planned query and PlanInfo. [(Issue #1176)](https://github.com/FoundationDB/fdb-record-layer/issues/1176)
+* **Feature** Rank by grouped map-like values [(Issue #1183)](https://github.com/FoundationDB/fdb-record-layer/issues/1183)
+* **Feature** `VersionstampSaveBehavior.IF_PRESENT` allows the user to specify that a record should be saved with a version only if one is explicitly provided [(Issue #958)](https://github.com/FoundationDB/fdb-record-layer/issues/958)
+
+### 2.10.160.0
+
+* **Bug fix** `RecordQueryPlanner.AndWithThenPlanner.planChild` does not have a case like `planAndWithNesting` [(Issue #1140)](https://github.com/FoundationDB/fdb-record-layer/issues/1140)
+* **Bug fix** Covering check when chosen index has duplicate fields [(Issue #1139)](https://github.com/FoundationDB/fdb-record-layer/issues/1139)
+* **Bug fix** `LiteralKeyExpression` fails `hasProperInterfaces` [(Issue #1152)](https://github.com/FoundationDB/fdb-record-layer/issues/1152)
+* **Bug fix** `@DualPlannerTest` does not distinguish tests [(Issue #1150)](https://github.com/FoundationDB/fdb-record-layer/issues/1150)
+* **Performance** represent an aggregation function using a set of aggregation keys rather than a KeyExpression [(Issue #1175)](https://github.com/FoundationDB/fdb-record-layer/issues/1175)
+
+### 2.10.159.0
+
+* **Bug fix** Fix LiteralKeyExpression hash code [(Issue #1066)](https://github.com/FoundationDB/fdb-record-layer/issues/1066)
+* **Bug fix** Stable plan from cost perspective [(Issue #1148)](https://github.com/FoundationDB/fdb-record-layer/issues/1148)
 
 ### 2.10.158.0
 

@@ -444,7 +444,7 @@ public class AliasMap {
     }
 
     /**
-     * Combine two {@link AliasMap}s if possible
+     * Combine two {@link AliasMap}s if possible.
      * @param other second alias map
      * @return {@code Optional} containing a translation map that maps {@code a -> b} for all {@code a, b} if
      *         {@code a -> b} is contained in {@code this} and there is no c with {@code b != c}

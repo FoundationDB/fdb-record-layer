@@ -20,17 +20,18 @@
 
 package com.apple.foundationdb.async;
 
-import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeyValue;
 import com.apple.foundationdb.Range;
 import com.apple.foundationdb.ReadTransaction;
 import com.apple.foundationdb.ReadTransactionContext;
 import com.apple.foundationdb.TransactionContext;
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -82,6 +83,14 @@ public class RangeSet {
         if (ByteArrayUtil.compareUnsigned(begin, end) > 0) {
             throw new IllegalArgumentException("Inverted range; " + ByteArrayUtil.printable(begin) + " is greater than " + ByteArrayUtil.printable(end));
         }
+    }
+
+    public static boolean isFirstKey(@Nonnull byte[] key) {
+        return Arrays.equals(key, FIRST_KEY);
+    }
+
+    public static boolean isFinalKey(@Nonnull byte[] key) {
+        return Arrays.equals(key, FINAL_KEY);
     }
 
     // This returns the next possible key after another key (i.e., a key that is greater than current key but

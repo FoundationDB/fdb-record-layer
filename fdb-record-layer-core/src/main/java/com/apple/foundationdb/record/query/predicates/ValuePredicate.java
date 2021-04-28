@@ -67,6 +67,12 @@ public class ValuePredicate implements PredicateWithValue {
         return value;
     }
 
+    @Nonnull
+    @Override
+    public ValuePredicate withValue(@Nonnull final Value value) {
+        return new ValuePredicate(value, comparison);
+    }
+
     @Nullable
     @Override
     public <M extends Message> Boolean eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
@@ -75,14 +81,14 @@ public class ValuePredicate implements PredicateWithValue {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
+    public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return value.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public QueryPredicate rebase(@Nonnull final AliasMap translationMap) {
+    public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
         Value rebasedValue = value.rebase(translationMap);
         // TODO rebase comparison if needed
         if (value != rebasedValue) { // reference comparison intended
@@ -101,7 +107,7 @@ public class ValuePredicate implements PredicateWithValue {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.emptyMap());
+        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
     @Override
@@ -110,21 +116,18 @@ public class ValuePredicate implements PredicateWithValue {
     }
 
     @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
+    public boolean equalsWithoutChildren(@Nonnull final QueryPredicate other, @Nonnull final AliasMap equivalenceMap) {
+        if (!PredicateWithValue.super.equalsWithoutChildren(other, equivalenceMap)) {
             return false;
         }
         final ValuePredicate that = (ValuePredicate)other;
         return value.semanticEquals(that.value, equivalenceMap) &&
-               comparison.equals(that.comparison); // TODO do semanticEquals on comparison
+               comparison.equals(that.comparison);
     }
-
+    
     @Override
     public int semanticHashCode() {
-        return Objects.hash(value.semanticHashCode(), comparison); // TODO semanticHashCode for comparison
+        return Objects.hash(value.semanticHashCode(), comparison);
     }
 
     @Override

@@ -1,5 +1,5 @@
 /*
- * QuantifiedObjectValue.java
+ * IndexedValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,28 +22,21 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Set;
 
 /**
- * A value representing the quantifier as an object.
- *
- * For example, this is used to represent non-nested repeated fields.
+ * A value representing the source of a value derivation.
  */
 @API(API.Status.EXPERIMENTAL)
-public class BaseValue implements Value {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Base-Value");
+public class IndexedValue implements LeafValue, Value.CompileTimeValue {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Indexed-Value");
 
     @Nonnull
     @Override
@@ -53,25 +46,13 @@ public class BaseValue implements Value {
 
     @Nonnull
     @Override
-    public BaseValue rebase(@Nonnull final AliasMap translationMap) {
+    public IndexedValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         return this;
     }
 
-    @Nullable
     @Override
-    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        return null;
-    }
-
-    @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        if (this == other) {
-            return true;
-        }
-        if (other == null || getClass() != other.getClass()) {
-            return false;
-        }
-        return true;
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        return false;
     }
 
     @Override

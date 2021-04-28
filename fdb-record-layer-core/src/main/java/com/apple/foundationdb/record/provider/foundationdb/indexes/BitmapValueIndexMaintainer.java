@@ -68,10 +68,14 @@ import java.util.concurrent.CompletableFuture;
  *
  * <p>
  * Instead of one key per record, the index stores one bit per record in a fixed-size bitmap aligned on even multiples of the position key.
+ * Empty (that is, all zero) bitmaps are not stored.
  * </p>
  *
  * <p>
- * The position bitmaps behave as aggregate functions additionally grouped by ranges of the position.
+ * The position bitmaps behave as aggregate functions, additionally restricted by ranges of the position, as though position (or its modulus)
+ * were another grouping column. It is possible to roll-up the stored bitmaps into a single, bigger, bitmap. But because these are rather large,
+ * it is generally preferable to scan the index and deal with the bitmaps in order as stored. If the position
+ * endpoints are not aligned to the bitmap quantum, the first and last bitmaps will be suitably trimmed.
  * </p>
  *
  * <p>

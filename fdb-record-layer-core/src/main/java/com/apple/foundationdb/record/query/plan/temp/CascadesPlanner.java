@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
+import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -181,6 +183,7 @@ import java.util.function.Supplier;
 public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     private static final Logger logger = LoggerFactory.getLogger(CascadesPlanner.class);
+
     @Nonnull
     private RecordQueryPlannerConfiguration configuration;
     @Nonnull
@@ -195,6 +198,10 @@ public class CascadesPlanner implements QueryPlanner {
     private AliasResolver aliasResolver;
     @Nonnull
     private Deque<Task> taskStack; // Use a Dequeue instead of a Stack because we don't need synchronization.
+    // total tasks executed for the current plan
+    private int taskCount;
+    // max size of the task queue encountered during the planning
+    private int maxQueueSize;
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
         this(metaData, recordStoreState, PlannerRuleSet.ALL);
@@ -239,6 +246,15 @@ public class CascadesPlanner implements QueryPlanner {
 
     @Nonnull
     @Override
+    public QueryPlanResult planQuery(@Nonnull final RecordQuery query) {
+        QueryPlanResult result = new QueryPlanResult(plan(query));
+        result.getPlanInfo().put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount);
+        result.getPlanInfo().put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize);
+        return result;
+    }
+
+    @Nonnull
+    @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
     }
@@ -255,7 +271,8 @@ public class CascadesPlanner implements QueryPlanner {
         Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
-        int taskCount = 0;
+        taskCount = 0;
+        maxQueueSize = 0;
         while (!taskStack.isEmpty()) {
             try {
                 Debugger.withDebugger(debugger -> debugger.onEvent(new Debugger.ExecutingTaskEvent(currentRoot, taskStack, Objects.requireNonNull(taskStack.peek()))));
@@ -279,6 +296,7 @@ public class CascadesPlanner implements QueryPlanner {
                             "memo", new GroupExpressionPrinter(currentRoot)));
                 }
 
+                maxQueueSize = Math.max(maxQueueSize, taskStack.size());
                 if (isTaskQueueSizeExceeded(configuration, taskStack.size())) {
                     throw new RecordQueryPlanComplexityException("Maximum task queue size (" + configuration.getMaxTaskQueueSize() + ") was exceeded");
                 }
@@ -654,7 +672,7 @@ public class CascadesPlanner implements QueryPlanner {
             }
 
             final PlannerBindings initialBindings = getInitialBindings();
-            
+
             getBindable().bindTo(initialBindings, rule.getMatcher())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {

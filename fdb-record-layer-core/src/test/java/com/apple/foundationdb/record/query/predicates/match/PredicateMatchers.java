@@ -47,5 +47,6 @@ public class PredicateMatchers {
         return new AndPredicateMatcher(childrenMatcher);
     }
 
-    private PredicateMatchers() {}
+    private PredicateMatchers() {
+    }
 }

@@ -33,7 +33,8 @@ public class PrefixTextTokenizer implements TextTokenizer {
     private static final int PREFIX_SIZE_V0 = 3;
     private static final int PREFIX_SIZE = 4;
 
-    private PrefixTextTokenizer() {}
+    private PrefixTextTokenizer() {
+    }
 
     public static PrefixTextTokenizer instance() {
         return INSTANCE;

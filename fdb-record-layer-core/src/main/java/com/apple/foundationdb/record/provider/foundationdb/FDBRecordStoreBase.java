@@ -330,13 +330,45 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Provided during record save (via {@link #saveRecord(Message, FDBRecordVersion, VersionstampSaveBehavior)}),
      * directs the behavior of the save w.r.t. the record's version.
-     * In the presence of a version, either <code>DEFAULT</code> or <code>WITH_VERSION</code> can be used.
+     * In the presence of a version, either {@code DEFAULT} or {@code WITH_VERSION} can be used.
      * For safety, <code>NO_VERSION</code> should only be used with a null version.
      */
     enum VersionstampSaveBehavior {
-        DEFAULT,        // Follow rules dictated by the metadata
-        NO_VERSION,     // Explicitly do NOT save a version
-        WITH_VERSION,   // Explicitly save a version even if meta-data says not to
+        /**
+         * Match the behavior dictated by the meta-data. If {@link com.apple.foundationdb.record.RecordMetaData#isStoreRecordVersions()}
+         * returns {@code true}, this will always store the record with a version (like {@link #WITH_VERSION}). Otherwise,
+         * it will store the record with the provided version if given or with no version if not.
+         */
+        DEFAULT,
+        /**
+         * Do not save the record with a version. If a non-null version is provided to {@link #saveRecord(Message, FDBRecordVersion, VersionstampSaveBehavior)},
+         * then an error will be thrown.
+         */
+        NO_VERSION,
+        /**
+         * Always save the record with a version. If a null version is provided, then the record store will chose
+         * a new version.
+         *
+         * <p>
+         * Note: due to <a href="https://github.com/FoundationDB/fdb-record-layer/issues/964">Issue #964</a>, on some
+         * older record stores, namely those that were originally created with a {@linkplain FDBRecordStore#getFormatVersion()
+         * format version} below {@link FDBRecordStore#SAVE_VERSION_WITH_RECORD_FORMAT_VERSION}, records written with a
+         * version on stores where {@link com.apple.foundationdb.record.RecordMetaData#isStoreRecordVersions()} is
+         * {@code false} will not return the version with a record when read, even though the version will be stored.
+         * Users can avoid this by either migrating data to a new store or by setting {@code isStoreRecordVersions()}
+         * to {@code true} in the meta-data and then supplying the {@link #NO_VERSION} when saving any records that
+         * do not need an associated version.
+         * </p>
+         */
+        WITH_VERSION,
+        /**
+         * Save a record with a version if and only if a non-null version is passed to {@link #saveRecord(Message, FDBRecordVersion, VersionstampSaveBehavior)}.
+         * In this mode, the record store will never assign a version to the record, but it will always use the
+         * version provided (or store the record with no version if {@code null}). This is useful if one is copying
+         * data from one record store to another and one wants to preserve the versions (including non-versions) for each
+         * record.
+         */
+        IF_PRESENT,
     }
 
     /**

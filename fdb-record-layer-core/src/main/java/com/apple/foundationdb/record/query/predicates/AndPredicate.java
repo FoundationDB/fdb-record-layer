@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
@@ -38,7 +36,7 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * A {@link QueryPredicate} that is satisfied when all of its child components are;
+ * A {@link QueryPredicate} that is satisfied when all of its child components are.
  *
  * For tri-valued logic:
  * <ul>
@@ -89,17 +87,32 @@ public class AndPredicate extends AndOrPredicate {
         }
     }
 
+    @Nonnull
     @Override
-    public AndPredicate rebaseWithRebasedChildren(final AliasMap translationMap, final List<QueryPredicate> rebasedChildren) {
-        return new AndPredicate(rebasedChildren);
+    public AndPredicate withChildren(final Iterable<? extends QueryPredicate> newChildren) {
+        return new AndPredicate(ImmutableList.copyOf(newChildren));
     }
 
-    public static QueryPredicate and(@Nonnull Collection<QueryPredicate> children) {
-        Verify.verify(!children.isEmpty());
-        if (children.size() == 1) {
-            return Iterables.getOnlyElement(children);
+    public static QueryPredicate and(@Nonnull Collection<QueryPredicate> conjuncts) {
+        if (conjuncts.isEmpty()) {
+            return ConstantPredicate.TRUE;
+        }
+        if (conjuncts.size() == 1) {
+            return Iterables.getOnlyElement(conjuncts);
         }
 
-        return new AndPredicate(ImmutableList.copyOf(children));
+        return new AndPredicate(ImmutableList.copyOf(conjuncts));
+    }
+
+    public static List<? extends QueryPredicate> conjuncts(@Nonnull final QueryPredicate queryPredicate) {
+        if (queryPredicate.isTautology()) {
+            return ImmutableList.of();
+        }
+
+        if (queryPredicate instanceof AndPredicate) {
+            return ((AndPredicate)queryPredicate).getChildren();
+        }
+
+        return ImmutableList.of(queryPredicate);
     }
 }

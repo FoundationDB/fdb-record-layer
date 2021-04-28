@@ -47,7 +47,7 @@ import java.util.List;
  * @param <T> the type of the literal value
  */
 @API(API.Status.MAINTAINED)
-public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithValue {
+public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKeyExpression, KeyExpressionWithValue, KeyExpressionWithoutChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Key-Expression");
 
     @Nullable

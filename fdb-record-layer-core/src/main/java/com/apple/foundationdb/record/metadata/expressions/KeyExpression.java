@@ -195,12 +195,26 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
     }
 
     /**
+     * Method that indicates to the caller if this key expression can be normalized and re-composed in a way
+     * that yields the original expression.
+     *
+     * @return {@code true} if the key expression has a lossless normalization, {@code false} otherwise
+     */
+    @API(API.Status.INTERNAL)
+    default boolean hasLosslessNormalization() {
+        // TODO make this more adequate to detect subtle semantics changes
+        //      between the original and the derived (normalized) key expression
+        return !createsDuplicates();
+    }
+
+    /**
      * Expand this key expression into a data flow graph. The returned graph represents an adequate representation
      * of the key expression as composition of relational expressions and operators
      * ({@link com.apple.foundationdb.record.query.plan.temp.RelationalExpression}s). Note that implementors should
      * defer to the visitation methods in the supplied visitor rather than encoding actual logic in an overriding
      * method.
-     * @param <S> a type that reflects the state that {@code visitor} uses
+     * @param <S> a type that represents the state that {@code visitor} uses
+     * @param <R> a type that represents the result the {@code visitor} returns
      * @param visitor a {@link ExpansionVisitor} that is created by the caller from a data structure that reflects the
      *        specific semantics of the key expression. Normally this visitor is directly created based on an index.
      * @return a new {@link GraphExpansion} representing the query graph equivalent of this key expression using the
@@ -209,7 +223,7 @@ public interface KeyExpression extends PlanHashable, QueryHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    <S extends KeyExpressionVisitor.State> GraphExpansion expand(@Nonnull ExpansionVisitor<S> visitor);
+    <S extends KeyExpressionVisitor.State, R extends KeyExpressionVisitor.Result> R expand(@Nonnull KeyExpressionVisitor<S, R> visitor);
 
     /**
      * Return the key fields for an expression.

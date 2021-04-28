@@ -149,7 +149,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
     protected void loadCountries(RecordMetaDataHook hook, int minPopulation) throws Exception {
         int total = 0;
         try (FileInputStream file = new FileInputStream(".out/countryInfo.txt");
-               FDBRecordContext context = openContext()) {
+                FDBRecordContext context = openContext()) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
             openRecordStore(context, hook);
             String line;

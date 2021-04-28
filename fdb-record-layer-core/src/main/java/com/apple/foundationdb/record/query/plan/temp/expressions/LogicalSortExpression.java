@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -40,6 +41,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A relational planner expression that represents an unimplemented sort on the records produced by its inner
@@ -55,6 +57,9 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Nonnull
     private final Quantifier inner;
 
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
+
     public LogicalSortExpression(@Nonnull final KeyExpression sort,
                                  final boolean reverse,
                                  @Nonnull final RelationalExpression inner) {
@@ -67,6 +72,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
         this.sort = sort;
         this.reverse = reverse;
         this.inner = inner;
+        this.resultValuesSupplier = inner::getFlowedValues;
     }
 
     @Nonnull
@@ -114,6 +120,12 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
         return new LogicalSortExpression(getSort(),
                 isReverse(),
                 Iterables.getOnlyElement(rebasedQuantifiers));
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @Override

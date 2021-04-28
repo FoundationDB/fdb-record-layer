@@ -83,6 +83,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
+
+        // Index(prefix_scalar [[1],[1]])
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, indexScan(allOf(indexName("prefix_scalar"), bounds(hasTupleString("[[1],[1]]")))));
         assertEquals(339959201, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -131,6 +133,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                         Query.field("num_value_3_indexed").equalsValue(3),
                         Query.field("num_value_2").equalsValue(0)))
                 .build();
+
+        // Index(multi_index [[even, 0, 3],[even, 0, 3]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"),
                 bounds(hasTupleString("[[even, 0, 3],[even, 0, 3]]")))));
@@ -173,6 +177,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                         Query.field("num_value_3_indexed").greaterThanOrEquals(2),
                         Query.field("num_value_3_indexed").lessThanOrEquals(3)))
                 .build();
+
+        // Index(multi_index [[even, 0, 2],[even, 0, 3]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]")))));
         assertEquals(2137890746, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -242,6 +248,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                         Query.field("num_value_3_indexed").greaterThanOrEquals(2)))
                 .setSort(field("num_value_3_indexed"))
                 .build();
+
+        // Index(multi_index [[even, 0, 2],[even, 0]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(
                 indexName("multi_index"),
@@ -282,6 +290,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 .setFilter(Query.field("str_value_indexed").equalsValue("even"))
                 .setSort(field("num_value_2"))
                 .build();
+
+        // Index(multi_index [[even],[even]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even],[even]]")))));
         assertEquals(1375215309, plan.planHash(PlanHashable.PlanHashKind.LEGACY));

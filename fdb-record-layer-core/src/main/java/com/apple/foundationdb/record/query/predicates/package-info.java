@@ -19,7 +19,7 @@
  */
 
 /**
- * Implementations of query predicates
+ * Implementations of query predicates.
  *
  * <p>
  * Like {@link com.apple.foundationdb.record.query.expressions.QueryComponent}s,

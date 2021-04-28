@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.expressions.MatchableSortExpression;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -59,16 +60,17 @@ public class PrimaryAccessExpansionVisitor extends ValueIndexLikeExpansionVisito
         Debugger.updateIndex(ValueComparisonRangePredicate.Placeholder.class, old -> 0);
 
         // expand
-        // push initial state
-        push(VisitorState.of(baseQuantifier.getAlias(), ImmutableList.of(), -1, 0));
-        final GraphExpansion graphExpansion = primaryKey.expand(this);
-        // pop initial state
-        pop();
+        final GraphExpansion graphExpansion =
+                pop(primaryKey.expand(push(VisitorState.of(baseQuantifier.getAlias(), ImmutableList.of(), -1, 0))));
 
-        final List<CorrelationIdentifier> parameters = graphExpansion.getPlaceholderAliases();
+        final GraphExpansion allExpansions =
+                GraphExpansion.ofOthers(ImmutableList.of(GraphExpansion.ofResultValueAndQuantifier(QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0), baseQuantifier),
+                        graphExpansion));
+
+        final List<CorrelationIdentifier> parameters = allExpansions.getPlaceholderAliases();
 
         final RelationalExpression expression =
-                new MatchableSortExpression(parameters, isReverse, graphExpansion.buildSelectWithBase(baseQuantifier));
+                new MatchableSortExpression(parameters, isReverse, allExpansions.buildSelect());
 
         return new PrimaryScanMatchCandidate(
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(expression)),

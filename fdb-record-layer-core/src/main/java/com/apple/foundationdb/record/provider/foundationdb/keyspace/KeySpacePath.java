@@ -153,8 +153,9 @@ public interface KeySpacePath {
     PathValue getStoredValue();
 
     /**
+     * Whether it is legal to ask this key space path for the underlying value stored in the key.
      * @return true if it is legal to call {@link #getStoredValue()}.
-     *
+     * @see #getStoredValue()
      * @deprecated use {@link KeySpace#resolveFromKey(FDBRecordContext, Tuple)} instead
      */
     @API(API.Status.DEPRECATED)

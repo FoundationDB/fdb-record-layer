@@ -114,5 +114,6 @@ public class MessageValue {
         return field;
     }
 
-    private MessageValue() {}
+    private MessageValue() {
+    }
 }

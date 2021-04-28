@@ -51,6 +51,7 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
 
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
+        final String displayName = context.getDisplayName();
         if (AnnotationUtils.isAnnotated(context.getTestMethod(), ParameterizedTest.class)) {
             TestTemplateInvocationContextProvider nestedProvider;
             try {
@@ -62,26 +63,33 @@ public class DualPlannerExtension implements TestTemplateInvocationContextProvid
                 throw new RecordCoreException(e.getClass() + " " + e.getMessage());
             }
             return nestedProvider.provideTestTemplateInvocationContexts(context).map(existingContext ->
-                            new DualPlannerTestInvocationContext(true, existingContext.getAdditionalExtensions())); // new planner
+                            new DualPlannerTestInvocationContext(displayName, true, existingContext.getAdditionalExtensions())); // new planner
         } else {
             return Stream.of(
-                    new DualPlannerTestInvocationContext(false), // old planner
-                    new DualPlannerTestInvocationContext(true)); // new planner
+                    new DualPlannerTestInvocationContext(displayName, false), // old planner
+                    new DualPlannerTestInvocationContext(displayName, true)); // new planner
         }
 
     }
 
     private static class DualPlannerTestInvocationContext implements TestTemplateInvocationContext {
+        private final String displayName;
         private final List<Extension> extensions;
 
-        public DualPlannerTestInvocationContext(boolean useRewritePlanner) {
-            this(useRewritePlanner, Collections.emptyList());
+        public DualPlannerTestInvocationContext(String testName, boolean useRewritePlanner) {
+            this(testName, useRewritePlanner, Collections.emptyList());
         }
 
-        public DualPlannerTestInvocationContext(boolean useRewritePlanner, List<Extension> extensions) {
+        public DualPlannerTestInvocationContext(String baseName, boolean useRewritePlanner, List<Extension> extensions) {
+            this.displayName = String.format("%s[%s]", baseName, useRewritePlanner ? "new" : "old");
             this.extensions = new ArrayList<>(extensions);
             this.extensions.add((TestInstancePostProcessor) (testInstance, context) ->
                     ((FDBRecordStoreQueryTestBase) testInstance).setUseRewritePlanner(useRewritePlanner));
+        }
+
+        @Override
+        public String getDisplayName(final int invocationIndex) {
+            return displayName;
         }
 
         @Override

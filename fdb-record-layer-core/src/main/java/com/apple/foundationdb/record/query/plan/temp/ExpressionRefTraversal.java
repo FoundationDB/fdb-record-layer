@@ -91,7 +91,7 @@ public class ExpressionRefTraversal {
     }
 
     /**
-     * Return all expression references that contain a path
+     * Return all expression references that contain a path.
      * from {@code parent -> expression -> quantifier -> this reference}
      * @param reference reference
      * @return the set of references that are considered parents of this reference.
@@ -105,7 +105,7 @@ public class ExpressionRefTraversal {
     }
 
     /**
-     * Return all expressions (as {@link RelationalExpression}s) that refer to this expression reference
+     * Return all expressions (as {@link RelationalExpression}s) that refer to this expression reference.
      * @param reference reference
      * @return the set of expressions (as identity-based set) that are considered parents of this reference.
      */
@@ -117,7 +117,7 @@ public class ExpressionRefTraversal {
     }
 
     /**
-     * Return all expressions (as {@link RelationalExpression}s) that refer to this expression reference
+     * Return all expressions (as {@link RelationalExpression}s) that refer to this expression reference.
      * @param reference reference to return the parent reference paths for
      * @return the set of expressions that are considered parents of this reference.
      */

@@ -69,22 +69,23 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class IndexingByIndex extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByIndex.class);
-    @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
-    @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
 
-    @Nonnull private final OnlineIndexer.IndexFromIndexPolicy policy;
-    @Nonnull private final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp;
+    @Nonnull private final OnlineIndexer.IndexingPolicy policy;
+    private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
 
     IndexingByIndex(@Nonnull IndexingCommon common,
-                    @Nonnull OnlineIndexer.IndexFromIndexPolicy policy) {
+                    @Nonnull OnlineIndexer.IndexingPolicy policy) {
         super(common);
         this.policy = policy;
-        this.myIndexingTypeStamp = compileIndexingTypeStamp(common.getIndex());
     }
 
     @Override
     @Nonnull
-    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp() {
+    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
+        if ( myIndexingTypeStamp == null) {
+            Index srcIndex = getSourceIndex(store.getRecordMetaData());
+            myIndexingTypeStamp = compileIndexingTypeStamp(srcIndex);
+        }
         return myIndexingTypeStamp;
     }
 
@@ -98,13 +99,27 @@ public class IndexingByIndex extends IndexingBase {
     }
 
     @Nonnull
+    private Index getSourceIndex(RecordMetaData metaData) {
+        if (policy.getSourceIndexSubspaceKey() != null) {
+            return metaData.getIndexFromSubspaceKey(policy.getSourceIndexSubspaceKey());
+        }
+        if (policy.getSourceIndex() != null) {
+            return metaData.getIndex(policy.getSourceIndex());
+        }
+        throw new ValidationException("no source index",
+                LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
+                LogMessageKeys.INDEXER_ID, common.getUuid());
+    }
+
+    @Nonnull
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
         return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose( store -> {
                     // first validate that both src and tgt are of a single, similar, type
                     final RecordMetaData metaData = store.getRecordMetaData();
-                    final Index srcIndex = metaData.getIndex(Objects.requireNonNull(policy.getSourceIndex()));
+                    final Index srcIndex = getSourceIndex(metaData);
                     final Collection<RecordType> srcRecordTypes = metaData.recordTypesForIndex(srcIndex);
 
                     validateOrThrowEx(!common.isSyntheticIndex(), "target index is synthetic");
@@ -136,12 +151,11 @@ public class IndexingByIndex extends IndexingBase {
                     additionalLogMessageKeyValues)
                     .handle((hasMore, ex) -> {
                         if (ex == null) {
-                            maybeLogBuildProgress(subspaceProvider, Collections.emptyList());
                             if (Boolean.FALSE.equals(hasMore)) {
                                 // all done
                                 return AsyncUtil.READY_FALSE;
                             }
-                            return throttleDelay(); // returns true after an appropriate delay (to avoid an overload)
+                            return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
                         }
                         final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
                         if (LOGGER.isInfoEnabled()) {
@@ -164,19 +178,17 @@ public class IndexingByIndex extends IndexingBase {
     private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
         // return false when done
         Index index = common.getIndex();
+        final RecordMetaData metaData = store.getRecordMetaData();
         final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
-        if ( recordMetaDataProvider == null ||
-                !store.getRecordMetaData().equals(recordMetaDataProvider.getRecordMetaData())) {
+        if ( recordMetaDataProvider == null || !metaData.equals(recordMetaDataProvider.getRecordMetaData())) {
             throw new MetaDataException("Store does not have the same metadata");
         }
-        final String srcIndex = policy.getSourceIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
 
-        // this should never happen. But it makes the compiler happy
-        validateOrThrowEx(srcIndex != null, "source index is null");
         // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
         validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
         // readability - This method shouldn't block if one has already opened the record store (as we did)
+        Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateOrThrowEx(store.isIndexReadable(srcIndex), "source index is not readable");
 
         RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
@@ -192,12 +204,12 @@ public class IndexingByIndex extends IndexingBase {
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
             final Range range = ranges.next();
-            final Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
-            final Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
+            final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
+            final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
             final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
 
             RecordCursor<FDBIndexedRecord<Message>> cursor =
-                    store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
+                    store.scanIndexRecords(srcIndex.getName(), IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
 
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -234,12 +246,12 @@ public class IndexingByIndex extends IndexingBase {
     private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
 
         Index index = common.getIndex();
+        final RecordMetaData metaData = store.getRecordMetaData();
         final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
-        if ( recordMetaDataProvider == null ||
-                !store.getRecordMetaData().equals(recordMetaDataProvider.getRecordMetaData())) {
+        if ( recordMetaDataProvider == null || !metaData.equals(recordMetaDataProvider.getRecordMetaData())) {
             throw new MetaDataException("Store does not have the same metadata");
         }
-        final String srcIndex = policy.getSourceIndex();
+        final Index srcIndex = getSourceIndex(metaData);
 
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
 
@@ -247,7 +259,7 @@ public class IndexingByIndex extends IndexingBase {
         validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
-        validateOrThrowEx(srcIndex != null && store.isIndexReadable(srcIndex), "source index is not readable");
+        validateOrThrowEx(store.isIndexReadable(srcIndex), "source index is not readable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
@@ -255,9 +267,8 @@ public class IndexingByIndex extends IndexingBase {
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final TupleRange tupleRange = TupleRange.between(cont, null);
 
-        assert srcIndex != null ; // this can never happen; suppressing spotBug MS_PKGPROTECT (srcIndex mightbe null) compilation error
         RecordCursor<FDBIndexedRecord<Message>> cursor =
-                store.scanIndexRecords(srcIndex, IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
+                store.scanIndexRecords(srcIndex.getName(), IndexScanType.BY_VALUE, tupleRange, null, scanProperties);
 
         final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
         final AtomicBoolean hasMore = new AtomicBoolean(true);
@@ -280,12 +291,23 @@ public class IndexingByIndex extends IndexingBase {
     }
 
     /**
-     * thrown when IndexFromIndex validation fails.
+     * thrown when indexing validation fails.
      */
     @SuppressWarnings("serial")
     public static class ValidationException extends RecordCoreException {
         public ValidationException(@Nonnull String msg, @Nullable Object ... keyValues) {
             super(msg, keyValues);
         }
+    }
+
+    public static boolean isValidationException(@Nullable Throwable ex) {
+        for (Throwable current = ex;
+                current != null;
+                current = current.getCause()) {
+            if (current instanceof ValidationException) {
+                return true;
+            }
+        }
+        return false;
     }
 }

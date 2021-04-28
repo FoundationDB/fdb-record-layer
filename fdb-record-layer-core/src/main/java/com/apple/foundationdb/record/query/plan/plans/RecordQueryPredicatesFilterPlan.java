@@ -1,5 +1,5 @@
 /*
- * RecordQueryPredicateFilterPlan.java
+ * RecordQueryPredicatesFilterPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -29,16 +29,22 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -47,21 +53,34 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicate {
+public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase implements RelationalExpressionWithPredicates {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Predicate-Filter-Plan");
 
     @Nonnull
-    private final QueryPredicate filter;
+    private final List<QueryPredicate> predicates;
+    @Nonnull
+    private final QueryPredicate conjunctedPredicate;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
-    public RecordQueryPredicateFilterPlan(@Nonnull Quantifier.Physical inner,
-                                          @Nonnull QueryPredicate filter) {
+    public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
+                                           @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
-        this.filter = filter;
+        this.predicates = ImmutableList.copyOf(predicates);
+        this.conjunctedPredicate = AndPredicate.and(this.predicates);
+        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
+    }
+
+    @Nonnull
+    @Override
+    public List<QueryPredicate> getPredicates() {
+        return predicates;
     }
 
     @Override
@@ -77,19 +96,13 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         }
 
         final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), record.getRecord());
-        return filter.eval(store, nestedContext, record, record.getRecord());
+        return conjunctedPredicate.eval(store, nestedContext, record, record.getRecord());
     }
 
     @Nullable
     @Override
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
         throw new UnsupportedOperationException();
-    }
-
-    @Nonnull
-    @Override
-    public QueryPredicate getPredicate() {
-        return filter;
     }
 
     @Nonnull
@@ -101,18 +114,33 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return filter.getCorrelatedTo();
+        return predicates.stream()
+                .flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream())
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
     @Override
-    public RecordQueryPredicateFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                       @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryPredicateFilterPlan(
+    public RecordQueryPredicatesFilterPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                                        @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new RecordQueryPredicatesFilterPlan(
                 Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                getPredicate().rebase(translationMap));
+                predicates.stream().map(queryPredicate -> queryPredicate.rebase(translationMap)).collect(ImmutableList.toImmutableList()));
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryPredicatesFilterPlan(Quantifier.physical(GroupExpressionRef.of(child)), getPredicates());
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
@@ -122,15 +150,21 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final RecordQueryPredicateFilterPlan otherPlan = (RecordQueryPredicateFilterPlan)otherExpression;
-        return getInnerPlan().equals(otherPlan.getInnerPlan()) &&
-               filter.semanticEquals(otherPlan.getPredicate(), equivalencesMap);
+        final RecordQueryPredicatesFilterPlan otherPlan = (RecordQueryPredicatesFilterPlan)otherExpression;
+        final List<QueryPredicate> otherPredicates = otherPlan.getPredicates();
+        if (predicates.size() != otherPredicates.size()) {
+            return false;
+        }
+        return Streams.zip(this.predicates.stream(),
+                otherPredicates.stream(),
+                (queryPredicate, otherQueryPredicate) -> queryPredicate.semanticEquals(otherQueryPredicate, equivalencesMap))
+                .allMatch(isSame -> isSame);
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | " + getPredicate();
+        return getInnerPlan() + " | " + conjunctedPredicate;
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -146,18 +180,18 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getPredicate());
+        return Objects.hash(conjunctedPredicate);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return getInnerPlan().planHash(hashKind) + getPredicate().planHash(hashKind);
+                return getInnerPlan().planHash(hashKind) + conjunctedPredicate.planHash(hashKind);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
                 // Not using baseSource, since it uses Object.hashCode()
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), getPredicate());
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), conjunctedPredicate);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -170,7 +204,7 @@ public class RecordQueryPredicateFilterPlan extends RecordQueryFilterPlanBase im
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.PREDICATE_FILTER_OPERATOR,
                         ImmutableList.of("WHERE {{pred}}"),
-                        ImmutableMap.of("pred", Attribute.gml(getPredicate().toString()))),
+                        ImmutableMap.of("pred", Attribute.gml(conjunctedPredicate.toString()))),
                 childGraphs);
     }
 }

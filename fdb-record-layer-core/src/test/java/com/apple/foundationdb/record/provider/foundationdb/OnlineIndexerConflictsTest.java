@@ -96,15 +96,15 @@ public class OnlineIndexerConflictsTest extends OnlineIndexerTest {
     @Test
     public void testAddRecordToRangeWhileIndexedOtherType() {
 
-        List<TestRecords1Proto.MySimpleRecord> records =
+        final List<TestRecords1Proto.MySimpleRecord> records =
                 LongStream.range(0, 7).mapToObj(val -> TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val * 2).setNumValue2((int)val + 1).build()
                 ).collect(Collectors.toList());
 
-        List<TestRecords1Proto.MyOtherRecord> otherRecords =
+        final List<TestRecords1Proto.MyOtherRecord> otherRecords =
                 LongStream.range(0, 7).mapToObj(val -> TestRecords1Proto.MyOtherRecord.newBuilder().setRecNo(val * 2 + 1).setNumValue2((int)val + 1).build()
                 ).collect(Collectors.toList());
 
-        List<TestRecords1Proto.MyOtherRecord> otherRecordsOverwrite =
+        final List<TestRecords1Proto.MyOtherRecord> otherRecordsOverwrite =
                 LongStream.range(0, 7).mapToObj(val -> TestRecords1Proto.MyOtherRecord.newBuilder().setRecNo(val * 2 + 1).setNumValue2((int)val + 101).build()
                 ).collect(Collectors.toList());
 

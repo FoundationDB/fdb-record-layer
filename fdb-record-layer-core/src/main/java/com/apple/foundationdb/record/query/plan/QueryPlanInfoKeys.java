@@ -1,9 +1,9 @@
 /*
- * RelationalExpressionWithPredicate.java
+ * QueryPlanInfoKeys.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,20 +18,15 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.temp;
-
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-
-import javax.annotation.Nonnull;
-import java.util.List;
+package com.apple.foundationdb.record.query.plan;
 
 /**
- * A (relational) expression that has a predicate on it.
+ * Container for {@link QueryPlanInfo.QueryPlanInfoKey} static instances used in the planner.
  */
-public interface RelationalExpressionWithPredicate extends RelationalExpression {
-    @Nonnull
-    QueryPredicate getPredicate();
+public class QueryPlanInfoKeys {
+    public static final QueryPlanInfo.QueryPlanInfoKey<Integer> TOTAL_TASK_COUNT = new QueryPlanInfo.QueryPlanInfoKey<>("totalTaskCount");
+    public static final QueryPlanInfo.QueryPlanInfoKey<Integer> MAX_TASK_QUEUE_SIZE = new QueryPlanInfo.QueryPlanInfoKey<>("maxTaskQueueSize");
 
-    @Nonnull
-    RelationalExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers);
+    private QueryPlanInfoKeys() {
+    }
 }

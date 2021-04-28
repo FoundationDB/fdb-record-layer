@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
@@ -32,7 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -60,6 +61,8 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
             indexName = ((RecordQueryPlanWithIndex)expression).getIndexName();
         } else if (expression instanceof IndexScanExpression) {
             indexName = ((IndexScanExpression)expression).getIndexName();
+        } else if (expression instanceof RecordQueryCoveringIndexPlan) {
+            indexName = ((RecordQueryCoveringIndexPlan)expression).getIndexName();
         }
         if (indexName != null) {
             return context.getIndexByName(indexName).getRootExpression().createsDuplicates();
@@ -71,7 +74,7 @@ public class CreatesDuplicatesProperty implements PlannerProperty<Boolean> {
             // These expressions filter out duplicates, so they therefore will not return duplicates even if their
             // children will.
             return Boolean.FALSE;
-        } else if (expression instanceof RecordQueryUnorderedUnionPlan || expression instanceof LogicalUnorderedUnionExpression) {
+        } else if (expression instanceof RecordQueryUnorderedUnionPlan || expression instanceof LogicalUnionExpression) {
             // These expressions can create duplicates even if the underlying children do not.
             return Boolean.TRUE;
         } else {
