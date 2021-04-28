@@ -118,6 +118,12 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
                 sortReverse);
     }
 
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryInParameterJoinPlan(child, bindingName, externalBinding, sortValuesNeeded, sortReverse);
+    }
+
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {

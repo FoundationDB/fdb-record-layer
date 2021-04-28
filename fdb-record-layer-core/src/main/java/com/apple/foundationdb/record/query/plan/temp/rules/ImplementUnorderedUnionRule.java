@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnorderedUnionExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.MultiChildrenMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ExpressionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatcher;
@@ -37,16 +37,16 @@ import java.util.List;
 
 /**
  * A rule that implements an unordered union of its (already implemented) children. This will extract the
- * {@link RecordQueryPlan} from each child of a {@link LogicalUnorderedUnionExpression} and create a
+ * {@link RecordQueryPlan} from each child of a {@link LogicalUnionExpression} and create a
  * {@link RecordQueryUnorderedUnionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
-public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnorderedUnionExpression> {
+public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpression> {
     @Nonnull
     private static final ExpressionMatcher<RecordQueryPlan> childMatcher = TypeMatcher.of(RecordQueryPlan.class, MultiChildrenMatcher.allMatching(ReferenceMatcher.anyRef()));
     @Nonnull
-    private static final ExpressionMatcher<LogicalUnorderedUnionExpression> root =
-            TypeMatcher.of(LogicalUnorderedUnionExpression.class,
+    private static final ExpressionMatcher<LogicalUnionExpression> root =
+            TypeMatcher.of(LogicalUnionExpression.class,
                     MultiChildrenMatcher.allMatching(QuantifierMatcher.forEach(childMatcher)));
 
     public ImplementUnorderedUnionRule() {

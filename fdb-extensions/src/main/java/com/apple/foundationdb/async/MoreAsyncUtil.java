@@ -715,7 +715,7 @@ public class MoreAsyncUtil {
     }
 
     /**
-     * Maps an AsyncIterable using an asynchronous mapping function
+     * Maps an AsyncIterable using an asynchronous mapping function.
      * @param iterable the source
      * @param func Maps items of iterable to a new value asynchronously
      * @param pipelineSize the number of map results to pipeline. As items comes back from iterable,
@@ -960,7 +960,8 @@ public class MoreAsyncUtil {
     /**
      * This is a static class, and should not be instantiated.
      **/
-    private MoreAsyncUtil() {}
+    private MoreAsyncUtil() {
+    }
 
     /**
      * Exception that will be thrown when the <code>supplier</code> in {@link #getWithDeadline(long, Supplier)} fails to

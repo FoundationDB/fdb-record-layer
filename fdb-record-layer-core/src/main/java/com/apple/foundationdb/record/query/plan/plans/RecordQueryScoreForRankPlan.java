@@ -45,6 +45,8 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -144,6 +146,12 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
+    public List<? extends Value> getResultValues() {
+        return ImmutableList.of(new QueriedValue());
+    }
+
+    @Nonnull
+    @Override
     public AvailableFields getAvailableFields() {
         return AvailableFields.ALL_FIELDS;
     }
@@ -170,6 +178,12 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryScoreForRankPlan((Quantifier.Physical)Iterables.getOnlyElement(rebasedQuantifiers),
                 getRanks());
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryScoreForRankPlan(child, getRanks());
     }
 
     @Override

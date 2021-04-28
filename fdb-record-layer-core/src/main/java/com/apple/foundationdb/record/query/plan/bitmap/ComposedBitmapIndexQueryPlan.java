@@ -40,7 +40,10 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -185,6 +188,12 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         return new ComposedBitmapIndexQueryPlan(indexPlans.stream().map(i -> i.rebase(translationMap)).collect(Collectors.toList()), composer);
     }
 
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return ImmutableList.of(new QueriedValue());
+    }
+    
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression other, @Nonnull AliasMap equivalences) {
         if (this == other) {

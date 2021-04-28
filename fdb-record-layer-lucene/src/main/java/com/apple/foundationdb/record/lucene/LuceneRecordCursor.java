@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
@@ -40,6 +41,8 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Sort;
+import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
@@ -80,6 +83,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private TopDocs topDocs;
     private int currentPosition;
     private final List<String> fieldNames;
+    private Sort sort = null;
 
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nonnull ScanProperties scanProperties,
@@ -191,6 +195,14 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private void performScan() throws IOException {
         indexReader = getIndexReader();
         searcher = new IndexSearcher(indexReader);
-        topDocs = searcher.search(query, limitRemaining);
+        if (sort != null) {
+            topDocs = searcher.search(query, limitRemaining, sort);
+        } else {
+            topDocs = searcher.search(query, limitRemaining);
+        }
+    }
+
+    public void setSort(RecordMetaDataProto.KeyExpression sortKeyExpression) {
+        sort = new Sort(new SortField(sortKeyExpression.getField().getFieldName(), SortField.Type.STRING));
     }
 }

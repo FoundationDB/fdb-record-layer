@@ -70,8 +70,7 @@ import java.util.function.Function;
 @API(API.Status.INTERNAL)
 public class IndexingByRecords extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByRecords.class);
-    @Nonnull private static final byte[] START_BYTES = new byte[]{0x00};
-    @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff};
+    @Nonnull private static final byte[] END_BYTES = new byte[]{(byte)0xff}; // this line should be gone in a future refactoring. Give RangeSet its privacy...
 
     @Nonnull private final TupleRange recordsRange;
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
@@ -83,12 +82,12 @@ public class IndexingByRecords extends IndexingBase {
 
     @Override
     @Nonnull
-    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp() {
+    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(FDBRecordStore store) {
         return myIndexingTypeStamp;
     }
 
     @Nonnull
-    private static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
+    static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
         return
                 IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
                         .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS)
@@ -247,8 +246,8 @@ public class IndexingByRecords extends IndexingBase {
             if (hasAny) {
                 return AsyncUtil.whileTrue(() -> {
                     Range range = ranges.next();
-                    Tuple rangeStart = Arrays.equals(range.begin, START_BYTES) ? null : Tuple.fromBytes(range.begin);
-                    Tuple rangeEnd = Arrays.equals(range.end, END_BYTES) ? null : Tuple.fromBytes(range.end);
+                    Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
+                    Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
                     return CompletableFuture.allOf(
                             // All of the requested range without limit.
                             // In practice, this method works because it is only called for the endpoint ranges, which are empty and
@@ -292,7 +291,7 @@ public class IndexingByRecords extends IndexingBase {
                 return AsyncUtil.whileTrue(() -> {
                     Range toBuild = ranges.next();
                     Tuple startTuple = Tuple.fromBytes(toBuild.begin);
-                    Tuple endTuple = Arrays.equals(toBuild.end, END_BYTES) ? null : Tuple.fromBytes(toBuild.end);
+                    Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
                     AtomicReference<Tuple> currStart = new AtomicReference<>(startTuple);
                     return AsyncUtil.whileTrue(() ->
                             // Bold claim: this will never cause a RecordBuiltRangeException because of transactions.
@@ -361,7 +360,7 @@ public class IndexingByRecords extends IndexingBase {
 
             // This only works if the things included within the rangeSet are serialized Tuples.
             Tuple startTuple = Tuple.fromBytes(toBuild.begin);
-            Tuple endTuple = Arrays.equals(toBuild.end, END_BYTES) ? null : Tuple.fromBytes(toBuild.end);
+            Tuple endTuple = RangeSet.isFinalKey(toBuild.end) ? null : Tuple.fromBytes(toBuild.end);
             return buildUnbuiltRange(startTuple, endTuple)
                     .handle((realEnd, ex) -> handleBuiltRange(subspaceProvider, subspace, rangeSet, rangeDeque, startTuple, endTuple, realEnd, ex))
                     .thenCompose(Function.identity());
@@ -383,11 +382,10 @@ public class IndexingByRecords extends IndexingBase {
                     rangeDeque.add(new Range(realEnd.pack(), END_BYTES));
                 }
             }
-            maybeLogBuildProgress(subspaceProvider, Arrays.asList(
+            return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
                     LogMessageKeys.START_TUPLE, startTuple,
                     LogMessageKeys.END_TUPLE, endTuple,
                     LogMessageKeys.REAL_END, realEnd));
-            return throttleDelay();
         } else {
             Throwable cause = unwrappedEx;
             while (cause != null) {
@@ -395,7 +393,11 @@ public class IndexingByRecords extends IndexingBase {
                     return rangeSet.missingRanges(getRunner().getDatabase().database(), startTuple.pack(), endTuple.pack())
                             .thenCompose(list -> {
                                 rangeDeque.addAll(list);
-                                return throttleDelay();
+                                return throttleDelayAndMaybeLogProgress(subspaceProvider, Arrays.asList(
+                                        LogMessageKeys.REASON, "RecordBuiltRangeException",
+                                        LogMessageKeys.START_TUPLE, startTuple,
+                                        LogMessageKeys.END_TUPLE, endTuple,
+                                        LogMessageKeys.REAL_END, realEnd));
                             });
                 } else {
                     cause = cause.getCause();

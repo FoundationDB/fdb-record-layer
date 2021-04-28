@@ -58,7 +58,7 @@ import java.util.function.Function;
  */
 @API(API.Status.INTERNAL)
 @SuppressWarnings({"squid:S1206", "squid:S2160", "PMD.OverrideBothEqualsAndHashcode"})
-public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements RecordQueryPlanWithRequiredFields {
+public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Union-Plan");
 
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQueryUnionPlan.class);
@@ -199,7 +199,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
      * @return a new plan that will return the union of all results from all child plans
      */
     @Nonnull
-    public static RecordQueryUnionPlan from(@Nonnull List<RecordQueryPlan> children, @Nonnull KeyExpression comparisonKey,
+    public static RecordQueryUnionPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull KeyExpression comparisonKey,
                                             boolean showComparisonKey) {
         if (children.size() < 2) {
             throw new RecordCoreArgumentException("fewer than two children given to union plan");
@@ -221,7 +221,7 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase implements Re
 
     @Nonnull
     @Override
-    public RecordQueryUnionPlan withChildren(@Nonnull final List<RecordQueryPlan> newChildren) {
+    public RecordQueryUnionPlan withChildren(@Nonnull final List<? extends RecordQueryPlan> newChildren) {
         return RecordQueryUnionPlan.from(newChildren, comparisonKey, showComparisonKey);
     }
 

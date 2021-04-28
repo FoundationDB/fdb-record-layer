@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
@@ -29,8 +30,10 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
@@ -55,8 +58,7 @@ public class IndexingCommon {
     private final boolean trackProgress;
     private final long leaseLengthMillis;
 
-
-    @Nonnull private final OnlineIndexer.IndexStatePrecondition indexStatePrecondition;
+    @Nonnull private OnlineIndexer.IndexStatePrecondition indexStatePrecondition;
     @Nonnull public OnlineIndexer.Config config; // this item may be modified on the fly
     @Nullable private final Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader;
     private int configLoaderInvocationCount = 0;
@@ -92,12 +94,21 @@ public class IndexingCommon {
         this.totalRecordsScanned = new AtomicLong(0);
     }
 
+
     public UUID getUuid() {
         return uuid;
     }
 
     public boolean isUseSynchronizedSession() {
         return useSynchronizedSession;
+    }
+
+    public List<Object> indexLogMessageKeyValues() {
+        return Arrays.asList(
+                LogMessageKeys.INDEX_NAME, index.getName(),
+                LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                LogMessageKeys.RECORDS_SCANNED, totalRecordsScanned.get(),
+                LogMessageKeys.INDEXER_ID, uuid);
     }
 
     @Nonnull
@@ -135,6 +146,10 @@ public class IndexingCommon {
     @Nonnull
     public OnlineIndexer.IndexStatePrecondition getIndexStatePrecondition() {
         return indexStatePrecondition;
+    }
+
+    public void setIndexStatePrecondition(@Nonnull final OnlineIndexer.IndexStatePrecondition indexStatePrecondition) {
+        this.indexStatePrecondition = indexStatePrecondition;
     }
 
     @Nullable

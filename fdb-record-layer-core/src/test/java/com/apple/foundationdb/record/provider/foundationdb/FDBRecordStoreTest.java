@@ -273,7 +273,7 @@ public class FDBRecordStoreTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord")
-                .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
+                    .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
             builder.addIndex("MyRecord", "MyRecord$path_str", concat(field("header").nest("path"),
                     field("str_value")));
             RecordMetaData metaData = builder.getRecordMetaData();

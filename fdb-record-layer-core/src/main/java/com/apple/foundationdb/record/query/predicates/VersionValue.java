@@ -22,25 +22,17 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.Set;
 
 /**
  * A value representing a version stamp.
  */
 @API(API.Status.EXPERIMENTAL)
-public class VersionValue implements Value {
+public class VersionValue implements LeafValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Version-Value");
 
     public VersionValue() {
@@ -49,25 +41,13 @@ public class VersionValue implements Value {
 
     @Nonnull
     @Override
-    public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return Collections.emptySet();
-    }
-
-    @Nonnull
-    @Override
-    public Value rebase(@Nonnull final AliasMap translationMap) {
+    public Value rebaseLeaf(@Nonnull final AliasMap translationMap) {
         return this;
     }
 
-    @Nullable
     @Override
-    public <M extends Message> Object eval(final @Nonnull FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        throw new UnsupportedOperationException("Cannot evaluate version elements yet");
-    }
-
-    @Override
-    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap equivalenceMap) {
-        return other instanceof VersionValue;
+    public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
+        return true;
     }
 
     @Override
@@ -96,6 +76,6 @@ public class VersionValue implements Value {
     @SpotBugsSuppressWarnings("EQ_UNUSUAL")
     @Override
     public boolean equals(final Object other) {
-        return semanticEquals(other, AliasMap.emptyMap());
+        return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 }

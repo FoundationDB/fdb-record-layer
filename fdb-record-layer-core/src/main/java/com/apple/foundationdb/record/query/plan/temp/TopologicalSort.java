@@ -571,6 +571,16 @@ public class TopologicalSort {
     }
 
     /**
+     * Create an {@link EnumeratingIterable} based on a set.
+     * @param set the set to create the iterable over
+     * @param <T> type
+     * @return a new {@link EnumeratingIterable} that enumerates all permutations of the given set
+     */
+    public static <T> EnumeratingIterable<T> permutations(@Nonnull final Set<T> set) {
+        return topologicalOrderPermutations(set, () -> complexIterable(set, ImmutableSetMultimap.of()));
+    }
+
+    /**
      * Create an {@link EnumeratingIterable} based on a set and a function describing
      * the depends-on relationships between items in the given set.
      * @param set the set to create the iterable over

@@ -38,6 +38,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +54,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that are not of the designated record type(s).
@@ -66,6 +69,8 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     private final Quantifier.Physical inner;
     @Nonnull
     private final Collection<String> recordTypes;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
     @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_GIVEN);
     @Nonnull
@@ -82,6 +87,7 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes) {
         this.inner = inner;
         this.recordTypes = recordTypes;
+        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -128,6 +134,18 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
         return new RecordQueryTypeFilterPlan(
                 Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
                 getRecordTypes());
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+        return new RecordQueryTypeFilterPlan(child, getRecordTypes());
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

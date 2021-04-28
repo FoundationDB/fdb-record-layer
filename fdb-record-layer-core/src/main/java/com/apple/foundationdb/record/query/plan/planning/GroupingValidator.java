@@ -25,9 +25,12 @@ import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.query.expressions.BaseField;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 
 import javax.annotation.Nonnull;
@@ -95,23 +98,39 @@ class GroupingValidator {
 
     private static boolean findNestingFilter(@Nonnull List<QueryComponent> filters, @Nonnull NestingKeyExpression nesting,
                                              @Nonnull List<QueryComponent> groupFilters, @Nonnull List<Comparisons.Comparison> groupComparisons) {
-        if (nesting.getChild() instanceof FieldKeyExpression) {
-            FieldKeyExpression parentField = nesting.getParent();
+        FieldKeyExpression parentFieldKey = nesting.getParent();
+        for (QueryComponent filter : filters) {
+            if (filter instanceof NestedField || filter instanceof OneOfThemWithComponent) {
+                if (parentFieldKey.getFieldName().equals(((BaseField)filter).getFieldName()) &&
+                        matchNestingField(filter, (ComponentWithSingleChild)filter, nesting, groupFilters, groupComparisons)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean matchNestingField(@Nonnull QueryComponent filter, @Nonnull ComponentWithSingleChild nestingComponent, @Nonnull NestingKeyExpression nesting,
+                                             @Nonnull List<QueryComponent> groupFilters, @Nonnull List<Comparisons.Comparison> groupComparisons) {
+        if (nesting.getChild() instanceof NestingKeyExpression) {
+            NestingKeyExpression childNesting = (NestingKeyExpression)nesting.getChild();
+            QueryComponent childComponent = nestingComponent.getChild();
+            if (childComponent instanceof NestedField || childComponent instanceof OneOfThemWithComponent) {
+                if (childNesting.getParent().getFieldName().equals(((BaseField)childComponent).getFieldName()) &&
+                        matchNestingField(filter, (ComponentWithSingleChild)childComponent, childNesting, groupFilters, groupComparisons)) {
+                    return true;
+                }
+            }
+        } else if (nesting.getChild() instanceof FieldKeyExpression) {
             FieldKeyExpression childField = (FieldKeyExpression)nesting.getChild();
-            for (QueryComponent filter : filters) {
-                if (filter instanceof NestedField) {
-                    NestedField nested = (NestedField)filter;
-                    if (nested.getFieldName().equals(parentField.getFieldName()) &&
-                            nested.getChild() instanceof FieldWithComparison) {
-                        FieldWithComparison comparisonFilter = (FieldWithComparison)nested.getChild();
-                        if (comparisonFilter.getFieldName().equals(childField.getFieldName()) &&
-                                (comparisonFilter.getComparison().getType() == Comparisons.Type.EQUALS ||
-                                 comparisonFilter.getComparison().getType() == Comparisons.Type.IS_NULL)) {
-                            groupFilters.add(filter);
-                            groupComparisons.add(comparisonFilter.getComparison());
-                            return true;
-                        }
-                    }
+            if (nestingComponent.getChild() instanceof FieldWithComparison) {
+                FieldWithComparison comparisonFilter = (FieldWithComparison)nestingComponent.getChild();
+                if (comparisonFilter.getFieldName().equals(childField.getFieldName()) &&
+                        (comparisonFilter.getComparison().getType() == Comparisons.Type.EQUALS ||
+                         comparisonFilter.getComparison().getType() == Comparisons.Type.IS_NULL)) {
+                    groupFilters.add(filter);
+                    groupComparisons.add(comparisonFilter.getComparison());
+                    return true;
                 }
             }
         }

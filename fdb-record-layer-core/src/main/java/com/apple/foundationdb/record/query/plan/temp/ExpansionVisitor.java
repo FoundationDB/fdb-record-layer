@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("java:S3252")
 public interface ExpansionVisitor<S extends KeyExpressionVisitor.State> extends KeyExpressionVisitor<S, GraphExpansion> {
     /**
-     * Method that expands a data structure into a data flow graph
+     * Method that expands a data structure into a data flow graph.
      * @param baseQuantifier a quantifier representing the base data access
      * @param primaryKey the primary key of the data object the caller wants to access
      * @param isReverse an indicator whether the result set is expected to be returned in reverse order

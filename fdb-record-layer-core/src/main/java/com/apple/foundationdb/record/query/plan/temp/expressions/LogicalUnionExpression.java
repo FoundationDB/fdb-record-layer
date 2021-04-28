@@ -1,5 +1,5 @@
 /*
- * LogicalUnorderedUnionExpression.java
+ * LogicalUnionExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -25,23 +25,30 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.MergeValue;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
- * A relational planner expression that represents an unimplemented unordered union of its children.
+ * A relational planner expression that represents an unimplemented union of its children.
  * @see com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan for the fallback implementation
  */
 @API(API.Status.EXPERIMENTAL)
-public class LogicalUnorderedUnionExpression implements RelationalExpressionWithChildren {
+public class LogicalUnionExpression implements RelationalExpressionWithChildren {
     @Nonnull
-    private List<? extends Quantifier> quantifiers;
+    private final List<? extends Quantifier> quantifiers;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
-    public LogicalUnorderedUnionExpression(@Nonnull List<? extends Quantifier> quantifiers) {
+    public LogicalUnionExpression(@Nonnull List<? extends Quantifier> quantifiers) {
         this.quantifiers = quantifiers;
+        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
     }
 
     @Override
@@ -63,16 +70,22 @@ public class LogicalUnorderedUnionExpression implements RelationalExpressionWith
 
     @Nonnull
     @Override
-    public LogicalUnorderedUnionExpression rebase(@Nonnull final AliasMap translationMap) {
+    public LogicalUnionExpression rebase(@Nonnull final AliasMap translationMap) {
         // we know the following is correct, just Java doesn't
-        return (LogicalUnorderedUnionExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
+        return (LogicalUnionExpression)RelationalExpressionWithChildren.super.rebase(translationMap);
     }
 
     @Nonnull
     @Override
-    public LogicalUnorderedUnionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
-                                                                        @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new LogicalUnorderedUnionExpression(rebasedQuantifiers);
+    public LogicalUnionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
+                                                               @Nonnull final List<Quantifier> rebasedQuantifiers) {
+        return new LogicalUnionExpression(rebasedQuantifiers);
+    }
+
+    @Nonnull
+    @Override
+    public List<? extends Value> getResultValues() {
+        return resultValuesSupplier.get();
     }
 
     @Override

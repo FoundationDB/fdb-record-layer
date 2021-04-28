@@ -30,6 +30,8 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
+import static com.google.common.base.Verify.verify;
+
 /**
  * Class that handles reading data cut into blocks (KeyValue) backed by an FDB keyspace.
  *
@@ -196,7 +198,7 @@ public class FDBIndexInput extends IndexInput {
         try {
             int probe = (int)(absolutePosition() % reference.join().getBlockSize());
             position++;
-            assert currentData.join() != null : "current Data is null: " + resourceDescription + " " + reference.join().getId();
+            verify(currentData.join() != null, "current Data is null: " + resourceDescription + " " + reference.join().getId());
             return currentData.join()[probe];
         } finally {
             if (absolutePosition() % reference.join().getBlockSize() == 0) {
@@ -215,10 +217,9 @@ public class FDBIndexInput extends IndexInput {
      * @param bytes bytes
      * @param offset offset
      * @param length length
-     * @throws IOException exception
      */
     @Override
-    public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) throws IOException {
+    public void readBytes(@Nonnull final byte[] bytes, final int offset, final int length) {
         LOGGER.trace("readBytes resource={}, offset={}, length={}", resourceDescription, offset, length);
         int bytesRead = 0;
         long blockSize = reference.join().getBlockSize();

@@ -1,5 +1,5 @@
 /*
- * RecordQueryPlanWithRequiredFields.java
+ * RelationalExpressionWithPredicates.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,17 +18,17 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.query.plan.temp;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
-import java.util.Set;
+import java.util.List;
 
 /**
- * Interface for query plans that have fields that must be present for successful execution.
+ * A (relational) expression that has a predicate on it.
  */
-public interface RecordQueryPlanWithRequiredFields extends RecordQueryPlan {
+public interface RelationalExpressionWithPredicates extends RelationalExpression {
     @Nonnull
-    Set<KeyExpression> getRequiredFields();
+    List<QueryPredicate> getPredicates();
 }

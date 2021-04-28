@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.bitmap;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
@@ -62,12 +62,24 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * Transform a tree of Boolean expressions into a tree of bitwise operations on streams of bitmaps.
+ * Transform a tree of Boolean expressions into a tree of bitwise operations on streams of bitmaps from multiple
+ * {@link IndexTypes#BITMAP_VALUE} indexes with common group and position keys.
  *
  * So, {@code AND} turns into {@code BITAND} and {@code OR} into {@code BITOR}, with the leaves of the streams
  * being scans of a {@code BITMAP_VALUE} index keyed by the leaf condition.
  *
  * Optional additional grouping predicates for all indexes are also preserved.
+ *
+ * This means dividing a set of conditions into three categories:
+ * <ol>
+ * <li>group predicates common to all indexes</li>
+ * <li>group predicates for a single bitmap index</li>
+ * <li>position predicates applied to every scan</li>
+ * </ol>
+ * Each of the second set of group predicates is turned into a single bitmap index scan by prepending the common group
+ * and appending the common position. These scans yield bitmaps with one bits for each unique position matching that single predicate.
+ * Applying bit operations on these bitmaps corresponding to the complex Boolean expression on the original predicates
+ * gives bitmaps with one bits for positions satisfying that complex condition.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ComposedBitmapIndexAggregate {
@@ -79,20 +91,20 @@ public class ComposedBitmapIndexAggregate {
     }
 
     /**
-     * Try to build a composed bitmap plan for the given query and aggregate function.
+     * Try to build a composed bitmap plan for the given query and aggregate function call.
      * @param planner a query planner to use to construct the plans
      * @param query a query providing target record type, filter, and required fields
-     * @param indexAggregateFunction the function giving the desired position and grouping
+     * @param indexAggregateFunctionCall the function call giving the desired position and grouping
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
      */
     @Nonnull
     public static Optional<RecordQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
                                                     @Nonnull RecordQuery query,
-                                                    @Nonnull IndexAggregateFunction indexAggregateFunction) {
+                                                    @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall) {
         if (query.getFilter() == null || query.getSort() != null) {
             return Optional.empty();
         }
-        return tryBuild(planner, query.getRecordTypes(), indexAggregateFunction, query.getFilter())
+        return tryBuild(planner, query.getRecordTypes(), indexAggregateFunctionCall, query.getFilter())
                 .flatMap(p -> p.tryPlan(planner, query.toBuilder()));
     }
 
@@ -133,43 +145,43 @@ public class ComposedBitmapIndexAggregate {
      * </p>
      * @param planner a query planner to use to construct the plans
      * @param recordTypeNames the record types on which the indexes are defined
-     * @param indexAggregateFunction the function giving the desired position and grouping
+     * @param indexAggregateFunctionCall the function giving the desired position and grouping
      * @param filter conditions on the groups and position
      * @return an {@code Optional} composed bitmap or {@code Optional.empty} if there conditions could not be satisfied
      */
     @Nonnull
     public static Optional<ComposedBitmapIndexAggregate> tryBuild(@Nonnull QueryPlanner planner,
                                                                   @Nonnull Collection<String> recordTypeNames,
-                                                                  @Nonnull IndexAggregateFunction indexAggregateFunction,
+                                                                  @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall,
                                                                   @Nonnull QueryComponent filter) {
         // The filters that are common to all the composed index queries.
-        // They can be equality conditions on the common group prefix (as specified by indexAggregateFunction)
+        // They can be equality conditions on the common group prefix (as specified by indexAggregateFunctionCall)
         // or inequalities on the position.
         List<QueryComponent> commonFilters = new ArrayList<>();
         // The filters that are specific to a single index. At present, each comparison must be accomplished by a single
         // index. It would be possible, though, to have indexes with multiple grouping fields after the common prefix
         // and to pick any complete covering of indexFilters.
         List<QueryComponent> indexFilters = new ArrayList<>();
-        if (!separateGroupFilters(filter, indexAggregateFunction, commonFilters, indexFilters) || indexFilters.isEmpty()) {
+        if (!separateGroupFilters(filter, indexAggregateFunctionCall, commonFilters, indexFilters) || indexFilters.isEmpty()) {
             return Optional.empty();
         }
-        Builder builder = new Builder(planner, recordTypeNames, commonFilters, indexAggregateFunction);
+        Builder builder = new Builder(planner, recordTypeNames, commonFilters, indexAggregateFunctionCall);
         return builder.tryBuild(indexFilters.size() > 1 ? Query.and(indexFilters) : indexFilters.get(0))
             .map(ComposedBitmapIndexAggregate::new);
     }
 
     private static boolean separateGroupFilters(@Nonnull QueryComponent filter,
-                                                @Nonnull IndexAggregateFunction indexAggregateFunction,
+                                                @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall,
                                                 @Nonnull List<QueryComponent> commonFilters,
                                                 @Nonnull List<QueryComponent> indexFilters) {
         QueryToKeyMatcher matcher = new QueryToKeyMatcher(filter);
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
-        QueryToKeyMatcher.Match match = matcher.matchesCoveringKey(((GroupingKeyExpression)indexAggregateFunction.getOperand()).getGroupingSubKey(), filterMask);
+        QueryToKeyMatcher.Match match = matcher.matchesCoveringKey(indexAggregateFunctionCall.getGroupingKeyExpression().getGroupingSubKey(), filterMask);
         if (match.getType() != QueryToKeyMatcher.MatchType.EQUALITY) {
             return false;   // Did not manage to fully restrict the grouping key.
         }
         // The position key(s) can also be constrained with inequalities and those go among the group filters.
-        matcher.matchesCoveringKey(((GroupingKeyExpression)indexAggregateFunction.getOperand()).getGroupedSubKey(), filterMask);
+        matcher.matchesCoveringKey(indexAggregateFunctionCall.getGroupedExpression(), filterMask);
         if (filterMask.allSatisfied()) {
             return false;   // Not enough conditions left over.
         }
@@ -273,18 +285,18 @@ public class ComposedBitmapIndexAggregate {
         @Nonnull
         private final List<QueryComponent> groupFilters;
         @Nonnull
-        private final IndexAggregateFunction indexAggregateFunction;
+        private final IndexAggregateFunctionCall indexAggregateFunctionCall;
         @Nullable
         private Map<KeyExpression, Index> bitmapIndexes;
         @Nullable
         private Map<QueryComponent, IndexNode> indexNodes;
 
         Builder(@Nonnull final QueryPlanner planner, @Nonnull Collection<String> recordTypeNames,
-                @Nonnull List<QueryComponent> groupFilters, @Nonnull IndexAggregateFunction indexAggregateFunction) {
+                @Nonnull List<QueryComponent> groupFilters, @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall) {
             this.planner = planner;
             this.recordTypeNames = recordTypeNames;
             this.groupFilters = groupFilters;
-            this.indexAggregateFunction = indexAggregateFunction;
+            this.indexAggregateFunctionCall = indexAggregateFunctionCall;
         }
 
         @Nonnull
@@ -315,7 +327,7 @@ public class ComposedBitmapIndexAggregate {
         @Nonnull
         Optional<Node> indexScan(@Nonnull QueryComponent indexFilter) {
             if (bitmapIndexes == null) {
-                bitmapIndexes = findBitmapIndexes(indexAggregateFunction.getName());
+                bitmapIndexes = findBitmapIndexes(indexAggregateFunctionCall.getFunctionName());
                 if (bitmapIndexes.isEmpty()) {
                     return Optional.empty();
                 }
@@ -338,7 +350,7 @@ public class ComposedBitmapIndexAggregate {
             // But if part of the group is a nested concat, breaking that up would need support in QueryToKeyMatcher.
             // Moreover, the caller needs to have arranged for a compatible index to exist, which requires new support to define.
             // (https://github.com/FoundationDB/fdb-record-layer/issues/1056)
-            final GroupingKeyExpression groupKey = (GroupingKeyExpression)indexAggregateFunction.getOperand();
+            final GroupingKeyExpression groupKey = indexAggregateFunctionCall.getGroupingKeyExpression();
             final int groupedCount = groupKey.getGroupedCount();
             final int wholeCount = groupKey.getColumnSize();
             int afterSpliceCount = groupedCount;

@@ -81,6 +81,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").lessThanOrEquals(1)
                 ))
                 .build();
+
+        // Index(MySimpleRecord$num_value_3_indexed [[0],[1]])
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[0],[1]]")))));
         assertEquals(1869980849, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -170,6 +172,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(3),
                         Query.field("num_value_3_indexed").equalsValue(3)))
                 .build();
+
+        // Fetch(Covering(Index(multi_index [[even, 3],[even, 3]]) -> [num_value_3_indexed: KEY[1], rec_no: KEY[2], str_value_indexed: KEY[0]]) | num_value_3_indexed EQUALS 3)
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, descendant(coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 3],[even, 3]]")))))));
         assertEquals(-766201402, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
@@ -213,6 +217,8 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").lessThanOrEquals(4),
                         Query.field("num_value_3_indexed").greaterThan(0)))
                 .build();
+
+        // Index(multi_index [EQUALS $str, [GREATER_THAN_OR_EQUALS 3 && GREATER_THAN 0 && LESS_THAN_OR_EQUALS 4]])
         RecordQueryPlan plan = planner.plan(query);
         List<String> bounds = Arrays.asList("GREATER_THAN_OR_EQUALS 3", "LESS_THAN_OR_EQUALS 4", "GREATER_THAN 0");
         Collection<List<String>> combinations = Collections2.permutations(bounds);

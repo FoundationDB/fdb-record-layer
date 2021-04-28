@@ -182,6 +182,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     }
 
     @Nonnull
+    public SelectExpression buildSelect() {
+        return seal().buildSelect();
+    }
+
+    @Nonnull
     public SelectExpression buildSelectWithBase(final Quantifier baseQuantifier) {
         return seal().buildSelectWithBase(baseQuantifier);
     }
@@ -199,6 +204,11 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     @Nonnull
     public static GraphExpansion ofResultValue(@Nonnull final Value resultValue) {
         return new GraphExpansion(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+    }
+
+    @Nonnull
+    public static GraphExpansion ofResultValueAndQuantifier(@Nonnull final Value resultValue, @Nonnull final Quantifier quantifier) {
+        return new GraphExpansion(ImmutableList.of(resultValue), ImmutableList.of(), ImmutableList.of(quantifier), ImmutableList.of());
     }
 
     @Nonnull
@@ -235,20 +245,27 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
      */
     public class Sealed {
         @Nonnull
+        public SelectExpression buildSelect() {
+            return buildSelectWithQuantifiers(getQuantifiers());
+        }
+
+        @Nonnull
         public SelectExpression buildSelectWithBase(final Quantifier baseQuantifier) {
             final ImmutableList<Quantifier> allQuantifiers =
                     ImmutableList.<Quantifier>builder()
                             .add(baseQuantifier)
                             .addAll(getQuantifiers()).build();
 
+            return buildSelectWithQuantifiers(allQuantifiers);
+        }
+
+        @Nonnull
+        private SelectExpression buildSelectWithQuantifiers(final List<Quantifier> quantifiers) {
             final ImmutableList<? extends QuantifiedColumnValue> pulledUpResultValues =
-                    allQuantifiers
+                    quantifiers
                             .stream()
                             .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                            .flatMap(quantifier ->
-                                    quantifier.getFlowedValues()
-                                            .orElse(ImmutableList.of())
-                                            .stream())
+                            .flatMap(quantifier -> quantifier.getFlowedValues().stream())
                             .collect(ImmutableList.toImmutableList());
 
             final ImmutableList<Value> allResultValues =
@@ -257,7 +274,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                             .addAll(getResultValues())
                             .build();
 
-            return new SelectExpression(allResultValues, allQuantifiers, getPredicates());
+            return new SelectExpression(allResultValues, quantifiers, getPredicates());
         }
 
         @Nonnull

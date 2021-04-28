@@ -81,7 +81,7 @@ import java.util.stream.StreamSupport;
  * </ul>
  *
  * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toScanExpression(MatchInfo)}.
+ * {@link MatchCandidate#toEquivalentExpression(PartialMatch)}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class DataAccessRule extends PlannerRule<MatchPartition> {
@@ -180,7 +180,7 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
                         Function.identity(),
                         partialMatch -> {
                             final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
-                            return matchCandidate.toScanExpression(partialMatch.getMatchInfo());
+                            return matchCandidate.toEquivalentExpression(partialMatch);
                         }));
     }
 

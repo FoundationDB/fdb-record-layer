@@ -538,9 +538,9 @@ public class FDBStoreTimer extends StoreTimer {
         QUERY_TYPE_FILTER_PLAN_GIVEN("number of records given to RecordQueryTypeFilterPlan", false),
         /** The number of records passed by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan}. */
         QUERY_TYPE_FILTER_PLAN_PASSED("number of records passed by RecordQueryTypeFilterPlan", false),
-        /** The number of records given to a filter within a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan}*/
+        /** The number of records given to a filter within a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan}. */
         QUERY_TEXT_FILTER_PLAN_GIVEN("number of records given to a filter within a RecordQueryTextIndexPlan", false),
-        /** The number of records passed by a filter within a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan}*/
+        /** The number of records passed by a filter within a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan}. */
         QUERY_TEXT_FILTER_PLAN_PASSED("number of records passed by a filter within a RecordQueryTextIndexPlan", false),
         /** The number of duplicate records found by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedDistinctPlan}. */
         QUERY_DISTINCT_PLAN_DUPLICATES("number of duplicates found by RecordQueryUnorderedDistinctPlan", false),

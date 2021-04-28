@@ -39,6 +39,7 @@ public class RecordQueryPlannerConfiguration {
     private final boolean optimizeForIndexFilters;
     private final int maxTaskQueueSize;
     private final int maxTotalTaskCount;
+    private final boolean useFullKeyForValueIndex;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -47,7 +48,8 @@ public class RecordQueryPlannerConfiguration {
                                             boolean deferFetchAfterUnionAndIntersection,
                                             boolean optimizeForIndexFilters,
                                             int maxTaskQueueSize,
-                                            int maxTotalTaskCount) {
+                                            int maxTotalTaskCount,
+                                            boolean useFullKeyForValueIndex) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.complexityThreshold = complexityThreshold;
@@ -56,6 +58,7 @@ public class RecordQueryPlannerConfiguration {
         this.optimizeForIndexFilters = optimizeForIndexFilters;
         this.maxTaskQueueSize = maxTaskQueueSize;
         this.maxTotalTaskCount = maxTotalTaskCount;
+        this.useFullKeyForValueIndex = useFullKeyForValueIndex;
     }
 
     /**
@@ -138,6 +141,14 @@ public class RecordQueryPlannerConfiguration {
         return maxTotalTaskCount;
     }
 
+    /**
+     * Get whether the planner uses the entire key, including the primary key, for value indexes.
+     * @return whether to include primary key in planning
+     */
+    public boolean shouldUseFullKeyForValueIndex() {
+        return useFullKeyForValueIndex;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -161,6 +172,7 @@ public class RecordQueryPlannerConfiguration {
         private boolean optimizeForIndexFilters = false;
         private int maxTaskQueueSize = 0;
         private int maxTotalTaskCount = 0;
+        private boolean useFullKeyForValueIndex = true;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -171,6 +183,7 @@ public class RecordQueryPlannerConfiguration {
             this.optimizeForIndexFilters = configuration.optimizeForIndexFilters;
             this.maxTaskQueueSize = configuration.maxTaskQueueSize;
             this.maxTotalTaskCount = configuration.maxTotalTaskCount;
+            this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
         }
 
         public Builder() {
@@ -230,8 +243,18 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set whether the planner uses the entire key, including the primary key, for value indexes.
+         * @param useFullKeyForValueIndex whether to include primary key in planning
+         * @return this builder
+         */
+        public Builder setUseFullKeyForValueIndex(final boolean useFullKeyForValueIndex) {
+            this.useFullKeyForValueIndex = useFullKeyForValueIndex;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex);
         }
     }
 }

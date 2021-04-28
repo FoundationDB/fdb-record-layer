@@ -109,7 +109,9 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public RelationalExpression toScanExpression(@Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse) {
+    public RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,
+                                                       @Nonnull final List<ComparisonRange> comparisonRanges,
+                                                       final boolean isReverse) {
         return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
                 new PrimaryScanExpression(getAvailableRecordTypes(),
                         comparisonRanges,

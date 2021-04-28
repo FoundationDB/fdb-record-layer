@@ -19,6 +19,6 @@
  */
 
 /**
- * Stub for planner debugger
+ * Stub for planner debugger.
  */
 package com.apple.foundationdb.record.query.plan.temp.debug;

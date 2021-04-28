@@ -24,8 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicate;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
 import com.apple.foundationdb.record.query.predicates.AndOrPredicate;
+import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
 import com.apple.foundationdb.record.query.predicates.NotPredicate;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
@@ -48,8 +49,8 @@ public class PredicateCountProperty implements PlannerProperty<Integer> {
     @Override
     public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
         int total = 0;
-        if (expression instanceof RelationalExpressionWithPredicate) {
-            total = getValuePredicateCount(((RelationalExpressionWithPredicate)expression).getPredicate());
+        if (expression instanceof RelationalExpressionWithPredicates) {
+            total = getValuePredicateCount(AndPredicate.and(((RelationalExpressionWithPredicates)expression).getPredicates())); // TODO shouldn't that just be getPredicates()?
         }
         for (Integer childCount : childResults) {
             if (childCount != null) {
