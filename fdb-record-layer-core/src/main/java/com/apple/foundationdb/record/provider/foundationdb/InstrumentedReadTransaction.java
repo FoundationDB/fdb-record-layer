@@ -180,6 +180,16 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     @Override
+    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final byte[] begin, final byte[] end) {
+        return underlying.getEstimatedRangeSizeBytes(begin, end);
+    }
+
+    @Override
+    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final Range range) {
+        return underlying.getEstimatedRangeSizeBytes(range);
+    }
+
+    @Override
     public TransactionOptions options() {
         return underlying.options();
     }
@@ -197,16 +207,6 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     @Override
     public Executor getExecutor() {
         return underlying.getExecutor();
-    }
-
-    @Override
-    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final byte[] begin, final byte[] end) {
-        return underlying.getEstimatedRangeSizeBytes(begin, end);
-    }
-
-    @Override
-    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final Range range) {
-        return underlying.getEstimatedRangeSizeBytes(range);
     }
 
     @Nullable
