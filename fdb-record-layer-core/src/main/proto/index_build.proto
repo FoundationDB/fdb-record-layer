@@ -31,6 +31,7 @@ message IndexBuildIndexingStamp {
     INVALID    = 0;   // let zero be invalid
     BY_RECORDS = 1;   // indexing by records - scanning all records in a record store
     BY_INDEX   = 2;   // indexing by a source index. When source index points to all possible records of the target index.
+    SCRUB_REPAIR =3;  // while readable, verify index validity. Repair if needed.
   };
   optional Method method = 1;
   optional bytes source_index_subspace_key = 2; // relevant only with BY_INDEX method

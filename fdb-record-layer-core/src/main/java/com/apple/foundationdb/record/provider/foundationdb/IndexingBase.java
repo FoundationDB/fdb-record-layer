@@ -41,6 +41,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
 import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordFromStoredRecordPlan;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -50,6 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -70,20 +72,39 @@ public abstract class IndexingBase {
     private static final Object INDEX_BUILD_LOCK_KEY = 0L;
     private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;
     private static final Object INDEX_BUILD_TYPE_VERSION = 2L;
+    private static final Object INDEX_BUILD_SCRUB_INDEX_RANGE = 3L;
+    private static final Object INDEX_BUILD_SCRUB_RECORDS_RANGE = 4L;
 
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingBase.class);
     @Nonnull
     protected final IndexingCommon common; // to be used by extenders
     @Nonnull
+    protected final OnlineIndexer.IndexingPolicy policy;
+    @Nullable
+    protected final OnlineIndexer.ScrubbingPolicy scrubbingPolicy;
+    @Nonnull
     private final IndexingThrottle throttle;
 
     private long timeOfLastProgressLogMillis = 0;
     private boolean forceStampOverwrite = false;
 
-    IndexingBase(@Nonnull IndexingCommon common) {
+    IndexingBase(@Nonnull IndexingCommon common,
+                 @Nonnull OnlineIndexer.IndexingPolicy policy) {
         this.common = common;
-        this.throttle = new IndexingThrottle(common);
+        this.policy = policy;
+        this.scrubbingPolicy = null;
+        this.throttle = new IndexingThrottle(common, IndexState.WRITE_ONLY);
+    }
+
+    IndexingBase(@Nonnull IndexingCommon common,
+                 @Nonnull OnlineIndexer.IndexingPolicy policy,
+                 @Nonnull OnlineIndexer.ScrubbingPolicy scrubbingPolicy) {
+        this.common = common;
+        this.policy = policy;
+        // Here: scrubbingPolicy isn't null and the index must be READABLE
+        this.scrubbingPolicy = scrubbingPolicy;
+        this.throttle = new IndexingThrottle(common, IndexState.READABLE);
     }
 
     // helper functions
@@ -109,6 +130,16 @@ public abstract class IndexingBase {
     @Nonnull
     protected static Subspace indexBuildTypeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
         return indexBuildSubspace(store, index, INDEX_BUILD_TYPE_VERSION);
+    }
+
+    @Nonnull
+    protected static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return indexBuildSubspace(store, index, INDEX_BUILD_SCRUB_INDEX_RANGE);
+    }
+
+    @Nonnull
+    protected static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
+        return indexBuildSubspace(store, index, INDEX_BUILD_SCRUB_RECORDS_RANGE);
     }
 
     @SuppressWarnings("squid:S1452")
@@ -205,6 +236,10 @@ public abstract class IndexingBase {
         final Index index = common.getIndex();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(index);
+            if (scrubbingPolicy != null) {
+                validateOrThrowEx(indexState == IndexState.READABLE, "Scrubber was called for a non-readable index. State: " + indexState);
+                return setScrubberTypeOrThrow(store).thenApply(ignore -> true);
+            }
             boolean shouldBuild = true;         // defaults are the common cases
             boolean shouldClear = false;        // (will clear only if shouldBuild)
             boolean shouldMarkWriteOnly = indexState != IndexState.WRITE_ONLY; // may avoid it to allow error if not WRITE_ONLY
@@ -270,7 +305,7 @@ public abstract class IndexingBase {
                 .thenApply(ignore -> null), common.indexLogMessageKeyValues("IndexingBase::markIndexReadable"));
     }
 
-    public void setFallbackMode() {
+    public void enforceStampOverwrite() {
         forceStampOverwrite = true; // must overwrite a previous indexing method's stamp
     }
 
@@ -338,6 +373,49 @@ public abstract class IndexingBase {
                     }
                     // fall down to exception
                     throw newPartlyBuildException(continuedBuild, savedStamp, indexingTypeStamp);
+                });
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> setScrubberTypeOrThrow(FDBRecordStore store) {
+        // HERE: The index must be readable, checked by the caller
+        //   if scrubber had already run and still have missing ranges, do nothing
+        //   else: clear ranges and overwrite type-stamp
+        Transaction tr = store.getContext().ensureActive();
+        IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp = getIndexingTypeStamp(store);
+        validateOrThrowEx(indexingTypeStamp.getMethod().equals(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR),
+                "Not a scrubber type-stamp");
+
+        final Index index = common.getIndex();
+        byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
+        return tr.get(stampKey)
+                .thenCompose(bytes -> {
+                    if (bytes != null) {
+                        IndexBuildProto.IndexBuildIndexingStamp savedStamp = parseTypeStampOrThrow(bytes);
+                        final Subspace indexesRangeSubspace = indexScrubIndexRangeSubspace(store, index);
+                        final Subspace recordsRangeSubspace = indexScrubRecordsRangeSubspace(store, index);
+                        if (indexingTypeStamp.equals(savedStamp)) {
+                            RangeSet indexRangeSet = new RangeSet(indexesRangeSubspace);
+                            RangeSet recordsRangeSet = new RangeSet(recordsRangeSubspace);
+                            AsyncIterator<Range> indexRanges = indexRangeSet.missingRanges(tr).iterator();
+                            AsyncIterator<Range> recordsRanges = recordsRangeSet.missingRanges(tr).iterator();
+                            return indexRanges.onHasNext().thenCompose(hasNextIndex -> {
+                                if (Boolean.FALSE.equals(hasNextIndex)) {
+                                    tr.clear(indexesRangeSubspace.range());
+                                }
+                                return recordsRanges.onHasNext().thenCompose(hasNextRecord -> {
+                                    if (Boolean.FALSE.equals(hasNextRecord)) {
+                                        tr.clear(recordsRangeSubspace.range());
+                                    }
+                                    return AsyncUtil.DONE;
+                                });
+                            });
+                        }
+                        tr.clear(store.indexRangeSubspace(index).range());
+                        tr.clear(indexBuildScannedRecordsSubspace(store, index).pack());
+                        tr.set(indexBuildTypeSubspace(store, common.getIndex()).pack(), indexingTypeStamp.toByteArray());
+                    }
+                    return AsyncUtil.DONE;
                 });
     }
 
@@ -426,7 +504,7 @@ public abstract class IndexingBase {
         return throttle.buildCommitRetryAsync(buildFunction, limitControl, additionalLogMessageKeyValues);
     }
 
-    private static void timerIncrement(@Nullable FDBStoreTimer timer, FDBStoreTimer.Counts event) {
+    protected static void timerIncrement(@Nullable FDBStoreTimer timer, FDBStoreTimer.Counts event) {
         // helper function to reduce complexity
         if (timer != null) {
             timer.increment(event);
@@ -438,7 +516,7 @@ public abstract class IndexingBase {
      *
      * @param store the record store.
      * @param cursor iteration items.
-     * @param getRecord function to convert cursor's item to a record.
+     * @param getRecordToIndex function to convert cursor's item to a record that should be indexed (or null, if inapplicable)
      * @param nextResultCont when return, if hasMore is true, holds the last cursored result - unprocessed - as a
      * continuation item.
      * @param hasMore when return, true if the cursor's source is not exhausted (not more items in range).
@@ -447,27 +525,28 @@ public abstract class IndexingBase {
      *
      * @return hasMore, nextResultCont, and recordsScanned.
      */
-    protected <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
-                                                           @Nonnull RecordCursor<T> cursor,
-                                                           @Nonnull Function<RecordCursorResult<T>, FDBStoredRecord<Message>> getRecord,
-                                                           @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
-                                                           @Nonnull AtomicBoolean hasMore,
-                                                           @Nullable AtomicLong recordsScanned) {
+
+    protected  <T> CompletableFuture<Void> iterateRangeOnly(@Nonnull FDBRecordStore store,
+                                                            @Nonnull RecordCursor<T> cursor,
+                                                            @Nonnull BiFunction<FDBRecordStore, RecordCursorResult<T>, CompletableFuture<FDBStoredRecord<Message>>> getRecordToIndex,
+                                                            @Nonnull AtomicReference<RecordCursorResult<T>> nextResultCont,
+                                                            @Nonnull AtomicBoolean hasMore,
+                                                            @Nullable AtomicLong recordsScanned) {
         final FDBStoreTimer timer = getRunner().getTimer();
         final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        final boolean isIdempotent = maintainer.isIdempotent();
         final FDBRecordContext context = store.getContext();
         final SyntheticRecordFromStoredRecordPlan syntheticPlan = common.getSyntheticPlan(store);
+        final boolean isIdempotent = maintainer.isIdempotent();
+
         // Need to do this each transaction because other index enabled state might have changed. Could cache based on that.
         // Copying the state also guards against changes made by other online building from check version.
-        // TODO: need some state to avoid generating the same synthetic record via more than one self-join path for non-idempotent indexes.
         AtomicLong recordsScannedCounter = new AtomicLong();
 
         final AtomicReference<RecordCursorResult<T>> nextResult = new AtomicReference<>(null);
         return AsyncUtil.whileTrue(() -> cursor.onNext().thenCompose(result -> {
             RecordCursorResult<T> currResult;
-            boolean isExhausted = false;
+            final boolean isExhausted;
             if (result.hasNext()) {
                 // has next, process one previous item (if exists)
                 currResult = nextResult.get();
@@ -476,6 +555,7 @@ public abstract class IndexingBase {
                     // that was the first item, nothing to process
                     return AsyncUtil.READY_TRUE;
                 }
+                isExhausted = false;
             } else {
                 // end of the cursor list
                 timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT);
@@ -495,54 +575,57 @@ public abstract class IndexingBase {
                 nextResult.set(null);
                 isExhausted = true;
             }
+
             // here: currResult must have value
-            final FDBStoredRecord<Message> rec = getRecord.apply(currResult);
             timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED);
             recordsScannedCounter.incrementAndGet();
-            if (!common.recordTypes.contains(rec.getRecordType())) {
-                // This record is not our type, swipe left
-                if (isExhausted) {
-                    hasMore.set(false);
-                    return AsyncUtil.READY_FALSE;
-                }
-                return AsyncUtil.READY_TRUE;
-            }
-            // add this index to the transaction
-            if (isIdempotent) {
-                store.addRecordReadConflict(rec.getPrimaryKey());
-            }
-            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
 
-            final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(syntheticPlan, rec, maintainer, store);
-            if (isExhausted) {
-                // we've just processed the last item
-                hasMore.set(false);
-                return updateMaintainer.thenApply(vignore -> false);
-            }
-            return updateMaintainer.thenCompose(vignore ->
-                    context.getApproximateTransactionSize().thenApply(size -> {
-                        if (size >= common.config.getMaxWriteLimitBytes()) {
-                            // the transaction becomes too big - stop iterating
-                            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
-                            nextResultCont.set(nextResult.get());
-                            hasMore.set(true);
-                            return false;
+            return getRecordToIndex.apply(store, currResult)
+                    .thenCompose(rec -> {
+                        if (null == rec) {
+                            if (isExhausted) {
+                                hasMore.set(false);
+                                return AsyncUtil.READY_FALSE;
+                            }
+                            return AsyncUtil.READY_TRUE;
                         }
-                        return true;
-                    }));
-        }), cursor.getExecutor()
-        ).thenApply(vignore -> {
-            long recordsScannedInTransaction = recordsScannedCounter.get();
-            if (recordsScanned != null) {
-                recordsScanned.addAndGet(recordsScannedInTransaction);
-            }
-            if (common.isTrackProgress()) {
-                final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
-                store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
-                        FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
-            }
-            return null;
-        });
+                        // This record should be indexed. Add it to the transaction.
+                        if (isIdempotent) {
+                            store.addRecordReadConflict(rec.getPrimaryKey());
+                        }
+                        timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED);
+
+                        final CompletableFuture<Void> updateMaintainer = updateMaintainerBuilder(syntheticPlan, rec, maintainer, store);
+                        if (isExhausted) {
+                            // we've just processed the last item
+                            hasMore.set(false);
+                            return updateMaintainer.thenApply(vignore -> false);
+                        }
+                        return updateMaintainer.thenCompose(vignore ->
+                                context.getApproximateTransactionSize().thenApply(size -> {
+                                    if (size >= common.config.getMaxWriteLimitBytes()) {
+                                        // the transaction becomes too big - stop iterating
+                                        timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE);
+                                        nextResultCont.set(nextResult.get());
+                                        hasMore.set(true);
+                                        return false;
+                                    }
+                                    return true;
+                                }));
+                    });
+        }), cursor.getExecutor())
+                .thenApply(vignore -> {
+                    long recordsScannedInTransaction = recordsScannedCounter.get();
+                    if (recordsScanned != null) {
+                        recordsScanned.addAndGet(recordsScannedInTransaction);
+                    }
+                    if (common.isTrackProgress()) {
+                        final Subspace scannedRecordsSubspace = indexBuildScannedRecordsSubspace(store, index);
+                        store.context.ensureActive().mutate(MutationType.ADD, scannedRecordsSubspace.getKey(),
+                                FDBRecordStore.encodeRecordCount(recordsScannedInTransaction));
+                    }
+                    return null;
+                });
     }
 
     private static CompletableFuture<Void> updateMaintainerBuilder(SyntheticRecordFromStoredRecordPlan syntheticPlan,
@@ -555,6 +638,32 @@ public abstract class IndexingBase {
         }
         // Pipeline size is 1, since not all maintainers are thread-safe.
         return syntheticPlan.execute(store, rec).forEachAsync(syntheticRecord -> maintainer.update(null, syntheticRecord), 1);
+    }
+
+    protected CompletableFuture<Void> iterateAllRanges(List<Object> additionalLogMessageKeyValues,
+                                                       BiFunction<FDBRecordStore, AtomicLong,  CompletableFuture<Boolean>> iterateRange,
+                                                       @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
+
+        return AsyncUtil.whileTrue(() ->
+                        buildCommitRetryAsync( iterateRange,
+                                true,
+                                additionalLogMessageKeyValues)
+                                .handle((hasMore, ex) -> {
+                                    if (ex == null) {
+                                        if (Boolean.FALSE.equals(hasMore)) {
+                                            // all done
+                                            return AsyncUtil.READY_FALSE;
+                                        }
+                                        return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
+                                    }
+                                    final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
+                                    if (LOGGER.isInfoEnabled()) {
+                                        LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
+                                                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
+                                    }
+                                    throw unwrappedEx;
+                                }).thenCompose(Function.identity()),
+                getRunner().getExecutor());
     }
 
     // rebuildIndexAsyc - builds the whole index inline (without commiting)
@@ -589,6 +698,36 @@ public abstract class IndexingBase {
     void decreaseLimit(@Nonnull FDBException fdbException,
                        @Nullable List<Object> additionalLogMessageKeyValues) {
         throttle.decreaseLimit(fdbException, additionalLogMessageKeyValues);
+    }
+
+    protected void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
+        if (!isValid) {
+            throw new ValidationException(msg,
+                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                    LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
+                    LogMessageKeys.INDEXER_ID, common.getUuid());
+        }
+    }
+
+    /**
+     * thrown when indexing validation fails.
+     */
+    @SuppressWarnings("serial")
+    public static class ValidationException extends RecordCoreException {
+        public ValidationException(@Nonnull String msg, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
+        }
+    }
+
+    public static boolean isValidationException(@Nullable Throwable ex) {
+        for (Throwable current = ex;
+                current != null;
+                current = current.getCause()) {
+            if (current instanceof ValidationException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

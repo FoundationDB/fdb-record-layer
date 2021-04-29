@@ -76,8 +76,8 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull private final TupleRange recordsRange;
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
 
-    IndexingByRecords(@Nonnull IndexingCommon common) {
-        super(common);
+    IndexingByRecords(@Nonnull IndexingCommon common, @Nonnull OnlineIndexer.IndexingPolicy policy) {
+        super(common, policy);
         this.recordsRange = computeRecordsRange();
     }
 
@@ -548,12 +548,19 @@ public class IndexingByRecords extends IndexingBase {
         final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
 
         return iterateRangeOnly(store, cursor,
-                RecordCursorResult::get,
+                this::getRecordIfTypeMatch,
                 lastResult,
                 hasMore, recordsScanned)
                 .thenApply(vignore -> hasMore.get() ?
                                       lastResult.get().get().getPrimaryKey() :
                                       range.getHigh());
+    }
+
+    @Nullable
+    @SuppressWarnings("unused")
+    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
+        FDBStoredRecord<Message> rec = cursorResult.get() ;
+        return CompletableFuture.completedFuture( rec != null && common.recordTypes.contains(rec.getRecordType()) ? rec : null);
     }
 
     // support rebuildIndexAsync

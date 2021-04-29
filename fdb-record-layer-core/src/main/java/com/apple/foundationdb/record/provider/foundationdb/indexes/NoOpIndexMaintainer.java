@@ -45,6 +45,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -136,4 +137,8 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
         });
     }
 
+    @Override
+    public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+        return null;
+    }
 }

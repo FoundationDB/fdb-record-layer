@@ -145,6 +145,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final Index index;
     @Nonnull private IndexingPolicy indexingPolicy;
+    @Nullable private ScrubbingPolicy scrubbingPolicy;
     private boolean fallbackToRecordsScan = false;
 
     @SuppressWarnings("squid:S00107")
@@ -157,10 +158,12 @@ public class OnlineIndexer implements AutoCloseable {
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
                   boolean trackProgress,
-                  @Nonnull IndexingPolicy indexingPolicy) {
+                  @Nonnull IndexingPolicy indexingPolicy,
+                  @Nullable ScrubbingPolicy scrubbingPolicy) {
         this.runner = runner;
         this.index = index;
         this.indexingPolicy = indexingPolicy;
+        this.scrubbingPolicy = scrubbingPolicy;
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
@@ -170,14 +173,6 @@ public class OnlineIndexer implements AutoCloseable {
                 useSynchronizedSession,
                 leaseLengthMillis
             );
-    }
-
-    @Nonnull
-    private IndexingByIndex getIndexerByIndex() {
-        if (! (indexer instanceof IndexingByIndex)) { // this covers null pointer
-            indexer = new IndexingByIndex(common, indexingPolicy);
-        }
-        return (IndexingByIndex)indexer;
     }
 
     @Nonnull
@@ -192,7 +187,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
-        // The launcher calls the indexing function, letting the results be handled by the catcher.
+        // The launcher calls the indexing function, letting the results to be handled by the catcher.
         // The catcher may, on some cases, call the launcher in its retry path. The attemptCount limits the recursion level as a safety net.
         return AsyncUtil.composeHandle( indexingFunc.get(),
                 (ignore, ex) -> indexingCatcher(ex, indexingFunc, attemptCount + 1, requestedPolicy));
@@ -214,6 +209,10 @@ public class OnlineIndexer implements AutoCloseable {
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
+            throw FDBExceptions.wrapException(ex);
+        }
+
+        if (isScrubber()) {
             throw FDBExceptions.wrapException(ex);
         }
 
@@ -311,9 +310,17 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
+    private IndexingByIndex getIndexerByIndex() {
+        if (! (indexer instanceof IndexingByIndex)) { // this covers null pointer
+            indexer = new IndexingByIndex(common, indexingPolicy);
+        }
+        return (IndexingByIndex)indexer;
+    }
+
+    @Nonnull
     private IndexingByRecords getIndexerByRecords() {
         if (! (indexer instanceof IndexingByRecords)) { // this covers null pointer
-            indexer = new IndexingByRecords(common);
+            indexer = new IndexingByRecords(common, indexingPolicy);
         }
         return (IndexingByRecords)indexer;
     }
@@ -331,17 +338,32 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
+    private IndexingScrubber getIndexerScrubber() {
+        if (! (indexer instanceof IndexingScrubber)) {
+            indexer = new IndexingScrubber(common, indexingPolicy, scrubbingPolicy);
+        }
+        return (IndexingScrubber) indexer;
+    }
+
+    @Nonnull
     private IndexingBase getIndexer() {
         if (fallbackToRecordsScan) {
             IndexingBase indexingBase = getIndexerByRecords();
-            indexingBase.setFallbackMode();
+            indexingBase.enforceStampOverwrite();
             return indexingBase;
         }
         if (indexingPolicy.isByIndex()) {
             return getIndexerByIndex();
         }
+        if (isScrubber()) {
+            return getIndexerScrubber();
+        }
         // default
         return getIndexerByRecords();
+    }
+
+    private boolean isScrubber() {
+        return scrubbingPolicy != null;
     }
 
     /**
@@ -1029,6 +1051,8 @@ public class OnlineIndexer implements AutoCloseable {
         protected Collection<RecordType> recordTypes;
         @Nonnull
         private IndexingPolicy indexingPolicy = IndexingPolicy.DEFAULT;
+        @Nullable
+        private ScrubbingPolicy scrubbingPolicy = null;
         @Nonnull
         protected Function<Config, Config> configLoader = old -> old;
         protected int limit = DEFAULT_LIMIT;
@@ -1491,6 +1515,17 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Add a {@link ScrubbingPolicy} policy. If set, this policy will enforce index scrubbing (instead of index
+         * building). Which verifying a readable index's validity.
+         * @param scrubbingPolicy see {@link ScrubbingPolicy}
+         * @return this Builder
+         */
+        public Builder setScrubbingPolicy(@Nullable final ScrubbingPolicy scrubbingPolicy) {
+            this.scrubbingPolicy = scrubbingPolicy;
+            return this;
+        }
+
+        /**
          * Get the number of successful range builds before re-increasing the number of records to process in a single
          * transaction.
          * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
@@ -1765,7 +1800,8 @@ public class OnlineIndexer implements AutoCloseable {
             validate();
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
             return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
-                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
+                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress,
+                    indexingPolicy, scrubbingPolicy);
         }
 
         protected void validate() {
@@ -1814,7 +1850,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * A builder for the  indexing policy. Let the caller set a source index and a fallback policy.
+     * A builder for the indexing policy. Let the caller set a source index and a fallback policy.
      */
     public static class IndexingPolicy {
         public static final IndexingPolicy DEFAULT = new IndexingPolicy();
@@ -1872,7 +1908,7 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Create a index from index policy builder.
+         * Create an indexing policy builder.
          * @return a new {@link IndexingPolicy} builder
          */
         @Nonnull
@@ -1953,7 +1989,160 @@ public class OnlineIndexer implements AutoCloseable {
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan);
             }
         }
+    }
 
+    /**
+     * A builder for the scrubbing policy.
+     */
+    public static class ScrubbingPolicy {
+        public static final ScrubbingPolicy DISABLED = null;
+        private final boolean scrubDangling;
+        private final boolean scrubMissing;
+        private int reportDanglingLimit;
+        private int reportMissingLimit;
+        private final boolean allowRepair;
+        private final long quota;
+
+        public ScrubbingPolicy(boolean scrubDangling, boolean scrubMissing,
+                               int reportDanglingLimit, int reportMissingLimit,
+                               boolean allowRepair, long quota) {
+
+            this.scrubDangling = scrubDangling;
+            this.scrubMissing = scrubMissing;
+            this.reportDanglingLimit = reportDanglingLimit;
+            this.reportMissingLimit = reportMissingLimit;
+            this.allowRepair = allowRepair;
+            this.quota = quota;
+        }
+
+        boolean shouldScrubDangling() {
+            return scrubDangling;
+        }
+
+        boolean shouldScrubMissing() {
+            return scrubMissing;
+        }
+
+        boolean shouldReportDangling() {
+            if (0 <= reportDanglingLimit) {
+                return false;
+            }
+            reportDanglingLimit--;
+            return true;
+        }
+
+        boolean shouldReportMissing() {
+            if (0 <= reportMissingLimit) {
+                return false;
+            }
+            reportMissingLimit--;
+            return true;
+        }
+
+        boolean allowRepair() {
+            return allowRepair;
+        }
+
+        long getQuota() {
+            return quota;
+        }
+
+        /**
+         * Create an index scrubbing policy builder.
+         * @return a new {@link ScrubbingPolicy} builder
+         */
+        @Nonnull
+        public static Builder newBuilder() {
+            return new Builder();
+        }
+
+        /**
+         * Builder for {@link ScrubbingPolicy}.
+         *
+         * <pre><code>
+         * OnlineIndexer.ScrubbingPolicy.newBuilder().setReportMissingLimit(100).setScrubDangling(false).build()
+         * </code></pre>
+         *
+         */
+        @API(API.Status.UNSTABLE)
+        public static class Builder {
+            boolean scrubDangling = true;
+            boolean scrubMissing = true;
+            int reportDanglingLimit = 1000;
+            int reportMissingLimit = 1000;
+            boolean allowRepair = true;
+            long quota = 0;
+
+            protected Builder() {
+            }
+
+            /**
+             * If never called, the defaulted to allow scanning the index, looking for dangling index entries.
+             * @param scrubDangling if true
+             * @return this builder.
+             */
+            public Builder setScrubDangling(final boolean scrubDangling) {
+                this.scrubDangling = scrubDangling;
+                return this;
+            }
+
+            /**
+             * If never called, the defaulted to allow scanning the record store, looking for missing index entries.
+             * @param scrubMissing if true
+             * @return this builder.
+             */
+            public Builder setScrubMissing(final boolean scrubMissing) {
+                this.scrubMissing = scrubMissing;
+                return this;
+            }
+
+            /**
+             * If never called, the default is allowing (up to) 1000 error reports.
+             * @param reportDanglingLimit the max number of dangling-indexes errors to report.
+             * @return this builder.
+             */
+            public Builder setReportDanglingLimit(final int reportDanglingLimit) {
+                this.reportDanglingLimit = reportDanglingLimit;
+                return this;
+            }
+
+            /**
+             * If never called, the default is allowing (up to) 1000 error reports.
+             * @param reportMissingLimit the max number of missing-indexes errors to report.
+             * @return this builder.
+             */
+            public Builder setReportMissingLimit(final int reportMissingLimit) {
+                this.reportMissingLimit = reportMissingLimit;
+                return this;
+            }
+
+            /**
+             * Set 'scrub but do not repair' mode.
+             * @param val - if false, always report errors but do not repair.
+             *            - if true (default), report errors (up to report limits) but always repair.
+             * @return this builder.
+             */
+            public Builder setAllowRepair(boolean val) {
+                this.allowRepair = val;
+                return this;
+            }
+
+            /**
+             * set records/indexes scan quota. The scrubbing will return after scanning this quota, or more, records/indexes
+             * entries. If scanning both Dangling and Missing, the quota is affective for each scan separately.
+             * The default is 0, to scan the whole index/record ranges.
+             * @param quota - if 0 (default), ignore. Else return after scanning more than this number.
+             * @return this builder.
+             */
+            public Builder setQuota(long quota) {
+                this.quota = quota;
+                return this;
+            }
+
+            public ScrubbingPolicy build() {
+                return new ScrubbingPolicy(scrubDangling, scrubMissing, reportDanglingLimit, reportMissingLimit, allowRepair, quota);
+            }
+        }
     }
 
     /**

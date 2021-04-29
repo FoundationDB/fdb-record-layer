@@ -579,6 +579,10 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         ONLINE_INDEX_BUILDER_RANGES_BY_COUNT("number of indexer iterations terminated by scan limit", false),
         /** The number of {@link OnlineIndexer} range scans terminated after hitting the size limit. */
         ONLINE_INDEX_BUILDER_RANGES_BY_SIZE("number of indexer iterations terminated by write limit", false),
+        /** The number of missing indexes detected by {@link OnlineIndexer} scrubber. */
+        ONLINE_INDEX_SCRUBBER_INDEXES_MISSING("number of missing indexes detected by scrubber", false),
+        /** The number of dangling indexes detected by {@link OnlineIndexer} scrubber. */
+        ONLINE_INDEX_SCRUBBER_INDEXES_DANGLING("number of dangling indexes detected by scrubber", false),
         /** The number of times that a leaderboard update adds a time window. */
         TIME_WINDOW_LEADERBOARD_ADD_WINDOW("number of leaderboard windows added", false),
         /** The number of times that a leaderboard update deleted a time window. */

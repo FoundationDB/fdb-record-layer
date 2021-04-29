@@ -41,6 +41,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -144,6 +145,15 @@ public abstract class IndexMaintainer {
      * @return {@code true} if this index can be used to evaluate the given function
      */
     public abstract boolean canEvaluateRecordFunction(@Nonnull IndexRecordFunction<?> function);
+
+    /**
+     * Apply the key and value expressions to a <code>record</code>.
+     * @param <M> the message type of the record
+     * @param record the record from which the index will extract its key and value
+     * @return a list of index keys and values
+     */
+    @Nullable
+    public abstract <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record);
 
     /**
      * Evaluate a record function on the given record.

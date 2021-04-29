@@ -1,0 +1,359 @@
+/*
+ * IndexingRepair.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb;
+
+
+import com.apple.foundationdb.Range;
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncIterator;
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.async.RangeSet;
+import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.IndexBuildProto;
+import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.IndexState;
+import com.apple.foundationdb.record.IsolationLevel;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+
+/**
+ * Manifesto:
+ *  Scrub a readable index to validate it's consistency. Repair when needed.
+ *  Keep the type stamp simple, to allow parallel scrubbing.
+ *  Support two states - detect missing and detect dangling. Set by the policy.
+ *  Use rangeSet.missingRanges only for detecting missing.
+ *  (Add option to start dangling-scrub at point?)
+ *  When done, clear typeStamp and Missing ranges. There is a possibility of clearing while
+ *  another scrubbing process is active, but it should be harmless.
+ */
+
+@API(API.Status.INTERNAL)
+public class IndexingScrubber extends IndexingBase {
+    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingScrubber.class);
+    @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
+    private long scanCounterIndexes = 0;
+    private long scanCounterRecords = 0;
+
+    public IndexingScrubber(@Nonnull final IndexingCommon common,
+                            @Nonnull final OnlineIndexer.IndexingPolicy policy,
+                            @Nonnull final OnlineIndexer.ScrubbingPolicy scrubbingPolicy) {
+        super(common, policy, scrubbingPolicy);
+    }
+
+    @Override
+    List<Object> indexingLogMessageKeyValues() {
+        return Arrays.asList(
+                LogMessageKeys.INDEXING_METHOD, "scrub repair"
+        );
+    }
+
+    @Nonnull
+    @Override
+    IndexBuildProto.IndexBuildIndexingStamp getIndexingTypeStamp(final FDBRecordStore store) {
+        return myIndexingTypeStamp;
+    }
+
+    @Nonnull
+    static IndexBuildProto.IndexBuildIndexingStamp compileIndexingTypeStamp() {
+        return
+                IndexBuildProto.IndexBuildIndexingStamp.newBuilder()
+                        .setMethod(IndexBuildProto.IndexBuildIndexingStamp.Method.SCRUB_REPAIR)
+                        .build();
+    }
+
+    @Nonnull
+    private OnlineIndexer.ScrubbingPolicy spolicy() {
+        assert (scrubbingPolicy != null);// this can never happen, just eliminating compiler warnings
+        return scrubbingPolicy;
+    }
+
+    @Override
+    CompletableFuture<Void> buildIndexInternalAsync() {
+        return getRunner().runAsync(context -> openRecordStore(context)
+                .thenCompose( store ->
+                        context.getReadVersionAsync()
+                                .thenCompose(vignore -> {
+                                    SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
+                                    return subspaceProvider.getSubspaceAsync(context)
+                                            .thenCompose(subspace ->
+                                                    scrubIndex(subspaceProvider, subspace, null, null)
+                                                    .thenCompose(ignore -> scrubRecords(subspaceProvider, subspace, null, null))
+                                            );
+                                })
+        ), common.indexLogMessageKeyValues("IndexingScrubber::buildIndexInternalAsync"));
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> scrubIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                               @Nullable byte[] start, @Nullable byte[] end) {
+        if (!spolicy().shouldScrubDangling()) {
+            return AsyncUtil.DONE;
+        }
+
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "scrubRecords",
+                LogMessageKeys.RANGE_START, start,
+                LogMessageKeys.RANGE_END, end);
+
+        return iterateAllRanges(additionalLogMessageKeyValues,
+                (store, recordsScanned) -> scrubIndexRangeOnly(store, start, end, recordsScanned),
+                subspaceProvider, subspace);
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+        // return false when done
+        Index index = common.getIndex();
+        final RecordMetaData metaData = store.getRecordMetaData();
+        final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
+        if (recordMetaDataProvider == null || !metaData.equals(recordMetaDataProvider.getRecordMetaData())) {
+            throw new MetaDataException("Store does not have the same metadata");
+        }
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+
+        // scrubbing idempotence indexes only (for now)
+        validateOrThrowEx(maintainer.isIdempotent(), "scrubbed index is not idempotent");
+
+        // index must be in readable mode
+        validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
+
+        RangeSet rangeSet = new RangeSet(indexScrubIndexRangeSubspace(store, index));
+        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
+
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+
+        return ranges.onHasNext().thenCompose(hasNext -> {
+            if (Boolean.FALSE.equals(hasNext)) {
+                return AsyncUtil.READY_FALSE; // no more missing ranges - all done
+            }
+            final Range range = ranges.next();
+            final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
+            final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
+            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
+
+            RecordCursor<FDBIndexedRecord<Message>> cursor =
+                    store.scanIndexRecords(index.getName(), IndexScanType.BY_VALUE, tupleRange, null, IndexOrphanBehavior.RETURN, scanProperties);
+
+            final AtomicBoolean hasMore = new AtomicBoolean(true);
+            final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
+            final long quota = spolicy().getQuota();
+
+            return iterateRangeOnly(store, cursor,
+                    this::deleteIndexIfDangling,
+                    lastResult, hasMore, recordsScanned)
+                    .thenApply(vignore -> hasMore.get() ?
+                                          lastResult.get().get().getIndexEntry().getKey() :
+                                          rangeEnd)
+                    .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
+                            .thenApply(ignore -> {
+                                if ( quota > 0 ) {
+                                    scanCounterIndexes += recordsScanned.get();
+                                    if (quota <= scanCounterIndexes) {
+                                        return false;
+                                    }
+                                }
+                                return !Objects.equals(cont, rangeEnd);
+                            }));
+        });
+    }
+
+    @Nullable
+    private CompletableFuture<FDBStoredRecord<Message>> deleteIndexIfDangling(FDBRecordStore store, final RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
+        // This will always return null (!) - but sometimes will delete a dangling index
+        FDBIndexedRecord<Message> indexResult = cursorResult.get();
+
+        if (! indexResult.hasStoredRecord() ) {
+            // Here: Oh, No! this index is dangling!
+            final FDBStoreTimer timer = getRunner().getTimer();
+            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_DANGLING);
+            final IndexEntry indexEntry = indexResult.getIndexEntry();
+            final Tuple valueKey = indexEntry.getKey();
+            final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
+
+            if (LOGGER.isWarnEnabled() && spolicy().shouldReportDangling()) {
+                LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
+                        LogMessageKeys.KEY, valueKey.toString())
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
+            if (spolicy().allowRepair()) {
+                // remove this index
+                store.getContext().ensureActive().clear(keyBytes);
+            }
+        }
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> scrubRecords(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
+                                                 @Nullable byte[] start, @Nullable byte[] end) {
+        if (!spolicy().shouldScrubMissing()) {
+            return AsyncUtil.DONE;
+        }
+
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "scrubRecords",
+                LogMessageKeys.RANGE_START, start,
+                LogMessageKeys.RANGE_END, end);
+
+        return iterateAllRanges(additionalLogMessageKeyValues,
+                (store, recordsScanned) -> scrubRecordsRangeOnly(store, start, end , recordsScanned),
+                subspaceProvider, subspace);
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> scrubRecordsRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
+        // return false when done
+        Index index = common.getIndex();
+        final RecordMetaData metaData = store.getRecordMetaData();
+        final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
+        if (recordMetaDataProvider == null || !metaData.equals(recordMetaDataProvider.getRecordMetaData())) {
+            throw new MetaDataException("Store does not have the same metadata");
+        }
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+
+        // scrubbing idempotence indexes only (for now)
+        validateOrThrowEx(maintainer.isIdempotent(), "scrubbed index is not idempotent");
+
+        // index must be in readable mode
+        validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
+
+        RangeSet rangeSet = new RangeSet(indexScrubRecordsRangeSubspace(store, index));
+        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
+
+        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
+                .setIsolationLevel(IsolationLevel.SNAPSHOT)
+                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
+        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
+
+        return ranges.onHasNext().thenCompose(hasNext -> {
+            if (Boolean.FALSE.equals(hasNext)) {
+                return AsyncUtil.READY_FALSE; // no more missing ranges - all done
+            }
+            final Range range = ranges.next();
+            final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
+            final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
+            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
+
+            final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(tupleRange, null, scanProperties);
+            final AtomicBoolean hasMore = new AtomicBoolean(true);
+            final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
+            final long quota = spolicy().getQuota();
+
+            return iterateRangeOnly(store, cursor, this::getRecordIfMissingIndex,
+                    lastResult, hasMore, recordsScanned)
+                    .thenApply(vignore -> hasMore.get() ?
+                                          lastResult.get().get().getPrimaryKey() :
+                                          rangeEnd)
+                    .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
+                            .thenApply(ignore -> {
+                                if ( quota > 0 ) {
+                                    scanCounterRecords += recordsScanned.get();
+                                    if (quota <= scanCounterRecords) {
+                                        return false;
+                                    }
+                                }
+                                return !Objects.equals(cont, rangeEnd);
+                            }));
+        });
+    }
+
+    @Nullable
+    private CompletableFuture<FDBStoredRecord<Message>> getRecordIfMissingIndex(FDBRecordStore store, final RecordCursorResult<FDBStoredRecord<Message>> currResult) {
+        final FDBStoredRecord<Message> rec = currResult.get();
+        // return true if an index is missing and updated
+        if (!common.recordTypes.contains(rec.getRecordType())) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        final Index index = common.getIndex();
+        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
+        List<IndexEntry> indexEntryNoPKs = maintainer.evaluateIndex(rec);
+        if (indexEntryNoPKs == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return AsyncUtil.getAll(indexEntryNoPKs.stream()
+                .map(entry -> {
+                    // should I convert it to a single nested statement?
+                    final IndexEntry indexEntry = new IndexEntry(
+                            index,
+                            FDBRecordStoreBase.indexEntryKey(index, entry.getKey(), rec.getPrimaryKey()),
+                            entry.getValue());
+                    final byte[] keyBytes = maintainer.getIndexSubspace().pack(indexEntry.getKey());
+                    return maintainer.state.transaction.get(keyBytes).thenApply(Objects::isNull);
+                })
+                .collect(Collectors.toList()))
+                .thenCompose(list -> {
+                    if (!list.contains(true)) {
+                        // no null index(s) = no record to index
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    // Here: Oh, No! the index is missing!!
+                    // (Maybe) report an error and (maybe) return this record to be index
+                    if (LOGGER.isWarnEnabled() && spolicy().shouldReportMissing()) {
+                        LOGGER.warn(KeyValueLogMessage.build("Scrubber: missing index entry",
+                                LogMessageKeys.KEY, rec.getPrimaryKey().toString())
+                                .addKeysAndValues(common.indexLogMessageKeyValues())
+                                .toString());
+                    }
+                    final FDBStoreTimer timer = getRunner().getTimer();
+                    timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING);
+                    if (spolicy().allowRepair()) {
+                        // record to be indexed
+                        return CompletableFuture.completedFuture(rec);
+                    }
+                    // report only mode
+                    return CompletableFuture.completedFuture(null);
+                });
+    }
+
+    @Override
+    CompletableFuture<Void> rebuildIndexInternalAsync(final FDBRecordStore store) {
+        return null;
+    }
+}

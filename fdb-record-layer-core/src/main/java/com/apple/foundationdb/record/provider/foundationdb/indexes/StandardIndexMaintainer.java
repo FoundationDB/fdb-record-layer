@@ -643,8 +643,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param record the record from which the index will extract its key and value
      * @return a list of index keys and values
      */
-    @Nonnull
-    protected <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+    @Override
+    public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
         final KeyExpression rootExpression = state.index.getRootExpression();
         final List<Key.Evaluated> indexKeys = rootExpression.evaluate(record);
 
