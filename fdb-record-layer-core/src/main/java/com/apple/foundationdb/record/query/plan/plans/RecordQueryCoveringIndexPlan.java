@@ -86,13 +86,14 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         return indexPlan
                 .executeEntries(store, context, continuation, executeProperties)
-                .map(indexEntryToQueriedRecord(store));
+                .map(indexEntryToQueriedRecord(store))
+                .map(QueryResult::of);
     }
 
     @Nonnull

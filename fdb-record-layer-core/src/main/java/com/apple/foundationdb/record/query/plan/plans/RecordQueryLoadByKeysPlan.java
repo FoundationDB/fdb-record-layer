@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordScanLimiter;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -79,10 +78,10 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                                                                                 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         // Cannot pass down limit(s) because we skip keys that don't load.
         RecordScanLimiter recordScanLimiter = executeProperties.getState().getRecordScanLimiter();
         return RecordCursor.fromList(store.getExecutor(), getKeysSource().getPrimaryKeys(context), continuation)
@@ -95,6 +94,7 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                 }, store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                 .filter(Objects::nonNull)
                 .map(store::queriedRecord)
+                .map(QueryResult::of)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 

@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -96,15 +95,15 @@ public class RecordQueryUnorderedDistinctPlan implements RecordQueryPlanWithChil
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         final Set<Key.Evaluated> seen = new HashSet<>();
-        return getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit())
-            .filterInstrumented(record -> seen.add(getComparisonKey().evaluateSingleton(record)),
-                store.getTimer(), Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
-            .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        return getInner().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
+                .filterInstrumented(result -> seen.add(getComparisonKey().evaluateSingleton(result.getQueriedRecord(0))),
+                        store.getTimer(), Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override

@@ -139,19 +139,22 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the intersection cursor is wrapped and returned
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
         return IntersectionCursor.create(store, getComparisonKey(), reverse,
                 quantifiers.stream()
                         .map(Quantifier.Physical::getRangesOverPlan)
                         .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
-                                ((byte[] childContinuation) -> childPlan.execute(store, context, childContinuation, childExecuteProperties)))
+                                ((byte[] childContinuation) -> childPlan
+                                        .executePlan(store, context, childContinuation, childExecuteProperties)
+                                        .map(result -> result.getQueriedRecord(0))))
                         .collect(Collectors.toList()),
-                continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+                continuation)
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
+                .map(QueryResult::of);
     }
 
     @Override

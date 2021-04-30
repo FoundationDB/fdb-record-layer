@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.PipelineOperation;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -79,10 +78,10 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> {
                     final List<Object> values = getValues(context);
@@ -92,7 +91,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                         return RecordCursor.fromList(store.getExecutor(), values, outerContinuation);
                     }
                 },
-                (outerValue, innerContinuation) -> getInnerPlan().execute(store, context.withBinding(bindingName, outerValue),
+                (outerValue, innerContinuation) -> getInnerPlan().executePlan(store, context.withBinding(bindingName, outerValue),
                         innerContinuation, executeProperties.clearSkipAndLimit()),
                 outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
                 continuation,

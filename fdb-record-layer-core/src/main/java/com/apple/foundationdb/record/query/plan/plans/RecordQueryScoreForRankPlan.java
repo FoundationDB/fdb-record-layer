@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetIndexHelper;
@@ -118,12 +117,12 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         return RecordCursor.mapFuture(store.getExecutor(), bindScores(store, context, executeProperties.getIsolationLevel()), continuation,
-                (innerContext, innerContinuation) -> getChild().execute(store, innerContext, innerContinuation, executeProperties));
+                (innerContext, innerContinuation) -> getChild().executePlan(store, innerContext, innerContinuation, executeProperties));
     }
 
     @Nonnull

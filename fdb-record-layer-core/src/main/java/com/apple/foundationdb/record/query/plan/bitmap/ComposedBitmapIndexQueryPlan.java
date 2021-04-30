@@ -28,10 +28,10 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithNoChildren;
@@ -87,9 +87,10 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
 
     @Nonnull
     @Override
-    @SuppressWarnings("unchecked")
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         final ExecuteProperties scanExecuteProperties = executeProperties.getSkip() > 0 ? executeProperties.clearSkipAndAdjustLimit() : executeProperties;
         final List<Function<byte[], RecordCursor<IndexEntry>>> cursorFunctions = indexPlans.stream()
                 .map(RecordQueryCoveringIndexPlan::getIndexPlan)
@@ -98,7 +99,8 @@ public class ComposedBitmapIndexQueryPlan implements RecordQueryPlanWithNoChildr
         return ComposedBitmapIndexCursor.create(cursorFunctions, composer, continuation, store.getTimer())
                 // Composers can return null bitmaps when empty, which is then left out of the result set.
                 .filter(indexEntry -> indexEntry.getValue().get(0) != null)
-                .map(indexPlans.get(0).indexEntryToQueriedRecord(store));
+                .map(indexPlans.get(0).indexEntryToQueriedRecord(store))
+                .map(QueryResult::of);
     }
 
     @Override
