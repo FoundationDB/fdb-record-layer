@@ -102,8 +102,8 @@ public class RecordTypeValue implements QuantifiedValue {
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedObjectValue) {
-            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
+        if (otherValue instanceof QuantifiedValue) {
+            return getAlias().equals(((QuantifiedValue)otherValue).getAlias());
         }
         return false;
     }

@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -31,14 +32,18 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
+import com.apple.foundationdb.record.query.plan.temp.ScalarTranslationVisitor;
 import com.apple.foundationdb.record.query.plan.temp.TreeLike;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -235,6 +240,13 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         }
 
         return other.getClass() == getClass();
+    }
+
+    static List<? extends Value> fromKeyExpressions(@Nonnull final Collection<? extends KeyExpression> expressions, @Nonnull final CorrelationIdentifier alias) {
+        return expressions
+                .stream()
+                .map(keyExpression -> new ScalarTranslationVisitor(keyExpression).toResultValue(alias))
+                .collect(ImmutableList.toImmutableList());
     }
 
     /**

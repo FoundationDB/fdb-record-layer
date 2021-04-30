@@ -215,7 +215,6 @@ public interface TreeLike<T extends TreeLike<T>> {
                 // the tree
                 if (child != nextFoldedChild) {
                     isDifferent = true;
-                    break;
                 }
             }
 

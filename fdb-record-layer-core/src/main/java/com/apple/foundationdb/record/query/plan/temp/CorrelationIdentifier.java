@@ -39,7 +39,11 @@ import java.util.UUID;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CorrelationIdentifier {
-    @Nonnull private final String id;
+    @Nonnull
+    public static final CorrelationIdentifier UNGROUNDED = uniqueID();
+
+    @Nonnull
+    private final String id;
 
     /**
      * Create a new correlation identifier using the given string. It is the callers responsibility to only use

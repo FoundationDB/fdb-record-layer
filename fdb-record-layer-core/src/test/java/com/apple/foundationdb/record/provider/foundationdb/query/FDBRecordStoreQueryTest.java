@@ -174,8 +174,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                             .and(scanComparisons(range("[[[0, 1, 3]],[[0, 1, 3]]]"))));
 
             assertEquals(-1357153726, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1118488785, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1239483656, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(313415204, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-230711091, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 int count = 0;
                 while (cursor.hasNext()) {
@@ -210,8 +210,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                             indexPlan().where(indexName("ByteStringRecord$secondary")).and(scanComparisons(range("[[[0, 1, 3]],>")))));
 
             assertEquals(1352435039, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1847280450, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(945937221, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-268342992, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1854787981, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                 int count = 0;
                 while (cursor.hasNext()) {
@@ -291,8 +291,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                     indexPlan()
                             .where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("[[odd],[odd]]"))));
             assertEquals(-1917280682, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1983438631, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-1939367966, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1357054180, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(9136435, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             continuation = null;
             retrieved = new ArrayList<>(50);
             while (true) {
@@ -433,8 +433,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(plan,
                 indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[EQUALS $1, EQUALS $2]"))));
         assertEquals(584809367, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(729798781, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(729798781, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1148926968, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1148926968, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -514,8 +514,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(plan, indexPlan().where(indexName("color")));
         assertFalse(plan.hasRecordScan(), "should not use record scan");
         assertEquals(1393755963, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-277575912, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-205768865, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-14917443, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-2083866282, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openEnumRecordStore(context, hook);
@@ -750,8 +750,8 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
         assertMatchesExactly(plan,
                 indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("([null],[2])"))));
         assertEquals(-699045510, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1099064893, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(1599188861, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(288727922, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1964751624, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);

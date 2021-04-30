@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A key expression that can be bound by a comparison.
@@ -50,6 +51,24 @@ public class KeyPart {
     @Nonnull
     public ComparisonRange.Type getComparisonRangeType() {
         return comparisonRangeType;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof KeyPart)) {
+            return false;
+        }
+        final KeyPart keyPart = (KeyPart)o;
+        return getNormalizedKeyExpression().equals(keyPart.getNormalizedKeyExpression()) &&
+               getComparisonRangeType() == keyPart.getComparisonRangeType();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getNormalizedKeyExpression(), getComparisonRangeType());
     }
 
     @Nonnull

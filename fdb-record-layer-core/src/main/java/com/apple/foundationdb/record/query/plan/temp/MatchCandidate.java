@@ -34,12 +34,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -181,7 +179,7 @@ public interface MatchCandidate {
         final ExpressionRefTraversal traversal = getTraversal();
 
         final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
-                Multimaps.newSetMultimap(new IdentityHashMap<>(), Sets::newIdentityHashSet);
+                Multimaps.newSetMultimap(new LinkedIdentityMap<>(), LinkedIdentitySet::new);
 
         // going up may yield duplicates -- deduplicate with this multimap
         for (final ExpressionRef<? extends RelationalExpression> rangesOverRef : references) {

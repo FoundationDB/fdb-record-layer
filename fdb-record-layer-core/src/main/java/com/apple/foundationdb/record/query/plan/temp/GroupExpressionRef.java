@@ -24,9 +24,9 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.google.common.base.Verify;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
@@ -39,7 +39,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -65,19 +64,21 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 public class GroupExpressionRef<T extends RelationalExpression> implements ExpressionRef<T> {
     @Nonnull
-    private final RelationalExpressionPointerSet<T> members;
-    private boolean explored = false;
+    private final LinkedIdentitySet<T> members;
 
     @Nonnull
     private final SetMultimap<MatchCandidate, PartialMatch> partialMatchMap;
+    @Nonnull
+    private final InterestingPropertiesMap interestingPropertiesMap;
 
     private GroupExpressionRef() {
-        this(new RelationalExpressionPointerSet<>());
+        this(new LinkedIdentitySet<>());
     }
 
-    private GroupExpressionRef(@Nonnull RelationalExpressionPointerSet<T> members) {
+    private GroupExpressionRef(@Nonnull LinkedIdentitySet<T> members) {
         this.members = members;
-        this.partialMatchMap = HashMultimap.create();
+        this.partialMatchMap = LinkedHashMultimap.create();
+        this.interestingPropertiesMap = new InterestingPropertiesMap();
         // Call debugger hook for this new reference.
         Debugger.registerReference(this);
     }
@@ -91,6 +92,12 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         throw new UngettableReferenceException("tried to dereference GroupExpressionRef with " + members.size() + " members");
     }
 
+    @Nonnull
+    @Override
+    public InterestingPropertiesMap getRequirementsMap() {
+        return interestingPropertiesMap;
+    }
+
     public synchronized boolean replace(@Nonnull T newValue) {
         clear();
         return insert(newValue);
@@ -99,6 +106,8 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     @Override
     public boolean insert(@Nonnull T newValue) {
         if (!containsInMemo(newValue)) {
+            // Call debugger hook to potentially register this new expression.
+            Debugger.registerExpression(newValue);
             members.add(newValue);
             return true;
         }
@@ -195,7 +204,7 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
                 .stream()
                 // The following downcast is necessary since members of this class are of type T
                 // (extends RelationalExpression) but rebases of RelationalExpression are not
-                // Rebaseable of T (extends RelationalExpression) but Correlated<RelationalExpression> in order to
+                // Correlated of T (extends RelationalExpression) but Correlated<RelationalExpression> in order to
                 // avoid introducing a new type Parameter T. All the o1 = o.rebase(), however, by contract should return
                 // an o1 where o1.getClass() == o.getClass()
                 .map(member -> (T)member.rebase(translationMap))
@@ -206,17 +215,33 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         members.clear();
     }
 
-    public void setExplored() {
-        this.explored = true;
+    public void startExploration() {
+        interestingPropertiesMap.startExploration();
     }
 
-    public boolean isExplored() {
-        return explored;
+    public void commitExploration() {
+        interestingPropertiesMap.commitExploration();
+    }
+
+    public boolean needsExploration() {
+        return !interestingPropertiesMap.isExploring() && !interestingPropertiesMap.isExplored();
+    }
+
+    public boolean isExploring() {
+        return interestingPropertiesMap.isExploring();
+    }
+
+    public boolean isFullyExploring() {
+        return interestingPropertiesMap.isFullyExploring();
+    }
+
+    public boolean isExploredForAttributes(@Nonnull final Set<PlannerAttribute<?>> dependencies) {
+        return interestingPropertiesMap.isExploredForAttributes(dependencies);
     }
 
     @Nonnull
     @Override
-    public RelationalExpressionPointerSet<T> getMembers() {
+    public LinkedIdentitySet<T> getMembers() {
         return members;
     }
 
@@ -237,17 +262,9 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
         return null;
     }
 
-    @Nonnull
-    @Override
-    public <U extends RelationalExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func) {
-        RelationalExpressionPointerSet<U> resultMembers = new RelationalExpressionPointerSet<>();
-        members.iterator().forEachRemaining(member -> resultMembers.add(func.apply(member)));
-        return new GroupExpressionRef<>(resultMembers);
-    }
-
     @Override
     public String toString() {
-        return "ExpressionRef@" + hashCode() + "(" + "explored=" + explored + ")";
+        return "ExpressionRef@" + hashCode() + "(" + "isExplored=" + interestingPropertiesMap.isExplored() + ")";
     }
 
     public static <T extends RelationalExpression> GroupExpressionRef<T> empty() {
@@ -255,7 +272,9 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     public static <T extends RelationalExpression> GroupExpressionRef<T> of(@Nonnull T expression) {
-        RelationalExpressionPointerSet<T> members = new RelationalExpressionPointerSet<>();
+        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
+        // Call debugger hook to potentially register this new expression.
+        Debugger.registerExpression(expression);
         members.add(expression);
         return new GroupExpressionRef<>(members);
     }
@@ -266,7 +285,8 @@ public class GroupExpressionRef<T extends RelationalExpression> implements Expre
     }
 
     public static <T extends RelationalExpression> GroupExpressionRef<T> from(@Nonnull Collection<T> expressions) {
-        RelationalExpressionPointerSet<T> members = new RelationalExpressionPointerSet<>();
+        LinkedIdentitySet<T> members = new LinkedIdentitySet<>();
+        expressions.forEach(Debugger::registerExpression);
         members.addAll(expressions);
         return new GroupExpressionRef<>(members);
     }

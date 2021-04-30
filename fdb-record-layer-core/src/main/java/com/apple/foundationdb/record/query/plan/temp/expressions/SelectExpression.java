@@ -235,7 +235,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableList.of();
         }
 
-        // Build a multimap that allows us to quickly find relate source alias (on the query side) with
+        // Build a multimap that allows us to quickly relate a source alias (on the query side) with
         // predicates on the candidate side that are correlated to the mapped alias. This structure is only needed
         // for efficiency.
         // TODO make this map work for join predicates

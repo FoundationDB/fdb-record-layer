@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -62,6 +63,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
     @Nonnull
     @Override
     public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
+        final ImmutableList.Builder<T> items = ImmutableList.builder();
         Stream<PlannerBindings> bindingStream = Stream.of(PlannerBindings.empty());
 
         // The children need to be merged in the same order that they appear to satisfy the contract of
@@ -77,9 +79,12 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
                     bindingStream = onEmptyStreamOptional.get();
                 }
             } else {
+                items.add(item);
                 bindingStream = bindingStream.flatMap(existing -> individualBindings.stream().map(existing::mergedWith));
             }
         }
+
+        bindingStream = bindingStream.flatMap(existing -> Stream.of(PlannerBindings.from(this, items.build()).mergedWith(existing)));
         return bindingStream;
     }
 
@@ -107,7 +112,7 @@ public abstract class MultiMatcher<T> implements CollectionMatcher<T> {
         public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
             final String nestedIndentation = indentation + INDENTATION;
             final String nestedId = getDownstream().identifierFromMatcher();
-            return "all " + nestedId + " in " + boundId + " that match {" + newLine(nestedIndentation) +
+            return "some " + nestedId + " in " + boundId + " that match {" + newLine(nestedIndentation) +
                    getDownstream().explainMatcher(Object.class, nestedId, nestedIndentation) + newLine(indentation) +
                    "}";
         }

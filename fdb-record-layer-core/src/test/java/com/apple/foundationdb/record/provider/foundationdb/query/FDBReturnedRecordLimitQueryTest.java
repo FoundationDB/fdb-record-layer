@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.BooleanSource;
@@ -39,6 +40,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
@@ -66,19 +68,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * as a way to test that various queries execute properly with continuations.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
+class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a returned record limit works properly against a query with a filter on one field and a sort on another,
      * when the filter field is un-indexed and the sort is in reverse order.
      */
     @ParameterizedTest
     @BooleanSource
-    public void testComplexLimits2(final boolean shouldOptimizeForIndexFilters) throws Exception {
+    void testComplexLimits2(final boolean shouldOptimizeForIndexFilters) throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
+        final QueryComponent filter = Query.field("num_value_2").equalsValue(0);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_2").equalsValue(0))
+                .setFilter(filter)
                 .setSort(field("str_value_indexed"), true)
                 .build();
         setOptimizeForIndexFilters(shouldOptimizeForIndexFilters);
@@ -88,19 +91,19 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         RecordQueryPlan plan = planner.plan(query);
 
         if (shouldOptimizeForIndexFilters) {
-            assertThat(plan, fetch(filter(query.getFilter(),
+            assertThat(plan, fetch(filter(filter,
                     coveringIndexScan(indexScan(allOf(indexName("multi_index"), unbounded()))))));
             assertTrue(plan.isReverse());
             assertEquals(-1143466156, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(-1685191019, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(415521037, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(915163788, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1279091452, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
-            assertThat(plan, filter(query.getFilter(),
+            assertThat(plan, filter(filter,
                     indexScan(allOf(indexName("MySimpleRecord$str_value_indexed"), unbounded()))));
             assertTrue(plan.isReverse());
             assertEquals(-384998859, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2127897838, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(-66357402, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1575402371, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(525309685, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -110,7 +113,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals(0, myrec.getNumValue2());
                     assertEquals("odd", myrec.getStrValueIndexed());
                     i += 1;
@@ -125,7 +128,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
      * Verify that a returned record limit works properly against a filter on an un-indexed field.
      */
     @DualPlannerTest
-    public void testComplexLimits3() throws Exception {
+    void testComplexLimits3() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -149,7 +152,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals(0, myrec.getNumValue2());
                     i += 1;
                 }
@@ -163,7 +166,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
      * Verify that a returned record limit works properly with type filters.
      */
     @DualPlannerTest
-    public void testComplexLimits6() throws Exception {
+    void testComplexLimits6() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder().setRecordType("MySimpleRecord").setAllowedIndexes(Collections.emptyList()).build();
@@ -182,7 +185,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     i += 1;
                 }
             }
@@ -196,7 +199,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
      * Verify that a type filter that is trivially satisfied is elided from the final plan.
      */
     @DualPlannerTest
-    public void testComplexLimits7() throws Exception {
+    void testComplexLimits7() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder().setRecordTypes(Arrays.asList("MySimpleRecord", "MyOtherRecord")).build();
@@ -213,7 +216,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, ExecuteProperties.newBuilder().setReturnedRowLimit(10).build()).asIterator()) {
                 while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = cursor.next();
+                    cursor.next();
                     i += 1;
                 }
             }
@@ -226,7 +229,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
      * Verify that a returned record limit works properly with a distinct filter.
      */
     @Test
-    public void testComplexLimits8() throws Exception {
+    void testComplexLimits8() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -239,8 +242,8 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("repeater$fanout"), bounds(hasTupleString("[[2],[2]]"))))));
         assertEquals(-784887967, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1467862321, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1318207547, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-173504614, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(170826084, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -249,7 +252,7 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertTrue(myrec.getRepeaterList().contains(2), "Repeater does not contain 2");
                     i += 1;
                 }
@@ -258,5 +261,4 @@ public class FDBReturnedRecordLimitQueryTest extends FDBRecordStoreQueryTestBase
             assertDiscardedNone(context);
         }
     }
-
 }

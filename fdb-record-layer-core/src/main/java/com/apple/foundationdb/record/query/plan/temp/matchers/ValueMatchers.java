@@ -48,6 +48,11 @@ public class ValueMatchers {
     }
 
     @Nonnull
+    public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final String fieldPathAsString) {
+        return fieldValue(anyValue(), fieldPathAsString);
+    }
+
+    @Nonnull
     public static <V extends Value> BindingMatcher<FieldValue> fieldValue(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                           @Nonnull final String fieldPathAsString) {
         final ImmutableList<BindingMatcher<String>> fieldPathMatchers =

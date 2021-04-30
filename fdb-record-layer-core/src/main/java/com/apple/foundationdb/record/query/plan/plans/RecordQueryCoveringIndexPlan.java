@@ -41,9 +41,11 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.ScanWithFetchMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.IndexedValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,6 +57,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -197,6 +200,14 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @Override
     public RecordQueryCoveringIndexPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryCoveringIndexPlan(indexPlan, recordTypeName, availableFields, toRecord);
+    }
+
+    @Nonnull
+    public Optional<Value> pushValueThroughFetch(@Nonnull Value value,
+                                                 @Nonnull QuantifiedColumnValue newQuantifiedColumnValue) {
+        return indexPlan.getMatchCandidateOptional()
+                .flatMap(matchCandidate -> matchCandidate instanceof ScanWithFetchMatchCandidate ? Optional.of((ScanWithFetchMatchCandidate)matchCandidate) : Optional.empty())
+                .flatMap(scanWithFetchMatchCandidate -> scanWithFetchMatchCandidate.pushValueThroughFetch(value, newQuantifiedColumnValue));
     }
 
     @Override

@@ -30,12 +30,13 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -52,15 +53,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests of the planner's use of multi-field indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
+class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a two field index can be used for queries on both the first field alone and both fields.
      */
     @DualPlannerTest
-    public void testPrefixScalar() throws Exception {
-        RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex("MySimpleRecord", "prefix_scalar", concat(field("num_value_2"), field("num_value_3_indexed")));
-        };
+    void testPrefixScalar() {
+        RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", "prefix_scalar", concat(field("num_value_2"), field("num_value_3_indexed")));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -88,8 +88,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         RecordQueryPlan plan1 = planner.plan(query1);
         assertThat(plan1, indexScan(allOf(indexName("prefix_scalar"), bounds(hasTupleString("[[1],[1]]")))));
         assertEquals(339959201, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(314514450, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(464170185, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1160014595, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1504375084, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
@@ -100,8 +100,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         RecordQueryPlan plan2 = planner.plan(query2);
         assertThat(plan2, indexScan(allOf(indexName("prefix_scalar"), bounds(hasTupleString("[[1, 1],[1, 1]]")))));
         assertEquals(-447322749, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-40431985, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(453584239, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1253390298, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1176210758, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -114,7 +114,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
             recnos = recordStore.executeQuery(plan2)
                     .map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getRecNo())
                     .asList().join();
-            assertEquals(Arrays.asList(1L), recnos);
+            assertEquals(ImmutableList.of(1L), recnos);
             TestHelpers.assertDiscardedNone(context);
         }
     }
@@ -123,7 +123,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
      * Verify that a complex query with an appropriate multi-field index uses the index.
      */
     @DualPlannerTest
-    public void testComplexQuery2() throws Exception {
+    void testComplexQuery2() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -139,8 +139,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         assertThat(plan, indexScan(allOf(indexName("multi_index"),
                 bounds(hasTupleString("[[even, 0, 3],[even, 0, 3]]")))));
         assertEquals(657537200, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1649013125, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(656626838, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(420201914, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1119403265, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -149,10 +149,10 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());
-                    assertTrue((myrec.getNumValue2() % 3) == 0);
-                    assertTrue((myrec.getNumValue3Indexed() % 5) == 3);
+                    assertEquals(0, (myrec.getNumValue2() % 3));
+                    assertEquals(3, (myrec.getNumValue3Indexed() % 5));
                     i++;
                 }
             }
@@ -165,7 +165,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
      * Verify that a complex query with an appropriate multi-field index uses the index.
      */
     @DualPlannerTest
-    public void testComplexQuery3() throws Exception {
+    void testComplexQuery3() throws Exception {
         // new Index("multi_index", "str_value_indexed", "num_value_2", "num_value_3_indexed")
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
@@ -182,8 +182,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even, 0, 2],[even, 0, 3]]")))));
         assertEquals(2137890746, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(2076121538, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-720747267, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-64740525, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-868327560, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -192,9 +192,9 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());
-                    assertTrue((myrec.getNumValue2() % 3) == 0);
+                    assertEquals(0, (myrec.getNumValue2() % 3));
                     assertTrue((myrec.getNumValue3Indexed() % 5) >= 2);
                     assertTrue((myrec.getNumValue3Indexed() % 5) <= 3);
                     i++;
@@ -206,7 +206,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
     }
 
     @DualPlannerTest
-    public void testComplexQueryDenorm() throws Exception {
+    void testComplexQueryDenorm() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -237,7 +237,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
      * Verify that a complex query with an appropriate multi-field index uses the index, even when bounds are complex.
      */
     @DualPlannerTest
-    public void testComplexQuery4() throws Exception {
+    void testComplexQuery4() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -255,8 +255,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 indexName("multi_index"),
                 bounds(hasTupleString("[[even, 0, 2],[even, 0]]")))));
         assertEquals(1276767038, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1482243327, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-419919041, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1295098356, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-132587146, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -265,9 +265,9 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());
-                    assertTrue((myrec.getNumValue2() % 3) == 0);
+                    assertEquals(0, (myrec.getNumValue2() % 3));
                     assertTrue((myrec.getNumValue3Indexed() % 5) >= 2);
                     i++;
                 }
@@ -281,8 +281,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
      * Verify that a query with an equality condition filter on one field and a sort on another can make use of an
      * appropriate multi-field index that includes both of them.
      */
-    @Test
-    public void testComplexQuery8() throws Exception {
+    @DualPlannerTest
+    void testComplexQuery8() throws Exception {
         RecordMetaDataHook hook = complexQuerySetupHook();
         complexQuerySetup(hook);
         RecordQuery query = RecordQuery.newBuilder()
@@ -295,8 +295,8 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
         RecordQueryPlan plan = planner.plan(query);
         assertThat(plan, indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[even],[even]]")))));
         assertEquals(1375215309, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-445612552, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(995377110, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-929085987, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(791920575, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -305,7 +305,7 @@ public class FDBMultiFieldIndexSelectionTest extends FDBRecordStoreQueryTestBase
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());
                     i++;
                 }

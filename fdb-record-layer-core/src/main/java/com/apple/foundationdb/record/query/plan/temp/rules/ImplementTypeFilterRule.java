@@ -29,16 +29,22 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifierOverPlans;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
 
 /**
  * A rule that implements a logical type filter on an (already implemented) {@link RecordQueryPlan} as a
@@ -46,10 +52,11 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher
  */
 @API(API.Status.EXPERIMENTAL)
 public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpression> {
-    private static final BindingMatcher<RecordQueryPlan> innerMatcher = RecordQueryPlanMatchers.anyPlan();
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = QuantifierMatchers.forEachQuantifier(innerMatcher);
+    @Nonnull
+    private static final CollectionMatcher<RecordQueryPlan> innerPlansMatcher = some(anyPlan());
+    @Nonnull
     private static final BindingMatcher<LogicalTypeFilterExpression> root =
-            RelationalExpressionMatchers.logicalTypeFilterExpression(exactly(innerQuantifierMatcher));
+            RelationalExpressionMatchers.logicalTypeFilterExpression(exactly(forEachQuantifierOverPlans(innerPlansMatcher)));
 
     public ImplementTypeFilterRule() {
         super(root);
@@ -58,23 +65,33 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalTypeFilterExpression typeFilter = call.get(root);
-        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
-        final RecordQueryPlan inner = call.get(innerMatcher);
+        final Collection<? extends RecordQueryPlan> innerPlans = call.get(innerPlansMatcher);
+        final ImmutableList.Builder<RecordQueryPlan> noTypeFilterNeededBuilder = ImmutableList.builder();
+        final ImmutableMultimap.Builder<Set<String>, RecordQueryPlan> unsatisfiedMapBuilder = ImmutableMultimap.builder();
 
-        final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), inner);
-        final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
-        if (filterRecordTypes.containsAll(childRecordTypes)) {
-            // type filter is completely redundant, so remove it entirely
-            call.yield(call.ref(inner));
-        } else {
-            // otherwise, keep a filter on record types which the inner might produce and are included in the filter
-            final Set<String> unsatisfiedTypeFilters = Sets.intersection(filterRecordTypes, childRecordTypes);
-            call.yield(GroupExpressionRef.of(
+        for (final RecordQueryPlan innerPlan : innerPlans) {
+            final Set<String> childRecordTypes = RecordTypesProperty.evaluate(call.getContext(), call.getAliasResolver(), innerPlan);
+            final Set<String> filterRecordTypes = Sets.newHashSet(typeFilter.getRecordTypes());
+
+            if (filterRecordTypes.containsAll(childRecordTypes)) {
+                noTypeFilterNeededBuilder.add(innerPlan);
+            } else {
+                unsatisfiedMapBuilder.put(Sets.intersection(filterRecordTypes, childRecordTypes), innerPlan);
+            }
+        }
+
+        final ImmutableList<RecordQueryPlan> noTypeFilterNeeded = noTypeFilterNeededBuilder.build();
+        final ImmutableMultimap<Set<String>, RecordQueryPlan> unsatisfiedMap = unsatisfiedMapBuilder.build();
+
+        if (!noTypeFilterNeeded.isEmpty()) {
+            call.yield(GroupExpressionRef.from(noTypeFilterNeeded));
+        }
+
+        for (Map.Entry<Set<String>, Collection<RecordQueryPlan>> unsatisfiedEntry : unsatisfiedMap.asMap().entrySet()) {
+            call.yield(call.ref(
                     new RecordQueryTypeFilterPlan(
-                            Quantifier.physicalBuilder()
-                                    .morphFrom(innerQuantifier)
-                                    .build(GroupExpressionRef.of(inner)),
-                            unsatisfiedTypeFilters)));
+                            Quantifier.physical(GroupExpressionRef.from(unsatisfiedEntry.getValue())),
+                            unsatisfiedEntry.getKey())));
         }
     }
 }

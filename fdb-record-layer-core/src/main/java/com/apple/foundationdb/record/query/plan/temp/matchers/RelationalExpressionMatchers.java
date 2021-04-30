@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedSc
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
@@ -131,6 +132,16 @@ public class RelationalExpressionMatchers {
     public static BindingMatcher<LogicalFilterExpression> logicalFilterExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
                                                                                   @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(LogicalFilterExpression.class, downstreamPredicates, downstreamQuantifiers);
+    }
+
+    @Nonnull
+    public static BindingMatcher<LogicalProjectionExpression> logicalProjectionExpression(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(LogicalProjectionExpression.class, AnyMatcher.any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<LogicalProjectionExpression> logicalProjectionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(LogicalProjectionExpression.class, downstream);
     }
 
     @Nonnull

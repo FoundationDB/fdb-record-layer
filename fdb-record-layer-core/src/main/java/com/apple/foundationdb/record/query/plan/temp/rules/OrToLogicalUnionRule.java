@@ -1,5 +1,5 @@
 /*
- * OrToUnorderedUnionRule.java
+ * OrToLogicalUnionRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -83,7 +83,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatche
  *        
  */
 @API(API.Status.EXPERIMENTAL)
-public class OrToUnorderedUnionRule extends PlannerRule<SelectExpression> {
+public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<Quantifier> qunMatcher = anyQuantifier();
     @Nonnull
@@ -93,7 +93,7 @@ public class OrToUnorderedUnionRule extends PlannerRule<SelectExpression> {
     @Nonnull
     private static final BindingMatcher<SelectExpression> root = RelationalExpressionMatchers.selectExpression(exactly(orMatcher), all(qunMatcher)); // TODO make this better to include other predicates
 
-    public OrToUnorderedUnionRule() {
+    public OrToLogicalUnionRule() {
         super(root);
     }
 

@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
@@ -37,7 +39,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.CrossProduct;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +50,7 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.AnyMatcher.any;
@@ -71,8 +76,15 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static <R extends RecordQueryPlan> BindingMatcher<R> childrenPlans(@Nonnull final Class<R> bindableClass, @Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
         return typedWithDownstream(bindableClass,
-                Extractor.of(RecordQueryPlan::getQueryPlanChildren, name -> "planChildren(" + name + ")"),
-                downstream);
+                Extractor.of((R recordQueryPlan) -> {
+                    final List<? extends Quantifier> quantifiers = recordQueryPlan.getQuantifiers();
+                    final List<Iterable<RelationalExpression>>
+                            rangedOverPlans = quantifiers.stream()
+                            .map(quantifier -> quantifier.getRangesOver().getMembers().stream().map(r -> (RelationalExpression)r).collect(ImmutableList.toImmutableList()))
+                            .collect(ImmutableList.toImmutableList());
+                    return CrossProduct.crossProduct(rangedOverPlans);
+                }, name -> "planChildren(" + name + ")"),
+                AnyMatcher.anyInIterable(downstream));
     }
 
     @Nonnull
@@ -253,6 +265,15 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static BindingMatcher<RecordQueryPredicatesFilterPlan> predicates(@Nonnull BindingMatcher<? extends QueryPredicate>... downstreams) {
+        return typedWithDownstream(RecordQueryPredicatesFilterPlan.class,
+                Extractor.of(RecordQueryPredicatesFilterPlan::getPredicates, name -> "predicates(" + name + ")"),
+                exactlyInAnyOrder(downstreams));
+    }
+
+    @Nonnull
     public static BindingMatcher<RecordQueryScanPlan> scanPlan() {
         return ofTypeOwning(RecordQueryScanPlan.class, CollectionMatcher.empty());
     }
@@ -364,5 +385,31 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<LogicalIntersectionExpression> logicalIntersectionExpression(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
         return ofTypeOwning(LogicalIntersectionExpression.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryCoveringIndexPlan> coveringIndexPlan() {
+        return ofTypeOwning(RecordQueryCoveringIndexPlan.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryCoveringIndexPlan> indexPlanOf(@Nonnull BindingMatcher<? extends RecordQueryPlanWithIndex> downstream) {
+        return typedWithDownstream(RecordQueryCoveringIndexPlan.class,
+                Extractor.of(RecordQueryCoveringIndexPlan::getIndexPlan, name -> "indexPlanOf(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchFromPartialRecord(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryFetchFromPartialRecordPlan.class, any(downstream));
+    }
+
+    public static BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchFromPartialRecord(@Nonnull final CollectionMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryFetchFromPartialRecordPlan.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchFromPartialRecordPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryFetchFromPartialRecordPlan.class, all(downstream));
     }
 }

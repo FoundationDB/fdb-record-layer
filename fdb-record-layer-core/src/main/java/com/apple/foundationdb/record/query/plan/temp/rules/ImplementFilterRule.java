@@ -30,18 +30,21 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalFilterExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifierOverPlans;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.anyPredicate;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalFilterExpression;
 
 /**
  * A rule that implements a logical filter around a {@link RecordQueryPlan} as a {@link RecordQueryFilterPlan}.
@@ -49,8 +52,8 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQuery
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
-    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
+    private static final CollectionMatcher<RecordQueryPlan> innerPlansMatcher = some(RecordQueryPlanMatchers.anyPlan());
+    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifierOverPlans(innerPlansMatcher);
     private static final BindingMatcher<QueryPredicate> filterMatcher = anyPredicate();
     private static final BindingMatcher<LogicalFilterExpression> root =
             logicalFilterExpression(all(filterMatcher), exactly(innerQuantifierMatcher));
@@ -62,18 +65,20 @@ public class ImplementFilterRule extends PlannerRule<LogicalFilterExpression> {
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
-        final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
+        final Collection<? extends RecordQueryPlan> innerPlans = bindings.get(innerPlansMatcher);
         final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
         final List<? extends QueryPredicate> queryPredicates = bindings.getAll(filterMatcher);
 
+        final GroupExpressionRef<? extends RecordQueryPlan> referenceOverPlans = GroupExpressionRef.from(innerPlans);
+
         if (queryPredicates.stream().allMatch(QueryPredicate::isTautology)) {
-            call.yield(GroupExpressionRef.of(innerPlan));
+            call.yield(referenceOverPlans);
         } else {
             call.yield(GroupExpressionRef.of(
                     new RecordQueryPredicatesFilterPlan(
                             Quantifier.physicalBuilder()
                                     .morphFrom(innerQuantifier)
-                                    .build(call.ref(innerPlan)),
+                                    .build(referenceOverPlans),
                             queryPredicates)));
         }
     }

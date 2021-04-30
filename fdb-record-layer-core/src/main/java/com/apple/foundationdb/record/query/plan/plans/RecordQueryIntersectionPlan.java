@@ -271,8 +271,14 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public RecordQueryIntersectionPlan withChildren(@Nonnull List<? extends RecordQueryPlan> newChildren) {
-        return from(newChildren, comparisonKey);
+    public RecordQueryIntersectionPlan withChildren(@Nonnull final List<? extends ExpressionRef<? extends RelationalExpression>> newChildren) {
+        return new RecordQueryIntersectionPlan(
+                newChildren.stream()
+                        .map(Quantifier::physical)
+                        .collect(ImmutableList.toImmutableList()),
+                comparisonKey,
+                reverse,
+                false);
     }
 
     @Nonnull

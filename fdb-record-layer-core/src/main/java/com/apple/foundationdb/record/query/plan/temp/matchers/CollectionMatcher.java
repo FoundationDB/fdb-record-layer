@@ -31,7 +31,7 @@ import java.util.stream.Stream;
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public interface CollectionMatcher<T> extends BindingMatcher<Collection<? extends T>> {
+public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<? extends T>> {
     @SuppressWarnings("unchecked")
     @Nonnull
     @Override

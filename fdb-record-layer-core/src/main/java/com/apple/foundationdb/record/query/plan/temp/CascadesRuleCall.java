@@ -24,11 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
+import com.google.common.base.Verify;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -54,9 +56,11 @@ public class CascadesRuleCall implements PlannerRuleCall {
     @Nonnull
     private final PlanContext context;
     @Nonnull
-    private final RelationalExpressionPointerSet<RelationalExpression> newExpressions;
+    private final LinkedIdentitySet<RelationalExpression> newExpressions;
     @Nonnull
-    private final Set<PartialMatch> newPartialMatches;
+    private final LinkedIdentitySet<PartialMatch> newPartialMatches;
+    @Nonnull
+    private final Set<ExpressionRef<? extends RelationalExpression>> referencesWithPushedRequirements;
 
     public CascadesRuleCall(@Nonnull PlanContext context,
                             @Nonnull PlannerRule<?> rule,
@@ -68,8 +72,9 @@ public class CascadesRuleCall implements PlannerRuleCall {
         this.root = root;
         this.aliasResolver = aliasResolver;
         this.bindings = bindings;
-        this.newExpressions = new RelationalExpressionPointerSet<>();
-        this.newPartialMatches = Sets.newHashSet();
+        this.newExpressions = new LinkedIdentitySet<>();
+        this.newPartialMatches = new LinkedIdentitySet<>();
+        this.referencesWithPushedRequirements = Sets.newLinkedHashSet();
     }
 
     public void run() {
@@ -92,6 +97,21 @@ public class CascadesRuleCall implements PlannerRuleCall {
     @Nonnull
     public PlanContext getContext() {
         return context;
+    }
+
+    @Nonnull
+    @Override
+    public <T> Optional<T> getInterestingProperty(@Nonnull final PlannerAttribute<T> plannerAttribute) {
+        if (rule.getRequirementDependencies().contains(plannerAttribute)) {
+            return root.getRequirementsMap().getPropertyOptional(plannerAttribute);
+        }
+
+        throw new RecordCoreArgumentException("rule is not dependent on requested planner requirement");
+    }
+
+    @Nonnull
+    public Set<ExpressionRef<? extends RelationalExpression>> getReferencesWithPushedRequirements() {
+        return referencesWithPushedRequirements;
     }
 
     @Override
@@ -128,6 +148,18 @@ public class CascadesRuleCall implements PlannerRuleCall {
                         matchInfo);
         root.addPartialMatchForCandidate(matchCandidate, newPartialMatch);
         newPartialMatches.add(newPartialMatch);
+    }
+
+    @Override
+    @SuppressWarnings({"PMD.CompareObjectsWithEquals"}) // deliberate use of id equality check for short-circuit condition
+    public <T> void pushRequirement(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+                                    @Nonnull final PlannerAttribute<T> plannerAttribute,
+                                    @Nonnull final T requirement) {
+        Verify.verify(root != reference);
+        final InterestingPropertiesMap requirementsMap = reference.getRequirementsMap();
+        if (requirementsMap.pushProperty(plannerAttribute, requirement).isPresent()) {
+            referencesWithPushedRequirements.add(reference);
+        }
     }
 
     @Override

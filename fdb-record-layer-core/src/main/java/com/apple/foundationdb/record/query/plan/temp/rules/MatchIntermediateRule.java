@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
+import com.apple.foundationdb.record.query.plan.temp.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
@@ -45,7 +46,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -174,7 +174,7 @@ public class MatchIntermediateRule extends PlannerRule<RelationalExpression> {
                         .collect(ImmutableList.toImmutableList());
 
         // form union of all possible match candidates that this rule application should look at
-        final Set<MatchCandidate> childMatchCandidates = Sets.newHashSet();
+        final Set<MatchCandidate> childMatchCandidates = new LinkedIdentitySet<>();
         for (int i = 0; i < rangesOverRefs.size(); i++) {
             final ExpressionRef<? extends RelationalExpression> rangesOverGroup = rangesOverRefs.get(i);
             childMatchCandidates.addAll(rangesOverGroup.getMatchCandidates());

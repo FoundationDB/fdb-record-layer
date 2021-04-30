@@ -48,7 +48,6 @@ import java.util.List;
  */
 @SuppressWarnings("java:S5993")
 public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor<VisitorState> {
-
     /**
      * We maintain a conceptual stack for the states. States pass information down the visited structure while
      * {@link GraphExpansion}s pass the resulting query graph expansion back up. We use a {@link Deque} here
@@ -127,7 +126,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
             case FanOut:
                 // explode this field and prefixes of this field
                 final Quantifier childBase = fieldKeyExpression.explodeField(baseAlias, fieldNamePrefix);
-                value = new QuantifiedObjectValue(childBase.getAlias());
+                value = state.registerValue(new QuantifiedObjectValue(childBase.getAlias()));
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
@@ -139,11 +138,12 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
                         childExpansion
                                 .buildSelectWithBase(childBase);
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
-                return childExpansion
-                        .seal()
+                final GraphExpansion.Sealed sealedChildExpansion =
+                        childExpansion.seal();
+                return sealedChildExpansion
                         .derivedWithQuantifier(childQuantifier);
             case None:
-                value = new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames);
+                value = state.registerValue(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
                     return GraphExpansion.ofPlaceholder(value, predicate);
@@ -159,7 +159,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
     @Override
     public GraphExpansion visitExpression(@Nonnull final KeyExpressionWithValue keyExpressionWithValue) {
         final VisitorState state = getCurrentState();
-        final Value value = keyExpressionWithValue.toValue(state.getBaseAlias(), state.getFieldNamePrefix());
+        final Value value = state.registerValue(keyExpressionWithValue.toValue(state.getBaseAlias(), state.getFieldNamePrefix()));
         if (state.isKey()) {
             final Placeholder predicate =
                     value.asPlaceholder(newParameterAlias());
@@ -194,13 +194,13 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
                 // explode the parent field(s) also depending on the prefix
                 final Quantifier childBase = parent.explodeField(baseAlias, fieldNamePrefix);
                 // expand the children of the key expression and then unify them into an expansion of this expression
-                final GraphExpansion.Sealed childExpandedPredicates =
+                final GraphExpansion.Sealed sealedChildExpansion =
                         pop(child.expand(push(state.withBaseAlias(childBase.getAlias()).withFieldNamePrefix(ImmutableList.of())))).seal();
                 final SelectExpression selectExpression =
-                        childExpandedPredicates
+                        sealedChildExpansion
                                 .buildSelectWithBase(childBase);
                 final Quantifier childQuantifier = Quantifier.forEach(GroupExpressionRef.of(selectExpression));
-                return childExpandedPredicates.derivedWithQuantifier(childQuantifier);
+                return sealedChildExpansion.derivedWithQuantifier(childQuantifier);
             case Concatenate:
             default:
                 throw new RecordCoreException("unsupported fan type");
@@ -261,14 +261,40 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
          */
         private final int currentOrdinal;
 
-        private VisitorState(@Nonnull final CorrelationIdentifier baseAlias,
+        /**
+         * List of keys as expanded values form in the index.
+         */
+        @Nonnull
+        private final List<Value> keyValues;
+
+        /**
+         * List of values as expanded values form in the index.
+         */
+        @Nonnull
+        private final List<Value> valueValues;
+
+        private VisitorState(@Nonnull final List<Value> keyOrdinalMap,
+                             @Nonnull final List<Value> valueValues,
+                             @Nonnull final CorrelationIdentifier baseAlias,
                              @Nonnull final List<String> fieldNamePrefix,
                              final int splitPointForValues,
                              final int currentOrdinal) {
+            this.keyValues = keyOrdinalMap;
+            this.valueValues = valueValues;
             this.baseAlias = baseAlias;
             this.fieldNamePrefix = fieldNamePrefix;
             this.splitPointForValues = splitPointForValues;
             this.currentOrdinal = currentOrdinal;
+        }
+
+        @Nonnull
+        public List<Value> getKeyValues() {
+            return keyValues;
+        }
+
+        @Nonnull
+        public List<Value> getValueValues() {
+            return valueValues;
         }
 
         @Nonnull
@@ -290,42 +316,65 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
         }
 
         public boolean isKey() {
-            return splitPointForValues < 0 || getCurrentOrdinal() <= splitPointForValues;
+            return splitPointForValues < 0 || getCurrentOrdinal() < splitPointForValues;
+        }
+
+        @Nonnull
+        public Value registerValue(@Nonnull final Value value) {
+            if (isKey()) {
+                keyValues.add(value);
+            } else {
+                valueValues.add(value);
+            }
+            return value;
         }
 
         public VisitorState withBaseAlias(@Nonnull final CorrelationIdentifier baseAlias) {
-            return new VisitorState(baseAlias,
+            return new VisitorState(this.keyValues,
+                    this.valueValues,
+                    baseAlias,
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     this.currentOrdinal);
         }
 
         public VisitorState withFieldNamePrefix(@Nonnull final List<String> fieldNamePrefix) {
-            return new VisitorState(this.baseAlias,
+            return new VisitorState(this.keyValues,
+                    this.valueValues,
+                    this.baseAlias,
                     fieldNamePrefix,
                     this.splitPointForValues,
                     this.currentOrdinal);
         }
 
         public VisitorState withSplitPointForValues(final int splitPointForValues) {
-            return new VisitorState(this.baseAlias,
+            return new VisitorState(this.keyValues,
+                    this.valueValues,
+                    this.baseAlias,
                     fieldNamePrefix,
                     splitPointForValues,
                     this.currentOrdinal);
         }
 
         public VisitorState withCurrentOrdinal(final int currentOrdinal) {
-            return new VisitorState(this.baseAlias,
+            return new VisitorState(this.keyValues,
+                    this.valueValues,
+                    this.baseAlias,
                     this.fieldNamePrefix,
                     this.splitPointForValues,
                     currentOrdinal);
         }
 
-        public static VisitorState of(@Nonnull final CorrelationIdentifier baseAlias,
+        public static VisitorState of(@Nonnull final List<Value> keyValues,
+                                      @Nonnull final List<Value> valueValues,
+                                      @Nonnull final CorrelationIdentifier baseAlias,
                                       @Nonnull final List<String> fieldNamePrefix,
                                       final int splitPointForValues,
                                       final int currentOrdinal) {
-            return new VisitorState(baseAlias,
+            return new VisitorState(
+                    keyValues,
+                    valueValues,
+                    baseAlias,
                     fieldNamePrefix,
                     splitPointForValues,
                     currentOrdinal);

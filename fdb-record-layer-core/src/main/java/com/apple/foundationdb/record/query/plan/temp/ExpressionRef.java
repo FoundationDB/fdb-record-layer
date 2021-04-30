@@ -27,7 +27,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * This interface is used mostly as an (admittedly surmountable) barrier to rules mutating bound references directly,
@@ -56,13 +55,10 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
     @Nullable
     <U> U acceptPropertyVisitor(@Nonnull PlannerProperty<U> property);
 
-    @Nonnull
-    <U extends RelationalExpression> ExpressionRef<U> map(@Nonnull Function<T, U> func);
-
     boolean containsAllInMemo(@Nonnull ExpressionRef<? extends RelationalExpression> otherRef,
                               @Nonnull AliasMap equivalenceMap);
 
-    RelationalExpressionPointerSet<T> getMembers();
+    LinkedIdentitySet<T> getMembers();
 
     /**
      * Return all match candidates that partially match this reference. This set must be a subset of all {@link MatchCandidate}s
@@ -99,6 +95,9 @@ public interface ExpressionRef<T extends RelationalExpression> extends Correlate
      */
     @SuppressWarnings("UnusedReturnValue")
     boolean addPartialMatchForCandidate(final MatchCandidate candidate, final PartialMatch partialMatch);
+
+    @Nonnull
+    InterestingPropertiesMap getRequirementsMap();
 
     /**
      * An exception thrown when {@link #get()} is called on a reference that does not support it, such as a group reference.

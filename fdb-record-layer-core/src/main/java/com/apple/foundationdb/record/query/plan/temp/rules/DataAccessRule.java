@@ -31,13 +31,17 @@ import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.Compensation;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.MatchPartition;
+import com.apple.foundationdb.record.query.plan.temp.Ordering;
+import com.apple.foundationdb.record.query.plan.temp.OrderingAttribute;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.PrimaryScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.ReferencedFieldsAttribute;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
@@ -56,14 +60,19 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -73,13 +82,14 @@ import java.util.stream.StreamSupport;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
 
 /**
- * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create a logical expression
- * for data access. While this rule delegates specifics to the {@link MatchCandidate}s, the following are possible
- * outcomes of the application of this transformation rule. Based on the match info, we may create for a single match:
+ * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
+ * expressions for data access. While this rule delegates specifics to the {@link MatchCandidate}s, the following are
+ * possible outcomes of the application of this transformation rule. Based on the match info, we may create for a single match:
  *
  * <ul>
  *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
  *     <li>an {@link IndexScanExpression} for a single {@link ValueIndexScanMatchCandidate}</li>
+ *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
  * </ul>
  *
  * The logic that this rules delegates to to actually create the expressions can be found in
@@ -91,31 +101,123 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
     private static final BindingMatcher<MatchPartition> rootMatcher = MatchPartitionMatchers.containing(some(completeMatchMatcher));
     
     public DataAccessRule() {
-        super(rootMatcher);
+        super(rootMatcher, ImmutableSet.of(ReferencedFieldsAttribute.REFERENCED_FIELDS, OrderingAttribute.ORDERING));
     }
 
+    /**
+     * Method that does the leg work to create the appropriate expression dag for data access using value indexes or
+     * value index-like scans (primary scans).
+     *
+     * Conceptually we do the following work:
+     *
+     * <ul>
+     * <li> This method yields a scan plan for each matching primary candidate ({@link PrimaryScanMatchCandidate}).
+     *      There is only ever going to be exactly one {@link PrimaryScanMatchCandidate} for a primary key. Due to the
+     *      candidate being solely based upon a primary key, the match structure is somewhat limited. In essence, there
+     *      is an implicit guarantee that we can always create a primary scan for a data source.
+     * </li>
+     * <li> This method yields an index scan plan for each matching value index candidate
+     *      ({@link ValueIndexScanMatchCandidate}).
+     * </li>
+     * <li> This method yields the combinatorial expansion of intersections of distinct-ed index scan plans.
+     * </li>
+     * </ul>
+     *
+     * The work described above is semantically correct in a sense that it creates a search space that can be explored
+     * and pruned in suitable ways that will eventually converge into an optimal data access plan.
+     *
+     * We can choose to create an index scan for every index that is available regardless what the coverage
+     * of an index is. The coverage of an index is a measurement that tells us how well an index can answer what a
+     * filter (or by extension a query) asks for. For instance, a high number of search arguments used in the index scan
+     * can be associated with high coverage (as in the index scan covers more of the query) and vice versa.
+     *
+     * Similarly, we can choose to create the intersection of all possible combinations of suitable scans over indexes
+     * (that we have matches for). Since we create a logical intersection of these access plans we can leave it up to
+     * the respective implementation rules (e.g., {@link ImplementIntersectionRule}) to do the right thing and implement
+     * the physical plan for the intersection if possible (e.g. ensuring compatibly ordered legs, etc.).
+     *
+     * In fact, the two before-mentioned approaches are completely valid with respect to correctness of the plan and
+     * the guaranteed creation of the optimal plan. However, in reality using this approach, although valid and probably
+     * the conceptually better and more orthogonal approach, will result in a ballooning of the search space very quickly.
+     * While that may be acceptable for group-by engines and only few index access paths, in an OLTP world where there
+     * are potentially dozens of indexes, memory footprint and the sheer number of tasks that would be created for
+     * subsequent exploration and implementation of all these alternatives make the purist approach to planning these
+     * indexes infeasible.
+     *
+     * Thus we would like to eliminate unnecessary exploration by avoiding variations we know can never be successful
+     * either in creating a successful executable plan (e.g. logical expression may not ever be able to produce a
+     * compatible ordering) or cannot ever create an optimal plan. In a nutshell, we try to utilize additional
+     * information that is available in addition to the matching partition in order to make decisions about which
+     * expression variation to create and which to avoid:
+     *
+     * <ul>
+     * <li> For a matching primary scan candidate ({@link PrimaryScanMatchCandidate})
+     *      we will not create a primary scan if the scan is incompatible with an interesting order that has been
+     *      communicated downwards in the graph.
+     * </li>
+     * <li> For a matching index scan candidate ({@link ValueIndexScanMatchCandidate})
+     *      we will not create an index scan if the scan is incompatible with an interesting order that has been
+     *      communicated downwards in the graph.
+     * </li>
+     * <li> We will only create a scan if there is no other index scan with a greater coverage (think of coverage
+     *      as the assumed amount of filtering or currently the number of bound predicates) for the search arguments
+     *      which are bound by the query.
+     *      For instance, an index scan {@code INDEX SCAN(i1, a = [5, 5], b = [10, 10])} is still planned along
+     *      {@code INDEX SCAN(i2, x = ["hello", "hello"], y = ["world", "world"], z = [10, inf])} even though
+     *      the latter utilizes three search arguments while the former one only uses two. However, an index scan
+     *      {@code INDEX SCAN(i1, a = [5, 5], b = [10, 10])} is not created (and yielded) if there we also
+     *      have a choice to plan {@code INDEX SCAN(i2, b = [10, 10], a = [5, 5], c = ["Guten", "Morgen"])} as that
+     *      index {@code i2} has a higher coverage compared to {@code i1} <em>and</em> all bound arguments in the scan
+     *      over {@code i2} are also bound in the scan over {@code i1}.
+     * <li>
+     *      We will only create intersections of scans if we can already establish that the logical intersection
+     *      can be implemented by a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan}.
+     *      That requires that the legs of the intersection are compatibly ordered <em>and</em> that that ordering follows
+     *      a potentially required ordering.
+     * </li>
+     * </ul>
+     *
+     * @param call the call associated with this planner rule execution
+     */
     @Override
     @SuppressWarnings("java:S135")
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final List<? extends PartialMatch> completeMatches = bindings.getAll(completeMatchMatcher);
 
+        //
+        // return if there are no complete matches
+        //
         if (completeMatches.isEmpty()) {
             return;
         }
 
-        final Map<MatchCandidate, List<PartialMatch>> completeMatchMap =
+        //
+        // return if there is no pre-determined interesting ordering
+        //
+        final Optional<Set<Ordering>> interestingOrderingsOptional =
+                call.getInterestingProperty(OrderingAttribute.ORDERING);
+        if (!interestingOrderingsOptional.isPresent()) {
+            return;
+        }
+
+        final Set<Ordering> interestingOrderings = interestingOrderingsOptional.get();
+
+        //
+        // group matches by candidates
+        //
+        final LinkedHashMap<MatchCandidate, ? extends ImmutableList<? extends PartialMatch>> completeMatchMap =
                 completeMatches
                         .stream()
-                        .collect(Collectors.groupingBy(PartialMatch::getMatchCandidate));
+                        .collect(Collectors.groupingBy(PartialMatch::getMatchCandidate, LinkedHashMap::new, ImmutableList.toImmutableList()));
 
         // find the best match for a candidate as there may be more than one due to partial matching
-        final ImmutableSet<PartialMatch> bestMatches =
+        final ImmutableSet<PartialMatch> maximumCoverageMatchPerCandidate =
                 completeMatchMap.entrySet()
-                .stream()
+                        .stream()
                         .flatMap(entry -> {
-                            final List<PartialMatch> completeMatchesForCandidate = entry.getValue();
-                            final Optional<PartialMatch> bestMatchForCandidateOptional =
+                            final List<? extends PartialMatch> completeMatchesForCandidate = entry.getValue();
+                            final Optional<? extends PartialMatch> bestMatchForCandidateOptional =
                                     completeMatchesForCandidate
                                             .stream()
                                             .max(Comparator.comparing(PartialMatch::getNumBoundParameterPrefix));
@@ -123,26 +225,27 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
                         })
                         .collect(ImmutableSet.toImmutableSet());
 
-        if (bestMatches.isEmpty()) {
+        final List<PartialMatch> bestMaximumCoverageMatches = maximumCoverageMatches(maximumCoverageMatchPerCandidate, interestingOrderings);
+        if (bestMaximumCoverageMatches.isEmpty()) {
             return;
         }
 
         // create scans for all best matches
-        final ImmutableMap<PartialMatch, RelationalExpression> bestMatchToExpressionMap =
-                createScansForBestMatches(bestMatches);
+        final Map<PartialMatch, RelationalExpression> bestMatchToExpressionMap =
+                createScansForMatches(bestMaximumCoverageMatches);
 
         // create single scan accesses
-        for (final PartialMatch bestMatch : bestMatches) {
+        for (final PartialMatch bestMatch : bestMaximumCoverageMatches) {
             final ImmutableList<PartialMatch> singleMatchPartition = ImmutableList.of(bestMatch);
             if (trimAndCombineBoundKeyParts(singleMatchPartition).isPresent()) {
                 final RelationalExpression dataAccessAndCompensationExpression =
-                        createSingleDataAccessAndCompensation(bestMatchToExpressionMap, bestMatch);
+                        compensateSingleDataAccess(bestMatch, bestMatchToExpressionMap.get(bestMatch));
                 call.yield(call.ref(dataAccessAndCompensationExpression));
             }
         }
 
-        final ImmutableMap<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
-                distinctBestMatchMap(bestMatchToExpressionMap);
+        final Map<PartialMatch, RelationalExpression> bestMatchToDistinctExpressionMap =
+                distinctMatchToScanMap(bestMatchToExpressionMap);
 
         @Nullable final KeyExpression commonPrimaryKey = call.getContext().getCommonPrimaryKey();
         if (commonPrimaryKey != null) {
@@ -150,14 +253,12 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
 
             final List<BoundPartition> boundPartitions = Lists.newArrayList();
             // create intersections for all n choose k partitions from k = 2 .. n
-            IntStream.range(2, bestMatches.size())
-                    .mapToObj(k -> ChooseK.chooseK(bestMatches, k))
+            IntStream.range(2, bestMaximumCoverageMatches.size())
+                    .mapToObj(k -> ChooseK.chooseK(bestMaximumCoverageMatches, k))
                     .flatMap(iterable -> StreamSupport.stream(iterable.spliterator(), false))
                     .forEach(partition -> {
                         final Optional<BoundPartition> newBoundPartitionOptional = trimAndCombineBoundKeyParts(partition);
-                        newBoundPartitionOptional
-                                .filter(boundPartition -> isBoundPartitionInteresting(boundPartitions, boundPartition))
-                                .ifPresent(boundPartitions::add);
+                        newBoundPartitionOptional.ifPresent(boundPartitions::add);
                     });
 
             boundPartitions
@@ -174,9 +275,128 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
         }
     }
 
+    /**
+     * Private helper method to eliminate {@link PartialMatch}es whose coverage is entirely contained in other matches
+     * (among the matches given).
+     * @param matches candidate matches
+     * @param interestedOrderings a set of interesting orderings
+     * @return a list of {@link PartialMatch}es that are the maximum coverage matches among the matches handed in
+     */
     @Nonnull
-    private ImmutableMap<PartialMatch, RelationalExpression> createScansForBestMatches(@Nonnull final ImmutableSet<PartialMatch> bestMatches) {
-        return bestMatches
+    @SuppressWarnings({"java:S1905", "java:S135"})
+    private List<PartialMatch> maximumCoverageMatches(@Nonnull final Collection<PartialMatch> matches, @Nonnull final Set<Ordering> interestedOrderings) {
+        final ImmutableList<Pair<PartialMatch, Map<QueryPredicate, BoundKeyPart>>> boundKeyPartMapsForMatches =
+                matches
+                        .stream()
+                        .filter(partialMatch -> !satisfiedOrderings(partialMatch, interestedOrderings).isEmpty())
+                        .map(partialMatch -> Pair.of(partialMatch, computeBoundKeyPartMap(partialMatch)))
+                        .sorted(Comparator.comparing((Function<Pair<PartialMatch, Map<QueryPredicate, BoundKeyPart>>, Integer>)p -> p.getValue().size()).reversed())
+                        .collect(ImmutableList.toImmutableList());
+
+        final ImmutableList.Builder<PartialMatch> maximumCoverageMatchesBuilder = ImmutableList.builder();
+        for (int i = 0; i < boundKeyPartMapsForMatches.size(); i++) {
+            final PartialMatch outerMatch = boundKeyPartMapsForMatches.get(i).getKey();
+            final Map<QueryPredicate, BoundKeyPart> outer = boundKeyPartMapsForMatches.get(i).getValue();
+
+            boolean foundContainingInner = false;
+            for (int j = 0; j < boundKeyPartMapsForMatches.size(); j++) {
+                final Map<QueryPredicate, BoundKeyPart> inner = boundKeyPartMapsForMatches.get(j).getValue();
+                // check if outer is completely contained in inner
+                if (outer.size() >= inner.size()) {
+                    break;
+                }
+
+                if (i != j) {
+                    final boolean allContained =
+                            outer.entrySet()
+                                    .stream()
+                                    .allMatch(outerEntry -> inner.containsKey(outerEntry.getKey()));
+                    if (allContained) {
+                        foundContainingInner = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundContainingInner) {
+                //
+                // no other partial match completely contained this one
+                //
+                maximumCoverageMatchesBuilder.add(outerMatch);
+            }
+        }
+
+        return maximumCoverageMatchesBuilder.build();
+    }
+
+    /**
+     * Private helper method to compute the subset of orderings of orderings passed in that would be satisfied by a scan
+     * if the given {@link PartialMatch} were to be planned.
+     * @param partialMatch a partial match
+     * @param requestedOrderings a set of {@link Ordering}s
+     * @return a subset of {@code requestedOrderings} where each contained {@link Ordering} would be satisfied by the
+     *         given partial match
+     */
+    @Nonnull
+    @SuppressWarnings("java:S135")
+    private Set<Ordering> satisfiedOrderings(@Nonnull final PartialMatch partialMatch, @Nonnull final Set<Ordering> requestedOrderings) {
+        return requestedOrderings
+                .stream()
+                .filter(requestedOrdering -> {
+                    if (requestedOrdering.isPreserve()) {
+                        return true;
+                    }
+
+                    final MatchInfo matchInfo = partialMatch.getMatchInfo();
+                    final List<BoundKeyPart> boundKeyParts = matchInfo.getBoundKeyParts();
+                    final ImmutableSet<KeyExpression> equalityBoundKeys =
+                            boundKeyParts
+                                    .stream()
+                                    .filter(boundKeyPart -> boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
+                                    .map(KeyPart::getNormalizedKeyExpression)
+                                    .collect(ImmutableSet.toImmutableSet());
+
+                    final Iterator<BoundKeyPart> boundKeyPartIterator = boundKeyParts.iterator();
+                    for (final KeyPart requestedOrderingKeyPart : requestedOrdering.getOrderingKeyParts()) {
+                        final KeyExpression requestedOrderingKey = requestedOrderingKeyPart.getNormalizedKeyExpression();
+
+                        if (equalityBoundKeys.contains(requestedOrderingKey)) {
+                            continue;
+                        }
+
+                        // if we are here, we must now find an non-equality-bound expression
+                        boolean found = false;
+                        while (boundKeyPartIterator.hasNext()) {
+                            final BoundKeyPart boundKeyPart = boundKeyPartIterator.next();
+                            if (boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY) {
+                                continue;
+                            }
+
+                            final KeyExpression boundKey = boundKeyPart.getNormalizedKeyExpression();
+                            if (requestedOrderingKey.equals(boundKey)) {
+                                found = true;
+                                break;
+                            } else {
+                                return false;
+                            }
+                        }
+                        if (!found) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .collect(ImmutableSet.toImmutableSet());
+    }
+
+    /**
+     * Private helper method to compute a map of matches to scans (no compensation applied yet).
+     * @param matches a collection of matches
+     * @return a map of the matches where a match is associated with a scan expression created based on that match
+     */
+    @Nonnull
+    private Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull final Collection<PartialMatch> matches) {
+        return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
                         Function.identity(),
@@ -186,9 +406,16 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
                         }));
     }
 
+    /**
+     * Private helper method to compute a new match to scan map by applying a {@link LogicalDistinctExpression} on each
+     * scan.
+     * @param matchToExpressionMap a map of matches to {@link RelationalExpression}s
+     * @return a map of the matches where a match is associated with a {@link LogicalDistinctExpression} ranging over a
+     *         scan expression that was created based on that match
+     */
     @Nonnull
-    private ImmutableMap<PartialMatch, RelationalExpression> distinctBestMatchMap(@Nonnull ImmutableMap<PartialMatch, RelationalExpression> bestMatchToExpressionMap) {
-        return bestMatchToExpressionMap
+    private Map<PartialMatch, RelationalExpression> distinctMatchToScanMap(@Nonnull Map<PartialMatch, RelationalExpression> matchToExpressionMap) {
+        return matchToExpressionMap
                 .entrySet()
                 .stream()
                 .collect(
@@ -199,58 +426,47 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
                                 }));
     }
 
+    /**
+     * Private helper method to compensate an already existing data access (a scan over materialized data).
+     * Planning the data access and its compensation for a given match is a two-step approach as we compute
+     * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
+     * before using the resulting {@link Compensation} to compute the compensating expression for the entire
+     * intersection. For single data scans that will not be used in an intersection we still follow the same
+     * two-step approach of seprately planning the scan and then computing the compensation and the compensating
+     * expression.
+     * @param partialMatch the match the caller wants to compensate
+     * @param scanExpression the scan expression the caller would like to create compensation for.
+     * @return a new {@link RelationalExpression} that represents the data access and its compensation
+     */
     @Nonnull
-    private RelationalExpression createSingleDataAccessAndCompensation(@Nonnull final Map<PartialMatch, RelationalExpression> bestMatchToExpressionMap,
-                                                                       @Nonnull final PartialMatch partialMatch) {
+    private RelationalExpression compensateSingleDataAccess(@Nonnull final PartialMatch partialMatch,
+                                                            @Nonnull final RelationalExpression scanExpression) {
         final Compensation compensation = partialMatch.compensate(partialMatch.getBoundParameterPrefixMap());
-        final RelationalExpression scanExpression = bestMatchToExpressionMap.get(partialMatch);
-
         return compensation.isNeeded()
                ? compensation.apply(GroupExpressionRef.of(scanExpression))
                : scanExpression;
     }
 
-    @SuppressWarnings("unused")
-    private boolean isBoundPartitionInteresting(@Nonnull final List<BoundPartition> boundPartitions,
-                                                @Nonnull final BoundPartition partition) {
-        return true;
-    }
-    
     @Nonnull
     @SuppressWarnings("java:S1905")
     private Optional<BoundPartition> trimAndCombineBoundKeyParts(@Nonnull final List<PartialMatch> partition) {
         final ImmutableList<Map<QueryPredicate, BoundKeyPart>> boundKeyPartMapsForMatches = partition
                 .stream()
-                .map(partialMatch -> {
-                    final MatchInfo matchInfo = partialMatch.getMatchInfo();
-                    final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap = partialMatch.getBoundParameterPrefixMap();
-                    return
-                            matchInfo.getBoundKeyParts()
-                                    .stream()
-                                    .filter(boundKeyPart -> boundKeyPart.getParameterAlias().isPresent()) // matching bound it
-                                    .filter(boundKeyPart -> boundParameterPrefixMap.containsKey(boundKeyPart.getParameterAlias().get())) // can be used by a scan
-                                    .peek(boundKeyPart -> Objects.requireNonNull(boundKeyPart.getQueryPredicate())) // make sure we got a predicate mapping
-                                    .collect(Collectors.toMap(BoundKeyPart::getQueryPredicate,
-                                            Function.identity(),
-                                            (a, b) -> {
-                                                if (a.getCandidatePredicate() == b.getCandidatePredicate() &&
-                                                        a.getComparisonRangeType() == b.getComparisonRangeType()) {
-                                                    return a;
-                                                }
-                                                throw new RecordCoreException("merge conflict");
-                                            },
-                                            Maps::newIdentityHashMap));
-                })
+                .map(this::computeBoundKeyPartMap)
                 .sorted(Comparator.comparing((Function<Map<QueryPredicate, BoundKeyPart>, Integer>)Map::size).reversed())
                 .collect(ImmutableList.toImmutableList());
 
+        //
+        // TODO This is redundant logic (see #maximumCoverageMatches()). I will leave this in here for now as
+        //      this loop should never have any effect on the outcome of this rule.
+        //
         for (int i = 0; i < boundKeyPartMapsForMatches.size(); i++) {
             final Map<QueryPredicate, BoundKeyPart> outer = boundKeyPartMapsForMatches.get(i);
 
             for (int j = 0; j < boundKeyPartMapsForMatches.size(); j++) {
                 final Map<QueryPredicate, BoundKeyPart> inner = boundKeyPartMapsForMatches.get(j);
                 // check if outer is completely contained in inner
-                if (outer.size() > inner.size()) {
+                if (outer.size() >= inner.size()) {
                     break;
                 }
 
@@ -292,8 +508,45 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
     }
 
     @Nonnull
+    private Map<QueryPredicate, BoundKeyPart> computeBoundKeyPartMap(final PartialMatch partialMatch) {
+        final MatchInfo matchInfo = partialMatch.getMatchInfo();
+        final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap = partialMatch.getBoundParameterPrefixMap();
+        return
+                matchInfo.getBoundKeyParts()
+                        .stream()
+                        .filter(boundKeyPart -> boundKeyPart.getParameterAlias().isPresent()) // matching bound it
+                        .filter(boundKeyPart -> boundParameterPrefixMap.containsKey(boundKeyPart.getParameterAlias().get())) // can be used by a scan
+                        .peek(boundKeyPart -> Objects.requireNonNull(boundKeyPart.getQueryPredicate())) // make sure we got a predicate mapping
+                        .collect(Collectors.toMap(BoundKeyPart::getQueryPredicate,
+                                Function.identity(),
+                                (a, b) -> {
+                                    if (a.getCandidatePredicate() == b.getCandidatePredicate() &&
+                                            a.getComparisonRangeType() == b.getComparisonRangeType()) {
+                                        return a;
+                                    }
+                                    throw new RecordCoreException("merge conflict");
+                                },
+                                Maps::newIdentityHashMap));
+    }
+
+    /**
+     * Private helper method to plan an intersection and subsequently compensate it using the partial match structures
+     * kept for all participating data accesses.
+     * Planning the data access and its compensation for a given match is a two-step approach as we compute
+     * the compensation for intersections by intersecting the {@link Compensation} for the single data accesses first
+     * before using the resulting {@link Compensation} to compute the compensating expression for the entire
+     * intersection.
+     * @param commonPrimaryKeyParts normalized common primary key
+     * @param matchToExpressionMap a map from match to single data access expression
+     * @param partition a partition (i.e. a list of {@link PartialMatch}es that the caller would like to compute
+     *        and intersected data access for
+     * @return a optional containing a new {@link RelationalExpression} that represents the data access and its
+     *         compensation, {@code Optional.empty()} if this method was unable to compute the intersection expression
+     *
+     */
+    @Nonnull
     private Optional<RelationalExpression> createIntersectionAndCompensation(@Nonnull final List<KeyExpression> commonPrimaryKeyParts,
-                                                                             @Nonnull final ImmutableMap<PartialMatch, RelationalExpression> bestMatchToExpressionMap,
+                                                                             @Nonnull final Map<PartialMatch, RelationalExpression> matchToExpressionMap,
                                                                              @Nonnull final List<PartialMatch> partition) {
 
         final Optional<KeyExpression> comparisonKeyOptional = intersectionOrdering(commonPrimaryKeyParts, partition);
@@ -311,7 +564,7 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
         final ImmutableList<RelationalExpression> scans =
                 partition
                         .stream()
-                        .map(partialMatch -> Objects.requireNonNull(bestMatchToExpressionMap.get(partialMatch)))
+                        .map(partialMatch -> Objects.requireNonNull(matchToExpressionMap.get(partialMatch)))
                         .collect(ImmutableList.toImmutableList());
 
         final LogicalIntersectionExpression logicalIntersectionExpression = LogicalIntersectionExpression.from(scans, comparisonKey);
@@ -320,6 +573,19 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
                            : logicalIntersectionExpression);
     }
 
+    /**
+     * Private helper method that computes the ordering of the intersection using matches and the common primary key
+     * of the data source.
+     * TODO This logic turned out to be very similar to {@link Ordering#commonOrderingKeys(List, Ordering)}. This is
+     *      a case of converging evolution but should be addressed. We should call that code path to establish that
+     *      we are creating a valid intersection. In fact, we shouldn't need a comparison key in the
+     *      {@link LogicalIntersectionExpression} as that will be computable through the plan children of the
+     *      implementing intersection plan.
+     * @param commonPrimaryKeyParts common primary key of the data source (e.g., record types)
+     * @param partition partition we would like to intersect
+     * @return an optional {@link KeyExpression} if there is a common intersection ordering, {@code Optional.empty()} if
+     *         such a common intersection ordering could not be established
+     */
     @SuppressWarnings({"ConstantConditions", "java:S1066"})
     @Nonnull
     private Optional<KeyExpression> intersectionOrdering(@Nonnull final List<KeyExpression> commonPrimaryKeyParts,
@@ -397,6 +663,14 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
                 .map(parts -> comparisonKey(commonPrimaryKeyParts, parts));
     }
 
+    /**
+     * Private helper method to compute a {@link KeyExpression} based upon a primary key and ordering information
+     * coming from a match in form of a list of {@link BoundKeyPart}.
+     * @param commonPrimaryKeyParts common primary key
+     * @param indexOrderingParts alist of {@link BoundKeyPart}s
+     * @return a newly constructed {@link KeyExpression} that is used for the comparison key of the intersection
+     *         expression
+     */
     @Nonnull
     private KeyExpression comparisonKey(@Nonnull List<KeyExpression> commonPrimaryKeyParts,
                                         @Nonnull List<BoundKeyPart> indexOrderingParts) {

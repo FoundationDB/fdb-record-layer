@@ -34,9 +34,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -49,24 +51,31 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
-import static com.apple.foundationdb.record.TestHelpers.RealAnythingMatcher.anything;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.keyWithValue;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.filter;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasNoDescendant;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
-import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
+import static com.apple.foundationdb.record.query.plan.ScanComparisons.unbounded;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.only;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.valuePredicate;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.coveringIndexPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.fetchFromPartialRecordPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.filterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexName;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicates;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicatesFilterPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.queryComponents;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.scanComparisons;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers.fieldValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
@@ -79,12 +88,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests related to planning queries that can use covering indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
+class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a covering index is used when possible.
      */
-    @Test
-    public void coveringSimple() throws Exception {
+    @DualPlannerTest
+    void coveringSimple() throws Exception {
         complexQuerySetup(null);
 
         RecordQuery query = RecordQuery.newBuilder()
@@ -96,10 +105,14 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(MySimpleRecord$num_value_unique ([990],>) -> [num_value_unique: KEY[0], rec_no: KEY[1]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_unique"), bounds(hasTupleString("([990],>"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(-158312359, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(2010783390, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1594073194, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1293351441, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1374755849, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
@@ -108,7 +121,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertTrue(myrec.getNumValueUnique() > 990);
                     assertFalse(myrec.hasNumValue2());
                     i++;
@@ -122,8 +135,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a covering index is used with a compatible sort on the query.
      */
-    @Test
-    public void coveringSortNoFilter() throws Exception {
+    @DualPlannerTest
+    void coveringSortNoFilter() throws Exception {
         complexQuerySetup(null);
 
         RecordQuery query = RecordQuery.newBuilder()
@@ -134,17 +147,21 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(MySimpleRecord$num_value_3_indexed <,>) -> [num_value_3_indexed: KEY[0], rec_no: KEY[1]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), unbounded()))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(unbounded()))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(413789395, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1773406501, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1773406501, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1655846226, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1655846226, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**
      * Verify that a covering index is not used when it does not include enough fields; a regular index is used instead.
      */
-    @Test
-    public void coveringSimpleInsufficient() throws Exception {
+    @DualPlannerTest
+    void coveringSimpleInsufficient() throws Exception {
         complexQuerySetup(null);
 
         RecordQuery query = RecordQuery.newBuilder()
@@ -158,18 +175,31 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_unique ([990],> REVERSE)
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
         assertTrue(plan.isReverse());
-        assertEquals(-158312358, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-396469028, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(293641684, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>")));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-158312358, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(594363257, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(512958849, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>")));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-158312358, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(594363251, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(512958843, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
     }
 
     /**
      * Verify that some other index scan is used when there is no appropriate index for the returned fields.
      */
-    @Test
-    public void notCoveringRecordScan() throws Exception {
+    @DualPlannerTest
+    void notCoveringRecordScan() throws Exception {
         complexQuerySetup(null);
 
         RecordQuery query = RecordQuery.newBuilder()
@@ -179,18 +209,32 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$str_value_indexed <,>)
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
-        assertEquals(324762954, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-2077573816, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-2077573816, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    indexPlan().where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(unbounded()));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(324762954, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(19722381, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(19722381, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    coveringIndexPlan()
+                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(unbounded()))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(413789395, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1655846226, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1655846226, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
     }
 
     /**
      * Verify that if the filter contains additional parameters not satisfiable by an otherwise
      * covering index that it is not used.
      */
-    @Test
-    public void notCoveringWithAdditionalFilter() throws Exception {
+    @DualPlannerTest
+    void notCoveringWithAdditionalFilter() throws Exception {
         complexQuerySetup(null);
 
         RecordQuery query = RecordQuery.newBuilder()
@@ -201,20 +245,35 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MySimpleRecord$num_value_3_indexed [[1],[1]]) | num_value_2 LESS_THAN 2
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
-        assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
-                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[1],[1]]"))))));
-        assertEquals(-1408807323, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1650961256, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(281246871, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    filterPlan(
+                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))
+                    .where(queryComponents(exactly(equalsObject(Query.field("num_value_2").lessThan(2)))));
+            assertMatchesExactly(plan, planMatcher);
+            
+            assertEquals(-1408807323, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1474845065, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1103679372, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    predicatesFilterPlan(
+                            indexPlan().where(indexName("MySimpleRecord$num_value_3_indexed")).and(scanComparisons(range("[[1],[1]]"))))
+                            .where(predicates(only(valuePredicate(fieldValue("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 2)))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(728152174, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-675231931, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-304066238, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
     }
 
     /**
      * Verify that a filter not satisfied by the index scan itself but using fields present in the index
      * can still allow a covering scan with the filter on the partial records.
      */
-    @Test
-    public void coveringWithAdditionalFilter() throws Exception {
+    @DualPlannerTest
+    void coveringWithAdditionalFilter() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
             metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_3_indexed", "num_value_2"));
@@ -229,18 +288,36 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(multi_index ([null],[1])) -> [num_value_2: KEY[1], num_value_3_indexed: KEY[0], rec_no: KEY[2]]) | num_value_2 LESS_THAN 2
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, filter(Query.field("num_value_2").lessThan(2),
-                coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([null],[1])")))))));
-        assertEquals(-1374002128, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1915366989, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-2052186470, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    filterPlan(
+                            coveringIndexPlan()
+                                    .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("([null],[1])"))))))
+                            .where(queryComponents(exactly(equalsObject(Query.field("num_value_2").lessThan(2)))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1374002128, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1359983418, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1492450855, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    predicatesFilterPlan(
+                            coveringIndexPlan()
+                                    .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("([null],[1])"))))))
+                            .where(predicates(only(valuePredicate(fieldValue("num_value_2"), new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 2)))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(762957369, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-2135370744, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-692837721, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
     }
 
     /**
      * Verify that an extra covering filter can use a nested field.
      */
-    @Test
-    public void coveringWithAdditionalNestedFilter() throws Exception {
+    @DualPlannerTest
+    void coveringWithAdditionalNestedFilter() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
             builder.getRecordType("MyRecord").setPrimaryKey(field("header").nest(field("rec_no")));
@@ -255,19 +332,40 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
             // Fetch(Covering(Index(multi [[abc],[abc]]) -> [str_value: KEY[0], header: [num: KEY[2], path: KEY[1], rec_no: KEY[3]]]) | header/{num EQUALS 1})
             RecordQueryPlan plan = planner.plan(query);
-            assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("num").equalsValue(1)),
-                    coveringIndexScan(indexScan(allOf(indexName("multi"), bounds(hasTupleString("[[abc],[abc]]"))))))));
-            assertEquals(-1536005152, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2115329651, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1689949972, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            if (planner instanceof RecordQueryPlanner) {
+                final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                        fetchFromPartialRecordPlan(
+                                filterPlan(
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan().where(indexName("multi")).and(scanComparisons(range("[[abc],[abc]]"))))))
+                                        .where(queryComponents(exactly(equalsObject(Query.field("header").matches(Query.field("num").equalsValue(1)))))));
+                assertMatchesExactly(plan, planMatcher);
+
+                assertEquals(-1536005152, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(1350035332, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(-1843652335, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            } else {
+                final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                        fetchFromPartialRecordPlan(
+                                predicatesFilterPlan(
+                                        coveringIndexPlan()
+                                                .where(indexPlanOf(indexPlan().where(indexName("multi")).and(scanComparisons(range("[[abc],[abc]]"))))))
+                                        .where(predicates(only(valuePredicate(fieldValue("header.num"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)))))
+                        );
+                assertMatchesExactly(plan, planMatcher);
+                
+                assertEquals(1623341655, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                assertEquals(2019556616, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                assertEquals(-1174131051, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            }
         }
     }
 
     /**
      * Verify that an index can be covering if more than one field is required and they are in the key.
      */
-    @Test
-    public void coveringMulti() throws Exception {
+    @DualPlannerTest
+    void coveringMulti() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
             metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_unique", "num_value_2"));
@@ -285,10 +383,14 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(multi_index ([990],>) -> [num_value_2: KEY[1], num_value_unique: KEY[0], rec_no: KEY[2]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("([990],>"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("([990],>")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(291429560, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-25671201, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(664439511, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1065678, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-80338730, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -297,9 +399,9 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertTrue(myrec.getNumValueUnique() > 990);
-                    assertTrue(myrec.getNumValue2() == (999 - i) % 3);
+                    assertEquals(myrec.getNumValue2(), (999 - i) % 3);
                     i++;
                 }
             }
@@ -311,8 +413,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an index can be covering if some of the required fields are in the value part of the index.
      */
-    @Test
-    public void coveringMultiValue() throws Exception {
+    @DualPlannerTest
+    void coveringMultiValue() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
             metaData.addIndex("MySimpleRecord", new Index(
@@ -335,10 +437,14 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(multi_index_value ([990],>) -> [num_value_2: VALUE[0], num_value_unique: KEY[0], rec_no: KEY[1]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index_value"), bounds(hasTupleString("([990],>"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("multi_index_value")).and(scanComparisons(range("([990],>")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(-782505942, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-426823379, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(263287333, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(450250048, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(368845640, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -347,9 +453,9 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertTrue(myrec.getNumValueUnique() > 990);
-                    assertTrue(myrec.getNumValue2() == (999 - i) % 3);
+                    assertEquals(myrec.getNumValue2(), (999 - i) % 3);
                     i++;
                 }
             }
@@ -361,8 +467,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an index can be covering for nested fields if the field is in the value of the index.
      */
-    @Test
-    public void coveringWithHeaderValue() throws Exception {
+    @DualPlannerTest
+    void coveringWithHeaderValue() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(field("rec_no")));
@@ -382,17 +488,21 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(MyRecord$str_value [[lion],[lion]]) -> [str_value: KEY[0], header: [path: VALUE[0], rec_no: KEY[1]]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[lion],[lion]]")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1088409414, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1954264414, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(177826375, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(344218219, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**
      * Verify that an index can be covering for concatenated nested fields in the value of the index.
      */
-    @Test
-    public void coveringWithHeaderConcatenatedValue() throws Exception {
+    @DualPlannerTest
+    void coveringWithHeaderConcatenatedValue() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(field("rec_no")));
@@ -412,17 +522,21 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(MyRecord$str_value [[leopard],[leopard]]) -> [str_value: KEY[0], header: [num: VALUE[1], path: VALUE[0], rec_no: KEY[1]]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[leopard],[leopard]]"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[leopard],[leopard]]")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(-568702564, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1077090589, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1954264414, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1766803018, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(344218219, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**
      * Verify that an index can be covering if the required fields are in the primary key.
      */
-    @Test
-    public void coveringWithHeader() throws Exception {
+    @DualPlannerTest
+    void coveringWithHeader() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
@@ -451,10 +565,14 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(MyRecord$str_value [[lion],[lion]]) -> [str_value: KEY[0], header: [path: KEY[1], rec_no: KEY[2]]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("[[lion],[lion]]"))))));
+        BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[lion],[lion]]")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1088409414, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1954264414, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(177826375, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(344218219, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
@@ -462,7 +580,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals(3, myrec.getHeader().getRecNo());
                 }
             }
@@ -478,10 +596,14 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(MyRecord$str_value {[l],[l]}) -> [str_value: KEY[0], header: [path: KEY[1], rec_no: KEY[2]]])
         plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MyRecord$str_value"), bounds(hasTupleString("{[l],[l]}"))))));
+        planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("{[l],[l]}")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(-1471907004, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1323635281, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1513479015, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1581115138, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1123663700, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, hook);
@@ -490,7 +612,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecordsWithHeaderProto.MyRecord.Builder myrec = TestRecordsWithHeaderProto.MyRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertThat(myrec.getStrValue(), startsWith("l"));
                     assertThat(myrec.getHeader().hasPath(), is(true));
                     assertThat(myrec.getHeader().hasRecNo(), is(true));
@@ -506,11 +628,10 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that if given a concatenated required-results field that a covering index is returned.
      */
-    @Test
-    public void coveringConcatenatedFields() throws Exception {
-        RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex("MySimpleRecord", "MySimpleRecord$2+3", concatenateFields("num_value_2", "num_value_3_indexed"));
-        };
+    @DualPlannerTest
+    void coveringConcatenatedFields() throws Exception {
+        RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", "MySimpleRecord$2+3", concatenateFields("num_value_2", "num_value_3_indexed"));
         complexQuerySetup(hook);
 
         RecordQuery query = RecordQuery.newBuilder()
@@ -521,10 +642,14 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Covering(Index(MySimpleRecord$2+3 ([0],[10])) -> [num_value_2: KEY[0], num_value_3_indexed: KEY[1], rec_no: KEY[2]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("MySimpleRecord$2+3"), bounds(hasTupleString("([0],[10])"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$2+3")).and(scanComparisons(range("([0],[10])")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(1722836804, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(219378696, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1343967136, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-992322107, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(2083564653, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -532,7 +657,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertThat(myrec.getNumValue2(), greaterThan(0));
                     assertThat(myrec.getNumValue2(), lessThan(10));
                     assertThat(myrec.hasNumValue3Indexed(), is(true));
@@ -547,8 +672,8 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that covering indexes are not used when the an outer "header" field is missing from the primary key,
      * even though the index has all of the fields that the query actually asks for.
      */
-    @Test
-    public void notCoveringWithRequiredFieldsNotAvailable() throws Exception {
+    @DualPlannerTest
+    void notCoveringWithRequiredFieldsNotAvailable() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.getRecordType("MyRecord")
                     // Even though path is required, it isn't part of the primary key, so won't be in the index,
@@ -569,10 +694,13 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
         // Index(MyRecord$str_value [[lion],[lion]])
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, hasNoDescendant(coveringIndexScan(anything())));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                indexPlan().where(indexName("MyRecord$str_value")).and(scanComparisons(range("[[lion],[lion]]")));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(-629018945, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1318842998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-66549530, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(2065541259, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-2063034193, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     /**
@@ -580,11 +708,9 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * by a covering aggregate index.
      */
     @Test
-    public void queryCoveringAggregate() throws Exception {
+    void queryCoveringAggregate() {
         Index sumIndex = new Index("value3sum", field("num_value_3_indexed").groupBy(Key.Expressions.concatenateFields("str_value_indexed", "num_value_2")), IndexTypes.SUM);
-        RecordMetaDataHook hook = metaData -> {
-            metaData.addIndex("MySimpleRecord", sumIndex);
-        };
+        RecordMetaDataHook hook = metaData -> metaData.addIndex("MySimpleRecord", sumIndex);
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -612,11 +738,11 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(Objects.requireNonNull(plan)).asIterator()) {
                 while (cursor.hasNext()) {
                     FDBQueriedRecord<Message> rec = cursor.next();
                     TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-                    myrec.mergeFrom(rec.getRecord());
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertEquals("even", myrec.getStrValueIndexed());
                     int sum = 0;
                     for (int j = 0; j < 20; j += 2) {
@@ -624,7 +750,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                             sum += j % 5;
                         }
                     }
-                    assertEquals(sum, rec.getIndexEntry().getValue().getLong(0));
+                    assertEquals(sum, Objects.requireNonNull(rec.getIndexEntry()).getValue().getLong(0));
                     i++;
                 }
             }
@@ -635,7 +761,7 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     @Disabled
-    public void nestedRepeatedSplitCoveringIndex() throws Exception {
+    void nestedRepeatedSplitCoveringIndex() throws Exception {
         nestedWithAndSetup(metaData -> {
             metaData.removeIndex("review_rating");
             metaData.addIndex("RestaurantRecord", "splitCoveringIndex",
@@ -650,14 +776,17 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("splitCoveringIndex"), bounds(hasTupleString("([0],>"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("splitCoveringIndex")).and(scanComparisons(range("([0],>")))));
+        assertMatchesExactly(plan, planMatcher);
     }
 
     /**
      * Verify that a covering index can have redundant duplicated fields.
      */
-    @Test
-    public void coveringRedundant() throws Exception {
+    @DualPlannerTest
+    void coveringRedundant() throws Exception {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$num_value_unique");
             metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_2", "num_value_unique", "num_value_2"));
@@ -673,10 +802,14 @@ public class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                         field("num_value_2")))
                 .build();
         RecordQueryPlan plan = planner.plan(query);
-        assertThat(plan, coveringIndexScan(indexScan(allOf(indexName("multi_index"), bounds(hasTupleString("[[1],[1]]"))))));
+        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                coveringIndexPlan()
+                        .where(indexPlanOf(indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[[1],[1]]")))));
+        assertMatchesExactly(plan, planMatcher);
+
         assertEquals(1372089780, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1041993509, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-892337774, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1440154798, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1095794309, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
     
 }

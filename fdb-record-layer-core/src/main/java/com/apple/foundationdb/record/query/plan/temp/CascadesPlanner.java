@@ -50,6 +50,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
@@ -427,16 +428,16 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-            if (!group.isExplored()) {
+            if (group.needsExploration()) {
                 // Explore the group, then come back here to pick an optimal expression.
                 taskStack.push(this);
                 for (RelationalExpression member : group.getMembers()) {
                     // enqueue explore expression which then in turn enqueues necessary rules for transformations
                     // and matching
-                    taskStack.push(new ExploreExpression(context, group, member));
+                    taskStack.push(new ReExploreExpression(context, group, member));
                 }
                 // the second time around we want to visit the else and prune the plan space
-                group.setExplored();
+                group.startExploration();
             } else {
                 // TODO this is very Volcano-style rather than Cascades, because there's no branch-and-bound pruning.
                 RelationalExpression bestMember = null;
@@ -450,6 +451,7 @@ public class CascadesPlanner implements QueryPlanner {
                 }
                 group.clear();
                 group.insert(bestMember);
+                group.commitExploration();
             }
         }
 
@@ -492,16 +494,15 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-            if (group.isExplored()) {
-                return;
+            if (group.needsExploration()) {
+                taskStack.push(this);
+                for (final RelationalExpression expression : group.getMembers()) {
+                    taskStack.push(new ReExploreExpression(context, group, expression));
+                }
+                group.startExploration();
+            } else {
+                group.commitExploration();
             }
-
-            for (final RelationalExpression expression : group.getMembers()) {
-                taskStack.push(new ExploreExpression(context, group, expression));
-            }
-
-            // we'll never need to reschedule this, so we don't need to wait until the exploration is actually done.
-            group.setExplored();
         }
 
         @Override
@@ -566,23 +567,28 @@ public class CascadesPlanner implements QueryPlanner {
      *         all transformations ({@link TransformExpression} for current (group, expression)
      *         {@link ExploreGroup} for all ranged over groups
      */
-    private class ExploreExpression extends ExploreTask {
-        public ExploreExpression(@Nonnull PlanContext context,
-                                 @Nonnull GroupExpressionRef<RelationalExpression> group,
-                                 @Nonnull RelationalExpression expression) {
+    private abstract class AbstractExploreExpression extends ExploreTask {
+        public AbstractExploreExpression(@Nonnull PlanContext context,
+                                         @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                         @Nonnull RelationalExpression expression) {
             super(context, group, expression);
         }
 
         @Override
         public void execute() {
             // Enqueue all rules that need to run after all exploration for a (group, expression) pair is done.
-            ruleSet.getMatchPartitionRules().forEach(this::enqueueTransformPartialMatch);
+            ruleSet.getMatchPartitionRules()
+                    .filter(this::shouldEnqueueRule)
+                    .forEach(this::enqueueTransformMatchPartition);
 
             // This is closely tied to the way that rule finding works _now_. Specifically, rules are indexed only
             // by the type of their _root_, not any of the stuff lower down. As a result, we have enough information
             // right here to determine the set of all possible rules that could ever be applied here, regardless of
             // what happens towards the leaves of the tree.
-            ruleSet.getExpressionRules(getExpression()).forEach(this::enqueueTransformTask);
+            ruleSet.getExpressionRules(getExpression())
+                    .filter(rule -> !(rule instanceof PlannerRule.PreOrderRule) &&
+                                    shouldEnqueueRule(rule))
+                    .forEach(this::enqueueTransformTask);
 
             // Enqueue explore group for all groups this expression ranges over
             getExpression()
@@ -590,13 +596,20 @@ public class CascadesPlanner implements QueryPlanner {
                     .stream()
                     .map(Quantifier::getRangesOver)
                     .forEach(this::enqueueExploreGroup);
+
+            ruleSet.getExpressionRules(getExpression())
+                    .filter(rule -> rule instanceof PlannerRule.PreOrderRule &&
+                                    shouldEnqueueRule(rule))
+                    .forEach(this::enqueueTransformTask);
         }
+
+        protected abstract boolean shouldEnqueueRule(@Nonnull PlannerRule<?> rule);
 
         private void enqueueTransformTask(@Nonnull PlannerRule<? extends RelationalExpression> rule) {
             taskStack.push(new TransformExpression(getContext(), getGroup(), getExpression(), rule));
         }
 
-        private void enqueueTransformPartialMatch(PlannerRule<? extends MatchPartition> rule) {
+        private void enqueueTransformMatchPartition(PlannerRule<? extends MatchPartition> rule) {
             taskStack.push(new TransformMatchPartition(getContext(), getGroup(), getExpression(), rule));
         }
 
@@ -614,6 +627,67 @@ public class CascadesPlanner implements QueryPlanner {
             return "ExploreExpression(" + getGroup() + ")";
         }
     }
+
+    /**
+     * Explore Expression Task.
+     *
+     * Simplified enqueue/execute overview:
+     *
+     * {@link ExploreExpression}
+     *     enqueues
+     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
+     *         all transformations ({@link TransformExpression} for current (group, expression)
+     *         {@link ExploreGroup} for all ranged over groups
+     */
+    private class ReExploreExpression extends AbstractExploreExpression {
+        public ReExploreExpression(@Nonnull PlanContext context,
+                                   @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                   @Nonnull RelationalExpression expression) {
+            super(context, group, expression);
+        }
+
+        @Override
+        protected boolean shouldEnqueueRule(@Nonnull PlannerRule<?> rule) {
+            final Set<PlannerAttribute<?>> requirementDependencies = rule.getRequirementDependencies();
+            final GroupExpressionRef<RelationalExpression> group = getGroup();
+            if (!group.isExploring()) {
+                if (logger.isWarnEnabled()) {
+                    logger.warn(KeyValueLogMessage.of("transformation task run on a group that is not being explored"));
+                }
+            }
+            return group.isFullyExploring() || !group.isExploredForAttributes(requirementDependencies);
+        }
+    }
+
+    /**
+     * Explore Expression Task.
+     *
+     * Simplified enqueue/execute overview:
+     *
+     * {@link ExploreExpression}
+     *     enqueues
+     *         all transformations ({@link TransformMatchPartition}) for match partitions of current (group, expression)
+     *         all transformations ({@link TransformExpression} for current (group, expression)
+     *         {@link ExploreGroup} for all ranged over groups
+     */
+    private class ExploreExpression extends AbstractExploreExpression {
+        public ExploreExpression(@Nonnull PlanContext context,
+                                 @Nonnull GroupExpressionRef<RelationalExpression> group,
+                                 @Nonnull RelationalExpression expression) {
+            super(context, group, expression);
+        }
+
+        @Override
+        protected boolean shouldEnqueueRule(@Nonnull PlannerRule<?> rule) {
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return "ExploreExpression(" + getGroup() + ")";
+        }
+    }
+
 
     /**
      * Abstract base class for all transformations. All transformations are defined on a sub class of
@@ -683,6 +757,7 @@ public class CascadesPlanner implements QueryPlanner {
          *     {@link ExploreExpression} for each yielded {@link RelationalExpression} that is not a {@link RecordQueryPlan}
          */
         @Override
+        @SuppressWarnings("java:S1117")
         public void execute() {
             if (!shouldExecute()) {
                 return;
@@ -722,6 +797,11 @@ public class CascadesPlanner implements QueryPlanner {
                     taskStack.push(new ExploreExpression(getContext(), getGroup(), newExpression));
                 }
             }
+
+            for (final ExpressionRef<? extends RelationalExpression> reference : ruleCall.getReferencesWithPushedRequirements()) {
+                taskStack.push(new ExploreGroup(context, reference));
+            }
+
         }
 
         @Override
@@ -761,7 +841,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Nonnull
         @Override
         protected PlannerBindings getInitialBindings() {
-            return PlannerBindings.newBuilder()
+            return PlannerBindings.newBuilder()   // TODO either put other bindings in here OR just call super
                     .putAll(super.getInitialBindings())
                     .build();
         }
