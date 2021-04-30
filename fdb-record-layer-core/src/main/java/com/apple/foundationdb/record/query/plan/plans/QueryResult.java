@@ -116,6 +116,7 @@ public class QueryResult {
      * @throws IndexOutOfBoundsException if the index is out of range
      */
     @Nullable
+    @SuppressWarnings("unchecked") // Intend to throw ClassCast in case the element is of teh wrong type
     public <M extends Message> FDBQueriedRecord<M> getQueriedRecord(int i) {
         return ((FDBQueriedRecord<M>)elements.get(i));
     }
