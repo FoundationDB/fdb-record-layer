@@ -110,8 +110,10 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
 
     /**
      * Execute this plan, returning a {@link RecordCursor} to {@link QueryResult} result.
-     * @param store record store to access
+     * @param store record store from which to fetch records
      * @param context evaluation context containing parameter bindings
+     * @param continuation continuation from a previous execution of this same plan
+     * @param executeProperties limits on execution
      * @param <M> type used to represent stored records
      * @return a cursor of {@link QueryResult} that match the query criteria
      */
