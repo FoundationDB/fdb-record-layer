@@ -111,6 +111,7 @@ public class QueryResult {
     /**
      * FDBQueriedRecord compatibility method. Return the element in a position, assuming that it is a {@link FDBQueriedRecord}
      * @param i the index of the requested element.
+     * @param <M> the type of record the store is providing (for the {@link FDBQueriedRecord} compatibility)
      * @return the element, in case it is of the right type
      * @throws ClassCastException in case the element is of the wrong type
      * @throws IndexOutOfBoundsException if the index is out of range
