@@ -75,6 +75,7 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
                                                                                       @Nullable FDBRecord<M> record);
 
     @Nonnull
+    @Override
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,

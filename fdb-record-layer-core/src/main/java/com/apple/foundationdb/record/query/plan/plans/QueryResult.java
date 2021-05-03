@@ -46,7 +46,7 @@ public class QueryResult {
     @Nonnull
     private final List<Object> elements;
 
-    private static QueryResult EMPTY = new QueryResult(Collections.emptyList());
+    private static final QueryResult EMPTY = new QueryResult(Collections.emptyList());
 
     private QueryResult(@Nonnull List<Object> elements) {
         this.elements = elements;
@@ -76,7 +76,7 @@ public class QueryResult {
      * @return the newly created result
      */
     public static QueryResult of(Collection<?> elements) {
-        return new QueryResult(new ImmutableList.Builder<>().addAll(elements).build());
+        return new QueryResult(ImmutableList.copyOf(elements));
     }
 
     /**
