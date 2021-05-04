@@ -77,6 +77,9 @@ public class FDBDatabaseFactory {
 
     @Nonnull
     private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactory();
+    // when set to true, static options have been set on the FDB instance.
+    //made volatile because multiple FDBDatabaseFactory instances can be created technically, and thus can be racy during init
+    private static volatile boolean staticOptionsSet = false;
 
     @Nonnull
     private FDBLocalityProvider localityProvider = FDBLocalityUtil.instance();
@@ -116,6 +119,9 @@ public class FDBDatabaseFactory {
     private long transactionTimeoutMillis = DEFAULT_TR_TIMEOUT_MILLIS;
     private boolean runLoopProfilingEnabled;
 
+    //made volatile because multiple FDBDatabaseFactory instances can be created technically, and thus can be racy during init
+    private static volatile int threadsPerClientVersion = 1; //default is 1, which is basically disabled
+
     /**
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
@@ -146,6 +152,7 @@ public class FDBDatabaseFactory {
             }
             fdb = FDB.selectAPIVersion(API_VERSION);
             fdb.setUnclosedWarning(unclosedWarning);
+            setStaticOptions(fdb);
             NetworkOptions options = fdb.options();
             if (!traceFormat.isDefaultValue()) {
                 options.setTraceFormat(traceFormat.getOptionValue());
@@ -167,6 +174,25 @@ public class FDBDatabaseFactory {
             inited = true;
         }
         return fdb;
+    }
+
+    private static synchronized void setStaticOptions(final FDB fdb) {
+        /*
+         * There are a few FDB settings that have to be set statically, but also need to have room
+         * for configuration. For the most part, FDBDatabaseFactory is a singleton and so in _theory_ this shouldn't
+         * matter. However, in practice it is possible to create multiple factories(i.e. in test code and such),
+         * and doing so may cause problems with these settings (errors thrown, that kind of thing). To avoid that,
+         * we have to follow a somewhat goofy pattern of making those settings static, and checking to ensure that
+         * we only set those options once. This block of code does that.
+         *
+         * Note that this method is synchronized on the class; this is so that multiple concurrent attempts to
+         * init an FDBDatabaseFactory won't cause this function to fail halfway through.
+         */
+        if (!staticOptionsSet) {
+            fdb.options().setClientThreadsPerVersion(threadsPerClientVersion);
+
+            staticOptionsSet = true;
+        }
     }
 
     @Nonnull
@@ -364,6 +390,26 @@ public class FDBDatabaseFactory {
             throw new RecordCoreException("run loop profiling can not be enabled as the client has already started");
         }
         this.runLoopProfilingEnabled = runLoopProfilingEnabled;
+    }
+
+    /**
+     * Set the number of threads per FDB client version. The default value is 1.
+     *
+     * @param threadsPerClientV the number of threads per client version. Cannot be less than 1
+     */
+    public static void setThreadsPerClientVersion(int threadsPerClientV) {
+        if (staticOptionsSet) {
+            throw new RecordCoreException("threads per client version cannot be changed as the version has already been initiated");
+        }
+        if (threadsPerClientV < 1) {
+            //if the thread count is too low, disable the setting
+            threadsPerClientV = 1;
+        }
+        threadsPerClientVersion = threadsPerClientV;
+    }
+
+    public static int getThreadsPerClientVersion() {
+        return threadsPerClientVersion;
     }
 
     /**
