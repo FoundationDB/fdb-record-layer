@@ -58,6 +58,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * An asynchronous iterator that supports continuations.
@@ -951,5 +952,27 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     default <U> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator) {
         final AtomicReference<U> holder = new AtomicReference<>(identity);
         return forEachResult(result -> holder.set(accumulator.apply(holder.get(), result.get()))).thenApply(vignore -> holder.get());
+    }
+
+    /**
+     * A reduce variant which allows stopping the processing when the value has been successfully reduced.
+     * @param identity initial value for reduction
+     * @param accumulator function that takes previous reduces value and computes new value by combining with each record
+     * @param stopCondition predicate which runs against the accumulated result before fetching new records
+     * @param <U> the result type of the reduction
+     * @return a future that completes to the result of reduction
+     */
+    @Nullable
+    default <U> CompletableFuture<U> reduce(U identity, BiFunction<U, ? super T, U> accumulator, Predicate<U> stopCondition) {
+        final AtomicReference<U> holder = new AtomicReference<>(identity);
+        return AsyncUtil.whileTrue(() -> onNext().thenApply(result -> {
+            if (result.hasNext()) {
+                U nextResult = accumulator.apply(holder.get(), result.get());
+                holder.set(nextResult);
+                return !stopCondition.test(nextResult);
+            } else {
+                return false;
+            }
+        }), getExecutor()).thenApply(vignore -> holder.get());
     }
 }
