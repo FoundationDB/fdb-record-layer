@@ -203,12 +203,20 @@ public class LiteralKeyExpression<T> extends BaseKeyExpression implements AtomKe
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, value);
+        switch (hashKind) {
+            case LEGACY:
+            case FOR_CONTINUATION:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, value);
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, value);
+        return HashUtils.queryHash(hashKind, BASE_HASH);
     }
 
     @Override
