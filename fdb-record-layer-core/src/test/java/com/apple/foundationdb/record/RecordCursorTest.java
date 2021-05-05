@@ -1180,4 +1180,21 @@ public class RecordCursorTest {
         }
     }
 
+    @Test
+    public void reduceTest() throws Exception {
+        RecordCursor<Integer> cursor = RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7));
+        CompletableFuture<Integer> sum = cursor.reduce(0, Integer::sum);
+        assertEquals(28, sum.get());
+
+        cursor = RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7));
+        sum = cursor.reduce(0, Integer::sum, x -> false);
+        assertEquals(28, sum.get());
+
+        cursor = RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7));
+        sum = cursor.reduce(0, Integer::sum, x -> x > 10);
+        assertEquals(15, sum.get());
+
+
+    }
+
 }
