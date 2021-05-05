@@ -94,8 +94,8 @@ public class RecordQueryLoadByKeysPlan implements RecordQueryPlanWithNoChildren 
                 }, store.getPipelineSize(PipelineOperation.KEY_TO_RECORD))
                 .filter(Objects::nonNull)
                 .map(store::queriedRecord)
-                .map(QueryResult::of)
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
+                .map(QueryResult::of);
     }
 
     @Override
