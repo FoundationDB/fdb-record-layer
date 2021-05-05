@@ -21,11 +21,13 @@
 package com.apple.foundationdb.record.query;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.protobuf.Descriptors;
@@ -35,6 +37,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * The logical form of a query.
@@ -171,8 +174,40 @@ public class RecordQuery implements QueryHashable {
     }
 
     @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof RecordQuery)) {
+            return false;
+        }
+        final RecordQuery that = (RecordQuery)o;
+        return isSortReverse() == that.isSortReverse() &&
+               removeDuplicates == that.removeDuplicates &&
+               getRecordTypes().equals(that.getRecordTypes()) &&
+               Objects.equals(getAllowedIndexes(), that.getAllowedIndexes()) &&
+               queryabilityFilter.equals(that.queryabilityFilter) &&
+               Objects.equals(getFilter(), that.getFilter()) &&
+               Objects.equals(getSort(), that.getSort()) &&
+               Objects.equals(getRequiredResults(), that.getRequiredResults());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getRecordTypes(), getAllowedIndexes(), queryabilityFilter, getFilter(), getSort(), isSortReverse(), removeDuplicates, getRequiredResults());
+    }
+
+    @Override
     public int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
         return HashUtils.queryHash(hashKind, BASE_HASH, recordTypes, allowedIndexes, queryabilityFilter, filter, sort, sortReverse, removeDuplicates);
+    }
+
+    public BoundRecordQuery bind(@Nonnull final FDBRecordStore store, @Nonnull final Bindings preBoundParameters) {
+        return new BoundRecordQuery(store.getRecordStoreState(), this, preBoundParameters);
+    }
+
+    public BoundRecordQuery bind(@Nonnull final FDBRecordStore store) {
+        return new BoundRecordQuery(store.getRecordStoreState(), this);
     }
 
     /**
@@ -221,6 +256,18 @@ public class RecordQuery implements QueryHashable {
         public RecordQuery build() {
             return new RecordQuery(recordTypes, allowedIndexes, queryabilityFilter,
                     filter, sort, sortReverse, removeDuplicates, requiredResults);
+        }
+
+        public BoundRecordQuery buildAndBind(@Nonnull final FDBRecordStore store, @Nonnull final Bindings preBoundParameters) {
+            return new RecordQuery(recordTypes, allowedIndexes, queryabilityFilter,
+                    filter, sort, sortReverse, removeDuplicates, requiredResults)
+                    .bind(store, preBoundParameters);
+        }
+
+        public BoundRecordQuery buildAndBind(@Nonnull final FDBRecordStore store) {
+            return new RecordQuery(recordTypes, allowedIndexes, queryabilityFilter,
+                    filter, sort, sortReverse, removeDuplicates, requiredResults)
+                    .bind(store);
         }
 
         @Nonnull

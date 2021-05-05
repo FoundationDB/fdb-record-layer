@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
@@ -61,11 +62,26 @@ public interface QueryPlanner {
      * Create a plan to get the results of the provided query.
      *
      * @param query a query for records on this planner's metadata
+     * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
+     *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
+     *        bindings that are used to execute the query
      * @return a plan that will return the results of the provided query when executed
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
     @Nonnull
-    RecordQueryPlan plan(@Nonnull RecordQuery query);
+    RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
+
+    /**
+     * Create a plan to get the results of the provided query.
+     *
+     * @param query a query for records on this planner's metadata
+     * @return a plan that will return the results of the provided query when executed
+     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     */
+    @Nonnull
+    default RecordQueryPlan plan(@Nonnull RecordQuery query) {
+        return plan(query, ParameterRelationshipGraph.empty());
+    }
 
     /**
      * Create a plan to get the results of the provided query.
@@ -73,11 +89,19 @@ public interface QueryPlanner {
      * with additional information provided in the {@link QueryPlanInfo}
      *
      * @param query a query for records on this planner's metadata
+     * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
+     *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
+     *        bindings that are used to execute the query
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
     @Nonnull
-    QueryPlanResult planQuery(@Nonnull RecordQuery query);
+    QueryPlanResult planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
+
+    @Nonnull
+    default QueryPlanResult planQuery(@Nonnull RecordQuery query) {
+        return planQuery(query, ParameterRelationshipGraph.empty());
+    }
 
     /**
      * Get the {@link RecordMetaData} for this planner.

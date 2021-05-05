@@ -84,7 +84,7 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         assertEquals(389700067, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(389700067, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         // Note that value and parameter comparisons are not the same
-        assertEquals(-1370475238, plan3.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-441871545, plan3.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
@@ -150,7 +150,7 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1479481542, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(1479481542, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         // Note that the value and the parameter hashes are different.
-        assertEquals(988446630, plan3.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(638993799, plan3.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
@@ -220,7 +220,7 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1484150721, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         assertEquals(1484150721, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         // Note that value and parameter hashes are not the same
-        assertEquals(-276024584, plan3.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(652579109, plan3.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
@@ -479,8 +479,8 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         assertEquals(-1845828406, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(365593790, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
 
-        assertEquals(983661352, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(983661352, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1442703229, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(768718967, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
@@ -628,8 +628,8 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         assertEquals(-192829430, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(-1889048618, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
 
-        assertEquals(871680640, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(871680640, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-192829430, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1889048618, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
@@ -649,8 +649,8 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
         assertEquals(1112068357, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(1111114148, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
 
-        assertEquals(619086974, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(619086974, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1111112996, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1111112996, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test

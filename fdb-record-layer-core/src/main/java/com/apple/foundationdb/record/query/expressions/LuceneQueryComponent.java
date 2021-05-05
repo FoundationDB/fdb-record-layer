@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.google.common.base.Verify;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import jdk.jfr.Experimental;
@@ -35,6 +36,7 @@ import jdk.jfr.Experimental;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A Query Component for Lucene that wraps the query supplied.
@@ -44,12 +46,14 @@ import java.util.List;
 public class LuceneQueryComponent implements QueryComponent, ComponentWithComparison, ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
 
-    private final String query;
-    private final Comparisons.Comparison comparison;
+    private final Comparisons.LuceneComparison comparison;
 
     public LuceneQueryComponent(String query) {
-        this.query = query;
-        this.comparison = new Comparisons.LuceneComparison(query);
+        this(new Comparisons.LuceneComparison(query));
+    }
+
+    private LuceneQueryComponent(Comparisons.LuceneComparison comparison) {
+        this.comparison = comparison;
     }
 
     @Nonnull
@@ -76,13 +80,31 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
 
     @Override
     public QueryComponent withOtherComparison(final Comparisons.Comparison comparison) {
-        return null;
+        Verify.verify(comparison instanceof Comparisons.LuceneComparison);
+        return new LuceneQueryComponent((Comparisons.LuceneComparison)comparison);
     }
 
     @Override
     @Nonnull
     public String getName() {
         return "LuceneQuery";
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof LuceneQueryComponent)) {
+            return false;
+        }
+        final LuceneQueryComponent that = (LuceneQueryComponent)o;
+        return Objects.equals(getComparison(), that.getComparison());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getComparison());
     }
 
     @Override
@@ -93,11 +115,11 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     @Override
     @Nonnull
     public String toString() {
-        return "LuceneQuery(" + query + ")";
+        return "LuceneQuery(" + comparison.getComparand() + ")";
     }
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        return HashUtils.queryHash(hashKind, BASE_HASH, query);
+        return HashUtils.queryHash(hashKind, BASE_HASH, comparison.getComparand());
     }
 }

@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowRecordFunction;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -232,18 +233,24 @@ public class RecordQueryPlanner implements QueryPlanner {
      * Create a plan to get the results of the provided query.
      *
      * @param query a query for records on this planner's metadata
+     * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
+     *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
+     *        bindings that are used to execute the query
      * @return a plan that will return the results of the provided query when executed
      * @throws com.apple.foundationdb.record.RecordCoreException if there is no index that matches the sort in the provided query
      */
     @Nonnull
     @Override
-    public RecordQueryPlan plan(@Nonnull RecordQuery query) {
+    public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
         query.validate(metaData);
 
         final PlanContext planContext = getPlanContext(query);
 
         final BooleanNormalizer normalizer = BooleanNormalizer.forConfiguration(configuration);
-        final QueryComponent filter = normalizer.normalizeIfPossible(query.getFilter());
+        final QueryComponent queryFilter = query.getFilter();
+        final QueryComponent filter =
+                normalizer.normalizeIfPossible(queryFilter == null
+                                               ? null : queryFilter.withParameterRelationshipMap(parameterRelationshipGraph));
         final KeyExpression sort = query.getSort();
         final boolean sortReverse = query.isSortReverse();
 
@@ -298,13 +305,15 @@ public class RecordQueryPlanner implements QueryPlanner {
      * with additional information provided in the {@link QueryPlanInfo}
      *
      * @param query a query for records on this planner's metadata
+     * @param parameterRelationshipGraph a set of bindings the planner can use that may constrain requirements of the plan
+     *        but also lead to better plans
      * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
      * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
      */
     @Nonnull
     @Override
-    public QueryPlanResult planQuery(@Nonnull final RecordQuery query) {
-        return new QueryPlanResult(plan(query));
+    public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        return new QueryPlanResult(plan(query, parameterRelationshipGraph));
     }
 
     @Nullable

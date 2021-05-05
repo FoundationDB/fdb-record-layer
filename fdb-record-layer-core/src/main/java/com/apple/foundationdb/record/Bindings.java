@@ -88,6 +88,16 @@ public class Bindings {
         }
     }
 
+    public boolean containsBinding(@Nonnull String name) {
+        if (values.containsKey(name)) {
+            return true;
+        } else if (parent != null) {
+            return parent.containsBinding(name);
+        } else {
+            return false;
+        }
+    }
+
     public static Builder newBuilder() {
         return new Builder(null);
     }

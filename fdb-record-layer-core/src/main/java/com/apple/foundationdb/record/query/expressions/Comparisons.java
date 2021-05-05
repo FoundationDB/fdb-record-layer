@@ -37,9 +37,13 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
+import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
@@ -62,6 +66,7 @@ import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 /**
  * Helper methods for building {@link Comparison}s.
@@ -692,6 +697,11 @@ public class Comparisons {
          */
         @Nonnull
         String typelessString();
+
+        @Nonnull
+        default Comparison withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+            return this;
+        }
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -783,7 +793,7 @@ public class Comparisons {
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return evalComparison(type, value, comparand);
+            return evalComparison(type, value, getComparand(store, context));
         }
 
         @Nonnull
@@ -831,8 +841,14 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query Hash without literals ignores comparand.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type);
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, comparand);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -853,31 +869,47 @@ public class Comparisons {
         }
     };
 
+    public interface ComparisonWithParameter extends Comparison {
+        @Nonnull
+        String getParameter();
+    }
+
     /**
      * A comparison with a bound parameter, as opposed to a literal constant in the query.
      */
-    public static class ParameterComparison implements Comparison {
+    public static class ParameterComparison implements ComparisonWithParameter {
         private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Parameter-Comparison");
 
         @Nonnull
         private final Type type;
         @Nonnull
         protected final String parameter;
+        @Nonnull
+        protected final ParameterRelationshipGraph parameterRelationshipGraph;
+        @Nonnull
+        private final Supplier<Integer> hashCodeSupplier;
 
-        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter) {
-            this(type, parameter, null);
+        public ParameterComparison(@Nonnull Type type,
+                                   @Nonnull String parameter) {
+            this(type, parameter, null, ParameterRelationshipGraph.unbound());
         }
 
-        public ParameterComparison(@Nonnull Type type, String parameter, @Nullable Bindings.Internal internal) {
+        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.Internal internal) {
+            this(type, parameter, internal, ParameterRelationshipGraph.unbound());
+        }
+
+        public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.Internal internal, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+            this(type, checkInternalBinding(parameter, internal), parameterRelationshipGraph);
+        }
+
+        protected ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
             this.type = type;
             this.parameter = parameter;
-            if (internal == null && Bindings.Internal.isInternal(parameter)) {
-                throw new RecordCoreException(
-                        "Parameter is internal, parameters cannot start with \"" + Bindings.Internal.PREFIX + "\"");
-            }
             if (type.isUnary()) {
                 throw new RecordCoreException("Unary comparison type " + type + " cannot be bound to a parameter");
             }
+            this.parameterRelationshipGraph = parameterRelationshipGraph;
+            this.hashCodeSupplier = Suppliers.memoize(this::computeHashCode);
         }
 
         @Override
@@ -904,6 +936,7 @@ public class Comparisons {
         @Override
         @SuppressWarnings("PMD.CompareObjectsWithEquals")
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
+            // this is at evaluation time --> always use the context binding
             final Object comparand = context.getBinding(parameter);
             if (comparand == null) {
                 return null;
@@ -926,6 +959,7 @@ public class Comparisons {
         }
 
         @Nonnull
+        @Override
         public String getParameter() {
             return parameter;
         }
@@ -940,12 +974,26 @@ public class Comparisons {
             }
             ParameterComparison that = (ParameterComparison) o;
             return type == that.type &&
-                    Objects.equals(parameter, that.parameter);
+                   Objects.equals(parameter, that.parameter) &&
+                   Objects.equals(relatedByEquality(), that.relatedByEquality());
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(type, parameter);
+            return hashCodeSupplier.get();
+        }
+
+        public int computeHashCode() {
+            return Objects.hash(type, relatedByEquality());
+        }
+
+        private Set<String> relatedByEquality() {
+            if (!parameterRelationshipGraph.isUnbound()) {
+                if (parameterRelationshipGraph.containsParameter(parameter)) {
+                    return parameterRelationshipGraph.getRelatedParameters(parameter, ParameterRelationshipGraph.RelationshipType.EQUALS);
+                }
+            }
+            return ImmutableSet.of(getParameter());
         }
 
         @Override
@@ -954,9 +1002,8 @@ public class Comparisons {
                 case LEGACY:
                     return type.name().hashCode() + parameter.hashCode();
                 case FOR_CONTINUATION:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, parameter);
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, parameter);
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
@@ -964,8 +1011,23 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query hash without parameters ignores parameter.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type);
+            return HashUtils.queryHash(hashKind, BASE_HASH, type, parameter);
+        }
+
+        @Nonnull
+        @Override
+        public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+            Verify.verify(this.parameterRelationshipGraph.isUnbound());
+            return new ParameterComparison(type, parameter, parameterRelationshipGraph);
+        }
+
+        @Nonnull
+        private static String checkInternalBinding(@Nonnull String parameter, @Nullable Bindings.Internal internal) {
+            if (internal == null && Bindings.Internal.isInternal(parameter)) {
+                throw new RecordCoreException(
+                        "Parameter is internal, parameters cannot start with \"" + Bindings.Internal.PREFIX + "\"");
+            }
+            return parameter;
         }
     }
 
@@ -1053,7 +1115,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public Object getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
+        @SuppressWarnings("rawtypes")
+        public List getComparand(@Nullable FDBRecordStoreBase<?> store, @Nullable EvaluationContext context) {
             return comparand;
         }
 
@@ -1066,7 +1129,7 @@ public class Comparisons {
         @Nullable
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
-            return evalListComparison(type, value, comparand);
+            return evalListComparison(type, value, getComparand(store, context));
         }
 
         @Nonnull
@@ -1115,8 +1178,15 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query hash without literals ignores comparand.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type, javaType);
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, comparand, javaType);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    // Query hash without literals ignores comparand.
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, javaType);
+                default :
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -1386,8 +1456,14 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query Hash without literals ignores comparand.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override
@@ -1459,8 +1535,14 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query hash ignores literals so max distance is not counted.
-            return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind));
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind), maxDistance);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind));
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+            }
         }
 
         @Override

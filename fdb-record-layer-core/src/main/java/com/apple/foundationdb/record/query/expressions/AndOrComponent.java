@@ -36,7 +36,7 @@ import java.util.function.Function;
  * The common base class for Boolean {@code And} and {@code Or} query components.
  */
 @API(API.Status.INTERNAL)
-public abstract class AndOrComponent extends SimpleComponentWithChildren implements ComponentWithChildren {
+public abstract class AndOrComponent extends SimpleComponentWithChildren implements ComponentWithChildren, BooleanComponent {
 
     protected abstract boolean isOr();
 
