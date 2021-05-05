@@ -282,46 +282,50 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
     public void coveringIndex() throws Exception {
         // Note how the name field needs to be repeated in the value because it can't be recovered from an index
         // entry after transformation to a collation key.
-        final KeyExpression collateKey = function("collate_jre", concat(field("str_value_indexed"), value("da_DK")));
-        final KeyExpression indexKey = keyWithValue(concat(collateKey, field("str_value_indexed")), 1);
+        final KeyExpression collateKey1 = function("collate_jre", concat(field("str_value_indexed"), value("da_DK")));
+        final KeyExpression collateKey2 = function("collate_jre", concat(field("str_value_indexed"), value("en_US")));
+        final KeyExpression indexKey1 = keyWithValue(concat(collateKey1, field("str_value_indexed")), 1);
+        final KeyExpression indexKey2 = keyWithValue(concat(collateKey2, field("str_value_indexed")), 1);
         final RecordMetaDataHook hook = md -> {
             md.removeIndex("MySimpleRecord$str_value_indexed");
-            md.addIndex("MySimpleRecord", "collated_name", indexKey);
+            md.addIndex("MySimpleRecord", "collated_name1", indexKey1);
+            md.addIndex("MySimpleRecord", "collated_name2", indexKey2);
         };
         runHook(hook);
         RecordQuery query1 = createQuery("MySimpleRecord",
-                Query.keyExpression(collateKey).lessThan("a"),
+                Query.keyExpression(collateKey1).lessThan("a"),
                 null,
                 Collections.singletonList(field("str_value_indexed")));
         RecordQuery query2 = createQuery("MySimpleRecord",
-                Query.keyExpression(collateKey).lessThan("b"),
+                Query.keyExpression(collateKey2).lessThan("b"),
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        assertEquals(570416498, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(570416498, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-313391822, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-313391822, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
     public void compareParameter() throws Exception {
-        final KeyExpression key = function("collate_jre", concat(field("str_value_indexed"), value("de_DE")));
+        final KeyExpression key1 = function("collate_jre", concat(field("str_value_indexed"), value("de_DE")));
+        final KeyExpression key2 = function("collate_jre", concat(field("str_value_indexed"), value("en_EN")));
         final RecordMetaDataHook hook = md -> {
             md.removeIndex("MySimpleRecord$str_value_indexed");
-            md.addIndex("MySimpleRecord", "collated_name", key);
+            md.addIndex("MySimpleRecord", "collated_name1", key1);
+            md.addIndex("MySimpleRecord", "collated_name2", key2);
         };
         runHook(hook);
         RecordQuery query1 = createQuery("MySimpleRecord",
-                Query.keyExpression(key).equalsParameter("name"),
+                Query.keyExpression(key1).equalsParameter("name"),
                 null,
                 Collections.singletonList(field("str_value_indexed")));
         RecordQuery query2 = createQuery("MySimpleRecord",
-                Query.keyExpression(key).equalsParameter("no-name"),
+                Query.keyExpression(key2).equalsParameter("no-name"),
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        assertEquals(-1757787510, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-1757787510, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-
+        assertEquals(2089264010, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(2089264010, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test

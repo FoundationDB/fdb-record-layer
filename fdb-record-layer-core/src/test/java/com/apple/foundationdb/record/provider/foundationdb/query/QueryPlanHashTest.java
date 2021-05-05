@@ -444,13 +444,14 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        // TODO: This produces a different hash every time, even on the original test in FDBCollateQueryTest.
+        assertEquals(-1514481748, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1513558227, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
 
-        //        assertEquals(-974878282, plan1.planHash(PlanHashable.PlanHashKind.STANDARD));
-        //        assertEquals(607649358, plan2.planHash(PlanHashable.PlanHashKind.STANDARD));
-        //
-        //        assertEquals(2024130897, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        //        assertEquals(2024130897, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1219158306, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(2106661987, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+
+        assertEquals(-2046796428, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-2046796428, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
@@ -472,14 +473,14 @@ public class QueryPlanHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        // TODO: This produces a different hash every time, even on the original test in FDBCollateQueryTest.
+        assertEquals(691427410, plan1.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1542988578, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
 
-        //                assertEquals(-974878282, plan1.planHash(PlanHashable.PlanHashKind.STANDARD));
-        //        assertEquals(607649358, plan2.planHash(PlanHashable.PlanHashKind.STANDARD));
-        //
-        //        assertEquals(2024130897, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        //        assertEquals(2024130897, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(-1845828406, plan1.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(365593790, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
 
+        assertEquals(983661352, plan1.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(983661352, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
     }
 
     @Test
