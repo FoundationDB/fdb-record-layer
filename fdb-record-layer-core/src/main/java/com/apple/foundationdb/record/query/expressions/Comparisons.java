@@ -831,8 +831,14 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query Hash without literals ignores comparand.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type);
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, comparand);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -964,7 +970,7 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query hash without parameters ignores parameter.
+            // Query hash with and without literals ignores parameter.
             return HashUtils.queryHash(hashKind, BASE_HASH, type);
         }
     }
@@ -1115,8 +1121,15 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query hash without literals ignores comparand.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type, javaType);
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, comparand, javaType);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    // Query hash without literals ignores comparand.
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, javaType);
+                default :
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
     }
 
@@ -1386,8 +1399,14 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query Hash without literals ignores comparand.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, getComparand(), tokenizerName, fallbackTokenizerName);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, tokenizerName, fallbackTokenizerName);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+            }
         }
 
         @Override
@@ -1459,8 +1478,14 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query hash ignores literals so max distance is not counted.
-            return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind));
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind), maxDistance);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, super.queryHash(hashKind));
+                default:
+                    throw new UnsupportedOperationException("Hash kind " + hashKind + " is not supported");
+            }
         }
 
         @Override

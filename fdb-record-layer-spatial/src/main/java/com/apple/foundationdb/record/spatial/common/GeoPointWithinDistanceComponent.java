@@ -142,6 +142,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
+        // TODO: Include center and distance?
         return HashUtils.queryHash(hashKind, BASE_HASH, latitudeFieldName, longitudeFieldName);
     }
 

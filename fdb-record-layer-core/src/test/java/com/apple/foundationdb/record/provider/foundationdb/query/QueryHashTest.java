@@ -57,14 +57,16 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     public void testSingleEqualsFilter() throws Exception {
-        RecordQuery qyery1 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsValue(1));
-        RecordQuery qyery2 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsValue(2));
-        RecordQuery query3 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsParameter("x"));
+        final RecordQuery qyery1 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsValue(1));
+        final RecordQuery qyery2 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsValue(2));
+        final RecordQuery query3 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsParameter("x"));
+        final RecordQuery query4 = createQuery("MySimpleRecord", Query.field("num_value_2").equalsParameter("y"));
 
-        assertEquals(947189211, qyery1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(947189211, qyery2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(qyery1, 602828722, 947189211);
+        assertHash(qyery2, 602858513, 947189211);
         // Note that the value and the parameter hashes are different.
-        assertEquals(820394820, query3.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query3, 820394820, 820394820);
+        assertHash(query4, 820394820, 820394820);
     }
 
     @Test
@@ -72,8 +74,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query1 = createQuery("MySimpleRecord", Query.field("num_value_2").greaterThan(1));
         RecordQuery query2 = createQuery("MySimpleRecord", Query.field("num_value_2").greaterThan(2));
 
-        assertEquals(2043962708, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(2043962708, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 243068761, 2043962708);
+        assertHash(query2, 243098552, 2043962708);
     }
 
     @Test
@@ -81,8 +83,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query1 = createQuery("MySimpleRecord", Query.field("num_value_2").greaterThanOrEquals(1));
         RecordQuery query2 = createQuery("MySimpleRecord", Query.field("num_value_2").greaterThanOrEquals(2));
 
-        assertEquals(-349000904, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-349000904, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -924359179, -349000904);
+        assertHash(query2, -924329388, -349000904);
     }
 
     @Test
@@ -100,10 +102,10 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").equalsParameter("5"),
                         Query.field("num_value_2").equalsParameter("6")));
 
-        assertEquals(969320472, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(969320472, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1460250793, 969320472);
+        assertHash(query2, -1458344169, 969320472);
         // Note that the value and the parameter hashes are different.
-        assertEquals(1206867256, query3.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query3, 1206867256, 1206867256);
     }
 
     @Test
@@ -117,8 +119,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").greaterThan(2),
                         Query.field("num_value_2").lessThan(4)));
 
-        assertEquals(1154381483, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1154381483, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1995304341, 1154381483);
+        assertHash(query2, -1994351029, 1154381483);
     }
 
     @Test
@@ -132,8 +134,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_2").greaterThan(2),
                         Query.field("num_value_2").lessThan(4)));
 
-        assertEquals(1661143543, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1661143543, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1488542281, 1661143543);
+        assertHash(query2, -1487588969, 1661143543);
     }
 
 
@@ -143,10 +145,10 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query2 = createQuery("MySimpleRecord", Query.not(Query.field("num_value_2").equalsValue(2)));
         RecordQuery query3 = createQuery("MySimpleRecord", Query.not(Query.field("num_value_2").equalsParameter("3")));
 
-        assertEquals(-1665088707, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-1665088707, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -2009449196, -1665088707);
+        assertHash(query2, -2009419405, -1665088707);
         // Note that value and parameter hashes are not the same
-        assertEquals(-1791883098, query3.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query3, -1791883098, -1791883098);
     }
 
     @Test
@@ -154,8 +156,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query1 = createQuery("MySimpleRecord", Query.not(Query.field("num_value_2").greaterThan(1)));
         RecordQuery query2 = createQuery("MySimpleRecord", Query.not(Query.field("num_value_2").greaterThan(2)));
 
-        assertEquals(-568315210, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-568315210, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 1925758139, -568315210);
+        assertHash(query2, 1925787930, -568315210);
     }
 
     @Test
@@ -163,8 +165,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query1 = createQuery("MySimpleRecord", Query.rank("num_value_2").equalsValue(2L));
         RecordQuery query2 = createQuery("MySimpleRecord", Query.rank("num_value_2").equalsValue(3L));
 
-        assertEquals(273555036, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(273555036, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -70775662, 273555036);
+        assertHash(query2, -70745871, 273555036);
     }
 
     @Test
@@ -178,8 +180,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").equalsValue("b"),
                         Query.field("num_value_3_indexed").equalsValue(3)));
 
-        assertEquals(-897358891, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-897358891, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 1056724947, -897358891);
+        assertHash(query2, 1057648468, -897358891);
     }
 
     @Test
@@ -193,8 +195,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("str_value_indexed").startsWith("f"),
                         Query.field("num_value_3_indexed").equalsValue(3)));
 
-        assertEquals(-429556342, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-429556342, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1617571134, -429556342);
+        assertHash(query2, -1616647613, -429556342);
     }
 
     @Test
@@ -228,9 +230,9 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").greaterThanOrEquals(3),
                         Query.field("num_value_3_indexed").lessThanOrEquals(3)));
 
-        assertEquals(593786046, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(593786046, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(593786046, query3.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1326035963, 593786046);
+        assertHash(query2, 540891455, 593786046);
+        assertHash(query3, 541814976, 593786046);
     }
 
     @Test
@@ -244,8 +246,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(4)),
                 field("num_value_3_indexed"));
 
-        assertEquals(-1605161468, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-1605161468, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 260234563, -1605161468);
+        assertHash(query2, 262141187, -1605161468);
     }
 
     @Test
@@ -259,8 +261,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                         Query.field("num_value_3_indexed").equalsValue(4)),
                 field("rec_no"));
 
-        assertEquals(1122317778, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1122317778, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1307253487, 1122317778);
+        assertHash(query2, -1305346863, 1122317778);
     }
 
     @Test
@@ -274,8 +276,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        assertEquals(-207710934, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-207710934, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 509275846, -207710934);
+        assertHash(query2, -1298178617, -207710934);
     }
 
     @Test
@@ -301,8 +303,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        assertEquals(-313391822, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-313391822, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 1814534013, -313391822);
+        assertHash(query2, -1718938913, -313391822);
     }
 
     @Test
@@ -324,8 +326,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        assertEquals(2089264010, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(2089264010, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1757787510, 2089264010);
+        assertHash(query2, 1133521546, 2089264010);
     }
 
     @Test
@@ -339,8 +341,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 field("num_value_unique"),
                 Collections.singletonList(field("num_value_unique")));
 
-        assertEquals(1019582585, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1019582585, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -751848063, 1019582585);
+        assertHash(query2, -549984247, 1019582585);
     }
 
     @Test
@@ -354,8 +356,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 field("num_value_unique"),
                 Arrays.asList(field("num_value_unique"), field("num_value_3_indexed")));
 
-        assertEquals(1019582585, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1019582585, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -751848063, 1019582585);
+        assertHash(query2, -549984247, 1019582585);
     }
 
     @Test
@@ -379,8 +381,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("num_value_3_indexed")));
 
-        assertEquals(1306898425, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1306898425, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -920276680, 1306898425);
+        assertHash(query2, -918370056, 1306898425);
     }
 
     @Test
@@ -399,8 +401,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("etag").equalsValue(8),
                 null, null);
 
-        assertEquals(1598221676, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1598221676, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 1254039933, 1598221676);
+        assertHash(query2, 1254069724, 1598221676);
     }
 
     @Test
@@ -412,8 +414,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("num_value_2").in(asList(1, 3)),
                 null, null);
 
-        assertEquals(-936101258, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-936101258, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -1564723747, -936101258);
+        assertHash(query2, -1535171075, -936101258);
     }
 
     @Test
@@ -425,8 +427,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("num_value_2").in("valuesFour"),   // num_value_2 is i%3
                 null, null);
 
-        assertEquals(1554768926, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1554768926, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 1554768926, 1554768926);
+        assertHash(query2, 1554768926, 1554768926);
     }
 
     @Test
@@ -438,8 +440,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("num_value_3_indexed").in(asList(5, 6)),
                 null, null);
 
-        assertEquals(-193254231, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-193254231, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 88717328, -193254231);
+        assertHash(query2, -675036881, -193254231);
     }
 
     @Test
@@ -451,8 +453,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.not(Query.field("num_value_2").in(asList(1, 3))),
                 null, null);
 
-        assertEquals(746588120, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(746588120, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 117965631, 746588120);
+        assertHash(query2, 147518303, 746588120);
     }
 
     @Test
@@ -477,8 +479,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("text").text().contains("duty"),
                 null, null);
 
-        assertEquals(269491435, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(269491435, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 1728588239, 269491435);
+        assertHash(query2, -42098996, 269491435);
     }
 
     @Test
@@ -503,8 +505,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("text").text().containsAll("duty", 1),
                 null, null);
 
-        assertEquals(-97516745, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(-97516745, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, -398367993, -97516745);
+        assertHash(query2, 544783406, -97516745);
     }
 
     @Test
@@ -529,10 +531,15 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("text").text().containsAllPrefixes("duty", true, 3L, 4.0),
                 null, null);
 
-        assertEquals(1603894354, query1.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(1603894354, query2.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertHash(query1, 46244221, 1603894354);
+        assertHash(query2, 989514784, 1603894354);
     }
 
+
+    private void assertHash(final RecordQuery query, final int withLiterals, final int withoutLiterals) {
+        assertEquals(withLiterals, query.queryHash(QueryHashKind.STRUCTURAL_WITH_LITERALS));
+        assertEquals(withoutLiterals, query.queryHash(QueryHashKind.STRUCTURAL_WITHOUT_LITERALS));
+    }
 
     private RecordQuery createQuery(String recordType, QueryComponent filter) {
         return createQuery(recordType, filter, null);
