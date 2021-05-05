@@ -200,7 +200,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** The total number of timeouts that have happened during asyncToSync and their durations. */
         TIMEOUTS("timeouts"),
         /** Total number and duration of commits. */
-        COMMITS("commits")
+        COMMITS("commits"),
+        /** Time for FDB fetches.*/
+        FDB_FETCH_TIME("fdb fetch")
         ;
 
         private final String title;
@@ -598,8 +600,16 @@ public class FDBStoreTimer extends StoreTimer {
         DELETES("deletes", false),
         /** Total number of mutation operations. */
         MUTATIONS("mutations", false),
-
-        ;
+        /** JNI Calls in FDB.*/
+        FDB_JNI_CALLS("FDB jni calls",false),
+        /**Bytes read from FDB.*/
+        FDB_BYTES_FETCHED("FDB bytes fetched",false),
+        /** Number of network fetches performed by FDB.*/
+        FDB_RANGE_QUERY_FETCHES("FDB Range query fetches",false),
+        /** Number of Key-values fetched during a range scan.*/
+        FDB_RANGE_QUERY_KEYVALUES_FETCHED("FDB range keyvalues ",false ),
+        /** Number of chunk reads that failed.*/
+        FDB_CHUNK_READ_FAILURES("FDB read fails",false );
 
         private final String title;
         private final boolean isSize;
