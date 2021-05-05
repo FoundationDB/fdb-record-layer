@@ -598,6 +598,7 @@ public class FDBStoreTimer extends StoreTimer {
         DELETES("deletes", false),
         /** Total number of mutation operations. */
         MUTATIONS("mutations", false),
+
         ;
 
         private final String title;
