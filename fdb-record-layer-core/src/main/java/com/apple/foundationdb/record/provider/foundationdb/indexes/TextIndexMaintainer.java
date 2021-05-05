@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizer;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistry;
 import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryImpl;
@@ -295,7 +296,7 @@ public class TextIndexMaintainer extends StandardIndexMaintainer {
         final Tuple groupingKey = (textPosition == 0) ? null : TupleHelpers.subTuple(indexEntryKey, 0, textPosition);
         final Tuple groupedKey = TupleHelpers.subTuple(indexEntryKey, textPosition + 1, indexEntryKey.size());
         final Map<String, List<Integer>> positionMap = tokenizer.tokenizeToMap(text, recordTokenizerVersion, TextTokenizer.TokenizerMode.INDEX);
-        final FDBStoreTimer.Event indexUpdateEvent = remove ? FDBStoreTimer.Events.DELETE_INDEX_ENTRY : FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
+        final StoreTimer.Event indexUpdateEvent = remove ? FDBStoreTimer.Events.DELETE_INDEX_ENTRY : FDBStoreTimer.Events.SAVE_INDEX_ENTRY;
         if (LOGGER.isDebugEnabled()) {
             final Pair<Integer, Integer> estimatedSize = estimateSize(groupingKey, positionMap, groupedKey);
             KeyValueLogMessage msg = KeyValueLogMessage.build("performed text tokenization",

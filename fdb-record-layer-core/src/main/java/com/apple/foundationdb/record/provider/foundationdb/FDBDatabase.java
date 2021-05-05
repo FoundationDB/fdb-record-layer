@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
@@ -196,7 +197,7 @@ public class FDBDatabase {
      */
     @FunctionalInterface
     public interface ExceptionMapper {
-        RuntimeException apply(@Nonnull Throwable ex, @Nullable FDBStoreTimer.Event event);
+        RuntimeException apply(@Nonnull Throwable ex, @Nullable StoreTimer.Event event);
     }
 
     protected synchronized void openFDB() {
