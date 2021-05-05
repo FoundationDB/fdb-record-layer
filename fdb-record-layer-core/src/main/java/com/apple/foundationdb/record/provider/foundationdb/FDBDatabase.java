@@ -739,12 +739,12 @@ public class FDBDatabase {
      * @return newly created transaction
      */
     private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nonnull Executor executor) {
-        Transaction transaction = database.createTransaction(executor);
-
-        if (config.getTimer() != null) {
-            transaction = new InstrumentedTransaction(config.getTimer(), transaction, config.areAssertionsEnabled());
-        } else if (config.areAssertionsEnabled()) {
-            transaction = new InstrumentedTransaction(null, transaction, true);
+        final FDBStoreTimer timer = config.getTimer();
+        boolean enableAssertions = config.areAssertionsEnabled();
+        //noinspection ConstantConditions
+        Transaction transaction = database.createTransaction(executor, timer);
+        if (timer != null || enableAssertions) {
+            transaction = new InstrumentedTransaction(timer, transaction, enableAssertions);
         }
 
         return transaction;
