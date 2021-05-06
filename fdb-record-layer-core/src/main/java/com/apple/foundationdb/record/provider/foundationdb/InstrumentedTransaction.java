@@ -191,16 +191,6 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         underlying.setReadVersion(l);
     }
 
-    @Override
-    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final byte[] begin, final byte[] end) {
-        return underlying.getEstimatedRangeSizeBytes(begin, end);
-    }
-
-    @Override
-    public CompletableFuture<Long> getEstimatedRangeSizeBytes(final Range range) {
-        return underlying.getEstimatedRangeSizeBytes(range);
-    }
-
     private static class Snapshot extends InstrumentedReadTransaction<ReadTransaction> implements ReadTransaction {
         public Snapshot(@Nullable StoreTimer timer, @Nonnull ReadTransaction underlying, boolean enableAssertions) {
             super(timer, underlying, enableAssertions);

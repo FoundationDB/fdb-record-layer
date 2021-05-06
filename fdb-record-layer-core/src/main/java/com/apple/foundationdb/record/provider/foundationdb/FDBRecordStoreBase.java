@@ -1285,6 +1285,56 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     }
 
     /**
+     * Compute an estimated size of the store in bytes. The estimate will include all data in the store, including
+     * all records and indexes.
+     *
+     * <p>
+     * This uses a sample maintained by the database to efficiently compute an estimate for the size of the store
+     * without needing to scan all data. Because keys in this data structure are sampled, the value will not be
+     * exact. If an exact size is needed, the
+     * {@link com.apple.foundationdb.record.provider.foundationdb.cursors.SizeStatisticsCollectorCursor} can
+     * be used, though note that that cursor must read the entire store to produce its statistics.
+     * </p>
+     *
+     * @return a future that will contain an estimate for the size of the store
+     */
+    @Nonnull
+    CompletableFuture<Long> estimateStoreSizeAsync();
+
+    /**
+     * Compute an estimated size of all records in the store in bytes. The estimate will only include the space used
+     * by the records and excludes all other data maintained by the store. (For example, index data is <em>not</em>
+     * included in the returned estimate.)
+     *
+     * <p>
+     * This uses the same method for computing the estimate as {@link #estimateStoreSizeAsync()}.
+     * </p>
+     *
+     * @return a future that will contain an estimate for the size of all records in the store
+     * @see #estimateStoreSizeAsync()
+     */
+    @Nonnull
+    default CompletableFuture<Long> estimateRecordsSizeAsync() {
+        return estimateRecordsSizeAsync(TupleRange.ALL);
+    }
+
+    /**
+     * Compute an estimated size in bytes of all records in the store within the given primary key range. The estimate
+     * will only include the space used by the records and excludes all other data maintained by the store. (For
+     * example, index data is <em>not</em> included in the returned estimate.)
+     *
+     * <p>
+     * This uses the same method for computing the estimate as {@link #estimateStoreSizeAsync()}.
+     * </p>
+     *
+     * @param range range of records to estimate the size of
+     * @return a future that will contain an estimate for the size of all records in the store
+     * @see #estimateStoreSizeAsync()
+     */
+    @Nonnull
+    CompletableFuture<Long> estimateRecordsSizeAsync(@Nonnull TupleRange range);
+
+    /**
      * Get the number of records in the record store.
      *
      * There must be a suitable {@code COUNT} type index defined.

@@ -92,6 +92,8 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         COMMIT_READ_ONLY("commit read-only transaction"),
         /** The amount of time taken committing transactions that did not succeed. */
         COMMIT_FAILURE("commit transaction with failure"),
+        /** The amount of time estimating the size of a key range. See {@link FDBRecordStore#estimateStoreSizeAsync()}. */
+        ESTIMATE_SIZE("estimate the size of a key range"),
         /** The amount of time taken persisting meta-data to a {@link FDBMetaDataStore}. */
         SAVE_META_DATA("save meta-data"),
         /** The amount of time taken loading meta-data from a {@link FDBMetaDataStore}. */
@@ -306,6 +308,10 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         WAIT_GET_READ_VERSION("get_read_version"),
         /** Wait for a transaction to commit. */
         WAIT_COMMIT("wait for commit"),
+        /** Wait to compute the approximate transaction size. See {@link FDBRecordContext#getApproximateTransactionSize()}. */
+        WAIT_APPROXIMATE_TRANSACTION_SIZE("wait to get the approximate transaction size"),
+        /** Wait to estimate the size of a key range. See {@link FDBRecordStore#estimateStoreSizeAsync()}. */
+        WAIT_ESTIMATE_SIZE("wait to estimate the size of a key range"),
         /** Wait for saving meta-data to a {@link FDBMetaDataStore}. */
         WAIT_SAVE_META_DATA("wait for save meta-data"),
         /** Wait for loading meta-data from a {@link FDBMetaDataStore}. */

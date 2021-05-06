@@ -205,6 +205,18 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public CompletableFuture<Long> estimateStoreSizeAsync() {
+        return untypedStore.estimateStoreSizeAsync();
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Long> estimateRecordsSizeAsync(@Nonnull TupleRange range) {
+        return untypedStore.estimateRecordsSizeAsync(range);
+    }
+
+    @Nonnull
+    @Override
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
         return untypedStore.getSnapshotRecordCount(key, value);
     }

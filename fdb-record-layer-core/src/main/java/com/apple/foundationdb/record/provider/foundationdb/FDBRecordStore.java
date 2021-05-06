@@ -1554,6 +1554,25 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
+    @Nonnull
+    public CompletableFuture<Long> estimateStoreSizeAsync() {
+        final long startTime = System.nanoTime();
+        return getSubspaceAsync().thenCompose(subspace -> estimateSize(subspace.range(), startTime));
+    }
+
+    @Override
+    @Nonnull
+    public CompletableFuture<Long> estimateRecordsSizeAsync(@Nonnull TupleRange range) {
+        final long startTime = System.nanoTime();
+        return getSubspaceAsync().thenCompose(ignore -> estimateSize(range.toRange(recordsSubspace()), startTime));
+    }
+
+    private CompletableFuture<Long> estimateSize(@Nonnull Range range, long startTimeNanos) {
+        final CompletableFuture<Long> sizeFuture = ensureContextActive().getEstimatedRangeSizeBytes(range);
+        return instrument(FDBStoreTimer.Events.ESTIMATE_SIZE, sizeFuture, startTimeNanos);
+    }
+
+    @Override
     public CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
         if (getRecordMetaData().getRecordCountKey() != null) {
             if (key.getColumnSize() != value.size()) {
