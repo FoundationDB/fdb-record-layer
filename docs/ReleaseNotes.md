@@ -14,7 +14,7 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** LiteralKeyExpression should ignore Value for planHash and queryHash [(Issue #1273)](https://github.com/FoundationDB/fdb-record-layer/issues/1273)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,10 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 
 // end next release
 -->
+
+### 2.10.180.0
+
+* **Bug fix** LiteralKeyExpression should ignore Value for planHash and queryHash [(Issue #1273)](https://github.com/FoundationDB/fdb-record-layer/issues/1273)
 
 ### 2.10.179.0
 
