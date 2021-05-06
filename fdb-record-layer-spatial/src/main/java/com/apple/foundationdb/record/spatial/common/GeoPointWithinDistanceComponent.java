@@ -133,6 +133,7 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
             case LEGACY:
                 return PlanHashable.objectsPlanHash(hashKind, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
             case FOR_CONTINUATION:
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
             case STRUCTURAL_WITHOUT_LITERALS:
                 return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, latitudeFieldName, longitudeFieldName);
             default:
@@ -142,8 +143,14 @@ public class GeoPointWithinDistanceComponent implements ComponentWithNoChildren 
 
     @Override
     public int queryHash(@Nonnull final QueryHashKind hashKind) {
-        // TODO: Include center and distance?
-        return HashUtils.queryHash(hashKind, BASE_HASH, latitudeFieldName, longitudeFieldName);
+        switch (hashKind) {
+            case STRUCTURAL_WITH_LITERALS:
+                return HashUtils.queryHash(hashKind, BASE_HASH, centerLatitude, centerLongitude, distance, latitudeFieldName, longitudeFieldName);
+            case STRUCTURAL_WITHOUT_LITERALS:
+                return HashUtils.queryHash(hashKind, BASE_HASH, latitudeFieldName, longitudeFieldName);
+            default:
+                throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
+        }
     }
 
     @Override
