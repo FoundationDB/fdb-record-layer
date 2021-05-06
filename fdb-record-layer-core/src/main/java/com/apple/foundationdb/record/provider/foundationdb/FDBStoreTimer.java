@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.EventKeeper;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -36,12 +37,12 @@ import java.util.stream.Stream;
  * A {@link StoreTimer} associated with {@link FDBRecordStore} operations.
  */
 @API(API.Status.STABLE)
-public class FDBStoreTimer extends StoreTimer {
+public class FDBStoreTimer extends StoreTimer implements EventKeeper {
 
     /**
      * Ordinary top-level events which surround a single body of code.
      */
-    public enum Events implements Event {
+    public enum Events implements StoreTimer.Event {
         /** The amount of time taken performing a no-op. */
         PERFORM_NO_OP("perform no-op"),
         /**
@@ -91,6 +92,8 @@ public class FDBStoreTimer extends StoreTimer {
         COMMIT_READ_ONLY("commit read-only transaction"),
         /** The amount of time taken committing transactions that did not succeed. */
         COMMIT_FAILURE("commit transaction with failure"),
+        /** The amount of time estimating the size of a key range. See {@link FDBRecordStore#estimateStoreSizeAsync()}. */
+        ESTIMATE_SIZE("estimate the size of a key range"),
         /** The amount of time taken persisting meta-data to a {@link FDBMetaDataStore}. */
         SAVE_META_DATA("save meta-data"),
         /** The amount of time taken loading meta-data from a {@link FDBMetaDataStore}. */
@@ -116,12 +119,6 @@ public class FDBStoreTimer extends StoreTimer {
          * This time includes fetching from the database and deserialization.
          */
         LOAD_RECORD("load record"),
-        /**
-         * The amount of time taken loading record versions.
-         * @deprecated this is no longer published
-         */
-        @Deprecated
-        LOAD_RECORD_VERSION("load record version"),
         /** The amount of time taken scanning records directly without any index. */
         SCAN_RECORDS("scan records"),
         /**
@@ -175,12 +172,6 @@ public class FDBStoreTimer extends StoreTimer {
         INTERNING_LAYER_CREATE("create the value in the interning layer"),
         /** The amount of time spent loading boundary keys. */
         LOAD_BOUNDARY_KEYS("load boundary keys"),
-        /**
-         * The amount of time spent computing boundary keys.
-         * @deprecated this is no longer used
-         */
-        @Deprecated
-        COMPUTE_BOUNDARY_KEYS("compute boundary keys"),
         /** The amount of time spent reading a sample key to measure read latency. */
         READ_SAMPLE_KEY("read sample key"),
         /** The amount of time spent planning a query. */
@@ -212,7 +203,9 @@ public class FDBStoreTimer extends StoreTimer {
         /** The total number of timeouts that have happened during asyncToSync and their durations. */
         TIMEOUTS("timeouts"),
         /** Total number and duration of commits. */
-        COMMITS("commits")
+        COMMITS("commits"),
+        /** Time for FDB fetches.*/
+        FETCHES("fetches")
         ;
 
         private final String title;
@@ -220,7 +213,7 @@ public class FDBStoreTimer extends StoreTimer {
 
         Events(String title, String logKey) {
             this.title = title;
-            this.logKey = (logKey != null) ? logKey : Event.super.logKey();
+            this.logKey = (logKey != null) ? logKey : StoreTimer.Event.super.logKey();
         }
 
         Events(String title) {
@@ -311,10 +304,14 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_ERROR_CHECK("check for error completion"),
         /** Wait for performing a no-op operation.*/
         WAIT_PERFORM_NO_OP("wait for performing a no-op"),
-        /** Wait for explicit call to {@link FDBDatabase#getReadVersion}. */
+        /** Wait for explicit call to {@link FDBRecordContext#getReadVersionAsync}. */
         WAIT_GET_READ_VERSION("get_read_version"),
         /** Wait for a transaction to commit. */
         WAIT_COMMIT("wait for commit"),
+        /** Wait to compute the approximate transaction size. See {@link FDBRecordContext#getApproximateTransactionSize()}. */
+        WAIT_APPROXIMATE_TRANSACTION_SIZE("wait to get the approximate transaction size"),
+        /** Wait to estimate the size of a key range. See {@link FDBRecordStore#estimateStoreSizeAsync()}. */
+        WAIT_ESTIMATE_SIZE("wait to estimate the size of a key range"),
         /** Wait for saving meta-data to a {@link FDBMetaDataStore}. */
         WAIT_SAVE_META_DATA("wait for save meta-data"),
         /** Wait for loading meta-data from a {@link FDBMetaDataStore}. */
@@ -378,7 +375,7 @@ public class FDBStoreTimer extends StoreTimer {
         WAIT_VERSION_STAMP("wait for version stamp"),
         /** Wait to load the the cluster's meta-data version stamp. */
         WAIT_META_DATA_VERSION_STAMP("wait for meta-data version stamp"),
-        /** Wait for a synchronous {@link com.apple.foundationdb.record.RecordCursor#next}. */
+        /** Wait for a synchronous {@link com.apple.foundationdb.record.RecordCursor#getNext()}. */
         WAIT_ADVANCE_CURSOR("wait for advance cursor"),
         /** Wait for scanning a {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace} to see whether it has data.*/
         WAIT_KEYSPACE_SCAN("wait scanning keyspace"),
@@ -610,7 +607,16 @@ public class FDBStoreTimer extends StoreTimer {
         DELETES("deletes", false),
         /** Total number of mutation operations. */
         MUTATIONS("mutations", false),
-        ;
+        /** JNI Calls.*/
+        JNI_CALLS("jni calls",false),
+        /**Bytes read.*/
+        BYTES_FETCHED("bytes fetched",false),
+        /** Number of network fetches performed.*/
+        RANGE_FETCHES("range fetches",false),
+        /** Number of Key-values fetched during a range scan.*/
+        RANGE_KEYVALUES_FETCHED("range key-values ",false ),
+        /** Number of chunk reads that failed.*/
+        CHUNK_READ_FAILURES("read fails",false );
 
         private final String title;
         private final boolean isSize;
@@ -722,7 +728,7 @@ public class FDBStoreTimer extends StoreTimer {
             .add(CountAggregates.values())
             .build();
 
-    protected static Stream<Event> possibleEvents() {
+    protected static Stream<StoreTimer.Event> possibleEvents() {
         return Stream.of(
                 Events.values(),
                 DetailEvents.values(),
@@ -752,5 +758,67 @@ public class FDBStoreTimer extends StoreTimer {
         final long totalNanos = System.nanoTime() - startTime;
         getCounter(Events.TIMEOUTS, true).record(totalNanos);
         getTimeoutCounter(event, true).record(totalNanos);
+    }
+
+    @Override
+    public void count(final EventKeeper.Event event, final long amt) {
+        if (event instanceof EventKeeper.Events) {
+            EventKeeper.Events fdbEvent = (EventKeeper.Events)event;
+            switch (fdbEvent) {
+                case JNI_CALL:
+                    increment(Counts.JNI_CALLS, (int)amt);
+                    break;
+                case BYTES_FETCHED:
+                    increment(Counts.BYTES_FETCHED, (int)amt);
+                    break;
+                case RANGE_QUERY_FETCHES:
+                    increment(Counts.RANGE_FETCHES, (int)amt);
+                    break;
+                case RANGE_QUERY_RECORDS_FETCHED:
+                    increment(Counts.RANGE_KEYVALUES_FETCHED, (int)amt);
+                    break;
+                case RANGE_QUERY_CHUNK_FAILED:
+                    increment(Counts.CHUNK_READ_FAILURES, (int)amt);
+                    break;
+                case RANGE_QUERY_FETCH_TIME_NANOS:
+                    record(Events.FETCHES,(int)amt);
+                    break;
+                default:
+                    //do-nothing
+            }
+        }
+    }
+
+    @Override
+    public void timeNanos(final EventKeeper.Event event, final long nanos) {
+        count(event,nanos);
+    }
+
+    @Override
+    public long getCount(final EventKeeper.Event event) {
+        if (event instanceof EventKeeper.Events) {
+            EventKeeper.Events fdbEvent = (EventKeeper.Events)event;
+            switch (fdbEvent) {
+                case JNI_CALL:
+                    return getCount(Counts.JNI_CALLS);
+                case BYTES_FETCHED:
+                    return getCount(Counts.BYTES_FETCHED);
+                case RANGE_QUERY_FETCHES:
+                    return getCount(Counts.RANGE_FETCHES);
+                case RANGE_QUERY_RECORDS_FETCHED:
+                    return getCount(Counts.RANGE_KEYVALUES_FETCHED);
+                case RANGE_QUERY_CHUNK_FAILED:
+                    return getCount(Counts.CHUNK_READ_FAILURES);
+                default:
+                    //no-op
+            }
+        }
+        //by default, just return 0
+        return 0;
+    }
+
+    @Override
+    public long getTimeNanos(final EventKeeper.Event event) {
+        return getCount(event);
     }
 }

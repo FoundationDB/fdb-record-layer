@@ -387,7 +387,7 @@ public class Index {
      * <p>
      * This method should generally not be called by users outside of the Record Layer.
      * For the most part, it should be sufficient for index maintainers to call
-     * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase#indexEntryPrimaryKey(Index, Tuple) FDBRecordStoreBase.indexEntryPrimaryKey()}
+     * {@link #getEntryPrimaryKey(Tuple)}
      * to determine the primary key of a record from an index entry and
      * {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase#indexEntryKey(Index, Tuple, Tuple) FDBRecordStoreBase.indexEntryKey()}
      * to determine the index entry given a record's primary key.
@@ -490,26 +490,6 @@ public class Index {
             }
         }
         return Tuple.fromList(primaryKeys);
-    }
-
-    /**
-     * Synonynm for {@link #getLastModifiedVersion}.
-     * @return the last modified version
-     * @deprecated use {@link #getLastModifiedVersion}.
-     */
-    @Deprecated
-    public int getVersion() {
-        return lastModifiedVersion;
-    }
-
-    /**
-     * Synonynm for {@link #setLastModifiedVersion}.
-     * @param version the last modified version
-     * @deprecated use {@link #setLastModifiedVersion}.
-     */
-    @Deprecated
-    public void setVersion(int version) {
-        this.lastModifiedVersion = version;
     }
 
     /**

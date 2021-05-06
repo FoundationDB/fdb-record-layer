@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -74,9 +73,9 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoContinuingCursor.class);
 
     @Nonnull
-    private FDBDatabaseRunner runner;
+    private final FDBDatabaseRunner runner;
     @Nonnull
-    private BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator;
+    private final BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator;
 
     @Nullable
     private RecordCursor<T> currentCursor;
@@ -84,12 +83,7 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
     private FDBRecordContext currentContext;
 
     @Nullable
-    private CompletableFuture<Boolean> nextFuture;
-    @Nullable
     private RecordCursorResult<T> lastResult;
-
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
 
     /**
      * Creates a new {@link AutoContinuingCursor}.
@@ -139,50 +133,8 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
         currentCursor = nextCursorGenerator.apply(currentContext, continuation);
     }
 
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            mayGetContinuation = false;
-            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return nextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-
-        nextFuture = null;
-        mayGetContinuation = true;
-        return lastResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return lastResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return lastResult.getNoNextReason();
-    }
-
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(true);
-        }
         if (currentContext != null) {
             currentContext.close();
         }

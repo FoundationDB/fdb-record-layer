@@ -210,7 +210,7 @@ public class UnorderedUnionCursorTest extends FDBTestBase {
 
     /**
      * There was a race condition that could result in an unordered union cursor throwing a {@link java.util.NoSuchElementException}
-     * after also returning {@code true} from {@link RecordCursor#onHasNext()}, which is a contract violation.
+     * after also returning {@code true} from {@link RecordCursorIterator#onHasNext()}, which is a contract violation.
      * This is to check regressions of that bug: https://github.com/FoundationDB/fdb-record-layer/issues/332
      */
     @Test

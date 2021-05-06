@@ -27,13 +27,11 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.CloseableAsyncIterator;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
@@ -108,7 +106,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenate
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase.indexEntryKey;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasEntry;
@@ -1842,6 +1839,13 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             metaDataBuilder.setVersion(metaDataBuilder.getVersion() + 1);
             metaDataBuilder.addIndex("MyBasicRecord", "value2$filtered", field("num_value_2"));
         };
+        // rebuild the index so that it is in a READABLE state
+        try (FDBRecordContext context = openContext()) {
+            openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context, hook);
+            try (OnlineIndexer indexer = OnlineIndexer.forRecordStoreAndIndex(recordStore, "value2$filtered")) {
+                indexer.buildIndex();
+            }
+        }
 
         try (FDBRecordContext context = openContext()) {
             openAnyRecordStore(TestRecordsIndexFilteringProto.getDescriptor(), context, hook);
@@ -2037,7 +2041,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void testChangeIndexDefinitionWriteOnly() throws Exception {
+    public void testChangeIndexDefinitionNotReadable() throws Exception {
         try (FDBRecordContext context = openContext()) {
             final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestNoIndexesProto.getDescriptor());
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
@@ -2055,8 +2059,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             final Index index = new Index("index", "rec_no");
             builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
-            // Since there were 200 records already, the new index is write-only.
-            assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
+            // Since there were 200 records already, the new index is disabled.
+            assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(index.getName()));
             // Add 100 more records. Only these records will be stored in the new index.
             for (int i = 200; i < 300; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
@@ -2074,8 +2078,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             builder.addIndex("MySimpleRecord", index);
             recordStore = FDBRecordStore.newBuilder().setContext(context).setMetaDataProvider(builder).setKeySpacePath(path).createOrOpen();
             recordMetaData = recordStore.getRecordMetaData();
-            // The changed index is again write-only because there are 300 records.
-            assertEquals(IndexState.WRITE_ONLY, recordStore.getRecordStoreState().getState(index.getName()));
+            // The changed index is again disabled because there are 300 records.
+            assertEquals(IndexState.DISABLED, recordStore.getRecordStoreState().getState(index.getName()));
             // Add 100 more records. These will be recorded in the new index.
             for (int i = 300; i < 400; i++) {
                 TestNoIndexesProto.MySimpleRecord record = TestNoIndexesProto.MySimpleRecord.newBuilder()
@@ -2483,40 +2487,6 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
             // The number of scans is about the number of index entries (orphan validation) plus the number of records
             // (missing validation).
             assertThat(generatorCount.get(), greaterThanOrEqualTo((5 + 10) / 4));
-        }
-    }
-
-    @SuppressWarnings("deprecation") // testing deprecated method
-    @Test
-    public void loadEntryFromWrongIndex() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            Index strValueIndex = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-            IndexEntry entry = new IndexEntry(strValueIndex, Tuple.from("bar", 1066L), TupleHelpers.EMPTY);
-            Index numValue3Index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed");
-            RecordCoreArgumentException e = assertThrows(RecordCoreArgumentException.class, () ->
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, recordStore.loadIndexEntryRecord(numValue3Index, entry, IndexOrphanBehavior.SKIP))
-            );
-            assertThat(e.getMessage(), containsString("index entry's index MySimpleRecord$str_value_indexed differs from specified index MySimpleRecord$num_value_3_indexed"));
-            e = assertThrows(RecordCoreArgumentException.class, () ->
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, recordStore.loadIndexEntryRecord(numValue3Index, entry, IndexOrphanBehavior.SKIP, ExecuteState.NO_LIMITS))
-            );
-            assertThat(e.getMessage(), containsString("index entry's index MySimpleRecord$str_value_indexed differs from specified index MySimpleRecord$num_value_3_indexed"));
-        }
-    }
-
-    @SuppressWarnings("deprecation") // testing deprecated method
-    @Test
-    public void hasEntryFromWrongIndex() throws Exception {
-        try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context);
-            Index strValueIndex = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
-            IndexEntry entry = new IndexEntry(strValueIndex, Tuple.from("bar", 1066L), TupleHelpers.EMPTY);
-            Index numValue3Index = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_3_indexed");
-            RecordCoreArgumentException e = assertThrows(RecordCoreArgumentException.class, () ->
-                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_RECORD_EXISTS, recordStore.hasIndexEntryRecord(numValue3Index, entry, IsolationLevel.SERIALIZABLE))
-            );
-            assertThat(e.getMessage(), containsString("index entry's index MySimpleRecord$str_value_indexed differs from specified index MySimpleRecord$num_value_3_indexed"));
         }
     }
 

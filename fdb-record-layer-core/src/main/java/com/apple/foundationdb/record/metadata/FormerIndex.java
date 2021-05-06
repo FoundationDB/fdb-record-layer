@@ -92,16 +92,6 @@ public class FormerIndex {
     }
 
     /**
-     * Synonym for {@link #getRemovedVersion}.
-     * @return the removed version
-     * @deprecated use {@link #getRemovedVersion}
-     */
-    @Deprecated
-    public int getVersion() {
-        return addedVersion;
-    }
-
-    /**
      * Get the version at which the index was first added.
      * @return the added version
      */

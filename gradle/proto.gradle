@@ -46,10 +46,10 @@ protobuf {
     }
     generateProtoTasks {
         all().each { task ->
-            task.include "${projectDir}/src/main/proto/include"
-            task.include "${projectDir}/src/main/proto${protoMajorVersion}/include"
+            task.addIncludeDir(files("${projectDir}/src/main/proto/include"))
+            task.addIncludeDir(files("${projectDir}/src/main/proto${protoMajorVersion}/include"))
             if (task.name != 'generateProto') {
-                task.include "${projectDir}/src/main/proto"
+                task.addIncludeDir(files("${projectDir}/src/main/proto"))
             }
         }
     }

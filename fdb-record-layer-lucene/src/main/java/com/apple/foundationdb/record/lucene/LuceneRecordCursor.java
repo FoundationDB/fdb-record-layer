@@ -54,7 +54,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -73,8 +72,6 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final Executor executor;
     @Nonnull
     private final CursorLimitManager limitManager;
-    @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
     @Nullable
     private final FDBStoreTimer timer;
     private int limitRemaining;
@@ -189,48 +186,10 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
     }
 
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public IndexEntry next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        return Ints.toByteArray(currentPosition);
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
-    }
-
     @Override
     public void close() {
         if (indexReader != null) {
             IOUtils.closeWhileHandlingException(indexReader);
-        }
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
         }
     }
 

@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedValue;
@@ -197,7 +198,7 @@ public class FDBDatabase {
      */
     @FunctionalInterface
     public interface ExceptionMapper {
-        RuntimeException apply(@Nonnull Throwable ex, @Nullable FDBStoreTimer.Event event);
+        RuntimeException apply(@Nonnull Throwable ex, @Nullable StoreTimer.Event event);
     }
 
     protected synchronized void openFDB() {
@@ -605,20 +606,6 @@ public class FDBDatabase {
         return resolverStateCache.orElseGet(resolver, loader);
     }
 
-    /**
-     * Get the read version (GRV) for the given context.
-     * An explicit get read version is no more expensive than the implicit one that every operation will entail.
-     * Measuring it explicitly gives an indication of the cluster's GRV latency, which is driven by its rate keeping.
-     * @param context transaction to use to access the database
-     * @return a future that will be completed with the read version of the current transaction
-     * @deprecated use {@link FDBRecordContext#getReadVersionAsync()} instead
-     */
-    @Deprecated
-    @Nonnull
-    public CompletableFuture<Long> getReadVersion(@Nonnull FDBRecordContext context) {
-        return context.getReadVersionAsync();
-    }
-
     // Update lastSeenFDBVersion if readVersion is newer
     @API(API.Status.INTERNAL)
     public void updateLastSeenFDBVersion(long startTime, long readVersion) {
@@ -750,35 +737,15 @@ public class FDBDatabase {
      * Creates a new transaction against the database.
      *
      * @param executor the executor to be used for asynchronous operations
-     * @param mdcContext if not [@code null} and tracing is enabled, information in the context will be included
-     *      in tracing log messages
-     * @param transactionIsTraced unused
-     * @return newly created transaction
-     * @deprecated use {@link #openContext()} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public Transaction createTransaction(Executor executor, @Nullable Map<String, String> mdcContext, boolean transactionIsTraced) {
-        return createTransaction(
-                FDBRecordContextConfig.newBuilder()
-                        .setMdcContext(mdcContext)
-                        .build(),
-                executor);
-    }
-
-    /**
-     * Creates a new transaction against the database.
-     *
-     * @param executor the executor to be used for asynchronous operations
      * @return newly created transaction
      */
     private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nonnull Executor executor) {
-        Transaction transaction = database.createTransaction(executor);
-
-        if (config.getTimer() != null) {
-            transaction = new InstrumentedTransaction(config.getTimer(), transaction, config.areAssertionsEnabled());
-        } else if (config.areAssertionsEnabled()) {
-            transaction = new InstrumentedTransaction(null, transaction, true);
+        final FDBStoreTimer timer = config.getTimer();
+        boolean enableAssertions = config.areAssertionsEnabled();
+        //noinspection ConstantConditions
+        Transaction transaction = database.createTransaction(executor, timer);
+        if (timer != null || enableAssertions) {
+            transaction = new InstrumentedTransaction(timer, transaction, enableAssertions);
         }
 
         return transaction;
@@ -1347,11 +1314,6 @@ public class FDBDatabase {
 
         // Whether the transaction should be set with a causal read risky flag.
         private boolean isCausalReadRisky;
-
-        @Deprecated
-        public WeakReadSemantics(long minVersion, long stalenessBoundMillis) {
-            this(minVersion, stalenessBoundMillis, false);
-        }
 
         public WeakReadSemantics(long minVersion, long stalenessBoundMillis, boolean isCausalReadRisky) {
             this.minVersion = minVersion;

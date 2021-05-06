@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -105,8 +104,6 @@ public class ChainedCursor<T> implements BaseCursor<T> {
     private final Function<T, byte[]> continuationEncoder;
     @Nonnull
     private final Executor executor;
-    @Nullable
-    private CompletableFuture<Boolean> nextFuture;
     @Nonnull
     private Optional<T> lastValue;
     @Nullable
@@ -116,9 +113,6 @@ public class ChainedCursor<T> implements BaseCursor<T> {
     private final CursorLimitManager limitManager;
     private final long maxReturnedRows;
     private long returnedRowCount;
-
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
 
     /**
      * Creates a new <code>ChainedCursor</code>.  When created in this fashion any resource limits that may be
@@ -232,56 +226,13 @@ public class ChainedCursor<T> implements BaseCursor<T> {
             } else {
                 lastValue = nextValue;
                 lastResult = RecordCursorResult.exhausted();
-                mayGetContinuation = true;
             }
             return lastResult;
         });
     }
 
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            mayGetContinuation = false;
-            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return nextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-
-        nextFuture = null;
-        mayGetContinuation = true;
-        return lastResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return lastResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return lastResult.getNoNextReason();
-    }
-
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(true);
-        }
     }
 
     @Nonnull

@@ -33,7 +33,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.BiFunction;
@@ -53,28 +52,8 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     private RecordCursorProto.OrElseContinuation.State state;
     @Nullable
     private RecordCursor<T> other;
-
-    @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
     @Nullable
     private RecordCursorResult<T> nextResult;
-
-    // for detecting incorrect cursor usage
-    private boolean mayGetContinuation = false;
-
-    /**
-     * Deprecated constructor that does not support continuations.
-     * @param inner the inner branch of the cursor
-     * @param func a function to generate the else branch
-     * @deprecated in favor of the a constructor that does support continuations
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public OrElseCursor(@Nonnull RecordCursor<T> inner, @Nonnull Function<Executor, RecordCursor<T>> func) {
-        this.inner = inner;
-        this.func = func;
-        this.state = RecordCursorProto.OrElseContinuation.State.UNDECIDED;
-    }
 
     @API(API.Status.INTERNAL)
     public OrElseCursor(@Nonnull Function<byte[], ? extends RecordCursor<T>> innerFunc,
@@ -156,47 +135,8 @@ public class OrElseCursor<T> implements RecordCursor<T> {
     // shim to support old continuation style
     @Nonnull
     private RecordCursorResult<T> postProcess(RecordCursorResult<T> result) {
-        mayGetContinuation = !result.hasNext();
         nextResult = result;
         return result;
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            mayGetContinuation = false;
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
     }
 
     @Override
@@ -205,9 +145,6 @@ public class OrElseCursor<T> implements RecordCursor<T> {
             other.close();
         }
         inner.close();
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
-        }
     }
 
     @Nonnull

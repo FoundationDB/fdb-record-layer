@@ -126,7 +126,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             recordStore = recordStore.asBuilder().setMetaDataProvider(metaDataBuilder).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
-            assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getWriteOnlyIndexNames());
+            assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getDisabledIndexNames());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
 
             final FDBRecordStore.Builder staleBuilder = recordStore.asBuilder().setMetaDataProvider(staleMetaData);
@@ -184,7 +184,7 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             recordStore = FDBRecordStore.newBuilder().setContext(context).setSubspace(expectedSubspace).setMetaDataStore(metaDataStore).open();
             assertEquals(expectedSubspace, recordStore.getSubspace());
             assertEquals(recordStore.getRecordStoreState(), recordStore.getRecordStoreState());
-            assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getWriteOnlyIndexNames());
+            assertEquals(Collections.singleton(newIndex2.getName()), recordStore.getRecordStoreState().getDisabledIndexNames());
             assertEquals(version + 2, recordStore.getRecordMetaData().getVersion());
 
             // The stale meta-data store uses the cached meta-data, hence the stale version exception

@@ -81,25 +81,16 @@ import java.util.function.Predicate;
  *
  * <li>
  * Finally, {@code RecordCursor}'s API offers <em>correctness by construction</em>. In contrast to the {@code hasNext()}/
- * {@code next()} API used by {@code Iterator}, {@code RecordCursor}'s primary API is{@link RecordCursor#onNext()} which
+ * {@code next()} API used by {@code Iterator}, {@code RecordCursor}'s primary API is {@link RecordCursor#onNext()} which
  * produces the next value if one is present, or an object indicating that there is no such record. The presence of a
  * next value is instead indicated by {@link RecordCursorResult#hasNext()}. This API serves to bundle a continuation
  * (and possible a {@link NoNextReason}) with the result, ensuring that a continuation is obtained only when it is valid.
- * For compatibility with {@code Iterator}, {@code RecordCursor} also supports {@link RecordCursor#onHasNext()} and
- * {@link RecordCursor#next()}, but continuations must be used carefully with this API, as described below.
  * </li>
  * </ol>
  *
  * <p>
- * {@code RecordCursor} supports {@link #getContinuation} for use with the {@code Iterator}-style API. A cursor is
- * between records and valid for getting its continuation after calling {@link #next} or after {@link #hasNext} returns
- * {@code false}.
- * </p>
- *
- * <p>
- * When a cursor stops producing values, it can report why using a {@link NoNextReason}. This can be returned as part of
- * a {@link RecordCursorResult} if using the {@link #onNext()} API or using {@link #getNoNextReason()} if using the
- * {@code Iterator}-style API. No-next-reasons are fundamentally distinguished between those that are due to the data
+ * When a cursor stops producing values, it can report why using a {@link NoNextReason}. This is returned as part of the
+ * final {@link RecordCursorResult}. No-next-reasons are fundamentally distinguished between those that are due to the data
  * itself (in-band) and those that are due to the environment / context (out-of-band). For example, running out of data
  * or having returned the maximum number of records requested are in-band, while reaching a limit on the number of
  * key-value pairs scanned by the transaction or the time that a transaction has been open are out-of-band.
@@ -108,76 +99,15 @@ import java.util.function.Predicate;
  * @param <T> the type of elements of the cursor
  */
 @API(API.Status.STABLE)
-public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
+public interface RecordCursor<T> extends AutoCloseable {
     /**
-     * Asynchronously check whether there are more records available from the cursor.
-     * @return a future that when complete will hold <code>true</code> if {@link #next()} would return a record.
-     * @see com.apple.foundationdb.async.AsyncIterator#onHasNext()
-     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    CompletableFuture<Boolean> onHasNext();
-
-    /**
-     * Synchronously check whether there are more records available from the cursor.
-     * @return {@code} true if {@link #next()} would return a record and {@code false} otherwise
-     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Override
-    default boolean hasNext() {
-        try {
-            return onHasNext().get();
-        } catch (ExecutionException ex) {
-            throw new RecordCoreException(CompletionExceptionLogHelper.asCause(ex));
-        } catch (InterruptedException ex) {
-            Thread.currentThread().interrupt();
-            throw new RecordCoreInterruptedException(ex.getMessage(), ex);
-        }
-    }
-
-    /**
-     * Return the next value.
-     * @return the next value
-     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nullable
-    @Override
-    T next();
-
-    /**
-     * Get a byte string that can be used to continue a query after the last record returned.
-     *
-     * @return opaque byte array denoting where the cursor should pick up. This can be passed back into a new
-     * cursor of the same type, with all other parameters remaining the same.
-     *
-     * Returns <code>null</code> if the underlying source is completely exhausted, independent of any limit
-     * passed to the cursor creator. Since such creators generally accept <code>null</code> to mean no continuation,
-     * that is, start from the beginning, one must check for <code>null</code> from <code>getContinuation</code> to
-     * keep from starting over.
-     *
-     * Result is not always defined if called before <code>onHasNext</code> or before <code>next</code> after
-     * <code>onHasNext</code> has returned <code>true</code>. That is, a continuation is only guaranteed when called
-     * "between" records from a <code>while (hasNext) next</code> loop or after its end.
-     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nullable
-    byte[] getContinuation();
-
-    /**
-     * The reason that {@link #hasNext} returned <code>false</code>.
+     * The reason that {@link RecordCursorResult#hasNext()} returned <code>false</code>.
      */
     enum NoNextReason {
         /**
          * The underlying scan, irrespective of any limit, has reached the end.
-         * {@link #getContinuation()} should return <code>null</code>.
+         * {@link RecordCursorResult#getContinuation()} should return an
+         * {@linkplain RecordCursorContinuation#isEnd() end continuation}.
          */
         SOURCE_EXHAUSTED(false),
 
@@ -185,7 +115,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
          * The limit on the number record to return was reached.
          * This limit may be specified by a an explicit {@link ExecuteProperties#setReturnedRowLimit} of by an implicit
          * limit based on a predicate for continuing, as in {@link com.apple.foundationdb.record.cursors.MapWhileCursor}.
-         * {@link #getContinuation()} may return a continuation for after the requested limit.
+         * {@link RecordCursorResult#getContinuation()} may return a continuation for after the requested limit.
          * @see ExecuteProperties#setReturnedRowLimit
          * @see #limitRowsTo
          * @see com.apple.foundationdb.record.cursors.MapWhileCursor
@@ -194,7 +124,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
         /**
          * The limit on the amount of time that a scan can take was reached.
-         * {@link #getContinuation()} may return a continuation for resuming the scan.
+         * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
          * Note that is it possible for <code>TIME_LIMIT_REACHED</code> to be returned before
          * any actual records if a complex scan takes a lot of work to reach the requested records,
@@ -206,7 +136,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
         /**
          * The limit on the number of records to scan was reached.
-         * {@link #getContinuation()} may return a continuation for resuming the scan.
+         * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          *
          * Note that it is possible for <code>SCAN_LIMIT_REACHED</code> to be returned before any actual records if
          * a scan retrieves many records that are discarded, such as by a filter or type filter.
@@ -217,7 +147,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
         /**
          * The limit on the number of bytes to scan was reached.
-         * {@link #getContinuation()} may return a continuation for resuming the scan.
+         * {@link RecordCursorResult#getContinuation()} may return a continuation for resuming the scan.
          * Note that it is possible for <code>BYTE_LIMIT_REACHED</code> to be returned before any actual records if
          * a scan retrieves many bytes for records that are discarded, such as by a filter or type filter.
          * @see ExecuteProperties.Builder#setScannedBytesLimit(long)
@@ -243,7 +173,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
         /**
          * Does this reason indicate that there is no more data available?
-         * These are the cases in which {@link #getContinuation} would return <code>null</code>.
+         * These are the cases in which {@link RecordCursorResult#getContinuation()} would return <code>null</code>.
          * @return {@code true} if the source of this cursor is completely exhausted and no completion is possible
          */
         public boolean isSourceExhausted() {
@@ -259,18 +189,6 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
             return this != SOURCE_EXHAUSTED;
         }
     }
-
-    /**
-     * Get the reason that the cursor has reached the end and returned <code>false</code> for {@link #hasNext}.
-     * If <code>hasNext</code> was not called or returned <code>true</code> last time, the result is undefined and
-     * may be an exception.
-     * @return the reason that the cursor stopped
-     * @deprecated in favor of the {@link #onNext()} method or advancing the cursor {@link #asIterator()}
-     */
-    @API(API.Status.DEPRECATED)
-    @Nonnull
-    @Deprecated
-    NoNextReason getNoNextReason();
 
     /**
      * Asynchronously return the next result from this cursor. When complete, the future will contain a
@@ -508,18 +426,6 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     /**
-     * Get a new cursor that will only return records up to the given limit. This is deprecated, and callers should
-     * use {@link #limitRowsTo(int)} instead.
-     * @deprecated Use {@link #limitRowsTo(int)} instead.
-     * @param limit the maximum number of records to return
-     * @return a new cursor that will return at most {@code limit} records
-     */
-    @Deprecated
-    default RecordCursor<T> limitTo(int limit) {
-        return limitRowsTo(limit);
-    }
-
-    /**
      * Get a new cursor that will only return records up to the given limit.
      * @param limit the maximum number of records to return
      * @return a new cursor that will return at most {@code limit} records
@@ -555,44 +461,49 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     /**
-     * Get a new cursor by applying the given cursor generating function to the records in this cursor.
-     * @param func the function to apply to each record
+     * Apply a given cursor generating function to each result from an outer cursor and chain the results together.
+     * Users should typically supply a {@code checker} function for safety. For more details, see
+     * {@link #flatMapPipelined(Function, BiFunction, Function, byte[], int)}.
+     *
+     * @param outerFunc a function that takes the outer continuation and returns the outer cursor
+     * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor
+     * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start
      * @param pipelineSize the number of cursors from applications of the mapping function to open ahead of time
-     * @param <V> the result type of the mapping function
+     * @param <T> the result type of the outer cursor
+     * @param <V> the result type of the inner cursor produced by the mapping function
      * @return a new cursor that applies the given function to produce a cursor of records that gets flattened
-     * @deprecated because it does not support continuations and is easy to misuse.
-     *             Use {@link #flatMapPipelined(Function, BiFunction, byte[], int)} instead.
      */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    @Nonnull
-    default <V> RecordCursor<V> flatMapPipelined(@Nonnull Function<T, ? extends RecordCursor<V>> func, int pipelineSize) {
-        return new FlatMapPipelinedCursor<>(this, (t, cignore) -> func.apply(t),
-                null, null, null, null,
-                pipelineSize);
-    }
-
     @Nonnull
     static <T, V> RecordCursor<V> flatMapPipelined(@Nonnull Function<byte[], ? extends RecordCursor<T>> outerFunc,
-                                                          @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
-                                                          @Nullable byte[] continuation,
-                                                          int pipelineSize) {
+                                                   @Nonnull BiFunction<T, byte[], ? extends RecordCursor<V>> innerFunc,
+                                                   @Nullable byte[] continuation,
+                                                   int pipelineSize) {
         return flatMapPipelined(outerFunc, innerFunc, null, continuation, pipelineSize);
     }
 
     /**
-     * Resume a nested cursor with the given continuation or start if <code>null</code>.
-     * @param outerFunc a function that takes the outer continuation and returns the outer cursor.
-     * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor.
-     * @param checker a function that takes an outer record and returns a way of recognizing it again or <code>null</code>.
+     * Apply a given cursor generating function to each result from an outer cursor and chain the results together. The
+     * resulting cursor can be resumed with the given continuation or started from the beginning if the continuation is
+     * {@code null}.
+     *
+     * <p>
+     * The {@code checker} function, if specified, allows the cursor to determine if the outer cursor has been resumed
+     * from a continuation to the same place where it left off the last time, and it is intended as a safety guarantee.
      * When computing the continuation, this is called on the current outer record and the result, if not <code>null</code>,
      * becomes part of the continuation. When this continuation is used, the function (presumably the same one) is called
      * on the outer record again. If the results match, the inner cursor picks up where it left off. If not, the entire
-     * inner cursor is run.
+     * inner cursor is run again from the start.
      * This handles common cases of the data changing between transactions, such as the outer record being deleted (skip rest of inner record)
      * or a new record being inserted right before it (do full inner cursor, not partial based on previous).
-     * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start.
-     * @param pipelineSize the number of outer items to work ahead; inner cursors for these will be started in parallel.
+     * If a null {@code checker} function is passed in, this check is skipped, and the cursor assumes the outer
+     * cursor is correctly positioned.
+     * </p>
+     *
+     * @param outerFunc a function that takes the outer continuation and returns the outer cursor
+     * @param innerFunc a function that takes an outer record and an inner continuation and returns the inner cursor
+     * @param checker a function that takes an outer record and returns a way of recognizing it again
+     * @param continuation the continuation returned from a previous instance of this pipeline or <code>null</code> at start
+     * @param pipelineSize the number of outer items to work ahead; inner cursors for these will be started in parallel
      * @param <T> the result type of the outer cursor
      * @param <V> the result type of the inner cursor produced by the mapping function
      * @return a {@link FlatMapPipelinedCursor} that maps the inner function across the results of the outer function
@@ -780,21 +691,6 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     }
 
     /**
-     * Get a new cursor that substitutes another cursor if this cursor is empty.
-     * @param func function to be called if the cursor is empty to give another source of records
-     * @return a new cursor that returns the same records as this cursor 
-     * or the result of {@code func} if this cursor does not produce any records
-     * @deprecated because it does not support continuations and is easy to misuse.
-     *             Use {@link #flatMapPipelined(Function, BiFunction, byte[], int)} instead.
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    @Nonnull
-    default RecordCursor<T> orElse(@Nonnull Function<Executor, RecordCursor<T>> func) {
-        return new OrElseCursor<>(this, func);
-    }
-
-    /**
      * Get a new cursor that substitutes another cursor if a given inner cursor is empty.
      * If a nonnull continuation is provided, it must come from a cursor that is structurally identical to the
      * cursor being defined.
@@ -825,9 +721,6 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
 
     @Nonnull
     static <T> RecordCursor<T> fromIterator(@Nonnull Executor executor, @Nonnull Iterator<T> iterator) {
-        if (iterator instanceof RecordCursor) {
-            return (RecordCursor<T>)iterator;
-        }
         if (iterator instanceof AsyncIterator) {
             return new AsyncIteratorCursor<>(executor, (AsyncIterator<T>)iterator);
         }
@@ -853,7 +746,7 @@ public interface RecordCursor<T> extends AutoCloseable, Iterator<T> {
     /**
      * Get a new cursor from an ordinary <code>List</code>, skipping ahead according to the given continuation.
      * @param list the list of records
-     * @param continuation the result of {@link #getContinuation()} from an earlier list cursor.
+     * @param continuation the result of {@link RecordCursorResult#getContinuation()} from an earlier list cursor.
      * @param <T> the type of elements of {@code list}
      * @return a new cursor that produces the items of {@code list}, resuming if {@code continuation} is not {@code null}
      */

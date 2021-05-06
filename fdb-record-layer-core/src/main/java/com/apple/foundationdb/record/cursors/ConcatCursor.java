@@ -37,7 +37,6 @@ import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -65,16 +64,10 @@ public class ConcatCursor<T> implements RecordCursor<T> {
     @Nullable
     private RecordCursor<T> secondCursor;
     @Nullable
-    private CompletableFuture<Boolean> hasNextFuture;
-    @Nullable
     private RecordCursorResult<T> nextResult;
     @Nullable
     private byte[] currentCursorContinuation;
     private int rowLimit;
-
-    // for detecting incorrect cursor usage
-    // i.e. it is ambiguous to ask for a continuation between onHasNext and onNext calls
-    private boolean mayGetContinuation = false;
 
     @API(API.Status.EXPERIMENTAL)
     public ConcatCursor(@Nonnull FDBRecordContext context,
@@ -143,7 +136,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
     @Nonnull
     private RecordCursorResult<T> postProcess(RecordCursorResult<T> result) {
         nextResult = getConcatResult(result);
-        mayGetContinuation = !result.hasNext(); // shim to support old continuation style
         return nextResult;
     }
 
@@ -165,45 +157,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         return concatResult;
     }
 
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (hasNextFuture == null) {
-            mayGetContinuation = false;
-            hasNextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return hasNextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public T next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        mayGetContinuation = true;
-        hasNextFuture = null;
-        return nextResult.get();
-    }
-
-
-    @Nullable
-    @Override
-    @Deprecated
-    public byte[] getContinuation() {
-        IllegalContinuationAccessChecker.check(mayGetContinuation);
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
-    }
-
     @Override
     public void close() {
         if (secondCursor != null) {
@@ -212,10 +165,6 @@ public class ConcatCursor<T> implements RecordCursor<T> {
 
         if (firstCursor != null) {
             firstCursor.close();
-        }
-
-        if (hasNextFuture != null) {
-            hasNextFuture.cancel(false);
         }
     }
 

@@ -70,21 +70,6 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
     /**
      * Create an extended directory layer.
      *
-     * @param context the context that will be used to resolve the provided path into the subspace at which
-     *   the directory layer will be created. This context is only used during the construction of the
-     *   this class is not subsequently used
-     * @param path the path at which the directory layer should store its mappings.
-     * @deprecated use {@link #ExtendedDirectoryLayer(FDBDatabase, ResolvedKeySpacePath)} instead
-     */
-    @Deprecated
-    @API(API.Status.DEPRECATED)
-    public ExtendedDirectoryLayer(@Nonnull FDBRecordContext context, @Nonnull KeySpacePath path) {
-        this(context.getDatabase(), path, path.toResolvedPathAsync(context));
-    }
-
-    /**
-     * Create an extended directory layer.
-     *
      * @param database database that will be used when resolving values
      * @param path the path at which the directory layer should store its mappings.
      */

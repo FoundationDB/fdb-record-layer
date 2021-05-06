@@ -43,19 +43,6 @@ public class InvalidIndexEntry {
     @Nullable
     private FDBStoredRecord<Message> record;
 
-    /**
-     * Construct an invalid index entry including the entry and the reason why it is invalid.
-     * @param entry the invalid index entry
-     * @param reason the reason why this entry is invalid
-     * @deprecated in favor of {@link #newOrphan(IndexEntry)} or {@link #newMissing(IndexEntry, FDBStoredRecord)}
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public InvalidIndexEntry(@Nonnull IndexEntry entry, @Nonnull Reason reason) {
-        this.entry = entry;
-        this.reason = reason;
-    }
-
     private InvalidIndexEntry(@Nonnull IndexEntry entry, @Nonnull Reason reason, @Nullable FDBStoredRecord<Message> record) {
         this.entry = entry;
         this.reason = reason;

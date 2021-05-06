@@ -54,17 +54,11 @@ import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -85,36 +79,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  * Tests for {@link RecordMetaDataBuilder}.
  */
 public class RecordMetaDataBuilderTest {
-    @SuppressWarnings("deprecation")
     private RecordMetaDataBuilder createBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                                boolean deprecatedWay, boolean useCounterBasedSubspaceKey) {
-        RecordMetaDataBuilder builder;
-        if (deprecatedWay) {
-            builder = new RecordMetaDataBuilder(fileDescriptor);
-        } else {
-            builder = RecordMetaData.newBuilder();
-            if (useCounterBasedSubspaceKey) {
-                builder.enableCounterBasedSubspaceKeys();
-            }
-            builder.setRecords(fileDescriptor);
+                                                boolean useCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder();
+        if (useCounterBasedSubspaceKey) {
+            builder.enableCounterBasedSubspaceKeys();
         }
+        builder.setRecords(fileDescriptor);
         return builder;
     }
 
-    static Stream<Arguments> indexTestArguments() {
-        List<Arguments> args = new ArrayList<>();
-        for (boolean deprecatedWay : Arrays.asList(false, true)) {
-            for (boolean indexCounterBasedSubspaceKey : Arrays.asList(false, true)) {
-                args.add(Arguments.of(deprecatedWay, indexCounterBasedSubspaceKey));
-            }
-        }
-        return args.stream();
-    }
-
-    @ParameterizedTest(name = "caching [deprecatedWay = {0}]")
-    @BooleanSource
-    public void caching(final boolean deprecatedWay) {
-        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), deprecatedWay, true);
+    @Test
+    public void caching() {
+        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), true);
         RecordMetaData metaData1 = builder.getRecordMetaData();
         assertSame(metaData1, builder.getRecordMetaData());
         builder.addIndex("MySimpleRecord", "MySimpleRecord$PRIMARY", "rec_no");
@@ -140,31 +117,27 @@ public class RecordMetaDataBuilderTest {
         }
     }
 
-    @ParameterizedTest(name = "primaryIndexDoesNotOverlapPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
-    @MethodSource("indexTestArguments")
-    public void primaryIndexDoesOverlapPrimaryKey(final boolean deprecatedWay, final boolean indexCounterBasedSubspaceKey) {
-        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(),
-                deprecatedWay,
-                indexCounterBasedSubspaceKey);
+    @ParameterizedTest(name = "primaryIndexDoesOverlapPrimaryKey [indexCounterBasedSubspaceKey = {0}]")
+    @BooleanSource
+    public void primaryIndexDoesOverlapPrimaryKey(final boolean indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), indexCounterBasedSubspaceKey);
         builder.addIndex("MySimpleRecord", "MySimpleRecord$PRIMARY", "rec_no");
         RecordMetaData metaData = builder.getRecordMetaData();
         Index index = metaData.getIndex("MySimpleRecord$PRIMARY");
         assertNotNull(index);
         assertNotNull(index.getPrimaryKeyComponentPositions());
         assertArrayEquals(new int[] {0}, index.getPrimaryKeyComponentPositions());
-        if (deprecatedWay || !indexCounterBasedSubspaceKey) {
+        if (!indexCounterBasedSubspaceKey) {
             assertEquals(index.getName(), index.getSubspaceKey());
         } else {
             assertEquals(4L, index.getSubspaceKey());
         }
     }
 
-    @ParameterizedTest(name = "indexOnNestedPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
-    @MethodSource("indexTestArguments")
-    public void indexOnNestedPrimaryKey(final boolean deprecatedWay, final boolean indexCounterBasedSubspaceKey) {
-        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(),
-                deprecatedWay,
-                indexCounterBasedSubspaceKey);
+    @ParameterizedTest(name = "indexOnNestedPrimaryKey [indexCounterBasedSubspaceKey = {0}]")
+    @BooleanSource
+    public void indexOnNestedPrimaryKey(final boolean indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(), indexCounterBasedSubspaceKey);
         builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest("rec_no"));
         builder.addIndex("MyRecord", new Index("MyRecord$PRIMARY",
@@ -175,19 +148,17 @@ public class RecordMetaDataBuilderTest {
         assertNotNull(index);
         assertNotNull(index.getPrimaryKeyComponentPositions());
         assertArrayEquals(new int[] {0}, index.getPrimaryKeyComponentPositions());
-        if (deprecatedWay || !indexCounterBasedSubspaceKey) {
+        if (!indexCounterBasedSubspaceKey) {
             assertEquals(index.getName(), index.getSubspaceKey());
         } else {
             assertEquals(1L, index.getSubspaceKey());
         }
     }
 
-    @ParameterizedTest(name = "uniqueIndexOnNestedPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
-    @MethodSource("indexTestArguments")
-    public void uniqueIndexOverlappingWithNestedPrimaryKey(final boolean deprecatedWay, final boolean indexCounterBasedSubspaceKey) {
-        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(),
-                deprecatedWay,
-                indexCounterBasedSubspaceKey);
+    @ParameterizedTest(name = "uniqueIndexOverlappingWithNestedPrimaryKey [indexCounterBasedSubspaceKey = {0}]")
+    @BooleanSource
+    public void uniqueIndexOverlappingWithNestedPrimaryKey(final boolean indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(), indexCounterBasedSubspaceKey);
         builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest(concat(field("num"), field("rec_no"))));
         builder.addIndex("MyRecord", new Index("MyRecord$num-str-unique-1",
@@ -201,7 +172,7 @@ public class RecordMetaDataBuilderTest {
         assertArrayEquals(new int[] {0, -1}, index1.getPrimaryKeyComponentPositions());
         Index index2 = metaData.getIndex("MyRecord$num-str-unique-2");
         assertArrayEquals(new int[] {0, -1}, index2.getPrimaryKeyComponentPositions());
-        if (deprecatedWay || !indexCounterBasedSubspaceKey) {
+        if (!indexCounterBasedSubspaceKey) {
             assertEquals(index1.getName(), index1.getSubspaceKey());
             assertEquals(index2.getName(), index2.getSubspaceKey());
         } else {
@@ -210,11 +181,10 @@ public class RecordMetaDataBuilderTest {
         }
     }
 
-    @ParameterizedTest(name = "indexOnPartialNestedPrimaryKey [deprecatedWay = {0}, indexCounterBasedSubspaceKey = {1}]")
-    @MethodSource("indexTestArguments")
-    public void indexOnPartialNestedPrimaryKey(final boolean deprecatedWay, final boolean indexCounterBasedSubspaceKey) {
-        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(),
-                deprecatedWay, indexCounterBasedSubspaceKey);
+    @ParameterizedTest(name = "indexOnPartialNestedPrimaryKey [indexCounterBasedSubspaceKey = {0}]")
+    @BooleanSource
+    public void indexOnPartialNestedPrimaryKey(final boolean indexCounterBasedSubspaceKey) {
+        RecordMetaDataBuilder builder = createBuilder(TestRecordsWithHeaderProto.getDescriptor(), indexCounterBasedSubspaceKey);
         builder.getRecordType("MyRecord")
                 .setPrimaryKey(field("header").nest(concatenateFields("path", "rec_no")));
         builder.addIndex("MyRecord", new Index("MyRecord$path_str",
@@ -226,18 +196,17 @@ public class RecordMetaDataBuilderTest {
         assertNotNull(index);
         assertNotNull(index.getPrimaryKeyComponentPositions());
         assertArrayEquals(new int[] {0, -1}, index.getPrimaryKeyComponentPositions());
-        if (deprecatedWay || !indexCounterBasedSubspaceKey) {
+        if (!indexCounterBasedSubspaceKey) {
             assertEquals(index.getName(), index.getSubspaceKey());
         } else {
             assertEquals(1L, index.getSubspaceKey());
         }
     }
 
-    @ParameterizedTest(name = "setEvolutionValidatorAfterRecords [deprecatedWay = {0}]")
-    @BooleanSource
-    public void setEvolutionValidatorAfterRecords(final boolean deprecatedWay) {
+    @Test
+    public void setEvolutionValidatorAfterRecords() {
         final MetaDataEvolutionValidator defaultValidator = MetaDataEvolutionValidator.getDefaultInstance();
-        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), deprecatedWay, true);
+        RecordMetaDataBuilder builder = createBuilder(TestRecords1Proto.getDescriptor(), true);
         assertSame(defaultValidator, builder.getEvolutionValidator());
         MetaDataEvolutionValidator secondValidator = MetaDataEvolutionValidator.newBuilder().setAllowIndexRebuilds(true).build();
         MetaDataException e = assertThrows(MetaDataException.class, () -> builder.setEvolutionValidator(secondValidator));
@@ -282,16 +251,13 @@ public class RecordMetaDataBuilderTest {
     }
 
     @Test
-    @SuppressWarnings("deprecation")
     public void selfContainedMetaData() {
-        // Using the deprecated constructor to ensure that the output of the new builder equals the old one.
-        RecordMetaDataBuilder builder = new RecordMetaDataBuilder(TestRecordsChained1Proto.getDescriptor());
-        RecordMetaDataProto.MetaData metaData = builder.getRecordMetaData().toProto();
+        RecordMetaData recordMetaData = RecordMetaData.build(TestRecordsChained1Proto.getDescriptor());
+        RecordMetaDataProto.MetaData metaData = recordMetaData.toProto();
 
-        // Rebuild from proto and file descriptor
-        RecordMetaData recordMetaData = RecordMetaData.build(metaData);
-        MetaDataProtoTest.verifyEquals(builder.getRecordMetaData(), recordMetaData);
-        MetaDataProtoTest.verifyEquals(recordMetaData, RecordMetaData.build(TestRecordsChained1Proto.getDescriptor()));
+        // Rebuild from proto
+        RecordMetaData fromProto = RecordMetaData.build(metaData);
+        MetaDataProtoTest.verifyEquals(recordMetaData, fromProto);
 
         // Basic setRecords
         RecordMetaDataBuilder builder2 = RecordMetaData.newBuilder().setRecords(metaData);
@@ -323,6 +289,7 @@ public class RecordMetaDataBuilderTest {
         assertNotSame(dep2, dep4);
 
         // Add and remove index
+        RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsChained1Proto.getDescriptor());
         int version = builder.getVersion();
         builder.addIndex("MySimpleRecord", "MySimpleRecord$testIndex", "rec_no");
         assertEquals(builder.getVersion(), version + 1);

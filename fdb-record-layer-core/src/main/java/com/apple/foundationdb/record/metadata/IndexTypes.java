@@ -69,6 +69,7 @@ public class IndexTypes {
      * @deprecated use {@link #MIN_EVER_LONG} for compatibility with existing data or {@link #MIN_EVER_TUPLE} for more flexibility
      */
     @Deprecated
+    // Deprecated for new usage, but this can't really be removed because old meta-data might include it.
     public static final String MIN_EVER = FunctionNames.MIN_EVER;
 
     /**
@@ -76,6 +77,7 @@ public class IndexTypes {
      * @deprecated use {@link #MAX_EVER_LONG} for compatibility with existing data or {@link #MAX_EVER_TUPLE} for more flexibility
      */
     @Deprecated
+    // Deprecated for new usage, but this can't really be removed because old meta-data might include it.
     public static final String MAX_EVER = FunctionNames.MAX_EVER;
 
     /**

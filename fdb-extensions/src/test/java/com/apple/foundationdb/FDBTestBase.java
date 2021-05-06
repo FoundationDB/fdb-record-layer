@@ -28,7 +28,7 @@ import org.junit.jupiter.api.BeforeAll;
 public abstract class FDBTestBase {
     @BeforeAll
     public static void setupFDB() {
-        FDB fdb = FDB.selectAPIVersion(620);
+        FDB fdb = FDB.selectAPIVersion(630);
         fdb.setUnclosedWarning(true);
     }
 }

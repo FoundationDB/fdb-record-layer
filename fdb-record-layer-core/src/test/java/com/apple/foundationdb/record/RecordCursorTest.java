@@ -48,7 +48,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -106,7 +105,7 @@ public class RecordCursorTest {
 
     protected class AsyncCountdown implements RecordCursor<Integer> {
         int count;
-        int onHasNextCalled;
+        int onNextCalled;
 
         public AsyncCountdown(int count) {
             this.count = count;
@@ -115,7 +114,7 @@ public class RecordCursorTest {
         @Nonnull
         @Override
         public CompletableFuture<RecordCursorResult<Integer>> onNext() {
-            onHasNextCalled++;
+            onNextCalled++;
             return CompletableFuture.completedFuture(count).thenApplyAsync(c -> {
                 count--;
                 if (c > 0) {
@@ -124,36 +123,6 @@ public class RecordCursorTest {
                     return RecordCursorResult.withoutNextValue(RecordCursorEndContinuation.END, NoNextReason.SOURCE_EXHAUSTED);
                 }
             }, getExecutor());
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public CompletableFuture<Boolean> onHasNext() {
-            onHasNextCalled++;
-            // Use thenApplyAsync to deliberately introduce a delay.
-            return CompletableFuture.completedFuture(count).thenApplyAsync(c -> c > 0, getExecutor());
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public Integer next() {
-            return count--;
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public byte[] getContinuation() {
-            return null;
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public NoNextReason getNoNextReason() {
-            return NoNextReason.SOURCE_EXHAUSTED;
         }
 
         @Override
@@ -178,7 +147,7 @@ public class RecordCursorTest {
         AsyncCountdown cursor = new AsyncCountdown(100);
         RecordCursor<Integer> map = cursor.mapPipelined(i -> delayedFuture(i, 10), 10);
         assertEquals(IntStream.range(0, 100).mapToObj(i -> 100 - i).collect(Collectors.toList()), map.asList().join());
-        assertThat(cursor.onHasNextCalled, Matchers.lessThanOrEqualTo(102));
+        assertThat(cursor.onNextCalled, Matchers.lessThanOrEqualTo(102));
     }
 
     @Test
@@ -1120,34 +1089,6 @@ public class RecordCursorTest {
             }, getExecutor());
         }
 
-        @Nonnull
-        @Override
-        @Deprecated
-        public CompletableFuture<Boolean> onHasNext() {
-            return onNext().thenApply(RecordCursorResult::hasNext);
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public String next() {
-            throw new NoSuchElementException();
-        }
-
-        @Nullable
-        @Override
-        @Deprecated
-        public byte[] getContinuation() {
-            return null;
-        }
-
-        @Nonnull
-        @Override
-        @Deprecated
-        public NoNextReason getNoNextReason() {
-            return NoNextReason.SOURCE_EXHAUSTED;
-        }
-
         @Override
         public void close() {
         }
@@ -1167,7 +1108,7 @@ public class RecordCursorTest {
 
     @Test
     public void hasNextErrorStack() throws Exception {
-        final Iterator<String> erring = new BrokenCursor();
+        final Iterator<String> erring = new BrokenCursor().asIterator();
         try {
             Iterators.getLast(erring, null);
         } catch (Exception ex) {

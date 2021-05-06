@@ -142,100 +142,6 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
         syntheticRecordTypes = new HashMap<>();
     }
 
-    /**
-     * Creates a new builder from the provided record types protobuf.
-     * @param fileDescriptor a file descriptor containing all the record types in the metadata
-     * @deprecated use {@link RecordMetaData#newBuilder()} instead
-     */
-    @Deprecated
-    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor) {
-        this(fileDescriptor, true);
-    }
-
-    /**
-     * Creates a new builder from the provided record types protobuf.
-     * @param fileDescriptor a file descriptor containing all the record types in the metadata
-     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
-     * @deprecated use {@link RecordMetaData#newBuilder()} instead
-     */
-    @Deprecated
-    public RecordMetaDataBuilder(@Nonnull Descriptors.FileDescriptor fileDescriptor,
-                                 boolean processExtensionOptions) {
-        this();
-        loadFromFileDescriptor(fileDescriptor, processExtensionOptions);
-    }
-
-    /**
-     * Creates a new builder from the provided meta-data protobuf.
-     *
-     * This constructor assumes that {@code metaDataProto} is not the result of {@link RecordMetaData#toProto} and will not already
-     * include all the indexes defined by any original extension options, so that they still need to be processed.
-     * If {@code metaDataProto} is the result of {@code toProto} and indexes also appear in extension options, a duplicate index
-     * error will result. In that case, {@link #RecordMetaDataBuilder(RecordMetaDataProto.MetaData, boolean)} will be needed instead.
-     *
-     * @param metaDataProto the protobuf form of the meta-data
-     * @deprecated use {@link RecordMetaData#newBuilder()} instead
-     */
-    @Deprecated
-    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto) {
-        this(metaDataProto, true);
-    }
-
-    /**
-     * Creates a new builder from the provided meta-data protobuf.
-     *
-     * If {@code metaDataProto} is the result of {@link RecordMetaData#toProto}, it will already
-     * include all the indexes defined by any original extension options, so {@code processExtensionOptions}
-     * should be {@code false}.
-     *
-     * @param metaDataProto the protobuf form of the meta-data
-     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
-     * @deprecated use {@link RecordMetaData#newBuilder()} instead
-     */
-    @Deprecated
-    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
-                                 boolean processExtensionOptions) {
-        this(metaDataProto, new Descriptors.FileDescriptor[] { RecordMetaDataOptionsProto.getDescriptor() }, processExtensionOptions);
-    }
-
-    /**
-     * Creates a new builder from the provided meta-data protobuf.
-     *
-     * This constructor assumes that {@code metaDataProto} is not the result of {@link RecordMetaData#toProto} and will not already
-     * include all the indexes defined by any original extension options, so that they still need to be processed.
-     * If {@code metaDataProto} is the result of {@code toProto} and indexes also appear in extension options, a duplicate index
-     * error will result. In that case, {@link #RecordMetaDataBuilder(RecordMetaDataProto.MetaData, Descriptors.FileDescriptor[], boolean)} will be needed instead.
-     *
-     * @param metaDataProto the protobuf form of the meta-data
-     * @param dependencies other files imported by the record types protobuf
-     * @deprecated use {@link RecordMetaData#newBuilder()} instead
-     */
-    @Deprecated
-    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
-                                 @Nonnull Descriptors.FileDescriptor[] dependencies) {
-        this(metaDataProto, dependencies, true);
-    }
-
-    /**
-     * Creates a new builder from the provided meta-data protobuf.
-     *
-     * If {@code metaDataProto} is the result of {@link RecordMetaData#toProto}, it will already
-     * include all the indexes defined by any original extension options, so {@code processExtensionOptions}
-     * should be {@code false}.
-     *
-     * @param metaDataProto the protobuf form of the meta-data
-     * @param dependencies other files imported by the record types protobuf
-     * @param processExtensionOptions whether to add primary keys and indexes based on extensions in the protobuf
-     * @deprecated use {@link RecordMetaData#newBuilder()} instead
-     */
-    @Deprecated
-    public RecordMetaDataBuilder(@Nonnull RecordMetaDataProto.MetaData metaDataProto,
-                                 @Nonnull Descriptors.FileDescriptor[] dependencies,
-                                 boolean processExtensionOptions) {
-        this();
-        loadFromProto(metaDataProto, dependencies, processExtensionOptions);
-    }
-
     private void processSchemaOptions(boolean processExtensionOptions) {
         if (processExtensionOptions) {
             RecordMetaDataOptionsProto.SchemaOptions schemaOptions = recordsDescriptor.getOptions()
@@ -1250,6 +1156,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
     @Nullable
     @Deprecated
     @API(API.Status.DEPRECATED)
+    // Deprecated for new usage, but this can't really be removed because old meta-data might include it.
     public KeyExpression getRecordCountKey() {
         return recordCountKey;
     }
@@ -1261,6 +1168,7 @@ public class RecordMetaDataBuilder implements RecordMetaDataProvider {
      */
     @Deprecated
     @API(API.Status.DEPRECATED)
+    // Deprecated for new usage, but this can't really be removed because old meta-data might include it.
     public void setRecordCountKey(KeyExpression recordCountKey) {
         if (recordsDescriptor == null) {
             throw new MetaDataException("No records added yet");
