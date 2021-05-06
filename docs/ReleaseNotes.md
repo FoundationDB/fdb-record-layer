@@ -26,22 +26,30 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Methods to estimate the size of a record store are now exposed [(Issue #1229)](https://github.com/FoundationDB/fdb-record-layer/issues/1229)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+
+// end next release
+-->
+
+### 3.0.181.0
+
+* **Feature** Methods to estimate the size of a record store are now exposed [(Issue #1229)](https://github.com/FoundationDB/fdb-record-layer/issues/1229)
 * **Breaking change** The iterator style `RecordCursor` API is removed [(Issue #1136)](https://github.com/FoundationDB/fdb-record-layer/issues/1136)
 * **Breaking change** The `RecordCursor::limitTo` method has been removed in favor of `RecordCursor::limitRowsTo` [(Issue #1189)](https://github.com/FoundationDB/fdb-record-layer/issues/1189)
 * **Breaking change** The `RecordCursor::orElse` and `RecordCursor::flatMapPipelined` methods have been removed in favor of variants that allow for continuations to be correctly handled [(Issue #1189)](https://github.com/FoundationDB/fdb-record-layer/issues/1189)
 * **Breaking change** Remove non-controversial deprecated methods [(Issue #1191)](https://github.com/FoundationDB/fdb-record-layer/issues/1191)
 * **Breaking change** Indexes on existing stores will now default to the `DISABLED` `IndexState` instead of `WRITE_ONLY` if they cannot be built inline [(Issue #1213)](https://github.com/FoundationDB/fdb-record-layer/issues/1213)
 * **Breaking change** Increased the versions of our dependencies, including Protobuf (to 3.15.6) and Guava (to 30.1-jre) [(Issue #1193)](https://github.com/FoundationDB/fdb-record-layer/issues/1193)
-* **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Requires a minimum FoundationDB client and server version of 6.3 [(Issue #1201)](https://github.com/FoundationDB/fdb-record-layer/issues/1201)
-// end next release
--->
-
 ## 2.10
 
 ### Breaking Changes
