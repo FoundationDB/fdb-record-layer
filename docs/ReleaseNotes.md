@@ -16,7 +16,7 @@ Another, smaller change that has been made is that by default, new indexes added
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Bug fix** The `AutoService` annotations are no longer retained at in published jars as was the case prior to [3.0.181.0](#301810) [(Issue #1281)](https://github.com/FoundationDB/fdb-record-layer/issues/1281)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
