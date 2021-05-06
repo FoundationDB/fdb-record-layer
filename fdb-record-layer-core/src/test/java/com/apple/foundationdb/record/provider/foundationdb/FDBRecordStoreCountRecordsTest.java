@@ -57,6 +57,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.core.Is.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -361,10 +362,9 @@ public class FDBRecordStoreCountRecordsTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             Index countIndex = recordStore.getRecordMetaData().getIndex("record_count");
-            assertThat(recordStore.getRecordStoreState().isWriteOnly(countIndex), is(true));
-            recordStore.getSnapshotRecordCount().get();
-            fail("evaluated count with write-only index");
-        } catch (RecordCoreException e) {
+            assertThat(recordStore.getRecordStoreState().isReadable(countIndex), is(false));
+            assertThat(recordStore.getRecordStoreState().isDisabled(countIndex), is(true));
+            RecordCoreException e = assertThrows(RecordCoreException.class, () -> recordStore.getSnapshotRecordCount().get());
             assertThat(e.getMessage(), containsString("requires appropriate index"));
         }
 

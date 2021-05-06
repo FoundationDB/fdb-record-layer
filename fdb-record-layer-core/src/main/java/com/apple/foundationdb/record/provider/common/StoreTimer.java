@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.util.MapUtils;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,7 +37,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -324,21 +322,6 @@ public class StoreTimer {
          * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
          * @param events the events that are to be aggregated into the resulting {@code Counteer}
          * @return the computed result or null if none of the value that comprise this aggregate were available
-         * @deprecated use {@link #compute(StoreTimer, Set)} instead
-         */
-        @Nullable
-        @Deprecated
-        @API(API.Status.DEPRECATED)
-        default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Event...events) {
-            return compute(storeTimer, ImmutableSet.copyOf(events));
-        }
-
-        /**
-         * Compute the value for this aggregate.
-         *
-         * @param storeTimer the time from which to draw the values that are necessary to compute this aggregate
-         * @param events the events that are to be aggregated into the resulting {@code Counteer}
-         * @return the computed result or null if none of the value that comprise this aggregate were available
          */
         @Nullable
         default Counter compute(@Nonnull StoreTimer storeTimer, @Nonnull Set<? extends Event> events) {
@@ -365,7 +348,7 @@ public class StoreTimer {
      * {@link Event}s that are a significant part of a larger process.
      * The time in these events should be accounted for within another event and so should not be added to totals.
      */
-    public interface DetailEvent extends Event {
+    public interface DetailEvent extends StoreTimer.Event {
     }
 
     /**
@@ -373,14 +356,14 @@ public class StoreTimer {
      * The time for a {@code Wait} is the time actually waiting, which may be shorter than the time for the asynchronous
      * operation itself.
      */
-    public interface Wait extends Event {
+    public interface Wait extends StoreTimer.Event {
     }
 
     /**
      * {@link Event}s that only count occurrences or total size.
      * There is no meaningful time duration associated with these events.
      */
-    public interface Count extends Event {
+    public interface Count extends StoreTimer.Event {
         /**
          * Get whether the count value is actually a size in bytes.
          *
@@ -532,19 +515,6 @@ public class StoreTimer {
      */
     public void record(Event event, long timeDifferenceNanos) {
         getCounter(event, true).record(timeDifferenceNanos);
-    }
-
-    /**
-     * Deprecated. Record that an event occurred once. Users should use
-     * {@link #increment(Count)} instead.
-     *
-     * @param event the event being recorded
-     *
-     * @deprecated replaced with {@link #increment(Count)}
-     */
-    @Deprecated
-    public void record(@Nonnull Count event) {
-        increment(event);
     }
 
     /**
@@ -821,7 +791,7 @@ public class StoreTimer {
 
     /**
      * Instrument an asynchronous cursor.
-     * Timing information is recorded for each invocation of the {@link RecordCursor#onHasNext()} asynchronous method.
+     * Timing information is recorded for each invocation of the {@link RecordCursor#onNext()} asynchronous method.
      *
      * @param event the event type to use to record timing
      * @param inner the cursor to record timing information for
@@ -831,7 +801,6 @@ public class StoreTimer {
      */
     public <T> RecordCursor<T> instrument(Event event, RecordCursor<T> inner) {
         return new RecordCursor<T>() {
-            CompletableFuture<Boolean> nextFuture = null;
             RecordCursorResult<T> nextResult;
 
             @Nonnull
@@ -844,46 +813,7 @@ public class StoreTimer {
             }
 
             @Override
-            @Nonnull
-            @Deprecated
-            public CompletableFuture<Boolean> onHasNext() {
-                if (nextFuture == null) {
-                    nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-                }
-                return nextFuture;
-            }
-
-            @Override
-            @Nullable
-            @Deprecated
-            public T next() {
-                if (!hasNext()) {
-                    throw new NoSuchElementException();
-                }
-                nextFuture = null;
-                return nextResult.get();
-            }
-
-            @Override
-            @Nullable
-            @Deprecated
-            public byte[] getContinuation() {
-                return nextResult.getContinuation().toBytes();
-            }
-
-            @Nonnull
-            @Override
-            @Deprecated
-            public NoNextReason getNoNextReason() {
-                return nextResult.getNoNextReason();
-            }
-
-            @Override
             public void close() {
-                if (nextFuture != null) {
-                    nextFuture.cancel(false);
-                    nextFuture = null;
-                }
                 inner.close();
             }
 

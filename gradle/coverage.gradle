@@ -70,9 +70,9 @@ def jacocoReportTask = task jacocoReport(type: JacocoReport) {
         html.destination file("${buildDir}/jacocoHtml")
     }
 
-    classDirectories = files(coverageClassesDir)
-    sourceDirectories = files(coverageSrcDir)
-    executionData = fileTree(dataDir)
+    classDirectories.from(files(coverageClassesDir))
+    sourceDirectories.from(files(coverageSrcDir))
+    executionData.from(fileTree(dataDir))
     dependsOn mergeExecFiles
 }
 

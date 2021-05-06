@@ -21,16 +21,15 @@
 package com.apple.foundationdb.record.cursors;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -44,7 +43,7 @@ import java.util.function.Function;
 @API(API.Status.MAINTAINED)
 public class MapWhileCursor<T, V> implements RecordCursor<V> {
     /**
-     * What to return for {@link #getContinuation()} after stopping.
+     * What to return for {@link RecordCursorResult#getContinuation()} after stopping.
      */
     public enum StopContinuation {
         /**
@@ -68,8 +67,6 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
     private final Function<T, Optional<V>> func;
     @Nonnull
     private final StopContinuation stopContinuation;
-    @Nullable
-    private CompletableFuture<Boolean> nextFuture;
     @Nonnull
     private RecordCursorResult<V> nextResult = RecordCursorResult.withNextValue(null, RecordCursorStartContinuation.START);
 
@@ -120,48 +117,8 @@ public class MapWhileCursor<T, V> implements RecordCursor<V> {
         }
     }
 
-    @Nonnull
-    @Override
-    @Deprecated
-    public CompletableFuture<Boolean> onHasNext() {
-        if (nextFuture == null) {
-            nextFuture = onNext().thenApply(RecordCursorResult::hasNext);
-        }
-        return nextFuture;
-    }
-
-    @Nullable
-    @Override
-    @Deprecated
-    public V next() {
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
-        nextFuture = null;
-        return nextResult.get();
-    }
-
-    @Nullable
-    @Override
-    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
-    @Deprecated
-    public byte[] getContinuation() {
-        return nextResult.getContinuation().toBytes();
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public NoNextReason getNoNextReason() {
-        return nextResult.getNoNextReason();
-    }
-
     @Override
     public void close() {
-        if (nextFuture != null) {
-            nextFuture.cancel(false);
-            nextFuture = null;
-        }
         inner.close();
     }
 

@@ -41,14 +41,6 @@ public class ExecuteState {
      */
     public static final ExecuteState NO_LIMITS = new ExecuteState(RecordScanLimiterFactory.untracked(), ByteScanLimiterFactory.untracked());
 
-    /**
-     * An empty execute state with no scan limits.
-     * @deprecated in favor of NO_LIMITS when the byte scan limit was added
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public static final ExecuteState NO_SCANNED_RECORDS_LIMIT = NO_LIMITS;
-
     @Nonnull
     private final RecordScanLimiter recordScanLimiter;
     @Nonnull
@@ -64,17 +56,6 @@ public class ExecuteState {
     public ExecuteState(@Nullable RecordScanLimiter recordScanLimiter, @Nullable ByteScanLimiter byteScanLimiter) {
         this.recordScanLimiter = recordScanLimiter == null ? RecordScanLimiterFactory.tracking() : recordScanLimiter;
         this.byteScanLimiter = byteScanLimiter == null ? ByteScanLimiterFactory.tracking() : byteScanLimiter;
-    }
-
-    /**
-     * A deprecated constructor that takes only a {@code RecordScanLimiter} and not a {@code ByteScanLimiter}.
-     * @param recordScanLimiter a {@code RecordScanLimiter} to use in this state
-     * @deprecated in favor of the constructor that takes multiple limiters
-     */
-    @API(API.Status.DEPRECATED)
-    @Deprecated
-    public ExecuteState(@Nullable RecordScanLimiter recordScanLimiter) {
-        this(recordScanLimiter, null);
     }
 
     public ExecuteState() {

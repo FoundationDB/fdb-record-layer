@@ -116,19 +116,6 @@ public class FDBTransactionContext {
     }
 
     /**
-     * Deprecated. Users should use {@link #increment(StoreTimer.Count)} instead.
-     *
-     * @param count the count to record an occurrence of
-     * @deprecated use {@link #increment(StoreTimer.Count)} instead
-     */
-    @Deprecated
-    public void record(@Nonnull StoreTimer.Count count) {
-        if (timer != null) {
-            timer.record(count);
-        }
-    }
-
-    /**
      * Record the amount of time an event took to run.
      *
      * @param event the event being recorded

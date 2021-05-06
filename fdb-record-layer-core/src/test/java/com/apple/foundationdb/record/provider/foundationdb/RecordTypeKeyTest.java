@@ -596,7 +596,7 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
             uncheckedOpenSimpleRecordStore(context, hook);
             recordStore.checkVersion(null, FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS).join();
 
-            assertTrue(recordStore.isIndexWriteOnly("newIndex"));
+            assertTrue(recordStore.isIndexDisabled("newIndex"));
 
             timer.reset();
 

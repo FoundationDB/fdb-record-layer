@@ -4,11 +4,13 @@ This document contains a log of changes to the FoundationDB Record Layer. It aim
 
 As the [versioning guide](Versioning.md) details, it cannot always be determined solely by looking at the version numbers whether one Record Layer version contains all changes included in another. In particular, bug fixes and backwards-compatible changes might be back-ported to or introduced as patches against older versions. To track when a patch version has been included in the main release train, some releases will say as a note that they contain all changes from a specific patch.
 
-## 2.10
+## 3.0
 
 ### Breaking Changes
 
-In this realase, the various implementations of the `RecordQueryPlan` interface have  moved to API stability level `INTERNAL`. This means that individual implementations may change without notice. Clients that are not creating `RecordQueryPlan` objects directly (but instead using the planner to create plans) should not be affected.
+This verison of the Record Layer removes some legacy elements of the API that were deprecated in previous releases. Most notably, it removes the methods on the `RecordCursor` interface that were compatible with Java `Iterator`s. That API was deprecated in version [2.6](#26) to make it easier for adopters to reason about continuations in asynchronous code by associating each value returned by the cursor with that value's continuation. Adopters still using the deprecated API can either use the `onNext()` and `getNext()` methods on the `RecordCursor` interface or call `asIterator()` to get a `RecordCursorIterator`, which retains compatibility with the `Iterator` interface.
+
+Another, smaller change that has been made is that by default, new indexes added to existing stores (that cannot be built in-line) are now initialized with a `DISABLED` `IndexState` whereas the index used default to a `WRITE_ONLY` state. This means that any records written to the record store prior to the index being built will not perform any I/O to update the index, which is effectively wasted work. However, all indexes must be put in the `WRITE_ONLY` state while they are being built in order to ensure that any updates to the index during the build are captured. This is something that the `OnlineIndexer` should be able to handle automatically for most users, but users of the `ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY` index state precondition may start seeing additional `RecordCoreStorageException`s with the message "Attempted to build non-write-only index" when attempting to build an index. That `IndexStatePrecondition` is not reccommended, however, and users should switch over to using a different `IndexStatePrecondition` (like the default index state precondition, `BUILD_IF_DISABLED_CONTINUE_IF_WRITE_ONLY`) instead or explicitly set the index state on the index to `WRITE_ONLY` prior to building the index. Users can also replicate the old behavior by supplying a `UserVersionChecker` implementation with an appropriate implementation of `needRebuildIndex` to the `FDBRecordStore.Builder`.
 
 <!--
 // begin next release
@@ -24,19 +26,27 @@ In this realase, the various implementations of the `RecordQueryPlan` interface 
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Methods to estimate the size of a record store are now exposed [(Issue #1229)](https://github.com/FoundationDB/fdb-record-layer/issues/1229)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** The iterator style `RecordCursor` API is removed [(Issue #1136)](https://github.com/FoundationDB/fdb-record-layer/issues/1136)
+* **Breaking change** The `RecordCursor::limitTo` method has been removed in favor of `RecordCursor::limitRowsTo` [(Issue #1189)](https://github.com/FoundationDB/fdb-record-layer/issues/1189)
+* **Breaking change** The `RecordCursor::orElse` and `RecordCursor::flatMapPipelined` methods have been removed in favor of variants that allow for continuations to be correctly handled [(Issue #1189)](https://github.com/FoundationDB/fdb-record-layer/issues/1189)
+* **Breaking change** Remove non-controversial deprecated methods [(Issue #1191)](https://github.com/FoundationDB/fdb-record-layer/issues/1191)
+* **Breaking change** Indexes on existing stores will now default to the `DISABLED` `IndexState` instead of `WRITE_ONLY` if they cannot be built inline [(Issue #1213)](https://github.com/FoundationDB/fdb-record-layer/issues/1213)
+* **Breaking change** Increased the versions of our dependencies, including Protobuf (to 3.15.6) and Guava (to 30.1-jre) [(Issue #1193)](https://github.com/FoundationDB/fdb-record-layer/issues/1193)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-
+* **Breaking change** Requires a minimum FoundationDB client and server version of 6.3 [(Issue #1201)](https://github.com/FoundationDB/fdb-record-layer/issues/1201)
 // end next release
 -->
+
+## 2.10
+
+### Breaking Changes
+
+In this realase, the various implementations of the `RecordQueryPlan` interface have  moved to API stability level `INTERNAL`. This means that individual implementations may change without notice. Clients that are not creating `RecordQueryPlan` objects directly (but instead using the planner to create plans) should not be affected.
 
 ### 2.10.180.0
 

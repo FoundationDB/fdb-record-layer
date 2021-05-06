@@ -138,17 +138,6 @@ public abstract class FDBStoreBase {
     }
 
     /**
-     * Deprecated. Users should use {@link #increment(StoreTimer.Count)} instead.
-     *
-     * @param count the event being recorded
-     * @deprecated use {@link #increment(StoreTimer.Count)} instead
-     */
-    @Deprecated
-    public void record(@Nonnull StoreTimer.Count count) {
-        context.record(count);
-    }
-
-    /**
      * Record the amount of time an event took to run.
      *
      * @param event the event being recorded

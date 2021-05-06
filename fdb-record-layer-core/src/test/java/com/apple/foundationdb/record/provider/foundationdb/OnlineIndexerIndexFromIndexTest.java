@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
@@ -308,6 +309,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
+    @Disabled("Temporarily disabled to avoid spurious test failures in CI: see https://github.com/FoundationDB/fdb-record-layer/issues/1267")
     public void testIndexFromIndexPersistentContinuation() {
         // start indexing by Index, verify continuation
         final FDBStoreTimer timer = new FDBStoreTimer();
@@ -789,6 +791,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
+    @Disabled("Temporarily disabled to avoid spurious test failures in CI: see https://github.com/FoundationDB/fdb-record-layer/issues/1267")
     public void testIndexFromIndexOtherSrcIndexWithFallback() {
         // start indexing by src_index, attempt continue with src_index2
         final FDBStoreTimer timer = new FDBStoreTimer();
