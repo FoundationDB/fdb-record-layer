@@ -65,8 +65,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         assertHash(qyery1, 602828722, 947189211);
         assertHash(qyery2, 602858513, 947189211);
         // Note that the value and the parameter hashes are different.
-        assertHash(query3, 820394820, 820394820);
-        assertHash(query4, 820394820, 820394820);
+        assertHash(query3, 970715026, 820394820);
+        assertHash(query4, 970744817, 820394820);
     }
 
     @Test
@@ -105,7 +105,7 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         assertHash(query1, -1460250793, 969320472);
         assertHash(query2, -1458344169, 969320472);
         // Note that the value and the parameter hashes are different.
-        assertHash(query3, 1206867256, 1206867256);
+        assertHash(query3, 1658304439, 1206867256);
     }
 
     @Test
@@ -148,7 +148,7 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
         assertHash(query1, -2009449196, -1665088707);
         assertHash(query2, -2009419405, -1665088707);
         // Note that value and parameter hashes are not the same
-        assertHash(query3, -1791883098, -1791883098);
+        assertHash(query3, -1643618471, -1791883098);
     }
 
     @Test
@@ -326,8 +326,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 null,
                 Collections.singletonList(field("str_value_indexed")));
 
-        assertHash(query1, -1757787510, 2089264010);
-        assertHash(query2, 1133521546, 2089264010);
+        assertHash(query1, 334321807, 2089264010);
+        assertHash(query2, -1234725093, 2089264010);
     }
 
     @Test
@@ -427,8 +427,8 @@ public class QueryHashTest extends FDBRecordStoreQueryTestBase {
                 Query.field("num_value_2").in("valuesFour"),   // num_value_2 is i%3
                 null, null);
 
-        assertHash(query1, 1554768926, 1554768926);
-        assertHash(query2, 1554768926, 1554768926);
+        assertHash(query1, -1521180076, 1554768926);
+        assertHash(query2, 998194952, 1554768926);
     }
 
     @Test

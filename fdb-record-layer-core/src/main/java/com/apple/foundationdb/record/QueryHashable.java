@@ -42,7 +42,7 @@ public interface QueryHashable {
      * The "kinds" of queryHash calculations.
      */
     enum QueryHashKind {
-        STRUCTURAL_WITH_LITERALS,     // The hash used for plan cache: include literals and ignore parameter markers
+        STRUCTURAL_WITH_LITERALS,     // The hash used for plan cache: include literals and parameter markers
         STRUCTURAL_WITHOUT_LITERALS   // The hash used for query and plan matching: skip all literals and markers
     }
 

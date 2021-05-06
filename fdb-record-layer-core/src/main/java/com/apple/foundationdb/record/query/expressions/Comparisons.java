@@ -970,8 +970,15 @@ public class Comparisons {
 
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
-            // Query hash with and without literals ignores parameter.
-            return HashUtils.queryHash(hashKind, BASE_HASH, type);
+            switch (hashKind) {
+                case STRUCTURAL_WITH_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type, parameter);
+                case STRUCTURAL_WITHOUT_LITERALS:
+                    return HashUtils.queryHash(hashKind, BASE_HASH, type);
+                default:
+                    throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
+
+            }
         }
     }
 
