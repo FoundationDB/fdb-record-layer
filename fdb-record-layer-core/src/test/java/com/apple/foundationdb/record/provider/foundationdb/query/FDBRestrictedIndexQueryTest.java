@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -529,7 +530,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("abc"))
-                .setIndexQueryabilityFilter(index -> true)
+                .setIndexQueryabilityFilter(IndexQueryabilityFilter.TRUE)
                 .build();
 
         // Index(limited_str_value_index [[abc],[abc]])
@@ -543,7 +544,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         RecordQuery query3 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("abc"))
-                .setIndexQueryabilityFilter(index -> false)
+                .setIndexQueryabilityFilter(IndexQueryabilityFilter.FALSE)
                 .setAllowedIndex("limited_str_value_index")
                 .build();
 

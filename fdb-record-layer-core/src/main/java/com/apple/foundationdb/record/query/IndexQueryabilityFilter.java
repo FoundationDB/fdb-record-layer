@@ -31,8 +31,32 @@ import javax.annotation.Nonnull;
  * A filter used to determine whether an index should be considered when planning queries.
  */
 @API(API.Status.EXPERIMENTAL)
-@FunctionalInterface
 public interface IndexQueryabilityFilter extends QueryHashable {
+
+    IndexQueryabilityFilter TRUE = new IndexQueryabilityFilter() {
+        @Override
+        public boolean isQueryable(@Nonnull final Index index) {
+            return true;
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return 11;
+        }
+    };
+
+    IndexQueryabilityFilter FALSE = new IndexQueryabilityFilter() {
+        @Override
+        public boolean isQueryable(@Nonnull final Index index) {
+            return false;
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return 59;
+        }
+    };
+
     /**
      * The default index queryability filter which uses all indexes except those with the
      * {@link IndexOptions#ALLOWED_FOR_QUERY_OPTION} set to {@code false}.
@@ -67,7 +91,5 @@ public interface IndexQueryabilityFilter extends QueryHashable {
      * @return 0 as the calculated hash in all cases, to have no impact on query hashes.
      */
     @Override
-    default int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind) {
-        return 0;
-    }
+    int queryHash(@Nonnull final QueryHashable.QueryHashKind hashKind);
 }

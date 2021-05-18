@@ -434,7 +434,7 @@ class FDBRecordStoreQueryTest extends FDBRecordStoreQueryTestBase {
                 indexPlan().where(indexName("multi_index")).and(scanComparisons(range("[EQUALS $1, EQUALS $2]"))));
         assertEquals(584809367, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(729798781, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(1546643292, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(729798781, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

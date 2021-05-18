@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -34,4 +36,14 @@ public interface ComponentWithChildren extends QueryComponent {
     List<QueryComponent> getChildren();
 
     QueryComponent withOtherChildren(List<QueryComponent> newChildren);
+
+    @Nonnull
+    @Override
+    default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        return withOtherChildren(
+                getChildren()
+                        .stream()
+                        .map(child -> child.withParameterRelationshipMap(parameterRelationshipGraph))
+                        .collect(ImmutableList.toImmutableList()));
+    }
 }

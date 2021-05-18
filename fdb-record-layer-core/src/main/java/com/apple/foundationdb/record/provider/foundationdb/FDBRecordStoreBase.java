@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
@@ -1570,29 +1571,41 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Execute a query.
-     * @param query the query to execute
+     * @param plan the plan to execute
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
      */
     @Nonnull
-    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan query) {
-        return query.execute(this, EvaluationContext.EMPTY);
+    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan plan) {
+        return plan.execute(this, EvaluationContext.EMPTY);
     }
 
     /**
      * Execute a query.
-     * @param query the query to execute
+     * @param plan the plan to execute
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
      * @return a cursor for query results
      * @see RecordQueryPlan#execute
      */
     @Nonnull
-    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan query,
+    default RecordCursor<FDBQueriedRecord<M>> executeQuery(@Nonnull RecordQueryPlan plan,
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ExecuteProperties executeProperties) {
-        return query.execute(this, EvaluationContext.EMPTY, continuation, executeProperties);
+        return plan.execute(this, EvaluationContext.EMPTY, continuation, executeProperties);
     }
+
+    /**
+     * Plan a query.
+     * @param query the query to plan
+     * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
+     *        to the planner that may improve plan quality but may also tighten requirements imposed on the parameter
+     *        bindings that are used to execute the query
+     * @return a query plan
+     * @see RecordQueryPlanner#plan
+     */
+    @Nonnull
+    RecordQueryPlan planQuery(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph);
 
     /**
      * Plan a query.
@@ -1601,7 +1614,9 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @see RecordQueryPlanner#plan
      */
     @Nonnull
-    RecordQueryPlan planQuery(@Nonnull RecordQuery query);
+    default RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
+        return planQuery(query, ParameterRelationshipGraph.empty());
+    }
 
     /**
      * Builder for {@link FDBRecordStoreBase}.

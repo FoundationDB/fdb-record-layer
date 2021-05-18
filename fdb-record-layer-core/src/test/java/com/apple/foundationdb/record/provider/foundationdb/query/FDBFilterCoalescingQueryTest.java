@@ -228,7 +228,7 @@ public class FDBFilterCoalescingQueryTest extends FDBRecordStoreQueryTestBase {
                         .collect(Collectors.toList()))))));
         assertEquals(241654378, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(-833909187, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(2046922955, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1191595574, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);

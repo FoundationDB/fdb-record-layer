@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.expressions;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 
 import javax.annotation.Nonnull;
 
@@ -33,4 +34,10 @@ public interface ComponentWithSingleChild extends QueryComponent {
     QueryComponent getChild();
 
     QueryComponent withOtherChild(QueryComponent newChild);
+
+    @Nonnull
+    @Override
+    default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        return withOtherChild(getChild().withParameterRelationshipMap(parameterRelationshipGraph));
+    }
 }

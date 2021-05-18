@@ -83,8 +83,8 @@ public class InExtractor {
                 }
                 KeyExpression orderingKey = getOrderingKey(nestedFields);
 
-                if (withComparison.getComparison() instanceof Comparisons.ParameterComparison) {
-                    final String parameterName = ((Comparisons.ParameterComparison)withComparison.getComparison()).getParameter();
+                if (withComparison.getComparison() instanceof Comparisons.ComparisonWithParameter) {
+                    final String parameterName = ((Comparisons.ComparisonWithParameter)withComparison.getComparison()).getParameter();
                     inClauses.add(new InParameterClause(bindingName, parameterName, orderingKey));
                 } else {
                     final List<Object> comparand = (List<Object>) withComparison.getComparison().getComparand();

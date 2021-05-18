@@ -26,7 +26,9 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.util.HashUtils;
+import com.google.common.base.Verify;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -239,9 +241,17 @@ public class QueryKeyExpression {
         @Nonnull
         private final Function<Object, Object> conversion;
 
-        public ConversionParameterComparison(@Nonnull Comparisons.Type type, @Nonnull String param,
+        public ConversionParameterComparison(@Nonnull Comparisons.Type type,
+                                             @Nonnull String param,
                                              @Nonnull Function<Object, Object> conversion) {
-            super(type, param);
+            this(type, param, ParameterRelationshipGraph.unbound(), conversion);
+        }
+
+        public ConversionParameterComparison(@Nonnull Comparisons.Type type,
+                                             @Nonnull String param,
+                                             @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
+                                             @Nonnull Function<Object, Object> conversion) {
+            super(type, param, parameterRelationshipGraph);
             this.conversion = conversion;
         }
 
@@ -308,6 +318,13 @@ public class QueryKeyExpression {
         @Override
         public int queryHash(@Nonnull final QueryHashKind hashKind) {
             return HashUtils.queryHash(hashKind, PARAMETER_COMPARISON_BASE_HASH, super.queryHash(hashKind), getKeyExpression());
+        }
+
+        @Nonnull
+        @Override
+        public Comparisons.Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+            Verify.verify(this.parameterRelationshipGraph.isUnbound());
+            return new ConversionParameterComparison(getType(), parameter, parameterRelationshipGraph, conversion);
         }
     }
 

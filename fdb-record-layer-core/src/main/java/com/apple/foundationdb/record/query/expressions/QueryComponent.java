@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.QueryHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.protobuf.Descriptors;
@@ -167,4 +168,9 @@ public interface QueryComponent extends PlanHashable, QueryHashable {
      */
     @API(API.Status.EXPERIMENTAL)
     GraphExpansion expand(@Nonnull CorrelationIdentifier baseAlias, @Nonnull List<String> fieldNamePrefix);
+
+    @Nonnull
+    default QueryComponent withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        return this;
+    }
 }

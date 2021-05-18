@@ -45,7 +45,7 @@ import java.util.concurrent.CompletableFuture;
  * For tri-valued logic, if the child evaluates to unknown / {@code null}, {@code NOT} is still unknown.
  */
 @API(API.Status.MAINTAINED)
-public class NotComponent implements ComponentWithSingleChild {
+public class NotComponent implements ComponentWithSingleChild, BooleanComponent {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Component");
 
     @Nonnull

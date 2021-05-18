@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
+import com.apple.foundationdb.record.query.expressions.BooleanComponent;
 import com.apple.foundationdb.record.query.expressions.ComponentWithChildren;
 import com.apple.foundationdb.record.query.expressions.ComponentWithSingleChild;
 import com.apple.foundationdb.record.query.expressions.NotComponent;
@@ -183,9 +184,7 @@ public class BooleanNormalizer {
     }
 
     private boolean isBooleanPredicate(@Nullable final QueryComponent predicate) {
-        return predicate instanceof AndComponent ||
-               predicate instanceof OrComponent ||
-               predicate instanceof NotComponent;
+        return predicate instanceof BooleanComponent;
     }
 
     int getNormalizedSize(@Nullable final QueryComponent predicate) {

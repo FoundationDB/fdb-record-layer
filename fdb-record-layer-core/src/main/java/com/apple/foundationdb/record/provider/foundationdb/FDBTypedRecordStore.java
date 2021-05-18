@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -247,8 +248,14 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public RecordQueryPlan planQuery(@Nonnull final RecordQuery query, @Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
+        return untypedStore.planQuery(query, parameterRelationshipGraph);
+    }
+
+    @Nonnull
+    @Override
     public RecordQueryPlan planQuery(@Nonnull RecordQuery query) {
-        return untypedStore.planQuery(query);
+        return planQuery(query, ParameterRelationshipGraph.empty());
     }
 
     /**
