@@ -29,16 +29,21 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Define query compatibility using store state and pre-bound parameters [(Issue #1275)](https://github.com/FoundationDB/fdb-record-layer/issues/1275)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** IndexQueryabilityFilter is not a functional interface anymore [(Issue #1275)](https://github.com/FoundationDB/fdb-record-layer/issues/1275)
+* **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.0.183.0
+
+* **Feature** Define query compatibility using store state and pre-bound parameters [(Issue #1275)](https://github.com/FoundationDB/fdb-record-layer/issues/1275)
+* **Breaking change** IndexQueryabilityFilter is not a functional interface anymore [(Issue #1275)](https://github.com/FoundationDB/fdb-record-layer/issues/1275)
 
 ### 3.0.182.0
 
