@@ -33,6 +33,7 @@ public class RecordQueryPlannerConfiguration {
     @Nonnull
     private final QueryPlanner.IndexScanPreference indexScanPreference;
     private final boolean attemptFailedInJoinAsOr;
+    private final int attemptFailedInJoinAsUnionMaxSize;
     private final int complexityThreshold;
     private final boolean checkForDuplicateConditions;
     private final boolean deferFetchAfterUnionAndIntersection;
@@ -44,6 +45,7 @@ public class RecordQueryPlannerConfiguration {
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
+                                            int attemptFailedInJoinAsUnionMaxSize,
                                             int complexityThreshold,
                                             boolean checkForDuplicateConditions,
                                             boolean deferFetchAfterUnionAndIntersection,
@@ -54,6 +56,7 @@ public class RecordQueryPlannerConfiguration {
                                             int maxNumMatchesPerRuleCall) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
+        this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
         this.complexityThreshold = complexityThreshold;
         this.checkForDuplicateConditions = checkForDuplicateConditions;
         this.deferFetchAfterUnionAndIntersection = deferFetchAfterUnionAndIntersection;
@@ -86,6 +89,27 @@ public class RecordQueryPlannerConfiguration {
      */
     public boolean shouldAttemptFailedInJoinAsOr() {
         return attemptFailedInJoinAsOr;
+    }
+
+    /**
+     * Get whether the query planner should attempt to transform IN predicates that can't be implemented using a
+     * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan} into a
+     * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan}.
+     * @return whether the planner will transform IN predicates into a dynamic union when they can't be planned as in-joins
+     */
+    public boolean shouldAttemptFailedInJoinAsUnion() {
+        return attemptFailedInJoinAsUnionMaxSize > 0;
+    }
+
+    /**
+     * Get whether the query planner should attempt to transform IN predicates that can't be implemented using a
+     * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan} into a
+     * {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan}.
+     * @return the maximum number of total branches in the union allowed at execution time
+     * or {@code 0} if this transformation is not allowed.
+     */
+    public int getAttemptFailedInJoinAsUnionMaxSize() {
+        return attemptFailedInJoinAsUnionMaxSize;
     }
 
     /**
@@ -177,6 +201,7 @@ public class RecordQueryPlannerConfiguration {
         @Nonnull
         private QueryPlanner.IndexScanPreference indexScanPreference = QueryPlanner.IndexScanPreference.PREFER_SCAN;
         private boolean attemptFailedInJoinAsOr = false;
+        private int attemptFailedInJoinAsUnionMaxSize = 0;
         private int complexityThreshold = RecordQueryPlanner.DEFAULT_COMPLEXITY_THRESHOLD;
         private boolean checkForDuplicateConditions = false;
         private boolean deferFetchAfterUnionAndIntersection = false;
@@ -189,6 +214,7 @@ public class RecordQueryPlannerConfiguration {
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
             this.attemptFailedInJoinAsOr = configuration.attemptFailedInJoinAsOr;
+            this.attemptFailedInJoinAsUnionMaxSize = configuration.attemptFailedInJoinAsUnionMaxSize;
             this.complexityThreshold = configuration.complexityThreshold;
             this.checkForDuplicateConditions = configuration.checkForDuplicateConditions;
             this.deferFetchAfterUnionAndIntersection = configuration.deferFetchAfterUnionAndIntersection;
@@ -209,6 +235,11 @@ public class RecordQueryPlannerConfiguration {
 
         public Builder setAttemptFailedInJoinAsOr(boolean attemptFailedInJoinAsOr) {
             this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
+            return this;
+        }
+
+        public Builder setAttemptFailedInJoinAsUnionMaxSize(int attemptFailedInJoinAsUnionMaxSize) {
+            this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
             return this;
         }
 
@@ -278,7 +309,7 @@ public class RecordQueryPlannerConfiguration {
         }
 
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, attemptFailedInJoinAsUnionMaxSize, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall);
         }
     }
 }

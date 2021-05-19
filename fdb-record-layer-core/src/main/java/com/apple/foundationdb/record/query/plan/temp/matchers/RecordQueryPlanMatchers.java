@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -412,4 +413,57 @@ public class RecordQueryPlanMatchers {
     public static BindingMatcher<RecordQueryFetchFromPartialRecordPlan> fetchFromPartialRecordPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryFetchFromPartialRecordPlan.class, all(downstream));
     }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan> inUnion(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryInUnionPlan.class, any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan> inUnionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInUnionPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan> inUnionComparisonKey(@Nonnull BindingMatcher<KeyExpression> comparisonKeyMatcher) {
+        return typedWithDownstream(RecordQueryInUnionPlan.class,
+                Extractor.of(RecordQueryInUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
+                comparisonKeyMatcher);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan> inUnionComparisonKey(@Nonnull KeyExpression probe) {
+        return typedWithDownstream(RecordQueryInUnionPlan.class,
+                Extractor.of(RecordQueryInUnionPlan::getComparisonKey, name -> "comparisonKey(" + name + ")"),
+                PrimitiveMatchers.equalsObject(probe));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan> inUnionValuesSources(@Nonnull CollectionMatcher<? extends RecordQueryInUnionPlan.InValuesSource> downstream) {
+        return typedWithDownstream(RecordQueryInUnionPlan.class,
+                Extractor.of(RecordQueryInUnionPlan::getValuesSources, name -> "valuesSources(" + name + ")"),
+                downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan.InValuesSource> inUnionBindingName(@Nonnull String bindingName) {
+        return typedWithDownstream(RecordQueryInUnionPlan.InValuesSource.class,
+                Extractor.of(RecordQueryInUnionPlan.InValuesSource::getBindingName, name -> "bindingName(" + name + ")"),
+                PrimitiveMatchers.equalsObject(bindingName));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan.InValues> inUnionInValues(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
+        return typedWithDownstream(RecordQueryInUnionPlan.InValues.class,
+                Extractor.of(plan -> Objects.requireNonNull(plan.getValues()), name -> "values(" + name + ")"),
+                downstream);
+    }
+    
+    @Nonnull
+    public static BindingMatcher<RecordQueryInUnionPlan.InParameter> inUnionInParameter(@Nonnull BindingMatcher<String> downstream) {
+        return typedWithDownstream(RecordQueryInUnionPlan.InParameter.class,
+                Extractor.of(plan -> Objects.requireNonNull(plan.getParameterName()), name -> "parameter(" + name + ")"),
+                downstream);
+    }
+
 }

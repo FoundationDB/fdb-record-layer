@@ -40,18 +40,19 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
-import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,6 +74,12 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQuery
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.descendantPlans;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.filterPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inParameterJoinPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionBindingName;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionComparisonKey;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionInParameter;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionInValues;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionPlan;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inUnionValuesSources;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inValuesJoinPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.inValuesList;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexName;
@@ -335,14 +342,39 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
                 context -> TestHelpers.assertDiscardedAtMost(40, context)));
     }
 
+    enum InAsOrUnionMode {
+        NONE,
+        AS_OR,
+        AS_UNION;
+
+        RecordQueryPlannerConfiguration.Builder configure(RecordQueryPlannerConfiguration.Builder config) {
+            switch (this) {
+                case AS_OR:
+                    config.setAttemptFailedInJoinAsOr(true);
+                    config.setAttemptFailedInJoinAsUnionMaxSize(0);
+                    break;
+                case AS_UNION:
+                    config.setAttemptFailedInJoinAsOr(true);
+                    config.setAttemptFailedInJoinAsUnionMaxSize(1000);
+                    break;
+                case NONE:
+                default:
+                    config.setAttemptFailedInJoinAsOr(false);
+                    config.setAttemptFailedInJoinAsUnionMaxSize(0);
+                    break;
+            }
+            return config;
+        }
+    }
+
     /**
      * Verify that an IN query with a sort can be implemented as an ordered union of compound indexes that can satisfy
      * the sort once the equality predicates from the IN have been pushed onto the indexes.
      * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
      */
     @ParameterizedTest
-    @BooleanSource
-    void inQueryWithSortBySecondFieldOfCompoundIndex(boolean shouldAttemptInAsOr) throws Exception {
+    @EnumSource(InAsOrUnionMode.class)
+    void inQueryWithSortBySecondFieldOfCompoundIndex(InAsOrUnionMode inAsOrMode) throws Exception {
         RecordMetaDataHook hook = metaData ->
                 metaData.addIndex("MySimpleRecord", "compoundIndex",
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
@@ -357,14 +389,14 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
         RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
-        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
-                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+        recordQueryPlanner.setConfiguration(inAsOrMode.configure(recordQueryPlanner.getConfiguration().asBuilder())
                 .build());
 
         // Index(MySimpleRecord$str_value_indexed <,>) | num_value_3_indexed IN [1, 4, 2]
         // Index(compoundIndex [[1],[1]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[4],[4]]) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex [[2],[2]])
+        // ∪(__in_num_value_3_indexed__0 IN [1, 4, 2]) Index(compoundIndex [EQUALS $__in_num_value_3_indexed__0])
         RecordQueryPlan plan = planner.plan(query);
-        if (shouldAttemptInAsOr) {
+        if (inAsOrMode == InAsOrUnionMode.AS_OR) {
             assertMatchesExactly(plan,
                     unionPlan(inList.stream().map(number ->
                             indexPlan().where(indexName("compoundIndex"))
@@ -374,6 +406,16 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(-1813975352, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-1188407258, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(2089555085, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (inAsOrMode == InAsOrUnionMode.AS_UNION) {
+            assertMatchesExactly(plan,
+                    inUnionPlan(indexPlan().where(indexName("compoundIndex"))
+                                    .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__0]"))))
+                            .where(inUnionComparisonKey(concat(field("str_value_indexed"), primaryKey("MySimpleRecord"))))
+                            .and(inUnionValuesSources(exactly(inUnionInValues(equalsObject(inList))
+                                    .and(inUnionBindingName("__in_num_value_3_indexed__0"))))));
+            assertEquals(1881911955, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1970254608, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(311160713, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertMatchesExactly(plan,
                     filterPlan(indexPlan()
@@ -397,8 +439,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * @see com.apple.foundationdb.record.query.plan.planning.InExtractor#asOr()
      */
     @ParameterizedTest
-    @BooleanSource
-    void inQueryWithSortAndRangePredicateOnSecondFieldOfCompoundIndex(boolean shouldAttemptInAsOr) throws Exception {
+    @EnumSource(InAsOrUnionMode.class)
+    void inQueryWithSortAndRangePredicateOnSecondFieldOfCompoundIndex(InAsOrUnionMode inAsOrMode) throws Exception {
         RecordMetaDataHook hook = metaData ->
                 metaData.addIndex("MySimpleRecord", "compoundIndex",
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
@@ -414,13 +456,14 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
         RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
-        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
-                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+        recordQueryPlanner.setConfiguration(inAsOrMode.configure(recordQueryPlanner.getConfiguration().asBuilder())
                 .build());
 
         // Index(MySimpleRecord$str_value_indexed ([bar],[foo])) | num_value_3_indexed IN [1, 4, 2]
+        // Index(compoundIndex ([1, bar],[1, foo])) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex ([4, bar],[4, foo])) ∪[Field { 'str_value_indexed' None}, Field { 'rec_no' None}] Index(compoundIndex ([2, bar],[2, foo]))
+        // ∪(__in_num_value_3_indexed__0 IN [1, 4, 2]) Index(compoundIndex [EQUALS $__in_num_value_3_indexed__0, [GREATER_THAN bar && LESS_THAN foo]])
         RecordQueryPlan plan = planner.plan(query);
-        if (shouldAttemptInAsOr) {
+        if (inAsOrMode == InAsOrUnionMode.AS_OR) {
             // IN join is impossible because of incompatible sorting, but we can still plan as an OR on the compound index.
             assertMatchesExactly(plan,
                     unionPlan(
@@ -431,6 +474,16 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(651476052, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(-2091774924, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(1421992908, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else if (inAsOrMode == InAsOrUnionMode.AS_UNION) {
+            assertMatchesExactly(plan,
+                    inUnionPlan(indexPlan().where(indexName("compoundIndex"))
+                                    .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__0, [GREATER_THAN bar && LESS_THAN foo]]"))))
+                            .where(inUnionComparisonKey(concat(field("str_value_indexed"), primaryKey("MySimpleRecord"))))
+                            .and(inUnionValuesSources(exactly(inUnionInValues(equalsObject(inList))
+                                    .and(inUnionBindingName("__in_num_value_3_indexed__0"))))));
+            assertEquals(2067010823, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1984722046, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-691480438, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             assertMatchesExactly(plan,
                     filterPlan(indexPlan()
@@ -450,8 +503,8 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that an IN query over a parameter with a sort keeps filter even if OR is allowed.
      */
     @ParameterizedTest
-    @BooleanSource
-    void inQueryWithSortAndParameter(boolean shouldAttemptInAsOr) throws Exception {
+    @EnumSource(InAsOrUnionMode.class)
+    void inQueryWithSortAndParameter(InAsOrUnionMode inAsOrMode) throws Exception {
         RecordMetaDataHook hook = metaData ->
                 metaData.addIndex("MySimpleRecord", "compoundIndex",
                         concat(field("num_value_3_indexed"), field("str_value_indexed")));
@@ -466,23 +519,35 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
 
         assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
         RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
-        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
-                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+        recordQueryPlanner.setConfiguration(inAsOrMode.configure(recordQueryPlanner.getConfiguration().asBuilder())
                 .build());
 
         // Index(MySimpleRecord$str_value_indexed ([bar],[foo])) | num_value_3_indexed IN $inList
+        // ∪(__in_num_value_3_indexed__0 IN $inList) Index(compoundIndex [EQUALS $__in_num_value_3_indexed__0, [GREATER_THAN bar && LESS_THAN foo]])
         RecordQueryPlan plan = planner.plan(query);
-        assertMatchesExactly(plan,
-                filterPlan(indexPlan()
-                        .where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("([bar],[foo])")))
-                ).where(queryComponents(only(equalsObject(Query.field("num_value_3_indexed").in("inList"))))));
-        assertEquals(1428066748, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1729584119, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(-1772894822, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        assertEquals(30, querySimpleRecordStore(hook, plan,
-                () -> EvaluationContext.forBinding("inList", asList(1, 3, 4)),
-                record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
-                context -> { }));
+        if (inAsOrMode == InAsOrUnionMode.AS_UNION) {
+            assertMatchesExactly(plan,
+                    inUnionPlan(indexPlan().where(indexName("compoundIndex"))
+                                    .and(scanComparisons(range("[EQUALS $__in_num_value_3_indexed__0, [GREATER_THAN bar && LESS_THAN foo]]"))))
+                            .where(inUnionComparisonKey(concat(field("str_value_indexed"), primaryKey("MySimpleRecord"))))
+                            .and(inUnionValuesSources(exactly(inUnionInParameter(equalsObject("inList"))
+                                    .and(inUnionBindingName("__in_num_value_3_indexed__0"))))));
+            assertEquals(882029516, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1125263943, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-217367850, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertMatchesExactly(plan,
+                    filterPlan(indexPlan()
+                            .where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("([bar],[foo])")))
+                    ).where(queryComponents(only(equalsObject(Query.field("num_value_3_indexed").in("inList"))))));
+            assertEquals(1428066748, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1407869064, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(65237271, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(30, querySimpleRecordStore(hook, plan,
+                    () -> EvaluationContext.forBinding("inList", asList(1, 3, 4)),
+                    record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
+                    context -> { }));
+        }
     }
 
     /**

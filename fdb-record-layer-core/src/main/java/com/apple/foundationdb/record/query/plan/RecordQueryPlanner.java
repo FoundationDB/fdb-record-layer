@@ -65,6 +65,7 @@ import com.apple.foundationdb.record.query.plan.planning.RankComparisons;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -75,7 +76,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
-import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
@@ -430,34 +430,74 @@ public class RecordQueryPlanner implements QueryPlanner {
         return planFilter(planContext, filter, false);
     }
 
+    /**
+     * Plan the given filter, which can be the whole query or a branch of an {@code OR}.
+     * @param planContext the plan context for the query
+     * @param filter the filter to plan
+     * @param needOrdering whether to populate {@link ScoredPlan#planOrderingKey} to facilitate combining sub-plans
+     * @return the best plan or {@code null} if no suitable index exists
+     */
     @Nullable
     private ScoredPlan planFilter(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
         final InExtractor inExtractor = new InExtractor(filter);
-        ScoredPlan withInAsOr = null;
+        ScoredPlan withInAsOrUnion = null;
         if (planContext.query.getSort() != null) {
+            final InExtractor savedExtractor = new InExtractor(inExtractor);
             boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
-            if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
-                // Can't implement as an IN join because of the sort order. Try as an OR instead.
-                QueryComponent asOr = normalizeAndOrForInAsOr(inExtractor.asOr());
-                if (!filter.equals(asOr)) {
-                    withInAsOr = planFilter(planContext, asOr);
+            if (!canSort) {
+                if (getConfiguration().shouldAttemptFailedInJoinAsUnion()) {
+                    withInAsOrUnion = planFilterWithInUnion(planContext, savedExtractor);
+                } else if (getConfiguration().shouldAttemptFailedInJoinAsOr()) {
+                    // Can't implement as an IN join because of the sort order. Try as an OR instead.
+                    QueryComponent asOr = normalizeAndOrForInAsOr(inExtractor.asOr());
+                    if (!filter.equals(asOr)) {
+                        withInAsOrUnion = planFilter(planContext, asOr);
+                    }
                 }
             }
         } else if (needOrdering) {
             inExtractor.sortByClauses();
         }
         final ScoredPlan withInJoin = planFilterWithInJoin(planContext, inExtractor, needOrdering);
-        if (withInAsOr != null) {
-            if (withInJoin == null || withInAsOr.score > withInJoin.score ||
-                    FieldWithComparisonCountProperty.evaluate(withInAsOr.plan) < FieldWithComparisonCountProperty.evaluate(withInJoin.plan)) {
-                return withInAsOr;
+        if (withInAsOrUnion != null) {
+            if (withInJoin == null || withInAsOrUnion.score > withInJoin.score ||
+                    FieldWithComparisonCountProperty.evaluate(withInAsOrUnion.plan) < FieldWithComparisonCountProperty.evaluate(withInJoin.plan)) {
+                return withInAsOrUnion;
             }
         }
         return withInJoin;
     }
 
     private ScoredPlan planFilterWithInJoin(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor, boolean needOrdering) {
-        final QueryComponent filter = inExtractor.subFilter();
+        final ScoredPlan bestPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), needOrdering);
+        if (bestPlan != null) {
+            final RecordQueryPlan wrapped = inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.plan, bestPlan.includedRankComparisons, metaData));
+            final ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
+            if (needOrdering) {
+                scoredPlan.planOrderingKey = inExtractor.adjustOrdering(bestPlan.planOrderingKey, false);
+            }
+            return scoredPlan;
+        }
+        return null;
+    }
+
+    private ScoredPlan planFilterWithInUnion(@Nonnull PlanContext planContext, @Nonnull InExtractor inExtractor) {
+        final ScoredPlan scoredPlan = planFilterForInJoin(planContext, inExtractor.subFilter(), true);
+        if (scoredPlan != null) {
+            scoredPlan.planOrderingKey = inExtractor.adjustOrdering(scoredPlan.planOrderingKey, true);
+            final KeyExpression candidateKey = getKeyForMerge(planContext.query.getSort(), planContext.commonPrimaryKey);
+            final KeyExpression comparisonKey = PlanOrderingKey.mergedComparisonKey(Collections.singletonList(scoredPlan), candidateKey, true);
+            if (comparisonKey == null) {
+                return null;
+            }
+            final List<RecordQueryInUnionPlan.InValuesSource> valuesSources = inExtractor.unionSources();
+            final RecordQueryPlan union = new RecordQueryInUnionPlan(scoredPlan.plan, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize());
+            return new ScoredPlan(scoredPlan.score, union);
+        }
+        return null;
+    }
+
+    private ScoredPlan planFilterForInJoin(@Nonnull PlanContext planContext, @Nonnull QueryComponent filter, boolean needOrdering) {
         planContext.rankComparisons = new RankComparisons(filter, planContext.indexes);
         List<ScoredPlan> intersectionCandidates = new ArrayList<>();
         ScoredPlan bestPlan = null;
@@ -483,16 +523,11 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (bestPlan.getNumNonSargables() > 0) {
                 bestPlan = handleNonSargables(bestPlan, intersectionCandidates, planContext);
             }
-            final RecordQueryPlan wrapped = inExtractor.wrap(planContext.rankComparisons.wrap(bestPlan.plan, bestPlan.includedRankComparisons, metaData));
-            ScoredPlan scoredPlan = new ScoredPlan(bestPlan.score, wrapped);
             if (needOrdering) {
-                PlanOrderingKey planOrderingKey = PlanOrderingKey.forPlan(metaData, bestPlan.plan, planContext.commonPrimaryKey);
-                planOrderingKey = inExtractor.adjustOrdering(planOrderingKey);
-                scoredPlan.planOrderingKey = planOrderingKey;
+                bestPlan.planOrderingKey = PlanOrderingKey.forPlan(metaData, bestPlan.plan, planContext.commonPrimaryKey);
             }
-            return scoredPlan;
         }
-        return null;
+        return bestPlan;
     }
 
     // Get the key expression for the index entries of the given index, which includes primary key fields for normal indexes.

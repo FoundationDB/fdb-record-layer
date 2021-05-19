@@ -344,6 +344,7 @@ public class ScanComparisons implements PlanHashable {
         if (!inequalityComparisons.isEmpty()) {
             strs = Stream.concat(strs, Stream.of(
                     inequalityComparisons.stream().map(Comparisons.Comparison::toString)
+                            .sorted() // Make the order stable.
                             .collect(Collectors.joining(" && ", "[", "]"))));
         }
         return strs.collect(Collectors.joining(", ", "[", "]"));
