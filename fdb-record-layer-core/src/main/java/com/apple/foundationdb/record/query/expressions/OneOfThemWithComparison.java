@@ -97,7 +97,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
 
     @Override
     public QueryComponent withOtherComparison(Comparisons.Comparison comparison) {
-        return new OneOfThemWithComparison(getFieldName(), comparison);
+        return new OneOfThemWithComparison(getFieldName(), getEmptyMode(), comparison);
     }
 
     @Override
