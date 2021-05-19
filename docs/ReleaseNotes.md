@@ -16,7 +16,7 @@ Another, smaller change that has been made is that by default, new indexes added
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** OneOfThemWithComparison.withOtherComparison lost emptyMode [(Issue #1284)](https://github.com/FoundationDB/fdb-record-layer/issues/1284)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.184.0
+
+* **Bug fix** OneOfThemWithComparison.withOtherComparison lost emptyMode [(Issue #1284)](https://github.com/FoundationDB/fdb-record-layer/issues/1284)
 
 ### 3.0.183.0
 
