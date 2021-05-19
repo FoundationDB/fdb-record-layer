@@ -447,6 +447,45 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that an IN query over a parameter with a sort keeps filter even if OR is allowed.
+     */
+    @ParameterizedTest
+    @BooleanSource
+    void inQueryWithSortAndParameter(boolean shouldAttemptInAsOr) throws Exception {
+        RecordMetaDataHook hook = metaData ->
+                metaData.addIndex("MySimpleRecord", "compoundIndex",
+                        concat(field("num_value_3_indexed"), field("str_value_indexed")));
+        complexQuerySetup(hook);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(Query.field("num_value_3_indexed").in("inList"),
+                        Query.field("str_value_indexed").greaterThan("bar"),
+                        Query.field("str_value_indexed").lessThan("foo")))
+                .setSort(field("str_value_indexed"))
+                .build();
+
+        assertTrue(planner instanceof RecordQueryPlanner); // The configuration is planner-specific.
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration().asBuilder()
+                .setAttemptFailedInJoinAsOr(shouldAttemptInAsOr)
+                .build());
+
+        // Index(MySimpleRecord$str_value_indexed ([bar],[foo])) | num_value_3_indexed IN $inList
+        RecordQueryPlan plan = planner.plan(query);
+        assertMatchesExactly(plan,
+                filterPlan(indexPlan()
+                        .where(indexName("MySimpleRecord$str_value_indexed")).and(scanComparisons(range("([bar],[foo])")))
+                ).where(queryComponents(only(equalsObject(Query.field("num_value_3_indexed").in("inList"))))));
+        assertEquals(1428066748, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1729584119, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-1772894822, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(30, querySimpleRecordStore(hook, plan,
+                () -> EvaluationContext.forBinding("inList", asList(1, 3, 4)),
+                record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
+                context -> { }));
+    }
+
+    /**
      * Verify that an IN predicate that, when converted to an OR of equality predicates, would lead to a very large DNF
      * gets planned as a normal IN query rather than throwing an exception.
      */

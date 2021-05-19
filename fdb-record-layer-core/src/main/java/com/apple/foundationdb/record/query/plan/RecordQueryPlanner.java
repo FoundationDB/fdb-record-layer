@@ -75,6 +75,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
@@ -436,8 +437,11 @@ public class RecordQueryPlanner implements QueryPlanner {
         if (planContext.query.getSort() != null) {
             boolean canSort = inExtractor.setSort(planContext.query.getSort(), planContext.query.isSortReverse());
             if (!canSort && getConfiguration().shouldAttemptFailedInJoinAsOr()) {
-                // Can't implement as an in join because of the sort order. Try as an OR instead.
-                withInAsOr = planFilter(planContext, normalizeAndOrForInAsOr(inExtractor.asOr()));
+                // Can't implement as an IN join because of the sort order. Try as an OR instead.
+                QueryComponent asOr = normalizeAndOrForInAsOr(inExtractor.asOr());
+                if (!filter.equals(asOr)) {
+                    withInAsOr = planFilter(planContext, asOr);
+                }
             }
         } else if (needOrdering) {
             inExtractor.sortByClauses();
