@@ -149,6 +149,98 @@ public class QueryKeyExpression {
         return parameterComparison(Comparisons.Type.EQUALS, param);
     }
 
+    /**
+     * Add comparisons to one of the values returned by a multi-valued expression.
+     * @return a builder for comparisons
+     */
+    @Nonnull
+    public OneOfThem oneOfThem() {
+        return new OneOfThem();
+    }
+
+    /**
+     * Allow comparisons against a member of a multi-valued expression.
+     */
+    public class OneOfThem {
+        private OneOfThem() {
+        }
+
+        @Nonnull
+        public QueryComponent equalsValue(@Nonnull Object comparand) {
+            return simpleComparison(Comparisons.Type.EQUALS, comparand);
+        }
+
+        @Nonnull
+        public QueryComponent notEquals(@Nonnull Object comparand) {
+            return simpleComparison(Comparisons.Type.NOT_EQUALS, comparand);
+        }
+
+        @Nonnull
+        public QueryComponent greaterThan(@Nonnull Object comparand) {
+            return simpleComparison(Comparisons.Type.GREATER_THAN, comparand);
+        }
+
+        @Nonnull
+        public QueryComponent greaterThanOrEquals(@Nonnull Object comparand) {
+            return simpleComparison(Comparisons.Type.GREATER_THAN_OR_EQUALS, comparand);
+        }
+
+        @Nonnull
+        public QueryComponent lessThan(@Nonnull Object comparand) {
+            return simpleComparison(Comparisons.Type.LESS_THAN, comparand);
+        }
+
+        @Nonnull
+        public QueryComponent lessThanOrEquals(@Nonnull Object comparand) {
+            return simpleComparison(Comparisons.Type.LESS_THAN_OR_EQUALS, comparand);
+        }
+
+        @Nonnull
+        public QueryComponent startsWith(@Nonnull String comparand) {
+            return simpleComparison(Comparisons.Type.STARTS_WITH, comparand);
+        }
+
+        @Nonnull
+        public QueryComponent isNull() {
+            return nullComparison(Comparisons.Type.IS_NULL);
+        }
+
+        @Nonnull
+        public QueryComponent notNull() {
+            return nullComparison(Comparisons.Type.NOT_NULL);
+        }
+
+        @Nonnull
+        public QueryComponent equalsParameter(@Nonnull String param) {
+            return parameterComparison(Comparisons.Type.EQUALS, param);
+        }
+
+        @Nonnull
+        private QueryKeyExpressionWithOneOfComparison simpleComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand) {
+            final Function<Object, Object> conversion = keyExpression.getComparandConversionFunction();
+            if (conversion != null) {
+                return new QueryKeyExpressionWithOneOfComparison(keyExpression, new ConversionSimpleComparison(type, comparand, conversion));
+            } else {
+                return new QueryKeyExpressionWithOneOfComparison(keyExpression, new Comparisons.SimpleComparison(type, comparand));
+            }
+        }
+
+        @Nonnull
+        private QueryKeyExpressionWithOneOfComparison nullComparison(@Nonnull Comparisons.Type type) {
+            return new QueryKeyExpressionWithOneOfComparison(keyExpression, new Comparisons.NullComparison(type));
+        }
+
+        @Nonnull
+        private QueryKeyExpressionWithOneOfComparison parameterComparison(@Nonnull Comparisons.Type type, @Nonnull String param) {
+            final Function<Object, Object> conversion = keyExpression.getComparandConversionFunction();
+            if (conversion != null) {
+                return new QueryKeyExpressionWithOneOfComparison(keyExpression, new ConversionParameterComparison(type, param, conversion));
+            } else {
+                return new QueryKeyExpressionWithOneOfComparison(keyExpression, new Comparisons.ParameterComparison(type, param));
+            }
+        }
+    }
+
     @Nonnull
     private QueryKeyExpressionWithComparison simpleComparison(@Nonnull Comparisons.Type type, @Nonnull Object comparand) {
         final Function<Object, Object> conversion = keyExpression.getComparandConversionFunction();

@@ -58,6 +58,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.metadata.Key.Evaluated.NullStandin.NULL;
@@ -249,6 +250,14 @@ public class KeyExpressionTest {
                 evaluate(expression, emptyScalar));
         assertEquals(Collections.singletonList(Key.Evaluated.NULL),
                 evaluate(expression, null));
+    }
+
+    @Test
+    public void testCharFunction() throws Exception {
+        final KeyExpression expression = function("chars", field("field"));
+        expression.validate(TestScalarFieldAccess.getDescriptor());
+        assertEquals(ImmutableList.of(scalar("n"), scalar("u"), scalar("m"), scalar("b"), scalar("e"), scalar("r"), scalar("s")),
+                evaluate(expression, numbers));
     }
 
     @Test
@@ -898,6 +907,7 @@ public class KeyExpressionTest {
         public List<FunctionKeyExpression.Builder> getBuilders() {
             return Lists.newArrayList(
                     new FunctionKeyExpression.BiFunctionBuilder("substr", SubstrFunction::new),
+                    new FunctionKeyExpression.BiFunctionBuilder("chars", CharsFunction::new),
                     new FunctionKeyExpression.BiFunctionBuilder("two_min_three_max", TwoMinThreeMaxFunction::new));
         }
     }
@@ -991,6 +1001,65 @@ public class KeyExpressionTest {
         @Override
         public boolean createsDuplicates() {
             return false;
+        }
+
+        @Override
+        public int getColumnSize() {
+            return 1;
+        }
+
+        @Nonnull
+        @Override
+        public Value toValue(@Nonnull final CorrelationIdentifier baseAlias, @Nonnull final List<String> fieldNamePrefix) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int planHash(@Nonnull final PlanHashable.PlanHashKind hashKind) {
+            return super.basePlanHash(hashKind, BASE_HASH);
+        }
+
+        @Override
+        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+            return super.baseQueryHash(hashKind, BASE_HASH);
+        }
+    }
+
+    /**
+     * Function that computes characters in string.
+     */
+    public static class CharsFunction extends FunctionKeyExpression implements QueryableKeyExpression {
+        private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Chars-Function");
+
+        public CharsFunction(@Nonnull String name, @Nonnull KeyExpression arguments) {
+            super(name, arguments);
+        }
+
+        @Override
+        public int getMinArguments() {
+            return 1;
+        }
+
+        @Override
+        public int getMaxArguments() {
+            return 1;
+        }
+
+        @Nonnull
+        @Override
+        public <M extends Message> List<Key.Evaluated> evaluateFunction(@Nullable FDBRecord<M> record,
+                                                                        @Nullable Message message,
+                                                                        @Nonnull Key.Evaluated arguments) {
+            final String value = arguments.getString(0);
+            if (value == null) {
+                return Collections.singletonList(Key.Evaluated.NULL);
+            }
+            return value.chars().mapToObj(c -> Key.Evaluated.scalar(Character.toString((char)c))).collect(Collectors.toList());
+        }
+
+        @Override
+        public boolean createsDuplicates() {
+            return true;
         }
 
         @Override
