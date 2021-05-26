@@ -72,8 +72,10 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.primaryKeyDistinct;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -327,6 +329,48 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
                 }
             }
             assertEquals(functionQuery ? 4 : 3, count);
+            assertDiscardedNone(context);
+        }
+    }
+
+    @Test
+    public void testOneOfQueryFunctionIndex() throws Exception {
+        Index funcIndex = new Index("chars_index", function("chars", field("str_value")), IndexTypes.VALUE);
+
+        Records records = Records.create();
+        for (int i = 0; i < 10; i++) {
+            String strValue = (char)('a' + i) + "_" + (char)('b' + i);
+            records.add(i, strValue);
+        }
+        saveRecords(records, funcIndex);
+
+        QueryComponent filter = Query.keyExpression(funcIndex.getRootExpression()).oneOfThem().equalsValue("c");
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("TypesRecord")
+                .setFilter(filter)
+                .build();
+        // Index(chars_index [[c],[c]])
+        RecordQueryPlan plan = planner.plan(query);
+
+        assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[c],[c]]"))))));
+        assertEquals(-76945989, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(539384407, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(688945964, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, funcIndex);
+            int count = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> queriedRecord = cursor.next();
+                    TypesRecord record = fromMessage(queriedRecord.getRecord());
+                    assertTrue(records.contains(record));
+                    String str = record.getStrValue();
+                    assertThat(str, containsString("c"));
+                    ++count;
+                }
+            }
+            assertEquals(2, count);
             assertDiscardedNone(context);
         }
     }

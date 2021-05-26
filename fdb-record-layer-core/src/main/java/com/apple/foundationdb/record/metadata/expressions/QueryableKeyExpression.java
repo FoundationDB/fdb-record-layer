@@ -32,6 +32,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A {@link KeyExpression} that can be used with a {@link com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison}.
@@ -58,6 +59,23 @@ public interface QueryableKeyExpression extends KeyExpression, KeyExpressionWith
             throw new RecordCoreException("Should evaluate to single key only");
         }
         return key.getObject(0);
+    }
+
+    @Nonnull
+    default <M extends Message> List<Object> evalForOneOfQuery(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable Message message) {
+        final List<Key.Evaluated> keys = evaluateMessage(record, message);
+        final Function<Key.Evaluated, Object> mapper;
+        if (evalForQueryAsTuple()) {
+            mapper = Key.Evaluated::toTuple;
+        } else {
+            mapper = key -> {
+                if (key.size() != 1) {
+                    throw new RecordCoreException("Should evaluate to single key only");
+                }
+                return key.getObject(0);
+            };
+        }
+        return keys.stream().map(mapper).collect(Collectors.toList());
     }
 
     default boolean evalForQueryAsTuple() {

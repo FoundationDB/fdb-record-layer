@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
+import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithOneOfComparison;
 import com.apple.foundationdb.record.query.expressions.QueryRecordFunctionWithComparison;
 import com.apple.foundationdb.record.query.expressions.RecordTypeKeyComparison;
 import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
@@ -675,6 +676,8 @@ public class RecordQueryPlanner implements QueryPlanner {
             }
         } else if (filter instanceof QueryKeyExpressionWithComparison) {
             return planQueryKeyExpressionWithComparison(candidateScan, indexExpr, (QueryKeyExpressionWithComparison) filter, sort);
+        } else if (filter instanceof QueryKeyExpressionWithOneOfComparison) {
+            return planQueryKeyExpressionWithOneOfComparison(candidateScan, indexExpr, (QueryKeyExpressionWithOneOfComparison) filter, sort);
         }
         return null;
     }
@@ -1120,6 +1123,25 @@ public class RecordQueryPlanner implements QueryPlanner {
             return new ScoredPlan(1, planScan(candidateScan, scanComparisons, strictlySorted));
         } else if (indexExpr instanceof ThenKeyExpression) {
             return new AndWithThenPlanner(candidateScan, (ThenKeyExpression) indexExpr, Collections.singletonList(queryKeyExpressionWithComparison), sort).plan();
+        }
+        return null;
+    }
+
+    @Nullable
+    private ScoredPlan planQueryKeyExpressionWithOneOfComparison(@Nonnull CandidateScan candidateScan,
+                                                                 @Nonnull KeyExpression indexExpr,
+                                                                 @Nonnull QueryKeyExpressionWithOneOfComparison queryKeyExpressionWithOneOfComparison,
+                                                                 @Nullable KeyExpression sort) {
+        if (indexExpr.equals(queryKeyExpressionWithOneOfComparison.getKeyExpression()) && (sort == null || sort.equals(indexExpr))) {
+            final Comparisons.Comparison comparison = queryKeyExpressionWithOneOfComparison.getComparison();
+            final ScanComparisons scanComparisons = ScanComparisons.from(comparison);
+            if (scanComparisons == null) {
+                return null;
+            }
+            final boolean strictlySorted = sort != null; // Must be equal.
+            return new ScoredPlan(1, planScan(candidateScan, scanComparisons, strictlySorted));
+        } else if (indexExpr instanceof ThenKeyExpression) {
+            return new AndWithThenPlanner(candidateScan, (ThenKeyExpression) indexExpr, Collections.singletonList(queryKeyExpressionWithOneOfComparison), sort).plan();
         }
         return null;
     }
@@ -2025,6 +2047,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                     planWithVersionComparisonChild(child, (QueryRecordFunctionWithComparison) filterComponent, filterChild);
                 } else if (filterComponent instanceof QueryKeyExpressionWithComparison) {
                     planWithComparisonChild(child, (QueryKeyExpressionWithComparison) filterComponent, filterChild);
+                } else if (filterComponent instanceof QueryKeyExpressionWithOneOfComparison) {
+                    planOneOfThemWithComparisonChild(child, (QueryKeyExpressionWithOneOfComparison) filterComponent, filterChild);
                 }
                 if (foundComparison) {
                     break;
@@ -2110,6 +2134,14 @@ public class RecordQueryPlanner implements QueryPlanner {
                     if (addToComparisons(oneOfThem.getComparison())) {
                         addedComparison(child, filterChild);
                     }
+                }
+            }
+        }
+
+        private void planOneOfThemWithComparisonChild(@Nonnull KeyExpression child, @Nonnull QueryKeyExpressionWithOneOfComparison queryKeyExpression, @Nonnull QueryComponent filterChild) {
+            if (child.equals(queryKeyExpression.getKeyExpression())) {
+                if (addToComparisons(queryKeyExpression.getComparison())) {
+                    addedComparison(child, filterChild);
                 }
             }
         }
