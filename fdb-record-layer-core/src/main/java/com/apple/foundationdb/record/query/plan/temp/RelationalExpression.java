@@ -23,6 +23,8 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
@@ -95,7 +97,9 @@ import java.util.stream.StreamSupport;
 @API(API.Status.EXPERIMENTAL)
 public interface RelationalExpression extends Correlated<RelationalExpression> {
     @Nonnull
-    static RelationalExpression fromRecordQuery(@Nonnull RecordQuery query, @Nonnull PlanContext context) {
+    static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
+                                                @Nonnull BooleanNormalizer booleanNormalizer,
+                                                @Nonnull RecordQuery query) {
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
 
         if (!context.getRecordTypes().isEmpty()) {
@@ -104,8 +108,9 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
 
         final SelectExpression selectExpression;
         if (query.getFilter() != null) {
+            final QueryComponent normalizedFilterQueryComponent = booleanNormalizer.normalize(query.getFilter());
             selectExpression =
-                    query.getFilter()
+                    normalizedFilterQueryComponent
                             .expand(quantifier.getAlias())
                             .buildSelectWithBase(quantifier);
         } else {
