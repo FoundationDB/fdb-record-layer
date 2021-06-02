@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers.AliasResolver;
@@ -224,7 +225,10 @@ public class CascadesPlanner implements QueryPlanner {
         final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
         Debugger.query(query, context);
         try {
-            planPartial(context, () -> RelationalExpression.fromRecordQuery(query, context));
+            planPartial(context,
+                    () -> RelationalExpression.fromRecordQuery(context,
+                            BooleanNormalizer.forConfiguration(configuration),
+                            query));
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
