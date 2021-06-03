@@ -44,6 +44,7 @@ import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -80,6 +81,8 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -329,6 +332,44 @@ public class FDBRecordStoreByteLimitTest extends FDBRecordStoreLimitTestBase {
             commit(context);
         }
         assertEquals(createdRecords, scannedRecords);
+    }
+
+    @BooleanSource
+    @ParameterizedTest
+    public void testHitExhaustedDuringSplit(boolean reverse) throws Exception {
+        deleteSimpleRecords();
+
+        // Insert a single large record
+        final FDBStoredRecord<Message> createdRecord = saveAndSplitSimpleRecord(1L,
+                Strings.repeat("Z", SplitHelper.SPLIT_RECORD_SIZE + 10), 1);
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, TEST_SPLIT_HOOK);
+
+            // Create a limit that will be hit while reading the first record
+            ScanProperties properties = new ScanProperties(ExecuteProperties.newBuilder()
+                    .setScannedBytesLimit(1)
+                    .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                    .build(), reverse);
+            final RecordCursor<FDBStoredRecord<Message>> messageCursor = recordStore.scanRecords(null, properties);
+
+            RecordCursorResult<FDBStoredRecord<Message>> result = messageCursor.getNext();
+            assertTrue(result.hasNext());
+            assertEquals(createdRecord, result.get());
+
+            // Limit hit and also exhausted. Either one is a valid response, but the data should be internally
+            // consistent (i.e., it should not return a non-end continuation if the source is exhausted)
+            result = messageCursor.getNext();
+            assertFalse(result.hasNext());
+            if (result.getNoNextReason().isSourceExhausted()) {
+                assertTrue(result.getContinuation().isEnd(), "second result should be at the end");
+                assertNull(result.getContinuation().toBytes());
+            } else {
+                assertEquals(RecordCursor.NoNextReason.BYTE_LIMIT_REACHED, result.getNoNextReason());
+                assertFalse(result.getContinuation().isEnd());
+                assertNotNull(result.getContinuation().toBytes());
+            }
+        }
     }
 
     private static final String SIMPLE_DOC = "SimpleDocument";

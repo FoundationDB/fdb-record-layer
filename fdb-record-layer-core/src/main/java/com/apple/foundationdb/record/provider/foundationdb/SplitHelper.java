@@ -651,7 +651,14 @@ public class SplitHelper {
                 return CompletableFuture.completedFuture(nextResult);
             }
             if (limitManager.isStopped()) {
-                nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
+                final NoNextReason noNextReason = mergeNoNextReason();
+                if (noNextReason.isSourceExhausted()) {
+                    // Can happen if the limit is reached while reading the final record, so the inner cursor
+                    // completes with SOURCE_EXHAUSTED
+                    nextResult = RecordCursorResult.exhausted();
+                } else {
+                    nextResult = RecordCursorResult.withoutNextValue(continuation, mergeNoNextReason());
+                }
                 return CompletableFuture.completedFuture(nextResult);
             } else {
                 return appendUntilNewKey().thenApply(vignore -> {
