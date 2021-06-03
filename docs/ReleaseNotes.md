@@ -18,7 +18,7 @@ Another, smaller change that has been made is that by default, new indexes added
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Scanning a record store with split records and a scan limit could sometimes result in errors with the message `attempted to return a result with NoNextReason of SOURCE_EXHAUSTED but a non-end continuation` [(Issue #1294)](https://github.com/FoundationDB/fdb-record-layer/issues/1294)
+* **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.186.0
+
+* **Bug fix** Scanning a record store with split records and a scan limit could sometimes result in errors with the message `attempted to return a result with NoNextReason of SOURCE_EXHAUSTED but a non-end continuation` [(Issue #1294)](https://github.com/FoundationDB/fdb-record-layer/issues/1294)
 
 ### 3.0.185.0
 
