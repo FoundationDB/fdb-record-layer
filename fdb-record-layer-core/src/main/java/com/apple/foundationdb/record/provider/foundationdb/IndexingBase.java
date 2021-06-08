@@ -81,8 +81,6 @@ public abstract class IndexingBase {
     protected final IndexingCommon common; // to be used by extenders
     @Nonnull
     protected final OnlineIndexer.IndexingPolicy policy;
-    @Nullable
-    protected final OnlineIndexer.ScrubbingPolicy scrubbingPolicy;
     @Nonnull
     private final IndexingThrottle throttle;
 
@@ -93,18 +91,8 @@ public abstract class IndexingBase {
                  @Nonnull OnlineIndexer.IndexingPolicy policy) {
         this.common = common;
         this.policy = policy;
-        this.scrubbingPolicy = null;
-        this.throttle = new IndexingThrottle(common, IndexState.WRITE_ONLY);
-    }
-
-    IndexingBase(@Nonnull IndexingCommon common,
-                 @Nonnull OnlineIndexer.IndexingPolicy policy,
-                 @Nonnull OnlineIndexer.ScrubbingPolicy scrubbingPolicy) {
-        this.common = common;
-        this.policy = policy;
-        // Here: scrubbingPolicy isn't null and the index must be READABLE
-        this.scrubbingPolicy = scrubbingPolicy;
-        this.throttle = new IndexingThrottle(common, IndexState.READABLE);
+        IndexState expectedIndexState = common.isScrubber() ? IndexState.READABLE : IndexState.WRITE_ONLY;
+        this.throttle = new IndexingThrottle(common, expectedIndexState);
     }
 
     // helper functions
@@ -238,7 +226,7 @@ public abstract class IndexingBase {
         final Index index = common.getIndex();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(index);
-            if (scrubbingPolicy != null) {
+            if (common.isScrubber()) {
                 validateOrThrowEx(indexState == IndexState.READABLE, "Scrubber was called for a non-readable index. State: " + indexState);
                 return setScrubberTypeOrThrow(store).thenApply(ignore -> true);
             }

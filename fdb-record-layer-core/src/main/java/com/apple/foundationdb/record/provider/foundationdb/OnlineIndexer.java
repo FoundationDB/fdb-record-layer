@@ -145,7 +145,6 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull private final FDBDatabaseRunner runner;
     @Nonnull private final Index index;
     @Nonnull private IndexingPolicy indexingPolicy;
-    @Nullable private ScrubbingPolicy scrubbingPolicy;
     private boolean fallbackToRecordsScan = false;
 
     @SuppressWarnings("squid:S00107")
@@ -163,7 +162,6 @@ public class OnlineIndexer implements AutoCloseable {
         this.runner = runner;
         this.index = index;
         this.indexingPolicy = indexingPolicy;
-        this.scrubbingPolicy = scrubbingPolicy;
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
@@ -171,7 +169,8 @@ public class OnlineIndexer implements AutoCloseable {
                 indexStatePrecondition,
                 trackProgress,
                 useSynchronizedSession,
-                leaseLengthMillis
+                leaseLengthMillis,
+                scrubbingPolicy
             );
     }
 
@@ -212,7 +211,7 @@ public class OnlineIndexer implements AutoCloseable {
             throw FDBExceptions.wrapException(ex);
         }
 
-        if (isScrubber()) {
+        if (common.isScrubber()) {
             throw FDBExceptions.wrapException(ex);
         }
 
@@ -340,7 +339,7 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     private IndexingScrubber getIndexerScrubber() {
         if (! (indexer instanceof IndexingScrubber)) {
-            indexer = new IndexingScrubber(common, indexingPolicy, scrubbingPolicy);
+            indexer = new IndexingScrubber(common, indexingPolicy);
         }
         return (IndexingScrubber) indexer;
     }
@@ -355,15 +354,11 @@ public class OnlineIndexer implements AutoCloseable {
         if (indexingPolicy.isByIndex()) {
             return getIndexerByIndex();
         }
-        if (isScrubber()) {
+        if (common.isScrubber()) {
             return getIndexerScrubber();
         }
         // default
         return getIndexerByRecords();
-    }
-
-    private boolean isScrubber() {
-        return scrubbingPolicy != null;
     }
 
     /**
@@ -1516,7 +1511,10 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Add a {@link ScrubbingPolicy} policy. If set, this policy will enforce index scrubbing (instead of index
-         * building). Which verifying a readable index's validity.
+         * building).
+         * A scrubbing job will validate (and fix, if applicable) indexes after they were already built and set to a READABLE
+         * state (see {@link com.apple.foundationdb.record.IndexState}). It is designed to support an ongoing index
+         * consistency verification.
          * @param scrubbingPolicy see {@link ScrubbingPolicy}
          * @return this Builder
          */
@@ -2001,18 +1999,18 @@ public class OnlineIndexer implements AutoCloseable {
         private int reportDanglingLimit;
         private int reportMissingLimit;
         private final boolean allowRepair;
-        private final long quota;
+        private final long entriesScanLimit;
 
         public ScrubbingPolicy(boolean scrubDangling, boolean scrubMissing,
                                int reportDanglingLimit, int reportMissingLimit,
-                               boolean allowRepair, long quota) {
+                               boolean allowRepair, long entriesScanLimit) {
 
             this.scrubDangling = scrubDangling;
             this.scrubMissing = scrubMissing;
             this.reportDanglingLimit = reportDanglingLimit;
             this.reportMissingLimit = reportMissingLimit;
             this.allowRepair = allowRepair;
-            this.quota = quota;
+            this.entriesScanLimit = entriesScanLimit;
         }
 
         boolean shouldScrubDangling() {
@@ -2043,8 +2041,8 @@ public class OnlineIndexer implements AutoCloseable {
             return allowRepair;
         }
 
-        long getQuota() {
-            return quota;
+        long getEntriesScanLimit() {
+            return entriesScanLimit;
         }
 
         /**
@@ -2071,7 +2069,7 @@ public class OnlineIndexer implements AutoCloseable {
             int reportDanglingLimit = 1000;
             int reportMissingLimit = 1000;
             boolean allowRepair = true;
-            long quota = 0;
+            long entriesScanLimit = 0;
 
             protected Builder() {
             }
@@ -2128,19 +2126,19 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set records/indexes scan quota. The scrubbing will return after scanning this quota, or more, records/indexes
-             * entries. If scanning both Dangling and Missing, the quota is affective for each scan separately.
-             * The default is 0, to scan the whole index/record ranges.
-             * @param quota - if 0 (default), ignore. Else return after scanning more than this number.
+             * Set records/index entries scan limit. The scrubbing task will return after scanning more than this limit.
+             * If scanning for both Dangling and Missing indexes (aka scan index and records), the limit is affective
+             * for each scan separately.
+             * @param entriesScanLimit - if 0 (default) or less, unlimited. Else return after scanning more than this limit.
              * @return this builder.
              */
-            public Builder setQuota(long quota) {
-                this.quota = quota;
+            public Builder setEntriesScanLimit(long entriesScanLimit) {
+                this.entriesScanLimit = entriesScanLimit;
                 return this;
             }
 
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(scrubDangling, scrubMissing, reportDanglingLimit, reportMissingLimit, allowRepair, quota);
+                return new ScrubbingPolicy(scrubDangling, scrubMissing, reportDanglingLimit, reportMissingLimit, allowRepair, entriesScanLimit);
             }
         }
     }

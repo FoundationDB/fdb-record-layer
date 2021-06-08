@@ -61,6 +61,7 @@ public class IndexingCommon {
     @Nonnull private OnlineIndexer.IndexStatePrecondition indexStatePrecondition;
     @Nonnull public OnlineIndexer.Config config; // this item may be modified on the fly
     @Nullable private final Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader;
+    @Nullable private final OnlineIndexer.ScrubbingPolicy scrubbingPolicy;
     private int configLoaderInvocationCount = 0;
 
     @Nonnull public Collection<RecordType> recordTypes;
@@ -78,7 +79,8 @@ public class IndexingCommon {
                    @Nonnull OnlineIndexer.IndexStatePrecondition indexStatePrecondition,
                    boolean trackProgress,
                    boolean useSynchronizedSession,
-                   long leaseLengthMillis ) {
+                   long leaseLengthMillis,
+                   OnlineIndexer.ScrubbingPolicy scrubbingPolicy) {
         this.useSynchronizedSession = useSynchronizedSession;
         this.runner = runner;
         this.index = index;
@@ -90,6 +92,7 @@ public class IndexingCommon {
         this.trackProgress = trackProgress;
         this.recordStoreBuilder = recordStoreBuilder;
         this.leaseLengthMillis = leaseLengthMillis;
+        this.scrubbingPolicy = scrubbingPolicy;
 
         this.totalRecordsScanned = new AtomicLong(0);
     }
@@ -185,6 +188,16 @@ public class IndexingCommon {
 
     public long getLeaseLengthMillis() {
         return leaseLengthMillis;
+    }
+
+    @Nonnull
+    public OnlineIndexer.ScrubbingPolicy getScrubbingPolicy() {
+        assert (scrubbingPolicy != null);// this can never happen, just eliminating the compiler warnings
+        return scrubbingPolicy;
+    }
+
+    public boolean isScrubber() {
+        return scrubbingPolicy != null;
     }
 
     public boolean loadConfig() {
