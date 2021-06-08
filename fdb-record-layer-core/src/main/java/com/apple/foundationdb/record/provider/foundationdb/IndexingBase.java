@@ -72,8 +72,8 @@ public abstract class IndexingBase {
     private static final Object INDEX_BUILD_LOCK_KEY = 0L;
     private static final Object INDEX_BUILD_SCANNED_RECORDS = 1L;
     private static final Object INDEX_BUILD_TYPE_VERSION = 2L;
-    private static final Object INDEX_BUILD_SCRUB_INDEX_RANGE = 3L;
-    private static final Object INDEX_BUILD_SCRUB_RECORDS_RANGE = 4L;
+    private static final Object INDEX_SCRUBBED_INDEX_RANGES = 3L;
+    private static final Object INDEX_SCRUBBED_RECORDS_RANGES = 4L;
 
     @Nonnull
     private static final Logger LOGGER = LoggerFactory.getLogger(IndexingBase.class);
@@ -134,12 +134,14 @@ public abstract class IndexingBase {
 
     @Nonnull
     protected static Subspace indexScrubIndexRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_SCRUB_INDEX_RANGE);
+        // This subspace holds the scrubbed ranges of the index itself (when looking for dangling entries)
+        return indexBuildSubspace(store, index, INDEX_SCRUBBED_INDEX_RANGES);
     }
 
     @Nonnull
     protected static Subspace indexScrubRecordsRangeSubspace(@Nonnull FDBRecordStoreBase<?> store, @Nonnull Index index) {
-        return indexBuildSubspace(store, index, INDEX_BUILD_SCRUB_RECORDS_RANGE);
+        // This subspace hods the scrubbed ranges of the records (when looking for missing index entries)
+        return indexBuildSubspace(store, index, INDEX_SCRUBBED_RECORDS_RANGES);
     }
 
     @SuppressWarnings("squid:S1452")
@@ -401,17 +403,19 @@ public abstract class IndexingBase {
                             AsyncIterator<Range> recordsRanges = recordsRangeSet.missingRanges(tr).iterator();
                             return indexRanges.onHasNext().thenCompose(hasNextIndex -> {
                                 if (Boolean.FALSE.equals(hasNextIndex)) {
+                                    // Here: no un-scrubbed index range was left for this call. We will
+                                    // erase the 'ranges' data to allow a fresh index re-scrubbing.
                                     tr.clear(indexesRangeSubspace.range());
                                 }
-                                return recordsRanges.onHasNext().thenCompose(hasNextRecord -> {
+                                return recordsRanges.onHasNext().thenAccept(hasNextRecord -> {
                                     if (Boolean.FALSE.equals(hasNextRecord)) {
+                                        // Here: no un-scrubbed records range was left for this call. We will
+                                        // erase the 'ranges' data to allow a fresh records re-scrubbing.
                                         tr.clear(recordsRangeSubspace.range());
                                     }
-                                    return AsyncUtil.DONE;
                                 });
                             });
                         }
-                        tr.clear(store.indexRangeSubspace(index).range());
                         tr.clear(indexBuildScannedRecordsSubspace(store, index).pack());
                         tr.set(indexBuildTypeSubspace(store, common.getIndex()).pack(), indexingTypeStamp.toByteArray());
                     }
@@ -645,24 +649,24 @@ public abstract class IndexingBase {
                                                        @Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace) {
 
         return AsyncUtil.whileTrue(() ->
-                        buildCommitRetryAsync( iterateRange,
-                                true,
-                                additionalLogMessageKeyValues)
-                                .handle((hasMore, ex) -> {
-                                    if (ex == null) {
-                                        if (Boolean.FALSE.equals(hasMore)) {
-                                            // all done
-                                            return AsyncUtil.READY_FALSE;
-                                        }
-                                        return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
+                    buildCommitRetryAsync(iterateRange,
+                            true,
+                            additionalLogMessageKeyValues)
+                            .handle((hasMore, ex) -> {
+                                if (ex == null) {
+                                    if (Boolean.FALSE.equals(hasMore)) {
+                                        // all done
+                                        return AsyncUtil.READY_FALSE;
                                     }
-                                    final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
-                                    if (LOGGER.isInfoEnabled()) {
-                                        LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                                LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
-                                    }
-                                    throw unwrappedEx;
-                                }).thenCompose(Function.identity()),
+                                    return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
+                                }
+                                final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
+                                if (LOGGER.isInfoEnabled()) {
+                                    LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
+                                            LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
+                                }
+                                throw unwrappedEx;
+                            }).thenCompose(Function.identity()),
                 getRunner().getExecutor());
     }
 
@@ -710,11 +714,11 @@ public abstract class IndexingBase {
     }
 
     /**
-     * thrown when indexing validation fails.
+     * thrown when the indexing process fails to meet a precondition.
      */
     @SuppressWarnings("serial")
     public static class ValidationException extends RecordCoreException {
-        public ValidationException(@Nonnull String msg, @Nullable Object ... keyValues) {
+        ValidationException(@Nonnull String msg, @Nullable Object ... keyValues) {
             super(msg, keyValues);
         }
     }

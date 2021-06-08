@@ -2117,7 +2117,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set 'scrub but do not repair' mode.
+             * Set whether the scrubber, if finding an error, will repair it.
              * @param val - if false, always report errors but do not repair.
              *            - if true (default), report errors (up to report limits) but always repair.
              * @return this builder.
@@ -2128,7 +2128,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * set records/indexes scan quota. The scrubbing will return after scanning this quota, or more, records/indexes
+             * Set records/indexes scan quota. The scrubbing will return after scanning this quota, or more, records/indexes
              * entries. If scanning both Dangling and Missing, the quota is affective for each scan separately.
              * The default is 0, to scan the whole index/record ranges.
              * @param quota - if 0 (default), ignore. Else return after scanning more than this number.

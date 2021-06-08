@@ -95,7 +95,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_MISSING));
 
         // manually delete a few index entries
         openSimpleMetaData(hook);
@@ -128,7 +128,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING));
+        assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_MISSING));
 
         // now verify it's fixed
         timer.reset();
@@ -144,7 +144,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_MISSING));
     }
 
 
@@ -175,7 +175,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_DANGLING));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_DANGLING));
 
         // manually delete a few records w/o updating the indexes
         openSimpleMetaData(hook);
@@ -210,7 +210,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_DANGLING));
+        assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_DANGLING));
 
         // verify the missing entries are found and fixed
         timer.reset();
@@ -227,7 +227,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_DANGLING));
+        assertEquals(danglingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_DANGLING));
         numRecords -= danglingCount; // if the dangling indexes were removed, this should be reflected later
 
         // now verify it's fixed
@@ -244,7 +244,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_DANGLING));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_DANGLING));
     }
 
     @Test
@@ -279,7 +279,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numChunks * 2 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_MISSING));
 
         // Scrub dangling with a quota
         timer.reset();
@@ -298,7 +298,7 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         assertEquals(1 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_MISSING));
 
 
         // Scrub both with a quota
@@ -316,6 +316,6 @@ public class OnlineIndexerScrubTest extends OnlineIndexerTest {
         assertEquals(3 * 2 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize * 3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
-        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING));
+        assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_MISSING));
     }
 }

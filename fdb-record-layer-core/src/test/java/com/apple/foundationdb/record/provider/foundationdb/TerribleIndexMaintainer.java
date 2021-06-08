@@ -165,6 +165,6 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
 
     @Override
     public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
-        return null;
+        throw new UnsupportedOperationException("TerribleIndexMaintainer does not implement evaluateIndex");
     }
 }

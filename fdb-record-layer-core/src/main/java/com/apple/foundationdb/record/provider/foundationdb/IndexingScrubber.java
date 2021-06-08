@@ -105,8 +105,8 @@ public class IndexingScrubber extends IndexingBase {
     }
 
     @Nonnull
-    private OnlineIndexer.ScrubbingPolicy spolicy() {
-        assert (scrubbingPolicy != null);// this can never happen, just eliminating compiler warnings
+    private OnlineIndexer.ScrubbingPolicy getScrubbingPolicy() {
+        assert (scrubbingPolicy != null);// this can never happen, just eliminating the compiler warnings
         return scrubbingPolicy;
     }
 
@@ -129,7 +129,7 @@ public class IndexingScrubber extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> scrubIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                @Nullable byte[] start, @Nullable byte[] end) {
-        if (!spolicy().shouldScrubDangling()) {
+        if (!getScrubbingPolicy().shouldScrubDangling()) {
             return AsyncUtil.DONE;
         }
 
@@ -181,7 +181,7 @@ public class IndexingScrubber extends IndexingBase {
 
             final AtomicBoolean hasMore = new AtomicBoolean(true);
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
-            final long quota = spolicy().getQuota();
+            final long quota = getScrubbingPolicy().getQuota();
 
             return iterateRangeOnly(store, cursor,
                     this::deleteIndexIfDangling,
@@ -210,19 +210,20 @@ public class IndexingScrubber extends IndexingBase {
         if (! indexResult.hasStoredRecord() ) {
             // Here: Oh, No! this index is dangling!
             final FDBStoreTimer timer = getRunner().getTimer();
-            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_DANGLING);
+            timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_DANGLING);
             final IndexEntry indexEntry = indexResult.getIndexEntry();
             final Tuple valueKey = indexEntry.getKey();
             final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
 
-            if (LOGGER.isWarnEnabled() && spolicy().shouldReportDangling()) {
+            if (LOGGER.isWarnEnabled() && getScrubbingPolicy().shouldReportDangling()) {
                 LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
                         LogMessageKeys.KEY, valueKey.toString())
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
-            if (spolicy().allowRepair()) {
-                // remove this index
+            if (getScrubbingPolicy().allowRepair()) {
+                // remove this index entry
+                // Note that there no record can be added to the conflict list
                 store.getContext().ensureActive().clear(keyBytes);
             }
         }
@@ -232,7 +233,7 @@ public class IndexingScrubber extends IndexingBase {
     @Nonnull
     private CompletableFuture<Void> scrubRecords(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                  @Nullable byte[] start, @Nullable byte[] end) {
-        if (!spolicy().shouldScrubMissing()) {
+        if (!getScrubbingPolicy().shouldScrubMissing()) {
             return AsyncUtil.DONE;
         }
 
@@ -282,7 +283,7 @@ public class IndexingScrubber extends IndexingBase {
             final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(tupleRange, null, scanProperties);
             final AtomicBoolean hasMore = new AtomicBoolean(true);
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
-            final long quota = spolicy().getQuota();
+            final long quota = getScrubbingPolicy().getQuota();
 
             return iterateRangeOnly(store, cursor, this::getRecordIfMissingIndex,
                     lastResult, hasMore, recordsScanned)
@@ -328,32 +329,32 @@ public class IndexingScrubber extends IndexingBase {
                     return maintainer.state.transaction.get(keyBytes).thenApply(Objects::isNull);
                 })
                 .collect(Collectors.toList()))
-                .thenCompose(list -> {
+                .thenApply(list -> {
                     if (!list.contains(true)) {
                         // no null index(s) = no record to index
-                        return CompletableFuture.completedFuture(null);
+                        return null;
                     }
                     // Here: Oh, No! the index is missing!!
                     // (Maybe) report an error and (maybe) return this record to be index
-                    if (LOGGER.isWarnEnabled() && spolicy().shouldReportMissing()) {
+                    if (LOGGER.isWarnEnabled() && getScrubbingPolicy().shouldReportMissing()) {
                         LOGGER.warn(KeyValueLogMessage.build("Scrubber: missing index entry",
                                 LogMessageKeys.KEY, rec.getPrimaryKey().toString())
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
                                 .toString());
                     }
                     final FDBStoreTimer timer = getRunner().getTimer();
-                    timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_INDEX_SCRUBBER_INDEXES_MISSING);
-                    if (spolicy().allowRepair()) {
+                    timerIncrement(timer, FDBStoreTimer.Counts.ONLINE_SCRUBBER_INDEX_ENTRIES_MISSING);
+                    if (getScrubbingPolicy().allowRepair()) {
                         // record to be indexed
-                        return CompletableFuture.completedFuture(rec);
+                        return rec;
                     }
                     // report only mode
-                    return CompletableFuture.completedFuture(null);
+                    return null;
                 });
     }
 
     @Override
     CompletableFuture<Void> rebuildIndexInternalAsync(final FDBRecordStore store) {
-        return null;
+        throw new UnsupportedOperationException();
     }
 }
