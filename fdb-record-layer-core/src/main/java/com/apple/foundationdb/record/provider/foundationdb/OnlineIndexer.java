@@ -336,11 +336,11 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private IndexingScrubber getIndexerScrubber() {
-        if (! (indexer instanceof IndexingScrubber)) {
-            indexer = new IndexingScrubber(common, indexingPolicy);
+    private IndexingScrubMissing getIndexerScrubber() {
+        if (! (indexer instanceof IndexingScrubMissing)) {
+            indexer = new IndexingScrubMissing(common, indexingPolicy);
         }
-        return (IndexingScrubber) indexer;
+        return (IndexingScrubMissing) indexer;
     }
 
     @Nonnull

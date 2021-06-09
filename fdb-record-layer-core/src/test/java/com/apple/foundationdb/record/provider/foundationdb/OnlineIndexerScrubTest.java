@@ -86,12 +86,12 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setScrubDangling(false)
-                        .setReportMissingLimit(Integer.MAX_VALUE)
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
+                        .setAllowRepair(false)
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -119,12 +119,10 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setScrubDangling(false)
-                        .setReportMissingLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(missingCount, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -135,12 +133,10 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setScrubDangling(false)
-                        .setReportMissingLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -165,13 +161,11 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setScrubMissing(false)
-                        .setScrubDangling(true)
-                        .setReportDanglingLimit(Integer.MAX_VALUE)
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -199,14 +193,12 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setScrubDangling(true)
-                        .setScrubMissing(false)
-                        .setReportDanglingLimit(Integer.MAX_VALUE)
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -217,13 +209,11 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setScrubDangling(true)
-                        .setScrubMissing(false)
-                        .setReportDanglingLimit(Integer.MAX_VALUE)
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -235,12 +225,11 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setScrubMissing(false)
-                        .setReportDanglingLimit(Integer.MAX_VALUE)
+                        .setLogWarningsLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(numRecords, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
@@ -267,14 +256,14 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setReportMissingLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
                         .setEntriesScanLimit(1000000)
                         .build())
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(numChunks * 2 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
@@ -286,14 +275,12 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
-                        .setReportMissingLimit(Integer.MAX_VALUE)
-                        .setScrubMissing(false)
                         .setEntriesScanLimit(1)
                         .build())
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubDanglingIndexEntries();
         }
         assertEquals(1 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
@@ -311,7 +298,8 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {
-            indexScrubber.scrubIndex();
+            indexScrubber.scrubDanglingIndexEntries();
+            indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(3 * 2 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize * 3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));

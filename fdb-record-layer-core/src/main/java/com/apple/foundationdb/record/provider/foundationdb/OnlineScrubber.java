@@ -56,6 +56,11 @@ public class OnlineScrubber implements AutoCloseable {
     @Nullable
     private IndexingBase indexer = null;
 
+    public enum ScrubbingType {
+        DANGLING,
+        MISSING
+    }
+
     @SuppressWarnings("squid:S00107")
     OnlineScrubber(@Nonnull FDBDatabaseRunner runner,
                    @Nonnull FDBRecordStore.Builder recordStoreBuilder,
@@ -86,17 +91,24 @@ public class OnlineScrubber implements AutoCloseable {
         common.close();
     }
 
-    @Nonnull
-    private IndexingBase getScrubbrer() {
-        // TODO
-        return new IndexingScrubber(common, OnlineIndexer.IndexingPolicy.DEFAULT);
+    private IndexingBase getScrubber(ScrubbingType type) {
+        switch (type) {
+            case DANGLING:
+                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT);
+
+            case MISSING:
+                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT);
+
+            default:
+                throw new MetaDataException("bad type");
+        }
     }
 
     @VisibleForTesting
     @Nonnull
-    CompletableFuture<Void> scrubIndexAsync() {
+    CompletableFuture<Void> scrubIndexAsync(ScrubbingType type) {
         return AsyncUtil.composeHandle(
-                getScrubbrer().buildIndexAsync(false),
+                getScrubber(type).buildIndexAsync(false),
                 (ignore, ex) -> {
                     if (ex != null) {
                         throw FDBExceptions.wrapException(ex);
@@ -106,11 +118,19 @@ public class OnlineScrubber implements AutoCloseable {
     }
 
     /**
-     * Builds an index across multiple transactions.
+     * Scrub the index, find & repair dangling entries.
      * Synchronous version of {@link #scrubIndexAsync}.
      */
-    public void scrubIndex() {
-        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync());
+    public void scrubDanglingIndexEntries() {
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.DANGLING));
+    }
+
+    /**
+     * Scrub the index, find & repair missing entries.
+     * Synchronous version of {@link #scrubIndexAsync}.
+     */
+    public void scrubMissingIndexEntries() {
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync(ScrubbingType.MISSING));
     }
 
     @Nonnull
@@ -123,46 +143,23 @@ public class OnlineScrubber implements AutoCloseable {
      */
     public static class ScrubbingPolicy {
         public static final ScrubbingPolicy DISABLED = null;
-        private final boolean scrubDangling;
-        private final boolean scrubMissing;
-        private int reportDanglingLimit;
-        private int reportMissingLimit;
+        private int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
 
-        public ScrubbingPolicy(boolean scrubDangling, boolean scrubMissing,
-                               int reportDanglingLimit, int reportMissingLimit,
+        public ScrubbingPolicy(int logWarningsLimit,
                                boolean allowRepair, long entriesScanLimit) {
 
-            this.scrubDangling = scrubDangling;
-            this.scrubMissing = scrubMissing;
-            this.reportDanglingLimit = reportDanglingLimit;
-            this.reportMissingLimit = reportMissingLimit;
+            this.logWarningsLimit = logWarningsLimit;
             this.allowRepair = allowRepair;
             this.entriesScanLimit = entriesScanLimit;
         }
 
-        boolean shouldScrubDangling() {
-            return scrubDangling;
-        }
-
-        boolean shouldScrubMissing() {
-            return scrubMissing;
-        }
-
-        boolean shouldReportDangling() {
-            if (0 <= reportDanglingLimit) {
+        boolean shouldLogWarning() {
+            if (0 <= logWarningsLimit) {
                 return false;
             }
-            reportDanglingLimit--;
-            return true;
-        }
-
-        boolean shouldReportMissing() {
-            if (0 <= reportMissingLimit) {
-                return false;
-            }
-            reportMissingLimit--;
+            logWarningsLimit--;
             return true;
         }
 
@@ -193,10 +190,7 @@ public class OnlineScrubber implements AutoCloseable {
          */
         @API(API.Status.UNSTABLE)
         public static class Builder {
-            boolean scrubDangling = true;
-            boolean scrubMissing = true;
-            int reportDanglingLimit = 1000;
-            int reportMissingLimit = 1000;
+            int logWarningsLimit = 1000;
             boolean allowRepair = true;
             long entriesScanLimit = 0;
 
@@ -204,48 +198,16 @@ public class OnlineScrubber implements AutoCloseable {
             }
 
             /**
-             * Allow/forbid the scrubber to look for dangling index entries (i.e. index entries that point
-             * to an invalid record). The default is allow.
-             * @param scrubDangling if true, allow looking for dangling index entries. Else, forbid.
+             * Set a rigid limit on the max number of warnings to log..
+             * If never called, the default is allowing (up to) 1000 warnings.
+             * @param logWarningsLimit the max number of warnings to log.
              * @return this builder.
              */
-            public Builder setScrubDangling(final boolean scrubDangling) {
-                this.scrubDangling = scrubDangling;
+            public Builder setLogWarningsLimit(final int logWarningsLimit) {
+                this.logWarningsLimit = logWarningsLimit;
                 return this;
             }
 
-            /**
-             * Allow/forbid the scrubber to look for missing index entries (i.e. look for records that
-             * should have been indexed, but aren't). The default is to allow.
-             * @param scrubMissing if true, allow looking for missing index entries. Else, forbid.
-             * @return this builder.
-             */
-            public Builder setScrubMissing(final boolean scrubMissing) {
-                this.scrubMissing = scrubMissing;
-                return this;
-            }
-
-            /**
-             * Set a rigid limit on the max number of dangling-indexes errors to report.
-             * If never called, the default is allowing (up to) 1000 error reports.
-             * @param reportDanglingLimit the max number of dangling-indexes errors to report.
-             * @return this builder.
-             */
-            public Builder setReportDanglingLimit(final int reportDanglingLimit) {
-                this.reportDanglingLimit = reportDanglingLimit;
-                return this;
-            }
-
-            /**
-             * Set a rigid limit on the max number of missing-indexes errors to report.
-             * If never called, the default is allowing (up to) 1000 error reports.
-             * @param reportMissingLimit the max number of missing-indexes errors to report.
-             * @return this builder.
-             */
-            public Builder setReportMissingLimit(final int reportMissingLimit) {
-                this.reportMissingLimit = reportMissingLimit;
-                return this;
-            }
 
             /**
              * Set whether the scrubber, if it finds an error, will repair it.
@@ -271,7 +233,7 @@ public class OnlineScrubber implements AutoCloseable {
             }
 
             public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(scrubDangling, scrubMissing, reportDanglingLimit, reportMissingLimit, allowRepair, entriesScanLimit);
+                return new ScrubbingPolicy(logWarningsLimit, allowRepair, entriesScanLimit);
             }
         }
     }

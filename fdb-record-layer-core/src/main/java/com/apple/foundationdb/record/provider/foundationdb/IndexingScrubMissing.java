@@ -29,7 +29,6 @@ import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
@@ -63,35 +62,29 @@ import java.util.stream.Collectors;
 /**
  * Manifesto:
  *  Scrub a readable index to validate its consistency. Repair when needed.
- *  Keep the type stamp simple, to allow parallel scrubbing.
- *  Support two scrubbers - detect missing and detect dangling index entries. Set by the policy.
+ *  This scrubber will scan the records and look for missing indexes.
  */
 @API(API.Status.INTERNAL)
-public class IndexingScrubber extends IndexingBase {
-    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingScrubber.class);
+public class IndexingScrubMissing extends IndexingBase {
+    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingScrubMissing.class);
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
-    private long scanCounterIndexes = 0;
-    private long scanCounterRecords = 0;
 
-    public IndexingScrubber(@Nonnull final IndexingCommon common,
-                            @Nonnull final OnlineIndexer.IndexingPolicy policy) {
+    @Nonnull private final OnlineScrubber.ScrubbingPolicy scrubbingPolicy;
+    private long scanCounter = 0;
+
+    public IndexingScrubMissing(@Nonnull final IndexingCommon common,
+                                @Nonnull final OnlineIndexer.IndexingPolicy policy) {
         super(common, policy);
         if (!common.isScrubber()) {
             throw new MetaDataException("invalid scrubbing policy");
         }
-    }
-
-    @Nonnull
-    private OnlineScrubber.ScrubbingPolicy getScrubbingPolicy() {
-        OnlineScrubber.ScrubbingPolicy scrubbingPolicy = (OnlineScrubber.ScrubbingPolicy) common.getScrubbingPolicy();
-        assert (scrubbingPolicy != null);// this can never happen, just eliminating the compiler warnings
-        return scrubbingPolicy;
+        this.scrubbingPolicy = (OnlineScrubber.ScrubbingPolicy) common.getScrubbingPolicy();
     }
 
     @Override
     List<Object> indexingLogMessageKeyValues() {
         return Arrays.asList(
-                LogMessageKeys.INDEXING_METHOD, "scrub repair"
+                LogMessageKeys.INDEXING_METHOD, "scrub repair missing"
         );
     }
 
@@ -118,123 +111,14 @@ public class IndexingScrubber extends IndexingBase {
                                     SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                     return subspaceProvider.getSubspaceAsync(context)
                                             .thenCompose(subspace ->
-                                                    scrubIndex(subspaceProvider, subspace, null, null)
-                                                    .thenCompose(ignore -> scrubRecords(subspaceProvider, subspace, null, null))
-                                            );
+                                                    scrubRecords(subspaceProvider, subspace, null, null));
                                 })
-        ), common.indexLogMessageKeyValues("IndexingScrubber::buildIndexInternalAsync"));
-    }
-
-    @Nonnull
-    private CompletableFuture<Void> scrubIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
-                                               @Nullable byte[] start, @Nullable byte[] end) {
-        if (!getScrubbingPolicy().shouldScrubDangling()) {
-            return AsyncUtil.DONE;
-        }
-
-        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "scrubRecords",
-                LogMessageKeys.RANGE_START, start,
-                LogMessageKeys.RANGE_END, end);
-
-        return iterateAllRanges(additionalLogMessageKeyValues,
-                (store, recordsScanned) -> scrubIndexRangeOnly(store, start, end, recordsScanned),
-                subspaceProvider, subspace);
-    }
-
-    @Nonnull
-    private CompletableFuture<Boolean> scrubIndexRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
-        // return false when done
-        Index index = common.getIndex();
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
-        if (recordMetaDataProvider == null || !metaData.equals(recordMetaDataProvider.getRecordMetaData())) {
-            throw new MetaDataException("Store does not have the same metadata");
-        }
-        final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-
-        // scrubbing only readable, VALUE, idempotence indexes (at least for now)
-        validateOrThrowEx(maintainer.isIdempotent(), "scrubbed index is not idempotent");
-        validateOrThrowEx(index.getType().equals(IndexTypes.VALUE), "scrubbed index is not a VALUE index");
-        validateOrThrowEx(store.getIndexState(index) == IndexState.READABLE, "scrubbed index is not readable");
-
-        RangeSet rangeSet = new RangeSet(indexScrubIndexRangeSubspace(store, index));
-        AsyncIterator<Range> ranges = rangeSet.missingRanges(store.ensureContextActive(), startBytes, endBytes).iterator();
-
-        final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
-        final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
-
-        return ranges.onHasNext().thenCompose(hasNext -> {
-            if (Boolean.FALSE.equals(hasNext)) {
-                return AsyncUtil.READY_FALSE; // no more missing ranges - all done
-            }
-            final Range range = ranges.next();
-            final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
-            final Tuple rangeEnd = RangeSet.isFinalKey(range.end) ? null : Tuple.fromBytes(range.end);
-            final TupleRange tupleRange = TupleRange.between(rangeStart, rangeEnd);
-
-            RecordCursor<FDBIndexedRecord<Message>> cursor =
-                    store.scanIndexRecords(index.getName(), IndexScanType.BY_VALUE, tupleRange, null, IndexOrphanBehavior.RETURN, scanProperties);
-
-            final AtomicBoolean hasMore = new AtomicBoolean(true);
-            final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
-            final long scanLimit = getScrubbingPolicy().getEntriesScanLimit();
-
-            return iterateRangeOnly(store, cursor,
-                    this::deleteIndexIfDangling,
-                    lastResult, hasMore, recordsScanned)
-                    .thenApply(vignore -> hasMore.get() ?
-                                          lastResult.get().get().getIndexEntry().getKey() :
-                                          rangeEnd)
-                    .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
-                            .thenApply(ignore -> {
-                                if ( scanLimit > 0 ) {
-                                    scanCounterIndexes += recordsScanned.get();
-                                    if (scanLimit <= scanCounterIndexes) {
-                                        return false;
-                                    }
-                                }
-                                return !Objects.equals(cont, rangeEnd);
-                            }));
-        });
-    }
-
-    @Nullable
-    private CompletableFuture<FDBStoredRecord<Message>> deleteIndexIfDangling(FDBRecordStore store, final RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
-        // This will always return null (!) - but sometimes will delete a dangling index
-        FDBIndexedRecord<Message> indexResult = cursorResult.get();
-
-        if (! indexResult.hasStoredRecord() ) {
-            // Here: Oh, No! this index is dangling!
-            final FDBStoreTimer timer = getRunner().getTimer();
-            timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_DANGLING_ENTRIES);
-            final IndexEntry indexEntry = indexResult.getIndexEntry();
-            final Tuple valueKey = indexEntry.getKey();
-            final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
-
-            if (LOGGER.isWarnEnabled() && getScrubbingPolicy().shouldReportDangling()) {
-                LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
-                        LogMessageKeys.KEY, valueKey.toString())
-                        .addKeysAndValues(common.indexLogMessageKeyValues())
-                        .toString());
-            }
-            if (getScrubbingPolicy().allowRepair()) {
-                // remove this index entry
-                // Note that there no record can be added to the conflict list, so we'll add the index entry itself.
-                store.addRecordReadConflict(indexEntry.getPrimaryKey());
-                store.getContext().ensureActive().clear(keyBytes);
-            }
-        }
-        return CompletableFuture.completedFuture(null);
+        ), common.indexLogMessageKeyValues("IndexingScrubMissing::buildIndexInternalAsync"));
     }
 
     @Nonnull
     private CompletableFuture<Void> scrubRecords(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace,
                                                  @Nullable byte[] start, @Nullable byte[] end) {
-        if (!getScrubbingPolicy().shouldScrubMissing()) {
-            return AsyncUtil.DONE;
-        }
 
         final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "scrubRecords",
                 LogMessageKeys.RANGE_START, start,
@@ -281,7 +165,7 @@ public class IndexingScrubber extends IndexingBase {
             final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(tupleRange, null, scanProperties);
             final AtomicBoolean hasMore = new AtomicBoolean(true);
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
-            final long scanLimit = getScrubbingPolicy().getEntriesScanLimit();
+            final long scanLimit = scrubbingPolicy.getEntriesScanLimit();
 
             return iterateRangeOnly(store, cursor, this::getRecordIfMissingIndex,
                     lastResult, hasMore, recordsScanned)
@@ -291,8 +175,8 @@ public class IndexingScrubber extends IndexingBase {
                     .thenCompose(cont -> rangeSet.insertRange(store.ensureContextActive(), packOrNull(rangeStart), packOrNull(cont), true)
                             .thenApply(ignore -> {
                                 if ( scanLimit > 0 ) {
-                                    scanCounterRecords += recordsScanned.get();
-                                    if (scanLimit <= scanCounterRecords) {
+                                    scanCounter += recordsScanned.get();
+                                    if (scanLimit <= scanCounter) {
                                         return false;
                                     }
                                 }
@@ -334,7 +218,7 @@ public class IndexingScrubber extends IndexingBase {
                     }
                     // Here: Oh, No! the index is missing!!
                     // (Maybe) report an error and (maybe) return this record to be index
-                    if (LOGGER.isWarnEnabled() && getScrubbingPolicy().shouldReportMissing()) {
+                    if (LOGGER.isWarnEnabled() && scrubbingPolicy.shouldLogWarning()) {
                         LOGGER.warn(KeyValueLogMessage.build("Scrubber: missing index entry",
                                 LogMessageKeys.KEY, rec.getPrimaryKey().toString())
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
@@ -342,7 +226,7 @@ public class IndexingScrubber extends IndexingBase {
                     }
                     final FDBStoreTimer timer = getRunner().getTimer();
                     timerIncrement(timer, FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES);
-                    if (getScrubbingPolicy().allowRepair()) {
+                    if (scrubbingPolicy.allowRepair()) {
                         // record to be indexed
                         return rec;
                     }
