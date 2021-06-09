@@ -377,38 +377,36 @@ public abstract class IndexingBase {
                 "Not a scrubber type-stamp");
 
         final Index index = common.getIndex();
-        byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
-        return tr.get(stampKey)
-                .thenCompose(bytes -> {
-                    if (bytes != null) {
-                        IndexBuildProto.IndexBuildIndexingStamp savedStamp = parseTypeStampOrThrow(bytes);
-                        final Subspace indexesRangeSubspace = indexScrubIndexRangeSubspace(store, index);
-                        final Subspace recordsRangeSubspace = indexScrubRecordsRangeSubspace(store, index);
-                        if (indexingTypeStamp.equals(savedStamp)) {
-                            RangeSet indexRangeSet = new RangeSet(indexesRangeSubspace);
-                            RangeSet recordsRangeSet = new RangeSet(recordsRangeSubspace);
-                            AsyncIterator<Range> indexRanges = indexRangeSet.missingRanges(tr).iterator();
-                            AsyncIterator<Range> recordsRanges = recordsRangeSet.missingRanges(tr).iterator();
-                            return indexRanges.onHasNext().thenCompose(hasNextIndex -> {
-                                if (Boolean.FALSE.equals(hasNextIndex)) {
-                                    // Here: no un-scrubbed index range was left for this call. We will
-                                    // erase the 'ranges' data to allow a fresh index re-scrubbing.
-                                    tr.clear(indexesRangeSubspace.range());
-                                }
-                                return recordsRanges.onHasNext().thenAccept(hasNextRecord -> {
-                                    if (Boolean.FALSE.equals(hasNextRecord)) {
-                                        // Here: no un-scrubbed records range was left for this call. We will
-                                        // erase the 'ranges' data to allow a fresh records re-scrubbing.
-                                        tr.clear(recordsRangeSubspace.range());
-                                    }
-                                });
-                            });
-                        }
-                        tr.clear(indexBuildScannedRecordsSubspace(store, index).pack());
-                        tr.set(indexBuildTypeSubspace(store, common.getIndex()).pack(), indexingTypeStamp.toByteArray());
+        final Subspace indexesRangeSubspace = indexScrubIndexRangeSubspace(store, index);
+        final Subspace recordsRangeSubspace = indexScrubRecordsRangeSubspace(store, index);
+        RangeSet indexRangeSet = new RangeSet(indexesRangeSubspace);
+        RangeSet recordsRangeSet = new RangeSet(recordsRangeSubspace);
+        AsyncIterator<Range> indexRanges = indexRangeSet.missingRanges(tr).iterator();
+        AsyncIterator<Range> recordsRanges = recordsRangeSet.missingRanges(tr).iterator();
+        return indexRanges.onHasNext().thenCompose(hasNextIndex -> {
+            if (Boolean.FALSE.equals(hasNextIndex)) {
+                // Here: no un-scrubbed index range was left for this call. We will
+                // erase the 'ranges' data to allow a fresh index re-scrubbing.
+                if (LOGGER.isInfoEnabled()) {
+                    LOGGER.info(KeyValueLogMessage.build("Reset scrubber's index range")
+                            .addKeysAndValues(common.indexLogMessageKeyValues())
+                            .toString());
+                }
+                tr.clear(indexesRangeSubspace.range());
+            }
+            return recordsRanges.onHasNext().thenAccept(hasNextRecord -> {
+                if (Boolean.FALSE.equals(hasNextRecord)) {
+                    // Here: no un-scrubbed records range was left for this call. We will
+                    // erase the 'ranges' data to allow a fresh records re-scrubbing.
+                    if (LOGGER.isInfoEnabled()) {
+                        LOGGER.info(KeyValueLogMessage.build("Reset scrubber's records range")
+                                .addKeysAndValues(common.indexLogMessageKeyValues())
+                                .toString());
                     }
-                    return AsyncUtil.DONE;
-                });
+                    tr.clear(recordsRangeSubspace.range());
+                }
+            });
+        });
     }
 
     @Nonnull

@@ -190,9 +190,8 @@ public class IndexingCommon {
         return leaseLengthMillis;
     }
 
-    @Nonnull
+    @Nullable
     public OnlineIndexer.ScrubbingPolicy getScrubbingPolicy() {
-        assert (scrubbingPolicy != null);// this can never happen, just eliminating the compiler warnings
         return scrubbingPolicy;
     }
 

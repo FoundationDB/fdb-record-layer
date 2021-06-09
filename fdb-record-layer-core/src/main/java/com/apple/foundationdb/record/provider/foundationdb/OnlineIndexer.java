@@ -2075,8 +2075,9 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * If never called, the defaulted to allow scanning the index, looking for dangling index entries.
-             * @param scrubDangling if true
+             * Allow/forbid the scrubber to look for dangling index entries (i.e. index entries that point
+             * to an invalid record). The default is allow.
+             * @param scrubDangling if true, allow looking for dangling index entries. Else, forbid.
              * @return this builder.
              */
             public Builder setScrubDangling(final boolean scrubDangling) {
@@ -2085,8 +2086,9 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * If never called, the defaulted to allow scanning the record store, looking for missing index entries.
-             * @param scrubMissing if true
+             * Allow/forbid the scrubber to look for missing index entries (i.e. look for records that
+             * should have been indexed, but aren't). The default is to allow.
+             * @param scrubMissing if true, allow looking for missing index entries. Else, forbid.
              * @return this builder.
              */
             public Builder setScrubMissing(final boolean scrubMissing) {
@@ -2095,6 +2097,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
+             * Set a rigid limit on the max number of dangling-indexes errors to report.
              * If never called, the default is allowing (up to) 1000 error reports.
              * @param reportDanglingLimit the max number of dangling-indexes errors to report.
              * @return this builder.
@@ -2105,6 +2108,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
+             * Set a rigid limit on the max number of missing-indexes errors to report.
              * If never called, the default is allowing (up to) 1000 error reports.
              * @param reportMissingLimit the max number of missing-indexes errors to report.
              * @return this builder.
@@ -2115,7 +2119,7 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set whether the scrubber, if finding an error, will repair it.
+             * Set whether the scrubber, if it finds an error, will repair it.
              * @param val - if false, always report errors but do not repair.
              *            - if true (default), report errors (up to report limits) but always repair.
              * @return this builder.
