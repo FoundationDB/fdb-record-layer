@@ -34,8 +34,6 @@ import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner
 import com.apple.foundationdb.subspace.Subspace;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.Message;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -46,15 +44,9 @@ import java.util.function.Function;
 
 @API(API.Status.UNSTABLE)
 public class OnlineScrubber implements AutoCloseable {
-    @Nonnull
-    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineScrubber.class);
 
     @Nonnull private final IndexingCommon common;
     @Nonnull private final FDBDatabaseRunner runner;
-    @Nonnull private final Index index;
-
-    @Nullable
-    private IndexingBase indexer = null;
 
     public enum ScrubbingType {
         DANGLING,
@@ -74,7 +66,6 @@ public class OnlineScrubber implements AutoCloseable {
                    @Nullable OnlineScrubber.ScrubbingPolicy scrubbingPolicy) {
 
         this.runner = runner;
-        this.index = index;
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
                 syntheticIndex,
@@ -118,7 +109,7 @@ public class OnlineScrubber implements AutoCloseable {
     }
 
     /**
-     * Scrub the index, find & repair dangling entries.
+     * Scrub the index, find and repair dangling entries.
      * Synchronous version of {@link #scrubIndexAsync}.
      */
     public void scrubDanglingIndexEntries() {
@@ -126,7 +117,7 @@ public class OnlineScrubber implements AutoCloseable {
     }
 
     /**
-     * Scrub the index, find & repair missing entries.
+     * Scrub the index, find and repair missing entries.
      * Synchronous version of {@link #scrubIndexAsync}.
      */
     public void scrubMissingIndexEntries() {
@@ -142,7 +133,7 @@ public class OnlineScrubber implements AutoCloseable {
      * A builder for the scrubbing policy.
      */
     public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DISABLED = null;
+        public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0);
         private int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
@@ -156,7 +147,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         boolean shouldLogWarning() {
-            if (0 <= logWarningsLimit) {
+            if (0 <= logWarningsLimit || !allowRepair) {
                 return false;
             }
             logWarningsLimit--;
@@ -172,7 +163,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Create an index scrubbing policy builder.
+         * Create an scrubbing policy builder.
          * @return a new {@link ScrubbingPolicy} builder
          */
         @Nonnull
@@ -184,7 +175,7 @@ public class OnlineScrubber implements AutoCloseable {
          * Builder for {@link ScrubbingPolicy}.
          *
          * <pre><code>
-         * OnlineIndexer.ScrubbingPolicy.newBuilder().setReportMissingLimit(100).setScrubDangling(false).build()
+         * OnlineScrubber.ScrubbingPolicy.newBuilder().setLogWarningsLimit(100).setAllowRepair(true).build()
          * </code></pre>
          *
          */
@@ -212,7 +203,7 @@ public class OnlineScrubber implements AutoCloseable {
             /**
              * Set whether the scrubber, if it finds an error, will repair it.
              * @param val - if false, always report errors but do not repair.
-             *            - if true (default), report errors (up to report limits) but always repair.
+             *            - if true (default), report errors up to requested limits, but always repair.
              * @return this builder.
              */
             public Builder setAllowRepair(boolean val) {
@@ -221,10 +212,13 @@ public class OnlineScrubber implements AutoCloseable {
             }
 
             /**
-             * Set records/index entries scan limit. The scrubbing task will return after scanning more than this limit.
-             * If scanning for both Dangling and Missing indexes (aka scan index and records), the limit is affective
-             * for each scan separately.
-             * @param entriesScanLimit - if 0 (default) or less, unlimited. Else return after scanning more than this limit.
+             * Set records/index entries scan limit.
+             * Note that for efficiency, the scrubber reads and processes chunks of data, and will only check this limit
+             * after processing a chunk. The scrubber will either stop when the number of checked entries exceeds this limit
+             * or when it covers the whole range.
+             * If stopped by limit, the next scrubber call will skipped the already checked ranges. If the previous
+             * scrubber calls had exhausted the whole range, it'll start a fresh scan.
+             * @param entriesScanLimit - if 0 (default) or less, unlimited. Else return after scanned records count exceeds this limit.
              * @return this builder.
              */
             public Builder setEntriesScanLimit(long entriesScanLimit) {
@@ -263,29 +257,20 @@ public class OnlineScrubber implements AutoCloseable {
         @Nonnull
         protected Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader = old -> old;
         @Nonnull
-        ScrubbingPolicy scrubbingPolicy;
+        ScrubbingPolicy scrubbingPolicy = ScrubbingPolicy.DEFAULT;
 
         protected int limit = 2000;
-        protected int maxWriteLimitBytes = 900_000;
-        protected int maxRetries = 100;
-        protected int recordsPerSecond = 10_000;
-        private long progressLogIntervalMillis = -1;
+        protected int maxWriteLimitBytes = OnlineIndexer.DEFAULT_WRITE_LIMIT_BYTES;
+        protected int maxRetries = OnlineIndexer.DEFAULT_MAX_RETRIES;
+        protected int recordsPerSecond = OnlineIndexer.DEFAULT_RECORDS_PER_SECOND;
+        private long progressLogIntervalMillis = OnlineIndexer.DEFAULT_PROGRESS_LOG_INTERVAL;
         // Maybe the performance impact of this is low enough to be always enabled?
         private boolean trackProgress = true;
-        private int increaseLimitAfter = -1;
+        private int increaseLimitAfter = OnlineIndexer.DO_NOT_RE_INCREASE_LIMIT;
         protected boolean syntheticIndex = false;
-        private long leaseLengthMillis = 10_000;
+        private long leaseLengthMillis = OnlineIndexer.DEFAULT_LEASE_LENGTH_MILLIS;
 
         protected Builder() {
-        }
-
-        /**
-         * Get the runner that will be used to call into the database.
-         * @return the runner that connects to the target database
-         */
-        @Nullable
-        public FDBDatabaseRunner getRunner() {
-            return runner;
         }
 
         /**
@@ -305,7 +290,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the database in which to run the indexing.
+         * Set the database in which to run the scrubbing.
          *
          * Normally the database is gotten from {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
          * @param database the target database
@@ -318,17 +303,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the record store builder that will be used to open record store instances for indexing.
-         * @return the record store builder
-         */
-        @Nullable
-        @SuppressWarnings("squid:S1452")
-        public FDBRecordStore.Builder getRecordStoreBuilder() {
-            return recordStoreBuilder;
-        }
-
-        /**
-         * Set the record store builder that will be used to open record store instances for indexing.
+         * Set the record store builder that will be used to open record store instances for scrubbing.
          * @param recordStoreBuilder the record store builder
          * @return this builder
          * @see #setRecordStore
@@ -343,7 +318,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the record store that will be used as a template to open record store instances for indexing.
+         * Set the record store that will be used as a template to open record store instances for scrubbing.
          * @param recordStore the target record store
          * @return this builder
          */
@@ -357,17 +332,8 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the index to be built.
-         * @return the index to be built
-         */
-        @Nullable
-        public Index getIndex() {
-            return index;
-        }
-
-        /**
-         * Set the index to be built.
-         * @param index the index to be built
+         * Set the index to be scrubbed.
+         * @param index the index to be scrubbed
          * @return this builder
          */
         @Nonnull
@@ -377,8 +343,8 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the index to be built.
-         * @param indexName the index to be built
+         * Set the index to be scrubbed.
+         * @param indexName the index to be scrubbed
          * @return this builder
          */
         @Nonnull
@@ -388,18 +354,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the explicit set of record types to be indexed.
-         *
-         * Normally, all record types associated with the chosen index will be indexed.
-         * @return the record types to be indexed
-         */
-        @Nullable
-        public Collection<RecordType> getRecordTypes() {
-            return recordTypes;
-        }
-
-        /**
-         * Set the explicit set of record types to be indexed.
+         * Set the explicit set of record types to be scrubbed.
          *
          * Normally, record types are inferred from {@link #setIndex}.
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
@@ -409,15 +364,6 @@ public class OnlineScrubber implements AutoCloseable {
         public Builder setRecordTypes(@Nullable Collection<RecordType> recordTypes) {
             this.recordTypes = recordTypes;
             return this;
-        }
-
-        /**
-         * Get the function used by the online indexer to load the config parameters on fly.
-         * @return the function
-         */
-        @Nullable
-        public Function<OnlineIndexer.Config, OnlineIndexer.Config> getConfigLoader() {
-            return configLoader;
         }
 
         /**
@@ -437,17 +383,9 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the maximum number of records to process in one transaction.
-         * @return the maximum number of records to process in one transaction
-         */
-        public int getLimit() {
-            return limit;
-        }
-
-        /**
          * Set the maximum number of records to process in one transaction.
          *
-         * The default limit is 2000.
+         * The default limit is {@link OnlineIndexer#DEFAULT_LIMIT} = {@value OnlineIndexer#DEFAULT_LIMIT}.
          * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param limit the maximum number of records to process in one transaction
@@ -460,20 +398,10 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the approximate maximum transaction write size. Note that the actual write size might be up to one
-         * record bigger than this value - transactions started as part of the index build will be committed after
-         * they exceed this size, and a new transaction will be started.
-         * @return the max write size
-         */
-        public int getMaxWriteLimitBytes() {
-            return maxWriteLimitBytes;
-        }
-
-        /**
          * Set the approximate maximum transaction write size. Note that the actual size might be up to one record
-         * bigger than this value - transactions started as part of the index build will be committed after
+         * bigger than this value - transactions started as part of adding missing index entries will be committed after
          * they exceed this size, and a new transaction will be started.
-         * he default limit is 900,000 bytes.
+         * he default limit is {@link OnlineIndexer#DEFAULT_WRITE_LIMIT_BYTES} = {@value OnlineIndexer#DEFAULT_WRITE_LIMIT_BYTES}.
          * @param max the desired max write size
          * @return this builder
          */
@@ -484,21 +412,11 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the maximum number of times to retry a single range rebuild.
-         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and it will also retry for other error
-         * codes, such as {@code transaction_too_large}.
-         * @return the maximum number of times to retry a single range rebuild
-         */
-        public int getMaxRetries() {
-            return maxRetries;
-        }
-
-        /**
          * Set the maximum number of times to retry a single range rebuild.
          * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
          * codes, such as {@code transaction_too_large}.
          *
-         * The default number of retries is 100.
+         * The default number of retries is {@link OnlineIndexer#DEFAULT_MAX_RETRIES} = {@value OnlineIndexer#DEFAULT_MAX_RETRIES}.
          * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param maxRetries the maximum number of times to retry a single range rebuild
@@ -511,17 +429,9 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the maximum number of records to process in a single second.
-         * @return the maximum number of records to process in a single second
-         */
-        public int getRecordsPerSecond() {
-            return recordsPerSecond;
-        }
-
-        /**
          * Set the maximum number of records to process in a single second.
          *
-         * The default number of retries is 10,000.
+         * The default number of retries is {@link OnlineIndexer#DEFAULT_RECORDS_PER_SECOND} = {@value OnlineIndexer#DEFAULT_RECORDS_PER_SECOND}.
          * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * @param recordsPerSecond the maximum number of records to process in a single second.
@@ -587,10 +497,10 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the acceptable staleness bounds for transactions used by this build. By default, this
+         * Get the acceptable staleness bounds for transactions used by this scrub/fix. By default, this
          * is set to {@code null}, which indicates that the transaction should not used any cached version
          * at all.
-         * @return the acceptable staleness bounds for transactions used by this build
+         * @return the acceptable staleness bounds for transactions used by this scrub/fix
          * @see FDBRecordContext#getWeakReadSemantics()
          */
         @Nullable
@@ -602,7 +512,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the acceptable staleness bounds for transactions used by this build. For index builds, essentially
+         * Set the acceptable staleness bounds for transactions used by this scrub/fix. For index scrub, essentially
          * all operations will read and write data in the same transaction, so it is safe to set this value
          * to use potentially stale read versions, though that can potentially result in more transaction conflicts.
          * For performance reasons, it is generally advised that this only be provided an acceptable staleness bound
@@ -610,7 +520,7 @@ public class OnlineScrubber implements AutoCloseable {
          * version. This is to ensure that the online indexer see its own commits, and it should not be required
          * for correctness, but the online indexer may perform additional work if this is not set.
          *
-         * @param weakReadSemantics the acceptable staleness bounds for transactions used by this build
+         * @param weakReadSemantics the acceptable staleness bounds for transactions used by this scrub
          * @return this builder
          * @see FDBRecordContext#getWeakReadSemantics()
          * @see FDBDatabase#setTrackLastSeenVersion(boolean)
@@ -625,9 +535,9 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Get the priority of transactions used for this index build. By default, this will be
+         * Get the priority of transactions used for this index scrub. By default, this will be
          * {@link FDBTransactionPriority#BATCH}.
-         * @return the priority of transactions used for this index build
+         * @return the priority of transactions used for this index scrub
          * @see FDBRecordContext#getPriority()
          */
         @Nonnull
@@ -639,15 +549,15 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the priority of transactions used for this index build. In general, index builds should run
+         * Set the priority of transactions used for this index scrubbing. In general, index scrubbing should run
          * using the {@link FDBTransactionPriority#BATCH BATCH} priority level as their work is generally
          * discretionary and not time sensitive. However, in certain circumstances, it may be
          * necessary to run at the higher {@link FDBTransactionPriority#DEFAULT DEFAULT} priority level.
          * For example, if a missing index is causing some queries to perform additional, unnecessary work that
-         * is overwhelming the database, it may be necessary to build the index at {@code DEFAULT} priority
+         * is overwhelming the database, it may be necessary to scrub the index at {@code DEFAULT} priority
          * in order to lessen the load induced by those queries on the cluster.
          *
-         * @param priority the priority of transactions used for this index build
+         * @param priority the priority of transactions used for this index scrub
          * @return this builder
          * @see FDBRecordContext#getPriority()
          */
@@ -691,14 +601,14 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the number of successful range builds before re-increasing the number of records to process in a single
+         * Set the number of successful range scrubs before re-increasing the number of records to process in a single
          * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
          * By default this is -1}, which means it will not re-increase after successes.
          * <p>
          * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
          * and the values set by this method will be overwritten if the supplier is set.
          * </p>
-         * @param increaseLimitAfter the number of successful range builds before increasing the number of records
+         * @param increaseLimitAfter the number of successful range scrubbed before increasing the number of records
          * processed in a single transaction
          * @return this builder
          */
@@ -708,24 +618,10 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Add a {@link ScrubbingPolicy} policy. If set, this policy will enforce index scrubbing (instead of index
-         * building).
-         * A scrubbing job will validate (and fix, if applicable) indexes after they were already built and set to a
-         * READABLE state (see {@link com.apple.foundationdb.record.IndexState}). It is designed to support an ongoing
-         * index consistency verification.
-         * @param scrubbingPolicy see {@link ScrubbingPolicy}
-         * @return this Builder
-         */
-        public Builder setScrubbingPolicy(@Nullable final ScrubbingPolicy scrubbingPolicy) {
-            this.scrubbingPolicy = scrubbingPolicy;
-            return this;
-        }
-
-        /**
-         * Get the number of successful range builds before re-increasing the number of records to process in a single
+         * Get the number of successful range scrubbed before re-increasing the number of records to process in a single
          * transaction.
          * By default this is -1, which means it will not re-increase after successes.
-         * @return the number of successful range builds before increasing the number of records processed in a single
+         * @return the number of successful range scrubbed before increasing the number of records processed in a single
          * transaction
          * @see #limit
          */
@@ -806,7 +702,7 @@ public class OnlineScrubber implements AutoCloseable {
          *     <li>recordsScanned - the number of records successfully scanned and processed
          *     <p>
          *         This is the count of records scanned as part of successful transactions used by the
-         *         multi-transaction methods (e.g. {@link #scrubIndexAsync()} ()}. The transactional methods (i.e., the methods that
+         *         multi-transaction methods (e.g. {@link #scrubIndexAsync} ()}. The transactional methods (i.e., the methods that
          *         take a store) do not count towards this value. Since only successful transactions are included,
          *         transactions that get {@code commit_unknown_result} will not get counted towards this value,
          *         so this may be short by the number of records scanned in those transactions if they actually
@@ -830,7 +726,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set whether or not to track the index build progress by updating the number of records successfully scanned
+         * Set whether or not to track the index scrubbed progress by updating the number of records successfully scanned
          * and processed. The progress is persisted and can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
          * <p>
          * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
@@ -913,7 +809,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the subspace of the record store in which to build the index.
+         * Set the subspace of the record store in which to scrub the index.
          * @param subspaceProvider subspace to use
          * @return this builder
          */
@@ -926,7 +822,7 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Set the subspace of the record store in which to build the index.
+         * Set the subspace of the record store in which to scrub the index.
          * @param subspace subspace to use
          * @return this builder
          */
@@ -945,6 +841,20 @@ public class OnlineScrubber implements AutoCloseable {
          */
         public Builder setLeaseLengthMillis(long leaseLengthMillis) {
             this.leaseLengthMillis = leaseLengthMillis;
+            return this;
+        }
+
+        /**
+         * Add a {@link ScrubbingPolicy} policy. If set, this policy will enforce index scrubbing (instead of index
+         * building).
+         * A scrubbing job will validate (and fix, if applicable) indexes after they were already scrub and set to a
+         * READABLE state (see {@link com.apple.foundationdb.record.IndexState}). It is designed to support an ongoing
+         * index consistency verification.
+         * @param scrubbingPolicy see {@link ScrubbingPolicy}
+         * @return this Builder
+         */
+        public Builder setScrubbingPolicy(@Nonnull final ScrubbingPolicy scrubbingPolicy) {
+            this.scrubbingPolicy = scrubbingPolicy;
             return this;
         }
 

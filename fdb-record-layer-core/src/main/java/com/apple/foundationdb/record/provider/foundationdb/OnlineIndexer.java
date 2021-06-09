@@ -1492,21 +1492,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Add an {@link IndexingPolicy} policy. If set, this policy will be used to build the target index by only
-         * scanning records of a source index, avoiding  a full record scan.
-         * @param indexingPolicy see {@link IndexingPolicy}
-         * @return this Builder
-         */
-        public Builder setIndexingPolicy(@Nullable final IndexingPolicy indexingPolicy) {
-            if (indexingPolicy == null) {
-                this.indexingPolicy = IndexingPolicy.DEFAULT;
-            } else {
-                this.indexingPolicy = indexingPolicy;
-            }
-            return this;
-        }
-
-        /**
          * Get the number of successful range builds before re-increasing the number of records to process in a single
          * transaction.
          * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
@@ -1774,6 +1759,21 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Add an {@link IndexingPolicy} policy. If set, this policy will be used to build the target index by only
+         * scanning records of a source index, avoiding  a full record scan.
+         * @param indexingPolicy see {@link IndexingPolicy}
+         * @return this Builder
+         */
+        public Builder setIndexingPolicy(@Nullable final IndexingPolicy indexingPolicy) {
+            if (indexingPolicy == null) {
+                this.indexingPolicy = IndexingPolicy.DEFAULT;
+            } else {
+                this.indexingPolicy = indexingPolicy;
+            }
+            return this;
+        }
+
+        /**
          * Build an {@link OnlineIndexer}.
          * @return a new online indexer
          */
@@ -1831,7 +1831,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * A builder for the indexing policy. Let the caller set a source index and a fallback policy.
+     * A builder for the indexing policy.
      */
     public static class IndexingPolicy {
         public static final IndexingPolicy DEFAULT = new IndexingPolicy();
