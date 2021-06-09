@@ -82,8 +82,8 @@ public class IndexingScrubber extends IndexingBase {
     }
 
     @Nonnull
-    private OnlineIndexer.ScrubbingPolicy getScrubbingPolicy() {
-        OnlineIndexer.ScrubbingPolicy scrubbingPolicy = common.getScrubbingPolicy();
+    private OnlineScrubber.ScrubbingPolicy getScrubbingPolicy() {
+        OnlineScrubber.ScrubbingPolicy scrubbingPolicy = (OnlineScrubber.ScrubbingPolicy) common.getScrubbingPolicy();
         assert (scrubbingPolicy != null);// this can never happen, just eliminating the compiler warnings
         return scrubbingPolicy;
     }

@@ -61,7 +61,7 @@ public class IndexingCommon {
     @Nonnull private OnlineIndexer.IndexStatePrecondition indexStatePrecondition;
     @Nonnull public OnlineIndexer.Config config; // this item may be modified on the fly
     @Nullable private final Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader;
-    @Nullable private final OnlineIndexer.ScrubbingPolicy scrubbingPolicy;
+    @Nullable private final Object scrubbingPolicy;
     private int configLoaderInvocationCount = 0;
 
     @Nonnull public Collection<RecordType> recordTypes;
@@ -80,7 +80,7 @@ public class IndexingCommon {
                    boolean trackProgress,
                    boolean useSynchronizedSession,
                    long leaseLengthMillis,
-                   OnlineIndexer.ScrubbingPolicy scrubbingPolicy) {
+                   Object scrubbingPolicy) {
         this.useSynchronizedSession = useSynchronizedSession;
         this.runner = runner;
         this.index = index;
@@ -191,7 +191,7 @@ public class IndexingCommon {
     }
 
     @Nullable
-    public OnlineIndexer.ScrubbingPolicy getScrubbingPolicy() {
+    public Object getScrubbingPolicy() {
         return scrubbingPolicy;
     }
 

@@ -1,0 +1,1046 @@
+/*
+ * OnlineScrubber.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.provider.foundationdb;
+
+import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.provider.common.RecordSerializer;
+import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
+import com.apple.foundationdb.subspace.Subspace;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+
+@API(API.Status.UNSTABLE)
+public class OnlineScrubber implements AutoCloseable {
+    @Nonnull
+    private static final Logger LOGGER = LoggerFactory.getLogger(OnlineScrubber.class);
+
+    @Nonnull private final IndexingCommon common;
+    @Nonnull private final FDBDatabaseRunner runner;
+    @Nonnull private final Index index;
+
+    @Nullable
+    private IndexingBase indexer = null;
+
+    @SuppressWarnings("squid:S00107")
+    OnlineScrubber(@Nonnull FDBDatabaseRunner runner,
+                   @Nonnull FDBRecordStore.Builder recordStoreBuilder,
+                   @Nonnull Index index,
+                   @Nonnull Collection<RecordType> recordTypes,
+                   @Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader,
+                   @Nonnull OnlineIndexer.Config config,
+                   boolean syntheticIndex,
+                   long leaseLengthMillis,
+                   boolean trackProgress,
+                   @Nullable OnlineScrubber.ScrubbingPolicy scrubbingPolicy) {
+
+        this.runner = runner;
+        this.index = index;
+        this.common = new IndexingCommon(runner, recordStoreBuilder,
+                index, recordTypes, configLoader, config,
+                syntheticIndex,
+                OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED, // dummy
+                trackProgress,
+                true, // always use synchronized session
+                leaseLengthMillis,
+                scrubbingPolicy
+        );
+    }
+
+    @Override
+    public void close() {
+        common.close();
+    }
+
+    @Nonnull
+    private IndexingBase getScrubbrer() {
+        // TODO
+        return new IndexingScrubber(common, OnlineIndexer.IndexingPolicy.DEFAULT);
+    }
+
+    @VisibleForTesting
+    @Nonnull
+    CompletableFuture<Void> scrubIndexAsync() {
+        return AsyncUtil.composeHandle(
+                getScrubbrer().buildIndexAsync(false),
+                (ignore, ex) -> {
+                    if (ex != null) {
+                        throw FDBExceptions.wrapException(ex);
+                    }
+                    return AsyncUtil.DONE;
+                });
+    }
+
+    /**
+     * Builds an index across multiple transactions.
+     * Synchronous version of {@link #scrubIndexAsync}.
+     */
+    public void scrubIndex() {
+        runner.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, scrubIndexAsync());
+    }
+
+    @Nonnull
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    /**
+     * A builder for the scrubbing policy.
+     */
+    public static class ScrubbingPolicy {
+        public static final ScrubbingPolicy DISABLED = null;
+        private final boolean scrubDangling;
+        private final boolean scrubMissing;
+        private int reportDanglingLimit;
+        private int reportMissingLimit;
+        private final boolean allowRepair;
+        private final long entriesScanLimit;
+
+        public ScrubbingPolicy(boolean scrubDangling, boolean scrubMissing,
+                               int reportDanglingLimit, int reportMissingLimit,
+                               boolean allowRepair, long entriesScanLimit) {
+
+            this.scrubDangling = scrubDangling;
+            this.scrubMissing = scrubMissing;
+            this.reportDanglingLimit = reportDanglingLimit;
+            this.reportMissingLimit = reportMissingLimit;
+            this.allowRepair = allowRepair;
+            this.entriesScanLimit = entriesScanLimit;
+        }
+
+        boolean shouldScrubDangling() {
+            return scrubDangling;
+        }
+
+        boolean shouldScrubMissing() {
+            return scrubMissing;
+        }
+
+        boolean shouldReportDangling() {
+            if (0 <= reportDanglingLimit) {
+                return false;
+            }
+            reportDanglingLimit--;
+            return true;
+        }
+
+        boolean shouldReportMissing() {
+            if (0 <= reportMissingLimit) {
+                return false;
+            }
+            reportMissingLimit--;
+            return true;
+        }
+
+        boolean allowRepair() {
+            return allowRepair;
+        }
+
+        long getEntriesScanLimit() {
+            return entriesScanLimit;
+        }
+
+        /**
+         * Create an index scrubbing policy builder.
+         * @return a new {@link ScrubbingPolicy} builder
+         */
+        @Nonnull
+        public static Builder newBuilder() {
+            return new Builder();
+        }
+
+        /**
+         * Builder for {@link ScrubbingPolicy}.
+         *
+         * <pre><code>
+         * OnlineIndexer.ScrubbingPolicy.newBuilder().setReportMissingLimit(100).setScrubDangling(false).build()
+         * </code></pre>
+         *
+         */
+        @API(API.Status.UNSTABLE)
+        public static class Builder {
+            boolean scrubDangling = true;
+            boolean scrubMissing = true;
+            int reportDanglingLimit = 1000;
+            int reportMissingLimit = 1000;
+            boolean allowRepair = true;
+            long entriesScanLimit = 0;
+
+            protected Builder() {
+            }
+
+            /**
+             * Allow/forbid the scrubber to look for dangling index entries (i.e. index entries that point
+             * to an invalid record). The default is allow.
+             * @param scrubDangling if true, allow looking for dangling index entries. Else, forbid.
+             * @return this builder.
+             */
+            public Builder setScrubDangling(final boolean scrubDangling) {
+                this.scrubDangling = scrubDangling;
+                return this;
+            }
+
+            /**
+             * Allow/forbid the scrubber to look for missing index entries (i.e. look for records that
+             * should have been indexed, but aren't). The default is to allow.
+             * @param scrubMissing if true, allow looking for missing index entries. Else, forbid.
+             * @return this builder.
+             */
+            public Builder setScrubMissing(final boolean scrubMissing) {
+                this.scrubMissing = scrubMissing;
+                return this;
+            }
+
+            /**
+             * Set a rigid limit on the max number of dangling-indexes errors to report.
+             * If never called, the default is allowing (up to) 1000 error reports.
+             * @param reportDanglingLimit the max number of dangling-indexes errors to report.
+             * @return this builder.
+             */
+            public Builder setReportDanglingLimit(final int reportDanglingLimit) {
+                this.reportDanglingLimit = reportDanglingLimit;
+                return this;
+            }
+
+            /**
+             * Set a rigid limit on the max number of missing-indexes errors to report.
+             * If never called, the default is allowing (up to) 1000 error reports.
+             * @param reportMissingLimit the max number of missing-indexes errors to report.
+             * @return this builder.
+             */
+            public Builder setReportMissingLimit(final int reportMissingLimit) {
+                this.reportMissingLimit = reportMissingLimit;
+                return this;
+            }
+
+            /**
+             * Set whether the scrubber, if it finds an error, will repair it.
+             * @param val - if false, always report errors but do not repair.
+             *            - if true (default), report errors (up to report limits) but always repair.
+             * @return this builder.
+             */
+            public Builder setAllowRepair(boolean val) {
+                this.allowRepair = val;
+                return this;
+            }
+
+            /**
+             * Set records/index entries scan limit. The scrubbing task will return after scanning more than this limit.
+             * If scanning for both Dangling and Missing indexes (aka scan index and records), the limit is affective
+             * for each scan separately.
+             * @param entriesScanLimit - if 0 (default) or less, unlimited. Else return after scanning more than this limit.
+             * @return this builder.
+             */
+            public Builder setEntriesScanLimit(long entriesScanLimit) {
+                this.entriesScanLimit = entriesScanLimit;
+                return this;
+            }
+
+            public ScrubbingPolicy build() {
+                return new ScrubbingPolicy(scrubDangling, scrubMissing, reportDanglingLimit, reportMissingLimit, allowRepair, entriesScanLimit);
+            }
+        }
+    }
+
+    /**
+     * Builder for {@link OnlineScrubber}.
+     *
+     * <pre><code>
+     * OnlineScrubber.newBuilder().setRecordStoreBuilder(recordStoreBuilder).setIndex(index).build()
+     * </code></pre>
+     *
+     * <pre><code>
+     * OnlineScrubber.newBuilder().setDatabase(fdb).setMetaData(metaData).setSubspace(subspace).setIndex(index).build()
+     * </code></pre>
+     *
+     */
+    @API(API.Status.UNSTABLE)
+    public static class Builder {
+        @Nullable
+        protected FDBDatabaseRunner runner;
+        @Nullable
+        protected FDBRecordStore.Builder recordStoreBuilder;
+        @Nullable
+        protected Index index;
+        @Nullable
+        protected Collection<RecordType> recordTypes;
+        @Nonnull
+        protected Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader = old -> old;
+        @Nonnull
+        ScrubbingPolicy scrubbingPolicy;
+
+        protected int limit = 2000;
+        protected int maxWriteLimitBytes = 900_000;
+        protected int maxRetries = 100;
+        protected int recordsPerSecond = 10_000;
+        private long progressLogIntervalMillis = -1;
+        // Maybe the performance impact of this is low enough to be always enabled?
+        private boolean trackProgress = true;
+        private int increaseLimitAfter = -1;
+        protected boolean syntheticIndex = false;
+        private long leaseLengthMillis = 10_000;
+
+        protected Builder() {
+        }
+
+        /**
+         * Get the runner that will be used to call into the database.
+         * @return the runner that connects to the target database
+         */
+        @Nullable
+        public FDBDatabaseRunner getRunner() {
+            return runner;
+        }
+
+        /**
+         * Set the runner that will be used to call into the database.
+         *
+         * Normally the runner is gotten from {@link #setDatabase} or {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+         * @param runner the runner that connects to the target database
+         * @return this builder
+         */
+        public Builder setRunner(@Nullable FDBDatabaseRunner runner) {
+            this.runner = runner;
+            return this;
+        }
+
+        private void setRunnerDefaults() {
+            setPriority(FDBTransactionPriority.BATCH);
+        }
+
+        /**
+         * Set the database in which to run the indexing.
+         *
+         * Normally the database is gotten from {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+         * @param database the target database
+         * @return this builder
+         */
+        public Builder setDatabase(@Nonnull FDBDatabase database) {
+            this.runner = database.newRunner();
+            setRunnerDefaults();
+            return this;
+        }
+
+        /**
+         * Get the record store builder that will be used to open record store instances for indexing.
+         * @return the record store builder
+         */
+        @Nullable
+        @SuppressWarnings("squid:S1452")
+        public FDBRecordStore.Builder getRecordStoreBuilder() {
+            return recordStoreBuilder;
+        }
+
+        /**
+         * Set the record store builder that will be used to open record store instances for indexing.
+         * @param recordStoreBuilder the record store builder
+         * @return this builder
+         * @see #setRecordStore
+         */
+        public Builder setRecordStoreBuilder(@Nonnull FDBRecordStore.Builder recordStoreBuilder) {
+            this.recordStoreBuilder = recordStoreBuilder.copyBuilder().setContext(null);
+            if (runner == null && recordStoreBuilder.getContext() != null) {
+                runner = recordStoreBuilder.getContext().newRunner();
+                setRunnerDefaults();
+            }
+            return this;
+        }
+
+        /**
+         * Set the record store that will be used as a template to open record store instances for indexing.
+         * @param recordStore the target record store
+         * @return this builder
+         */
+        public Builder setRecordStore(@Nonnull FDBRecordStore recordStore) {
+            recordStoreBuilder = recordStore.asBuilder().setContext(null);
+            if (runner == null) {
+                runner = recordStore.getRecordContext().newRunner();
+                setRunnerDefaults();
+            }
+            return this;
+        }
+
+        /**
+         * Get the index to be built.
+         * @return the index to be built
+         */
+        @Nullable
+        public Index getIndex() {
+            return index;
+        }
+
+        /**
+         * Set the index to be built.
+         * @param index the index to be built
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setIndex(@Nullable Index index) {
+            this.index = index;
+            return this;
+        }
+
+        /**
+         * Set the index to be built.
+         * @param indexName the index to be built
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setIndex(@Nonnull String indexName) {
+            this.index = getRecordMetaData().getIndex(indexName);
+            return this;
+        }
+
+        /**
+         * Get the explicit set of record types to be indexed.
+         *
+         * Normally, all record types associated with the chosen index will be indexed.
+         * @return the record types to be indexed
+         */
+        @Nullable
+        public Collection<RecordType> getRecordTypes() {
+            return recordTypes;
+        }
+
+        /**
+         * Set the explicit set of record types to be indexed.
+         *
+         * Normally, record types are inferred from {@link #setIndex}.
+         * @param recordTypes the record types to be indexed or {@code null} to infer from the index
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setRecordTypes(@Nullable Collection<RecordType> recordTypes) {
+            this.recordTypes = recordTypes;
+            return this;
+        }
+
+        /**
+         * Get the function used by the online indexer to load the config parameters on fly.
+         * @return the function
+         */
+        @Nullable
+        public Function<OnlineIndexer.Config, OnlineIndexer.Config> getConfigLoader() {
+            return configLoader;
+        }
+
+        /**
+         * Set the function used by the online indexer to load the mutable configuration parameters on fly.
+         *
+         * <p>
+         * The loader is given the current configuration as input at the beginning of each transaction and
+         * should produce the configuration to use in the next transaction.
+         * </p>
+         * @param configLoader the function
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setConfigLoader(@Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader) {
+            this.configLoader = configLoader;
+            return this;
+        }
+
+        /**
+         * Get the maximum number of records to process in one transaction.
+         * @return the maximum number of records to process in one transaction
+         */
+        public int getLimit() {
+            return limit;
+        }
+
+        /**
+         * Set the maximum number of records to process in one transaction.
+         *
+         * The default limit is 2000.
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
+         * @param limit the maximum number of records to process in one transaction
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setLimit(int limit) {
+            this.limit = limit;
+            return this;
+        }
+
+        /**
+         * Get the approximate maximum transaction write size. Note that the actual write size might be up to one
+         * record bigger than this value - transactions started as part of the index build will be committed after
+         * they exceed this size, and a new transaction will be started.
+         * @return the max write size
+         */
+        public int getMaxWriteLimitBytes() {
+            return maxWriteLimitBytes;
+        }
+
+        /**
+         * Set the approximate maximum transaction write size. Note that the actual size might be up to one record
+         * bigger than this value - transactions started as part of the index build will be committed after
+         * they exceed this size, and a new transaction will be started.
+         * he default limit is 900,000 bytes.
+         * @param max the desired max write size
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setMaxWriteLimitBytes(int max) {
+            this.maxWriteLimitBytes = max;
+            return this;
+        }
+
+        /**
+         * Get the maximum number of times to retry a single range rebuild.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, and it will also retry for other error
+         * codes, such as {@code transaction_too_large}.
+         * @return the maximum number of times to retry a single range rebuild
+         */
+        public int getMaxRetries() {
+            return maxRetries;
+        }
+
+        /**
+         * Set the maximum number of times to retry a single range rebuild.
+         * This retry is on top of the retries caused by {@link #getMaxAttempts()}, it and will also retry for other error
+         * codes, such as {@code transaction_too_large}.
+         *
+         * The default number of retries is 100.
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
+         * @param maxRetries the maximum number of times to retry a single range rebuild
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setMaxRetries(int maxRetries) {
+            this.maxRetries = maxRetries;
+            return this;
+        }
+
+        /**
+         * Get the maximum number of records to process in a single second.
+         * @return the maximum number of records to process in a single second
+         */
+        public int getRecordsPerSecond() {
+            return recordsPerSecond;
+        }
+
+        /**
+         * Set the maximum number of records to process in a single second.
+         *
+         * The default number of retries is 10,000.
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
+         * @param recordsPerSecond the maximum number of records to process in a single second.
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setRecordsPerSecond(int recordsPerSecond) {
+            this.recordsPerSecond = recordsPerSecond;
+            return this;
+        }
+
+        /**
+         * Get the timer used in {@link #scrubIndexAsync}.
+         * @return the timer or <code>null</code> if none is set
+         */
+        @Nullable
+        public FDBStoreTimer getTimer() {
+            if (runner == null) {
+                throw new MetaDataException("timer is only known after runner has been set");
+            }
+            return runner.getTimer();
+        }
+
+        /**
+         * Set the timer used in {@link #scrubIndexAsync}.
+         * @param timer timer to use
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setTimer(@Nullable FDBStoreTimer timer) {
+            if (runner == null) {
+                throw new MetaDataException("timer can only be set after runner has been set");
+            }
+            runner.setTimer(timer);
+            return this;
+        }
+
+        /**
+         * Get the logging context used in {@link #scrubIndexAsync}.
+         * @return the logging context of <code>null</code> if none is set
+         */
+        @Nullable
+        public Map<String, String> getMdcContext() {
+            if (runner == null) {
+                throw new MetaDataException("logging context is only known after runner has been set");
+            }
+            return runner.getMdcContext();
+        }
+
+        /**
+         * Set the logging context used in {@link #scrubIndexAsync}.
+         * @param mdcContext the logging context to set while running
+         * @return this builder
+         * @see FDBDatabase#openContext(Map,FDBStoreTimer)
+         */
+        @Nonnull
+        public Builder setMdcContext(@Nullable Map<String, String> mdcContext) {
+            if (runner == null) {
+                throw new MetaDataException("logging context can only be set after runner has been set");
+            }
+            runner.setMdcContext(mdcContext);
+            return this;
+        }
+
+        /**
+         * Get the acceptable staleness bounds for transactions used by this build. By default, this
+         * is set to {@code null}, which indicates that the transaction should not used any cached version
+         * at all.
+         * @return the acceptable staleness bounds for transactions used by this build
+         * @see FDBRecordContext#getWeakReadSemantics()
+         */
+        @Nullable
+        public FDBDatabase.WeakReadSemantics getWeakReadSemantics() {
+            if (runner == null) {
+                throw new MetaDataException("weak read semantics is only known after runner has been set");
+            }
+            return runner.getWeakReadSemantics();
+        }
+
+        /**
+         * Set the acceptable staleness bounds for transactions used by this build. For index builds, essentially
+         * all operations will read and write data in the same transaction, so it is safe to set this value
+         * to use potentially stale read versions, though that can potentially result in more transaction conflicts.
+         * For performance reasons, it is generally advised that this only be provided an acceptable staleness bound
+         * that might use a cached commit if the database tracks the latest commit version in addition to the read
+         * version. This is to ensure that the online indexer see its own commits, and it should not be required
+         * for correctness, but the online indexer may perform additional work if this is not set.
+         *
+         * @param weakReadSemantics the acceptable staleness bounds for transactions used by this build
+         * @return this builder
+         * @see FDBRecordContext#getWeakReadSemantics()
+         * @see FDBDatabase#setTrackLastSeenVersion(boolean)
+         */
+        @Nonnull
+        public Builder setWeakReadSemantics(@Nullable FDBDatabase.WeakReadSemantics weakReadSemantics) {
+            if (runner == null) {
+                throw new MetaDataException("weak read semantics can only be set after runner has been set");
+            }
+            runner.setWeakReadSemantics(weakReadSemantics);
+            return this;
+        }
+
+        /**
+         * Get the priority of transactions used for this index build. By default, this will be
+         * {@link FDBTransactionPriority#BATCH}.
+         * @return the priority of transactions used for this index build
+         * @see FDBRecordContext#getPriority()
+         */
+        @Nonnull
+        public FDBTransactionPriority getPriority() {
+            if (runner == null) {
+                throw new MetaDataException("transaction priority is only known after runner has been set");
+            }
+            return runner.getPriority();
+        }
+
+        /**
+         * Set the priority of transactions used for this index build. In general, index builds should run
+         * using the {@link FDBTransactionPriority#BATCH BATCH} priority level as their work is generally
+         * discretionary and not time sensitive. However, in certain circumstances, it may be
+         * necessary to run at the higher {@link FDBTransactionPriority#DEFAULT DEFAULT} priority level.
+         * For example, if a missing index is causing some queries to perform additional, unnecessary work that
+         * is overwhelming the database, it may be necessary to build the index at {@code DEFAULT} priority
+         * in order to lessen the load induced by those queries on the cluster.
+         *
+         * @param priority the priority of transactions used for this index build
+         * @return this builder
+         * @see FDBRecordContext#getPriority()
+         */
+        @Nonnull
+        public Builder setPriority(@Nonnull FDBTransactionPriority priority) {
+            if (runner == null) {
+                throw new MetaDataException("transaction priority can only be set after runner has been set");
+            }
+            runner.setPriority(priority);
+            return this;
+        }
+
+        /**
+         * Get the maximum number of transaction retry attempts.
+         * This is the number of times that it will retry a given transaction that throws
+         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
+         * @return the maximum number of attempts
+         * @see FDBDatabaseRunner#getMaxAttempts
+         */
+        public int getMaxAttempts() {
+            if (runner == null) {
+                throw new MetaDataException("maximum attempts is only known after runner has been set");
+            }
+            return runner.getMaxAttempts();
+        }
+
+        /**
+         * Set the maximum number of transaction retry attempts.
+         * This is the number of times that it will retry a given transaction that throws
+         * {@link com.apple.foundationdb.record.RecordCoreRetriableTransactionException}.
+         * @param maxAttempts the maximum number of attempts
+         * @return this builder
+         * @see FDBDatabaseRunner#setMaxAttempts
+         */
+        public Builder setMaxAttempts(int maxAttempts) {
+            if (runner == null) {
+                throw new MetaDataException("maximum attempts can only be set after runner has been set");
+            }
+            runner.setMaxAttempts(maxAttempts);
+            return this;
+        }
+
+        /**
+         * Set the number of successful range builds before re-increasing the number of records to process in a single
+         * transaction. The number of records to process in a single transaction will never go above {@link #limit}.
+         * By default this is -1}, which means it will not re-increase after successes.
+         * <p>
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
+         * </p>
+         * @param increaseLimitAfter the number of successful range builds before increasing the number of records
+         * processed in a single transaction
+         * @return this builder
+         */
+        public Builder setIncreaseLimitAfter(int increaseLimitAfter) {
+            this.increaseLimitAfter = increaseLimitAfter;
+            return this;
+        }
+
+        /**
+         * Add a {@link ScrubbingPolicy} policy. If set, this policy will enforce index scrubbing (instead of index
+         * building).
+         * A scrubbing job will validate (and fix, if applicable) indexes after they were already built and set to a
+         * READABLE state (see {@link com.apple.foundationdb.record.IndexState}). It is designed to support an ongoing
+         * index consistency verification.
+         * @param scrubbingPolicy see {@link ScrubbingPolicy}
+         * @return this Builder
+         */
+        public Builder setScrubbingPolicy(@Nullable final ScrubbingPolicy scrubbingPolicy) {
+            this.scrubbingPolicy = scrubbingPolicy;
+            return this;
+        }
+
+        /**
+         * Get the number of successful range builds before re-increasing the number of records to process in a single
+         * transaction.
+         * By default this is -1, which means it will not re-increase after successes.
+         * @return the number of successful range builds before increasing the number of records processed in a single
+         * transaction
+         * @see #limit
+         */
+        public int getIncreaseLimitAfter() {
+            return increaseLimitAfter;
+        }
+
+        /**
+         * Get the maximum delay between transaction retry attempts.
+         * @return the maximum delay
+         * @see FDBDatabaseRunner#getMaxDelayMillis
+         */
+        public long getMaxDelayMillis() {
+            if (runner == null) {
+                throw new MetaDataException("maximum delay is only known after runner has been set");
+            }
+            return runner.getMaxDelayMillis();
+        }
+
+        /**
+         * Set the maximum delay between transaction retry attempts.
+         * @param maxDelayMillis the maximum delay
+         * @return this builder
+         * @see FDBDatabaseRunner#setMaxDelayMillis
+         */
+        public Builder setMaxDelayMillis(long maxDelayMillis) {
+            if (runner == null) {
+                throw new MetaDataException("maximum delay can only be set after runner has been set");
+            }
+            runner.setMaxDelayMillis(maxDelayMillis);
+            return this;
+        }
+
+        /**
+         * Get the initial delay between transaction retry attempts.
+         * @return the initial delay
+         * @see FDBDatabaseRunner#getInitialDelayMillis
+         */
+        public long getInitialDelayMillis() {
+            if (runner == null) {
+                throw new MetaDataException("initial delay is only known after runner has been set");
+            }
+            return runner.getInitialDelayMillis();
+        }
+
+        /**
+         * Set the initial delay between transaction retry attempts.
+         * @param initialDelayMillis the initial delay
+         * @return this builder
+         * @see FDBDatabaseRunner#setInitialDelayMillis
+         */
+        public Builder setInitialDelayMillis(long initialDelayMillis) {
+            if (runner == null) {
+                throw new MetaDataException("initial delay can only be set after runner has been set");
+            }
+            runner.setInitialDelayMillis(initialDelayMillis);
+            return this;
+        }
+
+        /**
+         * Get the minimum time between successful progress logs when building across transactions.
+         * Negative will not log at all, 0 will log after every commit.
+         * @return the minimum time between successful progress logs in milliseconds
+         * @see #setProgressLogIntervalMillis(long) for more information on the format of the log
+         */
+        public long getProgressLogIntervalMillis() {
+            return progressLogIntervalMillis;
+        }
+
+        /**
+         * Set the minimum time between successful progress logs when building across transactions.
+         * Negative will not log at all, 0 will log after every commit.
+         * This log will contain the following information:
+         * <ul>
+         *     <li>startTuple - the first primaryKey scanned as part of this range</li>
+         *     <li>endTuple - the desired primaryKey that is the end of this range</li>
+         *     <li>realEnd - the tuple that was successfully scanned to (always before endTuple)</li>
+         *     <li>recordsScanned - the number of records successfully scanned and processed
+         *     <p>
+         *         This is the count of records scanned as part of successful transactions used by the
+         *         multi-transaction methods (e.g. {@link #scrubIndexAsync()} ()}. The transactional methods (i.e., the methods that
+         *         take a store) do not count towards this value. Since only successful transactions are included,
+         *         transactions that get {@code commit_unknown_result} will not get counted towards this value,
+         *         so this may be short by the number of records scanned in those transactions if they actually
+         *         succeeded. In contrast, the timer count:
+         *         {@link FDBStoreTimer.Counts#ONLINE_INDEX_BUILDER_RECORDS_SCANNED}, includes all records scanned,
+         *         regardless of whether the associated transaction was successful or not.
+         *     </p></li>
+         * </ul>
+         *
+         * <p>
+         * Note {@link #setConfigLoader(Function)} is the recommended way of loading online index builder's parameters
+         * and the values set by this method will be overwritten if the supplier is set.
+         * </p>
+         *
+         * @param millis the number of milliseconds to wait between successful logs
+         * @return this builder
+         */
+        public Builder setProgressLogIntervalMillis(long millis) {
+            progressLogIntervalMillis = millis;
+            return this;
+        }
+
+        /**
+         * Set whether or not to track the index build progress by updating the number of records successfully scanned
+         * and processed. The progress is persisted and can be accessed by {@link IndexBuildState#loadIndexBuildStateAsync(FDBRecordStoreBase, Index)}.
+         * <p>
+         * This setting does not affect the setting at {@link #setProgressLogIntervalMillis(long)}.
+         * </p>
+         * @param trackProgress track progress if true, otherwise false
+         * @return this builder
+         */
+        public Builder setTrackProgress(boolean trackProgress) {
+            this.trackProgress = trackProgress;
+            return this;
+        }
+
+        /**
+         * Set the {@link IndexMaintenanceFilter} to use while building the index.
+         *
+         * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+         * @param indexMaintenanceFilter the index filter to use
+         * @return this builder
+         */
+        public Builder setIndexMaintenanceFilter(@Nonnull IndexMaintenanceFilter indexMaintenanceFilter) {
+            if (recordStoreBuilder == null) {
+                throw new MetaDataException("index filter can only be set after record store builder has been set");
+            }
+            recordStoreBuilder.setIndexMaintenanceFilter(indexMaintenanceFilter);
+            return this;
+        }
+
+        /**
+         * Set the {@link RecordSerializer} to use while building the index.
+         *
+         * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+         * @param serializer the serializer to use
+         * @return this builder
+         */
+        public Builder setSerializer(@Nonnull RecordSerializer<Message> serializer) {
+            if (recordStoreBuilder == null) {
+                throw new MetaDataException("serializer can only be set after record store builder has been set");
+            }
+            recordStoreBuilder.setSerializer(serializer);
+            return this;
+        }
+
+        /**
+         * Set the store format version to use while building the index.
+         *
+         * Normally this is set by {@link #setRecordStore} or {@link #setRecordStoreBuilder}.
+         * @param formatVersion the format version to use
+         * @return this builder
+         */
+        public Builder setFormatVersion(int formatVersion) {
+            if (recordStoreBuilder == null) {
+                throw new MetaDataException("format version can only be set after record store builder has been set");
+            }
+            recordStoreBuilder.setFormatVersion(formatVersion);
+            return this;
+        }
+
+        @Nonnull
+        private RecordMetaData getRecordMetaData() {
+            if (recordStoreBuilder == null) {
+                throw new MetaDataException("record store must be set");
+            }
+            if (recordStoreBuilder.getMetaDataProvider() == null) {
+                throw new MetaDataException("record store builder must include metadata");
+            }
+            return recordStoreBuilder.getMetaDataProvider().getRecordMetaData();
+        }
+
+        /**
+         * Set the meta-data to use when indexing.
+         * @param metaDataProvider meta-data to use
+         * @return this builder
+         */
+        public Builder setMetaData(@Nonnull RecordMetaDataProvider metaDataProvider) {
+            if (recordStoreBuilder == null) {
+                recordStoreBuilder = FDBRecordStore.newBuilder();
+            }
+            recordStoreBuilder.setMetaDataProvider(metaDataProvider);
+            return this;
+        }
+
+        /**
+         * Set the subspace of the record store in which to build the index.
+         * @param subspaceProvider subspace to use
+         * @return this builder
+         */
+        public Builder setSubspaceProvider(@Nonnull SubspaceProvider subspaceProvider) {
+            if (recordStoreBuilder == null) {
+                recordStoreBuilder = FDBRecordStore.newBuilder();
+            }
+            recordStoreBuilder.setSubspaceProvider(subspaceProvider);
+            return this;
+        }
+
+        /**
+         * Set the subspace of the record store in which to build the index.
+         * @param subspace subspace to use
+         * @return this builder
+         */
+        public Builder setSubspace(@Nonnull Subspace subspace) {
+            if (recordStoreBuilder == null) {
+                recordStoreBuilder = FDBRecordStore.newBuilder();
+            }
+            recordStoreBuilder.setSubspace(subspace);
+            return this;
+        }
+
+        /**
+         * Set the lease length in milliseconds if the synchronized session is used. By default this is 10_000.
+         * @param leaseLengthMillis length between last access and lease's end time in milliseconds
+         * @return this builder
+         */
+        public Builder setLeaseLengthMillis(long leaseLengthMillis) {
+            this.leaseLengthMillis = leaseLengthMillis;
+            return this;
+        }
+
+        /**
+         * Build an {@link OnlineScrubber}.
+         * @return a new online indexer
+         */
+        public OnlineScrubber build() {
+            validate();
+            OnlineIndexer.Config conf = new OnlineIndexer.Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
+            return new OnlineScrubber(runner, recordStoreBuilder, index, recordTypes,
+                    configLoader, conf, syntheticIndex,
+                    leaseLengthMillis, trackProgress,
+                    scrubbingPolicy);
+        }
+
+        protected void validate() {
+            validateIndex();
+            validateLimits();
+        }
+
+        // Check pointer equality to make sure other objects really came from given metaData.
+        // Also resolve record types to use if not specified.
+        private void validateIndex() {
+            if (index == null) {
+                throw new MetaDataException("index must be set");
+            }
+            final RecordMetaData metaData = getRecordMetaData();
+            if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {
+                throw new MetaDataException("Index " + index.getName() + " not contained within specified metadata");
+            }
+            if (recordTypes == null) {
+                recordTypes = metaData.recordTypesForIndex(index);
+            } else {
+                for (RecordType recordType : recordTypes) {
+                    if (recordType != metaData.getIndexableRecordType(recordType.getName())) {
+                        throw new MetaDataException("Record type " + recordType.getName() + " not contained within specified metadata");
+                    }
+                }
+            }
+            if (recordTypes.stream().anyMatch(RecordType::isSynthetic)) {
+                syntheticIndex = true;
+                // The (stored) types to scan, not the (synthetic) types that are indexed.
+                recordTypes = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null))
+                        .storedRecordTypesForIndex(index, recordTypes);
+            }
+        }
+
+        private void validateLimits() {
+            checkPositive(maxRetries, "maximum retries");
+            checkPositive(limit, "record limit");
+            checkPositive(recordsPerSecond, "records per second value");
+        }
+
+        private static void checkPositive(int value, String desc) {
+            if (value <= 0) {
+                throw new RecordCoreException("Non-positive value " + value + " given for " + desc);
+            }
+        }
+    }
+}

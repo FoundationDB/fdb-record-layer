@@ -157,8 +157,7 @@ public class OnlineIndexer implements AutoCloseable {
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
                   boolean trackProgress,
-                  @Nonnull IndexingPolicy indexingPolicy,
-                  @Nullable ScrubbingPolicy scrubbingPolicy) {
+                  @Nonnull IndexingPolicy indexingPolicy) {
         this.runner = runner;
         this.index = index;
         this.indexingPolicy = indexingPolicy;
@@ -170,7 +169,7 @@ public class OnlineIndexer implements AutoCloseable {
                 trackProgress,
                 useSynchronizedSession,
                 leaseLengthMillis,
-                scrubbingPolicy
+                null
             );
     }
 
@@ -833,7 +832,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
 
-        private Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter, int maxWriteLimitBytes) {
+        Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter, int maxWriteLimitBytes) {
             this.maxLimit = maxLimit;
             this.maxRetries = maxRetries;
             this.recordsPerSecond = recordsPerSecond;
@@ -1046,8 +1045,6 @@ public class OnlineIndexer implements AutoCloseable {
         protected Collection<RecordType> recordTypes;
         @Nonnull
         private IndexingPolicy indexingPolicy = IndexingPolicy.DEFAULT;
-        @Nullable
-        private ScrubbingPolicy scrubbingPolicy = null;
         @Nonnull
         protected Function<Config, Config> configLoader = old -> old;
         protected int limit = DEFAULT_LIMIT;
@@ -1510,20 +1507,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Add a {@link ScrubbingPolicy} policy. If set, this policy will enforce index scrubbing (instead of index
-         * building).
-         * A scrubbing job will validate (and fix, if applicable) indexes after they were already built and set to a READABLE
-         * state (see {@link com.apple.foundationdb.record.IndexState}). It is designed to support an ongoing index
-         * consistency verification.
-         * @param scrubbingPolicy see {@link ScrubbingPolicy}
-         * @return this Builder
-         */
-        public Builder setScrubbingPolicy(@Nullable final ScrubbingPolicy scrubbingPolicy) {
-            this.scrubbingPolicy = scrubbingPolicy;
-            return this;
-        }
-
-        /**
          * Get the number of successful range builds before re-increasing the number of records to process in a single
          * transaction.
          * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
@@ -1799,7 +1782,7 @@ public class OnlineIndexer implements AutoCloseable {
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
             return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
                     indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress,
-                    indexingPolicy, scrubbingPolicy);
+                    indexingPolicy);
         }
 
         protected void validate() {
@@ -1985,164 +1968,6 @@ public class OnlineIndexer implements AutoCloseable {
 
             public IndexingPolicy build() {
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan);
-            }
-        }
-    }
-
-    /**
-     * A builder for the scrubbing policy.
-     */
-    public static class ScrubbingPolicy {
-        public static final ScrubbingPolicy DISABLED = null;
-        private final boolean scrubDangling;
-        private final boolean scrubMissing;
-        private int reportDanglingLimit;
-        private int reportMissingLimit;
-        private final boolean allowRepair;
-        private final long entriesScanLimit;
-
-        public ScrubbingPolicy(boolean scrubDangling, boolean scrubMissing,
-                               int reportDanglingLimit, int reportMissingLimit,
-                               boolean allowRepair, long entriesScanLimit) {
-
-            this.scrubDangling = scrubDangling;
-            this.scrubMissing = scrubMissing;
-            this.reportDanglingLimit = reportDanglingLimit;
-            this.reportMissingLimit = reportMissingLimit;
-            this.allowRepair = allowRepair;
-            this.entriesScanLimit = entriesScanLimit;
-        }
-
-        boolean shouldScrubDangling() {
-            return scrubDangling;
-        }
-
-        boolean shouldScrubMissing() {
-            return scrubMissing;
-        }
-
-        boolean shouldReportDangling() {
-            if (0 <= reportDanglingLimit) {
-                return false;
-            }
-            reportDanglingLimit--;
-            return true;
-        }
-
-        boolean shouldReportMissing() {
-            if (0 <= reportMissingLimit) {
-                return false;
-            }
-            reportMissingLimit--;
-            return true;
-        }
-
-        boolean allowRepair() {
-            return allowRepair;
-        }
-
-        long getEntriesScanLimit() {
-            return entriesScanLimit;
-        }
-
-        /**
-         * Create an index scrubbing policy builder.
-         * @return a new {@link ScrubbingPolicy} builder
-         */
-        @Nonnull
-        public static Builder newBuilder() {
-            return new Builder();
-        }
-
-        /**
-         * Builder for {@link ScrubbingPolicy}.
-         *
-         * <pre><code>
-         * OnlineIndexer.ScrubbingPolicy.newBuilder().setReportMissingLimit(100).setScrubDangling(false).build()
-         * </code></pre>
-         *
-         */
-        @API(API.Status.UNSTABLE)
-        public static class Builder {
-            boolean scrubDangling = true;
-            boolean scrubMissing = true;
-            int reportDanglingLimit = 1000;
-            int reportMissingLimit = 1000;
-            boolean allowRepair = true;
-            long entriesScanLimit = 0;
-
-            protected Builder() {
-            }
-
-            /**
-             * Allow/forbid the scrubber to look for dangling index entries (i.e. index entries that point
-             * to an invalid record). The default is allow.
-             * @param scrubDangling if true, allow looking for dangling index entries. Else, forbid.
-             * @return this builder.
-             */
-            public Builder setScrubDangling(final boolean scrubDangling) {
-                this.scrubDangling = scrubDangling;
-                return this;
-            }
-
-            /**
-             * Allow/forbid the scrubber to look for missing index entries (i.e. look for records that
-             * should have been indexed, but aren't). The default is to allow.
-             * @param scrubMissing if true, allow looking for missing index entries. Else, forbid.
-             * @return this builder.
-             */
-            public Builder setScrubMissing(final boolean scrubMissing) {
-                this.scrubMissing = scrubMissing;
-                return this;
-            }
-
-            /**
-             * Set a rigid limit on the max number of dangling-indexes errors to report.
-             * If never called, the default is allowing (up to) 1000 error reports.
-             * @param reportDanglingLimit the max number of dangling-indexes errors to report.
-             * @return this builder.
-             */
-            public Builder setReportDanglingLimit(final int reportDanglingLimit) {
-                this.reportDanglingLimit = reportDanglingLimit;
-                return this;
-            }
-
-            /**
-             * Set a rigid limit on the max number of missing-indexes errors to report.
-             * If never called, the default is allowing (up to) 1000 error reports.
-             * @param reportMissingLimit the max number of missing-indexes errors to report.
-             * @return this builder.
-             */
-            public Builder setReportMissingLimit(final int reportMissingLimit) {
-                this.reportMissingLimit = reportMissingLimit;
-                return this;
-            }
-
-            /**
-             * Set whether the scrubber, if it finds an error, will repair it.
-             * @param val - if false, always report errors but do not repair.
-             *            - if true (default), report errors (up to report limits) but always repair.
-             * @return this builder.
-             */
-            public Builder setAllowRepair(boolean val) {
-                this.allowRepair = val;
-                return this;
-            }
-
-            /**
-             * Set records/index entries scan limit. The scrubbing task will return after scanning more than this limit.
-             * If scanning for both Dangling and Missing indexes (aka scan index and records), the limit is affective
-             * for each scan separately.
-             * @param entriesScanLimit - if 0 (default) or less, unlimited. Else return after scanning more than this limit.
-             * @return this builder.
-             */
-            public Builder setEntriesScanLimit(long entriesScanLimit) {
-                this.entriesScanLimit = entriesScanLimit;
-                return this;
-            }
-
-            public ScrubbingPolicy build() {
-                return new ScrubbingPolicy(scrubDangling, scrubMissing, reportDanglingLimit, reportMissingLimit, allowRepair, entriesScanLimit);
             }
         }
     }
