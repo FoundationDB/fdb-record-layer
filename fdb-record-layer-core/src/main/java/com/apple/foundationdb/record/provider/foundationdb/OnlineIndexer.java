@@ -210,10 +210,6 @@ public class OnlineIndexer implements AutoCloseable {
             throw FDBExceptions.wrapException(ex);
         }
 
-        if (common.isScrubber()) {
-            throw FDBExceptions.wrapException(ex);
-        }
-
         // clear the indexer, forcing indexingLauncher - if called again - to build a new indexer according to
         // the modified parameters.
         indexer = null;
@@ -336,14 +332,6 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
-    private IndexingScrubMissing getIndexerScrubber() {
-        if (! (indexer instanceof IndexingScrubMissing)) {
-            indexer = new IndexingScrubMissing(common, indexingPolicy);
-        }
-        return (IndexingScrubMissing) indexer;
-    }
-
-    @Nonnull
     private IndexingBase getIndexer() {
         if (fallbackToRecordsScan) {
             IndexingBase indexingBase = getIndexerByRecords();
@@ -352,9 +340,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
         if (indexingPolicy.isByIndex()) {
             return getIndexerByIndex();
-        }
-        if (common.isScrubber()) {
-            return getIndexerScrubber();
         }
         // default
         return getIndexerByRecords();

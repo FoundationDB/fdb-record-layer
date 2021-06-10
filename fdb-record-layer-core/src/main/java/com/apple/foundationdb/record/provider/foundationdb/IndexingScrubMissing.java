@@ -69,7 +69,7 @@ public class IndexingScrubMissing extends IndexingBase {
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingScrubMissing.class);
     @Nonnull private static final IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = compileIndexingTypeStamp();
 
-    @Nonnull private final OnlineScrubber.ScrubbingPolicy scrubbingPolicy;
+    @Nonnull private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
     private long scanCounter = 0;
 
     public IndexingScrubMissing(@Nonnull final IndexingCommon common,
@@ -78,7 +78,7 @@ public class IndexingScrubMissing extends IndexingBase {
         if (!common.isScrubber()) {
             throw new MetaDataException("invalid scrubbing policy");
         }
-        this.scrubbingPolicy = (OnlineScrubber.ScrubbingPolicy) common.getScrubbingPolicy();
+        this.scrubbingPolicy = (OnlineIndexScrubber.ScrubbingPolicy) common.getScrubbingPolicy();
     }
 
     @Override
@@ -104,16 +104,15 @@ public class IndexingScrubMissing extends IndexingBase {
 
     @Override
     CompletableFuture<Void> buildIndexInternalAsync() {
-        return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose( store ->
+        return getRunner().runAsync(context ->
                         context.getReadVersionAsync()
                                 .thenCompose(vignore -> {
                                     SubspaceProvider subspaceProvider = common.getRecordStoreBuilder().getSubspaceProvider();
                                     return subspaceProvider.getSubspaceAsync(context)
                                             .thenCompose(subspace ->
                                                     scrubRecords(subspaceProvider, subspace, null, null));
-                                })
-        ), common.indexLogMessageKeyValues("IndexingScrubMissing::buildIndexInternalAsync"));
+                                }),
+                common.indexLogMessageKeyValues("IndexingScrubMissing::buildIndexInternalAsync"));
     }
 
     @Nonnull

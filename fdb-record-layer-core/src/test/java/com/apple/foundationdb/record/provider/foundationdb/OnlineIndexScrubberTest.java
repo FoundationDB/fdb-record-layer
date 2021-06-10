@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
@@ -41,11 +42,12 @@ import java.util.stream.LongStream;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Tests for scrubbing readable indexes with {@link OnlineIndexer}.
  */
-class OnlineIndexerScrubTest extends OnlineIndexerTest {
+class OnlineIndexScrubberTest extends OnlineIndexerTest {
     private void populateData(final long numRecords) {
         List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, numRecords).mapToObj(val ->
                 TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).build()
@@ -83,9 +85,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         buildIndex(tgtIndex);
 
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
                         .build())
@@ -116,9 +118,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
 
         // verify the missing entries are found and fixed
         timer.reset();
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -130,9 +132,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
 
         // now verify it's fixed
         timer.reset();
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -158,9 +160,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         buildIndex(tgtIndex);
 
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
@@ -190,9 +192,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
 
         // verify the missing entries are found (report only, no repair)
         timer.reset();
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .setAllowRepair(false)
                         .build())
@@ -206,9 +208,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
 
         // verify the missing entries are found and fixed
         timer.reset();
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
@@ -222,9 +224,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
 
         // now verify it's fixed
         timer.reset();
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
                         .build())
                 .setTimer(timer)
@@ -253,9 +255,10 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         buildIndex(tgtIndex);
 
         // Scrub both dangling & missing. Scan counts in this test should be doubles.
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                // user default ScrubbingPolicy
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setAllowRepair(false)
                         .setEntriesScanLimit(1000000)
                         .build())
@@ -272,9 +275,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
 
         // Scrub dangling with a quota
         timer.reset();
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setEntriesScanLimit(1)
                         .build())
                 .setTimer(timer)
@@ -290,9 +293,9 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
 
         // Scrub both with a quota
         timer.reset();
-        try (OnlineScrubber indexScrubber = OnlineScrubber.newBuilder()
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setScrubbingPolicy(OnlineScrubber.ScrubbingPolicy.newBuilder()
+                .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setEntriesScanLimit(chunkSize * 3)
                         .build())
                 .setTimer(timer)
@@ -305,5 +308,31 @@ class OnlineIndexerScrubTest extends OnlineIndexerTest {
         assertEquals(chunkSize * 3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+
+        // refuse to scrub a non-readable index
+        openSimpleMetaData(hook);
+        try (FDBRecordContext context = openContext()) {
+            try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
+                    .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
+                    .build()) {
+                recordStore.markIndexWriteOnly(tgtIndex).join();
+                context.commit();
+                assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
+                assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubMissingIndexEntries);
+            }
+        }
+
+        // refuse to scrub a non-value index
+        Index nonValueIndex = new Index("count_index", new GroupingKeyExpression(EmptyKeyExpression.EMPTY, 0), IndexTypes.COUNT);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook2 = myHook(nonValueIndex);
+
+        openSimpleMetaData(hook2);
+        buildIndex(nonValueIndex);
+        try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(nonValueIndex).setSubspace(subspace)
+                .build()) {
+            assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubDanglingIndexEntries);
+            assertThrows(IndexingBase.ValidationException.class, indexScrubber::scrubMissingIndexEntries);
+        }
     }
 }

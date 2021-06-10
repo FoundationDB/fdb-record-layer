@@ -43,7 +43,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 @API(API.Status.UNSTABLE)
-public class OnlineScrubber implements AutoCloseable {
+public class OnlineIndexScrubber implements AutoCloseable {
 
     @Nonnull private final IndexingCommon common;
     @Nonnull private final FDBDatabaseRunner runner;
@@ -54,16 +54,16 @@ public class OnlineScrubber implements AutoCloseable {
     }
 
     @SuppressWarnings("squid:S00107")
-    OnlineScrubber(@Nonnull FDBDatabaseRunner runner,
-                   @Nonnull FDBRecordStore.Builder recordStoreBuilder,
-                   @Nonnull Index index,
-                   @Nonnull Collection<RecordType> recordTypes,
-                   @Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader,
-                   @Nonnull OnlineIndexer.Config config,
-                   boolean syntheticIndex,
-                   long leaseLengthMillis,
-                   boolean trackProgress,
-                   @Nullable OnlineScrubber.ScrubbingPolicy scrubbingPolicy) {
+    OnlineIndexScrubber(@Nonnull FDBDatabaseRunner runner,
+                        @Nonnull FDBRecordStore.Builder recordStoreBuilder,
+                        @Nonnull Index index,
+                        @Nonnull Collection<RecordType> recordTypes,
+                        @Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader,
+                        @Nonnull OnlineIndexer.Config config,
+                        boolean syntheticIndex,
+                        long leaseLengthMillis,
+                        boolean trackProgress,
+                        @Nullable OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
 
         this.runner = runner;
         this.common = new IndexingCommon(runner, recordStoreBuilder,
@@ -213,11 +213,12 @@ public class OnlineScrubber implements AutoCloseable {
 
             /**
              * Set records/index entries scan limit.
-             * Note that for efficiency, the scrubber reads and processes chunks of data, and will only check this limit
-             * after processing a chunk. The scrubber will either stop when the number of checked entries exceeds this limit
-             * or when it covers the whole range.
-             * If stopped by limit, the next scrubber call will skipped the already checked ranges. If the previous
-             * scrubber calls had exhausted the whole range, it'll start a fresh scan.
+             * Note that for efficiency, the scrubber reads and processes batches of entries (either index' or records),
+             * and will only check this limit after processing a batch. The scrubber will either stop when the number of
+             * checked entries exceeds this limit or when it covered the whole range.
+             * If stopped by limit, the next call will skip the ranges that already been checked (whether new entries were
+             * written in these ranges or not). If the previous scrubber call had finished covering the whole range, the current
+             * call will start a fresh scan.
              * @param entriesScanLimit - if 0 (default) or less, unlimited. Else return after scanned records count exceeds this limit.
              * @return this builder.
              */
@@ -233,7 +234,7 @@ public class OnlineScrubber implements AutoCloseable {
     }
 
     /**
-     * Builder for {@link OnlineScrubber}.
+     * Builder for {@link OnlineIndexScrubber}.
      *
      * <pre><code>
      * OnlineScrubber.newBuilder().setRecordStoreBuilder(recordStoreBuilder).setIndex(index).build()
@@ -859,13 +860,13 @@ public class OnlineScrubber implements AutoCloseable {
         }
 
         /**
-         * Build an {@link OnlineScrubber}.
+         * Build an {@link OnlineIndexScrubber}.
          * @return a new online indexer
          */
-        public OnlineScrubber build() {
+        public OnlineIndexScrubber build() {
             validate();
             OnlineIndexer.Config conf = new OnlineIndexer.Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
-            return new OnlineScrubber(runner, recordStoreBuilder, index, recordTypes,
+            return new OnlineIndexScrubber(runner, recordStoreBuilder, index, recordTypes,
                     configLoader, conf, syntheticIndex,
                     leaseLengthMillis, trackProgress,
                     scrubbingPolicy);
