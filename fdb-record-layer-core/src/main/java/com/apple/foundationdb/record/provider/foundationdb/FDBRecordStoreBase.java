@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * Base interface for typed and untyped record stores.
@@ -217,6 +218,15 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         default IndexState needRebuildIndex(Index index, long recordCount, boolean indexOnNewRecordTypes) {
             return FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes);
+        }
+
+        @Nonnull
+        default CompletableFuture<IndexState> needRebuildIndex(Index index,
+                                                               Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                               Supplier<CompletableFuture<Long>> lazyEstimatedSize,
+                                                               boolean indexOnNewRecordTypes) {
+            return lazyRecordCount.get()
+                    .thenApply(recordCount -> needRebuildIndex(index, recordCount, indexOnNewRecordTypes));
         }
     }
 
