@@ -74,12 +74,10 @@ public class IndexingScrubDangling extends IndexingBase {
     private long scanCounter = 0;
 
     public IndexingScrubDangling(@Nonnull final IndexingCommon common,
-                                 @Nonnull final OnlineIndexer.IndexingPolicy policy) {
-        super(common, policy);
-        if (!common.isScrubber()) {
-            throw new MetaDataException("invalid scrubbing policy");
-        }
-        this.scrubbingPolicy = (OnlineIndexScrubber.ScrubbingPolicy) common.getScrubbingPolicy();
+                                 @Nonnull final OnlineIndexer.IndexingPolicy policy,
+                                 @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
+        super(common, policy, true);
+        this.scrubbingPolicy = scrubbingPolicy;
     }
 
     @Override

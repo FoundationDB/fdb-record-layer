@@ -168,9 +168,7 @@ public class OnlineIndexer implements AutoCloseable {
                 indexStatePrecondition,
                 trackProgress,
                 useSynchronizedSession,
-                leaseLengthMillis,
-                null
-            );
+                leaseLengthMillis);
     }
 
     @Nonnull

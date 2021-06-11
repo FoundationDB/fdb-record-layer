@@ -83,15 +83,24 @@ public abstract class IndexingBase {
     protected final OnlineIndexer.IndexingPolicy policy;
     @Nonnull
     private final IndexingThrottle throttle;
+    private final boolean isScrubber;
 
     private long timeOfLastProgressLogMillis = 0;
     private boolean forceStampOverwrite = false;
 
     IndexingBase(@Nonnull IndexingCommon common,
                  @Nonnull OnlineIndexer.IndexingPolicy policy) {
+        this(common, policy, false);
+    }
+
+
+    IndexingBase(@Nonnull IndexingCommon common,
+                 @Nonnull OnlineIndexer.IndexingPolicy policy,
+                 boolean isScrubber) {
         this.common = common;
         this.policy = policy;
-        IndexState expectedIndexState = common.isScrubber() ? IndexState.READABLE : IndexState.WRITE_ONLY;
+        this.isScrubber = isScrubber;
+        IndexState expectedIndexState = isScrubber ? IndexState.READABLE : IndexState.WRITE_ONLY;
         this.throttle = new IndexingThrottle(common, expectedIndexState);
     }
 
@@ -226,7 +235,7 @@ public abstract class IndexingBase {
         final Index index = common.getIndex();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(index);
-            if (common.isScrubber()) {
+            if (isScrubber) {
                 validateOrThrowEx(indexState == IndexState.READABLE, "Scrubber was called for a non-readable index. State: " + indexState);
                 return setScrubberTypeOrThrow(store).thenApply(ignore -> true);
             }

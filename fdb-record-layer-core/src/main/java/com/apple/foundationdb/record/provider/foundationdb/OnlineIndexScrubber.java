@@ -47,6 +47,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
     @Nonnull private final IndexingCommon common;
     @Nonnull private final FDBDatabaseRunner runner;
+    @Nonnull private final ScrubbingPolicy scrubbingPolicy;
 
     public enum ScrubbingType {
         DANGLING,
@@ -66,15 +67,14 @@ public class OnlineIndexScrubber implements AutoCloseable {
                         @Nullable OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
 
         this.runner = runner;
+        this.scrubbingPolicy = scrubbingPolicy;
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
                 syntheticIndex,
                 OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED, // dummy
                 trackProgress,
                 true, // always use synchronized session
-                leaseLengthMillis,
-                scrubbingPolicy
-        );
+                leaseLengthMillis);
     }
 
     @Override
@@ -85,10 +85,10 @@ public class OnlineIndexScrubber implements AutoCloseable {
     private IndexingBase getScrubber(ScrubbingType type) {
         switch (type) {
             case DANGLING:
-                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT);
+                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
 
             case MISSING:
-                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT);
+                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
 
             default:
                 throw new MetaDataException("bad type");
@@ -213,7 +213,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
 
             /**
              * Set records/index entries scan limit.
-             * Note that for efficiency, the scrubber reads and processes batches of entries (either index' or records),
+             * Note that for efficiency, the scrubber reads and processes batches of entries (either index entries or records)
              * and will only check this limit after processing a batch. The scrubber will either stop when the number of
              * checked entries exceeds this limit or when it covered the whole range.
              * If stopped by limit, the next call will skip the ranges that already been checked (whether new entries were

@@ -242,8 +242,8 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     void testScrubberLimits() {
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 1328;
-        final int chunkSize  = 42;
-        final int numChunks  = 1 + (numRecords / chunkSize);
+        final int chunkSize = 42;
+        final int numChunks = 1 + (numRecords / chunkSize);
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
@@ -269,7 +269,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             indexScrubber.scrubMissingIndexEntries();
         }
         assertEquals(numRecords * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
-        assertEquals(numChunks * 2 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(numChunks * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
 
@@ -285,7 +285,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
         }
-        assertEquals(1 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
@@ -304,10 +304,25 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
             indexScrubber.scrubDanglingIndexEntries();
             indexScrubber.scrubMissingIndexEntries();
         }
-        assertEquals(3 * 2 , timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
+        assertEquals(3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT));
         assertEquals(chunkSize * 3 * 2, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_INDEXED));
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.INDEX_SCRUBBER_MISSING_ENTRIES));
+    }
+
+    @Test
+    void testScrubberInvalidIndexState() {
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        final int numRecords = 20;
+
+        Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
+
+        openSimpleMetaData();
+        populateData(numRecords);
+
+        openSimpleMetaData(hook);
+        buildIndex(tgtIndex);
 
         // refuse to scrub a non-readable index
         openSimpleMetaData(hook);
