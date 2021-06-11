@@ -78,7 +78,7 @@ public class IndexingCommon {
                    @Nonnull OnlineIndexer.IndexStatePrecondition indexStatePrecondition,
                    boolean trackProgress,
                    boolean useSynchronizedSession,
-                   long leaseLengthMillis ) {
+                   long leaseLengthMillis) {
         this.useSynchronizedSession = useSynchronizedSession;
         this.runner = runner;
         this.index = index;

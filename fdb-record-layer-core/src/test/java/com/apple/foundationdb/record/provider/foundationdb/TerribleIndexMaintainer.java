@@ -39,6 +39,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -160,5 +161,10 @@ public class TerribleIndexMaintainer extends IndexMaintainer {
         CompletableFuture<IndexOperationResult> future = new CompletableFuture<>();
         future.completeExceptionally(new UnsupportedOperationException("TerribleIndexMaintainer does not implement performOperation"));
         return future;
+    }
+
+    @Override
+    public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
+        throw new UnsupportedOperationException("TerribleIndexMaintainer does not implement evaluateIndex");
     }
 }

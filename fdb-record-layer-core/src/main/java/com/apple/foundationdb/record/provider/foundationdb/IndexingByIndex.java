@@ -29,54 +29,44 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexBuildProto;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
-import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 /**
  * This indexer scans records by a source index.
  */
 @API(API.Status.INTERNAL)
 public class IndexingByIndex extends IndexingBase {
-    @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingByIndex.class);
-
-    @Nonnull private final OnlineIndexer.IndexingPolicy policy;
+    // LOGGER here?
     private IndexBuildProto.IndexBuildIndexingStamp myIndexingTypeStamp = null;
 
     IndexingByIndex(@Nonnull IndexingCommon common,
                     @Nonnull OnlineIndexer.IndexingPolicy policy) {
-        super(common);
-        this.policy = policy;
+        super(common, policy);
     }
 
     @Override
@@ -151,37 +141,13 @@ public class IndexingByIndex extends IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> buildIndexFromIndex(@Nonnull SubspaceProvider subspaceProvider, @Nonnull Subspace subspace, @Nullable byte[] start, @Nullable byte[] end) {
-        return AsyncUtil.whileTrue(() -> {
-            final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex",
-                    LogMessageKeys.RANGE_START, start,
-                    LogMessageKeys.RANGE_END, end);
+        final List<Object> additionalLogMessageKeyValues = Arrays.asList(LogMessageKeys.CALLING_METHOD, "buildIndexFromIndex",
+                LogMessageKeys.RANGE_START, start,
+                LogMessageKeys.RANGE_END, end);
 
-            return buildCommitRetryAsync( (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
-                    true,
-                    additionalLogMessageKeyValues)
-                    .handle((hasMore, ex) -> {
-                        if (ex == null) {
-                            if (Boolean.FALSE.equals(hasMore)) {
-                                // all done
-                                return AsyncUtil.READY_FALSE;
-                            }
-                            return throttleDelayAndMaybeLogProgress(subspaceProvider, Collections.emptyList());
-                        }
-                        final RuntimeException unwrappedEx = getRunner().getDatabase().mapAsyncToSyncException(ex);
-                        if (LOGGER.isInfoEnabled()) {
-                            LOGGER.info(KeyValueLogMessage.of("possibly non-fatal error encountered building range",
-                                    LogMessageKeys.SUBSPACE, ByteArrayUtil2.loggable(subspace.pack())), ex);
-                        }
-                        throw unwrappedEx;
-                    })
-                    .thenCompose(Function.identity());
-        }, getRunner().getExecutor());
-    }
-
-    @Nullable
-    private static FDBStoredRecord<Message> castCursorResultToStoreRecord(@Nonnull RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
-        FDBIndexedRecord<Message> indexResult = cursorResult.get();
-        return indexResult == null ? null : indexResult.getStoredRecord();
+        return iterateAllRanges(additionalLogMessageKeyValues,
+                (store, recordsScanned) -> buildRangeOnly(store, start, end , recordsScanned),
+                subspaceProvider, subspace);
     }
 
     @Nonnull
@@ -206,7 +172,7 @@ public class IndexingByIndex extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows continuation item
+                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
         return ranges.onHasNext().thenCompose(hasNext -> {
@@ -225,7 +191,7 @@ public class IndexingByIndex extends IndexingBase {
             final AtomicBoolean hasMore = new AtomicBoolean(true);
 
             return iterateRangeOnly(store, cursor,
-                    IndexingByIndex::castCursorResultToStoreRecord,
+                    this::getRecordIfTypeMatch,
                     lastResult, hasMore, recordsScanned)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
@@ -234,6 +200,14 @@ public class IndexingByIndex extends IndexingBase {
                                 .thenApply(ignore -> !Objects.equals(cont, rangeEnd)));
 
         });
+    }
+
+    @Nonnull
+    @SuppressWarnings("unused")
+    private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
+        FDBIndexedRecord<Message> indexResult = cursorResult.get();
+        FDBStoredRecord<Message> rec =  indexResult == null ? null : indexResult.getStoredRecord();
+        return CompletableFuture.completedFuture( rec != null && common.recordTypes.contains(rec.getRecordType()) ? rec : null);
     }
 
     // support rebuildIndexAsync
@@ -284,40 +258,10 @@ public class IndexingByIndex extends IndexingBase {
         final AtomicBoolean hasMore = new AtomicBoolean(true);
 
         return iterateRangeOnly(store, cursor,
-                IndexingByIndex::castCursorResultToStoreRecord,
+                this::getRecordIfTypeMatch,
                 lastResult, hasMore, recordsScanned
         ).thenApply(vignore -> hasMore.get() ?
                                lastResult.get().get().getIndexEntry().getKey() :
                                null );
-    }
-
-    private void validateOrThrowEx(boolean isValid, @Nonnull String msg) {
-        if (!isValid) {
-            throw new ValidationException(msg,
-                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
-                    LogMessageKeys.SOURCE_INDEX, policy.getSourceIndex(),
-                    LogMessageKeys.INDEXER_ID, common.getUuid());
-        }
-    }
-
-    /**
-     * thrown when indexing validation fails.
-     */
-    @SuppressWarnings("serial")
-    public static class ValidationException extends RecordCoreException {
-        public ValidationException(@Nonnull String msg, @Nullable Object ... keyValues) {
-            super(msg, keyValues);
-        }
-    }
-
-    public static boolean isValidationException(@Nullable Throwable ex) {
-        for (Throwable current = ex;
-                current != null;
-                current = current.getCause()) {
-            if (current instanceof ValidationException) {
-                return true;
-            }
-        }
-        return false;
     }
 }

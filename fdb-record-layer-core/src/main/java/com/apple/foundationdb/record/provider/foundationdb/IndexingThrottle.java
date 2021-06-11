@@ -59,6 +59,7 @@ public class IndexingThrottle {
 
     @Nonnull private static final Logger LOGGER = LoggerFactory.getLogger(IndexingThrottle.class);
     @Nonnull private final IndexingCommon common;
+    private final IndexState expectedIndexState;
 
     private int limit;
 
@@ -77,9 +78,10 @@ public class IndexingThrottle {
      */
     private int successCount = 0;
 
-    IndexingThrottle(@Nonnull IndexingCommon common) {
+    IndexingThrottle(@Nonnull IndexingCommon common, IndexState expectedIndexState) {
         this.common = common;
         this.limit = common.config.getMaxLimit();
+        this.expectedIndexState = expectedIndexState;
     }
 
     public <R> CompletableFuture<R> buildCommitRetryAsync(@Nonnull BiFunction<FDBRecordStore, AtomicLong, CompletableFuture<R>> buildFunction,
@@ -201,11 +203,12 @@ public class IndexingThrottle {
             final Index index = common.getIndex();
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
                 IndexState indexState = store.getIndexState(index);
-                if (indexState != IndexState.WRITE_ONLY) {
-                    throw new RecordCoreStorageException("Attempted to build non-write-only index",
+                if (indexState != expectedIndexState) {
+                    throw new RecordCoreStorageException("Unexpected index state",
                             LogMessageKeys.INDEX_NAME, index.getName(),
                             common.getRecordStoreBuilder().getSubspaceProvider().logKey(), common.getRecordStoreBuilder().getSubspaceProvider().toString(context),
-                            LogMessageKeys.INDEX_STATE, indexState);
+                            LogMessageKeys.INDEX_STATE, indexState,
+                            LogMessageKeys.INDEX_STATE_PRECONDITION, expectedIndexState);
                 }
                 return function.apply(store);
             }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {

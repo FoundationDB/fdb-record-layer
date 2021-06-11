@@ -168,16 +168,7 @@ public class OnlineIndexer implements AutoCloseable {
                 indexStatePrecondition,
                 trackProgress,
                 useSynchronizedSession,
-                leaseLengthMillis
-            );
-    }
-
-    @Nonnull
-    private IndexingByIndex getIndexerByIndex() {
-        if (! (indexer instanceof IndexingByIndex)) { // this covers null pointer
-            indexer = new IndexingByIndex(common, indexingPolicy);
-        }
-        return (IndexingByIndex)indexer;
+                leaseLengthMillis);
     }
 
     @Nonnull
@@ -192,7 +183,7 @@ public class OnlineIndexer implements AutoCloseable {
 
     @Nonnull
     private CompletableFuture<Void> indexingLauncher(Supplier<CompletableFuture<Void>> indexingFunc, int attemptCount, @Nullable IndexingPolicy requestedPolicy) {
-        // The launcher calls the indexing function, letting the results be handled by the catcher.
+        // The launcher calls the indexing function, letting the results to be handled by the catcher.
         // The catcher may, on some cases, call the launcher in its retry path. The attemptCount limits the recursion level as a safety net.
         return AsyncUtil.composeHandle( indexingFunc.get(),
                 (ignore, ex) -> indexingCatcher(ex, indexingFunc, attemptCount + 1, requestedPolicy));
@@ -311,9 +302,17 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
+    private IndexingByIndex getIndexerByIndex() {
+        if (! (indexer instanceof IndexingByIndex)) { // this covers null pointer
+            indexer = new IndexingByIndex(common, indexingPolicy);
+        }
+        return (IndexingByIndex)indexer;
+    }
+
+    @Nonnull
     private IndexingByRecords getIndexerByRecords() {
         if (! (indexer instanceof IndexingByRecords)) { // this covers null pointer
-            indexer = new IndexingByRecords(common);
+            indexer = new IndexingByRecords(common, indexingPolicy);
         }
         return (IndexingByRecords)indexer;
     }
@@ -334,7 +333,7 @@ public class OnlineIndexer implements AutoCloseable {
     private IndexingBase getIndexer() {
         if (fallbackToRecordsScan) {
             IndexingBase indexingBase = getIndexerByRecords();
-            indexingBase.setFallbackMode();
+            indexingBase.enforceStampOverwrite();
             return indexingBase;
         }
         if (indexingPolicy.isByIndex()) {
@@ -816,7 +815,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
 
-        private Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter, int maxWriteLimitBytes) {
+        Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter, int maxWriteLimitBytes) {
             this.maxLimit = maxLimit;
             this.maxRetries = maxRetries;
             this.recordsPerSecond = recordsPerSecond;
@@ -1476,21 +1475,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Add an {@link IndexingPolicy} policy. If set, this policy will be used to build the target index by only
-         * scanning records of a source index, avoiding  a full record scan.
-         * @param indexingPolicy see {@link IndexingPolicy}
-         * @return this Builder
-         */
-        public Builder setIndexingPolicy(@Nullable final IndexingPolicy indexingPolicy) {
-            if (indexingPolicy == null) {
-                this.indexingPolicy = IndexingPolicy.DEFAULT;
-            } else {
-                this.indexingPolicy = indexingPolicy;
-            }
-            return this;
-        }
-
-        /**
          * Get the number of successful range builds before re-increasing the number of records to process in a single
          * transaction.
          * By default this is {@link #DO_NOT_RE_INCREASE_LIMIT}, which means it will not re-increase after successes.
@@ -1758,6 +1742,21 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Add an {@link IndexingPolicy} policy. If set, this policy will be used to build the target index by only
+         * scanning records of a source index, avoiding  a full record scan.
+         * @param indexingPolicy see {@link IndexingPolicy}
+         * @return this Builder
+         */
+        public Builder setIndexingPolicy(@Nullable final IndexingPolicy indexingPolicy) {
+            if (indexingPolicy == null) {
+                this.indexingPolicy = IndexingPolicy.DEFAULT;
+            } else {
+                this.indexingPolicy = indexingPolicy;
+            }
+            return this;
+        }
+
+        /**
          * Build an {@link OnlineIndexer}.
          * @return a new online indexer
          */
@@ -1765,7 +1764,8 @@ public class OnlineIndexer implements AutoCloseable {
             validate();
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
             return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
-                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
+                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress,
+                    indexingPolicy);
         }
 
         protected void validate() {
@@ -1814,7 +1814,7 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     /**
-     * A builder for the  indexing policy. Let the caller set a source index and a fallback policy.
+     * A builder for the indexing policy.
      */
     public static class IndexingPolicy {
         public static final IndexingPolicy DEFAULT = new IndexingPolicy();
@@ -1872,7 +1872,7 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Create a index from index policy builder.
+         * Create an indexing policy builder.
          * @return a new {@link IndexingPolicy} builder
          */
         @Nonnull
@@ -1953,7 +1953,6 @@ public class OnlineIndexer implements AutoCloseable {
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan);
             }
         }
-
     }
 
     /**
