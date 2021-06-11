@@ -64,7 +64,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
                         boolean syntheticIndex,
                         long leaseLengthMillis,
                         boolean trackProgress,
-                        @Nullable OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
+                        @Nonnull OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
 
         this.runner = runner;
         this.scrubbingPolicy = scrubbingPolicy;
