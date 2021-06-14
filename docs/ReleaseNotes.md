@@ -26,7 +26,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Add indexing validation & repair [(Issue #1266)](https://github.com/FoundationDB/fdb-record-layer/issues/1266)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.187.0
+
+* **Feature** Add indexing validation & repair [(Issue #1266)](https://github.com/FoundationDB/fdb-record-layer/issues/1266)
 
 ### 3.0.186.0
 
