@@ -44,11 +44,11 @@ import java.util.List;
 @API(API.Status.UNSTABLE)
 public class QueryResult {
     @Nonnull
-    private final List<Object> elements;
+    private final List<QueryResultElement> elements;
 
     private static final QueryResult EMPTY = new QueryResult(Collections.emptyList());
 
-    private QueryResult(@Nonnull List<Object> elements) {
+    private QueryResult(@Nonnull List<QueryResultElement> elements) {
         this.elements = elements;
     }
 
@@ -66,7 +66,7 @@ public class QueryResult {
      * @return the newly created result
      */
     @Nonnull
-    public static QueryResult of(@Nullable Object element) {
+    public static QueryResult of(@Nullable QueryResultElement element) {
         return new QueryResult(Collections.singletonList(element));
     }
 
@@ -75,7 +75,7 @@ public class QueryResult {
      * @param elements the collection of elements to populate in the result
      * @return the newly created result
      */
-    public static QueryResult of(Collection<?> elements) {
+    public static QueryResult of(Collection<QueryResultElement> elements) {
         return new QueryResult(ImmutableList.copyOf(elements));
     }
 
@@ -84,8 +84,8 @@ public class QueryResult {
      * @param addedElement the element to add to the result
      * @return the newly created result that combines the existing elements with the new one
      */
-    public QueryResult with(Object addedElement) {
-        return new QueryResult(new ImmutableList.Builder<>().addAll(elements).add(addedElement).build());
+    public QueryResult with(QueryResultElement addedElement) {
+        return new QueryResult(new ImmutableList.Builder<QueryResultElement>().addAll(elements).add(addedElement).build());
     }
 
     /**
@@ -93,8 +93,8 @@ public class QueryResult {
      * @param addedElements the elements to add to the result
      * @return the newly created result that combines the existing elements with the new ones
      */
-    public QueryResult with(Object... addedElements) {
-        return new QueryResult(new ImmutableList.Builder<>().addAll(elements).add(addedElements).build());
+    public QueryResult with(QueryResultElement... addedElements) {
+        return new QueryResult(new ImmutableList.Builder<QueryResultElement>().addAll(elements).add(addedElements).build());
     }
 
     /**
@@ -104,7 +104,7 @@ public class QueryResult {
      * @throws IndexOutOfBoundsException if the index is out of range
      */
     @Nullable
-    public Object get(int i) {
+    public QueryResultElement get(int i) {
         return elements.get(i);
     }
 
