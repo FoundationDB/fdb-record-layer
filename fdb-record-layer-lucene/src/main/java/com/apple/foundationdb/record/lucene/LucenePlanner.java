@@ -110,7 +110,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             case TEXT_CONTAINS_PREFIX:
             default:
                 return null;
-        }
+            }
         if (type != Comparisons.Type.IS_NULL && type != Comparisons.Type.TEXT_CONTAINS_PHRASE && type != Comparisons.Type.TEXT_CONTAINS_ALL) {
             if (comparison.getComparand() instanceof String) {
                 comparisonString = comparisonString + "\"%s\"";
@@ -143,7 +143,7 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     private LuceneIndexQueryPlan getScanForAndLucene(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull AndComponent filter,
-                                                             @Nullable FilterSatisfiedMask filterMask) {
+                                                     @Nullable FilterSatisfiedMask filterMask) {
         final Iterator<FilterSatisfiedMask> subFilterMasks = filterMask != null ? filterMask.getChildren().iterator() : null;
         final List<QueryComponent> filters = filter.getChildren();
         LuceneIndexQueryPlan combinedComparison = null;
@@ -215,7 +215,7 @@ public class LucenePlanner extends RecordQueryPlanner {
     }
 
     private LuceneIndexQueryPlan getComparisonsForLuceneFilter(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull QueryComponent filter,
-                                                                       FilterSatisfiedMask filterMask) {
+                                                               FilterSatisfiedMask filterMask) {
         if (filter instanceof AndComponent) {
             return getScanForAndLucene(index, parentFieldName, (AndComponent) filter, filterMask);
         } else if (filter instanceof LuceneQueryComponent) {
@@ -233,11 +233,36 @@ public class LucenePlanner extends RecordQueryPlanner {
         return null;
     }
 
+    public boolean validateIndexFields(@Nonnull Index index,
+                                       @Nonnull QueryComponent filter) {
+        if (filter instanceof LuceneQueryComponent) {
+            List<String> fields = ((LuceneQueryComponent) filter).getFields();
+            List<KeyExpression> indexExpressions = index.getRootExpression().normalizeKeyForPositions();
+            List<String> indexFields = Lists.newArrayList();
+            for (KeyExpression expression : indexExpressions) {
+                //TODO here to ignore nested field names as they won't match perfectly except the first prefix of the field:
+                // for example <nested>_<key>_<value> will only match on <nested> top level field.
+                // Actually this does work if the client specifies the top level nesting name, this is fine for now
+                indexFields.add(expression.toKeyExpression().getField().getFieldName());
+            }
+            for (String field : fields) {
+                if (!(indexFields.contains(field))) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
 
     @Override
     protected ScoredPlan planLucene(@Nonnull CandidateScan candidateScan,
                                     @Nonnull Index index, @Nonnull QueryComponent filter,
                                     @Nullable KeyExpression sort) {
+
+        //TODO: validate fields for nested or non-lucene components
+        if (!validateIndexFields(index, filter)) {
+            return null;
+        }
         FilterSatisfiedMask filterMask = FilterSatisfiedMask.of(filter);
         LuceneIndexQueryPlan lucenePlan = getComparisonsForLuceneFilter(index, null, filter, filterMask);
         if (lucenePlan == null) {

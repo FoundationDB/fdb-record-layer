@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
@@ -49,6 +50,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
@@ -118,7 +120,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final String MAP_DOC = "MapDocument";
 
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", field("text"), IndexTypes.LUCENE,
+    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
     private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value",
@@ -181,7 +183,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
+            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)

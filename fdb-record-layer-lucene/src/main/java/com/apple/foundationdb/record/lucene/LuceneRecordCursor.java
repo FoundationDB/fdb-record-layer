@@ -83,13 +83,13 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private IndexSearcher searcher;
     private TopDocs topDocs;
     private int currentPosition;
-    private final List<String> fieldNames;
+    private final List<LuceneKeyExpression> fields;
     private Sort sort = null;
 
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
-                       byte[] continuation, List<String> fieldNames) {
+                       byte[] continuation, List<LuceneKeyExpression> fields) {
         this.state = state;
         this.executor = executor;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
@@ -100,7 +100,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
             this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
-        this.fieldNames = fieldNames;
+        this.fields = fields;
     }
 
     @Nonnull
@@ -135,21 +135,21 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         limitRemaining--;
                     }
                     List<Object> setPrimaryKey = Tuple.fromBytes(pk.bytes).getItems();
-                    List<Object> fields = Lists.newArrayList(fieldNames);
+                    List<Object> fieldValues = Lists.newArrayList(fields);
                     int[] keyPos = state.index.getPrimaryKeyComponentPositions();
                     Tuple tuple;
                     if (keyPos != null) {
                         List<Object> leftovers = Lists.newArrayList();
                         for (int i = 0; i < keyPos.length; i++) {
                             if (keyPos[i] > -1) {
-                                fields.set(keyPos[i], setPrimaryKey.get(i));
+                                fieldValues.set(keyPos[i], setPrimaryKey.get(i));
                             } else {
                                 leftovers.add(setPrimaryKey.get(i));
                             }
                         }
-                        tuple = Tuple.fromList(fields).addAll(leftovers);
+                        tuple = Tuple.fromList(fieldValues).addAll(leftovers);
                     } else {
-                        tuple = Tuple.fromList(fields).addAll(setPrimaryKey);
+                        tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
                     }
 
                     nextResult = RecordCursorResult.withNextValue(new IndexEntry(state.index,

@@ -24,10 +24,13 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
 import com.apple.foundationdb.record.metadata.MetaDataValidator;
+import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
+import com.google.protobuf.Descriptors;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 
 import javax.annotation.Nonnull;
@@ -57,6 +60,15 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
             @Override
             public void validate(@Nonnull MetaDataValidator metaDataValidator) {
                 // nothing to validate
+            }
+
+            @Override
+            public void validateIndexForRecordType(@Nonnull RecordType recordType, @Nonnull MetaDataValidator metaDataValidator) {
+                final List<Descriptors.FieldDescriptor> fields = metaDataValidator.validateIndexForRecordType(index, recordType);
+                KeyExpression rootExpression = index.getRootExpression();
+                for (Descriptors.FieldDescriptor fieldDescriptor : fields) {
+                    fieldDescriptor.getType();
+                }
             }
         };
     }

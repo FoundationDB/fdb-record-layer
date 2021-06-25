@@ -29,9 +29,11 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import jdk.jfr.Experimental;
+import org.checkerframework.checker.units.qual.C;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,13 +49,19 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
 
     private final Comparisons.LuceneComparison comparison;
+    private final List<String> fields;
 
     public LuceneQueryComponent(String query) {
-        this(new Comparisons.LuceneComparison(query));
+        this(new Comparisons.LuceneComparison(query), Lists.newArrayList("text"));
     }
 
-    private LuceneQueryComponent(Comparisons.LuceneComparison comparison) {
+    public LuceneQueryComponent(String query, List<String> fields){
+        this(new Comparisons.LuceneComparison(query), fields);
+    }
+
+    private LuceneQueryComponent(Comparisons.LuceneComparison comparison, List<String> fields) {
         this.comparison = comparison;
+        this.fields = fields;
     }
 
     @Nonnull
@@ -64,7 +72,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
 
     @Override
     public void validate(@Nonnull final Descriptors.Descriptor descriptor) {
-        // No-op
+        // Its possible we could validate the fields that are being used with the fields that we've passed in.
     }
 
     @Override
@@ -78,10 +86,14 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
         return comparison;
     }
 
+    @Nonnull
+    public List<String> getFields() {
+        return fields;
+    }
     @Override
     public QueryComponent withOtherComparison(final Comparisons.Comparison comparison) {
         Verify.verify(comparison instanceof Comparisons.LuceneComparison);
-        return new LuceneQueryComponent((Comparisons.LuceneComparison)comparison);
+        return new LuceneQueryComponent((Comparisons.LuceneComparison)comparison, fields);
     }
 
     @Override
