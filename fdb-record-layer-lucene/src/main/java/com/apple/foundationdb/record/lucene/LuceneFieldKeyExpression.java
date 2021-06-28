@@ -20,21 +20,19 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.google.common.collect.Lists;
 import org.apache.lucene.document.Field;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression{
 
     private LuceneKeyExpression.FieldType type;
     private boolean sorted;
     private boolean stored;
+    private boolean isPrefixed = false;
+    private String prefix;
 
     public LuceneFieldKeyExpression(@Nonnull final String fieldName, @Nonnull final FanType fanType,
                                     @Nonnull final Key.Evaluated.NullStandin nullStandin, @Nonnull final FieldType type,
@@ -42,6 +40,7 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
         super(fieldName, fanType, nullStandin);
         this.type = type;
         this.sorted = sorted;
+        this.stored = stored;
 
     }
 
@@ -57,12 +56,30 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
         return type;
     }
 
-    @Override
-    public boolean validateLucene() {
-        return true;
-    }
-
     public Field.Store isStored() {
         return stored ? Field.Store.YES : Field.Store.NO;
+    }
+
+    @Override
+    public void prefix(String prefix) {
+        if (!(isPrefixed)) {
+            isPrefixed = true;
+            this.prefix = prefix;
+        }
+    }
+
+    public String getPrefixedFieldName() {
+        if (isPrefixed) {
+            return prefix.concat(getFieldName());
+        }
+        return getFieldName();
+    }
+
+    public String getPrefixedFieldName(String prefix) {
+        String finalName = prefix;
+        if (isPrefixed) {
+            finalName = this.prefix.concat(finalName);
+        }
+        return finalName.concat(getFieldName());
     }
 }

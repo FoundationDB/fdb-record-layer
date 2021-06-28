@@ -50,6 +50,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
+import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.getPrefixedFieldNames;
+
 /**
  * A planner to implement lucene query planning so that we can isolate the lucene functionality to
  * a distinct package. This was necessary because of the need to pass the sort key expression into the
@@ -237,14 +239,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                                        @Nonnull QueryComponent filter) {
         if (filter instanceof LuceneQueryComponent) {
             List<String> fields = ((LuceneQueryComponent) filter).getFields();
-            List<KeyExpression> indexExpressions = index.getRootExpression().normalizeKeyForPositions();
-            List<String> indexFields = Lists.newArrayList();
-            for (KeyExpression expression : indexExpressions) {
-                //TODO here to ignore nested field names as they won't match perfectly except the first prefix of the field:
-                // for example <nested>_<key>_<value> will only match on <nested> top level field.
-                // Actually this does work if the client specifies the top level nesting name, this is fine for now
-                indexFields.add(expression.toKeyExpression().getField().getFieldName());
-            }
+            List<String> indexFields = getPrefixedFieldNames(index.getRootExpression());
             for (String field : fields) {
                 if (!(indexFields.contains(field))) {
                     return false;

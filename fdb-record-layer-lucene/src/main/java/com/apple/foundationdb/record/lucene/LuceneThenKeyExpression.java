@@ -25,30 +25,55 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class LuceneThenKeyExpression extends ThenKeyExpression implements LuceneKeyExpression {
 
-    private LuceneKeyExpression primaryKey;
+    // Only one key allowed per repeated field
+    private LuceneFieldKeyExpression primaryKey;
     boolean validated = false;
+    boolean isPrefixed = false;
+    String prefix;
 
-    public LuceneThenKeyExpression(@Nonnull final LuceneKeyExpression primaryKey, @Nonnull final List<KeyExpression> children) {
+
+    public LuceneThenKeyExpression(@Nonnull final LuceneFieldKeyExpression primaryKey, @Nonnull final List<KeyExpression> children) {
         super(children);
-        if (!validateLucene()) throw new IllegalArgumentException("failed to validate lucene compatibility on construction");
+        if (!validate()) throw new IllegalArgumentException("failed to validate lucene compatibility on construction");
         this.primaryKey = primaryKey;
 
     }
 
-    @Override
-    public boolean validateLucene() {
+    public boolean validate() {
         if (validated) return validated;
-
+        validated = true;
         for (KeyExpression child : getChildren()) {
-            validated = validated &&
-                        child instanceof LuceneKeyExpression &&
-                        ((LuceneKeyExpression)child).validateLucene();
+            validated = validated && child instanceof LuceneKeyExpression;
         }
-
         return validated;
+    }
+
+    public void prefix(String prefix) {
+        if (!(isPrefixed)){
+            for (LuceneFieldKeyExpression child : getLuceneChildren()) {
+                child.prefix(prefix);
+            }
+        }
+    }
+
+    @Override
+    public List<KeyExpression> normalizeKeyForPositions(){
+        return Lists.newArrayList(this);
+    }
+
+    public int getPrimaryKeyPosition() {
+        return super.normalizeKeyForPositions().indexOf(primaryKey);
+    }
+
+    public List<LuceneFieldKeyExpression> getLuceneChildren(){
+        List<LuceneFieldKeyExpression> children = getChildren().stream().map((e) -> (LuceneFieldKeyExpression)e )
+                .collect(Collectors.toList());
+        return children;
     }
 }

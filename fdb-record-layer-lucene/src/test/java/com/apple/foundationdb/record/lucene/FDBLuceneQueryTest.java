@@ -122,10 +122,13 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+    private static final List<KeyExpression> keys = Lists.newArrayList(
+            new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
+                    LuceneKeyExpression.FieldType.STRING_KEY_MAP, false, false),
+            new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false));
 
-    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value",
-            new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concatenateFields("key", "value")), 1),
-            IndexTypes.LUCENE);
+    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value",new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
+            new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys)), 1), IndexTypes.LUCENE);
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
@@ -228,7 +231,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
+            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -261,7 +264,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
+            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -286,7 +289,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
+            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean", Lists.newArrayList("text"));
             // Query for full records
             QueryComponent filter2 = Query.field("doc_id").equalsValue(2L);
             RecordQuery query = RecordQuery.newBuilder()
@@ -316,8 +319,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean");
-            final QueryComponent filter2 = new LuceneQueryComponent("was king from 966 to 1016");
+            final QueryComponent filter1 = new LuceneQueryComponent("civil blood makes civil hands unclean", Lists.newArrayList("text"));
+            final QueryComponent filter2 = new LuceneQueryComponent("was king from 966 to 1016", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -360,8 +363,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("the continuance");
-            final QueryComponent filter2 = new LuceneQueryComponent("grudge");
+            final QueryComponent filter1 = new LuceneQueryComponent("the continuance", Lists.newArrayList("text"));
+            final QueryComponent filter2 = new LuceneQueryComponent("grudge", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -389,7 +392,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("the continuance AND grudge");
+            final QueryComponent filter1 = new LuceneQueryComponent("the continuance AND grudge", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -417,7 +420,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("the continuance OR grudge");
+            final QueryComponent filter1 = new LuceneQueryComponent("the continuance OR grudge", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -445,7 +448,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         initializeFlat();
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            final QueryComponent filter1 = new LuceneQueryComponent("doesNotExist");
+            final QueryComponent filter1 = new LuceneQueryComponent("doesNotExist", Lists.newArrayList("text"));
             // Query for full records
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -476,7 +479,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             // This is possibly expected behavior but should be discussed how to handle.
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)
-                    .setFilter(new LuceneQueryComponent("entry.key:a AND entry.value:king"))
+                    .setFilter(new LuceneQueryComponent("entry.key:a AND entry.value:king", Lists.newArrayList("entry")))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
@@ -500,14 +503,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)
-                    .setFilter(new LuceneQueryComponent("entry.key:king"))
+                    .setFilter(new LuceneQueryComponent("entry_a_value:king", Lists.newArrayList("entry_value")))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexScanType(IndexScanType.BY_LUCENE),
                     indexScan("Map$entry-value"),
-                    bounds(hasTupleString("[[entry.key:king],[entry.key:king]]"))
+                    bounds(hasTupleString("[[entry_a_value:king],[entry_a_value:king]]"))
             ));
             assertThat(plan, matcher);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
@@ -531,7 +534,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             Matcher<RecordQueryPlan> matcher = indexScan(allOf(
                     indexScanType(IndexScanType.BY_LUCENE),
                     indexScan("Map$entry-value"),
-                    bounds(hasTupleString("[[entry.key:\"king\"],[entry.key:\"king\"]]"))));
+                    bounds(hasTupleString("[[entry_key:\"king\"],[entry_key:\"king\"]]"))));
             if (shouldDeferFetch) {
                 matcher = fetch(primaryKeyDistinct(coveringIndexScan(matcher)));
             } else {
