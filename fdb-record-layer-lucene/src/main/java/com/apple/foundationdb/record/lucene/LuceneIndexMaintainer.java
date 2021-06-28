@@ -162,10 +162,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                             LuceneKeyExpression expression = fields.get(i);
                             if (expression instanceof LuceneThenKeyExpression) {
                                 int prefixLocation = ((LuceneThenKeyExpression)expression).getPrimaryKeyPosition();
-                                String prefix = entryKey.get(prefixLocation + i).toString().concat("_");
+                                final Object o = entryKey.get(prefixLocation + i);
+                                String prefix = o == null ? "" : o.toString().concat("_");
                                 List<LuceneFieldKeyExpression> children = ((LuceneThenKeyExpression)expression).getLuceneChildren();
                                 for (int j = 0; j < children.size(); j++) {
-                                    if (j == prefixLocation) continue;
+                                    if (j == prefixLocation) {
+                                        continue;
+                                    }
                                     LuceneFieldKeyExpression child = children.get(j);
                                     insertDocumentField(child, entryKey.get(i + offset + j), document, prefix);
                                 }

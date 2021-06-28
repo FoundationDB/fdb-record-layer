@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.PrefixableExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 
 import java.util.List;
@@ -50,12 +51,14 @@ public class LuceneTypeConverter implements KeyExpressionVisitor {
 
     @Override
     public KeyExpression visitNestingKey(final NestingKeyExpression nke) {
-        return new NestingKeyExpression((LuceneFieldKeyExpression)visit(nke.getParent()),visit(nke.getChild()));
+        PrefixableExpression pe = (PrefixableExpression)visit(nke.getChild());
+        pe.prefix(nke.getParent().getFieldName().concat("_"));
+        return pe;
     }
 
     @Override
     public KeyExpression visitGroupingKey(final GroupingKeyExpression gke) {
-        return new GroupingKeyExpression(visit(gke.getChild()),gke.getGroupedCount());
+        return new GroupingKeyExpression(visit(gke.getChild()), gke.getGroupedCount());
     }
 
     @Override
