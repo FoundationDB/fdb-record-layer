@@ -37,6 +37,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
@@ -60,6 +61,7 @@ import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync;
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
+import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.getPrefixedFieldNames;
 
 /**
  * This class is a Record Cursor implementation for Lucene queries.
@@ -157,7 +159,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     currentPosition++;
                     return nextResult;
                 } catch (Exception e) {
-                    throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, e);
+                    throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
                 }
             }, executor);
         } else { // a limit was exceeded

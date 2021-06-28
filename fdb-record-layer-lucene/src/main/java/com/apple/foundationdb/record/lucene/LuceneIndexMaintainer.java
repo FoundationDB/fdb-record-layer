@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolStringList;
 import org.apache.lucene.analysis.Analyzer;
@@ -65,11 +66,13 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.print.Doc;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
@@ -118,7 +121,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Verify.verify(range.getLow() != null);
         Verify.verify(scanType == IndexScanType.BY_LUCENE);
         try {
-            final QueryParser parser = new QueryParser("text" , analyzer);
+            final QueryParser parser = new QueryParser("__fullTextKeyField__" , analyzer);
             Query query = parser.parse(range.getLow().getString(0));
             return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, fields);
         } catch (Exception ioe) {
@@ -146,17 +149,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
         try {
             final IndexWriter writer = getOrCreateIndexWriter(state, analyzer, executor);
+            Document document = new Document();
+            byte[] primaryKey = savedRecord.getPrimaryKey().pack();
+            BytesRef ref = new BytesRef(primaryKey);
+            document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
+            document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+            List<String> fullText = Lists.newArrayList();
             indexEntries.forEach( (entry ) -> {
                 try {
                     if (remove) {
                         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(savedRecord.getPrimaryKey().pack()));
                         writer.deleteDocuments(query);
                     } else {
-                        Document document = new Document();
-                        byte[] primaryKey = savedRecord.getPrimaryKey().pack();
-                        BytesRef ref = new BytesRef(primaryKey);
-                        document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
-                        document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
                         int offset = 0;
                         Tuple entryKey = entry.getKey();
                         //TODO I think this can be simplified for Fields to be a single
@@ -169,25 +173,33 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                 List<LuceneFieldKeyExpression> children = ((LuceneThenKeyExpression)expression).getLuceneChildren();
                                 for (int j = 0; j < children.size(); j++) {
                                     if (j == prefixLocation) {
-                                        continue;
+                                        insertDocumentField(children.get(j), entryKey.get(i), document, null);
+                                    } else {
+                                        LuceneFieldKeyExpression child = children.get(j);
+                                        Object value = entryKey.get(i + offset + j);
+                                        if (value != null) {
+                                            insertDocumentField(child, entryKey.get(i + offset + j), document, prefix);
+                                            fullText.add(value.toString());
+                                        }
                                     }
-                                    LuceneFieldKeyExpression child = children.get(j);
-                                    insertDocumentField(child, entryKey.get(i + offset + j), document, prefix);
                                 }
                                 offset += children.size();
-                                continue;
-                            } if (expression instanceof LuceneFieldKeyExpression) {
+                            } else if (expression instanceof LuceneFieldKeyExpression) {
                                 Object value = entryKey.get(i + offset);
-                                insertDocumentField((LuceneFieldKeyExpression)expression, value, document, null);
+                                if (value != null) {
+                                    insertDocumentField((LuceneFieldKeyExpression)expression, value, document, null);
+                                    fullText.add(value.toString());
+                                }
                             }
                         }
-                        writer.addDocument(document);
                     }
                 } catch (IOException ioe) {
                     throw new RecordCoreException("Issue updating index keys", "Key", entry, "IndexEntries", indexEntries,
                             "savedRecord", savedRecord, ioe);
                 }
             });
+            document.add(new TextField("__fullTextKeyField__", fullText.toString(), Field.Store.NO));
+            writer.addDocument(document);
         } catch (Exception e) {
             throw new RecordCoreException(e);
         }
@@ -196,13 +208,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private void insertDocumentField(final LuceneFieldKeyExpression expression, Object value,
                                      final Document document, String prefix) {
+        if (value == null && expression.getType() != LuceneKeyExpression.FieldType.STRING) return;
         String fieldName = expression.getPrefixedFieldName(prefix);
         switch (expression.getType()) {
             case INT:
                 document.add(new IntPoint(fieldName, (Integer) value));
                 break;
             case STRING:
-                document.add(new TextField(fieldName, (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
                 break;
             default:
                 break;

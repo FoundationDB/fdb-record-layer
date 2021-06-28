@@ -105,8 +105,9 @@ public interface LuceneKeyExpression extends PrefixableExpression {
             } else if (expression instanceof GroupingKeyExpression) {
                 return getPrefixedFieldNames(((GroupingKeyExpression)expression).getWholeKey());
             } else if (expression instanceof NestingKeyExpression) {
-                List<String> names = getPrefixedFieldNames(((NestingKeyExpression)expression).getChild());
-                names.add(((NestingKeyExpression)expression).getParent().getFieldName());
+                // Validation that the top level parent field exists should be enough since we expand
+                // and change the field names anyway. This is also important for primay key field locations.
+                List<String> names = getPrefixedFieldNames(((NestingKeyExpression)expression).getParent());
                 return names;
             }
         }

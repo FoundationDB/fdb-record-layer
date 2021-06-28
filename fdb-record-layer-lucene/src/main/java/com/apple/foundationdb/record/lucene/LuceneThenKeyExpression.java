@@ -47,6 +47,8 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
 
     }
 
+    // Todo: figure out if we should allow stored key expressions inside a thenKeyExpression,
+    // for now not but tbd if we should check the farOut and decide based on that.
     public boolean validate() {
         if (validated) {
             return validated;
@@ -64,11 +66,6 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
                 child.prefix(prefix);
             }
         }
-    }
-
-    @Override
-    public List<KeyExpression> normalizeKeyForPositions() {
-        return Lists.newArrayList(this);
     }
 
     public int getPrimaryKeyPosition() {
