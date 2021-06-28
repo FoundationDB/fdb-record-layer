@@ -27,6 +27,7 @@ import javax.annotation.Nonnull;
 
 public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression {
 
+
     private FieldType type;
     private boolean sorted;
     private boolean stored;

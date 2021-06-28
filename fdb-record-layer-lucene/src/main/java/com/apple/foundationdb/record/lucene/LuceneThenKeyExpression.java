@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
