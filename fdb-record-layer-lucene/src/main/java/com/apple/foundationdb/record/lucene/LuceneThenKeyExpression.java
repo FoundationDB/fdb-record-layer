@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,13 +39,17 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
 
     public LuceneThenKeyExpression(@Nonnull final LuceneFieldKeyExpression primaryKey, @Nonnull final List<KeyExpression> children) {
         super(children);
-        if (!validate()) throw new IllegalArgumentException("failed to validate lucene compatibility on construction");
+        if (!validate()) {
+            throw new IllegalArgumentException("failed to validate lucene compatibility on construction");
+        }
         this.primaryKey = primaryKey;
 
     }
 
     public boolean validate() {
-        if (validated) return validated;
+        if (validated) {
+            return validated;
+        }
         validated = true;
         for (KeyExpression child : getChildren()) {
             validated = validated && child instanceof LuceneKeyExpression;
@@ -55,7 +58,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
     }
 
     public void prefix(String prefix) {
-        if (!(isPrefixed)){
+        if (!(isPrefixed)) {
             for (LuceneFieldKeyExpression child : getLuceneChildren()) {
                 child.prefix(prefix);
             }
@@ -63,7 +66,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
     }
 
     @Override
-    public List<KeyExpression> normalizeKeyForPositions(){
+    public List<KeyExpression> normalizeKeyForPositions() {
         return Lists.newArrayList(this);
     }
 
@@ -71,9 +74,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
         return super.normalizeKeyForPositions().indexOf(primaryKey);
     }
 
-    public List<LuceneFieldKeyExpression> getLuceneChildren(){
-        List<LuceneFieldKeyExpression> children = getChildren().stream().map((e) -> (LuceneFieldKeyExpression)e )
-                .collect(Collectors.toList());
-        return children;
+    public List<LuceneFieldKeyExpression> getLuceneChildren() {
+        return getChildren().stream().map((e) -> (LuceneFieldKeyExpression)e).collect(Collectors.toList());
     }
 }

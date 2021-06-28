@@ -1,5 +1,5 @@
 /*
- * LuceneFieldKeyExpression.java
+ * TypedFieldKeyExpression.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,13 +22,12 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
-import org.apache.lucene.document.Field;
 
 import javax.annotation.Nonnull;
 
-public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression{
+public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression {
 
-    private LuceneKeyExpression.FieldType type;
+    private FieldType type;
     private boolean sorted;
     private boolean stored;
     private boolean isPrefixed = false;
@@ -46,18 +45,20 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
 
     public LuceneFieldKeyExpression(@Nonnull final String field, @Nonnull final FieldType type,
                                     @Nonnull final boolean sorted, @Nonnull final boolean stored) throws DeserializationException {
-        super(field, FanType.None, Key.Evaluated.NullStandin.NULL);
-        this.type = type;
-        this.sorted = sorted;
-        this.stored = stored;
+        this(field,FanType.None, Key.Evaluated.NullStandin.NULL,type,sorted,stored);
+    }
+
+    public LuceneFieldKeyExpression(@Nonnull final FieldKeyExpression original, @Nonnull final FieldType type,
+                                    @Nonnull final boolean sorted, @Nonnull final boolean stored) throws DeserializationException {
+        this(original.getFieldName(), original.getFanType(),original.getNullStandin(),type,sorted,stored);
     }
 
     public FieldType getType() {
         return type;
     }
 
-    public Field.Store isStored() {
-        return stored ? Field.Store.YES : Field.Store.NO;
+    public boolean isStored() {
+        return stored;
     }
 
     @Override
