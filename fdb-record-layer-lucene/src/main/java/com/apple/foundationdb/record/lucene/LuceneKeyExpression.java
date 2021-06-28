@@ -26,9 +26,9 @@ import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.google.common.collect.Lists;
 
-import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 
@@ -51,8 +51,8 @@ public interface LuceneKeyExpression extends KeyExpression {
      * For nested fields and possibly in the future more validation on fields + types and possibly field names.
      * Other possible things to check would be complexity and number of levels.
      * @return if the entire expression is validated as lucene compatible
+     * @param expression the expression to validate
      */
-
     public static boolean validateLucene(KeyExpression expression) {
         if (expression instanceof LuceneKeyExpression) {
             return true;

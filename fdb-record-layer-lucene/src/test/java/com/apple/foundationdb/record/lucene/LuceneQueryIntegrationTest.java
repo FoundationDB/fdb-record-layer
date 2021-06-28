@@ -26,6 +26,8 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
@@ -59,10 +61,16 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 @Tag(Tags.RequiresFDB)
 public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
-    private final Index textIndex = new Index("Complex$text_index", field("text"), IndexTypes.LUCENE,
+    private final Index textIndex = new Index("Complex$text_index",
+            new LuceneFieldKeyExpression("text", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
+                    true,true),
+            IndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
-    private final Index text2Index = new Index("Complex$text2_index", field("text2"), IndexTypes.LUCENE,
+    private final Index text2Index = new Index("Complex$text2_index",
+            new LuceneFieldKeyExpression("text2", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
+                    true,true),
+            IndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
     @Override
