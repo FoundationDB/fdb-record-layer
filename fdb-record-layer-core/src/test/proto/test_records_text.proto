@@ -34,12 +34,16 @@ message SimpleDocument {
 
 // The primary key is set in the test.
 message ComplexDocument {
-    optional int64 group = 1;
-    optional int64 doc_id = 2;
-    optional string text = 3;
-    repeated string tag = 4;
-    optional int32 score = 5;
-    optional string text2 = 6;
+    message Header {
+        optional int64 header_id = 1;
+    }
+    optional Header header = 1;
+    optional int64 group = 2;
+    optional int64 doc_id = 3;
+    optional string text = 4;
+    repeated string tag = 5;
+    optional int32 score = 6;
+    optional string text2 = 7;
 }
 
 message MapDocument {

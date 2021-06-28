@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 
@@ -32,24 +34,33 @@ import java.util.stream.Collectors;
 /**
  * Converts from normal KeyExpression types to Lucene KE types.
  */
-public class LuceneTypeConverter {
+public class LuceneTypeConverter implements KeyExpressionVisitor {
 
-    public static KeyExpression convert(KeyExpression original) {
-        if (original instanceof FieldKeyExpression) {
-            //TODO(bfines) get that information from somewhere in the index definition
-            return new LuceneFieldKeyExpression((FieldKeyExpression)original, LuceneKeyExpression.FieldType.STRING, true, true);
-        } else if (original instanceof ThenKeyExpression) {
-            List<KeyExpression> children = ((ThenKeyExpression)original).getChildren().stream()
-                    .map(LuceneTypeConverter::convert).collect(Collectors.toList());
-            return new LuceneThenKeyExpression((LuceneFieldKeyExpression)children.get(0), children);
-        } else if (original instanceof NestingKeyExpression) {
-            NestingKeyExpression nke = (NestingKeyExpression)original;
-            return new NestingKeyExpression((FieldKeyExpression)convert(nke.getParent()), convert(nke.getChild()));
-        } else if (original instanceof GroupingKeyExpression) {
-            KeyExpression child = convert(((GroupingKeyExpression)original).getChild());
-            return new GroupingKeyExpression(child, ((GroupingKeyExpression)original).getGroupedCount());
-        } else {
-            return original;
-        }
+    @Override
+    public KeyExpression visitField(final FieldKeyExpression fke) {
+        return new LuceneFieldKeyExpression(fke, LuceneKeyExpression.FieldType.STRING, true, true);
     }
+
+    @Override
+    public KeyExpression visitThen(final ThenKeyExpression thenKey) {
+        List<KeyExpression> children = thenKey.getChildren().stream()
+                .map(this::visit).collect(Collectors.toList());
+        return new LuceneThenKeyExpression((LuceneFieldKeyExpression)children.get(0), children);
+    }
+
+    @Override
+    public KeyExpression visitNestingKey(final NestingKeyExpression nke) {
+        return new NestingKeyExpression((LuceneFieldKeyExpression)visit(nke.getParent()),visit(nke.getChild()));
+    }
+
+    @Override
+    public KeyExpression visitGroupingKey(final GroupingKeyExpression gke) {
+        return new GroupingKeyExpression(visit(gke.getChild()),gke.getGroupedCount());
+    }
+
+    @Override
+    public boolean applies(final String indexType) {
+        return IndexTypes.LUCENE.equals(indexType);
+    }
+
 }
