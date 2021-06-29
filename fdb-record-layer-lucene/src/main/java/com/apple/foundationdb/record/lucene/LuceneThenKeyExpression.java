@@ -38,7 +38,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
     String prefix;
 
 
-    public LuceneThenKeyExpression(@Nonnull final LuceneFieldKeyExpression primaryKey, @Nonnull final List<KeyExpression> children) {
+    public LuceneThenKeyExpression(@Nonnull final LuceneFieldKeyExpression primaryKey, @Nullable final List<KeyExpression> children) {
         super(children);
         if (!validate()) {
             throw new IllegalArgumentException("failed to validate lucene compatibility on construction");
@@ -55,7 +55,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
         }
         validated = true;
         for (KeyExpression child : getChildren()) {
-            validated = validated && child instanceof LuceneKeyExpression;
+            validated = validated && (primaryKey != null) ? child instanceof LuceneFieldKeyExpression : (LuceneKeyExpression.validateLucene(child));
         }
         return validated;
     }
@@ -74,5 +74,9 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
 
     public List<LuceneFieldKeyExpression> getLuceneChildren() {
         return getChildren().stream().map((e) -> (LuceneFieldKeyExpression)e).collect(Collectors.toList());
+    }
+
+    public boolean fan() {
+        return (primaryKey != null);
     }
 }

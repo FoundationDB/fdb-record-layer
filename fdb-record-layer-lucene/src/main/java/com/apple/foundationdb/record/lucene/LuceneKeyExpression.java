@@ -84,7 +84,8 @@ public interface LuceneKeyExpression extends PrefixableExpression {
             return Lists.newArrayList((LuceneFieldKeyExpression)expression);
         } else if (expression instanceof LuceneThenKeyExpression) {
             ((LuceneThenKeyExpression)expression).prefix(prefix);
-            return Lists.newArrayList((LuceneKeyExpression)expression);
+            if (!((LuceneThenKeyExpression)expression).fan()) return Lists.newArrayList((LuceneKeyExpression)expression);
+            return ((LuceneThenKeyExpression)expression).getChildren().stream().flatMap(e -> normalize(e).stream()).collect(Collectors.toList());
         } else if (expression instanceof GroupingKeyExpression) {
             return normalize(((GroupingKeyExpression)expression).getWholeKey(), prefix);
         } else if (expression instanceof NestingKeyExpression) {
