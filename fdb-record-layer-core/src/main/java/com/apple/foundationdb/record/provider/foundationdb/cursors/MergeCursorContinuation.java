@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.cursors;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -49,6 +50,8 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
     private Message cachedProto;
     @Nullable
     private byte[] cachedBytes;
+    @Nullable
+    private ByteString cachedByteString;
 
     protected MergeCursorContinuation(@Nonnull List<C> continuations, @Nullable Message originalProto) {
         this.continuations = continuations;
@@ -117,9 +120,22 @@ public abstract class MergeCursorContinuation<B extends Message.Builder, C exten
             return null;
         }
         if (cachedBytes == null) {
-            cachedBytes = toProto().toByteArray();
+            cachedBytes = toByteString().toByteArray();
         }
         return cachedBytes;
+    }
+
+    @Override
+    @Nonnull
+    @SpotBugsSuppressWarnings("EI")
+    public ByteString toByteString() {
+        if (isEnd()) {
+            return ByteString.EMPTY;
+        }
+        if (cachedByteString == null) {
+            cachedByteString = toProto().toByteString();
+        }
+        return cachedByteString;
     }
 
     @Nonnull

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.annotation.API;
+import com.google.protobuf.ByteString;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -34,6 +35,8 @@ import java.nio.ByteBuffer;
 public class ByteArrayContinuation implements RecordCursorContinuation {
     @Nonnull
     private final byte[] bytes;
+    @Nullable
+    private ByteString byteString;
 
     @SpotBugsSuppressWarnings("EI2")
     private ByteArrayContinuation(@Nonnull final byte[] bytes) {
@@ -45,6 +48,15 @@ public class ByteArrayContinuation implements RecordCursorContinuation {
     @SpotBugsSuppressWarnings("EI")
     public byte[] toBytes() {
         return bytes;
+    }
+
+    @Override
+    @Nonnull
+    public ByteString toByteString() {
+        if (byteString == null) {
+            byteString = ByteString.copyFrom(bytes);
+        }
+        return byteString;
     }
 
     @Override

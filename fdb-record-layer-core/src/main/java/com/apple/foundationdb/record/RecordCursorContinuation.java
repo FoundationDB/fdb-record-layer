@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.protobuf.ByteString;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -59,6 +61,17 @@ public interface RecordCursorContinuation {
      */
     @Nullable
     byte[] toBytes();
+
+    /**
+     * Serialize this continuation to a ByteString object.
+     * If {@link #toBytes()} returns null, then {@code toByteString()} is supposed to return EMPTY.
+     * @return a (possibly EMPTY) ByteString containing a binary serialization of this continuation
+     */
+    @Nonnull
+    default ByteString toByteString() {
+        final byte[] bytes = toBytes();
+        return bytes == null ? ByteString.EMPTY : ByteString.copyFrom(bytes);
+    }
 
     /**
      * Return whether this continuation is an "end continuation", i.e., represents that the iteration has reached
