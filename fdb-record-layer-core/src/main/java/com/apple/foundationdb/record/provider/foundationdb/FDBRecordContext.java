@@ -178,6 +178,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
                 logTransaction();
             }
         }
+        if (config.isServerRequestTracing()) {
+            tr.options().setServerRequestTracing();
+        }
 
         // If a causal read risky is requested, we set the corresponding transaction option
         this.weakReadSemantics = config.getWeakReadSemantics();
