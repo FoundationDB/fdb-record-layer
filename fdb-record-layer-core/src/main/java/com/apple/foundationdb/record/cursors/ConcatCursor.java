@@ -191,17 +191,19 @@ public class ConcatCursor<T> implements RecordCursor<T> {
         @Nonnull
         private final RecordCursorResult<T> nextResult;
         @Nonnull
-        private final Function<byte[], RecordCursorProto.ConcatContinuation> continuationFunction;
+        private final Function<ByteString, RecordCursorProto.ConcatContinuation> continuationFunction;
         private final boolean isEnd;
         @Nullable
         private byte[] cachedBytes;
+        @Nullable
+        private ByteString cachedByteString;
 
         private ConcatCursorContinuation(boolean secondCursor, @Nonnull RecordCursorResult<T> nextResult) {
             this.nextResult = nextResult;
             cachedBytes = null;
             isEnd = secondCursor && nextResult.getContinuation().isEnd() ? true : false;
             //defer forming bytes until requested
-            continuationFunction = b -> RecordCursorProto.ConcatContinuation.newBuilder().setSecond(secondCursor).setContinuation(ByteString.copyFrom(b)).build();
+            continuationFunction = b -> RecordCursorProto.ConcatContinuation.newBuilder().setSecond(secondCursor).setContinuation(b).build();
         }
 
         @Nullable
@@ -212,9 +214,23 @@ public class ConcatCursor<T> implements RecordCursor<T> {
             } else {
                 //form bytes exactly once
                 if (cachedBytes == null) {
-                    cachedBytes = continuationFunction.apply(nextResult.getContinuation().toBytes()).toByteArray();
+                    cachedBytes = toByteString().toByteArray();
                 }
                 return cachedBytes;
+            }
+        }
+
+        @Override
+        @Nonnull
+        public ByteString toByteString() {
+            if (isEnd()) {
+                return ByteString.EMPTY;
+            } else {
+                //form bytes exactly once
+                if (cachedByteString == null) {
+                    cachedByteString = continuationFunction.apply(nextResult.getContinuation().toByteString()).toByteString();
+                }
+                return cachedByteString;
             }
         }
 

@@ -37,6 +37,8 @@ class BloomFilterCursorContinuation implements RecordCursorContinuation {
     private ProbableIntersectionContinuation.CursorState cachedProto;
     @Nullable
     private byte[] cachedBytes;
+    @Nullable
+    private ByteString cachedByteString;
 
     BloomFilterCursorContinuation(@Nonnull RecordCursorContinuation childContinuation, @Nullable ByteString bloomBytes) {
         this.childContinuation = childContinuation;
@@ -67,9 +69,18 @@ class BloomFilterCursorContinuation implements RecordCursorContinuation {
     @Nullable
     public byte[] toBytes() {
         if (cachedBytes == null) {
-            cachedBytes = toProto().toByteArray();
+            cachedBytes = toByteString().toByteArray();
         }
         return cachedBytes;
+    }
+
+    @Override
+    @Nonnull
+    public ByteString toByteString() {
+        if (cachedByteString == null) {
+            cachedByteString = toProto().toByteString();
+        }
+        return cachedByteString;
     }
 
     @Nonnull

@@ -168,11 +168,13 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         @Nonnull
         private final RecordCursorResult<KeyValue> currentKvResult;
         @Nonnull
-        private final Function<byte[], RecordCursorProto.SizeStatisticsContinuation> continuationFunction;
+        private final Function<ByteString, RecordCursorProto.SizeStatisticsContinuation> continuationFunction;
         @Nonnull
         private final SizeStatisticsResults sizeStatisticsResults;
         @Nullable
         private byte[] cachedBytes;
+        @Nullable
+        private ByteString cachedByteString;
         private boolean finalResultsEmitted;
 
         private SizeStatisticsCollectorCursorContinuation(RecordCursorResult<KeyValue> currentKvResult, SizeStatisticsResults sizeStatisticsResults, boolean finalResultsEmitted) {
@@ -184,7 +186,7 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
             //defer forming bytes until requested
             continuationFunction = b -> {
                 if (this.finalResultsEmitted == false) {
-                    return RecordCursorProto.SizeStatisticsContinuation.newBuilder().setPartialResults(this.sizeStatisticsResults.toProto()).setContinuation(ByteString.copyFrom(b)).build();
+                    return RecordCursorProto.SizeStatisticsContinuation.newBuilder().setPartialResults(this.sizeStatisticsResults.toProto()).setContinuation(b).build();
                 } else {
                     //nothing more to aggregate
                     return RecordCursorProto.SizeStatisticsContinuation.getDefaultInstance();
@@ -197,9 +199,18 @@ public class SizeStatisticsCollectorCursor implements RecordCursor<SizeStatistic
         public byte[] toBytes() {
             // form bytes exactly once
             if (this.cachedBytes == null) {
-                this.cachedBytes = continuationFunction.apply(this.currentKvResult.getContinuation().toBytes()).toByteArray();
+                this.cachedBytes = toByteString().toByteArray();
             }
             return cachedBytes;
+        }
+
+        @Override
+        @Nonnull
+        public ByteString toByteString() {
+            if (this.cachedByteString == null) {
+                this.cachedByteString = continuationFunction.apply(this.currentKvResult.getContinuation().toByteString()).toByteString();
+            }
+            return cachedByteString;
         }
 
         @Override
