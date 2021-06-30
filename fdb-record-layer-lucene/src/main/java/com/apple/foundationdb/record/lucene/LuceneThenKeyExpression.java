@@ -32,7 +32,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class LuceneThenKeyExpression extends ThenKeyExpression implements LuceneKeyExpression {
 
@@ -40,10 +39,9 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
     private KeyExpression primaryKey;
     boolean validated = false;
     boolean isPrefixed = false;
-    String prefix;
 
 
-    public LuceneThenKeyExpression(@Nonnull final KeyExpression primaryKey, @Nullable final List<KeyExpression> children) {
+    public LuceneThenKeyExpression(@Nullable final KeyExpression primaryKey, @Nonnull final List<KeyExpression> children) {
         super(children);
         if (!validate()) {
             throw new IllegalArgumentException("failed to validate lucene compatibility on construction");
@@ -65,15 +63,9 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
         return validated;
     }
 
-    public void prefix(String prefix) {
-        if (!(isPrefixed)) {
-            for (LuceneFieldKeyExpression child : getLuceneChildren()) {
-                child.prefix(prefix);
-            }
-            isPrefixed = true;
-        }
+    public KeyExpression getPrimaryKey() {
+        return primaryKey;
     }
-
     public int getPrimaryKeyPosition() {
         return super.normalizeKeyForPositions().indexOf(primaryKey);
     }

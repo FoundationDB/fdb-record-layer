@@ -62,7 +62,6 @@ import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync;
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
-import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.getPrefixedFieldNames;
 
 /**
  * This class is a Record Cursor implementation for Lucene queries.

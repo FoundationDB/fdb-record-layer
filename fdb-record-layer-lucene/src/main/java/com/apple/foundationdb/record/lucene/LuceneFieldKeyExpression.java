@@ -63,29 +63,6 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
     }
 
     @Override
-    public void prefix(String prefix) {
-        if (!(isPrefixed)) {
-            isPrefixed = true;
-            this.prefix = prefix;
-        }
-    }
-
-    public String getPrefixedFieldName() {
-        if (isPrefixed) {
-            return prefix.concat(getFieldName());
-        }
-        return getFieldName();
-    }
-
-    public String getPrefixedFieldName(String prefix) {
-        String finalName = prefix != null ? prefix : "";
-        if (isPrefixed) {
-            finalName = this.prefix.concat(finalName);
-        }
-        return finalName.concat(getFieldName());
-    }
-
-    @Override
     public boolean equals(Object o) {
         if (o == null || !(o instanceof FieldKeyExpression)) {
             return false;

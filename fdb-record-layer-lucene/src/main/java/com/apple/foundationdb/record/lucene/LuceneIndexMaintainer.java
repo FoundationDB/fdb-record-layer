@@ -50,6 +50,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import com.google.protobuf.ProtocolStringList;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -90,7 +91,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final Analyzer analyzer;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
-    private List<LuceneKeyExpression> fields = new ArrayList<>(2);
+    private List<ImmutablePair<String, LuceneKeyExpression>> fields = new ArrayList<>(2);
     private final Executor executor;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer analyzer) {
@@ -145,6 +146,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                                           final boolean remove,
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
         LOG.trace("updateIndexKeys savedRecord={}, remove=={}, indexEntries={}", savedRecord, remove, indexEntries);
+
         if (indexEntries.isEmpty()) {
             return AsyncUtil.DONE;
         }
@@ -166,11 +168,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         Tuple entryKey = entry.getKey();
                         //TODO I think this can be simplified for Fields to be a single
                         for (int i = 0; i < fields.size(); i++) {
-                            LuceneKeyExpression expression = fields.get(i);
+                            ImmutablePair<String, LuceneKeyExpression> keyPair = fields.get(i);
+                            LuceneKeyExpression expression = keyPair.right;
+                            String prefix = keyPair.left;
                             if (expression instanceof LuceneThenKeyExpression) {
                                 int prefixLocation = ((LuceneThenKeyExpression)expression).getPrimaryKeyPosition();
                                 final Object o = entryKey.get(prefixLocation + i);
-                                String prefix = o == null ? "" : o.toString().concat("_");
+                                String subPrefix = o == null ? "" : o.toString();
+                                prefix = prefix == null ? subPrefix : prefix.concat("_").concat(subPrefix);
                                 List<LuceneFieldKeyExpression> children = ((LuceneThenKeyExpression)expression).getLuceneChildren();
                                 for (int j = 0; j < children.size(); j++) {
                                     if (j != prefixLocation) {
@@ -212,7 +217,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private void insertDocumentField(final LuceneFieldKeyExpression expression, Object value,
                                      final Document document, String prefix) {
         if (value == null && expression.getType() != LuceneKeyExpression.FieldType.STRING) return;
-        String fieldName = expression.getPrefixedFieldName(prefix);
+        String fieldName = prefix == null ? expression.getFieldName() : prefix.concat("_").concat(expression.getFieldName());
         switch (expression.getType()) {
             case INT:
                 document.add(new IntPoint(fieldName, (Integer) value));

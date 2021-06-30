@@ -43,6 +43,7 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.google.common.collect.Lists;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,7 +52,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
-import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.getPrefixedFieldNames;
+import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
 import static com.apple.foundationdb.record.query.expressions.LuceneQueryComponent.FULL_TEXT_KEY_FIELD;
 
 /**
@@ -223,7 +224,24 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     public boolean validateIndexField(@Nonnull Index index,
                                        @Nonnull String field) {
-        Set<String> indexFields = getPrefixedFieldNames(index.getRootExpression());
+        List<ImmutablePair<String, LuceneKeyExpression>> pairs = normalize(index.getRootExpression());
+        List<String> indexFields = Lists.newArrayList();
+        for (ImmutablePair<String, LuceneKeyExpression> pair : pairs) {
+            if (pair.right instanceof LuceneFieldKeyExpression) {
+                indexFields.add(pair.left != null ?
+                                pair.left.concat("_").concat(((LuceneFieldKeyExpression)pair.right).getFieldName()) :
+                                ((LuceneFieldKeyExpression)pair.right).getFieldName());
+                indexFields.add(((LuceneFieldKeyExpression)pair.right).getFieldName());
+            } if (pair.right instanceof LuceneThenKeyExpression) {
+                indexFields.add(pair.left);
+                KeyExpression primaryKey = ((LuceneThenKeyExpression)pair.right).getPrimaryKey();
+                if (primaryKey instanceof FieldKeyExpression){
+                    indexFields.add(((FieldKeyExpression)primaryKey).getFieldName());
+                }
+            } else {
+                indexFields.add(pair.left);
+            }
+        }
         indexFields.add(FULL_TEXT_KEY_FIELD);
         return indexFields.contains(field);
     }
