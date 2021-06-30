@@ -20,25 +20,30 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class LuceneThenKeyExpression extends ThenKeyExpression implements LuceneKeyExpression {
 
     // Only one key allowed per repeated field
-    private LuceneFieldKeyExpression primaryKey;
+    private KeyExpression primaryKey;
     boolean validated = false;
     boolean isPrefixed = false;
     String prefix;
 
 
-    public LuceneThenKeyExpression(@Nonnull final LuceneFieldKeyExpression primaryKey, @Nullable final List<KeyExpression> children) {
+    public LuceneThenKeyExpression(@Nonnull final KeyExpression primaryKey, @Nullable final List<KeyExpression> children) {
         super(children);
         if (!validate()) {
             throw new IllegalArgumentException("failed to validate lucene compatibility on construction");
@@ -65,6 +70,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
             for (LuceneFieldKeyExpression child : getLuceneChildren()) {
                 child.prefix(prefix);
             }
+            isPrefixed = true;
         }
     }
 
@@ -73,7 +79,45 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
     }
 
     public List<LuceneFieldKeyExpression> getLuceneChildren() {
-        return getChildren().stream().map((e) -> (LuceneFieldKeyExpression)e).collect(Collectors.toList());
+        List<LuceneFieldKeyExpression> children = new LinkedList<>();
+        KeyExpressionVisitor visitor = new KeyExpressionVisitor() {
+
+            @Override
+            public KeyExpression visitField(final FieldKeyExpression fke) {
+                children.add((LuceneFieldKeyExpression)fke);
+                return fke;
+            }
+
+            @Override
+            public KeyExpression visitThen(final ThenKeyExpression thenKey) {
+                for (KeyExpression child : thenKey.getChildren()) {
+                    visit(child);
+                }
+                return thenKey;
+            }
+
+            @Override
+            public KeyExpression visitNestingKey(final NestingKeyExpression nke) {
+                visitField(nke.getParent());
+                visit(nke.getChild());
+                return nke;
+            }
+
+            @Override
+            public KeyExpression visitGroupingKey(final GroupingKeyExpression gke) {
+                visit(gke.getChild());
+                return gke;
+            }
+
+            @Override
+            public boolean applies(final String indexType) {
+                return IndexTypes.LUCENE.equals(indexType);
+            }
+        };
+
+        visitor.visit(this);
+
+        return children;
     }
 
     public boolean fan() {

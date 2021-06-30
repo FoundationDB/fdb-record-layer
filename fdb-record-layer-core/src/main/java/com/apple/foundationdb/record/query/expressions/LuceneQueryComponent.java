@@ -47,12 +47,14 @@ import java.util.Objects;
 @Experimental
 public class LuceneQueryComponent implements QueryComponent, ComponentWithComparison, ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
+    //TODO move to index maintainer but for the sake of dependancies its located here right now
+    public static final String FULL_TEXT_KEY_FIELD = "__full_text_key_field__";
 
     private final Comparisons.LuceneComparison comparison;
     private final List<String> fields;
 
     public LuceneQueryComponent(String query) {
-        this(new Comparisons.LuceneComparison(query), Lists.newArrayList("text"));
+        this(new Comparisons.LuceneComparison(query), Lists.newArrayList(FULL_TEXT_KEY_FIELD));
     }
 
     public LuceneQueryComponent(String query, List<String> fields){

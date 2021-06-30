@@ -79,6 +79,15 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
     private final Index nestedDualIndex = new Index("Complex$nested_index",
             new ThenKeyExpression(Arrays.asList(
                     new NestingKeyExpression(field("header"),field("header_id")),
+                    new LuceneFieldKeyExpression("text", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
+                            true,true)
+            )),
+            IndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+    private final Index nestedDualIndex2 = new Index("Complex$nested_index2",
+            new ThenKeyExpression(Arrays.asList(
+                    new NestingKeyExpression(field("header"),field("header_id")),
                     new LuceneFieldKeyExpression("text2", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
                             true,true)
             )),
@@ -155,6 +164,28 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
             Set<String> appliedIndexNames = plan.getUsedIndexes();
             Assertions.assertEquals(1,appliedIndexNames.size(),"index selection is incorrect");
             Assertions.assertTrue(appliedIndexNames.contains(text2Index.getName()),"Did not select the correct index");
+        }
+    }
+
+    @Test
+    void selectsFromMultipleNestedIndexes() throws Exception {
+        useRewritePlanner = false;
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaData -> {
+                metaData.addIndex(TextIndexTestUtils.COMPLEX_DOC, new Index(nestedDualIndex.toProto()));
+                metaData.addIndex(TextIndexTestUtils.COMPLEX_DOC, new Index(nestedDualIndex2.toProto()));
+            });
+            setupPlanner(null);
+
+            QueryComponent filter = new LuceneQueryComponent("text2:test", Arrays.asList("text2"));
+            RecordQuery rq = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.COMPLEX_DOC)
+                    .setFilter(filter)
+                    .build();
+            final RecordQueryPlan plan = planner.plan(rq);
+            Set<String> appliedIndexNames = plan.getUsedIndexes();
+            Assertions.assertEquals(1,appliedIndexNames.size(),"index selection is incorrect");
+            Assertions.assertTrue(appliedIndexNames.contains(nestedDualIndex2.getName()),"Did not select the correct index");
         }
     }
 

@@ -77,6 +77,7 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.validateLucene;
+import static com.apple.foundationdb.record.query.expressions.LuceneQueryComponent.FULL_TEXT_KEY_FIELD;
 
 /**
  * Index maintainer for Lucene Indexes backed by FDB.  The insert, update, and delete functionality
@@ -121,7 +122,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Verify.verify(range.getLow() != null);
         Verify.verify(scanType == IndexScanType.BY_LUCENE);
         try {
-            final QueryParser parser = new QueryParser("__fullTextKeyField__" , analyzer);
+            final QueryParser parser = new QueryParser(FULL_TEXT_KEY_FIELD, analyzer);
             Query query = parser.parse(range.getLow().getString(0));
             return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, fields);
         } catch (Exception ioe) {
@@ -172,9 +173,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                 String prefix = o == null ? "" : o.toString().concat("_");
                                 List<LuceneFieldKeyExpression> children = ((LuceneThenKeyExpression)expression).getLuceneChildren();
                                 for (int j = 0; j < children.size(); j++) {
-                                    if (j == prefixLocation) {
-                                        insertDocumentField(children.get(j), entryKey.get(i), document, null);
-                                    } else {
+                                    if (j != prefixLocation) {
                                         LuceneFieldKeyExpression child = children.get(j);
                                         Object value = entryKey.get(i + offset + j);
                                         if (value != null) {

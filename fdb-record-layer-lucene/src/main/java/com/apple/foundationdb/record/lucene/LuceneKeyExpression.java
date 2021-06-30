@@ -22,16 +22,25 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.PrefixableExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.google.common.collect.Lists;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public interface LuceneKeyExpression extends PrefixableExpression {
@@ -78,45 +87,66 @@ public interface LuceneKeyExpression extends PrefixableExpression {
     }
 
     // Todo: limit depth of recursion
-    static List<LuceneKeyExpression> normalize(KeyExpression expression, String prefix) {
+    static List<LuceneKeyExpression> normalize(KeyExpression expression, @Nullable String givenPrefix) {
         if (expression instanceof LuceneFieldKeyExpression) {
-            ((LuceneFieldKeyExpression)expression).prefix(prefix);
+            ((LuceneFieldKeyExpression)expression).prefix(givenPrefix);
             return Lists.newArrayList((LuceneFieldKeyExpression)expression);
         } else if (expression instanceof LuceneThenKeyExpression) {
-            ((LuceneThenKeyExpression)expression).prefix(prefix);
-            if (!((LuceneThenKeyExpression)expression).fan()) return Lists.newArrayList((LuceneKeyExpression)expression);
-            return ((LuceneThenKeyExpression)expression).getChildren().stream().flatMap(e -> normalize(e).stream()).collect(Collectors.toList());
+            if (((LuceneThenKeyExpression)expression).fan()){
+                ((LuceneThenKeyExpression)expression).prefix(givenPrefix);
+                return Lists.newArrayList((LuceneKeyExpression)expression);
+            } else {
+                return ((LuceneThenKeyExpression)expression).getChildren().stream().flatMap(
+                        e -> normalize(e, givenPrefix).stream()).collect(Collectors.toList());
+            }
         } else if (expression instanceof GroupingKeyExpression) {
-            return normalize(((GroupingKeyExpression)expression).getWholeKey(), prefix);
+            return normalize(((GroupingKeyExpression)expression).getWholeKey(), givenPrefix);
         } else if (expression instanceof NestingKeyExpression) {
-            return Lists.newArrayList(normalize(((NestingKeyExpression)expression).getChild(),
-                    prefix.concat(((NestingKeyExpression)expression).getParent().getFieldName().concat("_"))));
+            String newPrefix = givenPrefix.concat(((NestingKeyExpression)expression).getParent().getFieldName()).concat("_");
+            return Lists.newArrayList(normalize(((NestingKeyExpression)expression).getChild(), newPrefix));
         } else if (expression instanceof ThenKeyExpression) {
-            return ((ThenKeyExpression)expression).getChildren().stream().flatMap(e -> normalize(e).stream()).collect(Collectors.toList());
+            return ((ThenKeyExpression)expression).getChildren().stream().flatMap(e -> normalize(e, givenPrefix).stream()).collect(Collectors.toList());
         }
         throw new RecordCoreArgumentException("tried to normalize a non-lucene, non-grouping expression. These are currently unsupported.", LogMessageKeys.KEY_EXPRESSION, expression);
     }
 
-    static List<String> getPrefixedFieldNames(KeyExpression expression) {
-        for (LuceneKeyExpression luceneKeyExpression : normalize(expression)) {
-            if (luceneKeyExpression instanceof LuceneFieldKeyExpression) {
-                return Lists.newArrayList(((LuceneFieldKeyExpression)luceneKeyExpression).getPrefixedFieldName());
-            } else if (luceneKeyExpression instanceof LuceneThenKeyExpression) {
-                List<String> names = Lists.newArrayList();
-                for (KeyExpression child : ((LuceneThenKeyExpression)luceneKeyExpression).getLuceneChildren()) {
-                    names.addAll(getPrefixedFieldNames(child));
-                }
-                return names;
-            } else if (expression instanceof GroupingKeyExpression) {
-                return getPrefixedFieldNames(((GroupingKeyExpression)expression).getWholeKey());
-            } else if (expression instanceof NestingKeyExpression) {
-                // Validation that the top level parent field exists should be enough since we expand
-                // and change the field names anyway. This is also important for primay key field locations.
-                List<String> names = getPrefixedFieldNames(((NestingKeyExpression)expression).getParent());
-                return names;
+    static Set<String> getPrefixedFieldNames(KeyExpression expression) {
+        Set<String> fieldNames = new HashSet<>();
+        KeyExpressionVisitor visitor = new KeyExpressionVisitor() {
+            @Override
+            public KeyExpression visitField(final FieldKeyExpression fke) {
+                fieldNames.add(((LuceneFieldKeyExpression)fke).getPrefixedFieldName());
+                return fke;
             }
-        }
-        return Collections.emptyList();
+
+            @Override
+            public KeyExpression visitThen(final ThenKeyExpression thenKey) {
+                for (KeyExpression child : thenKey.getChildren()) {
+                    visit(child);
+                }
+                return thenKey;
+            }
+
+            @Override
+            public KeyExpression visitNestingKey(final NestingKeyExpression nke) {
+                fieldNames.add(nke.getParent().getFieldName());
+                visit(nke.getChild());
+                return nke;
+            }
+
+            @Override
+            public KeyExpression visitGroupingKey(final GroupingKeyExpression gke) {
+                visit(gke.getChild());
+                return gke;
+            }
+
+            @Override
+            public boolean applies(final String indexType) {
+                return IndexTypes.LUCENE.equals(indexType);
+            }
+        };
+        visitor.visit(expression);
+        return fieldNames;
     }
 
 }

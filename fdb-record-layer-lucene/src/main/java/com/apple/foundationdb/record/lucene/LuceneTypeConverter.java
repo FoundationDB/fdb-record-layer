@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.PrefixableExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 
 import java.util.List;
@@ -37,27 +36,39 @@ import java.util.stream.Collectors;
  */
 public class LuceneTypeConverter implements KeyExpressionVisitor {
 
+    boolean fanNext = false;
+
     @Override
-    public KeyExpression visitField(final FieldKeyExpression fke) {
+    public FieldKeyExpression visitField(final FieldKeyExpression fke) {
+        fanNext = false;
+        if (fke instanceof LuceneFieldKeyExpression) return fke;
         return new LuceneFieldKeyExpression(fke, LuceneKeyExpression.FieldType.STRING, true, true);
     }
 
     @Override
     public KeyExpression visitThen(final ThenKeyExpression thenKey) {
+        boolean hasPrimaryExpression = fanNext;
         List<KeyExpression> children = thenKey.getChildren().stream()
                 .map(this::visit).collect(Collectors.toList());
-        return new LuceneThenKeyExpression((LuceneFieldKeyExpression)children.get(0), children);
+        if (!hasPrimaryExpression) {
+            return new LuceneThenKeyExpression(null, children);
+        }
+        fanNext = false;
+        return new LuceneThenKeyExpression(children.get(0), children);
     }
 
     @Override
     public KeyExpression visitNestingKey(final NestingKeyExpression nke) {
-        PrefixableExpression pe = (PrefixableExpression)visit(nke.getChild());
-        pe.prefix(nke.getParent().getFieldName().concat("_"));
-        return pe;
+        if (nke.getParent().getFanType() == KeyExpression.FanType.FanOut) {
+            fanNext = true;
+        }
+        KeyExpression child = visit(nke.getChild());
+        return new NestingKeyExpression(visitField(nke.getParent()),child);
     }
 
     @Override
     public KeyExpression visitGroupingKey(final GroupingKeyExpression gke) {
+        fanNext = false;
         return new GroupingKeyExpression(visit(gke.getChild()), gke.getGroupedCount());
     }
 

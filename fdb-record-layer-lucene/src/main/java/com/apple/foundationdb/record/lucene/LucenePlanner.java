@@ -49,8 +49,10 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.getPrefixedFieldNames;
+import static com.apple.foundationdb.record.query.expressions.LuceneQueryComponent.FULL_TEXT_KEY_FIELD;
 
 /**
  * A planner to implement lucene query planning so that we can isolate the lucene functionality to
@@ -139,6 +141,9 @@ public class LucenePlanner extends RecordQueryPlanner {
             if (childComparison != null && childMask != null) {
                 childMask.setSatisfied(true);
                 combinedComparison = combinedComparison == null ? childComparison : LuceneIndexQueryPlan.merge(combinedComparison, childComparison, "AND");
+            } else if (combinedComparison != null && childComparison == null) {
+                combinedComparison = null;
+                break;
             }
         }
         if (filterMask != null && filterMask.getUnsatisfiedFilters().isEmpty()) {
@@ -203,7 +208,6 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filter instanceof AndComponent) {
             return getScanForAndLucene(index, parentFieldName, (AndComponent) filter, filterMask);
         } else if (filter instanceof LuceneQueryComponent) {
-            filterMask.setSatisfied(true);
             return getScanForLuceneComponent(index, (LuceneQueryComponent)filter, filterMask);
         } else if (filter instanceof OneOfThemWithComponent) {
             return getComparisonsForOneOfThem(index, parentFieldName, (OneOfThemWithComponent)filter, filterMask);
@@ -219,11 +223,9 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     public boolean validateIndexField(@Nonnull Index index,
                                        @Nonnull String field) {
-        List<String> indexFields = getPrefixedFieldNames(index.getRootExpression());
-        if (!(indexFields.contains(field))) {
-            return false;
-        }
-        return true;
+        Set<String> indexFields = getPrefixedFieldNames(index.getRootExpression());
+        indexFields.add(FULL_TEXT_KEY_FIELD);
+        return indexFields.contains(field);
     }
 
     @Override
