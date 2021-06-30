@@ -84,4 +84,13 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
         }
         return finalName.concat(getFieldName());
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || !(o instanceof FieldKeyExpression)) {
+            return false;
+        }
+        return ((FieldKeyExpression)o).getFieldName().equals(getFieldName()) &&
+               ((FieldKeyExpression)o).getFanType() == getFanType();
+    }
 }

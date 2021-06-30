@@ -337,7 +337,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
             return true;
         }
 
-        if (o == null || getClass() != o.getClass()) {
+        if (o == null || !(o instanceof FieldKeyExpression)) {
             return false;
         }
 

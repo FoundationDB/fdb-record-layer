@@ -124,7 +124,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         try {
             final QueryParser parser = new QueryParser(FULL_TEXT_KEY_FIELD, analyzer);
             Query query = parser.parse(range.getLow().getString(0));
-            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, fields);
+            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
                     "internalException", ioe);
@@ -197,7 +197,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                             "savedRecord", savedRecord, ioe);
                 }
             });
-            document.add(new TextField("__fullTextKeyField__", fullText.toString(), Field.Store.NO));
+            String fullTextString = "";
+            for (String value : fullText) {
+                fullTextString = fullTextString.concat(" ").concat(value);
+            }
+            document.add(new TextField(FULL_TEXT_KEY_FIELD, fullTextString, Field.Store.NO));
             writer.addDocument(document);
         } catch (Exception e) {
             throw new RecordCoreException(e);

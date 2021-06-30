@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
@@ -85,13 +86,13 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private IndexSearcher searcher;
     private TopDocs topDocs;
     private int currentPosition;
-    private final List<LuceneKeyExpression> fields;
+    private final List<KeyExpression> fields;
     private Sort sort = null;
 
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
-                       byte[] continuation, List<LuceneKeyExpression> fields) {
+                       byte[] continuation, List<KeyExpression> fields) {
         this.state = state;
         this.executor = executor;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
