@@ -29,9 +29,9 @@ import java.util.Objects;
 public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression {
 
 
-    private FieldType type;
-    private boolean sorted;
-    private boolean stored;
+    private final FieldType type;
+    private final boolean sorted;
+    private final boolean stored;
 
     public LuceneFieldKeyExpression(@Nonnull final String fieldName, @Nonnull final FanType fanType,
                                     @Nonnull final Key.Evaluated.NullStandin nullStandin, @Nonnull final FieldType type,

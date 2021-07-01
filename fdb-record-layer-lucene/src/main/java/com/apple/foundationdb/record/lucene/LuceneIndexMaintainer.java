@@ -150,6 +150,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             Document document = new Document();
             byte[] primaryKey = savedRecord.getPrimaryKey().pack();
             BytesRef ref = new BytesRef(primaryKey);
+            // TODO: explore expanding this out into stored fields so they are queryable
             document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
             document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
             List<String> fullText = Lists.newArrayList();
@@ -215,13 +216,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             String fieldName = prefix == null ? expression.getFieldName() : prefix.concat("_").concat(expression.getFieldName());
             switch (expression.getType()) {
                 case INT:
+                    // Todo: figure out how to expand functionality to include storage, sorting etc.
                     document.add(new IntPoint(fieldName, (Integer)value));
                     break;
                 case STRING:
                     document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
                     break;
                 default:
-                    break;
+                    throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", expression.getType());
             }
         }
     }

@@ -337,6 +337,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
             return true;
         }
 
+        // TODO: this shouldn't be necessary, figure out how to match the passed root expression without modifying.
         if (o == null || !(o instanceof FieldKeyExpression)) {
             return false;
         }

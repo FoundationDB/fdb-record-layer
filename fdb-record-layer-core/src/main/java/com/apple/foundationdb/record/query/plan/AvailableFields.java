@@ -111,6 +111,7 @@ public class AvailableFields {
             keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
             valueFields.addAll(KeyExpression.getValueFields(rootExpression));
         } else if (indexTypes.getLuceneTypes().contains(index.getType())) {
+            // Todo: this needs to be handled properly, not all fields are stored. 
             List<KeyExpression> nonPrimaries = rootExpression.normalizeKeyForPositions();
             nonPrimaries.removeAll(commonPrimaryKey.normalizeKeyForPositions());
             offset = nonPrimaries.size();

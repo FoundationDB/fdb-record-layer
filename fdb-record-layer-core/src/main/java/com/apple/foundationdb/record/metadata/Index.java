@@ -187,6 +187,7 @@ public class Index {
             expr = toKeyWithValueExpression(expr, value);
         }
 
+        //Todo: explore alternate approach to use function key expressions, this should be unnecessary?
         final List<KeyExpressionVisitor> visitors = KeyExpressionVisitor.Registry.instance().visitors();
         if (!visitors.isEmpty()) {
             for (KeyExpressionVisitor visitor : visitors) {

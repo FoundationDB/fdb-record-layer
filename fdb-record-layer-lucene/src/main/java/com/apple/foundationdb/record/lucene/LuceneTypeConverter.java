@@ -56,6 +56,8 @@ public class LuceneTypeConverter implements KeyExpressionVisitor {
             return new LuceneThenKeyExpression(null, children);
         }
         fanNext = false;
+        // We assume the first child provided is a unique key for the fanned out values. It is
+        // incorporated into the field name when indexed.
         return new LuceneThenKeyExpression(children.get(0), children);
     }
 

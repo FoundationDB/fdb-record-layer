@@ -115,6 +115,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
         return children;
     }
 
+    // Fanned-out (repeated) expression with a unique key.
     public boolean fan() {
         return (primaryKey != null);
     }

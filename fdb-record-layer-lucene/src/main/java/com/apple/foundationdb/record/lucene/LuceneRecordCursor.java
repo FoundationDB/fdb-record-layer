@@ -87,6 +87,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final List<KeyExpression> fields;
     private Sort sort = null;
 
+    //TODO: once we fix the available fields logic for lucene to take into account which fields are
+    // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
