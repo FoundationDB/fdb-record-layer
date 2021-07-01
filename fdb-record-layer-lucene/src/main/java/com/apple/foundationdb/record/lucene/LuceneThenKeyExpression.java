@@ -32,13 +32,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 public class LuceneThenKeyExpression extends ThenKeyExpression implements LuceneKeyExpression {
 
     // Only one key allowed per repeated field
     private KeyExpression primaryKey;
     boolean validated = false;
-    boolean isPrefixed = false;
 
 
     public LuceneThenKeyExpression(@Nullable final KeyExpression primaryKey, @Nonnull final List<KeyExpression> children) {
@@ -76,7 +76,9 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
 
             @Override
             public KeyExpression visitField(final FieldKeyExpression fke) {
-                children.add((LuceneFieldKeyExpression)fke);
+                if (fke instanceof LuceneFieldKeyExpression) {
+                    children.add((LuceneFieldKeyExpression)fke);
+                }
                 return fke;
             }
 
@@ -114,5 +116,25 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
 
     public boolean fan() {
         return (primaryKey != null);
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        final LuceneThenKeyExpression that = (LuceneThenKeyExpression)o;
+        return primaryKey.equals(that.primaryKey);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), primaryKey);
     }
 }
