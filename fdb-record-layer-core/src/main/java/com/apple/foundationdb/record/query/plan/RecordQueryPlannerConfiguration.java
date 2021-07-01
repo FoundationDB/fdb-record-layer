@@ -40,6 +40,7 @@ public class RecordQueryPlannerConfiguration {
     private final int maxTaskQueueSize;
     private final int maxTotalTaskCount;
     private final boolean useFullKeyForValueIndex;
+    private final boolean allowNonIndexSort;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -49,7 +50,7 @@ public class RecordQueryPlannerConfiguration {
                                             boolean optimizeForIndexFilters,
                                             int maxTaskQueueSize,
                                             int maxTotalTaskCount,
-                                            boolean useFullKeyForValueIndex) {
+                                            boolean useFullKeyForValueIndex, final boolean allowNonIndexSort) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.complexityThreshold = complexityThreshold;
@@ -59,6 +60,7 @@ public class RecordQueryPlannerConfiguration {
         this.maxTaskQueueSize = maxTaskQueueSize;
         this.maxTotalTaskCount = maxTotalTaskCount;
         this.useFullKeyForValueIndex = useFullKeyForValueIndex;
+        this.allowNonIndexSort = allowNonIndexSort;
     }
 
     /**
@@ -149,6 +151,14 @@ public class RecordQueryPlannerConfiguration {
         return useFullKeyForValueIndex;
     }
 
+    /**
+     * Get whether the planner is allowed to use an in-memory sort plan.
+     * @return whether to allow non-index sorting
+     */
+    public boolean shouldAllowNonIndexSort() {
+        return allowNonIndexSort;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -173,6 +183,7 @@ public class RecordQueryPlannerConfiguration {
         private int maxTaskQueueSize = 0;
         private int maxTotalTaskCount = 0;
         private boolean useFullKeyForValueIndex = true;
+        private boolean allowNonIndexSort = false;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -184,6 +195,7 @@ public class RecordQueryPlannerConfiguration {
             this.maxTaskQueueSize = configuration.maxTaskQueueSize;
             this.maxTotalTaskCount = configuration.maxTotalTaskCount;
             this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
+            this.allowNonIndexSort = configuration.allowNonIndexSort;
         }
 
         public Builder() {
@@ -253,8 +265,18 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set whether the planner is allowed to use an in-memory sort plan.
+         * @param allowNonIndexSort whether to allow non-index sorting
+         * @return this builder
+         */
+        public Builder setAllowNonIndexSort(final boolean allowNonIndexSort) {
+            this.allowNonIndexSort = allowNonIndexSort;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, allowNonIndexSort);
         }
     }
 }

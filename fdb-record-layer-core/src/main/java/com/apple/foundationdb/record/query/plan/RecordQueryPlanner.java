@@ -75,6 +75,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
@@ -232,6 +234,23 @@ public class RecordQueryPlanner implements QueryPlanner {
 
     /**
      * Create a plan to get the results of the provided query.
+     * This method returns a {@link QueryPlanResult} that contains the same plan ass returned by {@link #plan(RecordQuery)}
+     * with additional information provided in the {@link QueryPlanInfo}
+     *
+     * @param query a query for records on this planner's metadata
+     * @param parameterRelationshipGraph a set of bindings the planner can use that may constrain requirements of the plan
+     *        but also lead to better plans
+     * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
+     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
+     */
+    @Nonnull
+    @Override
+    public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+        return new QueryPlanResult(plan(query, parameterRelationshipGraph));
+    }
+
+    /**
+     * Create a plan to get the results of the provided query.
      *
      * @param query a query for records on this planner's metadata
      * @param parameterRelationshipGraph a set of bindings and their relationships that provide additional information
@@ -255,6 +274,46 @@ public class RecordQueryPlanner implements QueryPlanner {
         final KeyExpression sort = query.getSort();
         final boolean sortReverse = query.isSortReverse();
 
+        RecordQueryPlan plan = plan(planContext, filter, sort, sortReverse);
+        if (plan == null) {
+            if (sort == null) {
+                throw new RecordCoreException("Unexpected failure to plan without sort");
+            }
+            if (configuration.shouldAllowNonIndexSort()) {
+                final PlanContext withoutSort = new PlanContext(query.toBuilder().setSort(null).build(),
+                        planContext.indexes, planContext.commonPrimaryKey);
+                plan = plan(withoutSort, filter, null, false);
+                if (plan == null) {
+                    throw new RecordCoreException("Unexpected failure to plan without sort");
+                }
+                plan = new RecordQuerySortPlan(plan, new RecordQuerySortKey(sort, sortReverse));
+            } else {
+                throw new RecordCoreException("Cannot sort without appropriate index: " + sort);
+            }
+        }
+
+        if (query.getRequiredResults() != null) {
+            plan = tryToConvertToCoveringPlan(planContext, plan);
+        }
+
+        if (timer != null) {
+            plan.logPlanStructure(timer);
+        }
+
+        if (plan.getComplexity() > configuration.getComplexityThreshold()) {
+            throw new RecordQueryPlanComplexityException(plan);
+        }
+
+        if (logger.isTraceEnabled()) {
+            logger.trace(KeyValueLogMessage.of("explain of plan",
+                    "explain", PlannerGraphProperty.explain(plan)));
+        }
+
+        return plan;
+    }
+
+    @Nullable
+    private RecordQueryPlan plan(PlanContext planContext, QueryComponent filter, KeyExpression sort, boolean sortReverse) {
         RecordQueryPlan plan = null;
         if (filter == null) {
             plan = planNoFilter(planContext, sort, sortReverse);
@@ -271,21 +330,8 @@ public class RecordQueryPlanner implements QueryPlanner {
                     plan = new RecordQueryFilterPlan(plan, filter);
                 }
             } else {
-                throw new RecordCoreException("Cannot sort without appropriate index: " + sort);
+                return null;
             }
-        }
-
-        if (timer != null) {
-            plan.logPlanStructure(timer);
-        }
-
-        if (plan.getComplexity() > configuration.getComplexityThreshold()) {
-            throw new RecordQueryPlanComplexityException(plan);
-        }
-
-        if (logger.isTraceEnabled()) {
-            logger.trace(KeyValueLogMessage.of("explain of plan",
-                    "explain", PlannerGraphProperty.explain(plan)));
         }
         if (configuration.shouldDeferFetchAfterUnionAndIntersection()) {
             plan = RecordQueryPlannerSubstitutionVisitor.applyVisitors(plan, metaData, indexTypes, planContext.commonPrimaryKey);
@@ -293,28 +339,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             // Always do filter pushdown
             plan = plan.accept(new FilterVisitor(metaData, indexTypes, planContext.commonPrimaryKey));
         }
-        if (query.getRequiredResults() != null) {
-            plan = tryToConvertToCoveringPlan(planContext, plan);
-        }
-
         return plan;
-    }
-
-    /**
-     * Create a plan to get the results of the provided query.
-     * This method returns a {@link QueryPlanResult} that contains the same plan ass returned by {@link #plan(RecordQuery)}
-     * with additional information provided in the {@link QueryPlanInfo}
-     *
-     * @param query a query for records on this planner's metadata
-     * @param parameterRelationshipGraph a set of bindings the planner can use that may constrain requirements of the plan
-     *        but also lead to better plans
-     * @return a {@link QueryPlanResult} that contains the plan for the query with additional information
-     * @throws com.apple.foundationdb.record.RecordCoreException if the planner cannot plan the query
-     */
-    @Nonnull
-    @Override
-    public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        return new QueryPlanResult(plan(query, parameterRelationshipGraph));
     }
 
     @Nullable
