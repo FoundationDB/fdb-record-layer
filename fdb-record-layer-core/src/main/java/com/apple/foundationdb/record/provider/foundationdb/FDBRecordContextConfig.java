@@ -473,7 +473,7 @@ public class FDBRecordContextConfig {
 
         /**
          * Set whether FDB server request tracing is enabled for this transaction. If this flag is set to {@code true},
-         * this enables additional logging tracing each FDB server operation associated with this transaction in the
+         * this enables additional logging tracing for each FDB server operation associated with this transaction in the
          * FDB client and server logs. This can be useful for debugging performance problems, but it is also fairly
          * high overhead so it should be enabled sparingly. If a {@linkplain #setTransactionId(String) transaction ID}
          * is set, then the specified ID will be included in one of the client log messages in order to correlate the
