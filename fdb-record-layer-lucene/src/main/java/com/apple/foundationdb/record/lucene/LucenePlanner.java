@@ -22,13 +22,9 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -50,7 +46,6 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
 import static com.apple.foundationdb.record.query.expressions.LuceneQueryComponent.FULL_TEXT_KEY_FIELD;
@@ -118,7 +113,9 @@ public class LucenePlanner extends RecordQueryPlanner {
         //TODO figure out how to take into account the parentField name here. Or maybe disallow this if its contained within a
         // oneOfThem. Not sure if thats even allowed via the metadata validation on the query at the start of the planner.
         for (String field : filter.getFields()) {
-            if (!validateIndexField(index, field)) return null;
+            if (!validateIndexField(index, field)) {
+                return null;
+            }
         }
         if (filter.getComparison() instanceof Comparisons.LuceneComparison) {
             comparison = (Comparisons.LuceneComparison)filter.getComparison();

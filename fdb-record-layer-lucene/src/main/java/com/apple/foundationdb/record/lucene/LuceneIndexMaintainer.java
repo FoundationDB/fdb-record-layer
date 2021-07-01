@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
@@ -49,7 +48,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
-import com.google.protobuf.ProtocolStringList;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
@@ -67,13 +65,11 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.print.Doc;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
@@ -99,7 +95,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.analyzer = analyzer;
         KeyExpression rootExpression = this.state.index.getRootExpression();
         validateLucene(rootExpression);
-
         fields = normalize(rootExpression);
         this.executor = executor;
     }
@@ -216,17 +211,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     private void insertDocumentField(final LuceneFieldKeyExpression expression, Object value,
                                      final Document document, String prefix) {
-        if (value == null && expression.getType() != LuceneKeyExpression.FieldType.STRING) return;
-        String fieldName = prefix == null ? expression.getFieldName() : prefix.concat("_").concat(expression.getFieldName());
-        switch (expression.getType()) {
+        if (!(value == null && expression.getType() != LuceneKeyExpression.FieldType.STRING)) {
+            String fieldName = prefix == null ? expression.getFieldName() : prefix.concat("_").concat(expression.getFieldName());
+            switch (expression.getType()) {
             case INT:
-                document.add(new IntPoint(fieldName, (Integer) value));
+                document.add(new IntPoint(fieldName, (Integer)value));
                 break;
             case STRING:
                 document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
                 break;
             default:
                 break;
+            }
         }
     }
 

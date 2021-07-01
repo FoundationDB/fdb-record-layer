@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 
 import javax.annotation.Nonnull;
+import java.util.Objects;
 
 public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression {
 
@@ -31,8 +32,6 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
     private FieldType type;
     private boolean sorted;
     private boolean stored;
-    private boolean isPrefixed = false;
-    private String prefix;
 
     public LuceneFieldKeyExpression(@Nonnull final String fieldName, @Nonnull final FanType fanType,
                                     @Nonnull final Key.Evaluated.NullStandin nullStandin, @Nonnull final FieldType type,
@@ -62,6 +61,10 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
         return stored;
     }
 
+    public boolean isSorted() {
+        return sorted;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (o == null || !(o instanceof FieldKeyExpression)) {
@@ -69,5 +72,10 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
         }
         return ((FieldKeyExpression)o).getFieldName().equals(getFieldName()) &&
                ((FieldKeyExpression)o).getFanType() == getFanType();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), type, sorted, stored);
     }
 }

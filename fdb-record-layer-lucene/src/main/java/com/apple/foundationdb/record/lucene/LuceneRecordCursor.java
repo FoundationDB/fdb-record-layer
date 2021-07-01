@@ -38,7 +38,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.StoredField;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;

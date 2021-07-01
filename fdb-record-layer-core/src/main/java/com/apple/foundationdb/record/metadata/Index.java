@@ -188,7 +188,7 @@ public class Index {
         }
 
         final List<KeyExpressionVisitor> visitors = KeyExpressionVisitor.Registry.instance().visitors();
-        if (visitors.size() > 0) {
+        if (!visitors.isEmpty()) {
             for (KeyExpressionVisitor visitor : visitors) {
                 if (visitor.applies(type)) {
                     expr = visitor.visit(expr);

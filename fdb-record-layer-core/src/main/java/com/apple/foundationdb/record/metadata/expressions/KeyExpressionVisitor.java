@@ -60,11 +60,11 @@ public interface KeyExpressionVisitor {
         }
     }
 
-    public interface Factory {
+    interface Factory {
         KeyExpressionVisitor createVisitor();
     }
 
-    public static class Registry {
+    class Registry {
         private static final Registry INSTANCE = new Registry();
 
         @Nullable
