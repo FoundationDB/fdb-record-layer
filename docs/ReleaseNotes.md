@@ -26,11 +26,11 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Method to convert to ByteString in RecordCursorContinuation [(Issue #1299)](https://github.com/FoundationDB/fdb-record-layer/issues/1299)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** FDB server request tracing is now exposed through one of the context configuration options [(Issue #1304)](https://github.com/FoundationDB/fdb-record-layer/issues/1304)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,11 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.188.0
+
+* **Feature** Method to convert to ByteString in RecordCursorContinuation [(Issue #1299)](https://github.com/FoundationDB/fdb-record-layer/issues/1299)
+* **Feature** FDB server request tracing is now exposed through one of the context configuration options [(Issue #1304)](https://github.com/FoundationDB/fdb-record-layer/issues/1304)
 
 ### 3.0.187.0
 
