@@ -68,10 +68,13 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @return a cursor of records that match the query criteria
      */
     @Nonnull
-    <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
+    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
                                                                   @Nonnull EvaluationContext context,
                                                                   @Nullable byte[] continuation,
-                                                                  @Nonnull ExecuteProperties executeProperties);
+                                                                  @Nonnull ExecuteProperties executeProperties) {
+        return executePlan(store, context, continuation, executeProperties)
+                .map(result -> result.getQueriedRecord(0));
+    }
 
     @Nonnull
     @Override
@@ -104,6 +107,22 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context) {
         return execute(store, context, null, ExecuteProperties.SERIAL_EXECUTE);
     }
+
+    /**
+     * Execute this plan, returning a {@link RecordCursor} to {@link QueryResult} result.
+     * @param store record store from which to fetch records
+     * @param context evaluation context containing parameter bindings
+     * @param continuation continuation from a previous execution of this same plan
+     * @param executeProperties limits on execution
+     * @param <M> type used to represent stored records
+     * @return a cursor of {@link QueryResult} that match the query criteria
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
+                                                              @Nonnull EvaluationContext context,
+                                                              @Nullable byte[] continuation,
+                                                              @Nonnull ExecuteProperties executeProperties);
 
     /**
      * Returns the (zero or more) {@code RecordQueryPlan} children of this plan.
@@ -245,7 +264,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
                     boundCorrelatedToBuilder.put(quantifier.getAlias(), otherQuantifier.getAlias());
                 }
             }
-                
+
             if (i == quantifiers.size() && (equalsWithoutChildren(otherExpression, boundCorrelatedToMap))) {
                 return true;
             }

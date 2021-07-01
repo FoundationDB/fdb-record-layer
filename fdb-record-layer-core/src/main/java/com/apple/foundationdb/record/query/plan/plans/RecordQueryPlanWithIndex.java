@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -70,13 +69,14 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
 
     @Nonnull
     @Override
-    default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                          @Nonnull EvaluationContext context,
-                                                                          @Nullable byte[] continuation,
-                                                                          @Nonnull ExecuteProperties executeProperties) {
+    default <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
+                                                                      @Nonnull EvaluationContext context,
+                                                                      @Nullable byte[] continuation,
+                                                                      @Nonnull ExecuteProperties executeProperties) {
         final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
         return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
-                .map(store::queriedRecord);
+                .map(store::queriedRecord)
+                .map(QueryResult::of);
     }
 
     /**

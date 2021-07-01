@@ -89,11 +89,10 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Nonnull
     @Override
-    @SuppressWarnings("squid:S2095") // SonarQube doesn't realize that the union cursor is wrapped and returned
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                         @Nonnull EvaluationContext context,
-                                                                         @Nullable byte[] continuation,
-                                                                         @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties;
         // Can pass the limit down to all sides, since that is the most we'll take total.
         if (executeProperties.getSkip() > 0) {
@@ -103,9 +102,12 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         }
         final List<Function<byte[], RecordCursor<FDBQueriedRecord<M>>>> childCursorFunctions = getChildStream()
                 .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
-                        ((byte[] childContinuation) -> childPlan.execute(store, context, childContinuation, childExecuteProperties)))
+                        ((byte[] childContinuation) -> childPlan
+                                .executePlan(store, context, childContinuation, childExecuteProperties)
+                                .map(result -> result.getQueriedRecord(0))))
                 .collect(Collectors.toList());
-        return createUnionCursor(store, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
+        return createUnionCursor(store, childCursorFunctions, continuation).skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
+                .map(QueryResult::of);
     }
 
     @Override

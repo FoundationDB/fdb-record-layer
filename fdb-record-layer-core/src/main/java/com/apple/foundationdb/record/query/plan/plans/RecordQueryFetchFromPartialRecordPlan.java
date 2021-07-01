@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
@@ -77,14 +76,15 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                         @Nonnull final EvaluationContext context,
-                                                                         @Nullable final byte[] continuation,
-                                                                         @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
         // Plan return exactly one (full) record for each (partial) record from inner, so we can preserve all limits.
-        return store.fetchIndexRecords(getChild().execute(store, context, continuation, executeProperties)
-                .map(FDBQueriedRecord::getIndexEntry), IndexOrphanBehavior.ERROR, executeProperties.getState())
-                .map(store::queriedRecord);
+        return store.fetchIndexRecords(getChild().executePlan(store, context, continuation, executeProperties)
+                .map(result -> result.getIndexEntry(0)), IndexOrphanBehavior.ERROR, executeProperties.getState())
+                .map(store::queriedRecord)
+                .map(QueryResult::of);
     }
 
     @Nonnull
