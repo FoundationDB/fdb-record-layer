@@ -68,7 +68,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (parentFieldName != null) {
             completeFieldName = parentFieldName + "_" + completeFieldName;
         }
-        if (!validateIndexField(index, completeFieldName)){
+        if (!validateIndexField(index, completeFieldName)) {
             return null;
         }
         String comparisonString;
@@ -91,7 +91,7 @@ public class LucenePlanner extends RecordQueryPlanner {
             case TEXT_CONTAINS_PREFIX:
             default:
                 return null;
-            }
+        }
         if (type != Comparisons.Type.IS_NULL && type != Comparisons.Type.TEXT_CONTAINS_PHRASE && type != Comparisons.Type.TEXT_CONTAINS_ALL) {
             if (comparison.getComparand() instanceof String) {
                 comparisonString = comparisonString + "\"%s\"";
@@ -229,10 +229,10 @@ public class LucenePlanner extends RecordQueryPlanner {
                                 pair.left.concat("_").concat(((LuceneFieldKeyExpression)pair.right).getFieldName()) :
                                 ((LuceneFieldKeyExpression)pair.right).getFieldName());
                 indexFields.add(((LuceneFieldKeyExpression)pair.right).getFieldName());
-            } if (pair.right instanceof LuceneThenKeyExpression) {
+            } else if (pair.right instanceof LuceneThenKeyExpression) {
                 indexFields.add(pair.left);
                 KeyExpression primaryKey = ((LuceneThenKeyExpression)pair.right).getPrimaryKey();
-                if (primaryKey instanceof FieldKeyExpression){
+                if (primaryKey instanceof FieldKeyExpression) {
                     indexFields.add(((FieldKeyExpression)primaryKey).getFieldName());
                 }
             } else {

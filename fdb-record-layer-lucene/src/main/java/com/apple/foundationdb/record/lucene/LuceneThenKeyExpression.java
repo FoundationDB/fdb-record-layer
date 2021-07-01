@@ -66,6 +66,7 @@ public class LuceneThenKeyExpression extends ThenKeyExpression implements Lucene
     public KeyExpression getPrimaryKey() {
         return primaryKey;
     }
+
     public int getPrimaryKeyPosition() {
         return super.normalizeKeyForPositions().indexOf(primaryKey);
     }

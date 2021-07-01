@@ -82,7 +82,7 @@ public interface LuceneKeyExpression extends KeyExpression {
         if (expression instanceof LuceneFieldKeyExpression) {
             return Lists.newArrayList(new ImmutablePair<>(givenPrefix, (LuceneFieldKeyExpression)expression));
         } else if (expression instanceof LuceneThenKeyExpression) {
-            if (((LuceneThenKeyExpression)expression).fan()){
+            if (((LuceneThenKeyExpression)expression).fan()) {
                 return Lists.newArrayList(new ImmutablePair<>(givenPrefix, (LuceneKeyExpression)expression));
             } else {
                 return ((LuceneThenKeyExpression)expression).getChildren().stream().flatMap(

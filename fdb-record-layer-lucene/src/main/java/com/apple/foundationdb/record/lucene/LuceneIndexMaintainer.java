@@ -214,14 +214,14 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (!(value == null && expression.getType() != LuceneKeyExpression.FieldType.STRING)) {
             String fieldName = prefix == null ? expression.getFieldName() : prefix.concat("_").concat(expression.getFieldName());
             switch (expression.getType()) {
-            case INT:
-                document.add(new IntPoint(fieldName, (Integer)value));
-                break;
-            case STRING:
-                document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
-                break;
-            default:
-                break;
+                case INT:
+                    document.add(new IntPoint(fieldName, (Integer)value));
+                    break;
+                case STRING:
+                    document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                    break;
+                default:
+                    break;
             }
         }
     }
