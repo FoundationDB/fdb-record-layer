@@ -32,15 +32,10 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
-import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.MetaDataException;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -51,15 +46,18 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
+import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
@@ -74,6 +72,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
+import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
+import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.validateLucene;
+import static com.apple.foundationdb.record.query.expressions.LuceneQueryComponent.FULL_TEXT_KEY_FIELD;
 
 /**
  * Index maintainer for Lucene Indexes backed by FDB.  The insert, update, and delete functionality
@@ -86,30 +87,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final Analyzer analyzer;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
-    private final List<String> fieldNames = new ArrayList<>(2);
+    private List<ImmutablePair<String, LuceneKeyExpression>> fields = new ArrayList<>(2);
     private final Executor executor;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer analyzer) {
         super(state);
         this.analyzer = analyzer;
-        this.state.index.getRootExpression().normalizeKeyForPositions().forEach(
-                (expression) -> parseFieldNames(expression, ""));
+        KeyExpression rootExpression = this.state.index.getRootExpression();
+        validateLucene(rootExpression);
+        fields = normalize(rootExpression);
         this.executor = executor;
-    }
-
-    private void parseFieldNames(KeyExpression expression, @Nonnull String parentFieldName) {
-        if (expression instanceof FieldKeyExpression) {
-            this.fieldNames.add(parentFieldName + ((FieldKeyExpression)expression).getFieldName());
-        } else if (expression instanceof NestingKeyExpression) {
-            parseFieldNames(((NestingKeyExpression)expression).getChild(),
-                    parentFieldName + ((NestingKeyExpression)expression).getParent().getFieldName() + ".");
-        } else if (expression instanceof ThenKeyExpression) {
-            for (KeyExpression childExpression : ((ThenKeyExpression)expression).getChildren()) {
-                parseFieldNames(childExpression, parentFieldName);
-            }
-        } else {
-            throw new MetaDataException("Unsupported field", LogMessageKeys.KEY_EXPRESSION, expression);
-        }
     }
 
     /**
@@ -131,9 +118,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Verify.verify(range.getLow() != null);
         Verify.verify(scanType == IndexScanType.BY_LUCENE);
         try {
-            final MultiFieldQueryParser parser = new MultiFieldQueryParser(fieldNames.toArray(new String[0]) , analyzer);
+            final QueryParser parser = new QueryParser(FULL_TEXT_KEY_FIELD, analyzer);
             Query query = parser.parse(range.getLow().getString(0));
-            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, fieldNames);
+            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
                     "internalException", ioe);
@@ -154,40 +141,91 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                                           final boolean remove,
                                                                           @Nonnull final List<IndexEntry> indexEntries) {
         LOG.trace("updateIndexKeys savedRecord={}, remove=={}, indexEntries={}", savedRecord, remove, indexEntries);
+
         if (indexEntries.isEmpty()) {
             return AsyncUtil.DONE;
         }
         try {
             final IndexWriter writer = getOrCreateIndexWriter(state, analyzer, executor);
+            Document document = new Document();
+            byte[] primaryKey = savedRecord.getPrimaryKey().pack();
+            BytesRef ref = new BytesRef(primaryKey);
+            // TODO: explore expanding this out into stored fields so they are queryable
+            document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
+            document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+            List<String> fullText = Lists.newArrayList();
             indexEntries.forEach( (entry ) -> {
                 try {
                     if (remove) {
                         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(savedRecord.getPrimaryKey().pack()));
                         writer.deleteDocuments(query);
                     } else {
-                        Document document = new Document();
-                        byte[] primaryKey = savedRecord.getPrimaryKey().pack();
-                        BytesRef ref = new BytesRef(primaryKey);
-                        document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
-                        document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-                        for (int i = 0; i < fieldNames.size(); i++) {
-                            String value = entry.getKey().getString(i);
-                            if (value == null) {
-                                value = ""; 
+                        int offset = 0;
+                        Tuple entryKey = entry.getKey();
+                        //TODO I think this can be simplified for Fields to be a single
+                        for (int i = 0; i < fields.size(); i++) {
+                            ImmutablePair<String, LuceneKeyExpression> keyPair = fields.get(i);
+                            LuceneKeyExpression expression = keyPair.right;
+                            String prefix = keyPair.left;
+                            if (expression instanceof LuceneThenKeyExpression) {
+                                int prefixLocation = ((LuceneThenKeyExpression)expression).getPrimaryKeyPosition();
+                                final Object o = entryKey.get(prefixLocation + i);
+                                String subPrefix = o == null ? "" : o.toString();
+                                prefix = prefix == null ? subPrefix : prefix.concat("_").concat(subPrefix);
+                                List<LuceneFieldKeyExpression> children = ((LuceneThenKeyExpression)expression).getLuceneChildren();
+                                for (int j = 0; j < children.size(); j++) {
+                                    if (j != prefixLocation) {
+                                        LuceneFieldKeyExpression child = children.get(j);
+                                        Object value = entryKey.get(i + offset + j);
+                                        if (value != null) {
+                                            insertDocumentField(child, entryKey.get(i + offset + j), document, prefix);
+                                            fullText.add(value.toString());
+                                        }
+                                    }
+                                }
+                                offset += children.size();
+                            } else if (expression instanceof LuceneFieldKeyExpression) {
+                                Object value = entryKey.get(i + offset);
+                                if (value != null) {
+                                    insertDocumentField((LuceneFieldKeyExpression)expression, value, document, null);
+                                    fullText.add(value.toString());
+                                }
                             }
-                            document.add(new TextField(fieldNames.get(i), value, Field.Store.NO));
                         }
-                        writer.addDocument(document);
                     }
                 } catch (IOException ioe) {
                     throw new RecordCoreException("Issue updating index keys", "Key", entry, "IndexEntries", indexEntries,
                             "savedRecord", savedRecord, ioe);
                 }
             });
+            String fullTextString = "";
+            for (String value : fullText) {
+                fullTextString = fullTextString.concat(" ").concat(value);
+            }
+            document.add(new TextField(FULL_TEXT_KEY_FIELD, fullTextString, Field.Store.NO));
+            writer.addDocument(document);
         } catch (Exception e) {
             throw new RecordCoreException(e);
         }
         return AsyncUtil.DONE;
+    }
+
+    private void insertDocumentField(final LuceneFieldKeyExpression expression, Object value,
+                                     final Document document, String prefix) {
+        if (!(value == null && expression.getType() != LuceneKeyExpression.FieldType.STRING)) {
+            String fieldName = prefix == null ? expression.getFieldName() : prefix.concat("_").concat(expression.getFieldName());
+            switch (expression.getType()) {
+                case INT:
+                    // Todo: figure out how to expand functionality to include storage, sorting etc.
+                    document.add(new IntPoint(fieldName, (Integer)value));
+                    break;
+                case STRING:
+                    document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                    break;
+                default:
+                    throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", expression.getType());
+            }
+        }
     }
 
     @Nonnull

@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
@@ -83,13 +84,15 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private IndexSearcher searcher;
     private TopDocs topDocs;
     private int currentPosition;
-    private final List<String> fieldNames;
+    private final List<KeyExpression> fields;
     private Sort sort = null;
 
+    //TODO: once we fix the available fields logic for lucene to take into account which fields are
+    // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
     LuceneRecordCursor(@Nonnull Executor executor,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
-                       byte[] continuation, List<String> fieldNames) {
+                       byte[] continuation, List<KeyExpression> fields) {
         this.state = state;
         this.executor = executor;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
@@ -100,7 +103,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
             this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
-        this.fieldNames = fieldNames;
+        this.fields = fields;
     }
 
     @Nonnull
@@ -135,21 +138,21 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                         limitRemaining--;
                     }
                     List<Object> setPrimaryKey = Tuple.fromBytes(pk.bytes).getItems();
-                    List<Object> fields = Lists.newArrayList(fieldNames);
+                    List<Object> fieldValues = Lists.newArrayList(fields);
                     int[] keyPos = state.index.getPrimaryKeyComponentPositions();
                     Tuple tuple;
                     if (keyPos != null) {
                         List<Object> leftovers = Lists.newArrayList();
                         for (int i = 0; i < keyPos.length; i++) {
                             if (keyPos[i] > -1) {
-                                fields.set(keyPos[i], setPrimaryKey.get(i));
+                                fieldValues.set(keyPos[i], setPrimaryKey.get(i));
                             } else {
                                 leftovers.add(setPrimaryKey.get(i));
                             }
                         }
-                        tuple = Tuple.fromList(fields).addAll(leftovers);
+                        tuple = Tuple.fromList(fieldValues).addAll(leftovers);
                     } else {
-                        tuple = Tuple.fromList(fields).addAll(setPrimaryKey);
+                        tuple = Tuple.fromList(fieldValues).addAll(setPrimaryKey);
                     }
 
                     nextResult = RecordCursorResult.withNextValue(new IndexEntry(state.index,
@@ -157,7 +160,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                     currentPosition++;
                     return nextResult;
                 } catch (Exception e) {
-                    throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, e);
+                    throw new RecordCoreException("Failed to get document", "currentPosition", currentPosition, "exception", e);
                 }
             }, executor);
         } else { // a limit was exceeded
