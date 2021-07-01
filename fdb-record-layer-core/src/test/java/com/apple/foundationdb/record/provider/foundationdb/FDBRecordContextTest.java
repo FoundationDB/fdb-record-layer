@@ -27,6 +27,7 @@ import com.apple.foundationdb.async.TaskNotifyingExecutor;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
@@ -65,6 +66,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -451,6 +453,59 @@ public class FDBRecordContextTest extends FDBTestBase {
             context.logTransaction();
             Subspace fakeSubspace = new Subspace(Tuple.from(UUID.randomUUID()));
             context.ensureActive().addWriteConflictRange(fakeSubspace.range().begin, fakeSubspace.range().end);
+            context.commit();
+        }
+    }
+
+    /**
+     * Test using the server request tracing feature. Because this feature creates logs in files that are hard to
+     * examine during tests, this test mainly makes sure that using this feature does not throw any errors, but it
+     * doesn't make any effort to make sure that setting the option doesn't throw any errors.
+     */
+    @Test
+    public void serverRequestTracing() {
+        // Add a write conflict range and commit with one ID
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTransactionId("serverRequestTracingId")
+                .setServerRequestTracing(true)
+                .build();
+        assertTrue(config.isServerRequestTracing());
+        try (FDBRecordContext context = fdb.openContext(config)) {
+            context.getReadVersion();
+            context.ensureActive().addWriteConflictRange(ByteArrayUtil2.unprint("hello"), ByteArrayUtil2.unprint("world"));
+            context.commit();
+        }
+        // Add a write conflict range and commit with a different ID
+        final FDBRecordContextConfig config2 = config.toBuilder()
+                .setTransactionId("serverRequestTracingId2")
+                .build();
+        assertTrue(config2.isServerRequestTracing());
+        try (FDBRecordContext context = fdb.openContext(config2)) {
+            context.getReadVersion();
+            context.ensureActive().get(ByteArrayUtil2.unprint("foo")).join();
+            context.commit();
+        }
+    }
+
+    /**
+     * Test using the server request tracing feature without a transaction ID. Like {@link #serverRequestTracing()},
+     * this mainly makes sure that the test completes without throwing errors.
+     */
+    @Test
+    public void serverRequestTracingNoId() {
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setServerRequestTracing(true)
+                .copyBuilder() // To test to make sure copying the builder preserves the option
+                .build();
+        assertTrue(config.isServerRequestTracing());
+        try (FDBRecordContext context = fdb.openContext(config)) {
+            context.getReadVersion();
+            context.ensureActive().get(ByteArrayUtil2.unprint("some_key")).join();
+            context.commit();
+        }
+        try (FDBRecordContext context = fdb.openContext(config)) {
+            context.getReadVersion();
+            context.ensureActive().get(ByteArrayUtil2.unprint("some_key_2")).join();
             context.commit();
         }
     }

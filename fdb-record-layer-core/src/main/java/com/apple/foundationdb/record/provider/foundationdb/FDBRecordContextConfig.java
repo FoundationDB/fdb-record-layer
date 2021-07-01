@@ -46,6 +46,7 @@ public class FDBRecordContextConfig {
     private final long transactionTimeoutMillis;
     private final boolean enableAssertions;
     private final boolean logTransaction;
+    private final boolean serverRequestTracing;
     private final boolean trackOpen;
     private final boolean saveOpenStackTrace;
 
@@ -58,6 +59,7 @@ public class FDBRecordContextConfig {
         this.transactionTimeoutMillis = builder.transactionTimeoutMillis;
         this.enableAssertions = builder.enableAssertions;
         this.logTransaction = builder.logTransaction;
+        this.serverRequestTracing = builder.serverRequestTracing;
         this.trackOpen = builder.trackOpen;
         this.saveOpenStackTrace = builder.saveOpenStackTrace;
     }
@@ -145,6 +147,16 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get whether FDB server request tracing is enabled.
+     * @return {@code true} if FDB server request tracing is enabled
+     * @see FDBRecordContextConfig.Builder#setServerRequestTracing(boolean)
+     * @see TransactionOptions#setServerRequestTracing()
+     */
+    public boolean isServerRequestTracing() {
+        return serverRequestTracing;
+    }
+
+    /**
      * Get whether open context is tracked in the associated {@link FDBDatabase}.
      * @return {@code true} if context is tracked.
      */
@@ -198,6 +210,7 @@ public class FDBRecordContextConfig {
         private long transactionTimeoutMillis = FDBDatabaseFactory.DEFAULT_TR_TIMEOUT_MILLIS;
         private boolean enableAssertions = false;
         private boolean logTransaction = false;
+        private boolean serverRequestTracing = false;
         private boolean trackOpen = false;
         private boolean saveOpenStackTrace = false;
 
@@ -213,6 +226,7 @@ public class FDBRecordContextConfig {
             this.transactionTimeoutMillis = config.transactionTimeoutMillis;
             this.enableAssertions = config.enableAssertions;
             this.logTransaction = config.logTransaction;
+            this.serverRequestTracing = config.serverRequestTracing;
             this.trackOpen = config.trackOpen;
             this.saveOpenStackTrace = config.saveOpenStackTrace;
         }
@@ -226,6 +240,7 @@ public class FDBRecordContextConfig {
             this.transactionTimeoutMillis = config.transactionTimeoutMillis;
             this.enableAssertions = config.enableAssertions;
             this.logTransaction = config.logTransaction;
+            this.serverRequestTracing = config.serverRequestTracing;
             this.trackOpen = config.trackOpen;
             this.saveOpenStackTrace = config.saveOpenStackTrace;
         }
@@ -355,6 +370,7 @@ public class FDBRecordContextConfig {
          * @return this builder
          * @see FDBRecordContextConfig#getTransactionId()
          * @see FDBRecordContext#getTransactionId()
+         * @see TransactionOptions#setDebugTransactionIdentifier(String)
          */
         @Nonnull
         public Builder setTransactionId(@Nullable String transactionId) {
@@ -442,6 +458,33 @@ public class FDBRecordContextConfig {
          */
         public Builder setLogTransaction(final boolean logTransaction) {
             this.logTransaction = logTransaction;
+            return this;
+        }
+
+        /**
+         * Get whether FDB server request tracing is enabled for this transaction.
+         * @return {@code true} if the transaction will have additional server-side tracing enabled
+         * @see TransactionOptions#setServerRequestTracing()
+         * @see #setServerRequestTracing(boolean)
+         */
+        public boolean isServerRequestTracing() {
+            return serverRequestTracing;
+        }
+
+        /**
+         * Set whether FDB server request tracing is enabled for this transaction. If this flag is set to {@code true},
+         * this enables additional logging tracing for each FDB server operation associated with this transaction in the
+         * FDB client and server logs. This can be useful for debugging performance problems, but it is also fairly
+         * high overhead so it should be enabled sparingly. If a {@linkplain #setTransactionId(String) transaction ID}
+         * is set, then the specified ID will be included in one of the client log messages in order to correlate the
+         * request tracing logs with the transaction.
+         *
+         * @param serverRequestTracing whether or not FDB server-side request tracing should be enabled
+         * @return this builder
+         * @see TransactionOptions#setServerRequestTracing()
+         */
+        public Builder setServerRequestTracing(boolean serverRequestTracing) {
+            this.serverRequestTracing = serverRequestTracing;
             return this;
         }
 
