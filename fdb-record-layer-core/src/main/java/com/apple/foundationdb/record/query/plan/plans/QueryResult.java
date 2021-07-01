@@ -41,7 +41,7 @@ import java.util.List;
  * This class is immutable - all modify operations will cause a new instance to be created with the modified value, leaving
  * the original instance intact. The internal data structure is also immutable.
  */
-@API(API.Status.UNSTABLE)
+@API(API.Status.EXPERIMENTAL)
 public class QueryResult {
     @Nonnull
     private final List<QueryResultElement> elements;

@@ -117,7 +117,7 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @param <M> type used to represent stored records
      * @return a cursor of {@link QueryResult} that match the query criteria
      */
-    @API(API.Status.UNSTABLE)
+    @API(API.Status.EXPERIMENTAL)
     @Nonnull
     <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
                                                               @Nonnull EvaluationContext context,
