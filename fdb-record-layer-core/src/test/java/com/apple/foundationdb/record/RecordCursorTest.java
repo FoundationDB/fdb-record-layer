@@ -212,6 +212,29 @@ public class RecordCursorTest {
     }
 
     @Test
+    public void asListWithContinuationTest() throws Exception {
+        final List<Integer> ints = IntStream.range(0, 50).boxed().collect(Collectors.toList());
+
+        final AtomicReference<RecordCursorResult<Integer>> finalResult = new AtomicReference<>();
+
+        int iterations = 0;
+        byte[] continuation = null;
+        do {
+            ++iterations;
+            List<Integer> values = RecordCursor.fromList(ints, continuation).limitRowsTo(10).asList(finalResult).get();
+            if (values.size() > 0) {
+                assertEquals(values.size(), 10);
+                assertEquals(values.get(0), (iterations - 1) * 10);
+                assertTrue(finalResult.get().getNoNextReason().isLimitReached());
+            }
+            continuation = finalResult.get().getContinuation().toBytes();
+            finalResult.set(null);  // just to make sure we are getting a fresh result each time
+        } while (continuation != null);
+
+        assertEquals(iterations, 6); // 5 with data, 6th to return final EOF
+    }
+
+    @Test
     public void limitTest() {
         List<Integer> ints = Arrays.asList(1,2,3,4);
 

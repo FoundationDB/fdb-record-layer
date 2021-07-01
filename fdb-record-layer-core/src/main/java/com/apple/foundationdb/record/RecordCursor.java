@@ -283,6 +283,21 @@ public interface RecordCursor<T> extends AutoCloseable {
     }
 
     /**
+     * Return a stream of records as an asynchronous list.
+     * @param terminatingResultRef a reference that, upon the completion of the returned future, will be {@code set()}
+     *  to contain the {@code RecordCursorResult} that terminated the scan
+     * @return a future that when complete has a list with all remaining records.
+     */
+    @Nonnull
+    default CompletableFuture<List<T>> asList(AtomicReference<RecordCursorResult<T>> terminatingResultRef) {
+        final List<T> list = new ArrayList<>();
+        return forEachResult(result -> list.add(result.get())).thenApply(finalResult -> {
+            terminatingResultRef.set(finalResult);
+            return list;
+        });
+    }
+
+    /**
      * Count the number of records remaining.
      * @return a future that completes to the number of records in the cursor
      */
