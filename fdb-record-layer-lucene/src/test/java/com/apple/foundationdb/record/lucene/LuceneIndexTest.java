@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
@@ -42,11 +43,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
+import com.beust.jcommander.internal.Lists;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.primitives.Ints;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
+import java.util.List;
 import java.util.Random;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -64,13 +67,23 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final String MAP_DOC = "MapDocument";
 
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes", field("text"), LuceneIndexTypes.LUCENE,
+    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
-    private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes", concatenateFields("text", "text2"), LuceneIndexTypes.LUCENE,
+    private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
+            new LuceneThenKeyExpression(null, Lists.newArrayList(
+                    new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false),
+                    new LuceneFieldKeyExpression("text2", LuceneKeyExpression.FieldType.STRING, false, false))),
+            LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
-    private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concatenateFields("key", "value")), 1), IndexTypes.LUCENE);
+    private static final List<KeyExpression> keys = com.google.common.collect.Lists.newArrayList(
+            new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
+                    LuceneKeyExpression.FieldType.STRING_KEY_MAP, false, false),
+            new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false));
+
+    private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value",new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
+            new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys)), 1), IndexTypes.LUCENE);
 
     private static final String DYLAN = "You're an idiot, babe\n" +
                                         "It's a wonder that you still know how to breathe";
