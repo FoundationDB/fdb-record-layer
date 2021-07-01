@@ -32,7 +32,7 @@ import java.util.ServiceLoader;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Visitor pattern for visiting KeyExpressions as they are being created in an index
+ * Visitor pattern for visiting KeyExpressions as they are being created in an index.
  */
 public interface KeyExpressionVisitor {
 

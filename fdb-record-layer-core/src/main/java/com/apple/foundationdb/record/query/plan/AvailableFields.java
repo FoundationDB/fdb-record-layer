@@ -110,7 +110,7 @@ public class AvailableFields {
                    indexTypes.getRankTypes().contains(index.getType())) {
             keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
             valueFields.addAll(KeyExpression.getValueFields(rootExpression));
-        } else if (indexTypes.getLuceneTypes().contains(index.getType())){
+        } else if (indexTypes.getLuceneTypes().contains(index.getType())) {
             List<KeyExpression> nonPrimaries = rootExpression.normalizeKeyForPositions();
             nonPrimaries.removeAll(commonPrimaryKey.normalizeKeyForPositions());
             offset = nonPrimaries.size();

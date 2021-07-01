@@ -33,7 +33,6 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import jdk.jfr.Experimental;
-import org.checkerframework.checker.units.qual.C;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -57,7 +56,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
         this(new Comparisons.LuceneComparison(query), Lists.newArrayList(FULL_TEXT_KEY_FIELD));
     }
 
-    public LuceneQueryComponent(String query, List<String> fields){
+    public LuceneQueryComponent(String query, List<String> fields) {
         this(new Comparisons.LuceneComparison(query), fields);
     }
 
@@ -92,6 +91,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     public List<String> getFields() {
         return fields;
     }
+
     @Override
     public QueryComponent withOtherComparison(final Comparisons.Comparison comparison) {
         Verify.verify(comparison instanceof Comparisons.LuceneComparison);
