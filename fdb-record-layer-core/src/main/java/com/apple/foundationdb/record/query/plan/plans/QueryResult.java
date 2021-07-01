@@ -56,6 +56,7 @@ public class QueryResult {
      * Get an empty result.
      * @return An immutable empty result.
      */
+    @Nonnull
     public QueryResult empty() {
         return EMPTY;
     }
@@ -66,8 +67,8 @@ public class QueryResult {
      * @return the newly created result
      */
     @Nonnull
-    public static QueryResult of(@Nullable QueryResultElement element) {
-        return new QueryResult(Collections.singletonList(element));
+    public static QueryResult of(@Nonnull QueryResultElement element) {
+        return new QueryResult(ImmutableList.of(element));
     }
 
     /**
@@ -75,7 +76,8 @@ public class QueryResult {
      * @param elements the collection of elements to populate in the result
      * @return the newly created result
      */
-    public static QueryResult of(Collection<QueryResultElement> elements) {
+    @Nonnull
+    public static QueryResult of(@Nonnull Collection<QueryResultElement> elements) {
         return new QueryResult(ImmutableList.copyOf(elements));
     }
 
@@ -84,7 +86,8 @@ public class QueryResult {
      * @param addedElement the element to add to the result
      * @return the newly created result that combines the existing elements with the new one
      */
-    public QueryResult with(QueryResultElement addedElement) {
+    @Nonnull
+    public QueryResult with(@Nonnull QueryResultElement addedElement) {
         return new QueryResult(new ImmutableList.Builder<QueryResultElement>().addAll(elements).add(addedElement).build());
     }
 
@@ -93,7 +96,8 @@ public class QueryResult {
      * @param addedElements the elements to add to the result
      * @return the newly created result that combines the existing elements with the new ones
      */
-    public QueryResult with(QueryResultElement... addedElements) {
+    @Nonnull
+    public QueryResult with(@Nonnull QueryResultElement... addedElements) {
         return new QueryResult(new ImmutableList.Builder<QueryResultElement>().addAll(elements).add(addedElements).build());
     }
 
