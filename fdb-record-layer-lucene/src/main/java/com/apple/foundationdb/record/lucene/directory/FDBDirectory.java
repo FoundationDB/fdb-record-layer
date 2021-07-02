@@ -26,7 +26,11 @@ import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -57,6 +61,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /**
  * Directory implementation backed by FDB which attempts to
@@ -133,6 +138,7 @@ public class FDBDirectory extends Directory {
      * @return current increment value
      */
     public synchronized long getIncrement() {
+        incrementCallCount(FDBStoreTimer.Counts.LUCENE_GET_INCREMENT_CALLS);
         return context.ensureActive().get(sequenceSubspaceKey).thenApply(
             (value) -> {
                 if (value == null) {
@@ -144,6 +150,13 @@ public class FDBDirectory extends Directory {
                     return sequence;
                 }
             }).join();
+    }
+
+    private void incrementCallCount(FDBStoreTimer.Counts counter) {
+        final FDBStoreTimer timer = context.getTimer();
+        if (timer != null) {
+            timer.increment(counter);
+        }
     }
 
     /**
@@ -161,15 +174,15 @@ public class FDBDirectory extends Directory {
         LOGGER.trace("getFDBLuceneFileReference {}", name);
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
-            return context.ensureActive().get(metaSubspace.pack(name))
+            return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
                     .thenApplyAsync((value) -> {
-                            FDBLuceneFileReference fetchedref = value == null ? null : new FDBLuceneFileReference(Tuple.fromBytes(value));
-                            if (fetchedref != null) {
-                                this.fileReferenceCache.put(name, fetchedref);
+                                FDBLuceneFileReference fetchedref = value == null ? null : new FDBLuceneFileReference(Tuple.fromBytes(value));
+                                if (fetchedref != null) {
+                                    this.fileReferenceCache.put(name, fetchedref);
+                                }
+                                return fetchedref;
                             }
-                            return fetchedref;
-                        }
-                    );
+                    ), System.nanoTime());
         } else {
             return CompletableFuture.completedFuture(fileReference);
         }
@@ -182,6 +195,7 @@ public class FDBDirectory extends Directory {
      */
     public void writeFDBLuceneFileReference(@Nonnull final String name, @Nonnull final FDBLuceneFileReference reference) {
         LOGGER.trace("writeFDBLuceneFileReference {}", reference);
+        incrementCallCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE);
         context.ensureActive().set(metaSubspace.pack(name), reference.getTuple().pack());
         fileReferenceCache.put(name, reference);
     }
@@ -193,6 +207,11 @@ public class FDBDirectory extends Directory {
      * @param value the data to be stored
      */
     public void writeData(long id, int block, @Nonnull byte[] value) {
+        FDBStoreTimer timer = context.getTimer();
+        if (timer != null) {
+            //This may not be correct transactionally
+            timer.increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, value.length);
+        }
         LOGGER.trace("writeData id={}, block={}, valueSize={}", id, block, value.length);
         Verify.verify(value.length <= blockSize);
         context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), value);
@@ -217,11 +236,11 @@ public class FDBDirectory extends Directory {
                 throw new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription));
             }
             Long id = reference.getId();
-            return blockCache.get(Pair.of(id, block),
-                    () -> {
-                        return context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)));
-                    }
-            );
+
+            long start = System.nanoTime();
+            return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
+                    () -> context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
+            ), start);
         } catch (ExecutionException e) {
             throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
         }
@@ -237,6 +256,26 @@ public class FDBDirectory extends Directory {
     @Override
     @Nonnull
     public String[] listAll() {
+        List<String> outList;
+        long start = System.nanoTime();
+        try {
+            outList = listAllInternal();
+        } finally {
+            record(FDBStoreTimer.Events.LUCENE_LIST_ALL, System.nanoTime() - start);
+        }
+        //noinspection ToArrayCallWithZeroLengthArrayArgument
+        return outList.toArray(new String[outList.size()]);
+    }
+
+    private void record(StoreTimer.Event event, long durationNanos) {
+        final FDBStoreTimer timer = context.getTimer();
+        if (timer != null) {
+            timer.record(event, durationNanos);
+        }
+    }
+
+    private List<String> listAllInternal() {
+        //A private form of the method to allow easier instrumentation
         List<String> outList = new ArrayList<>();
         List<String> displayList = null;
 
@@ -268,8 +307,7 @@ public class FDBDirectory extends Directory {
             LOGGER.debug("listAllFiles -> count={}, totalSize={}", outList.size(), totalSize);
             LOGGER.debug("Files -> {}", displayList);
         }
-
-        return outList.toArray(new String[0]);
+        return outList;
     }
 
     /**
@@ -278,8 +316,9 @@ public class FDBDirectory extends Directory {
      */
     @Override
     public void deleteFile(@Nonnull String name) throws IOException {
+
         LOGGER.trace("deleteFile -> {}", name);
-        boolean deleted = getFDBLuceneFileReference(name).thenApplyAsync(
+        boolean deleted = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
                 (value) -> {
                     if (value == null) {
                         return false;
@@ -289,7 +328,8 @@ public class FDBDirectory extends Directory {
                     this.fileReferenceCache.invalidate(name);
                     return true;
                 }
-        ).join();
+        ));
+
         if (!deleted) {
             throw new NoSuchFileException(name);
         }
@@ -304,7 +344,7 @@ public class FDBDirectory extends Directory {
     @Override
     public long fileLength(@Nonnull String name) throws NoSuchFileException {
         LOGGER.trace("fileLength -> {}", name);
-        FDBLuceneFileReference reference = getFDBLuceneFileReference(name).join();
+        FDBLuceneFileReference reference = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
         if (reference == null) {
             throw new NoSuchFileException(name);
         }
@@ -367,15 +407,18 @@ public class FDBDirectory extends Directory {
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
         LOGGER.trace("rename -> source={}, dest={}", source, dest);
         final byte[] key = metaSubspace.pack(source);
-        CompletableFuture<byte[]> completableFuture;
-        completableFuture = context.ensureActive().get(key).exceptionally( (e) -> {
-            throw new RecordCoreArgumentException("Invalid source name in rename function for source: " + source);
-        });
-        completableFuture.thenAcceptAsync( (value) -> {
-            this.fileReferenceCache.invalidate(source);
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
+            if (value == null) {
+                throw new RecordCoreArgumentException("Invalid source name in rename function for source")
+                        .addLogInfo(LogMessageKeys.SOURCE_FILE,source)
+                        .addLogInfo(LogMessageKeys.INDEX_TYPE, IndexTypes.LUCENE);
+            }
+            fileReferenceCache.invalidate(source);
             context.ensureActive().set(metaSubspace.pack(dest), value);
             context.ensureActive().clear(key);
-        }).join();
+
+            return null;
+        }));
     }
 
     @Override

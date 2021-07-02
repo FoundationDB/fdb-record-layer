@@ -148,6 +148,7 @@ public enum LogMessageKeys {
     INDEXER_MAX_RETRIES("indexer_max_retries"),
     DIRECTOY("directory"),
     SOURCE_INDEX("source_index"),
+    SOURCE_FILE("source_file"),
     CONTINUED_BUILD("continued_build"),
     INDEXING_METHOD("indexing_method"),
 

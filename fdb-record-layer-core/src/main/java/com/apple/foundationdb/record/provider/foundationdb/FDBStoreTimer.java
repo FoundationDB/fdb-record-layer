@@ -205,7 +205,13 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         /** Total number and duration of commits. */
         COMMITS("commits"),
         /** Time for FDB fetches.*/
-        FETCHES("fetches")
+        FETCHES("fetches"),
+        /** Time to read a block from Lucene's FDBDirectory.*/
+        LUCENE_READ_BLOCK("lucene block reads"),
+        /** Time to list all files from Lucene's FDBDirectory.*/
+        LUCENE_LIST_ALL("lucene list all"),
+        /** Number of getFileReference calls in the FDBDirectory.*/
+        LUCENE_GET_FILE_REFERENCE("lucene get file references"),
         ;
 
         private final String title;
@@ -407,6 +413,12 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         WAIT_EDIT_HEADER_USER_FIELD("wait to edit a header user field"),
         /** Wait to read a key from the FDB system keyspace. */
         WAIT_LOAD_SYSTEM_KEY("wait for reading a key from the FDB system keyspace"),
+        /** Wait to delete a file from Lucene's FDBDirectory.*/
+        WAIT_LUCENE_DELETE_FILE("lucene delete file"),
+        /** Time to get the length of the a file in Lucene's FDBDirectory.*/
+        WAIT_LUCENE_FILE_LENGTH("lucene file length"),
+        /** Time to rename a file in Lucene's FDBDirectory.*/
+        WAIT_LUCENE_RENAME("lucene rename"),
         ;
 
         private final String title;
@@ -620,7 +632,18 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         /** Number of Key-values fetched during a range scan.*/
         RANGE_KEYVALUES_FETCHED("range key-values ",false ),
         /** Number of chunk reads that failed.*/
-        CHUNK_READ_FAILURES("read fails",false );
+        CHUNK_READ_FAILURES("read fails",false ),
+        /** Number of times the getIncrement() function is called in the FDBDirectory. */
+        LUCENE_GET_INCREMENT_CALLS("lucene increments",false),
+        /** Number of writeFileReference calls in the FDBDirectory.*/
+        LUCENE_WRITE_FILE_REFERENCE_CALL("lucene write file references",false),
+        /** Total number of bytes that were attempted to be written (not necessarily committed) to the FDBDirectory.*/
+        LUCENE_WRITE_SIZE("lucene index size",true),
+        /** The number of block reads that occur against the FDBDirectory.*/
+        LUCENE_BLOCK_READS("lucene block reads", false),
+        /** Time to write a file references in Lucene's FDBDirectory.*/
+        LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
+        ;
 
         private final String title;
         private final boolean isSize;
