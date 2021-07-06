@@ -3434,15 +3434,19 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Get count of records to pass to checker to decide whether to build right away. If all of the new indexes are over
-     * a single type and that type has
+     * Get count of records to pass to a {@link UserVersionChecker} to decide whether to build right away. If all of the
+     * new indexes are over a single type and that type has a record key prefix, then this count will only be over the
+     * record type being indexed. If not, it will be the count of all records of all types, as in that case, the indexer
+     * will need to scan the entire store to build each index. If determining the record count would be too costly (such
+     * as if there is not an appropriate {@linkplain IndexTypes#COUNT count} index defined), this function may return
+     * {@link Long#MAX_VALUE} to indicate that an unknown and unbounded number of records would have to be scanned
+     * to build the index.
      *
      * @param newStore {@code true} if this is a brand new store
      * @param rebuildRecordCounts {@code true} if there is a record count key that needs to be rebuilt
      * @param indexes indexes that need to be built
      * @param singleRecordTypeWithPrefixKey either a single record type prefixed by the record type key or {@code null}
-     * @return a pair of a future that completes to the record count for the version checker
-     * and a flag that is {@code true} if this count is in fact for all record types
+     * @return a future that completes to the record count for the version checker
      */
     @Nonnull
     @SuppressWarnings("PMD.EmptyCatchBlock")
@@ -3468,7 +3472,11 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
                 recordStoreStateRef.set(writeOnlyState);
-                // TODO: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
+                // Note the call below can time out if the count index group cardinality is too high. Users can avoid it by
+                // setting a custom UserVersionChecker that looks at the size estimate rather than the count, but we should
+                // consider checking the size by default or otherwise making the ergonomics around hitting that limitation
+                // better in the future
+                // See: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
                 return getSnapshotRecordCount();
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
@@ -3614,6 +3622,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             KeyValueLogMessage msg = KeyValueLogMessage.build("indexes need rebuilding",
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
 
+            // Log the statistics that the user version checker used to determine whether the index could be rebuilt
+            // online. For both the record count and the records size estimate, a non-negative value implies that
+            // the checker resolved the value
             long recordCount = recordCountRef.get();
             if (recordCount >= 0L) {
                 msg.addKeyAndValue(LogMessageKeys.RECORD_COUNT, recordCount == Long.MAX_VALUE ? "unknown" : Long.toString(recordCount));
