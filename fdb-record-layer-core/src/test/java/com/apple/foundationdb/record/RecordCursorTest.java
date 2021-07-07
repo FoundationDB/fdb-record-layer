@@ -228,8 +228,9 @@ public class RecordCursorTest {
                 assertTrue(finalResult.get().getNoNextReason().isLimitReached());
             }
             continuation = finalResult.get().getContinuation().toBytes();
-            finalResult.set(null);  // just to make sure we are getting a fresh result each time
         } while (continuation != null);
+
+        assertEquals(finalResult.get().getNoNextReason(), RecordCursor.NoNextReason.SOURCE_EXHAUSTED);
 
         assertEquals(iterations, 6); // 5 with data, 6th to return final EOF
     }
