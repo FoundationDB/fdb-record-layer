@@ -50,6 +50,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
@@ -348,6 +349,17 @@ public class CascadesPlanner implements QueryPlanner {
                 .build();
     }
 
+    /**
+     * Set the maximum number of yields that are permitted per rule call within the Cascades planner.
+     * Default value is 0, which means "unbound".
+     * @param maxNumYieldsPerRuleCall the desired maximum number of yields that are permitted per rule call
+     */
+    public void setMaxNumMatchesPerRuleCall(final int maxNumYieldsPerRuleCall) {
+        configuration = this.configuration.asBuilder()
+                .setMaxNumMatchesPerRuleCall(maxNumYieldsPerRuleCall)
+                .build();
+    }
+
     @Nonnull
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;
@@ -363,6 +375,10 @@ public class CascadesPlanner implements QueryPlanner {
 
     private boolean isTaskTotalCountExceeded(final RecordQueryPlannerConfiguration configuration, final int taskCount) {
         return ((configuration.getMaxTotalTaskCount() > 0) && (taskCount > configuration.getMaxTotalTaskCount()));
+    }
+
+    private boolean isMaxNumMatchesPerRuleCallExceeded(final RecordQueryPlannerConfiguration configuration, final int numMatches) {
+        return ((configuration.getMaxNumMatchesPerRuleCall() > 0) && (numMatches > configuration.getMaxNumMatchesPerRuleCall()));
     }
 
     /**
@@ -668,18 +684,21 @@ public class CascadesPlanner implements QueryPlanner {
          */
         @Override
         public void execute() {
-            final GroupExpressionRef<RelationalExpression> group = getGroup();
-            final PlannerRule<?> rule = getRule();
             if (!shouldExecute()) {
                 return;
             }
 
             final PlannerBindings initialBindings = getInitialBindings();
 
+            final AtomicInteger numMatches = new AtomicInteger(0);
+
             rule.getMatcher()
                     .bindMatches(initialBindings, getBindable())
                     .map(bindings -> new CascadesRuleCall(getContext(), rule, group, aliasResolver, bindings))
                     .forEach(ruleCall -> {
+                        if (isMaxNumMatchesPerRuleCallExceeded(configuration, numMatches.incrementAndGet())) {
+                            throw new RecordQueryPlanComplexityException("Maximum number of matches per rule call for " + rule + " of " + configuration.getMaxNumMatchesPerRuleCall() + " has been exceeded.");
+                        }
                         // we notify the debugger (if installed) that the transform task is succeeding and
                         // about begin and end of the rule call event
                         Debugger.withDebugger(debugger -> debugger.onEvent(toTaskEvent(Location.SUCCESS)));

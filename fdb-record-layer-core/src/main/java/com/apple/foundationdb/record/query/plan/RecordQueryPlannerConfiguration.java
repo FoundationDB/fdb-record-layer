@@ -40,6 +40,7 @@ public class RecordQueryPlannerConfiguration {
     private final int maxTaskQueueSize;
     private final int maxTotalTaskCount;
     private final boolean useFullKeyForValueIndex;
+    private final int maxNumMatchesPerRuleCall;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -49,7 +50,8 @@ public class RecordQueryPlannerConfiguration {
                                             boolean optimizeForIndexFilters,
                                             int maxTaskQueueSize,
                                             int maxTotalTaskCount,
-                                            boolean useFullKeyForValueIndex) {
+                                            boolean useFullKeyForValueIndex,
+                                            int maxNumMatchesPerRuleCall) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.complexityThreshold = complexityThreshold;
@@ -59,6 +61,7 @@ public class RecordQueryPlannerConfiguration {
         this.maxTaskQueueSize = maxTaskQueueSize;
         this.maxTotalTaskCount = maxTotalTaskCount;
         this.useFullKeyForValueIndex = useFullKeyForValueIndex;
+        this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
     }
 
     /**
@@ -149,6 +152,14 @@ public class RecordQueryPlannerConfiguration {
         return useFullKeyForValueIndex;
     }
 
+    /**
+     * Get the maximum number of matches that are permitted per rule call within the Cascades planner.
+     * @return the maximum number of matches that are permitted per rule call within the Cascades planner
+     */
+    public int getMaxNumMatchesPerRuleCall() {
+        return maxNumMatchesPerRuleCall;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -173,6 +184,7 @@ public class RecordQueryPlannerConfiguration {
         private int maxTaskQueueSize = 0;
         private int maxTotalTaskCount = 0;
         private boolean useFullKeyForValueIndex = true;
+        private int maxNumMatchesPerRuleCall = 0;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -184,6 +196,7 @@ public class RecordQueryPlannerConfiguration {
             this.maxTaskQueueSize = configuration.maxTaskQueueSize;
             this.maxTotalTaskCount = configuration.maxTotalTaskCount;
             this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
+            this.maxNumMatchesPerRuleCall = configuration.maxNumMatchesPerRuleCall;
         }
 
         public Builder() {
@@ -253,8 +266,19 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set the maximum number of matches that are permitted per rule call within the Cascades planner.
+         * Default value is 0, which means "unbound".
+         * @param maxNumMatchesPerRuleCall the desired maximum number of matches that are permitted per rule call
+         * @return {@code this}
+         */
+        public Builder setMaxNumMatchesPerRuleCall(final int maxNumMatchesPerRuleCall) {
+            this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall);
         }
     }
 }
