@@ -156,6 +156,15 @@ public abstract class IndexMaintainer {
     public abstract <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record);
 
     /**
+     * Similar to {@link #evaluateIndex(FDBRecord)}, but returns null if the record should be filtered out.
+     * @param <M> the message type of the record
+     * @param savedRecord the indexable record from which the index will extract its key and value
+     * @return a list of index keys and values
+     */
+    @Nullable
+    public abstract  <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord);
+
+    /**
      * Evaluate a record function on the given record.
      * @param <T> the result type of the function
      * @param <M> the message type of the record

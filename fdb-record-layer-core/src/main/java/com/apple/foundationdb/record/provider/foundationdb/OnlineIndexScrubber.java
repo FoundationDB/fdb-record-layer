@@ -147,7 +147,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         }
 
         boolean shouldLogWarning() {
-            if (0 <= logWarningsLimit || !allowRepair) {
+            if (logWarningsLimit <= 0 || !allowRepair) {
                 return false;
             }
             logWarningsLimit--;

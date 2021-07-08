@@ -214,8 +214,9 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
      * @param savedRecord record for key evaluation
      * @return filtered list of index keys for the given record
      */
+    @Override
     @Nullable
-    protected <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
+    public <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
         if (savedRecord == null) {
             return null;
         }
