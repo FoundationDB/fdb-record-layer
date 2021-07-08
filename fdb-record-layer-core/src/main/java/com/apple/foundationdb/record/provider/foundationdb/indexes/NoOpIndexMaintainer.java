@@ -142,4 +142,9 @@ public class NoOpIndexMaintainer extends IndexMaintainer {
     public <M extends Message> List<IndexEntry> evaluateIndex(@Nonnull FDBRecord<M> record) {
         return Collections.emptyList();
     }
+
+    @Override
+    public <M extends Message> List<IndexEntry> filteredIndexEntries(@Nullable final FDBIndexableRecord<M> savedRecord) {
+        return null;
+    }
 }

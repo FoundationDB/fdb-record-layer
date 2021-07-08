@@ -192,7 +192,7 @@ public class IndexingScrubMissing extends IndexingBase {
 
         final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
-        List<IndexEntry> indexEntryNoPKs = maintainer.evaluateIndex(rec);
+        List<IndexEntry> indexEntryNoPKs = maintainer.filteredIndexEntries(rec);
         if (indexEntryNoPKs == null) {
             return CompletableFuture.completedFuture(null);
         }
