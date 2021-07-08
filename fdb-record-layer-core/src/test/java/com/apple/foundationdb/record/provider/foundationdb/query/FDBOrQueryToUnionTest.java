@@ -34,11 +34,14 @@ import com.apple.foundationdb.record.query.expressions.OrComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanComplexityException;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
@@ -88,6 +91,7 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -1243,5 +1247,43 @@ public class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
                 coveringIndexScan(indexScan(allOf(indexName("coveringIndex"), bounds(hasTupleString("[[2],[4]]"))))),
                 filter(Query.field("num_value_3_indexed").lessThanOrEquals(18),
                         coveringIndexScan(indexScan(allOf(indexName("coveringIndex"), bounds(hasTupleString("[[26],>")))))))))));
+    }
+
+    @DualPlannerTest
+    void testComplexOrQueryToDistinctUnion() throws Exception {
+        complexQuerySetup(null);
+
+        if (planner instanceof RecordQueryPlanner) {
+            return;
+        }
+
+        final RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("str_value_indexed").equalsValue("outer"),
+                        Query.or(
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(1),
+                                        Query.field("num_value_3_indexed").lessThan(2)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(3),
+                                        Query.field("num_value_3_indexed").lessThan(4)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(5),
+                                        Query.field("num_value_3_indexed").lessThan(6)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(7),
+                                        Query.field("num_value_3_indexed").lessThan(8)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(9),
+                                        Query.field("num_value_3_indexed").lessThan(10)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(11),
+                                        Query.field("num_value_3_indexed").lessThan(12)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(13),
+                                        Query.field("num_value_3_indexed").lessThan(14)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(15),
+                                        Query.field("num_value_3_indexed").lessThan(16)),
+                                Query.and(Query.field("num_value_3_indexed").greaterThan(17),
+                                        Query.field("num_value_3_indexed").lessThan(18)))))
+                .setRemoveDuplicates(true)
+                .build();
+
+        ((CascadesPlanner)planner).setMaxNumMatchesPerRuleCall(50);
+        assertThrows(RecordQueryPlanComplexityException.class, () -> planner.plan(query));
     }
 }
