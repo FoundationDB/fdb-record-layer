@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 
 /**
  * Base interface for typed and untyped record stores.
@@ -217,6 +218,53 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
          */
         default IndexState needRebuildIndex(Index index, long recordCount, boolean indexOnNewRecordTypes) {
             return FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes);
+        }
+
+        /**
+         * Determine what to do about an index needing to be rebuilt. For more information about when this method
+         * is called and what the return value is used for, see {@link #needRebuildIndex(Index, long, boolean)}.
+         *
+         * <p>
+         * This method takes the record count and {@linkplain FDBRecordStore#estimateRecordsSizeAsync() estimated size}
+         * as parameters. Implementors can choose to use either value (or neither) when determining whether an index
+         * should be built in-line (i.e., whether to return {@link IndexState#READABLE}) when the meta-data on a store
+         * is upgraded. For record types on which an appropriate
+         * {@linkplain com.apple.foundationdb.record.metadata.IndexTypes#COUNT count} index is either not defined or
+         * for which scanning the count index would be too much work due to grouping keys (see
+         * <a href="https://github.com/foundationDB/fdb-record-layer/issues/7">Issue #7</a>), it may be more efficient
+         * to base the indexing decision on the size estimate alone.
+         * </p>
+         *
+         * <p>
+         * Both the record count and size estimate parameter are specified via suppliers that will not evaluate the
+         * count or size until requested. If a value is requested from either supplier, the returned future should
+         * complete after the future returned by the supplier.
+         * </p>
+         *
+         * <p>
+         * By default, this will call {@link #needRebuildIndex(Index, long, boolean)} with the record count returned
+         * by {@code lazyRecordCount}, so adopters who want to use the record count but not the records size estimate
+         * only need to implement that function.
+         * </p>
+         *
+         * @param index the index that has not been built for this store
+         * @param lazyRecordCount a supplier that will return a future with the number of records already in the store
+         * @param lazyEstimatedSize a supplier that will return a future that will resolve to an estimate of the size of
+         *                          the store in bytes
+         * @param indexOnNewRecordTypes <code>true</code> if all record types for the index are new (the number of
+         *                              records related to this index is 0), in which case the index is able to be
+         *                              "rebuilt" instantly with no cost.
+         * @return a future that will complete to the desired state of the new index
+         * @see #needRebuildIndex(Index, long, boolean)
+         */
+        @API(API.Status.EXPERIMENTAL)
+        @Nonnull
+        default CompletableFuture<IndexState> needRebuildIndex(Index index,
+                                                               Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                               Supplier<CompletableFuture<Long>> lazyEstimatedSize,
+                                                               boolean indexOnNewRecordTypes) {
+            return lazyRecordCount.get()
+                    .thenApply(recordCount -> needRebuildIndex(index, recordCount, indexOnNewRecordTypes));
         }
     }
 

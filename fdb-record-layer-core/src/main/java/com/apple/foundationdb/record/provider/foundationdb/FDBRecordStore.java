@@ -96,12 +96,12 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.foundationdb.util.LoggableException;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -121,9 +121,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
@@ -197,6 +199,9 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     // The size of preload cache
     private static final int PRELOAD_CACHE_SIZE = 100;
+
+    @Nonnull
+    private static final CompletableFuture<IndexState> READY_READABLE = CompletableFuture.completedFuture(IndexState.READABLE);
 
     protected static final Object STORE_INFO_KEY = FDBRecordStoreKeyspace.STORE_INFO.key();
     protected static final Object RECORD_KEY = FDBRecordStoreKeyspace.RECORD.key();
@@ -3105,8 +3110,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes, @Nonnull Map<Index, IndexState> newStates,
-                                                     @Nonnull List<CompletableFuture<Void>> work, @Nonnull RebuildIndexReason reason,
+    protected CompletableFuture<Void> rebuildIndexes(@Nonnull Map<Index, List<RecordType>> indexes,
+                                                     @Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
+                                                     @Nonnull List<CompletableFuture<Void>> work,
+                                                     @Nonnull RebuildIndexReason reason,
                                                      @Nullable Integer oldMetaDataVersion) {
         Iterator<Map.Entry<Index, List<RecordType>>> indexIter = indexes.entrySet().iterator();
         return AsyncUtil.whileTrue(() -> {
@@ -3123,11 +3130,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     Map.Entry<Index, List<RecordType>> indexItem = indexIter.next();
                     Index index = indexItem.getKey();
                     List<RecordType> recordTypes = indexItem.getValue();
-                    IndexState indexState = newStates.getOrDefault(index, IndexState.READABLE);
                     final CompletableFuture<Void> rebuildOrMarkIndexSafely = MoreAsyncUtil.handleOnException(
-                            () -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion),
+                            () -> newStates.getOrDefault(index, READY_READABLE).thenCompose(
+                                    indexState -> rebuildOrMarkIndex(index, indexState, recordTypes, reason, oldMetaDataVersion)
+                            ),
                             exception -> {
-                                // If there is anything issue, simply mark the index as disabled without blocking checkVersion
+                                // If there is any issue, simply mark the index as disabled without blocking checkVersion
                                 logExceptionAsWarn(KeyValueLogMessage.build("unable to build index",
                                         LogMessageKeys.INDEX_NAME, index.getName()
                                 ), exception);
@@ -3375,57 +3383,85 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         final boolean newStore = oldFormatVersion == 0;
         final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
         if (!indexes.isEmpty()) {
-            // Can only determine overall emptiness (without an additional read) if got count for all record types.
-            Pair<CompletableFuture<Long>, Boolean> counterAndIsAllTypes = getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes);
-            return counterAndIsAllTypes.getLeft().thenCompose(recordCount -> {
-                if (recordCount == 0 && counterAndIsAllTypes.getRight() &&
-                        formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION && omitUnsplitRecordSuffix) {
-                    // There are no records. Don't use the legacy split format.
-                    if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
-                        KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
-                                                    LogMessageKeys.NEW_FORMAT_VERSION, formatVersion,
-                                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
-                        if (newStore) {
-                            LOGGER.debug(msg.toString());
-                        } else {
-                            LOGGER.info(msg.toString());
+            // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
+            RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
+            final AtomicLong recordCountRef = new AtomicLong(-1);
+            final Supplier<CompletableFuture<Long>> lazyRecordCount = getAndRememberFutureLong(recordCountRef,
+                    () -> getRecordCountForRebuildIndexes(newStore, rebuildRecordCounts, indexes, singleRecordTypeWithPrefixKey));
+            AtomicLong recordsSizeRef = new AtomicLong(-1);
+            final Supplier<CompletableFuture<Long>> lazyRecordsSize = getAndRememberFutureLong(recordsSizeRef,
+                    () -> getRecordSizeForRebuildIndexes(singleRecordTypeWithPrefixKey));
+            if (singleRecordTypeWithPrefixKey == null && formatVersion >= SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION && omitUnsplitRecordSuffix) {
+                // Check to see if the unsplit format can be upgraded on an empty store.
+                // Only works if singleRecordTypeWithPrefixKey is null as otherwise, the recordCount will not contain
+                // all records
+                work.add(lazyRecordCount.get().thenAccept(recordCount -> {
+                    if (recordCount == 0) {
+                        if (newStore ? LOGGER.isDebugEnabled() : LOGGER.isInfoEnabled()) {
+                            KeyValueLogMessage msg = KeyValueLogMessage.build("upgrading unsplit format on empty store",
+                                    LogMessageKeys.NEW_FORMAT_VERSION, formatVersion,
+                                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+                            if (newStore) {
+                                LOGGER.debug(msg.toString());
+                            } else {
+                                LOGGER.info(msg.toString());
+                            }
                         }
+                        omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
+                        info.clearOmitUnsplitRecordSuffix();
+                        addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
                     }
-                    omitUnsplitRecordSuffix = formatVersion < SAVE_UNSPLIT_WITH_SUFFIX_FORMAT_VERSION;
-                    info.clearOmitUnsplitRecordSuffix();
-                    addRecordsReadConflict(); // We used snapshot to determine emptiness, and are now acting on it.
-                }
-                Map<Index, IndexState> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, recordCount, newStore, rebuildRecordCounts, oldMetaDataVersion, oldFormatVersion);
-                return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion);
+                }));
+            }
+
+            Map<Index, CompletableFuture<IndexState>> newStates = getStatesForRebuildIndexes(userVersionChecker, indexes, lazyRecordCount, lazyRecordsSize, newStore, oldMetaDataVersion, oldFormatVersion);
+            return rebuildIndexes(indexes, newStates, work, newStore ? RebuildIndexReason.NEW_STORE : RebuildIndexReason.FEW_RECORDS, oldMetaDataVersion).thenRun(() -> {
+                // Log after checking all index states
+                maybeLogIndexesNeedingRebuilding(newStates, recordCountRef, recordsSizeRef, rebuildRecordCounts, newStore);
+                context.increment(FDBStoreTimer.Counts.INDEXES_NEED_REBUILDING, newStates.entrySet().size());
             });
         } else {
             return work.isEmpty() ? AsyncUtil.DONE : AsyncUtil.whenAll(work);
         }
     }
 
+    private static Supplier<CompletableFuture<Long>> getAndRememberFutureLong(@Nonnull AtomicLong ref, @Nonnull Supplier<CompletableFuture<Long>> lazyFuture) {
+        return Suppliers.memoize(() -> lazyFuture.get().whenComplete((val, err) -> {
+            if (err == null) {
+                ref.set(val);
+            }
+        }));
+    }
+
     /**
-     * Get count of records to pass to checker to decide whether to build right away.
+     * Get count of records to pass to a {@link UserVersionChecker} to decide whether to build right away. If all of the
+     * new indexes are over a single type and that type has a record key prefix, then this count will only be over the
+     * record type being indexed. If not, it will be the count of all records of all types, as in that case, the indexer
+     * will need to scan the entire store to build each index. If determining the record count would be too costly (such
+     * as if there is not an appropriate {@linkplain IndexTypes#COUNT count} index defined), this function may return
+     * {@link Long#MAX_VALUE} to indicate that an unknown and unbounded number of records would have to be scanned
+     * to build the index.
+     *
      * @param newStore {@code true} if this is a brand new store
      * @param rebuildRecordCounts {@code true} if there is a record count key that needs to be rebuilt
      * @param indexes indexes that need to be built
-     * @return a pair of a future that completes to the record count for the version checker
-     * and a flag that is {@code true} if this count is in fact for all record types
+     * @param singleRecordTypeWithPrefixKey either a single record type prefixed by the record type key or {@code null}
+     * @return a future that completes to the record count for the version checker
      */
     @Nonnull
     @SuppressWarnings("PMD.EmptyCatchBlock")
-    protected Pair<CompletableFuture<Long>, Boolean> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
-                                                                                     @Nonnull Map<Index, List<RecordType>> indexes) {
+    protected CompletableFuture<Long> getRecordCountForRebuildIndexes(boolean newStore, boolean rebuildRecordCounts,
+                                                                      @Nonnull Map<Index, List<RecordType>> indexes,
+                                                                      @Nullable RecordType singleRecordTypeWithPrefixKey) {
         // Do this with the new indexes in write-only mode to avoid using one of them
         // when evaluating the snapshot record count.
         MutableRecordStoreState writeOnlyState = recordStoreStateRef.get().withWriteOnlyIndexes(indexes.keySet().stream().map(Index::getName).collect(Collectors.toList()));
-        // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
-        RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);
         if (singleRecordTypeWithPrefixKey != null) {
             // Get a count for just those records, either from a COUNT index on just that type or from a universal COUNT index grouped by record type.
             MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
                 recordStoreStateRef.set(writeOnlyState);
-                return Pair.of(getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName()), false);
+                return getSnapshotRecordCountForRecordType(singleRecordTypeWithPrefixKey.getName());
             } catch (RecordCoreException ex) {
                 // No such index; have to use total record count.
             } finally {
@@ -3436,8 +3472,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             MutableRecordStoreState saveState = recordStoreStateRef.get();
             try {
                 recordStoreStateRef.set(writeOnlyState);
-                // TODO: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
-                return Pair.of(getSnapshotRecordCount(), true);
+                // Note the call below can time out if the count index group cardinality is too high. Users can avoid it by
+                // setting a custom UserVersionChecker that looks at the size estimate rather than the count, but we should
+                // consider checking the size by default or otherwise making the ergonomics around hitting that limitation
+                // better in the future
+                // See: FDBRecordStoreBase.checkPossiblyRebuild() could take a long time if the record count index is split into many groups (https://github.com/FoundationDB/fdb-record-layer/issues/7)
+                return getSnapshotRecordCount();
             } catch (RecordCoreException ex) {
                 // Probably this was from the lack of appropriate index on count; treat like rebuildRecordCounts = true.
             } finally {
@@ -3456,7 +3496,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         } else {
             records = scanRecords(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()), null, scanProperties);
         }
-        final CompletableFuture<Long> zeroOrInfinity = records.onNext().thenApply(result -> {
+        return records.onNext().thenApply(result -> {
             if (result.hasNext()) {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(KeyValueLogMessage.of("version check scan found non-empty store",
@@ -3476,7 +3516,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 return 0L;
             }
         });
-        return Pair.of(zeroOrInfinity, singleRecordTypeWithPrefixKey == null);
+    }
+
+    @Nonnull
+    private CompletableFuture<Long> getRecordSizeForRebuildIndexes(@Nullable RecordType singleRecordTypeWithPrefixKey) {
+        if (singleRecordTypeWithPrefixKey == null) {
+            return estimateRecordsSizeAsync();
+        } else {
+            return estimateRecordsSizeAsync(TupleRange.allOf(singleRecordTypeWithPrefixKey.getRecordTypeKeyTuple()));
+        }
     }
 
     @Nullable
@@ -3531,40 +3579,73 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Nonnull
-    protected Map<Index, IndexState> getStatesForRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
-                                                                @Nonnull Map<Index, List<RecordType>> indexes, long recordCount,
-                                                                boolean newStore, boolean rebuildRecordCounts, int oldMetaDataVersion,
-                                                                int oldFormatVersion) {
-        Map<Index, IndexState> newStates = new HashMap<>();
+    protected Map<Index, CompletableFuture<IndexState>> getStatesForRebuildIndexes(@Nullable UserVersionChecker userVersionChecker,
+                                                                                   @Nonnull Map<Index, List<RecordType>> indexes,
+                                                                                   @Nonnull Supplier<CompletableFuture<Long>> lazyRecordCount,
+                                                                                   @Nonnull Supplier<CompletableFuture<Long>> lazyRecordsSize,
+                                                                                   boolean newStore,
+                                                                                   int oldMetaDataVersion,
+                                                                                   int oldFormatVersion) {
+        Map<Index, CompletableFuture<IndexState>> newStates = new HashMap<>();
         for (Map.Entry<Index, List<RecordType>> entry : indexes.entrySet()) {
             Index index = entry.getKey();
             List<RecordType> recordTypes = entry.getValue();
             boolean indexOnNewRecordTypes = areAllRecordTypesSince(recordTypes, oldMetaDataVersion);
-            IndexState state = userVersionChecker == null ?
-                    FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes) :
-                    userVersionChecker.needRebuildIndex(index, recordCount, indexOnNewRecordTypes);
+            CompletableFuture<IndexState> stateFuture = userVersionChecker == null ?
+                    lazyRecordCount.get().thenApply(recordCount -> FDBRecordStore.disabledIfTooManyRecordsForRebuild(recordCount, indexOnNewRecordTypes)) :
+                    userVersionChecker.needRebuildIndex(index, lazyRecordCount, lazyRecordsSize, indexOnNewRecordTypes);
             if (index.getType().equals(IndexTypes.VERSION)
                     && !newStore
                     && oldFormatVersion < SAVE_VERSION_WITH_RECORD_FORMAT_VERSION
-                    && !useOldVersionFormat()
-                    && state.equals(IndexState.READABLE)) {
-                // Do not rebuild any version indexes while the format conversion is going on.
-                // Otherwise, the process moving the versions might race against the index
-                // build and some versions won't be indexed correctly.
-                state = IndexState.DISABLED;
+                    && !useOldVersionFormat()) {
+                stateFuture = stateFuture.thenApply(state -> {
+                    if (IndexState.READABLE.equals(state)) {
+                        // Do not rebuild any version indexes while the format conversion is going on.
+                        // Otherwise, the process moving the versions might race against the index
+                        // build and some versions won't be indexed correctly.
+                        return IndexState.DISABLED;
+                    }
+                    return state;
+                });
             }
-            newStates.put(index, state);
+            newStates.put(index, stateFuture);
         }
+        return newStates;
+    }
+
+    private void maybeLogIndexesNeedingRebuilding(@Nonnull Map<Index, CompletableFuture<IndexState>> newStates,
+                                                  @Nonnull AtomicLong recordCountRef,
+                                                  @Nonnull AtomicLong recordsSizeRef,
+                                                  boolean rebuildRecordCounts,
+                                                  boolean newStore) {
         if (LOGGER.isDebugEnabled()) {
             KeyValueLogMessage msg = KeyValueLogMessage.build("indexes need rebuilding",
-                                        LogMessageKeys.RECORD_COUNT, recordCount == Long.MAX_VALUE ? "unknown" : Long.toString(recordCount), 
-                                        subspaceProvider.logKey(), subspaceProvider.toString(context));
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+
+            // Log the statistics that the user version checker used to determine whether the index could be rebuilt
+            // online. For both the record count and the records size estimate, a non-negative value implies that
+            // the checker resolved the value
+            long recordCount = recordCountRef.get();
+            if (recordCount >= 0L) {
+                msg.addKeyAndValue(LogMessageKeys.RECORD_COUNT, recordCount == Long.MAX_VALUE ? "unknown" : Long.toString(recordCount));
+            }
+            long recordsSize = recordsSizeRef.get();
+            if (recordsSize >= 0L) {
+                msg.addKeyAndValue(LogMessageKeys.RECORDS_SIZE_ESTIMATE, Long.toString(recordsSize));
+            }
+
             if (rebuildRecordCounts) {
                 msg.addKeyAndValue(LogMessageKeys.REBUILD_RECORD_COUNTS, "true");
             }
             Map<String, List<String>> stateNames = new HashMap<>();
-            for (Map.Entry<Index, IndexState> stateEntry : newStates.entrySet()) {
-                stateNames.compute(stateEntry.getValue().getLogName(), (key, names) -> {
+            for (Map.Entry<Index, CompletableFuture<IndexState>> stateEntry : newStates.entrySet()) {
+                final String stateName;
+                if (MoreAsyncUtil.isCompletedNormally(stateEntry.getValue())) {
+                    stateName = stateEntry.getValue().join().getLogName();
+                } else {
+                    stateName = "UNKNOWN";
+                }
+                stateNames.compute(stateName, (key, names) -> {
                     if (names == null) {
                         names = new ArrayList<>();
                     }
@@ -3578,8 +3659,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             }
             LOGGER.debug(msg.toString());
         }
-        context.increment(FDBStoreTimer.Counts.INDEXES_NEED_REBUILDING, newStates.entrySet().size());
-        return newStates;
     }
 
     // Clear the data associated with a given index. This is only safe to do if one is
