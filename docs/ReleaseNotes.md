@@ -29,7 +29,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** AutoContinuing cursor continues on retryable exceptions [(Issue #1180)](https://github.com/FoundationDB/fdb-record-layer/issues/1180)
-* **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Validate and repair LocatableResolver mappings [(Issue #1316)](https://github.com/FoundationDB/fdb-record-layer/issues/1316)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

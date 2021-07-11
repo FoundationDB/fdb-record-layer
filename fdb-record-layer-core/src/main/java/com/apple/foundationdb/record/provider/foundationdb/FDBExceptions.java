@@ -155,6 +155,10 @@ public class FDBExceptions {
     }
 
     public static RuntimeException wrapException(@Nonnull Throwable ex) {
+        if (ex instanceof RecordCoreException) {
+            return (RecordCoreException) ex;
+        }
+
         //transfer any logging details into mapped exception
         Object[] logInfo;
         if (ex instanceof LoggableKeysAndValues) {

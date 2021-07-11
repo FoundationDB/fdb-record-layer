@@ -101,6 +101,10 @@ public class StringInterningLayer {
                 .thenApply(maybeValue -> maybeValue.map(bytes -> Tuple.fromBytes(bytes).getString(0)));
     }
 
+    protected void putReverse(@Nonnull FDBRecordContext context, @Nonnull final Long internedValue, @Nonnull String key) {
+        context.ensureActive().set(reverseMappingSubspace.pack(internedValue), Tuple.from(key).pack());
+    }
+
     protected CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context,
                                                        @Nonnull final String toIntern,
                                                        @Nullable final byte[] metadata) {

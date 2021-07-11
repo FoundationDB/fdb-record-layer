@@ -24,13 +24,17 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ResolverStateProto;
+import com.apple.foundationdb.record.ScanProperties;
+import com.apple.foundationdb.record.cursors.LazyCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.annotations.VisibleForTesting;
@@ -657,6 +661,31 @@ public abstract class LocatableResolver {
                 );
     }
 
+    /**
+     * Scan the mapping space used by the resolver, returning all of the key/value mappings that are stored there.
+     *
+     * @param context the transactional context
+     * @param continuation a continuation to continue a previous scan
+     * @param scanProperties how the scan is to be performed
+     * @return a cursor returning key/value pairs of resolver mappings
+     */
+    public RecordCursor<ResolverKeyValue> scan(@Nonnull FDBRecordContext context,
+                                               @Nullable byte[] continuation,
+                                               @Nonnull ScanProperties scanProperties) {
+        return new LazyCursor<>(
+                getMappingSubspaceAsync().thenApply(mappingSubspace ->
+                        KeyValueCursor.Builder.withSubspace(mappingSubspace)
+                                .setScanProperties(scanProperties)
+                                .setContext(context)
+                                .setContinuation(continuation)
+                                .build()
+                                .map(keyValue ->  new ResolverKeyValue(
+                                        mappingSubspace.unpack(keyValue.getKey()).getString(0),
+                                        deserializeValue(keyValue.getValue())))),
+                context.getExecutor());
+    }
+
+
     protected abstract CompletableFuture<Optional<ResolverResult>> read(@Nonnull FDBRecordContext context, String key);
 
     protected abstract CompletableFuture<ResolverResult> create(@Nonnull FDBRecordContext context,
@@ -714,6 +743,18 @@ public abstract class LocatableResolver {
      */
     @Nonnull
     public abstract ResolverResult deserializeValue(byte[] value);
+
+    /**
+     * Explicitly write an entry to the reverse directory for the resolver. This method is only intended for internal
+     * use (thus, the {@code protected} qualifier), and is generally only exposed for the purposes of repairing
+     * entries that are missing or incorrect in the reverse mapping, or intentionally corrupting an entry for
+     * testing of the resolver validation API's.
+     *
+     * @param context the transaction context in which to perform the delete
+     * @param value the reverse directory value to write
+     * @param key the key to the forward directory associated with the {@code value}
+     */
+    protected abstract CompletableFuture<Void> putReverse(@Nonnull FDBRecordContext context, long value, @Nonnull String key);
 
     @Nonnull
     private static ResolverStateProto.State deserializeResolverState(@Nullable byte[] bytes) {

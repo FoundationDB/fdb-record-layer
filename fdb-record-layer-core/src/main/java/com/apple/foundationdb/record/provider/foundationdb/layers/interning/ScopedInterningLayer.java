@@ -127,6 +127,15 @@ public class ScopedInterningLayer extends LocatableResolver {
     }
 
     @Override
+    protected CompletableFuture<Void> putReverse(@Nonnull final FDBRecordContext context, final long value, @Nonnull final String key) {
+        return interningLayerFuture
+                .thenApply(layer -> {
+                    layer.putReverse(context, value, key);
+                    return null;
+                });
+    }
+
+    @Override
     public CompletableFuture<Void> setMapping(FDBRecordContext context, String key, ResolverResult value) {
         return interningLayerFuture
                 .thenCompose(layer -> layer.setMapping(context, key, value));

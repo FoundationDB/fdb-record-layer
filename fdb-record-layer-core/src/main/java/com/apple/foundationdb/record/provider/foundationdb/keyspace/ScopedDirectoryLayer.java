@@ -156,6 +156,11 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
+    protected CompletableFuture<Void> putReverse(@Nonnull final FDBRecordContext context, final long value, @Nonnull final String key) {
+        return database.getReverseDirectoryCache().putOrReplaceForTesting(context, wrap(key), value);
+    }
+
+    @Override
     public CompletableFuture<Void> setMapping(FDBRecordContext context, String key, ResolverResult value) {
         throw new UnsupportedOperationException("cannot manually add mappings to ScopedDirectoryLayer");
     }
