@@ -54,8 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @Tag(Tags.RequiresFDB)
 public class ScopedDirectoryLayerTest extends LocatableResolverTest {
     public ScopedDirectoryLayerTest() {
-        this.globalScopeGenerator = ScopedDirectoryLayer::global;
-        this.scopedDirectoryGenerator = ScopedDirectoryLayer::new;
+        super(TestingResolverFactory.ResolverType.SCOPED_DIRECTORY_LAYER);
     }
 
     @Test
@@ -108,7 +107,7 @@ public class ScopedDirectoryLayerTest extends LocatableResolverTest {
             path = keySpace.resolveFromKey(context, Tuple.from("path", "to", "dirLayer"));
         }
 
-        LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path);
+        LocatableResolver resolver = resolverFactory.create(path);
         Long value = resolver.resolve("foo").join();
 
         DirectoryLayer directoryLayer = new DirectoryLayer(

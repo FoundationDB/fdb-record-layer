@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResu
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -99,6 +100,11 @@ public class StringInterningLayer {
         return context.ensureActive().get(reverseMappingSubspace.pack(internedValue))
                 .thenApply(Optional::ofNullable)
                 .thenApply(maybeValue -> maybeValue.map(bytes -> Tuple.fromBytes(bytes).getString(0)));
+    }
+
+    @VisibleForTesting
+    protected void deleteReverseForTesting(@Nonnull FDBRecordContext context, @Nonnull final Long internedValue) {
+        context.ensureActive().clear(reverseMappingSubspace.pack(internedValue));
     }
 
     protected void putReverse(@Nonnull FDBRecordContext context, @Nonnull final Long internedValue, @Nonnull String key) {

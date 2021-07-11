@@ -156,6 +156,12 @@ public class ScopedDirectoryLayer extends LocatableResolver {
     }
 
     @Override
+    @VisibleForTesting
+    protected CompletableFuture<Void> deleteReverseForTesting(FDBRecordContext context, final long value) {
+        return database.getReverseDirectoryCache().deleteForTesting(context, wrap(value));
+    }
+
+    @Override
     protected CompletableFuture<Void> putReverse(@Nonnull final FDBRecordContext context, final long value, @Nonnull final String key) {
         return database.getReverseDirectoryCache().putOrReplaceForTesting(context, wrap(key), value);
     }

@@ -745,6 +745,21 @@ public abstract class LocatableResolver {
     public abstract ResolverResult deserializeValue(byte[] value);
 
     /**
+     * Method used for corrupting the reverse directory in order to write tests for validating/repairing
+     * inconsistencies. Note that this method is protected, so the test must be in the same package as
+     * as the {@code LocatableResolver} itself in order to be invoked. Note that this method does NOT
+     * remove the entry from any in-memory caches -- the caller must take care to ensure that any such
+     * caches have been invalidated/cleared as necessary.
+     *
+     * @param context the transaction context in which to perform the delete
+     * @param value the reverse directory value to delete
+     *
+     * @return a future that completes when the delete operation has completed
+     */
+    @VisibleForTesting
+    protected abstract CompletableFuture<Void> deleteReverseForTesting(@Nonnull FDBRecordContext context, long value);
+
+    /**
      * Explicitly write an entry to the reverse directory for the resolver. This method is only intended for internal
      * use (thus, the {@code protected} qualifier), and is generally only exposed for the purposes of repairing
      * entries that are missing or incorrect in the reverse mapping, or intentionally corrupting an entry for
@@ -753,6 +768,8 @@ public abstract class LocatableResolver {
      * @param context the transaction context in which to perform the delete
      * @param value the reverse directory value to write
      * @param key the key to the forward directory associated with the {@code value}
+     *
+     * @return a future that completes when the put operation has completed
      */
     protected abstract CompletableFuture<Void> putReverse(@Nonnull FDBRecordContext context, long value, @Nonnull String key);
 

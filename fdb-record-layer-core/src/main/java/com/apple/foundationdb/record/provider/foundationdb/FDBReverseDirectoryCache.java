@@ -286,6 +286,51 @@ public class FDBReverseDirectoryCache {
     }
 
     /**
+     * Remove an entry from the reverse directory, <b>STRICTLY FOR TESTING</b>.  This method removes an existing entry
+     * from the reverse directory which, in practice, should never be possible. Note that this does not manipulate any
+     * in-memory caches that may have referred to the value.
+     *
+     * @param context transaction context used to remove the mapping
+     * @param value the value to remove
+     * @return a future that, when completed, will have removed the mapping entry
+     */
+    @VisibleForTesting
+    public CompletableFuture<Void> deleteForTesting(@Nonnull FDBRecordContext context,
+                                                    @Nonnull ScopedValue<Long> value) {
+        final LocatableResolver scope = value.getScope();
+        return getReverseCacheSubspace(scope)
+                .thenApply(subspace -> {
+                    context.ensureActive().clear(subspace.pack(value.getData()));
+                    return null;
+                });
+    }
+
+    /**
+     * Write an entry to the reverse directory, <b>STRICTLY FOR TESTING</b>. This method writes an entry to the
+     * reverse directory, overwriting any pre-existing entry that may have been there in the process.  There are
+     * (deliberately) no checks to validate that the entry being written is consistent with the forward mapping.
+     * Note that this does not manipulate any in-memory caches that may have referred to the value.
+     *
+     * @param context transaction context used to remove the mapping
+     * @param scopedPathString the key being written
+     * @param value the value being written
+     * @return a future that, when completed, will have written the entry
+     */
+    @VisibleForTesting
+    public CompletableFuture<Void> putOrReplaceForTesting(@Nonnull FDBRecordContext context,
+                                                          @Nonnull ScopedValue<String> scopedPathString,
+                                                          @Nonnull Long value) {
+        final LocatableResolver scope = scopedPathString.getScope();
+        final String pathString = scopedPathString.getData();
+
+        return getReverseCacheSubspace(scope)
+                .thenApply(reverseCacheSubspace -> {
+                    context.ensureActive().set(reverseCacheSubspace.pack(value), Tuple.from(pathString).pack());
+                    return null;
+                });
+    }
+
+    /**
      * Add a new entry to the reverse directory cache if it does not already exist. If an entry already exists
      * for the <code>pathString</code> provided, the value for the key in the RDC will be compared against the
      * <code>pathValue</code> provided and an <code>IllegalStateException</code> will be thrown if they differ.

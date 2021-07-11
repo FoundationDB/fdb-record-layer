@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.layers.interning.HighContentionAllocator;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Bytes;
 
 import javax.annotation.Nonnull;
@@ -153,6 +154,12 @@ public class ExtendedDirectoryLayer extends LocatableResolver {
 
     private CompletableFuture<Optional<String>> readInReverseCacheSubpspace(FDBStoreTimer timer, Long value) {
         return database.getReverseDirectoryCache().getInReverseDirectoryCacheSubspace(timer, wrap(value));
+    }
+
+    @Override
+    @VisibleForTesting
+    protected CompletableFuture<Void> deleteReverseForTesting(FDBRecordContext context, final long value) {
+        return database.getReverseDirectoryCache().deleteForTesting(context, wrap(value));
     }
 
     @Override

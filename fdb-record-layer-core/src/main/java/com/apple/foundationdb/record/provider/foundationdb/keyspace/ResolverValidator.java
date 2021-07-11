@@ -89,7 +89,17 @@ public class ResolverValidator {
     }
 
     /**
-     * Validate entries in a {@link LocatableResolver}'s mappings, using a reverse lookup pipeline size of 10.
+     * Validate entries in a {@link LocatableResolver}'s mappings. This method scans the forward mapping
+     * ({@code String} -&gt; {@code long}) and validates that the entry has a corresponding entry in the
+     * reverse mapping, as well as validating that the entry in the reverse mapping points to the forward
+     * mapping key.
+     *
+     * @param resolver the resolver to scan
+     * @param context the transaction context to use
+     * @param continuation continuation from a previous scan
+     * @param repairMissingEntries if {@code true}, missing reverse directory entries will be restored
+     * @param scanProperties scan properties that control the nature of the scan
+     * @return a cursor returning the disposition of all scanned entries in the resolvers mapping table
      */
     public static RecordCursor<ValidatedEntry> validate(@Nonnull final LocatableResolver resolver,
                                                         @Nonnull final FDBRecordContext context,
@@ -254,6 +264,8 @@ public class ResolverValidator {
          * The key found in the reverse directory associated with the value found in the forward mapping.
          * For {@link ValidationResult#REVERSE_ENTRY_MISMATCH} this will be a different value than returned
          * by {@link #getKey()}.
+         *
+         * @return the key found in the reverse directory associated with the value found in the forward mapping
          */
         @Nonnull
         public String getReverseValue() {

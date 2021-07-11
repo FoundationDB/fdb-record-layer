@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.layers.interning;
 
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolverTest;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ScopedDirectoryLayer;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.TestingResolverFactory;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.AfterEach;
@@ -45,8 +46,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.RequiresFDB)
 public class ScopedInterningLayerTest extends LocatableResolverTest {
     public ScopedInterningLayerTest() {
-        this.globalScopeGenerator = ScopedInterningLayer::global;
-        this.scopedDirectoryGenerator = ScopedInterningLayer::new;
+        super(TestingResolverFactory.ResolverType.SCOPED_INTERNING_LAYER);
     }
 
     @BeforeEach
@@ -57,7 +57,7 @@ public class ScopedInterningLayerTest extends LocatableResolverTest {
     @AfterEach
     public void teardown() {
         // tests that modify migration state of global directory layer need to wipe FDB to prevent pollution of other suites
-        wipeFDB();
+        resolverFactory.wipeFDB();
     }
 
 

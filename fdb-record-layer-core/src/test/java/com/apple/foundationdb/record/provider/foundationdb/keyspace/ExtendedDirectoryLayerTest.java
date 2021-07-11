@@ -59,8 +59,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     );
 
     public ExtendedDirectoryLayerTest() {
-        this.globalScopeGenerator = ExtendedDirectoryLayer::global;
-        this.scopedDirectoryGenerator = ExtendedDirectoryLayer::new;
+        super(TestingResolverFactory.ResolverType.EXTENDED_DIRECTORY_LAYER);
     }
 
     @Test
@@ -77,7 +76,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     public void testWriteCompatibilityScoped() {
         try (FDBRecordContext context = database.openContext()) {
             ResolvedKeySpacePath path = keySpace.path("path").add("to").add("dirLayer").toResolvedPath(context);
-            LocatableResolver backwardsCompatible = scopedDirectoryGenerator.apply(database, path);
+            LocatableResolver backwardsCompatible = resolverFactory.create(path);
             LocatableResolver scopedDirectoryLayer = new ScopedDirectoryLayer(database, path);
 
             testReadCompatible(backwardsCompatible, scopedDirectoryLayer);
@@ -88,7 +87,7 @@ class ExtendedDirectoryLayerTest extends LocatableResolverTest {
     public void testReadCompatibilityScoped() {
         try (FDBRecordContext context = database.openContext()) {
             ResolvedKeySpacePath path = keySpace.path("path").add("to").add("dirLayer").toResolvedPath(context);
-            LocatableResolver backwardsCompatible = scopedDirectoryGenerator.apply(database, path);
+            LocatableResolver backwardsCompatible = resolverFactory.create(path);
             LocatableResolver scopedDirectoryLayer = new ScopedDirectoryLayer(database, path);
 
             testReadCompatible(scopedDirectoryLayer, backwardsCompatible);

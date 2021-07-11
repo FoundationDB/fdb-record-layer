@@ -20,10 +20,11 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
-import com.apple.foundationdb.Range;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -44,6 +45,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
@@ -65,7 +67,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -102,26 +103,24 @@ import static org.junit.jupiter.api.Assertions.fail;
 @Tag(Tags.WipesFDB)
 @Tag(Tags.RequiresFDB)
 public abstract class LocatableResolverTest extends FDBTestBase {
-    protected FDBDatabase database;
-    protected LocatableResolver globalScope;
-    protected BiFunction<FDBDatabase, ResolvedKeySpacePath, LocatableResolver> scopedDirectoryGenerator;
-    protected Function<FDBDatabase, LocatableResolver> globalScopeGenerator;
+    @RegisterExtension
+    protected final TestingResolverFactory resolverFactory;
+
     protected Random random;
+    protected LocatableResolver globalScope;
+    protected FDBDatabase database;
+
+    protected LocatableResolverTest(TestingResolverFactory.ResolverType resolverType) {
+        resolverFactory = new TestingResolverFactory(resolverType);
+    }
 
     @BeforeEach
     public void setup() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
-        factory.setDirectoryCacheSize(100);
         long seed = System.currentTimeMillis();
         System.out.println("Seed " + seed);
         random = new Random(seed);
-        database = factory.getDatabase();
-        // clear all state in the db
-        database.close();
-        // resets the lock cache
-        database.setResolverStateRefreshTimeMillis(30000);
-        globalScope = globalScopeGenerator.apply(database);
-        wipeFDB();
+        globalScope = resolverFactory.getGlobalScope();
+        database = resolverFactory.getDatabase();
     }
 
     @Test
@@ -132,7 +131,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             path1 = keySpace.resolveFromKey(context, Tuple.from("path"));
         }
-        LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path1);
+        LocatableResolver resolver = resolverFactory.create(path1);
 
         Long value = resolver.resolve("foo").join();
 
@@ -140,7 +139,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             Long fetched = resolver.resolve("foo").join();
             assertThat("we should always get the original value", fetched, is(value));
         }
-        CacheStats stats = database.getDirectoryCacheStats();
+        CacheStats stats = resolverFactory.getDirectoryCacheStats();
         assertThat("subsequent lookups should hit the cache", stats.hitCount(), is(5L));
     }
 
@@ -157,9 +156,9 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             ResolvedKeySpacePath path1 = keySpace.resolveFromKey(context, Tuple.from("path", "to", "dirLayer1"));
             ResolvedKeySpacePath path2 = keySpace.resolveFromKey(context, Tuple.from("path", "to", "dirLayer2"));
-            LocatableResolver resolver = scopedDirectoryGenerator.apply(database, path1);
-            LocatableResolver sameResolver = scopedDirectoryGenerator.apply(database, path1);
-            LocatableResolver differentResolver = scopedDirectoryGenerator.apply(database, path2);
+            LocatableResolver resolver = resolverFactory.create(path1);
+            LocatableResolver sameResolver = resolverFactory.create(path1);
+            LocatableResolver differentResolver = resolverFactory.create(path2);
 
             List<String> names = ImmutableList.of("a", "set", "of", "names", "to", "resolve");
             List<Long> resolved = new ArrayList<>();
@@ -184,7 +183,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         try (FDBRecordContext context = database.openContext()) {
             final ResolvedKeySpacePath path1 = keySpace.resolveFromKey(context, Tuple.from("path1"));
-            final LocatableResolver resolver1 = scopedDirectoryGenerator.apply(database, path1);
+            final LocatableResolver resolver1 = resolverFactory.create(path1);
 
             Cache<ScopedValue<String>, Long> cache = CacheBuilder.newBuilder().build();
             cache.put(resolver1.wrap("stuff"), 1L);
@@ -195,11 +194,11 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                     cache.getIfPresent(resolver1.wrap("missing")), equalTo(null));
 
             final ResolvedKeySpacePath path2 = keySpace.resolveFromKey(context, Tuple.from("path2"));
-            final LocatableResolver resolver2 = scopedDirectoryGenerator.apply(database, path2);
+            final LocatableResolver resolver2 = resolverFactory.create(path2);
             assertThat("cache misses when string is not in this scope",
                     cache.getIfPresent(resolver2.wrap("stuff")), equalTo(null));
 
-            final LocatableResolver newResolver = scopedDirectoryGenerator.apply(database, path1);
+            final LocatableResolver newResolver = resolverFactory.create(path1);
             assertThat("scoping is determined by value of scope directory, not a reference to it",
                     cache.getIfPresent(newResolver.wrap("stuff")), is(1L));
         }
@@ -694,8 +693,8 @@ public abstract class LocatableResolverTest extends FDBTestBase {
 
         FDBStoreTimer timer = new FDBStoreTimer();
         try (FDBRecordContext context = database.openContext()) {
-            resolver1 = scopedDirectoryGenerator.apply(database, keySpace.path("resolver1").toResolvedPath(context));
-            resolver2 = scopedDirectoryGenerator.apply(database, keySpace.path("resolver2").toResolvedPath(context));
+            resolver1 = resolverFactory.create(keySpace.path("resolver1").toResolvedPath(context));
+            resolver2 = resolverFactory.create(keySpace.path("resolver2").toResolvedPath(context));
 
             context.setTimer(timer);
             for (int i = 0; i < 10; i++) {
@@ -710,7 +709,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
             resolver2.getVersion(context.getTimer()).join();
             assertThat("We have to read the value for the new resolver", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(1));
 
-            LocatableResolver newResolver1 = scopedDirectoryGenerator.apply(database, keySpace.path("resolver1").toResolvedPath(context));
+            LocatableResolver newResolver1 = resolverFactory.create(keySpace.path("resolver1").toResolvedPath(context));
             timer = new FDBStoreTimer();
             assertThat("count is reset", timer.getCount(FDBStoreTimer.DetailEvents.RESOLVER_STATE_READ), is(0));
 
@@ -867,7 +866,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         List<Pair<FDBDatabase, LocatableResolver>> simulatedInstances = IntStream.range(0, 20)
                 .mapToObj(i -> {
                     FDBDatabase db = databaseSupplier.get();
-                    return Pair.of(db, globalScopeGenerator.apply(db));
+                    return Pair.of(db, resolverFactory.getGlobalScope(db));
                 })
                 .collect(Collectors.toList());
 
@@ -944,8 +943,8 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         try (FDBRecordContext context = database.openContext()) {
             ResolvedKeySpacePath path1 = keySpace.path("path1").toResolvedPath(context);
             ResolvedKeySpacePath path2 = keySpace.path("path2").toResolvedPath(context);
-            path1Resolver = scopedDirectoryGenerator.apply(database, path1);
-            path2Resolver = scopedDirectoryGenerator.apply(database, path2);
+            path1Resolver = resolverFactory.create(path1);
+            path2Resolver = resolverFactory.create(path2);
         }
 
         PreWriteCheck validCheck = (context, resolver) ->
@@ -1133,12 +1132,55 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         }
     }
 
-    protected void wipeFDB() {
-        database.run((context -> {
-            context.ensureActive().clear(new Range(new byte[] {(byte)0x00}, new byte[] {(byte)0xFF}));
-            return null;
-        }));
-        database.clearCaches();
+    @Test
+    void testValidateMissingReverseEntries() {
+        final List<ResolverKeyValue> entries = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            final String key = "key_" + i;
+            entries.add(new ResolverKeyValue(key, globalScope.resolveWithMetadata("key_" + i,
+                    ResolverCreateHooks.getDefault()).join()));
+        }
+
+        final Set<ResolverValidator.ValidatedEntry> missingEntries = new HashSet<>();
+        final Set<ResolverValidator.ValidatedEntry> invalidEntries = new HashSet<>();
+
+        missingEntries.add(resolverFactory.deleteReverseEntry(globalScope, entries.get(0)));
+        missingEntries.add(resolverFactory.deleteReverseEntry(globalScope, entries.get(3)));
+        missingEntries.add(resolverFactory.deleteReverseEntry(globalScope, entries.get(7)));
+
+        // map reverse lookup or key_8 to key_1
+        invalidEntries.add(resolverFactory.putReverseEntry(globalScope, entries.get(8), "key_1"));
+        // map reverse lookup or key_9 to key_2
+        invalidEntries.add(resolverFactory.putReverseEntry(globalScope, entries.get(9), "key_2"));
+
+        final Set<ResolverValidator.ValidatedEntry> allBadEntries = new HashSet<>();
+        allBadEntries.addAll(missingEntries);
+        allBadEntries.addAll(invalidEntries);
+
+        validate(globalScope, allBadEntries);
+
+        // Repair missing entries
+        try (FDBRecordContext context = globalScope.getDatabase().openContext()) {
+            context.asyncToSync(FDBStoreTimer.Waits.WAIT_DIRECTORY_RESOLVE,
+                    ResolverValidator.validate(globalScope, context, null, 5, true, ScanProperties.FORWARD_SCAN)
+                            .forEach(validated -> { }).thenCompose(vignore -> context.commitAsync()));
+        }
+
+        validate(globalScope, invalidEntries);
     }
 
+    private void validate(LocatableResolver locatableResolver, Set<ResolverValidator.ValidatedEntry> expectedBadEntries) {
+        final Set<ResolverValidator.ValidatedEntry> foundBadEntries = new HashSet<>();
+        ResolverValidator.validate(
+                null,
+                locatableResolver,
+                ExecuteProperties.newBuilder()
+                        .setFailOnScanLimitReached(false)
+                        .setScannedRecordsLimit(2),   // Make sure continuations are used
+                3,
+                true,
+                foundBadEntries::add);
+
+        assertEquals(foundBadEntries, expectedBadEntries);
+    }
 }

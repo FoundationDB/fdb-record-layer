@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableRes
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
 import com.apple.foundationdb.subspace.Subspace;
+import com.google.common.annotations.VisibleForTesting;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -124,6 +125,16 @@ public class ScopedInterningLayer extends LocatableResolver {
         return interningLayerFuture
                 .thenCompose(layer -> layer.readReverse(context, value))
                 .whenComplete((ignored, th) -> context.close());
+    }
+
+    @Override
+    @VisibleForTesting
+    protected CompletableFuture<Void> deleteReverseForTesting(FDBRecordContext context, final long value) {
+        return interningLayerFuture
+                .thenApply(layer -> {
+                    layer.deleteReverseForTesting(context, value);
+                    return null;
+                });
     }
 
     @Override
