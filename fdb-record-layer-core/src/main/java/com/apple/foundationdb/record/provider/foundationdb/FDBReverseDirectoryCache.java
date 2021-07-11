@@ -443,46 +443,5 @@ public class FDBReverseDirectoryCache {
             context.ensureActive().set(reverseDirectorySubspace.pack(dirValue), Tuple.from(dirName).pack());
         }).thenApply(result -> result.getContinuation().toBytes());
     }
-
-    private static class NameOrContinuation {
-        @Nullable
-        protected final byte[] continuation;
-        @Nullable
-        protected final String name;
-
-        private NameOrContinuation(@Nullable String name, @Nullable byte[] continuation) {
-            this.continuation = continuation;
-            this.name = name;
-        }
-
-        public boolean isContinuation() {
-            return continuation != null;
-        }
-
-        @Nonnull
-        public String getName() {
-            if (name == null) {
-                throw new RecordCoreException("Name is null");
-            }
-            return name;
-        }
-
-        @Nonnull
-        public byte[] getContinuation() {
-            if (continuation == null) {
-                throw new RecordCoreException("Continuation is null");
-            }
-            return continuation;
-        }
-
-        public static NameOrContinuation name(@Nonnull String name) {
-            return new NameOrContinuation(name, null);
-        }
-
-        public static NameOrContinuation continuation(@Nonnull byte[] continuation) {
-            return new NameOrContinuation(null, continuation);
-        }
-    }
-
 }
 
