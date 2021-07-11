@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.record.cursors;
 
+import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseRunner;
+import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import org.slf4j.Logger;
@@ -72,6 +74,8 @@ import java.util.function.BiFunction;
 public class AutoContinuingCursor<T> implements RecordCursor<T> {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoContinuingCursor.class);
 
+    private static final int MAX_RETRY_ON_EXCEPTION_ATTEMPTS = 3;
+
     @Nonnull
     private final FDBDatabaseRunner runner;
     @Nonnull
@@ -85,35 +89,82 @@ public class AutoContinuingCursor<T> implements RecordCursor<T> {
     @Nullable
     private RecordCursorResult<T> lastResult;
 
+    private final int maxAttemptsOnRetryableExceptions;
+
     /**
      * Creates a new {@link AutoContinuingCursor}.
      * @param runner the runner from which it can open new contexts
-     * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a
-     * continuation
+     * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
      */
     public AutoContinuingCursor(@Nonnull FDBDatabaseRunner runner,
                                 @Nonnull BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator) {
+        this(runner, nextCursorGenerator, 0);
+    }
+
+    /**
+     * Creates a new {@link AutoContinuingCursor}.
+     * @param runner the runner from which it can open new contexts
+     * @param nextCursorGenerator the method which can generate the underlying cursor given a record context and a continuation
+     * @param maxAttemptsOnRetryableExceptions maximum number of consecutive times retryable exceptions, such as
+     *   {@link com.apple.foundationdb.FDBError#TRANSACTION_TOO_OLD}, will be caught and a the cursor automatically
+     *   continued
+     */
+    public AutoContinuingCursor(@Nonnull FDBDatabaseRunner runner,
+                                @Nonnull BiFunction<FDBRecordContext, byte[], RecordCursor<T>> nextCursorGenerator,
+                                int maxAttemptsOnRetryableExceptions) {
         this.runner = runner;
         this.nextCursorGenerator = nextCursorGenerator;
+        this.maxAttemptsOnRetryableExceptions = maxAttemptsOnRetryableExceptions;
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<T>> onNext() {
+        return AsyncUtil.whileTrue(() ->
+                onNextWithRetry(0).thenApply(result -> {
+                    if (result.hasStoppedBeforeEnd()) {
+                        openContextAndGenerateCursor(result.getContinuation().toBytes());
+                        return true;
+                    } else {
+                        lastResult = result;
+                        return false;
+                    }
+                }), getExecutor())
+                .thenApply(ignore -> lastResult);
+    }
+
+    private CompletableFuture<RecordCursorResult<T>> onNextWithRetry(final int attempt) {
         if (currentCursor == null) {
             openContextAndGenerateCursor(null);
         }
-        return AsyncUtil.whileTrue(() ->
-                        currentCursor.onNext().thenApply(result -> {
-                            if (result.hasStoppedBeforeEnd()) {
-                                openContextAndGenerateCursor(result.getContinuation().toBytes());
-                                return true;
-                            } else {
-                                lastResult = result;
-                                return false;
-                            }
-                        }), getExecutor())
-                .thenApply(ignore -> lastResult);
+
+        return currentCursor.onNext().exceptionally(exception -> {
+            if (!isRetryable(exception) || attempt >= maxAttemptsOnRetryableExceptions) {
+                if (exception instanceof RuntimeException) {
+                    throw (RuntimeException)exception;
+                }
+                throw FDBExceptions.wrapException(exception);
+            }
+            openContextAndGenerateCursor(lastResult == null ? null : lastResult.getContinuation().toBytes());
+
+            // Null signals the thenCompose(), below, to compose another attempt at onNext()
+            return null;
+        }).thenCompose(result -> {
+            if (result == null) {
+                return onNextWithRetry(attempt + 1);
+            }
+            return CompletableFuture.completedFuture(result);
+        });
+    }
+
+    private boolean isRetryable(Throwable e) {
+        while (e != null) {
+            if (e instanceof FDBException && ((FDBException) e).isRetryable()) {
+                return true;
+            }
+            e = e.getCause();
+        }
+        return false;
     }
 
     @Nonnull
