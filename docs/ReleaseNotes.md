@@ -16,7 +16,7 @@ Another, smaller change that has been made is that by default, new indexes added
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Index scrubber should consider record filtering [(Issue #1313)](https://github.com/FoundationDB/fdb-record-layer/issues/1313)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -27,7 +27,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Allow stores to check the total size (in bytes) when determining index states rather than the number of records [(Issue #1239)](https://github.com/FoundationDB/fdb-record-layer/issues/1239)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,11 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.190.0
+
+* **Bug fix** Index scrubber should consider record filtering [(Issue #1313)](https://github.com/FoundationDB/fdb-record-layer/issues/1313)
+* **Feature** Allow stores to check the total size (in bytes) when determining index states rather than the number of records [(Issue #1239)](https://github.com/FoundationDB/fdb-record-layer/issues/1239)
 
 ### 3.0.189.0
 
