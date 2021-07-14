@@ -1,5 +1,5 @@
 /*
- * PushDistinctFilterBelowFilterRule.java
+ * PushDistinctBelowFilterRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -76,7 +76,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMa
  *
  * where pred' is rebased along the translation from qun to newQun.
  */
-public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
+public class PushDistinctBelowFilterRule extends PlannerRule<RecordQueryUnorderedPrimaryKeyDistinctPlan> {
     @Nonnull
     private static final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> innerRefMatcher = anyRefOverOnlyPlans();
     @Nonnull
@@ -87,7 +87,7 @@ public class PushDistinctFilterBelowFilterRule extends PlannerRule<RecordQueryUn
     private static final BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> root =
             RecordQueryPlanMatchers.unorderedPrimaryKeyDistinct(exactly(physicalQuantifier(filterPlanMatcher)));
 
-    public PushDistinctFilterBelowFilterRule() {
+    public PushDistinctBelowFilterRule() {
         super(root);
     }
 

@@ -174,7 +174,7 @@ public class CrossProduct {
             }
         }
 
-        private ComplexIterable(@Nonnull final List<Iterable<T>> sources) {
+        private ComplexIterable(@Nonnull final List<? extends Iterable<T>> sources) {
             Verify.verify(sources.size() > 1);
             this.sources = ImmutableList.copyOf(sources);
         }
@@ -243,7 +243,7 @@ public class CrossProduct {
      *         {@code dependsOnFn} in a sense that the iterators created by this iterator will not return
      *         orderings that violate the given depends-on constraints
      */
-    public static <T> EnumeratingIterable<T> crossProduct(@Nonnull final List<Iterable<T>> sources) {
+    public static <T> EnumeratingIterable<T> crossProduct(@Nonnull final List<? extends Iterable<T>> sources) {
         // try simple
         @Nullable
         final EnumeratingIterable<T> maybeSimpleIterable = trySimpleIterable(sources);
@@ -255,7 +255,7 @@ public class CrossProduct {
     }
 
     @Nullable
-    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final List<Iterable<T>> sources) {
+    private static <T> EnumeratingIterable<T> trySimpleIterable(@Nonnull final List<? extends Iterable<T>> sources) {
         if (sources.isEmpty()) {
             return EnumeratingIterable.emptyIterable();
         } else if (sources.size() == 1) {

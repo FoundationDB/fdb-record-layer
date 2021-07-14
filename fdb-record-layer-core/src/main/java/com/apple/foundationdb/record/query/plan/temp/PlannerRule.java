@@ -22,9 +22,12 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Classes that inherit from <code>PlannerRule</code> form the base of the Cascades planning system. During the planning
@@ -61,6 +64,19 @@ public abstract class PlannerRule<T> {
     @Nonnull
     private final BindingMatcher<T> matcher;
 
+    @Nonnull
+    private final Set<PlannerAttribute<?>> requirementDependencies;
+
+    public PlannerRule(@Nonnull BindingMatcher<T> matcher) {
+        this.matcher = matcher;
+        this.requirementDependencies = ImmutableSet.of();
+    }
+
+    public PlannerRule(@Nonnull BindingMatcher<T> matcher, Collection<PlannerAttribute<?>> requirementDependencies) {
+        this.matcher = matcher;
+        this.requirementDependencies = ImmutableSet.copyOf(requirementDependencies);
+    }
+
     /**
      * Returns the class of the operator at the root of the binding expression, if this rule uses a non-trivial binding.
      * Used primarily for indexing rules for more efficient rule search.
@@ -71,19 +87,23 @@ public abstract class PlannerRule<T> {
         return Optional.of(matcher.getRootClass());
     }
 
-    public PlannerRule(@Nonnull BindingMatcher<T> matcher) {
-        this.matcher = matcher;
+    @Nonnull
+    public Set<PlannerAttribute<?>> getRequirementDependencies() {
+        return requirementDependencies;
     }
 
     public abstract void onMatch(@Nonnull PlannerRuleCall call);
 
     @Nonnull
-    public BindingMatcher<?> getMatcher() {
+    public BindingMatcher<T> getMatcher() {
         return matcher;
     }
 
     @Override
     public String toString() {
         return getClass().getSimpleName();
+    }
+
+    public interface PreOrderRule {
     }
 }

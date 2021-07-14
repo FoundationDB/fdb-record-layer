@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.collect.ImmutableList;
@@ -90,6 +91,11 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
     }
 
     @Nonnull
+    public static RecordQueryUnorderedUnionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers) {
+        return new RecordQueryUnorderedUnionPlan(quantifiers, isReversed(quantifiers));
+    }
+
+    @Nonnull
     public static RecordQueryUnorderedUnionPlan from(@Nonnull List<? extends RecordQueryPlan> children) {
         final boolean reverse = children.get(0).isReverse();
         ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> builder = ImmutableList.builder();
@@ -121,8 +127,12 @@ public class RecordQueryUnorderedUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    public RecordQueryUnorderedUnionPlan withChildren(@Nonnull final List<? extends RecordQueryPlan> newChildren) {
-        return from(newChildren);
+    public RecordQueryUnorderedUnionPlan withChildren(@Nonnull final List<? extends ExpressionRef<? extends RelationalExpression>> newChildren) {
+        return new RecordQueryUnorderedUnionPlan(
+                newChildren.stream()
+                        .map(Quantifier::physical)
+                        .collect(ImmutableList.toImmutableList()),
+                isReverse());
     }
 
     @Nonnull

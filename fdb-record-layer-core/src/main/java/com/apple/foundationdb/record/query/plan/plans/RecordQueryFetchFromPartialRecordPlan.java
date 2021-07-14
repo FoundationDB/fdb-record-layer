@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.DerivedValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -49,6 +50,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -64,14 +66,17 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     private final Quantifier.Physical inner;
     @Nonnull
     private final Supplier<List<? extends Value>> resultValuesSupplier;
+    @Nonnull
+    private final TranslateValueFunction translateValueFunction;
 
-    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner) {
-        this(Quantifier.physical(GroupExpressionRef.of(inner)));
+    public RecordQueryFetchFromPartialRecordPlan(@Nonnull RecordQueryPlan inner, @Nonnull final TranslateValueFunction translateValueFunction) {
+        this(Quantifier.physical(GroupExpressionRef.of(inner)), translateValueFunction);
     }
 
-    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner) {
+    private RecordQueryFetchFromPartialRecordPlan(@Nonnull final Quantifier.Physical inner, @Nonnull final TranslateValueFunction translateValueFunction) {
         this.inner = inner;
         this.resultValuesSupplier = Suppliers.memoize(() -> ImmutableList.of(new DerivedValue(inner.getFlowedValues())));
+        this.translateValueFunction = translateValueFunction;
     }
 
     @Nonnull
@@ -126,6 +131,11 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     }
 
     @Nonnull
+    public TranslateValueFunction getPushValueFunction() {
+        return translateValueFunction;
+    }
+
+    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
@@ -134,13 +144,18 @@ public class RecordQueryFetchFromPartialRecordPlan implements RecordQueryPlanWit
     @Nonnull
     @Override
     public RecordQueryFetchFromPartialRecordPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class));
+        return new RecordQueryFetchFromPartialRecordPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), translateValueFunction);
+    }
+
+    @Nonnull
+    public Optional<Value> pushValue(@Nonnull Value value, @Nonnull CorrelationIdentifier newAlias) {
+        return translateValueFunction.translateValue(value, QuantifiedColumnValue.of(newAlias, 0));
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryFetchFromPartialRecordPlan(child);
+        return new RecordQueryFetchFromPartialRecordPlan(child, TranslateValueFunction.unableToTranslate());
     }
 
     @Nonnull

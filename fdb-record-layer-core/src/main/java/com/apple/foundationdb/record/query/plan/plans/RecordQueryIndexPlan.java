@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -56,12 +57,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
  */
 @API(API.Status.INTERNAL)
+@SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, RecordQueryPlanWithComparisons, RecordQueryPlanWithIndex, PlannerGraphRewritable {
     protected static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Index-Plan");
 
@@ -73,17 +76,42 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected final ScanComparisons comparisons;
     protected final boolean reverse;
     protected final boolean strictlySorted;
+    @Nonnull
+    private final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional;
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse, final boolean strictlySorted) {
+    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
+        this(indexName, scanType, comparisons, reverse, false);
+    }
+
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nonnull final IndexScanType scanType,
+                                @Nonnull final ScanComparisons comparisons,
+                                final boolean reverse,
+                                final boolean strictlySorted) {
+        this(indexName, scanType, comparisons, reverse, strictlySorted, Optional.empty());
+    }
+
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nonnull final IndexScanType scanType,
+                                @Nonnull final ScanComparisons comparisons,
+                                final boolean reverse,
+                                final boolean strictlySorted,
+                                @Nonnull final ValueIndexScanMatchCandidate matchCandidate) {
+        this(indexName, scanType, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
+    }
+
+    private RecordQueryIndexPlan(@Nonnull final String indexName,
+                                 @Nonnull IndexScanType scanType,
+                                 @Nonnull final ScanComparisons comparisons,
+                                 final boolean reverse,
+                                 final boolean strictlySorted,
+                                 @Nonnull final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional) {
         this.indexName = indexName;
         this.scanType = scanType;
         this.comparisons = comparisons;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
-    }
-
-    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
-        this(indexName, scanType, comparisons, reverse, false);
+        this.matchCandidateOptional = matchCandidateOptional;
     }
 
     @Nonnull
@@ -154,6 +182,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return strictlySorted;
     }
 
+    @Nonnull
+    @Override
+    public Optional<ValueIndexScanMatchCandidate> getMatchCandidateOptional() {
+        return matchCandidateOptional;
+    }
+
     @Override
     public RecordQueryIndexPlan strictlySorted() {
         return new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse, true);
@@ -176,7 +210,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return new RecordQueryIndexPlan(getIndexName(),
                 getScanType(),
                 getComparisons(),
-                isReverse());
+                isReverse(),
+                isStrictlySorted(),
+                matchCandidateOptional);
     }
 
     @Nonnull
@@ -202,6 +238,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         }
         RecordQueryIndexPlan that = (RecordQueryIndexPlan) otherExpression;
         return reverse == that.reverse &&
+               strictlySorted == that.strictlySorted &&
                Objects.equals(indexName, that.indexName) &&
                Objects.equals(scanType, that.scanType) &&
                Objects.equals(comparisons, that.comparisons);
@@ -220,7 +257,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexName, scanType, comparisons, reverse);
+        return Objects.hash(indexName, scanType, comparisons, reverse, strictlySorted);
     }
 
     @Override
@@ -230,7 +267,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                 return indexName.hashCode() + scanType.planHash(hashKind) + comparisons.planHash(hashKind) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanType, comparisons, reverse);
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanType, comparisons, reverse, strictlySorted);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

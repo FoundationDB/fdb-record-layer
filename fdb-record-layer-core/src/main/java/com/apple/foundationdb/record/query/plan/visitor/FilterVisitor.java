@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -89,7 +90,9 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 return recordQueryPlan;
             }
 
-            recordQueryPlan = new RecordQueryFetchFromPartialRecordPlan(new RecordQueryFilterPlan(removedFetchPlan, indexFilters));
+            recordQueryPlan = new RecordQueryFetchFromPartialRecordPlan(
+                    new RecordQueryFilterPlan(removedFetchPlan, indexFilters),
+                    TranslateValueFunction.unableToTranslate());
 
             if (!residualFilters.isEmpty()) {
                 recordQueryPlan = new RecordQueryFilterPlan(recordQueryPlan, residualFilters);

@@ -72,9 +72,6 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
 
         KeyExpression rootExpression = index.getRootExpression();
 
-        final ImmutableList.Builder<Value> indexKeyValuesBuilder = ImmutableList.builder();
-        final ImmutableList.Builder<Value> indexValueValuesBuilder = ImmutableList.builder();
-
         final int keyValueSplitPoint;
         if (rootExpression instanceof KeyWithValueExpression) {
             final KeyWithValueExpression keyWithValueExpression = (KeyWithValueExpression)rootExpression;
@@ -84,17 +81,23 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
             keyValueSplitPoint = -1;
         }
 
-        final GraphExpansion keyValueExpansion =
-                pop(rootExpression.expand(push(VisitorState.of(baseQuantifier.getAlias(), ImmutableList.of(), keyValueSplitPoint, 0))));
+        final List<Value> keyValues = Lists.newArrayList();
+        final List<Value> valueValues = Lists.newArrayList();
 
-        final List<Value> regularExpansionResultValues = keyValueExpansion.getResultValues();
-        if (keyValueSplitPoint == -1) {
-            indexKeyValuesBuilder.addAll(regularExpansionResultValues);
-        } else {
-            indexKeyValuesBuilder.addAll(regularExpansionResultValues.subList(0, keyValueSplitPoint));
-            indexValueValuesBuilder.addAll(regularExpansionResultValues.subList(keyValueSplitPoint, regularExpansionResultValues.size()));
-        }
+        final VisitorState initialState =
+                VisitorState.of(keyValues,
+                        valueValues,
+                        baseQuantifier.getAlias(),
+                        ImmutableList.of(),
+                        keyValueSplitPoint,
+                        0);
+
+        final GraphExpansion keyValueExpansion =
+                pop(rootExpression.expand(push(initialState)));
+
         allExpansionsBuilder.add(keyValueExpansion);
+
+        final int keySize = keyValues.size();
 
         if (primaryKey != null) {
             // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
@@ -102,17 +105,21 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
             final List<KeyExpression> trimmedPrimaryKeys = Lists.newArrayList(primaryKey.normalizeKeyForPositions());
             index.trimPrimaryKey(trimmedPrimaryKeys);
 
-            trimmedPrimaryKeys
-                    .forEach(primaryKeyPart -> {
-                        final GraphExpansion primaryKeyPartExpansion =
-                                pop(primaryKeyPart.expand(push(VisitorState.of(baseQuantifier.getAlias(),
-                                        ImmutableList.of(),
-                                        -1,
-                                        0))));
-                        indexKeyValuesBuilder.addAll(primaryKeyPartExpansion.getResultValues());
-                        allExpansionsBuilder
-                                .add(primaryKeyPartExpansion);
-                    });
+            for (int i = 0; i < trimmedPrimaryKeys.size(); i++) {
+                final KeyExpression primaryKeyPart = trimmedPrimaryKeys.get(i);
+
+                final VisitorState initialStateForKeyPart =
+                        VisitorState.of(keyValues,
+                                Lists.newArrayList(),
+                                baseQuantifier.getAlias(),
+                                ImmutableList.of(),
+                                -1,
+                                keySize + i);
+                final GraphExpansion primaryKeyPartExpansion =
+                        pop(primaryKeyPart.expand(push(initialStateForKeyPart)));
+                allExpansionsBuilder
+                        .add(primaryKeyPartExpansion);
+            }
         }
 
         final GraphExpansion completeExpansion = GraphExpansion.ofOthers(allExpansionsBuilder.build());
@@ -123,8 +130,8 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
                 ExpressionRefTraversal.withRoot(GroupExpressionRef.of(matchableSortExpression)),
                 parameters,
                 recordValue,
-                indexKeyValuesBuilder.build(),
-                indexValueValuesBuilder.build(),
+                keyValues,
+                valueValues,
                 fullKey(index, primaryKey));
     }
 

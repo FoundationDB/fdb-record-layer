@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 
 /**
  * A <code>PlannerRuleCall</code> is a context object that supports a single application of a rule to a particular
@@ -42,6 +43,7 @@ import javax.annotation.Nonnull;
 public interface PlannerRuleCall {
     /**
      * Returns the alias resolver that is currently in use and maintained by the planner.
+     *
      * @return the alias resolver
      */
     @Nonnull
@@ -52,6 +54,7 @@ public interface PlannerRuleCall {
      * bindings specified by the rule associated with this call.
      * This method should be implemented by rule call implementations, but users of the rule should usually access these
      * via {@link #get(BindingMatcher)}.
+     *
      * @return the map of bindings that the rule's matcher expression produced
      */
     @Nonnull
@@ -60,6 +63,7 @@ public interface PlannerRuleCall {
     /**
      * Get the planning context with metadata that might be relevant to the planner, such as the list of available
      * indexes.
+     *
      * @return a {@link PlanContext} object with various metadata that could affect planning
      */
     @Nonnull
@@ -67,19 +71,27 @@ public interface PlannerRuleCall {
 
     /**
      * Return the bindable that is bound to the given key.
+     *
      * @param key the binding from the rule's matcher expression
      * @param <U> the requested return type
+     *
      * @return the bindable bound to <code>name</code> in the rule's matcher expression
-     * @throws java.util.NoSuchElementException when <code>key</code> is not a valid binding, or is not bound to a bindable
+     *
+     * @throws java.util.NoSuchElementException when <code>key</code> is not a valid binding, or is not bound to a
+     * bindable
      */
     @Nonnull
     default <U> U get(@Nonnull BindingMatcher<U> key) {
         return getBindings().get(key);
     }
 
+    @Nonnull
+    <T> Optional<T> getInterestingProperty(@Nonnull PlannerAttribute<T> plannerAttribute);
+
     /**
      * Notify the planner's data structures that the new expression contained in <code>expression</code> has been
      * produced by the rule. This method may be called zero or more times by the rule's <code>onMatch()</code> method.
+     *
      * @param expression the expression produced by the rule
      */
     void yield(@Nonnull ExpressionRef<? extends RelationalExpression> expression);
@@ -87,6 +99,7 @@ public interface PlannerRuleCall {
     /**
      * Notify the planner's data structures that a new partial match has been produced by the rule. This method may be
      * called zero or more times by the rule's <code>onMatch()</code> method.
+     *
      * @param boundAliasMap the alias map of bound correlated identifiers between query and candidate
      * @param matchCandidate the match candidate
      * @param queryExpression the query expression
@@ -99,12 +112,20 @@ public interface PlannerRuleCall {
                            @Nonnull final ExpressionRef<? extends RelationalExpression> candidateRef,
                            @Nonnull final MatchInfo matchInfo);
 
+    <T> void pushRequirement(@Nonnull final ExpressionRef<? extends RelationalExpression> reference,
+                             @Nonnull final PlannerAttribute<T> plannerAttribute,
+                             @Nonnull final T requirement);
+
     /**
-     * Wrap the given planner expression in an implementation of {@link ExpressionRef} suitable for the planner associated
-     * with this rule. Different rule call implementations might use different reference types depending on the specifics
+     * Wrap the given planner expression in an implementation of {@link ExpressionRef} suitable for the planner
+     * associated
+     * with this rule. Different rule call implementations might use different reference types depending on the
+     * specifics
      * of the associated planner.
+     *
      * @param expression the planner expression to wrap in a reference type
      * @param <U> the type of the planner expression
+     *
      * @return {@code expression} wrapped in a reference
      */
     <U extends RelationalExpression> ExpressionRef<U> ref(U expression);

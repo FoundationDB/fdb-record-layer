@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
@@ -38,6 +37,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -49,7 +49,7 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class LogicalSortExpression implements RelationalExpressionWithChildren, InternalPlannerGraphRewritable {
-    @Nonnull
+    @Nullable
     private final KeyExpression sort;
 
     private final boolean reverse;
@@ -60,13 +60,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Nonnull
     private final Supplier<List<? extends Value>> resultValuesSupplier;
 
-    public LogicalSortExpression(@Nonnull final KeyExpression sort,
-                                 final boolean reverse,
-                                 @Nonnull final RelationalExpression inner) {
-        this(sort, reverse, Quantifier.forEach(GroupExpressionRef.of(inner)));
-    }
-
-    public LogicalSortExpression(@Nonnull final KeyExpression sort,
+    public LogicalSortExpression(@Nullable final KeyExpression sort,
                                  final boolean reverse,
                                  @Nonnull final Quantifier inner) {
         this.sort = sort;
@@ -86,7 +80,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
         return 1;
     }
 
-    @Nonnull
+    @Nullable
     public KeyExpression getSort() {
         return sort;
     }
@@ -141,7 +135,7 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
 
         final LogicalSortExpression other = (LogicalSortExpression) otherExpression;
 
-        return reverse == other.reverse && !sort.equals(other.sort);
+        return reverse == other.reverse && !Objects.equals(sort, other.sort);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -163,11 +157,20 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
     @Nonnull
     @Override
     public PlannerGraph rewriteInternalPlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        return PlannerGraph.fromNodeAndChildGraphs(
-                new PlannerGraph.LogicalOperatorNodeWithInfo(this,
-                        NodeInfo.SORT_OPERATOR,
-                        ImmutableList.of("BY {{expression}}"),
-                        ImmutableMap.of("expression", Attribute.gml(sort.toString()))),
-                childGraphs);
+        if (sort != null) {
+            return PlannerGraph.fromNodeAndChildGraphs(
+                    new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                            NodeInfo.SORT_OPERATOR,
+                            ImmutableList.of("BY {{expression}}"),
+                            ImmutableMap.of("expression", Attribute.gml(sort.toString()))),
+                    childGraphs);
+        } else {
+            return PlannerGraph.fromNodeAndChildGraphs(
+                    new PlannerGraph.LogicalOperatorNodeWithInfo(this,
+                            NodeInfo.SORT_OPERATOR,
+                            ImmutableList.of("PRESERVE ORDER"),
+                            ImmutableMap.of()),
+                    childGraphs);
+        }
     }
 }

@@ -21,45 +21,47 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
+import com.apple.foundationdb.record.query.plan.temp.Ordering;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.ValueIndexExpansionVisitor;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
+import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * A property that determines whether the expression may produce duplicate entries. If the given expression is a
@@ -79,9 +81,6 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
     @Nonnull
     @Override
     public Optional<OrderingInfo> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Optional<OrderingInfo>> childResults) {
-
-        final RecordMetaData metaData = context.getMetaData();
-
         if (expression instanceof RecordQueryScanPlan) {
             return fromKeyAndScanComparisons(context.getCommonPrimaryKey(),
                     ((RecordQueryScanPlan)expression).getComparisons(),
@@ -90,90 +89,112 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
             return fromKeyAndScanComparisons(context.getCommonPrimaryKey(),
                     ((PrimaryScanExpression)expression).scanComparisons(),
                     null);
-        } else if (expression instanceof RecordQueryIndexPlan) {
-            final RecordQueryIndexPlan recordQueryIndexPlan = (RecordQueryIndexPlan)expression;
-            final String indexName = recordQueryIndexPlan.getIndexName();
-            final Index index = metaData.getIndex(indexName);
-            final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
-            final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
-            final KeyExpression keyExpression = ValueIndexExpansionVisitor.fullKey(index, commonPrimaryKeyForIndex);
-            final ScanComparisons scanComparisons = recordQueryIndexPlan.getComparisons();
-            return fromKeyAndScanComparisons(keyExpression, scanComparisons, (RecordQueryIndexPlan)expression);
-        } else if (expression instanceof IndexScanExpression) {
-            final IndexScanExpression indexScanExpression = (IndexScanExpression)expression;
-            if (indexScanExpression.getScanType() != IndexScanType.BY_VALUE) {
-                return Optional.empty();
-            }
-            final String indexName = indexScanExpression.getIndexName();
-            final Index index = metaData.getIndex(indexName);
-            final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
-            final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
-            final KeyExpression keyExpression = ValueIndexExpansionVisitor.fullKey(index, commonPrimaryKeyForIndex);
-            final ScanComparisons scanComparisons = ((IndexScanExpression)expression).scanComparisons();
-            return fromKeyAndScanComparisons(keyExpression, scanComparisons, null);
+        } else if (expression instanceof RecordQueryIndexPlan || expression instanceof RecordQueryCoveringIndexPlan) {
+            return fromIndexScanOrCoveringIndexScan(context, (RecordQueryPlan)expression);
         } else if (expression instanceof LogicalSortExpression) {
             final Optional<OrderingInfo> childOrderingInfoOptional = Iterables.getOnlyElement(childResults);
 
             final KeyExpression sortKey = ((LogicalSortExpression)expression).getSort();
+            if (sortKey == null) {
+                return orderingInfoFromSingleChild(expression, childResults);
+            }
+
             final List<KeyExpression> normalizedSortKeys = sortKey.normalizeKeyForPositions();
             final ImmutableList.Builder<KeyPart> keyPartBuilder = ImmutableList.builder();
-            final Set<KeyExpression> equalityBoundKeys =
-                    childOrderingInfoOptional.map(OrderingInfo::getEqualityBoundKeys).orElse(ImmutableSet.of());
+            final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundKeyMap =
+                    childOrderingInfoOptional.map(OrderingInfo::getEqualityBoundKeyMap).orElse(ImmutableSetMultimap.of());
             for (final KeyExpression keyExpression : normalizedSortKeys) {
-                if (!equalityBoundKeys.contains(keyExpression)) {
+                if (!equalityBoundKeyMap.containsKey(keyExpression)) {
                     keyPartBuilder.add(KeyPart.of(keyExpression, ComparisonRange.Type.EMPTY));
                 }
             }
 
-            return Optional.of(new OrderingInfo(equalityBoundKeys, keyPartBuilder.build(), null, null));
-        } else if (expression instanceof RecordQueryIntersectionPlan ||
-                   expression instanceof LogicalIntersectionExpression) {
-            final Optional<List<KeyPart>> commonOrderingKeys = commonOrderingKeys(childResults);
-            if (!commonOrderingKeys.isPresent()) {
-                return Optional.empty();
-            }
-
-            final Optional<Set<KeyExpression>> commonEqualityBoundKeysOptional =
-                    combineEqualityBoundKeys(childResults, Sets::union);
-
-            return commonEqualityBoundKeysOptional
-                    .map(commonEqualityBoundKeys -> new OrderingInfo(commonEqualityBoundKeys, commonOrderingKeys.get(),
-                                                                     expression instanceof RecordQueryIntersectionPlan ? (RecordQueryIntersectionPlan)expression : null,
-                                                                     childOrderingInfos(childResults)));
+            return Optional.of(new OrderingInfo(equalityBoundKeyMap, keyPartBuilder.build(), null, null));
+        } else if (expression instanceof RecordQueryIntersectionPlan) {
+            final RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan)expression;
+            return fromChildrenForSetPlan(intersectionPlan,
+                    childResults,
+                    orderingFromComparisonKey(intersectionPlan.getComparisonKey()),
+                    Ordering::unionEqualityBoundKeys);
         } else if (expression instanceof RecordQueryUnionPlan) {
-            final Optional<List<KeyPart>> commonOrderingKeys = commonOrderingKeys(childResults);
-            if (!commonOrderingKeys.isPresent()) {
-                return Optional.empty();
-            }
-
-            final Optional<Set<KeyExpression>> commonEqualityBoundKeysOptional =
-                    combineEqualityBoundKeys(childResults, Sets::intersection);
-
-            return commonEqualityBoundKeysOptional
-                    .map(commonEqualityBoundKeys -> new OrderingInfo(commonEqualityBoundKeys, commonOrderingKeys.get(),
-                                                                     (RecordQueryUnionPlan)expression, childOrderingInfos(childResults)));
+            final RecordQueryUnionPlan unionPlan = (RecordQueryUnionPlan)expression;
+            return fromChildrenForSetPlan(unionPlan,
+                    childResults,
+                    orderingFromComparisonKey(unionPlan.getComparisonKey()),
+                    Ordering::intersectEqualityBoundKeys);
+        } else if (expression instanceof RecordQueryUnorderedUnionPlan) {
+            return fromChildrenForSetPlan((RecordQueryUnorderedUnionPlan)expression, childResults, Ordering.preserveOrder(), Ordering::intersectEqualityBoundKeys);
         } else {
-            final List<? extends Quantifier> quantifiers = expression.getQuantifiers();
-            if (quantifiers.size() == 1) {
-                return Iterables.getOnlyElement(childResults);
-            }
-            return Optional.empty();
+            return orderingInfoFromSingleChild(expression, childResults);
         }
+    }
+
+    @Nonnull
+    private Ordering orderingFromComparisonKey(@Nonnull final KeyExpression comparisonKey) {
+        return new Ordering(ImmutableSetMultimap.of(),
+                comparisonKey
+                        .normalizeKeyForPositions()
+                        .stream()
+                        .map(e -> KeyPart.of(e, ComparisonRange.Type.INEQUALITY))
+                        .collect(Collectors.toList()));
+    }
+
+    private Optional<OrderingInfo> orderingInfoFromSingleChild(@Nonnull final RelationalExpression expression,
+                                                               @Nonnull final List<Optional<OrderingInfo>> childResults) {
+        final List<? extends Quantifier> quantifiers = expression.getQuantifiers();
+        if (quantifiers.size() == 1) {
+            return Iterables.getOnlyElement(childResults);
+        }
+        return Optional.empty();
     }
 
     @Nonnull
     @Override
     public Optional<OrderingInfo> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Optional<OrderingInfo>> memberResults) {
-        final Optional<List<KeyPart>> commonOrderingKeysOptional = commonOrderingKeys(memberResults);
+        final List<Optional<Ordering>> orderingOptionals = orderingOptionals(memberResults);
+        final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeys(orderingOptionals, Ordering.preserveOrder());
         if (!commonOrderingKeysOptional.isPresent()) {
             return Optional.empty();
         }
 
-        final Optional<Set<KeyExpression>> commonEqualityBoundKeysOptional =
-                combineEqualityBoundKeys(memberResults, Sets::intersection);
+        final Optional<SetMultimap<KeyExpression, Comparisons.Comparison>> commonEqualityBoundKeysOptional =
+                Ordering.combineEqualityBoundKeys(orderingOptionals, Ordering::intersectEqualityBoundKeys);
         return commonEqualityBoundKeysOptional
                 .map(keyExpressions -> new OrderingInfo(keyExpressions, commonOrderingKeysOptional.get(), null, childOrderingInfos(memberResults)));
 
+    }
+
+    @Nonnull
+    private static List<Optional<Ordering>> orderingOptionals(@Nonnull List<Optional<OrderingInfo>> orderingInfos) {
+        return orderingInfos.stream()
+                .map(orderingInfoOptional -> orderingInfoOptional.map(OrderingInfo::getOrdering))
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private static Optional<OrderingInfo> fromIndexScanOrCoveringIndexScan(@Nonnull final PlanContext context, @Nonnull final RecordQueryPlan plan) {
+        final RecordQueryIndexPlan recordQueryIndexPlan;
+        if (plan instanceof RecordQueryIndexPlan) {
+            recordQueryIndexPlan = (RecordQueryIndexPlan)plan;
+        } else if (plan instanceof RecordQueryCoveringIndexPlan) {
+            final RecordQueryPlanWithIndex planWithIndex = ((RecordQueryCoveringIndexPlan)plan).getIndexPlan();
+            if (planWithIndex instanceof RecordQueryIndexPlan) {
+                recordQueryIndexPlan = (RecordQueryIndexPlan)planWithIndex;
+            } else {
+                return Optional.empty();
+            }
+        } else {
+            return Optional.empty();
+        }
+
+        final String indexName = recordQueryIndexPlan.getIndexName();
+        final RecordMetaData metaData = context.getMetaData();
+        final Index index = metaData.getIndex(indexName);
+        final Collection<RecordType> recordTypesForIndex = metaData.recordTypesForIndex(index);
+        final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
+        final KeyExpression keyExpression = ValueIndexExpansionVisitor.fullKey(index, commonPrimaryKeyForIndex);
+        final ScanComparisons scanComparisons = recordQueryIndexPlan.getComparisons();
+        return fromKeyAndScanComparisons(keyExpression, scanComparisons, recordQueryIndexPlan);
     }
 
     @Nullable
@@ -189,106 +210,22 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
     }
 
     @Nonnull
-    private static Optional<List<KeyPart>> commonOrderingKeys(@Nonnull List<Optional<OrderingInfo>> orderingInfoOptionals) {
-        final Iterator<Optional<OrderingInfo>> membersIterator = orderingInfoOptionals.iterator();
-        if (!membersIterator.hasNext()) {
-            // don't bail on incorrect graph structure, just return empty()
-            return Optional.empty();
-        }
-
-        final Optional<OrderingInfo> commonOrderingInfoOptional = membersIterator.next();
-        if (!commonOrderingInfoOptional.isPresent()) {
-            return Optional.empty();
-        }
-
-        final OrderingInfo commonOrderingInfo = commonOrderingInfoOptional.get();
-        List<KeyPart> commonOrderingKeys = commonOrderingInfo.getOrderingKeyParts();
-
-        while (membersIterator.hasNext()) {
-            final Optional<OrderingInfo> currentOrderingInfoOptional = membersIterator.next();
-            if (!currentOrderingInfoOptional.isPresent()) {
-                return Optional.empty();
-            }
-
-            final OrderingInfo currentOrderingInfo = currentOrderingInfoOptional.get();
-            final List<KeyPart> currentOrderingKeys = currentOrderingInfo.getOrderingKeyParts();
-
-            // special case -- if both are empty (and if one is -- both should be), the result is empty
-            if (commonOrderingKeys.isEmpty() && currentOrderingKeys.isEmpty()) {
-                continue;
-            }
-
-            if (commonOrderingKeys.isEmpty()) {
-                // current is not empty
-                return Optional.empty();
-            }
-
-            for (int i = 0; i < commonOrderingKeys.size(); i++) {
-                final KeyPart commonKeyPart = commonOrderingKeys.get(i);
-
-                if (i == currentOrderingKeys.size()) {
-                    commonOrderingKeys = KeyPart.prefix(commonOrderingKeys, i);
-                    break;
-                }
-                final KeyPart currentKeyPart = currentOrderingKeys.get(i);
-
-                Verify.verify(currentKeyPart.getComparisonRangeType() == ComparisonRange.Type.INEQUALITY ||
-                              currentKeyPart.getComparisonRangeType() == ComparisonRange.Type.EMPTY);
-                if (!commonKeyPart.getNormalizedKeyExpression().equals(currentKeyPart.getNormalizedKeyExpression())) {
-                    commonOrderingKeys = KeyPart.prefix(commonOrderingKeys, i);
-                    break;
-                }
-            }
-
-            if (commonOrderingKeys.isEmpty()) {
-                return Optional.empty();
-            }
-        }
-
-        return Optional.of(commonOrderingKeys);
-    }
-
-    @Nonnull
-    private Optional<Set<KeyExpression>> combineEqualityBoundKeys(@Nonnull final List<Optional<OrderingInfo>> orderingInfoOptionals,
-                                                                  @Nonnull final BinaryOperator<Set<KeyExpression>> combineFn) {
-        final Iterator<Optional<OrderingInfo>> membersIterator = orderingInfoOptionals.iterator();
-        if (!membersIterator.hasNext()) {
-            // don't bail on incorrect graph structure, just return empty()
-            return Optional.empty();
-        }
-
-        final Optional<OrderingInfo> commonOrderingInfoOptional = membersIterator.next();
-        if (!commonOrderingInfoOptional.isPresent()) {
-            return Optional.empty();
-        }
-
-        final OrderingInfo commonOrderingInfo = commonOrderingInfoOptional.get();
-        Set<KeyExpression> commonEqualityBoundKeys = commonOrderingInfo.getEqualityBoundKeys();
-
-        while (membersIterator.hasNext()) {
-            final Optional<OrderingInfo> currentOrderingInfoOptional = membersIterator.next();
-            if (!currentOrderingInfoOptional.isPresent()) {
-                return Optional.empty();
-            }
-
-            final OrderingInfo currentOrderingInfo = currentOrderingInfoOptional.get();
-
-            final Set<KeyExpression> currentEqualityBoundKeys = currentOrderingInfo.getEqualityBoundKeys();
-            commonEqualityBoundKeys = combineFn.apply(commonEqualityBoundKeys, currentEqualityBoundKeys);
-        }
-
-        return Optional.of(commonEqualityBoundKeys);
-    }
-
-    @Nonnull
     private static Optional<OrderingInfo> fromKeyAndScanComparisons(@Nullable final KeyExpression keyExpression,
                                                                     @Nonnull final ScanComparisons scanComparisons,
                                                                     @Nullable RecordQueryPlan orderedPlan) {
         if (keyExpression == null) {
             return Optional.empty();
         }
+        final ImmutableSetMultimap.Builder<KeyExpression, Comparisons.Comparison> equalityBoundKeyMapBuilder = ImmutableSetMultimap.builder();
         final List<KeyExpression> normalizedKeyExpressions = keyExpression.normalizeKeyForPositions();
-        final Set<KeyExpression> equalityBoundKeyExpressions = ImmutableSet.copyOf(normalizedKeyExpressions.subList(0, scanComparisons.getEqualitySize()));
+        final List<Comparisons.Comparison> equalityComparisons = scanComparisons.getEqualityComparisons();
+
+        for (int i = 0; i < equalityComparisons.size(); i++) {
+            final KeyExpression normalizedKeyExpression = normalizedKeyExpressions.get(i);
+            final Comparisons.Comparison comparison = equalityComparisons.get(i);
+
+            equalityBoundKeyMapBuilder.put(normalizedKeyExpression, comparison);
+        }
 
         final ImmutableList.Builder<KeyPart> result = ImmutableList.builder();
         for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
@@ -302,32 +239,75 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                     : ComparisonRange.Type.EMPTY));
         }
 
-        return Optional.of(new OrderingInfo(equalityBoundKeyExpressions, result.build(), orderedPlan, null));
+        return Optional.of(new OrderingInfo(equalityBoundKeyMapBuilder.build(), result.build(), orderedPlan, null));
+    }
+
+    @Nonnull
+    public static Optional<OrderingInfo> fromChildrenForSetPlan(@Nullable final RecordQuerySetPlan plan,
+                                                                @Nonnull final List<Optional<OrderingInfo>> childResults,
+                                                                @Nonnull final Ordering requiredOrdering,
+                                                                @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparisons.Comparison>> combineFn) {
+        final List<Optional<Ordering>> orderingOptionals = orderingOptionals(childResults);
+
+        return fromOrderingsForSetPlan(orderingOptionals,
+                requiredOrdering,
+                combineFn)
+                .map(ordering -> new OrderingInfo(ordering.getEqualityBoundKeyMap(),
+                        ordering.getOrderingKeyParts(),
+                        plan,
+                        childOrderingInfos(childResults)));
+    }
+
+    public static Optional<Ordering> fromOrderingsForSetPlan(@Nonnull final List<Optional<Ordering>> orderingOptionals,
+                                                             @Nonnull final Ordering requiredOrdering,
+                                                             @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparisons.Comparison>> combineFn) {
+        final Optional<List<KeyPart>> commonOrderingKeys = Ordering.commonOrderingKeys(orderingOptionals, requiredOrdering);
+        if (!commonOrderingKeys.isPresent()) {
+            return Optional.empty();
+        }
+
+        final Optional<SetMultimap<KeyExpression, Comparisons.Comparison>> commonEqualityBoundKeysOptional =
+                Ordering.combineEqualityBoundKeys(orderingOptionals, combineFn);
+
+        return commonEqualityBoundKeysOptional
+                .map(commonEqualityBoundKeys ->
+                        new Ordering(commonEqualityBoundKeys, commonOrderingKeys.get()));
     }
 
     /**
      * Class to hold the info returned by this property.
      */
     public static class OrderingInfo {
-        final Set<KeyExpression> equalityBoundKeys;
-        final List<KeyPart> orderingKeyParts;
+        @Nonnull final Ordering ordering;
         @Nullable final RecordQueryPlan orderedPlan;
         @Nullable final List<OrderingInfo> children;
 
-        public OrderingInfo(final Set<KeyExpression> equalityBoundKeys, final List<KeyPart> orderingKeyParts,
+        public OrderingInfo(@Nonnull final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundKeyMap, final List<KeyPart> orderingKeyParts,
                             @Nullable final RecordQueryPlan orderedPlan, @Nullable final List<OrderingInfo> children) {
-            this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
-            this.equalityBoundKeys = ImmutableSet.copyOf(equalityBoundKeys);
+            this.ordering = new Ordering(equalityBoundKeyMap, orderingKeyParts);
             this.orderedPlan = orderedPlan;
             this.children = children;
         }
 
+        @Nonnull
+        public Ordering getOrdering() {
+            return ordering;
+        }
+
+        public SetMultimap<KeyExpression, Comparisons.Comparison> getEqualityBoundKeyMap() {
+            return ordering.getEqualityBoundKeyMap();
+        }
+
         public Set<KeyExpression> getEqualityBoundKeys() {
-            return equalityBoundKeys;
+            return ordering.getEqualityBoundKeys();
         }
 
         public List<KeyPart> getOrderingKeyParts() {
-            return orderingKeyParts;
+            return ordering.getOrderingKeyParts();
+        }
+
+        public boolean isPreserve() {
+            return ordering.isPreserve();
         }
 
         // TODO: This suggests that ordering and distinct should be tracked together.
@@ -335,9 +315,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
             if (orderedPlan instanceof RecordQueryIndexPlan) {
                 RecordQueryIndexPlan indexPlan = (RecordQueryIndexPlan)orderedPlan;
                 Index index = getIndex.apply(indexPlan.getIndexName());
-                if (index.isUnique() && nkeys >= index.getColumnSize()) {
-                    return true;
-                }
+                return index.isUnique() && nkeys >= index.getColumnSize();
             }
             return false;
         }

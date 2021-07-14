@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -61,7 +62,12 @@ public class PrimaryAccessExpansionVisitor extends ValueIndexLikeExpansionVisito
 
         // expand
         final GraphExpansion graphExpansion =
-                pop(primaryKey.expand(push(VisitorState.of(baseQuantifier.getAlias(), ImmutableList.of(), -1, 0))));
+                pop(primaryKey.expand(push(VisitorState.of(Lists.newArrayList(),
+                        Lists.newArrayList(),
+                        baseQuantifier.getAlias(),
+                        ImmutableList.of(),
+                        -1,
+                        0))));
 
         final GraphExpansion allExpansions =
                 GraphExpansion.ofOthers(ImmutableList.of(GraphExpansion.ofResultValueAndQuantifier(QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0), baseQuantifier),

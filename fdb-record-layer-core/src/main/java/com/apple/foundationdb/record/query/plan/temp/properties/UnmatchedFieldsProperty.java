@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
@@ -72,6 +73,10 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
             }
         }
 
+        if (expression instanceof RecordQueryCoveringIndexPlan) {
+            expression = ((RecordQueryCoveringIndexPlan)expression).getIndexPlan();
+        }
+
         final int columnSize;
         if (expression instanceof RecordQueryPlanWithComparisons) {
             final ScanComparisons comparisons = ((RecordQueryPlanWithComparisons)expression).getComparisons();
@@ -85,11 +90,6 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
             }
             return total + columnSize - (comparisons.getEqualitySize() +
                                                             (comparisons.isEquality() ? 0 : 1));
-        } else if (expression instanceof IndexScanExpression) {
-            final String indexName = ((IndexScanExpression)expression).getIndexName();
-            columnSize = planContext.getIndexByName(indexName).getRootExpression().getColumnSize();
-
-            return total + columnSize - ((IndexScanExpression)expression).getSargableSize();
         } else {
             return total;
         }

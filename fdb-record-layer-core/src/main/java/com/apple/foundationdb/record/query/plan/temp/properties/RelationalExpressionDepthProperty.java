@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -44,6 +46,8 @@ public class RelationalExpressionDepthProperty implements PlannerProperty<Intege
             ImmutableSet.of(LogicalTypeFilterExpression.class, RecordQueryTypeFilterPlan.class));
     public static final RelationalExpressionDepthProperty DISTINCT_FILTER_DEPTH = new RelationalExpressionDepthProperty(
             ImmutableSet.of(LogicalDistinctExpression.class, RecordQueryUnorderedPrimaryKeyDistinctPlan.class));
+    public static final RelationalExpressionDepthProperty FETCH_DEPTH = new RelationalExpressionDepthProperty(
+            ImmutableSet.of(RecordQueryFetchFromPartialRecordPlan.class, RecordQueryPlanWithIndex.class));
 
     @Nonnull
     private final Set<Class<? extends RelationalExpression>> types;

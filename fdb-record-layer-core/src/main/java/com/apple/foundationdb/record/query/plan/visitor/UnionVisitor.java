@@ -25,10 +25,13 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlanBase;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -79,7 +82,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 shouldPullOutFilter = unionPlan.getChildren().stream().allMatch(plan -> ((RecordQueryFilterPlan) plan).getConjunctedFilter().equals(finalFilter));
             }
 
-            List<RecordQueryPlan> newChildren = new ArrayList<>(unionPlan.getChildren().size());
+            List<ExpressionRef<RecordQueryPlan>> newChildren = new ArrayList<>(unionPlan.getChildren().size());
             for (RecordQueryPlan plan : unionPlan.getChildren()) {
                 if (shouldPullOutFilter) { // All children have the same filter so we'll try to move it
                     // Check if the plan under the filter can have its index fetch removed.
@@ -92,9 +95,11 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 if (newPlan == null) { // can't remove index fetch, so give up
                     return recordQueryPlan;
                 }
-                newChildren.add(newPlan);
+                newChildren.add(GroupExpressionRef.of(newPlan));
             }
-            RecordQueryPlan newUnionPlan = new RecordQueryFetchFromPartialRecordPlan(unionPlan.withChildren(newChildren));
+            RecordQueryPlan newUnionPlan = new RecordQueryFetchFromPartialRecordPlan(
+                    unionPlan.withChildren(newChildren),
+                    TranslateValueFunction.unableToTranslate());
 
             if (shouldPullOutFilter) {
                 return new RecordQueryFilterPlan(newUnionPlan, filter);

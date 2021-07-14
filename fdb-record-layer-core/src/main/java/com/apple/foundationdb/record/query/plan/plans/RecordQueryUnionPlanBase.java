@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -77,6 +79,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     protected RecordQueryUnionPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers,
                                        final boolean reverse) {
+        Verify.verify(!quantifiers.isEmpty());
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.reverse = reverse;
         this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
@@ -237,6 +240,20 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Override
     public QueryPlan<FDBQueriedRecord<Message>> strictlySorted() {
-        return withChildren(getChildren().stream().map(p -> (RecordQueryPlan)p.strictlySorted()).collect(Collectors.toList()));
+        return withChildren(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
+    }
+
+    protected static boolean isReversed(@Nonnull List<Quantifier.Physical> quantifiers) {
+        return quantifiers
+                .stream()
+                .map(Quantifier.Physical::getRangesOver)
+                .flatMap(reference -> reference.getMembers().stream())
+                .map(expression -> {
+                    Verify.verify(expression instanceof RecordQueryPlan);
+                    return (RecordQueryPlan)expression;
+                })
+                .map(QueryPlan::isReverse)
+                .findAny()
+                .orElseThrow(() -> new RecordCoreException("unable to determine reversedness"));
     }
 }

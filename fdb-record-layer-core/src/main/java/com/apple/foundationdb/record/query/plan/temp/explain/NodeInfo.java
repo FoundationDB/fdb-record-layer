@@ -99,6 +99,11 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Predicate Filter",
             "A predicate filter operator processes the input and returns only those records for which the predicate expression is true.");
+    public static final NodeInfo VALUE_COMPUTATION_OPERATOR = new NodeInfo(
+            "ValueComputationOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "Value Computation",
+            "A value computation operator processes each input record and computes and returns an output record.");
     public static final NodeInfo SCAN_OPERATOR = new NodeInfo(
             "ScanOperator",
             NodeIcon.DATA_ACCESS_OPERATOR,

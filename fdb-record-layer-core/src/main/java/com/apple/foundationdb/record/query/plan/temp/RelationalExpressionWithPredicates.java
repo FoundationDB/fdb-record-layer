@@ -20,10 +20,15 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.StreamSupport;
 
 /**
  * A (relational) expression that has a predicate on it.
@@ -31,4 +36,31 @@ import java.util.List;
 public interface RelationalExpressionWithPredicates extends RelationalExpression {
     @Nonnull
     List<QueryPredicate> getPredicates();
+
+    @Nonnull
+    default ImmutableSet<FieldValue> fieldValuesFromPredicates() {
+        return fieldValuesFromPredicates(getPredicates());
+    }
+
+    /**
+     * Return all {@link FieldValue}s contained in the predicates handed in.
+     * @param predicates a collection of predicates
+     * @return a set of {@link FieldValue}s
+     */
+    @Nonnull
+    static ImmutableSet<FieldValue> fieldValuesFromPredicates(@Nonnull final Collection<? extends QueryPredicate> predicates) {
+        return predicates
+                .stream()
+                .flatMap(predicate -> {
+                    final Iterable<? extends QueryPredicate> filters =
+                            predicate.filter(p -> p instanceof PredicateWithValue);
+                    return StreamSupport.stream(filters.spliterator(), false)
+                            .map(p -> (PredicateWithValue)p)
+                            .flatMap(predicateWithValue -> StreamSupport.stream(predicateWithValue.getValue()
+                                    .filter(v -> v instanceof FieldValue).spliterator(), false))
+                            .map(value -> (FieldValue)value);
+                })
+                .map(fieldValue -> (FieldValue)fieldValue.rebase(AliasMap.of(fieldValue.getChild().getAlias(), CorrelationIdentifier.UNGROUNDED)))
+                .collect(ImmutableSet.toImmutableSet());
+    }
 }

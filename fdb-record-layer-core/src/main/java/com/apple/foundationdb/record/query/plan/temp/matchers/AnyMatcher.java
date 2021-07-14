@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.API;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
 
@@ -43,7 +44,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatc
  * @param <T> the type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public class AnyMatcher<T> implements CollectionMatcher<T> {
+public class AnyMatcher<T> implements ContainerMatcher<T, Iterable<? extends T>> {
     @Nonnull
     private final BindingMatcher<T> downstream;
 
@@ -60,8 +61,8 @@ public class AnyMatcher<T> implements CollectionMatcher<T> {
      */
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Collection<? extends T> in) {
-        return in.stream()
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Iterable<? extends T> in) {
+        return StreamSupport.stream(in.spliterator(), false)
                 .flatMap(item -> downstream.bindMatches(outerBindings, item));
     }
 
@@ -76,7 +77,24 @@ public class AnyMatcher<T> implements CollectionMatcher<T> {
     }
 
     @Nonnull
-    public static <T> AnyMatcher<T> any(@Nonnull final BindingMatcher<T> downstream) {
+    public static <T> CollectionMatcher<T> any(@Nonnull final BindingMatcher<T> downstream) {
+        final AnyMatcher<T> anyMatcher = new AnyMatcher<>(downstream);
+        return new CollectionMatcher<T>() {
+            @Nonnull
+            @Override
+            public Stream<PlannerBindings> bindMatchesSafely(@Nonnull final PlannerBindings outerBindings, @Nonnull final Collection<? extends T> in) {
+                return anyMatcher.bindMatchesSafely(outerBindings, in);
+            }
+
+            @Override
+            public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
+                return anyMatcher.explainMatcher(atLeastType, boundId, indentation);
+            }
+        };
+    }
+
+    @Nonnull
+    public static <T> AnyMatcher<T> anyInIterable(@Nonnull final BindingMatcher<T> downstream) {
         return new AnyMatcher<>(downstream);
     }
 }

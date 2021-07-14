@@ -72,7 +72,7 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public Value getChild() {
+    public QuantifiedColumnValue getChild() {
         return columnValue;
     }
 

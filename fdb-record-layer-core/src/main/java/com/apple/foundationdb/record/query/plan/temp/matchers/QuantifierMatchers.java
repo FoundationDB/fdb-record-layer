@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.references;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
 
 /**
@@ -95,6 +96,11 @@ public class QuantifierMatchers {
     @Nonnull
     public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverRef(@Nonnull final BindingMatcher<? extends ExpressionRef<? extends RelationalExpression>> downstream) {
         return ofTypeRangingOverRef(Quantifier.ForEach.class, downstream);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Quantifier.ForEach> forEachQuantifierOverPlans(@Nonnull final CollectionMatcher<RecordQueryPlan> downstream) {
+        return forEachQuantifierOverRef(references(downstream));
     }
 
     @Nonnull

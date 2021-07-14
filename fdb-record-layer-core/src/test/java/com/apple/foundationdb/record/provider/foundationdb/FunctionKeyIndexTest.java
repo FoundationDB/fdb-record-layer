@@ -302,16 +302,16 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         if (functionQuery) {
             assertThat(plan, indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
             assertEquals(316561162, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1854693510, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1386544645, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1660925199, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(33212272, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         } else {
             // Here I'm really just making sure that (a) the substr_index is not selected, because the
             // function call doesn't appear in the query anyway and (b) that the planner doesn't throw
             // an exception or do something wonky as a result of the presence of this index.
             assertThat(plan, indexScan(allOf(indexName(normalIndex.getName()), bounds(hasTupleString("[[abd],[abg]]")))));
             assertEquals(1189784448, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1432694864, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(964545999, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(1463869061, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-163843866, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
         }
 
         try (FDBRecordContext context = openContext()) {
@@ -354,8 +354,8 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
 
         assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName(funcIndex.getName()), bounds(hasTupleString("[[c],[c]]"))))));
         assertEquals(-76945989, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(539384407, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(688945964, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        assertEquals(1921601810, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(-2031924515, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, funcIndex);

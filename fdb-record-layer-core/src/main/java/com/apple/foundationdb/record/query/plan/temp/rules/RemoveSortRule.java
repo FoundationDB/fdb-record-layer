@@ -62,8 +62,14 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final LogicalSortExpression sortExpression = call.get(root);
-
         final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
+
+        final KeyExpression sortKeyExpression = sortExpression.getSort();
+        if (sortKeyExpression == null) {
+            call.yield(call.ref(innerPlan));
+            return;
+        }
+
         final Optional<OrderingInfo> orderingInfoOptional = OrderingProperty.evaluate(innerPlan, call.getContext());
         if (!orderingInfoOptional.isPresent()) {
             return;
@@ -75,7 +81,7 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
         final List<KeyPart> orderingKeys = orderingInfo.getOrderingKeyParts();
         final Iterator<KeyPart> orderingKeysIterator = orderingKeys.iterator();
 
-        final List<KeyExpression> normalizedSortExpressions = sortExpression.getSort().normalizeKeyForPositions();
+        final List<KeyExpression> normalizedSortExpressions = sortKeyExpression.normalizeKeyForPositions();
         for (final KeyExpression normalizedSortExpression : normalizedSortExpressions) {
             //
             // A top level sort (which is the only sort supported at this point should not be able to express

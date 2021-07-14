@@ -390,12 +390,13 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void setDeferFetchAfterUnionAndIntersection(boolean shouldDeferFetch) {
-        assertTrue(planner instanceof RecordQueryPlanner);
-        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner) planner;
-        recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
-                .asBuilder()
-                .setDeferFetchAfterUnionAndIntersection(shouldDeferFetch)
-                .build());
+        if (planner instanceof RecordQueryPlanner) {
+            RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
+            recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
+                    .asBuilder()
+                    .setDeferFetchAfterUnionAndIntersection(shouldDeferFetch)
+                    .build());
+        }
     }
 
     protected void setOptimizeForIndexFilters(boolean shouldOptimizeForIndexFilters) {
@@ -416,7 +417,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         if (matches) {
             return;
         }
-        System.err.println(plan.toString() + "\n does not match");
+        System.err.println(plan + "\n does not match");
         System.err.println(planMatcher.explainMatcher(RecordQueryPlan.class, "plan", ""));
         fail();
     }
@@ -426,7 +427,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         if (matchesExactly) {
             return;
         }
-        System.err.println(plan.toString() + "\n does not match exactly");
+        System.err.println(plan + "\n does not match exactly");
         System.err.println(planMatcher.explainMatcher(RecordQueryPlan.class, "plan", ""));
         fail();
     }

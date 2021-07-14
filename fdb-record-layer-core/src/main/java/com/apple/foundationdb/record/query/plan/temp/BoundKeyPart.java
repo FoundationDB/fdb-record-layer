@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredic
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -74,6 +75,27 @@ public class BoundKeyPart extends KeyPart {
         }
 
         return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getParameterAlias());
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof BoundKeyPart)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        final BoundKeyPart that = (BoundKeyPart)o;
+        return Objects.equals(getQueryPredicate(), that.getQueryPredicate()) &&
+               Objects.equals(getCandidatePredicate(), that.getCandidatePredicate());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), getQueryPredicate(), getCandidatePredicate());
     }
 
     @Nonnull

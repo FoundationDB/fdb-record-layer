@@ -29,14 +29,20 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.CreatesDuplicatesProperty;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifierOverPlans;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalDistinctExpression;
 
 /**
  * A rule that implements a distinct expression by adding a {@link RecordQueryUnorderedPrimaryKeyDistinctPlan}
@@ -55,11 +61,9 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher
 @API(API.Status.EXPERIMENTAL)
 public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression> {
     @Nonnull
-    private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
+    private static final CollectionMatcher<RecordQueryPlan> innerPlansMatcher = some(RecordQueryPlanMatchers.anyPlan());
     @Nonnull
-    private static final BindingMatcher<Quantifier.ForEach> innerQuantifierMatcher = forEachQuantifier(innerPlanMatcher);
-    @Nonnull
-    private static final BindingMatcher<LogicalDistinctExpression> root = RelationalExpressionMatchers.logicalDistinctExpression(exactly(innerQuantifierMatcher));
+    private static final BindingMatcher<LogicalDistinctExpression> root = logicalDistinctExpression(exactly(forEachQuantifierOverPlans(innerPlansMatcher)));
 
     public ImplementDistinctRule() {
         super(root);
@@ -67,16 +71,23 @@ public class ImplementDistinctRule extends PlannerRule<LogicalDistinctExpression
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final RecordQueryPlan innerPlan = call.get(innerPlanMatcher);
-        final Quantifier.ForEach innerQuantifier = call.get(innerQuantifierMatcher);
-        final boolean createsDuplicates = CreatesDuplicatesProperty.evaluate(innerPlan, call.getContext());
-        if (createsDuplicates) {
+        final Collection<? extends RecordQueryPlan> innerPlans = call.get(innerPlansMatcher);
+
+        final Map<Boolean, ? extends List<? extends RecordQueryPlan>> partitionedByDuplicates = innerPlans
+                .stream()
+                .collect(Collectors.partitioningBy(innerPlan -> CreatesDuplicatesProperty.evaluate(innerPlan, call.getContext())));
+
+        final List<? extends RecordQueryPlan> innerPlansWithoutDuplicates = partitionedByDuplicates.get(false);
+        if (!innerPlansWithoutDuplicates.isEmpty()) {
+            // these don't create duplicates
+            call.yield(GroupExpressionRef.from(innerPlansWithoutDuplicates));
+        }
+        final List<? extends RecordQueryPlan> innerPlansWithDuplicates = partitionedByDuplicates.get(true);
+        if (!innerPlansWithDuplicates.isEmpty()) {
+            // these create duplicates
             call.yield(call.ref(new RecordQueryUnorderedPrimaryKeyDistinctPlan(
-                    Quantifier.physicalBuilder()
-                            .morphFrom(innerQuantifier)
-                            .build(GroupExpressionRef.of(innerPlan)))));
-        } else {
-            call.yield(call.ref(innerPlan));
+                    Quantifier.physical(
+                            GroupExpressionRef.from(innerPlansWithDuplicates)))));
         }
     }
 }

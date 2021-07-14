@@ -21,14 +21,22 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.ScalarTranslationVisitor;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.collect.ImmutableList;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Interface for query plans that represent set-based operators such as union or intersection.
@@ -49,10 +57,80 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      */
     @Nonnull
     default List<? extends Value> getRequiredValues(@Nonnull final CorrelationIdentifier baseAlias) {
-        return getRequiredFields()
-                .stream()
-                .map(keyExpression -> new ScalarTranslationVisitor(keyExpression).toResultValue(baseAlias))
-                .collect(ImmutableList.toImmutableList());
+        return Value.fromKeyExpressions(getRequiredFields(), baseAlias);
+    }
+
+    @Nonnull
+    default TranslateValueFunction pushValueFunction(final List<TranslateValueFunction> dependentFunctions) {
+        Verify.verify(!dependentFunctions.isEmpty());
+        return (value, newBaseColumnValue) -> {
+            @Nullable Value previousPushedValue = null;
+            @Nullable AliasMap equivalencesMap = null;
+            for (final TranslateValueFunction dependentFunction : dependentFunctions) {
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseColumnValue);
+                if (!pushedValueOptional.isPresent()) {
+                    return Optional.empty();
+                }
+                if (previousPushedValue == null) {
+                    previousPushedValue = pushedValueOptional.get();
+                    equivalencesMap = AliasMap.identitiesFor(previousPushedValue.getCorrelatedTo());
+                } else {
+                    if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), equivalencesMap)) {
+                        return Optional.empty();
+                    }
+                }
+            }
+            return Optional.ofNullable(previousPushedValue); // cannot be null, but suppress warning
+        };
+    }
+
+    @Nonnull
+    @SuppressWarnings("java:S135")
+    default Set<CorrelationIdentifier> tryPushValues(@Nonnull final List<TranslateValueFunction> dependentFunctions,
+                                                     @Nonnull final List<? extends Quantifier> quantifiers,
+                                                     @Nonnull final Iterable<? extends Value> values) {
+        Verify.verify(!dependentFunctions.isEmpty());
+        Verify.verify(dependentFunctions.size() == quantifiers.size());
+
+        final Set<CorrelationIdentifier> candidatesAliases =
+                quantifiers.stream()
+                        .map(Quantifier::getAlias)
+                        .collect(Collectors.toSet());
+
+        final CorrelationIdentifier newBaseAlias = CorrelationIdentifier.uniqueID();
+        final QuantifiedColumnValue newBaseColumnValue = QuantifiedColumnValue.of(newBaseAlias, 0);
+
+        for (final Value value : values) {
+            final AliasMap equivalencesMap = AliasMap.identitiesFor(ImmutableSet.of(newBaseAlias));
+            @Nullable Value previousPushedValue = null;
+
+            for (int i = 0; i < dependentFunctions.size(); i++) {
+                final TranslateValueFunction dependentFunction = dependentFunctions.get(i);
+                final Quantifier quantifier = quantifiers.get(i);
+
+                if (!candidatesAliases.contains(quantifier.getAlias())) {
+                    continue;
+                }
+
+                final Optional<Value> pushedValueOptional = dependentFunction.translateValue(value, newBaseColumnValue);
+
+                if (!pushedValueOptional.isPresent()) {
+                    candidatesAliases.remove(quantifier.getAlias());
+                    continue;
+                }
+
+                if (previousPushedValue == null) {
+                    previousPushedValue = pushedValueOptional.get();
+                } else {
+                    if (!previousPushedValue.semanticEquals(pushedValueOptional.get(), equivalencesMap)) {
+                        // something is really wrong as we cannot establish a proper genuine derivation path
+                        return ImmutableSet.of();
+                    }
+                }
+            }
+        }
+
+        return ImmutableSet.copyOf(candidatesAliases);
     }
 
     /**
@@ -65,5 +143,5 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return a new set-based plan
      */
     @Nonnull
-    RecordQuerySetPlan withChildren(@Nonnull final List<? extends RecordQueryPlan> newChildren);
+    RecordQuerySetPlan withChildren(@Nonnull final List<? extends ExpressionRef<? extends RelationalExpression>> newChildren);
 }

@@ -21,6 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.DataAccessRule;
@@ -32,15 +35,26 @@ import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchIntermediateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchLeafRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.OrToUnorderedUnionRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctFilterBelowFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.MergeFetchIntoCoveringIndexRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.OrToLogicalUnionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctBelowFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctThroughFetchRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushFilterThroughFetchRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughDistinctRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughSortRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughUnionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushReferencedFieldsThroughDistinctRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushReferencedFieldsThroughFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushReferencedFieldsThroughSelectRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushSetOperationThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.RemoveProjectionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -51,6 +65,7 @@ import javax.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
@@ -64,7 +79,7 @@ public class PlannerRuleSet {
     private static final List<PlannerRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
             new RemoveRedundantTypeFilterRule(),
-            new OrToUnorderedUnionRule()
+            new OrToLogicalUnionRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableList.of(
             new MatchLeafRule(),
@@ -82,7 +97,20 @@ public class PlannerRuleSet {
             new ImplementUnorderedUnionRule(),
             new ImplementDistinctRule(),
             new RemoveSortRule(),
-            new PushDistinctFilterBelowFilterRule()
+            new PushDistinctBelowFilterRule(),
+            new MergeFetchIntoCoveringIndexRule(),
+            new PushFilterThroughFetchRule(),
+            new PushDistinctThroughFetchRule(),
+            new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryUnionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryUnorderedUnionPlan.class),
+            new RemoveProjectionRule(),
+            new PushReferencedFieldsThroughDistinctRule(),
+            new PushReferencedFieldsThroughFilterRule(),
+            new PushReferencedFieldsThroughSelectRule(),
+            new PushInterestingOrderingThroughSortRule(),
+            new PushInterestingOrderingThroughDistinctRule(),
+            new PushInterestingOrderingThroughUnionRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()
@@ -124,16 +152,32 @@ public class PlannerRuleSet {
 
     @Nonnull
     public Stream<PlannerRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression) {
-        return Streams.concat(ruleIndex.get(expression.getClass()).stream(), alwaysRules.stream());
+        return getExpressionRules(expression, r -> true);
+    }
+
+    @Nonnull
+    public Stream<PlannerRule<? extends RelationalExpression>> getExpressionRules(@Nonnull RelationalExpression expression,
+                                                                                  @Nonnull final Predicate<PlannerRule<? extends RelationalExpression>> rulePredicate) {
+        return Streams.concat(ruleIndex.get(expression.getClass()).stream().filter(rulePredicate), alwaysRules.stream());
     }
 
     @Nonnull
     public Stream<PlannerRule<? extends PartialMatch>> getPartialMatchRules() {
+        return getPartialMatchRules(t -> true);
+    }
+
+    @Nonnull
+    public Stream<PlannerRule<? extends PartialMatch>> getPartialMatchRules(@Nonnull final Predicate<PlannerRule<? extends PartialMatch>> rulePredicate) {
         return PARTIAL_MATCH_RULES.stream();
     }
 
     @Nonnull
     public Stream<PlannerRule<? extends MatchPartition>> getMatchPartitionRules() {
+        return getMatchPartitionRules(t -> true);
+    }
+
+    @Nonnull
+    public Stream<PlannerRule<? extends MatchPartition>> getMatchPartitionRules(@Nonnull final Predicate<PlannerRule<? extends MatchPartition>> rulePredicate) {
         return MATCH_PARTITION_RULES.stream();
     }
 }

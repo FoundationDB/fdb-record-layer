@@ -23,18 +23,26 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import java.util.Collection;
 import java.util.List;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalUnionExpression;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifierOverRef;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ReferenceMatchers.references;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalUnionExpression;
 
 /**
  * A rule that implements an unordered union of its (already implemented) children. This will extract the
@@ -42,12 +50,14 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatche
  * {@link RecordQueryUnorderedUnionPlan} with those plans as children.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpression> {
     @Nonnull
-    private static final BindingMatcher<RecordQueryPlan> unionLegMatcher = RecordQueryPlanMatchers.anyPlan();
+    private static final CollectionMatcher<RecordQueryPlan> unionLegPlansMatcher = some(RecordQueryPlanMatchers.anyPlan());
+
     @Nonnull
     private static final BindingMatcher<LogicalUnionExpression> root =
-            logicalUnionExpression(all(forEachQuantifier(unionLegMatcher)));
+            logicalUnionExpression(all(forEachQuantifierOverRef(references(unionLegPlansMatcher))));
 
     public ImplementUnorderedUnionRule() {
         super(root);
@@ -55,7 +65,16 @@ public class ImplementUnorderedUnionRule extends PlannerRule<LogicalUnionExpress
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final List<? extends RecordQueryPlan> planChildren = call.getBindings().getAll(unionLegMatcher);
-        call.yield(call.ref(RecordQueryUnorderedUnionPlan.from(planChildren)));
+        final PlannerBindings bindings = call.getBindings();
+        final List<? extends Collection<? extends RecordQueryPlan>> groupedPlansByLeg = bindings.getAll(unionLegPlansMatcher);
+
+        final ImmutableList<Quantifier.Physical> quantifiers =
+                groupedPlansByLeg
+                        .stream()
+                        .map(GroupExpressionRef::from)
+                        .map(Quantifier::physical)
+                        .collect(ImmutableList.toImmutableList());
+
+        call.yield(call.ref(RecordQueryUnorderedUnionPlan.fromQuantifiers(quantifiers)));
     }
 }

@@ -20,8 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
-import com.google.common.collect.Sets;
-
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Set;
@@ -34,10 +32,10 @@ public class MatchPartition {
      * A set of partial matches.
      */
     @Nonnull
-    private final Set<PartialMatch> partialMatches;
+    private final LinkedIdentitySet<PartialMatch> partialMatches;
 
     private MatchPartition(@Nonnull Collection<PartialMatch> partialMatches) {
-        this.partialMatches = Sets.newIdentityHashSet();
+        this.partialMatches = new LinkedIdentitySet<>();
         this.partialMatches.addAll(partialMatches);
     }
 

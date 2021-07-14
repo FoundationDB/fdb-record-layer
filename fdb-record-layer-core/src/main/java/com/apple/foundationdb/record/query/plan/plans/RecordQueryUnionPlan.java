@@ -159,6 +159,17 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
         return PLAN_COUNT;
     }
 
+    @Nonnull
+    public static RecordQueryUnionPlan fromQuantifiers(@Nonnull List<Quantifier.Physical> quantifiers,
+                                                       @Nonnull final KeyExpression comparisonKey,
+                                                       boolean showComparisonKey) {
+        return new RecordQueryUnionPlan(quantifiers,
+                comparisonKey,
+                isReversed(quantifiers),
+                showComparisonKey,
+                false);
+    }
+
     /**
      * Construct a new union of two compatibly-ordered plans. The resulting plan will return all results that are
      * returned by either the {@code left} or {@code right} child plans. Each plan should return results in the same
@@ -221,8 +232,15 @@ public class RecordQueryUnionPlan extends RecordQueryUnionPlanBase {
 
     @Nonnull
     @Override
-    public RecordQueryUnionPlan withChildren(@Nonnull final List<? extends RecordQueryPlan> newChildren) {
-        return RecordQueryUnionPlan.from(newChildren, comparisonKey, showComparisonKey);
+    public RecordQuerySetPlan withChildren(@Nonnull final List<? extends ExpressionRef<? extends RelationalExpression>> newChildren) {
+        return new RecordQueryUnionPlan(
+                newChildren.stream()
+                        .map(Quantifier::physical)
+                        .collect(ImmutableList.toImmutableList()),
+                comparisonKey,
+                isReverse(),
+                showComparisonKey,
+                false);
     }
 
     @Nonnull

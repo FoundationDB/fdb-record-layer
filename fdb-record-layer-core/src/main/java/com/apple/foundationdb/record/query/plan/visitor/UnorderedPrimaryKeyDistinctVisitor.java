@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.visitor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
+import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
@@ -65,7 +66,9 @@ public class UnorderedPrimaryKeyDistinctVisitor extends RecordQueryPlannerSubsti
             RecordQueryUnorderedPrimaryKeyDistinctPlan distinctPlan = (RecordQueryUnorderedPrimaryKeyDistinctPlan) recordQueryPlan;
             @Nullable RecordQueryPlan newPlan = removeIndexFetch(distinctPlan.getChild(), Collections.emptySet());
             if (newPlan != null) {
-                return new RecordQueryFetchFromPartialRecordPlan(new RecordQueryUnorderedPrimaryKeyDistinctPlan(newPlan));
+                return new RecordQueryFetchFromPartialRecordPlan(
+                        new RecordQueryUnorderedPrimaryKeyDistinctPlan(newPlan),
+                        TranslateValueFunction.unableToTranslate());
             }
         }
         return recordQueryPlan;

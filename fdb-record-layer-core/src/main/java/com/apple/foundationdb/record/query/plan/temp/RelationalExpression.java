@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalProjectionExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
@@ -36,6 +37,7 @@ import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
+import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -100,6 +102,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
                                                 @Nonnull BooleanNormalizer booleanNormalizer,
                                                 @Nonnull RecordQuery query) {
+        query.validate(context.getMetaData());
+
         Quantifier.ForEach quantifier = Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(context.getMetaData().getRecordTypes().keySet())));
 
         if (!context.getRecordTypes().isEmpty()) {
@@ -109,6 +113,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
         final SelectExpression selectExpression;
         if (query.getFilter() != null) {
             final QueryComponent normalizedFilterQueryComponent = booleanNormalizer.normalize(query.getFilter());
+            Objects.requireNonNull(normalizedFilterQueryComponent);
             selectExpression =
                     normalizedFilterQueryComponent
                             .expand(quantifier.getAlias())
@@ -126,6 +131,19 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
 
         if (query.getSort() != null) {
             quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(query.getSort(), query.isSortReverse(), quantifier)));
+        } else {
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalSortExpression(null, false, quantifier)));
+        }
+
+        if (query.getRequiredResults() != null) {
+            final List<? extends Value> projectedValues =
+                    Value.fromKeyExpressions(
+                            query.getRequiredResults()
+                                    .stream()
+                                    .flatMap(keyExpression -> keyExpression.normalizeKeyForPositions().stream())
+                                    .collect(ImmutableList.toImmutableList()),
+                            quantifier.getAlias());
+            quantifier = Quantifier.forEach(GroupExpressionRef.of(new LogicalProjectionExpression(projectedValues, quantifier)));
         }
 
         return quantifier.getRangesOver().get();
@@ -133,6 +151,20 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
 
     @Nonnull
     List<? extends Value> getResultValues();
+
+    /**
+     * Return all {@link FieldValue}s contained in the result values of this expression.
+     * @return a set of {@link FieldValue}s
+     */
+    default ImmutableSet<FieldValue> getFieldValuesFromResultValues() {
+        return getResultValues()
+                .stream()
+                .flatMap(resultValue ->
+                        StreamSupport.stream(resultValue
+                                .filter(v -> v instanceof FieldValue).spliterator(), false))
+                .map(value -> (FieldValue)value)
+                .collect(ImmutableSet.toImmutableSet());
+    }
 
     @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
     default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
