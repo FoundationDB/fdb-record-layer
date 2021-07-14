@@ -1,0 +1,82 @@
+/*
+ * RecordLayerDriver.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2021-2024 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.relational.recordlayer;
+
+import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.relational.api.DatabaseConnection;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.RelationalDriver;
+import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.catalog.Catalog;
+import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+
+import javax.annotation.Nonnull;
+import java.util.List;
+
+public class RecordLayerDriver implements RelationalDriver {
+    private final FDBDatabase fdbDb;
+
+    private final Catalog dataCatalog;
+
+    //internal constructor, use factory patterns instead
+    RecordLayerDriver(Catalog dataCatalog,
+                      FDBDatabase fdbDb) {
+        this.dataCatalog = dataCatalog;
+        this.fdbDb = fdbDb;
+    }
+
+    @Override
+    public DatabaseConnection connect(@Nonnull List<Object> url, @Nonnull Options connectionOptions) throws RelationalException {
+        int formatVersion = parseFormatVersion(url,connectionOptions);
+        /*
+         * Basic Algorithm for Opening a connection:
+         *
+         * 1. Go to Catalog and verify that the given Database exists
+         */
+        RelationalDatabase frl = dataCatalog.getDatabase(url);
+        RecordStoreConnection conn =  new RecordStoreConnection(fdbDb,frl);
+        ((RecordLayerDatabase)frl).setConnection(conn);
+        return conn;
+    }
+
+
+    @Override
+    public int getMajorVersion() {
+        return 1;
+    }
+
+    @Override
+    public int getMinorVersion() {
+        return 0;
+    }
+
+    /*private helper methods*/
+    private KeySpacePath convertUrl(String url) {
+        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+    }
+
+    private int parseFormatVersion(List<Object> url, Options connectionOptions) {
+        return 1;
+    }
+}
