@@ -27,10 +27,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -141,9 +143,31 @@ public class PlanOrderingKey {
             return new PlanOrderingKey(primaryKey.normalizeKeyForPositions(),
                                        scanPlan.getComparisons().getEqualitySize(),
                                        0, 0);
+        } else if (queryPlan instanceof RecordQueryIntersectionPlan) {
+            return forComparisonKey(((RecordQueryIntersectionPlan)queryPlan).getComparisonKey(), primaryKey);
+        } else if (queryPlan instanceof RecordQueryUnionPlan) {
+            return forComparisonKey(((RecordQueryUnionPlan)queryPlan).getComparisonKey(), primaryKey);
         } else {
             return null;
         }
+    }
+
+    @Nonnull
+    public static PlanOrderingKey forComparisonKey(@Nonnull KeyExpression comparisonKey, @Nonnull KeyExpression primaryKey) {
+        final List<KeyExpression> keys = comparisonKey.normalizeKeyForPositions();
+        final List<KeyExpression> pkeys = primaryKey.normalizeKeyForPositions();
+        int firstPrimaryKeyPosition = -1;
+        int lastNonPrimaryKeyPosition = -1;
+        for (int i = 0; i < keys.size(); i++) {
+            if (pkeys.contains(keys.get(i))) {
+                if (firstPrimaryKeyPosition < 0) {
+                    firstPrimaryKeyPosition = i;
+                }
+            } else {
+                lastNonPrimaryKeyPosition = i;
+            }
+        }
+        return new PlanOrderingKey(keys, 0, firstPrimaryKeyPosition, lastNonPrimaryKeyPosition + 1);
     }
 
     /**

@@ -81,6 +81,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQuery
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.indexPlanOf;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.intersectionPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicates;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.predicatesFilterPlan;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.queryComponents;
@@ -1185,6 +1186,74 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
             if (shouldDeferFetch) {
                 assertLoadRecord(140, context);
             }
+        }
+    }
+
+    /**
+     * Verify that a query with an OR of an AND can be implemented as a union of an index scan with an intersection of index scans.
+     */
+    @DualPlannerTest
+    void testOrderedOrQueryWithAnd() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord", "str_2", concat(field("str_value_indexed"), field("num_value_2")));
+            metaData.addIndex("MySimpleRecord", "nu_2", concat(field("num_value_unique"), field("num_value_2")));
+            metaData.addIndex("MySimpleRecord", "n3_2", concat(field("num_value_3_indexed"), field("num_value_2")));
+        };
+        complexQuerySetup(hook);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.or(
+                        Query.field("str_value_indexed").equalsValue("even"),
+                        Query.and(
+                                Query.field("num_value_3_indexed").equalsValue(1),
+                                Query.field("num_value_unique").equalsValue(909))))
+                .setSort(field("num_value_2"))
+                .build();
+
+        // Index(str_2 [[even],[even]]) ∪[Field { 'num_value_2' None}, Field { 'rec_no' None}] Index(nu_2 [[909],[909]]) ∩ Index(n3_2 [[1],[1]])
+        RecordQueryPlan plan = planner.plan(query);
+
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    unionPlan(
+                            indexPlan().where(indexName("str_2")).and(scanComparisons(range("[[even],[even]]"))),
+                            intersectionPlan(
+                                    indexPlan().where(indexName("nu_2")).and(scanComparisons(range("[[909],[909]]"))),
+                                    indexPlan().where(indexName("n3_2")).and(scanComparisons(range("[[1],[1]]")))))
+                            .where(comparisonKey(concat(field("num_value_2"), primaryKey("MySimpleRecord"))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1659601413, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1344221020, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1474039530, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    unionPlan(
+                            indexPlan().where(indexName("str_2")).and(scanComparisons(range("[[even],[even]]"))),
+                            predicatesFilterPlan(indexPlan().where(indexName("nu_2")).and(scanComparisons(range("[[909],[909]]"))))
+                                    .where(predicates(valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)))))
+                            .where(comparisonKey(concat(field("num_value_2"), primaryKey("MySimpleRecord"))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(422637905, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1632665994, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1263802422, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
+                    assertTrue(myrec.getStrValueIndexed().equals("even") || (myrec.getNumValue3Indexed() == 1 && myrec.getNumValueUnique() == 909));
+                    i++;
+                }
+            }
+            assertEquals(51, i);
         }
     }
 
