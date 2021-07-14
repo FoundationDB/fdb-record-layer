@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 
@@ -66,6 +67,12 @@ public class InExtractor {
         this.filter = filter;
         inClauses = new ArrayList<>();
         subFilter = extractInClauses();
+    }
+
+    public InExtractor(InExtractor other) {
+        filter = other.filter;
+        inClauses = new ArrayList<>(other.inClauses);
+        subFilter = other.subFilter;
     }
 
     @SuppressWarnings("unchecked")
@@ -224,8 +231,15 @@ public class InExtractor {
         return plan;
     }
 
+    /**
+     * Adjust plan ordering for the result of handling these {@code IN} clauses.
+     * @param ordering the base plan ordering
+     * @param asPrefix {@code true} if the {@code IN} conditions become part of an equality prefix (because the elements are merged in order),
+      * {@code false} if a separate ordering beforehand (because the elements are concatenated in turn)
+     * @return a new plan ordering
+     */
     @Nullable
-    public PlanOrderingKey adjustOrdering(@Nullable PlanOrderingKey ordering) {
+    public PlanOrderingKey adjustOrdering(@Nullable PlanOrderingKey ordering, boolean asPrefix) {
         if (ordering == null || inClauses.isEmpty()) {
             return ordering;
         }
@@ -247,8 +261,16 @@ public class InExtractor {
                 keys.remove(position);
             }
             keys.add(prefixSize + i, inOrdering);
+            if (asPrefix) {
+                prefixSize++;
+            }
         }
         return new PlanOrderingKey(keys, prefixSize, primaryKeyStart, keys.size() - primaryKeyTailFromEnd);
+    }
+
+    @Nonnull
+    public List<RecordQueryInUnionPlan.InValuesSource> unionSources() {
+        return inClauses.stream().map(InClause::unionSource).collect(Collectors.toList());
     }
 
     abstract static class InClause {
@@ -265,6 +287,8 @@ public class InExtractor {
         }
 
         protected abstract RecordQueryPlan wrap(RecordQueryPlan inner);
+
+        protected abstract RecordQueryInUnionPlan.InValuesSource unionSource();
     }
 
     static class InValuesClause extends InClause {
@@ -280,6 +304,11 @@ public class InExtractor {
         protected RecordQueryPlan wrap(RecordQueryPlan inner) {
             return new RecordQueryInValuesJoinPlan(inner, bindingName, values, sortValues, sortReverse);
         }
+
+        @Override
+        protected RecordQueryInUnionPlan.InValuesSource unionSource() {
+            return new RecordQueryInUnionPlan.InValues(bindingName, values);
+        }
     }
 
     static class InParameterClause extends InClause {
@@ -294,6 +323,11 @@ public class InExtractor {
         @Override
         protected RecordQueryPlan wrap(RecordQueryPlan inner) {
             return new RecordQueryInParameterJoinPlan(inner, bindingName, parameterName, sortValues, sortReverse);
+        }
+
+        @Override
+        protected RecordQueryInUnionPlan.InValuesSource unionSource() {
+            return new RecordQueryInUnionPlan.InParameter(bindingName, parameterName);
         }
     }
 }

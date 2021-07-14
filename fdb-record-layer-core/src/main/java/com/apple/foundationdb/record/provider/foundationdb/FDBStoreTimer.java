@@ -511,6 +511,8 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         PLAN_INDEX("number of index plans", false),
         /** The number of query plans that include an {@code IN} with parameters. */
         PLAN_IN_PARAMETER("number of in plans with parameters", false),
+        /** The number of query plans that include a {@code IN} type of Union. */
+        PLAN_IN_UNION("number of in union plans", false),
         /** The number of query plans that include an {@code IN} with literal values. */
         PLAN_IN_VALUES("number of in plans with values", false),
         /** The number of query plans that include an {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan}. */

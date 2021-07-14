@@ -159,6 +159,11 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Union All",
             "A union all operator processes its two or more inputs and returns the unioned multiset of all input records (duplicates are preserved). The operator does not required its inputs to be compatible ordered.");
+    public static final NodeInfo IN_UNION_OPERATOR = new NodeInfo(
+            "InUnionOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "In Union",
+            "A union of the application of a child to each element of an IN list.");
 
     private final String id;
     private final String iconId;
