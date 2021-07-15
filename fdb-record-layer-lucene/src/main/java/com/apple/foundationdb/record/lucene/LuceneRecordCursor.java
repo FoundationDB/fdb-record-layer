@@ -36,13 +36,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Ints;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TopDocs;
@@ -86,6 +86,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private int currentPosition;
     private final List<KeyExpression> fields;
     private Sort sort = null;
+    private ScoreDoc searchAfter = null;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -99,7 +100,15 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.timer = state.context.getTimer();
         this.query = query;
-        this.currentPosition = continuation == null ? 0 : Ints.fromByteArray(continuation);
+        if (continuation != null) {
+            Tuple continuationTuple = Tuple.fromBytes(continuation);
+            try {
+                searchAfter = new ScoreDoc((int)continuationTuple.getLong(0), (float)continuationTuple.get(1), (int)continuationTuple.getLong(2));
+            } catch (Exception e) {
+                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuationTuple);
+            }
+        }
+        this.currentPosition = 0;
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
             this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
@@ -125,6 +134,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     Document document = searcher.doc(topDocs.scoreDocs[currentPosition].doc);
+                    searchAfter = topDocs.scoreDocs[currentPosition];
                     IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
                     BytesRef pk = primaryKey.binaryValue();
                     if (LOGGER.isTraceEnabled()) {
@@ -185,7 +195,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (currentPosition >= topDocs.scoreDocs.length && limitRemaining > 0) {
             return ByteArrayContinuation.fromNullable(null);
         } else {
-            return ByteArrayContinuation.fromNullable(Ints.toByteArray(currentPosition));
+            Tuple scoredDoc = Tuple.from(searchAfter.doc, searchAfter.score, searchAfter.shardIndex);
+            return ByteArrayContinuation.fromNullable(scoredDoc.pack());
         }
     }
 
@@ -216,8 +227,12 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private void performScan() throws IOException {
         indexReader = getIndexReader();
         searcher = new IndexSearcher(indexReader);
-        if (sort != null) {
-            topDocs = searcher.search(query, limitRemaining, sort);
+        if (searchAfter != null && sort != null) {
+            topDocs = searcher.searchAfter(searchAfter, query, limitRemaining, sort);
+        } else if (searchAfter != null) {
+            topDocs =  searcher.searchAfter(searchAfter, query, limitRemaining);
+        } else if (sort != null) {
+            topDocs = searcher.search(query,  limitRemaining, sort);
         } else {
             topDocs = searcher.search(query, limitRemaining);
         }

@@ -45,7 +45,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.beust.jcommander.internal.Lists;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.primitives.Ints;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
@@ -165,9 +164,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1625L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1626L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            assertEquals(2, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
-                    TupleRange.allOf(Tuple.from("idiot")), Ints.toByteArray(2), ScanProperties.FORWARD_SCAN)
-                    .getCount().join());
+            RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
+                    TupleRange.allOf(Tuple.from("idiot")), Tuple.from(1, 0.30086955F, 0).pack() , ScanProperties.FORWARD_SCAN);
+            assertEquals(2, recordCursor.getCount().join());
         }
     }
 
@@ -233,7 +232,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
             }
             assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
-                    TupleRange.allOf(Tuple.from("idiot")), Ints.toByteArray(2),
+                    TupleRange.allOf(Tuple.from("idiot")), Tuple.from(151, 0.0024906613F, 0).pack(),
                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
                     .getCount().join());
         }
