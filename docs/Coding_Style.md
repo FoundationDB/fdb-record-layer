@@ -145,4 +145,4 @@ fetchSomeNumber().thenApplyAsync(number -> number * 10, context.getExecutor());
 ```
 
 Otherwise it is executed in the global thread pool, rather than the Record Layer 
-thread pool 
+thread pool.
