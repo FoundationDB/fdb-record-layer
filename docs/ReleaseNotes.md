@@ -40,6 +40,9 @@ Another, smaller change that has been made is that by default, new indexes added
 // end next release
 -->
 
+### 3.0.193.0
+
+
 ### 3.0.192.0
 
 * **Bug fix** Fix a typo in DataAccessRule.comparisonKey() [(Issue #1324)](https://github.com/FoundationDB/fdb-record-layer/issues/1324)
