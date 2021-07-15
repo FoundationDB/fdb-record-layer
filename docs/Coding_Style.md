@@ -102,7 +102,7 @@ The methods `join()`, `get()`, `asyncToSync()` or any method that is known to bl
 future.
 
 The thread pool `Executor` has a limited number of threads that are used to invoke 
-the lambda in the `CompletableFuture` when it completes, so if that completable
+the lambda in the `CompletableFuture` when it completes, so if that future
 makes a blocking call, it has permenantly consumed the `Executor` thread until 
 the completion of that operation. In the case where the blocking call is waiting
 for another future to complete (e.g. `asyncToSync()`, `join()` or `get()`) you
