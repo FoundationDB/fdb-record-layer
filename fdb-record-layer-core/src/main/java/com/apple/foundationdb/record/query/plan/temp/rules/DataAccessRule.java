@@ -689,7 +689,7 @@ public class DataAccessRule extends PlannerRule<MatchPartition> {
         }
 
         if (comparisonKeyParts.size() == 1) {
-            return Iterables.getOnlyElement(commonPrimaryKeyParts);
+            return Iterables.getOnlyElement(comparisonKeyParts);
         }
 
         return Key.Expressions.concat(comparisonKeyParts);
