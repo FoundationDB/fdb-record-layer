@@ -98,7 +98,7 @@ benefits:
 ### Blocking in asynchronous code
 
 The methods `join()`, `get()`, `asyncToSync()` or any method that is known to block 
-(such as syncronous I/O methods), just never be called from within a completable 
+(such as syncronous I/O methods) should never be called from within a completable 
 future.
 
 The thread pool `Executor` has a limited number of threads that are used to invoke 
