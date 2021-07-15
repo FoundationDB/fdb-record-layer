@@ -118,6 +118,17 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             )
             .collect(Collectors.toList());
 
+
+    private List<TestRecordsTextProto.MapDocument> mapWithFieldDocuments = IntStream.range(0, textSamples.size() / 2)
+            .mapToObj(i -> TestRecordsTextProto.MapDocument.newBuilder()
+                    .setDocId(i)
+                    .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("a").setValue(textSamples.get(i * 2)).build())
+                    .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("b").setValue(textSamples.get(i * 2 + 1)).build())
+                    .setGroup(i % 2)
+                    .build()
+            )
+            .collect(Collectors.toList());
+
     private static final String MAP_DOC = "MapDocument";
 
     private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
@@ -127,8 +138,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                     LuceneKeyExpression.FieldType.STRING_KEY_MAP, false, false),
             new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false));
 
-    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value",new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
-            new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys)), 1), IndexTypes.LUCENE);
+    private static final LuceneThenKeyExpression mainExpression = new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys);
+
+    private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", new LuceneThenKeyExpression( null, Lists.newArrayList(new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(mainExpression), 1),
+            new LuceneFieldKeyExpression("doc_id",KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL,
+                                                             LuceneKeyExpression.FieldType.LONG, false, false))), IndexTypes.LUCENE);
+
+    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
+            mainExpression), 1), IndexTypes.LUCENE);
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
@@ -157,6 +174,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         metaDataBuilder.removeIndex("SimpleDocument$text");
         metaDataBuilder.addIndex(TextIndexTestUtils.SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
         metaDataBuilder.addIndex(MAP_DOC, MAP_ON_LUCENE_INDEX);
+        metaDataBuilder.addIndex(MAP_DOC, MAP_AND_FIELD_ON_LUCENE_INDEX);
         hook.apply(metaDataBuilder);
         recordStore = getStoreBuilder(context, metaDataBuilder.getRecordMetaData())
                 .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
@@ -176,6 +194,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
             mapDocuments.forEach(recordStore::saveRecord);
+            commit(context);
+        }
+    }
+
+    private void initializeNestedWithField() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            mapWithFieldDocuments.forEach(recordStore::saveRecord);
             commit(context);
         }
     }
@@ -203,6 +229,27 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
             assertEquals(ImmutableSet.of(2L, 4L), ImmutableSet.copyOf(primaryKeys));
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    public void testThenExpressionBeforeFieldExpression(boolean shouldDeferFetch) throws Exception {
+        initializeNestedWithField();
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter1 = new LuceneQueryComponent("*:*", Lists.newArrayList("doc_id"));
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(MAP_DOC)
+                    .setFilter(filter1)
+                    .build();
+            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            RecordQueryPlan plan = planner.plan(query);
+            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
+            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+            assertEquals(ImmutableSet.of(0L, 1L, 2L), ImmutableSet.copyOf(primaryKeys));
+        }
+
     }
 
     @ParameterizedTest
