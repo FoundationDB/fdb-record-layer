@@ -46,7 +46,7 @@ By structuring our exceptions this way, we get a number of nice benefits:
 * We can easily search our logs for all occurrances of a given exception, 
   such as finding how often "Found corrupt record" occurs
 * For a given exception, we can filter or group on the logging properties,
-  such as counting the number of correupt records by record type
+  such as counting the number of corrupt records by record type
 * At a broader scale, without having variables polluting the text of the
   exception, we can trivially do things like determine which exception
   happens most frequently in the system, by performing a count grouped by
