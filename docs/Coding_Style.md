@@ -134,7 +134,7 @@ fetchSomeNumber().thenApply(number -> number * 10);
 
 Will do the calculation immediately, as soon as `number` becomes available.  So the 
 former form is FAR more expensive, for very little gain.  The main use of the `*Async()` 
-methods are cases where the lambda needs to do something relatively expensive (e.g. factor 
+methods are cases where the lambda needs to do something relatively expensive (e.g., factor 
 the number) and you don't want to block the current future chain while it happens. 
 
 Further, in the cases where you *do* need to use the `*Async()` methods, be sure you 
