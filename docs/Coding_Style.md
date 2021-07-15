@@ -117,7 +117,7 @@ invoked from within a `CompletableFuture` completion and throw an exception.
 ### `.thenApplyAsync` and `.thenComposeAsync`
 
 In most situations, you do not want to use these methods, but should use `thenApply()` 
-or `thenCompose()`. The `CompletableFuture. *Async()` create and enqueue a new future 
+or `thenCompose()`. The `CompletableFuture.*Async()` methods create and enqueue a new future 
 that will execute the code in the lambda, rather than executing the code in the lambda 
 immediately upon completion of this future completes. For example:
 
