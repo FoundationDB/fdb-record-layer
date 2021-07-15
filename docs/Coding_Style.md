@@ -82,7 +82,7 @@ LOGGER.info(KeyValueLogMessage.of("Unable to open file",
 ### `join()` or `get()` in production code
 
 Production code (i.e., code that isn't test code), should never call `CompletableFuture.join()` 
-or `CompletableFuture.get()`, but instead should call `FDBRecordContext.asyncToSync()` or
+or `CompletableFuture.get()`, but instead it should call `FDBRecordContext.asyncToSync()` or
 `FDBDatabase.asyncToSync()`.  The `asyncToSync()` method provides a number of important
 benefits:
 
