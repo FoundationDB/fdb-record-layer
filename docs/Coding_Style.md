@@ -107,7 +107,7 @@ makes a blocking call, it has permenantly consumed the `Executor` thread until
 the completion of that operation. In the case where the blocking call is waiting
 for another future to complete (e.g., `asyncToSync()`, `join()`, or `get()`), you
 can end up in a situation where the thread pool is entirely consumed with futures
-blocking for completions, and no threads are available to complete those requests
+blocking for completions, and no threads are available to complete those requests,
 and the entire system deadlocks. 
 
 In the Record Layer unit tests (any test extending `FDBTestBase`, the `asyncToSync()`
