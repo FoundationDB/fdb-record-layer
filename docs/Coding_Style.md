@@ -112,7 +112,7 @@ and the entire system deadlocks.
 
 In the Record Layer unit tests (any test extending `FDBTestBase`), the `asyncToSync()`
 call will automatically attempt to detect situations in which it finds itself being
-invoked from within a `CompletableFuture` completion, and throw an exception.
+invoked from within a `CompletableFuture` completion and throw an exception.
 
 ### `.thenApplyAsync` and `.thenComposeAsync`
 
