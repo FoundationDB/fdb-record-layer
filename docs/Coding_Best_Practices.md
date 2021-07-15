@@ -1,8 +1,7 @@
-# FoundationDB Record Layer Coding Style
+# FoundationDB Record Layer Coding Best Practices
 
-This document is very much a work in progress, but the intention is to detail rules
-both our code formatting style rules, as well as general paradigms that we follow
-around areas such as logging and exception structures.
+This is a living document aimed towards documenting and clarifying our
+coding best practives.
 
 ## Exceptions 
 
