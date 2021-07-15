@@ -86,7 +86,7 @@ or `CompletableFuture.get()`, but instead it should call `FDBRecordContext.async
 `FDBDatabase.asyncToSync()`.  The `asyncToSync()` method provides a number of important
 benefits:
 
-* It establishes a client-configurable configurable time limit on how long we are 
+* It establishes a client-configurable time limit on how long we are 
   willing to wait for the operation to complete
 * It automatically defines a wait timer that will be included in the `FDBStoreTimer`
   to track the time spent waiting on the event
