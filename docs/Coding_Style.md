@@ -144,5 +144,5 @@ pass it an `Executor`, like:
 fetchSomeNumber().thenApplyAsync(number -> number * 10, context.getExecutor());
 ```
 
-otherwise it is executed in the global thread pool, rather than the Record Layer 
+Otherwise it is executed in the global thread pool, rather than the Record Layer 
 thread pool 
