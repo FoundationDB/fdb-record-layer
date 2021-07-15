@@ -110,7 +110,7 @@ can end up in a situation where the thread pool is entirely consumed with future
 blocking for completions, and no threads are available to complete those requests,
 and the entire system deadlocks. 
 
-In the Record Layer unit tests (any test extending `FDBTestBase`, the `asyncToSync()`
+In the Record Layer unit tests (any test extending `FDBTestBase`), the `asyncToSync()`
 call will automatically attempt to detect situations in which it finds itself being
 invoked from within a `CompletableFuture` completion, and throw an exception.
 
