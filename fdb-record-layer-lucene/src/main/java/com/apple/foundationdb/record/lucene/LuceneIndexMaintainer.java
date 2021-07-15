@@ -53,6 +53,7 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.IntPoint;
+import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.TextField;
@@ -183,7 +184,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                         }
                                     }
                                 }
-                                offset += children.size();
+                                offset += children.size() - 1;
                             } else if (expression instanceof LuceneFieldKeyExpression) {
                                 Object value = entryKey.get(i + offset);
                                 if (value != null) {
@@ -221,6 +222,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     break;
                 case STRING:
                     document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                    break;
+                case LONG:
+                    document.add(new LongPoint(fieldName, (long) value));
                     break;
                 default:
                     throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", expression.getType());

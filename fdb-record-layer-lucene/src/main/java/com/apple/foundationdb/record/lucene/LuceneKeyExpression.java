@@ -43,6 +43,7 @@ public interface LuceneKeyExpression extends KeyExpression {
     enum FieldType {
         STRING,
         INT,
+        LONG,
         INT_LIST,
         STRING_KEY_MAP
     }
