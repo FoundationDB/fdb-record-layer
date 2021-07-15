@@ -28,6 +28,7 @@ reliability, and performance in a distributed setting.
 * [Schema Evolution and Meta-data Maintenance](SchemaEvolution.md)
 * [Extending the Record Layer](Extending.md)
 * [Versioning Guide](Versioning.md)
+* [Coding Best Practices](Coding_Best_Practices.md)
 * [Release Notes](ReleaseNotes.md)
 * [Frequently Asked Questions](FAQ.md)
 * [Contributing](https://github.com/FoundationDB/fdb-record-layer/blob/main/CONTRIBUTING.md)
