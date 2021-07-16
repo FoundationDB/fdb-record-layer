@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -101,11 +102,11 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.timer = state.context.getTimer();
         this.query = query;
         if (continuation != null) {
-            Tuple continuationTuple = Tuple.fromBytes(continuation);
             try {
-                searchAfter = new ScoreDoc((int)continuationTuple.getLong(0), (float)continuationTuple.get(1), (int)continuationTuple.getLong(2));
+                RecordCursorProto.LuceneIndexContinuation luceneIndexContinuation = RecordCursorProto.LuceneIndexContinuation.parseFrom(continuation);
+                searchAfter = new ScoreDoc((int)luceneIndexContinuation.getDoc(), luceneIndexContinuation.getScore(), (int)luceneIndexContinuation.getShard());
             } catch (Exception e) {
-                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuationTuple);
+                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation);
             }
         }
         this.currentPosition = 0;
@@ -195,8 +196,12 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (currentPosition >= topDocs.scoreDocs.length && limitRemaining > 0) {
             return ByteArrayContinuation.fromNullable(null);
         } else {
-            Tuple scoredDoc = Tuple.from(searchAfter.doc, searchAfter.score, searchAfter.shardIndex);
-            return ByteArrayContinuation.fromNullable(scoredDoc.pack());
+            RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
+                    .setDoc(searchAfter.doc)
+                    .setScore(searchAfter.score)
+                    .setShard(searchAfter.shardIndex)
+                    .build();
+            return ByteArrayContinuation.fromNullable(continuation.toByteArray());
         }
     }
 
