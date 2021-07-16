@@ -106,7 +106,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                 RecordCursorProto.LuceneIndexContinuation luceneIndexContinuation = RecordCursorProto.LuceneIndexContinuation.parseFrom(continuation);
                 searchAfter = new ScoreDoc((int)luceneIndexContinuation.getDoc(), luceneIndexContinuation.getScore(), (int)luceneIndexContinuation.getShard());
             } catch (Exception e) {
-                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation);
+                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
             }
         }
         this.currentPosition = 0;
