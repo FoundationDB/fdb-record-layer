@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
@@ -164,8 +165,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1625L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1626L, DYLAN, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
+            RecordCursorProto.LuceneIndexContinuation continuation =  RecordCursorProto.LuceneIndexContinuation.newBuilder()
+                    .setDoc(1)
+                    .setScore(0.30086955F)
+                    .setShard(0)
+                    .build();
             RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
-                    TupleRange.allOf(Tuple.from("idiot")), Tuple.from(1, 0.30086955F, 0).pack() , ScanProperties.FORWARD_SCAN);
+                    TupleRange.allOf(Tuple.from("idiot")), continuation.toByteArray(), ScanProperties.FORWARD_SCAN);
             assertEquals(2, recordCursor.getCount().join());
         }
     }
@@ -231,8 +237,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (int i = 0; i < 200; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
             }
+            RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
+                    .setDoc(151)
+                    .setScore(0.0024906613F)
+                    .setShard(0)
+                    .build();
             assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE,
-                    TupleRange.allOf(Tuple.from("idiot")), Tuple.from(151, 0.0024906613F, 0).pack(),
+                    TupleRange.allOf(Tuple.from("idiot")), continuation.toByteArray(),
                     ExecuteProperties.newBuilder().setReturnedRowLimit(50).build().asScanProperties(false))
                     .getCount().join());
         }
