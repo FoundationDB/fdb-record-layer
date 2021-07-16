@@ -21,14 +21,17 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.test.Tags;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.NoSuchFileException;
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -50,6 +53,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertEquals(subspace, directory.getSubspace());
     }
 
+
     @Test
     public void testGetIncrement() {
         assertEquals(1, directory.getIncrement());
@@ -58,7 +62,10 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         FDBRecordContext context = fdb.openContext();
         directory = new FDBDirectory(subspace, context);
         assertEquals(3, directory.getIncrement());
+
+        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_GET_INCREMENT_CALLS,2);
     }
+
 
     @Test
     public void testWriteGetLuceneFileReference() throws Exception {
@@ -71,6 +78,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         FDBLuceneFileReference actual = luceneFileReference.get(5, TimeUnit.SECONDS);
         assertNotNull(actual, "file reference should exist");
         assertEquals(actual, fileReference);
+
+        assertCorrectMetricCount(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE,1);
     }
 
     @Test
@@ -82,6 +91,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test1", reference2);
         CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("test1");
         assertNotNull(luceneFileReference.get(5, TimeUnit.SECONDS), "fileReference should exist");
+
+        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE,2);
     }
 
     @Test
@@ -98,6 +109,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeData(2, 1, data);
         assertNotNull(directory.readBlock("testReference2",
                 directory.getFDBLuceneFileReference("testReference2"), 1).get(), "seek data should exist");
+
+        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE,data.length);
     }
 
     @Test
@@ -111,6 +124,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         FDBRecordContext context = fdb.openContext();
         directory = new FDBDirectory(subspace, context);
         assertArrayEquals(new String[0], directory.listAll());
+
+        assertCorrectMetricCount(FDBStoreTimer.Events.LUCENE_LIST_ALL,2);
     }
 
     @Test
@@ -120,6 +135,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test1", reference1);
         directory.deleteFile("test1");
         assertEquals(directory.listAll().length, 0);
+
+        assertCorrectMetricCount(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE,2);
     }
 
     @Test
@@ -129,11 +146,24 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.writeFDBLuceneFileReference("test1", reference1);
         long fileSize = directory.fileLength("test1");
         assertEquals(20, fileSize);
+
+        assertCorrectMetricCount(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE,1);
+        assertCorrectMetricCount(FDBStoreTimer.Waits.WAIT_LUCENE_FILE_LENGTH,1);
     }
 
     @Test
     public void testRename() {
-        assertThrows(CompletionException.class, () -> directory.rename("NoExist", "newName"));
+        assertThrows(RecordCoreArgumentException.class, () -> directory.rename("NoExist", "newName"));
+
+        assertCorrectMetricCount(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME,1);
+    }
+
+
+    private void assertCorrectMetricCount(StoreTimer.Event metric, int expectedValue) {
+        //check that metrics were collected
+        final Collection<StoreTimer.Event> events = timer.getEvents();
+        Assertions.assertTrue(events.contains(metric),"Did not count get increment calls!");
+        Assertions.assertEquals(expectedValue,timer.getCounter(metric).getCount(),"Incorrect call count ");
     }
 
 }

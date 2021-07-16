@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene.directory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.subspace.Subspace;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +40,8 @@ public abstract class FDBDirectoryBaseTest {
     protected FDBDirectory directory;
     protected Random random = new Random();
 
+    protected FDBStoreTimer timer = new FDBStoreTimer();
+
     @BeforeEach
     public void setUp() {
         if (fdb == null) {
@@ -51,7 +54,7 @@ public abstract class FDBDirectoryBaseTest {
             context.ensureActive().clear(subspace.range());
             return null;
         });
-        FDBRecordContext context = fdb.openContext();
+        FDBRecordContext context = fdb.openContext(null,timer);
         directory = new FDBDirectory(subspace, context);
     }
 
