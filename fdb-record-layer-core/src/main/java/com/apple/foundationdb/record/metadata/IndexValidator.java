@@ -210,6 +210,12 @@ public class IndexValidator {
     @API(API.Status.EXPERIMENTAL)
     protected void validateChangedOptions(@Nonnull Index oldIndex, @Nonnull Set<String> changedOptions) {
         for (String changedOption : changedOptions) {
+            if (changedOption.startsWith(IndexOptions.REPLACED_BY_OPTION_PREFIX)) {
+                // The set of replacement indexes can be safely added or removed on existing indexes as it
+                // does not affect the validity of the data for any READABLE index, only whether an index
+                // will be dropped (or not dropped).
+                continue;
+            }
             switch (changedOption) {
                 case IndexOptions.ALLOWED_FOR_QUERY_OPTION:
                     // This option affects only runtime behavior and can be changed safely.
