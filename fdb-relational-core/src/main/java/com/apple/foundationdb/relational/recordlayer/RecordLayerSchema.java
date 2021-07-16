@@ -44,6 +44,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     private final RecordLayerDatabase db;
     //could be accessed through the database, but this seems convenient
     final RecordStoreConnection conn;
+    @Nonnull
     private final String schemaName;
 
     //TODO(bfines) destroy this when the connection's transaction ends
@@ -54,10 +55,16 @@ public class RecordLayerSchema implements DatabaseSchema {
      */
     private final Map<String,RecordTypeTable> loadedTables = new HashMap<>();
 
-    public RecordLayerSchema(String schemaName,RecordLayerDatabase recordLayerDatabase,RecordStoreConnection connection) {
+    public RecordLayerSchema(@Nonnull String schemaName,RecordLayerDatabase recordLayerDatabase,RecordStoreConnection connection) {
         this.schemaName = schemaName;
         this.db = recordLayerDatabase;
         this.conn = connection;
+    }
+
+    @Override
+    @Nonnull
+    public String getSchemaName() {
+        return schemaName;
     }
 
     @Override

@@ -21,92 +21,93 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataBuilder;
+import com.apple.foundationdb.record.Restaurant;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
-    FDBDatabase fdbDatabase;
-    private final String keySpacePrefix;
-
-    private TestRecordLayerCatalog catalog;
-    private KeySpaceDirectory keySpace;
-
-    private final FDBRecordStoreBase.UserVersionChecker checker;
-    private final SerializerRegistry registry;
-
-    private final List<KeySpacePath> databases = new LinkedList<>();
-
-
-    public RecordLayerCatalogRule(String catalogPrefix,FDBRecordStoreBase.UserVersionChecker checker, SerializerRegistry registry) {
-        this.checker = checker;
-        this.keySpacePrefix = catalogPrefix;
-        this.registry = registry;
-    }
+    private FDBDatabase fdbDatabase;
+    private RecordLayerCatalog catalog;
+    private final List<RecordLayerDatabase> databases = new LinkedList<>();
 
     @Override
     public void afterEach(ExtensionContext context) {
-        try(FDBRecordContext ctx = fdbDatabase.openContext()){
-            for(KeySpacePath db :databases) {
-                FDBRecordStore.deleteStore(ctx, db);
+        try(FDBRecordContext ctx = fdbDatabase.openContext()) {
+            for(RecordLayerDatabase db :databases) {
+                db.clearDatabase(ctx);
             }
         }
     }
 
     @Override
     public void beforeEach(ExtensionContext context) {
+        final KeySpace keySpace = getKeySpaceForSetup();
+
+        final RecordLayerCatalog.Builder catalogBuilder = new RecordLayerCatalog.Builder();
+        catalogBuilder.setKeySpace(keySpace)
+                .setMetadataProvider(id -> getRecordMetadataBuilder().build())
+                .setSerializerRegistry(new TestSerializerRegistry())
+                .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion));
+
+        catalog = catalogBuilder.build();
         fdbDatabase = FDBDatabaseFactory.instance().getDatabase();
-
-        keySpace = new KeySpaceDirectory(keySpacePrefix,KeySpaceDirectory.KeyType.STRING,"");
-
-        this.catalog = new TestRecordLayerCatalog(fdbDatabase,new MapRecordMetaDataStore(),checker,registry);
     }
 
+    @Override
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
         return catalog.getSchemaTemplate(templateId);
     }
 
+    @Override
     @Nonnull
-    public RelationalDatabase getDatabase(@Nonnull List<Object> url) throws RelationalException {
-        return catalog.getDatabase(url);
+    public RecordLayerDatabase getDatabase(@Nonnull List<Object> url) throws RelationalException {
+        RelationalDatabase relationalDatabase = catalog.getDatabase(url);
+        assert relationalDatabase instanceof RecordLayerDatabase : "The returned relationalDatabase should be a RecordLayerDatabase object";
+        RecordLayerDatabase recordLayerDatabase = (RecordLayerDatabase) relationalDatabase;
+        databases.add(recordLayerDatabase);
+        return recordLayerDatabase;
     }
 
-    public void setSchemaTemplate(RecordLayerTemplate template){
-        catalog.createSchemaTemplate(template);
+    public FDBDatabase getFdbDatabase() {
+        return fdbDatabase;
     }
 
-    public void loadDatabase(String dbid, DatabaseTemplate dbTemplate) {
-        keySpace.addSubdirectory(new KeySpaceDirectory(dbid, KeySpaceDirectory.KeyType.STRING, dbid));
-        KeySpacePath dbPath = new KeySpace(keySpace).path(keySpacePrefix).add(dbid);
-        catalog.createDatabase(dbPath);
+    private static RecordMetaDataBuilder getRecordMetadataBuilder() {
+        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
+        builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("name"));
+        return builder;
+    }
 
-        final KeySpaceDirectory dbDir = keySpace.getSubdirectory(dbid);
-        for(Map.Entry<String,String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()){
-            dbDir.addSubdirectory(new KeySpaceDirectory(schemaData.getKey(), KeySpaceDirectory.KeyType.STRING, schemaData.getKey()));
-            KeySpacePath schemaPath = dbPath.add(schemaData.getKey());
+    private KeySpace getKeySpaceForSetup() {
+        KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
+        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
+        KeySpaceDirectory schemaDirectory = new KeySpaceDirectory("test", KeySpaceDirectory.KeyType.NULL);
+        dbDirectory = dbDirectory.addSubdirectory(schemaDirectory);
+        rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
 
-            SchemaTemplate schemaTemplate = catalog.getSchemaTemplate(schemaData.getValue());
-            catalog.createSchema(schemaPath,schemaTemplate);
-        }
-        databases.add(dbPath);
+        return new KeySpace(rootDirectory);
     }
 }

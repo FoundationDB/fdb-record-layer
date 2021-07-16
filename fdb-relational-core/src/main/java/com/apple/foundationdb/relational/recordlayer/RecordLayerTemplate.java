@@ -24,15 +24,16 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 
 import javax.annotation.Nonnull;
 
-public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataProvider {
+public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataStore {
     private final String name;
 
-    private final RecordMetaDataProvider metaDataProvider;
+    private final RecordMetaDataStore metaDataProvider;
 
-    public RecordLayerTemplate(String name, RecordMetaDataProvider metaDataProvider) {
+    public RecordLayerTemplate(String name, RecordMetaDataStore metaDataProvider) {
         this.name = name;
         this.metaDataProvider = metaDataProvider;
     }
@@ -44,15 +45,14 @@ public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataProvid
 
     @Override
     public boolean isValid(@Nonnull DatabaseSchema schema) {
-        int version = metaDataProvider.getRecordMetaData().getVersion();
+        int version = metaDataProvider.loadMetaData(schema.getSchemaName()).getRecordMetaData().getVersion();
         return schema.getSchemaVersion() >= version;
 
         //TODO(bfines) validate that all the tables and indexes match what is expected
     }
 
-    @Nonnull
     @Override
-    public RecordMetaData getRecordMetaData() {
-        return metaDataProvider.getRecordMetaData();
+    public RecordMetaDataProvider loadMetaData(String storeUuid) {
+        return metaDataProvider.loadMetaData(storeUuid);
     }
 }

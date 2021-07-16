@@ -31,6 +31,9 @@ import java.util.Set;
 @ConnectionScoped
 public interface DatabaseSchema extends AutoCloseable{
 
+    @Nonnull
+    String getSchemaName();
+
     int getSchemaVersion();
 
     Set<String> listTables();

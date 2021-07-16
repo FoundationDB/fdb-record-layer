@@ -114,7 +114,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
                 .setUserVersionChecker(userVersionChecker)
                 .setFormatVersion(formatVersion)
                 .setContext(txn)
-                .open();
+                .createOrOpen();
     }
 
     /* ****************************************************************************************************************/
@@ -125,6 +125,10 @@ public class RecordLayerDatabase implements RelationalDatabase {
         }catch(MetaDataException mde){
             throw new RelationalException(mde.getMessage(),RelationalException.ErrorCode.UNKNOWN_SCHEMA);
         }
+    }
+
+    void clearDatabase(@Nonnull FDBRecordContext context) {
+        FDBRecordStore.deleteStore(context, ksPath);
     }
 
 }

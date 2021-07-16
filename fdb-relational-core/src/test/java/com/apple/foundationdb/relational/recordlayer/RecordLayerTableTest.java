@@ -24,15 +24,17 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
-import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
-import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
-import com.google.common.collect.ImmutableList;
+import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
@@ -40,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -49,23 +52,20 @@ import java.util.concurrent.CompletableFuture;
  */
 public class RecordLayerTableTest {
     @RegisterExtension
-    public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule("/",
-            ((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion)),
-            new TestSerializerRegistry());
-
-    @BeforeEach
-    public final void setupCatalog(){
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-        builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("name"));
-        catalog.setSchemaTemplate(new RecordLayerTemplate("RestaurantRecord",builder.build()));
-
-        catalog.loadDatabase("record_layer_table_test", DatabaseTemplate.newBuilder().withSchema("test","RestaurantRecord").build());
-    }
+    public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
     @Test
-    public void canInsertAndScanASingleRecord() {
-        RecordLayerDriver driver = new RecordLayerDriver(catalog,catalog.fdbDatabase);
-        try(DatabaseConnection conn = driver.connect(ImmutableList.of("record_layer_table_test"), Options.create().withOption(OperationOption.forceVerifyDdl()))){
+    void canInsertAndScanASingleRecord() throws Exception {
+        final ArrayList<Object> dbUrl = new ArrayList<>();
+        // The element for clusterFile
+        dbUrl.add(null);
+        // The element for root
+        dbUrl.add(null);
+        // The element for dbid
+        dbUrl.add("record_layer_table_test");
+
+        RecordLayerDriver driver = new RecordLayerDriver(catalog, catalog.getFdbDatabase());
+        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()){
@@ -101,5 +101,4 @@ public class RecordLayerTableTest {
             }
         }
     }
-
 }

@@ -32,6 +32,7 @@ import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerDatabase;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
 import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.tuple.Pair;
@@ -57,7 +58,7 @@ public class RecordLayerCatalog implements Catalog {
 
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+        return new RecordLayerTemplate(templateId, metadataProvider);
     }
 
     @Nonnull
