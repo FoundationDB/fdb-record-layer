@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.RecordMetaDataProto;
@@ -36,13 +37,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.Lists;
-import com.google.common.primitives.Ints;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TopDocs;
@@ -86,6 +87,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private int currentPosition;
     private final List<KeyExpression> fields;
     private Sort sort = null;
+    private ScoreDoc searchAfter = null;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -99,7 +101,15 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.timer = state.context.getTimer();
         this.query = query;
-        this.currentPosition = continuation == null ? 0 : Ints.fromByteArray(continuation);
+        if (continuation != null) {
+            try {
+                RecordCursorProto.LuceneIndexContinuation luceneIndexContinuation = RecordCursorProto.LuceneIndexContinuation.parseFrom(continuation);
+                searchAfter = new ScoreDoc((int)luceneIndexContinuation.getDoc(), luceneIndexContinuation.getScore(), (int)luceneIndexContinuation.getShard());
+            } catch (Exception e) {
+                throw new RecordCoreException("Invalid continuation for Lucene index", "ContinuationValues", continuation, e);
+            }
+        }
+        this.currentPosition = 0;
         if (scanProperties.getExecuteProperties().getSkip() > 0) {
             this.currentPosition += scanProperties.getExecuteProperties().getSkip();
         }
@@ -125,6 +135,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return CompletableFuture.supplyAsync(() -> {
                 try {
                     Document document = searcher.doc(topDocs.scoreDocs[currentPosition].doc);
+                    searchAfter = topDocs.scoreDocs[currentPosition];
                     IndexableField primaryKey = document.getField(LuceneIndexMaintainer.PRIMARY_KEY_FIELD_NAME);
                     BytesRef pk = primaryKey.binaryValue();
                     if (LOGGER.isTraceEnabled()) {
@@ -185,7 +196,12 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (currentPosition >= topDocs.scoreDocs.length && limitRemaining > 0) {
             return ByteArrayContinuation.fromNullable(null);
         } else {
-            return ByteArrayContinuation.fromNullable(Ints.toByteArray(currentPosition));
+            RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
+                    .setDoc(searchAfter.doc)
+                    .setScore(searchAfter.score)
+                    .setShard(searchAfter.shardIndex)
+                    .build();
+            return ByteArrayContinuation.fromNullable(continuation.toByteArray());
         }
     }
 
@@ -216,8 +232,12 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private void performScan() throws IOException {
         indexReader = getIndexReader();
         searcher = new IndexSearcher(indexReader);
-        if (sort != null) {
-            topDocs = searcher.search(query, limitRemaining, sort);
+        if (searchAfter != null && sort != null) {
+            topDocs = searcher.searchAfter(searchAfter, query, limitRemaining, sort);
+        } else if (searchAfter != null) {
+            topDocs =  searcher.searchAfter(searchAfter, query, limitRemaining);
+        } else if (sort != null) {
+            topDocs = searcher.search(query,  limitRemaining, sort);
         } else {
             topDocs = searcher.search(query, limitRemaining);
         }
