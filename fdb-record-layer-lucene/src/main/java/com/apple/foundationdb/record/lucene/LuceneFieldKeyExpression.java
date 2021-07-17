@@ -75,7 +75,8 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
     }
 
     @Override
+    @SuppressWarnings("PMD.UselessOverridingMethod")
     public int hashCode() {
-        return Objects.hash(super.hashCode(), type, sorted, stored);
+        return super.hashCode();
     }
 }
