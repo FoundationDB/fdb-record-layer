@@ -1814,7 +1814,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 return AsyncUtil.READY_FALSE;
             }
-        });
+        }).thenCompose(this::removeReplacedIndexesIfChanged);
     }
 
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker, int oldUserVersion, int oldMetaDataVersion,
@@ -1989,6 +1989,64 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             if (storeHeader.getFormatVersion() < MIN_FORMAT_VERSION || storeHeader.getFormatVersion() > MAX_SUPPORTED_FORMAT_VERSION) {
                 throw new UnsupportedFormatVersionException("Unsupported format version " + storeHeader.getFormatVersion(),
                         subspaceProvider.logKey(), subspaceProvider);
+            }
+        }
+    }
+
+    @Nonnull
+    private CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
+        if (changed) {
+            return removeReplacedIndexes().thenApply(vignore -> true);
+        } else {
+            return AsyncUtil.READY_FALSE;
+        }
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> removeReplacedIndexes() {
+        if (recordStoreStateRef.get() == null) {
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> removeReplacedIndexes());
+        }
+
+        // Look for any indexes that can be removed because they have been replaced with new indexes
+        beginRecordStoreStateRead();
+        final RecordMetaData metaData = getRecordMetaData();
+        final List<Index> indexesToRemove = new ArrayList<>();
+        try {
+            for (Index index : metaData.getAllIndexes()) {
+                final List<String> replacedByNames = index.getReplacedByIndexNames();
+                if (!replacedByNames.isEmpty()) {
+                    // Check if all of the replaced by index names are readable
+                    if (replacedByNames.stream()
+                            .allMatch(replacedByName -> metaData.hasIndex(replacedByName) && isIndexReadable(replacedByName))) {
+                        indexesToRemove.add(index);
+                    }
+                }
+            }
+        } finally {
+            endRecordStoreStateRead();
+        }
+
+        // If there are no indexes to remove, terminate now
+        if (indexesToRemove.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+
+        // Mark all the replaced indexes as DISABLED. This also deletes their data
+        beginRecordStoreStateWrite();
+        boolean haveFuture = false;
+        try {
+            final List<CompletableFuture<Boolean>> indexRemoveFutures = new ArrayList<>(indexesToRemove.size());
+            for (Index index : indexesToRemove) {
+                indexRemoveFutures.add(markIndexDisabled(index));
+            }
+            CompletableFuture<Void> future = AsyncUtil.whenAll(indexRemoveFutures)
+                    .whenComplete((vignore, errIgnore) -> endRecordStoreStateWrite());
+            haveFuture = true;
+            return future;
+        } finally {
+            if (!haveFuture) {
+                endRecordStoreStateWrite();
             }
         }
     }
@@ -2640,7 +2698,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return AsyncUtil.READY_FALSE;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenCompose(this::removeReplacedIndexesIfChanged);
             haveFuture = true;
             return future;
         } finally {
@@ -2708,7 +2766,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return false;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenCompose(this::removeReplacedIndexesIfChanged);
             haveFuture = true;
             return future;
         } finally {

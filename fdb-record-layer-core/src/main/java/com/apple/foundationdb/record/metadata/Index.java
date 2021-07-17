@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 
@@ -153,7 +154,7 @@ public class Index {
         } else {
             this.primaryKeyComponentPositions = null;
         }
-        this.subspaceKey = normalizeSubspaceKey(name, Tuple.fromBytes(Tuple.from(orig.subspaceKey).pack()));
+        this.subspaceKey = normalizeSubspaceKey(name, orig.subspaceKey);
         this.useExplicitSubspaceKey = orig.useExplicitSubspaceKey;
         this.addedVersion = orig.addedVersion;
         this.lastModifiedVersion = orig.lastModifiedVersion;
@@ -306,6 +307,28 @@ public class Index {
      */
     public boolean isUnique() {
         return getBooleanOption(IndexOptions.UNIQUE_OPTION, false);
+    }
+
+    /**
+     * Get a list of index names that are replacing this index. If the list is non-empty, it should contain
+     * a list of other indexes in the meta-data. When all of those indexes are built on a store, this
+     * index will be marked as {@link com.apple.foundationdb.record.IndexState#DISABLED}, so it will no
+     * longer be maintained and its data will be deleted. See the {@link IndexOptions#REPLACED_BY_OPTION_PREFIX}
+     * for more details. If the returned list is empty, then this index is not being replaced by any other
+     * indexes.
+     *
+     * @return either the empty list or a list of indexes that when built should cause this index to be removed
+     * @see IndexOptions#REPLACED_BY_OPTION_PREFIX
+     */
+    @Nonnull
+    public List<String> getReplacedByIndexNames() {
+        ImmutableList.Builder<String> replacedByIndexNames = ImmutableList.builder();
+        for (Map.Entry<String, String> option : getOptions().entrySet()) {
+            if (option.getKey().startsWith(IndexOptions.REPLACED_BY_OPTION_PREFIX)) {
+                replacedByIndexNames.add(option.getValue());
+            }
+        }
+        return replacedByIndexNames.build();
     }
 
     /**
