@@ -102,7 +102,7 @@ public class AvailableFields {
 
         final List<KeyExpression> keyFields = new ArrayList<>();
         final List<KeyExpression> valueFields = new ArrayList<>();
-        int offset = 0;
+        final List<KeyExpression> nonStoredLuceneExpressions = new ArrayList<>();
         if (indexTypes.getTextTypes().contains(index.getType())) {
             // Full text index entries have all of their fields except the tokenized one.
             keyFields.addAll(TextScanPlanner.getOtherFields(rootExpression));
@@ -111,10 +111,10 @@ public class AvailableFields {
             keyFields.addAll(KeyExpression.getKeyFields(rootExpression));
             valueFields.addAll(KeyExpression.getValueFields(rootExpression));
         } else if (indexTypes.getLuceneTypes().contains(index.getType())) {
-            // Todo: this needs to be handled properly, not all fields are stored. 
-            List<KeyExpression> nonPrimaries = rootExpression.normalizeKeyForPositions();
-            nonPrimaries.removeAll(commonPrimaryKey.normalizeKeyForPositions());
-            offset = nonPrimaries.size();
+            // Todo: this will not take into account stored non-primary-key fields.
+            nonStoredLuceneExpressions.addAll(rootExpression.normalizeKeyForPositions());
+            keyFields.addAll(rootExpression.normalizeKeyForPositions());
+            nonStoredLuceneExpressions.removeAll(recordType.getPrimaryKey().normalizeKeyForPositions());
         } else {
             // Aggregate index
             if (rootExpression instanceof GroupingKeyExpression) {
@@ -134,15 +134,15 @@ public class AvailableFields {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
         for (int i = 0; i < keyFields.size(); i++) {
             KeyExpression keyField = keyFields.get(i);
-            FieldData fieldData = FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i + offset);
-            if (!keyField.createsDuplicates() && addCoveringField(keyField, fieldData, builder)) {
+            FieldData fieldData = FieldData.of(IndexKeyValueToPartialRecord.TupleSource.KEY, i);
+            if (!nonStoredLuceneExpressions.contains(keyField) && !keyField.createsDuplicates() && addCoveringField(keyField, fieldData, builder)) {
                 fields.put(keyField, fieldData);
             }
         }
         for (int i = 0; i < valueFields.size(); i++) {
             KeyExpression valueField = valueFields.get(i);
-            FieldData fieldData = FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i + offset);
-            if (!valueField.createsDuplicates() && addCoveringField(valueField, fieldData, builder)) {
+            FieldData fieldData = FieldData.of(IndexKeyValueToPartialRecord.TupleSource.VALUE, i);
+            if (!nonStoredLuceneExpressions.contains(valueField) && !valueField.createsDuplicates() && addCoveringField(valueField, fieldData, builder)) {
                 fields.put(valueField, fieldData);
             }
         }

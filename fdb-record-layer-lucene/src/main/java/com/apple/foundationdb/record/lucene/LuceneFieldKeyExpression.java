@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
 public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression {
 
@@ -75,7 +74,8 @@ public class LuceneFieldKeyExpression extends FieldKeyExpression implements Luce
     }
 
     @Override
+    @SuppressWarnings("PMD.UselessOverridingMethod")
     public int hashCode() {
-        return Objects.hash(super.hashCode(), type, sorted, stored);
+        return super.hashCode();
     }
 }
