@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 
 import javax.annotation.Nonnull;
-import java.util.Objects;
 
 public class LuceneFieldKeyExpression extends FieldKeyExpression implements LuceneKeyExpression {
 
