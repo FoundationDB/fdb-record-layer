@@ -117,13 +117,13 @@ public class AutoContinuingCursorTest extends FDBTestBase {
         final AtomicInteger exceptionCount = new AtomicInteger(0);
 
         CompletionException e = assertThrows(CompletionException.class, () ->
-            testAutoContinuingCursorGivenCursorGenerator((context, continuation) ->
-                    new TestingListCursor<>(list, continuation, () -> {
-                        exceptionCount.incrementAndGet();
-                        CompletableFuture<Void> failedFuture = new CompletableFuture<>();
-                        failedFuture.completeExceptionally(new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code()));
-                        return failedFuture;
-                    }), 3, list));
+                testAutoContinuingCursorGivenCursorGenerator((context, continuation) ->
+                        new TestingListCursor<>(list, continuation, () -> {
+                            exceptionCount.incrementAndGet();
+                            CompletableFuture<Void> failedFuture = new CompletableFuture<>();
+                            failedFuture.completeExceptionally(new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code()));
+                            return failedFuture;
+                        }), 3, list));
         assertTrue(e.getMessage().contains("transaction_too_old"));
         // We requested at most 3 retries on a retriable exception, so the fourth exception thrown
         // was the one that caused the cursor to abort.

@@ -99,36 +99,36 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
     @Nonnull
     public LocatableResolver getGlobalScope(FDBDatabase database) {
         switch (defaultResolverType) {
-        case EXTENDED_DIRECTORY_LAYER:
-            return track(ExtendedDirectoryLayer.global(database));
-        case SCOPED_DIRECTORY_LAYER:
-            return track(ScopedDirectoryLayer.global(database));
-        case SCOPED_INTERNING_LAYER:
-            return track(ScopedInterningLayer.global(database));
-        default:
-            throw new IllegalStateException("Unknown resolver type: " + defaultResolverType);
+            case EXTENDED_DIRECTORY_LAYER:
+                return track(ExtendedDirectoryLayer.global(database));
+            case SCOPED_DIRECTORY_LAYER:
+                return track(ScopedDirectoryLayer.global(database));
+            case SCOPED_INTERNING_LAYER:
+                return track(ScopedInterningLayer.global(database));
+            default:
+                throw new IllegalStateException("Unknown resolver type: " + defaultResolverType);
         }
     }
 
     @Nonnull
     public LocatableResolver create(ResolvedKeySpacePath path) {
         switch (defaultResolverType) {
-        case EXTENDED_DIRECTORY_LAYER:
-            return track(new ExtendedDirectoryLayer(database, path));
-        case SCOPED_DIRECTORY_LAYER:
-            return track(new ScopedDirectoryLayer(database, path));
-        case SCOPED_INTERNING_LAYER:
-            return track(new ScopedInterningLayer(database, path));
-        default:
-            throw new IllegalStateException("Unknown resolver type: " + defaultResolverType);
+            case EXTENDED_DIRECTORY_LAYER:
+                return track(new ExtendedDirectoryLayer(database, path));
+            case SCOPED_DIRECTORY_LAYER:
+                return track(new ScopedDirectoryLayer(database, path));
+            case SCOPED_INTERNING_LAYER:
+                return track(new ScopedInterningLayer(database, path));
+            default:
+                throw new IllegalStateException("Unknown resolver type: " + defaultResolverType);
         }
     }
 
     public ResolverValidator.ValidatedEntry deleteReverseEntry(LocatableResolver resolver, ResolverKeyValue keyValue) {
         try (FDBRecordContext context = resolver.getDatabase().openContext()) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_REVERSE_DIRECTORY_LOOKUP,
-                resolver.deleteReverseForTesting(context, keyValue.getValue().getValue())
-                        .thenCompose(ignore -> context.commitAsync()));
+                    resolver.deleteReverseForTesting(context, keyValue.getValue().getValue())
+                            .thenCompose(ignore -> context.commitAsync()));
             database.clearReverseDirectoryCache();
         }
 
@@ -142,15 +142,15 @@ public class TestingResolverFactory implements BeforeEachCallback, AfterEachCall
     public ResolverValidator.ValidatedEntry putReverseEntry(LocatableResolver resolver, ResolverKeyValue forwardKeyValue, String wrongReverseKey) {
         try (FDBRecordContext context = resolver.getDatabase().openContext()) {
             context.asyncToSync(FDBStoreTimer.Waits.WAIT_REVERSE_DIRECTORY_LOOKUP,
-                resolver.putReverse(context, forwardKeyValue.getValue().getValue(), wrongReverseKey)
-                        .thenCompose(ignore -> context.commitAsync()));
+                    resolver.putReverse(context, forwardKeyValue.getValue().getValue(), wrongReverseKey)
+                            .thenCompose(ignore -> context.commitAsync()));
             database.clearReverseDirectoryCache();
         }
 
         final ResolverValidator.ValidatedEntry validatedEntry = new ResolverValidator.ValidatedEntry(
-                        ResolverValidator.ValidationResult.REVERSE_ENTRY_MISMATCH,
-                        forwardKeyValue,
-                        wrongReverseKey);
+                ResolverValidator.ValidationResult.REVERSE_ENTRY_MISMATCH,
+                forwardKeyValue,
+                wrongReverseKey);
         knownBadEntries.add(validatedEntry);
         return validatedEntry;
     }
