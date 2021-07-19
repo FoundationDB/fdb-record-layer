@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoin
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
@@ -376,6 +377,13 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryUnorderedPrimaryKeyDistinctPlan> unorderedPrimaryKeyDistinctPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
         return childrenPlans(RecordQueryUnorderedPrimaryKeyDistinctPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    @SafeVarargs
+    @SuppressWarnings("varargs")
+    public static BindingMatcher<RecordQueryIntersectionPlan> intersectionPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan>... downstreams) {
+        return childrenPlans(RecordQueryIntersectionPlan.class, exactlyPlansInAnyOrder(downstreams));
     }
 
     @Nonnull
