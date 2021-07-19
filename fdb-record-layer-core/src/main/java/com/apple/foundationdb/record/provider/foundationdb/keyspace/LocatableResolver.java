@@ -757,6 +757,7 @@ public abstract class LocatableResolver {
      * @return a future that completes when the delete operation has completed
      */
     @VisibleForTesting
+    @API(API.Status.INTERNAL)
     protected abstract CompletableFuture<Void> deleteReverseForTesting(@Nonnull FDBRecordContext context, long value);
 
     /**
@@ -771,6 +772,7 @@ public abstract class LocatableResolver {
      *
      * @return a future that completes when the put operation has completed
      */
+    @API(API.Status.INTERNAL)
     protected abstract CompletableFuture<Void> putReverse(@Nonnull FDBRecordContext context, long value, @Nonnull String key);
 
     @Nonnull

@@ -70,6 +70,6 @@ public class ResolverKeyValue {
 
     @Override
     public String toString() {
-        return "Key: " + key + ", " + value;
+        return "ResolverKey(" + key + ", " + value + ")";
     }
 }

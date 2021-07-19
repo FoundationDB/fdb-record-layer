@@ -1166,7 +1166,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
                             .forEach(validated -> { }).thenCompose(vignore -> context.commitAsync()));
         }
 
-        validate(globalScope, invalidEntries);
+        validate(globalScope, Collections.emptySet());
     }
 
     private void validate(LocatableResolver locatableResolver, Set<ResolverValidator.ValidatedEntry> expectedBadEntries) {

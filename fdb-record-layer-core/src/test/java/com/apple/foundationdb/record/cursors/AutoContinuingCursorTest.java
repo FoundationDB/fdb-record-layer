@@ -46,6 +46,7 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Test for {@link AutoContinuingCursor}.
@@ -69,10 +70,10 @@ public class AutoContinuingCursorTest extends FDBTestBase {
 
     private void testAutoContinuingCursorGivenCursorGenerator(
             BiFunction<FDBRecordContext, byte[], RecordCursor<Integer>> nextCursorGenerator,
-            int retryAttempts,
+            int maxRetriesOnRetriableException,
             List<Integer> expectedList) {
         try (FDBDatabaseRunner runner = database.newRunner()) {
-            RecordCursor<Integer> cursor = new AutoContinuingCursor<>(runner, nextCursorGenerator, retryAttempts);
+            RecordCursor<Integer> cursor = new AutoContinuingCursor<>(runner, nextCursorGenerator, maxRetriesOnRetriableException);
 
             List<Integer> returnedList = cursor.asList().join();
             assertEquals(expectedList, returnedList);
@@ -123,7 +124,9 @@ public class AutoContinuingCursorTest extends FDBTestBase {
                         failedFuture.completeExceptionally(new FDBException("transaction_too_old", FDBError.TRANSACTION_TOO_OLD.code()));
                         return failedFuture;
                     }), 3, list));
-        assertEquals(((FDBException) e.getCause()).getCode(), FDBError.TRANSACTION_TOO_OLD.code());
+        assertTrue(e.getMessage().contains("transaction_too_old"));
+        // We requested at most 3 retries on a retriable exception, so the fourth exception thrown
+        // was the one that caused the cursor to abort.
         assertEquals(exceptionCount.get(), 4);
     }
 

@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.keyspace;
 
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.AutoContinuingCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBReverseDirectoryCache;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -94,6 +96,10 @@ public class ResolverValidator {
      * reverse mapping, as well as validating that the entry in the reverse mapping points to the forward
      * mapping key.
      *
+     * <p>If {@code repairMissingEntries} is {@code true}, invalid or missing entries (those returned with a
+     * {@code ValidationResult} that is not {@code ValidationResult.OK}) will be corrected. It is the
+     * caller's responsibility to commit the transaction in order for the repair to take effect.
+     *
      * @param resolver the resolver to scan
      * @param context the transaction context to use
      * @param continuation continuation from a previous scan
@@ -111,11 +117,24 @@ public class ResolverValidator {
 
     /**
      * Validate entries in a {@link LocatableResolver}'s mappings. This method scans the forward mapping
-     * ({@code String} -&gt; {@code long}) and validates that the entry has a corresponding entry in the
-     * reverse mapping, as well as validating that the entry in the reverse mapping points to the forward
-     * mapping key. For example, if {@code "foo" -&gt; 10} is in the forward mapping and {@code "foo"} is
-     * not found in the reverse mapping, it will be returned as a bad entry. Similarly, if {@code "foo"} is
-     * found in the reverse mapping, but it has a value of {@code 30}, then that is considered an error.
+     * ({@code String} -&gt; {@code long}) and looks up the reverse mapping corresponding to the {@code long}
+     * value and:
+     * <ul>
+     *   <li>If no reverse mapping is present, returns a {@code ValidatedEntry} with
+     *   {@link ValidationResult#REVERSE_ENTRY_MISSING}</li>
+     *   <li>If a reverse mapping is present, but the key associated with the reverse mapping does not
+     *   correspond to that of the forward mapping, returns a {@code ValidatedEntry} with
+     *   {@link ValidationResult#REVERSE_ENTRY_MISMATCH}</li>
+     * </ul>
+     * If the reverse mapping entry is correct for the forward mapping, a {@code ValidatedEntry} with
+     * {@link ValidationResult#OK} is returned.
+     *
+     * <p>Note that, currently, the validator will not detect reverse directory entries that have no
+     * forward directory entry.
+     *
+     * <p>If {@code repairMissingEntries} is {@code true}, invalid or missing entries (those returned with a
+     * {@code ValidationResult} that is not {@code ValidationResult.OK}) will be corrected. It is the
+     * caller's responsibility to commit the transaction in order for the repair to take effect.
      *
      * @param resolver the resolver to scan
      * @param context the transaction context to use
@@ -161,9 +180,8 @@ public class ResolverValidator {
 
                                 return new ValidatedEntry(ValidationResult.OK, keyValue);
                             }).thenCompose(validatedEntry -> {
-                                if (repairMissingEntries
-                                        && validatedEntry.getValidationResult() == ValidationResult.REVERSE_ENTRY_MISSING) {
-                                    return repairMissingEntry(resolver, context, validatedEntry);
+                                if (repairMissingEntries && validatedEntry.getValidationResult() != ValidationResult.OK) {
+                                    return repairReverseEntry(resolver, context, validatedEntry);
                                 }
                                 return CompletableFuture.completedFuture(validatedEntry);
                             });
@@ -171,14 +189,24 @@ public class ResolverValidator {
                 reverseLookupPipelineSize);
     }
 
-    private static CompletableFuture<ValidatedEntry> repairMissingEntry(@Nonnull LocatableResolver resolver,
+    private static CompletableFuture<ValidatedEntry> repairReverseEntry(@Nonnull LocatableResolver resolver,
                                                                         @Nonnull FDBRecordContext context,
                                                                         @Nonnull ValidatedEntry validatedEntry) {
         if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.of("Restoring missing reverse mapping",
+            LOGGER.info(KeyValueLogMessage.of("Repairing reverse mapping",
                     LogMessageKeys.RESOLVER, resolver,
                     LogMessageKeys.RESOLVER_KEY, validatedEntry.getKey(),
-                    LogMessageKeys.RESOLVER_VALUE, validatedEntry.getValue().getValue()));
+                    LogMessageKeys.RESOLVER_VALUE, validatedEntry.getValue().getValue(),
+                    LogMessageKeys.RESOLVER_REVERSE_VALUE, validatedEntry.getReverseValue(),
+                    LogMessageKeys.VALIDATION_RESULT, validatedEntry.getValidationResult()));
+        }
+
+        // Entries missing from the reverse directory don't need to invalidate the cache as they couldn't have
+        // landed there in the first place (it isn't a negative cache), so we only need to clear out the
+        // reverse directory cache if an invalid entry was replaced with a valid one.
+        if (validatedEntry.getValidationResult() == ValidationResult.REVERSE_ENTRY_MISMATCH) {
+            context.getOrCreatePostCommit("___reverseDirectoryRepair",
+                    name -> new RepairPostCommit(resolver.getDatabase()));
         }
 
         return resolver.putReverse(context, validatedEntry.getValue().getValue(), validatedEntry.getKey())
@@ -190,6 +218,26 @@ public class ResolverValidator {
             e = e.getCause();
         }
         return e instanceof NoSuchElementException;
+    }
+
+    /**
+     * Post-commit hook that is executed after the reverse directory has been repaired. This hook takes
+     * care of clearing out the reverse directory cache when entries have been modified. Note that there
+     * are still potential race conditions possible, but I don't know if there is really a good solution
+     * to them barring bouncing the entire environment.
+     */
+    private static class RepairPostCommit implements FDBRecordContext.PostCommit {
+        private final FDBDatabase database;
+
+        public RepairPostCommit(final FDBDatabase database) {
+            this.database = database;
+        }
+
+        @Override
+        public CompletableFuture<Void> get() {
+            database.clearReverseDirectoryCache();
+            return AsyncUtil.DONE;
+        }
     }
 
     /**
@@ -224,12 +272,14 @@ public class ResolverValidator {
         @Nonnull
         private final String reverseValue;
 
-        public ValidatedEntry(@Nonnull final ValidationResult result,
+        @API(API.Status.INTERNAL)
+        protected ValidatedEntry(@Nonnull final ValidationResult result,
                               @Nonnull final ResolverKeyValue keyValue) {
             this(result, keyValue, keyValue.getKey());
         }
 
-        public ValidatedEntry(@Nonnull final ValidationResult result,
+        @API(API.Status.INTERNAL)
+        protected ValidatedEntry(@Nonnull final ValidationResult result,
                               @Nonnull final ResolverKeyValue keyValue,
                               @Nonnull final String reverseValue) {
             this.result = result;
@@ -280,8 +330,10 @@ public class ResolverValidator {
             if (o == null || getClass() != o.getClass()) {
                 return false;
             }
-            final ValidatedEntry validatedEntry = (ValidatedEntry)o;
-            return result == validatedEntry.result && keyValue.equals(validatedEntry.keyValue) && Objects.equals(reverseValue, validatedEntry.reverseValue);
+            final ValidatedEntry that = (ValidatedEntry)o;
+            return result == that.result
+                   && keyValue.equals(that.keyValue)
+                   && reverseValue.equals(that.reverseValue);
         }
 
         @Override
