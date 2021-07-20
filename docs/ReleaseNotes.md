@@ -30,7 +30,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Feature** Allow stores to check the total size (in bytes) when determining index states rather than the number of records [(Issue #1239)](https://github.com/FoundationDB/fdb-record-layer/issues/1239)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Indexes can now be marked as being replaced by other indexes [(Issue #1315)](https://github.com/FoundationDB/fdb-record-layer/issues/1315)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
