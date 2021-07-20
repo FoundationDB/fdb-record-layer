@@ -30,22 +30,28 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -188,8 +194,9 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        final RecordMetaDataHook withReplacementsHook = composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex), bumpMetaDataVersionHook());
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex), bumpMetaDataVersionHook()));
+            openSimpleRecordStore(context, withReplacementsHook);
             assertTrue(recordStore.isIndexReadable(origIndex.getName()), "Old index should be readable until replacement index is built");
             final List<IndexEntry> oldIndexEntries = scanIndex(origIndex);
             assertThat(oldIndexEntries, hasSize(1));
@@ -197,6 +204,11 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Tuple.from(32, "hello", 1066L), oldIndexEntries.get(0).getKey());
 
             buildIndex(newIndex);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
             assertTrue(recordStore.isIndexDisabled(origIndex.getName()), "Old index should be disabled once replacement index is built");
             commit(context);
         }
@@ -208,6 +220,95 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             assertTrue(uncheckedMarkIndexReadable(origIndex));
             final List<IndexEntry> oldIndexEntries = scanIndex(origIndex);
             assertThat("Index data should have been deleted", oldIndexEntries, empty());
+        }
+    }
+
+    @Test
+    public void buildReplacementsInMultipleStores() {
+        final Object[] multiStorePathObjects = {"record-test", "unit", "multiRecordStore"};
+        final KeySpacePath multiStoreRoot = TestKeySpace.getKeyspacePath(multiStorePathObjects);
+
+        try {
+            final String recordTypeName = "MySimpleRecord";
+            final Index origIndex = new Index("MySimpleRecord$repeater", Key.Expressions.field("repeater", KeyExpression.FanType.FanOut));
+            final Index newIndex = new Index("MySimpleRecord$(num_value_2, repeater)",
+                    Key.Expressions.concat(Key.Expressions.field("num_value_2"), Key.Expressions.field("repeater", KeyExpression.FanType.FanOut)));
+            final RecordMetaDataHook allIndexesHook = composeHooks(addIndexHook(recordTypeName, origIndex), addIndexHook(recordTypeName, newIndex));
+            final List<String> stores = IntStream.range(0, 10).mapToObj(i -> "store_" + i).collect(Collectors.toList());
+
+            try (FDBRecordContext context = openContext()) {
+                multiStoreRoot.deleteAllData(context);
+                openSimpleRecordStore(context, allIndexesHook);
+
+                // Create a bunch of stores and disable the new index in all of them
+                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
+                    assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_DROP_INDEX, subStore.markIndexDisabled(newIndex)));
+
+                    subStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                            .setRecNo(1066L)
+                            .addRepeater(42)
+                            .addRepeater(800)
+                            .setStrValueIndexed(storePathName)
+                            .build());
+
+                });
+
+                commit(context);
+            }
+
+            final RecordMetaDataHook withReplacementHook = composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex), bumpMetaDataVersionHook());
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context, withReplacementHook);
+
+                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
+                    final List<FDBIndexedRecord<Message>> records = context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList());
+                    assertThat(records, hasSize(2));
+                    records.stream()
+                            .map(FDBIndexedRecord::getRecord)
+                            .map(msg -> msg.getField(msg.getDescriptorForType().findFieldByName("str_value_indexed")))
+                            .map(fieldValue -> {
+                                assertThat(fieldValue, instanceOf(String.class));
+                                return (String)fieldValue;
+                            })
+                            .forEach(strValue -> assertEquals(storePathName, strValue));
+
+                    context.asyncToSync(FDBStoreTimer.Waits.WAIT_ONLINE_BUILD_INDEX, subStore.rebuildIndex(subStore.getRecordMetaData().getIndex(newIndex.getName())));
+                });
+
+                commit(context);
+            }
+
+            // Validate that each store has had the original index removed (because the replacement index was built)
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context, withReplacementHook);
+                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> assertTrue(subStore.isIndexDisabled(origIndex.getName())));
+                commit(context);
+            }
+
+            // Validate each store has had the old index data cleaned out
+            try (FDBRecordContext context = openContext()) {
+                openSimpleRecordStore(context, composeHooks(allIndexesHook, bumpMetaDataVersionHook(), bumpMetaDataVersionHook()));
+                forEachStore(multiStoreRoot, stores, (storePathName, subStore) -> {
+                    assertTrue(context.asyncToSync(FDBStoreTimer.Waits.WAIT_ADD_INDEX, subStore.uncheckedMarkIndexReadable(origIndex.getName())));
+                    assertEquals(Collections.emptyList(), context.asyncToSync(FDBStoreTimer.Waits.WAIT_SCAN_INDEX_RECORDS, subStore.scanIndexRecords(origIndex.getName()).asList()));
+                });
+            }
+
+        } finally {
+            try (FDBRecordContext context = openContext()) {
+                multiStoreRoot.deleteAllData(context);
+                commit(context);
+            }
+        }
+    }
+
+    private void forEachStore(@Nonnull KeySpacePath root, @Nonnull List<String> storePaths, @Nonnull BiConsumer<String, FDBRecordStore> subStoreConsumer) {
+        for (String storePathName : storePaths) {
+            final KeySpacePath storePath = root.add("storePath", storePathName);
+            final FDBRecordStore subStore = recordStore.asBuilder()
+                    .setKeySpacePath(storePath)
+                    .createOrOpen();
+            subStoreConsumer.accept(storePathName, subStore);
         }
     }
 
@@ -235,28 +336,46 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
 
         // Mark the index as replaced by the two new indexes and expect the index to be gone once both new indexes are built
+        RecordMetaDataHook withReplacementsHook = composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex1, newIndex2), bumpMetaDataVersionHook());
+        final List<IndexEntry> origEntries;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex1, newIndex2), bumpMetaDataVersionHook()));
+            openSimpleRecordStore(context, withReplacementsHook);
 
             assertTrue(recordStore.isIndexReadable(origIndex));
-            final List<IndexEntry> origEntries = scanIndex(origIndex);
+            origEntries = scanIndex(origIndex);
             assertThat(origEntries, hasSize(1));
             assertEquals(Tuple.from(800L), origEntries.get(0).getPrimaryKey());
             assertEquals(Tuple.from("a_value", 962L, 800L), origEntries.get(0).getKey());
 
             buildIndex(newIndex1);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
+
             assertTrue(recordStore.isIndexReadable(origIndex));
             assertEquals(origEntries, scanIndex(origIndex));
 
             disableIndex(newIndex1);
-
             buildIndex(newIndex2);
+
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
+
             assertTrue(recordStore.isIndexReadable(origIndex));
             assertEquals(origEntries, scanIndex(origIndex));
 
             buildIndex(newIndex1);
-            assertTrue(recordStore.isIndexDisabled(origIndex));
+            commit(context);
+        }
 
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex));
             commit(context);
         }
 

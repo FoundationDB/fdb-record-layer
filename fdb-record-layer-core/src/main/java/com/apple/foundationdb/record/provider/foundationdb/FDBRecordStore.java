@@ -1993,6 +1993,42 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    /**
+     * Schedule a post-commit hook to look for replaced indexes. This method delays executing the replaced-indexes
+     * check logic until right before the transaction commits, and it will only schedule the check at most once.
+     * This is to prevent multiple instances of that logic running at the same time. Because
+     * {@link #removeReplacedIndexes()} needs to both read and (potentially) update the index state information, running
+     * that method concurrently with itself or with other index state updates can result in errors. So, unless it
+     * can be guaranteed via other means that that method is the only method removing replacement indexes, this
+     * method should be preferred over calling the method directly.
+     *
+     * @param changed whether the index state information has changed
+     * @return whether the commit check was scheduled
+     * @see #removeReplacedIndexes()
+     * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
+     */
+    private boolean addRemoveReplacedIndexesCommitCheckIfChanged(boolean changed) {
+        if (changed) {
+            final String commitCheckName = "removeReplacedIndexes_" + ByteArrayUtil2.toHexString(getSubspace().pack());
+            getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> this::removeReplacedIndexes);
+        }
+        return changed;
+    }
+
+    /**
+     * Remove any replaced indexes if the index state information has changed. This executes right away (if the
+     * index states have, in fact, changed). Note that it is unsafe to call {@link #removeReplacedIndexes()} twice
+     * concurrently on the same record store, so this method should only be called if it can be guaranteed to be
+     * the only thing calling {@link #removeReplacedIndexes()} at that time. If this cannot be guaranteed, then
+     * calling {@link #addRemoveReplacedIndexesCommitCheckIfChanged(boolean)} will ensure that the check is eventually
+     * run once and therefore protects against concurrent accesses.
+     *
+     * @param changed whether index state information has changed
+     * @return a future that will return whether {@link #removeReplacedIndexes()} was called
+     * @see #removeReplacedIndexes()
+     * @see #addRemoveReplacedIndexesCommitCheckIfChanged(boolean)
+     * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
+     */
     @Nonnull
     private CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
         if (changed) {
@@ -2698,7 +2734,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return AsyncUtil.READY_FALSE;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenCompose(this::removeReplacedIndexesIfChanged);
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
             haveFuture = true;
             return future;
         } finally {
@@ -2766,7 +2802,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return false;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenCompose(this::removeReplacedIndexesIfChanged);
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
             haveFuture = true;
             return future;
         } finally {
