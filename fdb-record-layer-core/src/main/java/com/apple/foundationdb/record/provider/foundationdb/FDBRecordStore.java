@@ -1993,6 +1993,14 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    private boolean addRemoveReplacedIndexesCommitCheckIfChanged(boolean changed) {
+        if (changed) {
+            final String commitCheckName = "removeReplacedIndexes_" + ByteArrayUtil2.toHexString(getSubspace().pack());
+            getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> this::removeReplacedIndexes);
+        }
+        return changed;
+    }
+
     @Nonnull
     private CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
         if (changed) {
@@ -2698,7 +2706,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return AsyncUtil.READY_FALSE;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenCompose(this::removeReplacedIndexesIfChanged);
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
             haveFuture = true;
             return future;
         } finally {
@@ -2766,7 +2774,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return false;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenCompose(this::removeReplacedIndexesIfChanged);
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
             haveFuture = true;
             return future;
         } finally {

@@ -188,8 +188,9 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
+        final RecordMetaDataHook withReplacementsHook = composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex), bumpMetaDataVersionHook());
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex), bumpMetaDataVersionHook()));
+            openSimpleRecordStore(context, withReplacementsHook);
             assertTrue(recordStore.isIndexReadable(origIndex.getName()), "Old index should be readable until replacement index is built");
             final List<IndexEntry> oldIndexEntries = scanIndex(origIndex);
             assertThat(oldIndexEntries, hasSize(1));
@@ -197,6 +198,11 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             assertEquals(Tuple.from(32, "hello", 1066L), oldIndexEntries.get(0).getKey());
 
             buildIndex(newIndex);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
             assertTrue(recordStore.isIndexDisabled(origIndex.getName()), "Old index should be disabled once replacement index is built");
             commit(context);
         }
@@ -209,6 +215,11 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
             final List<IndexEntry> oldIndexEntries = scanIndex(origIndex);
             assertThat("Index data should have been deleted", oldIndexEntries, empty());
         }
+    }
+
+    @Test
+    public void buildReplacementsInTwoStores() {
+
     }
 
     @Test
@@ -235,28 +246,46 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         }
 
         // Mark the index as replaced by the two new indexes and expect the index to be gone once both new indexes are built
+        RecordMetaDataHook withReplacementsHook = composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex1, newIndex2), bumpMetaDataVersionHook());
+        final List<IndexEntry> origEntries;
         try (FDBRecordContext context = openContext()) {
-            openSimpleRecordStore(context, composeHooks(addIndexAndReplacements(recordTypeName, origIndex, newIndex1, newIndex2), bumpMetaDataVersionHook()));
+            openSimpleRecordStore(context, withReplacementsHook);
 
             assertTrue(recordStore.isIndexReadable(origIndex));
-            final List<IndexEntry> origEntries = scanIndex(origIndex);
+            origEntries = scanIndex(origIndex);
             assertThat(origEntries, hasSize(1));
             assertEquals(Tuple.from(800L), origEntries.get(0).getPrimaryKey());
             assertEquals(Tuple.from("a_value", 962L, 800L), origEntries.get(0).getKey());
 
             buildIndex(newIndex1);
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
+
             assertTrue(recordStore.isIndexReadable(origIndex));
             assertEquals(origEntries, scanIndex(origIndex));
 
             disableIndex(newIndex1);
-
             buildIndex(newIndex2);
+
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
+
             assertTrue(recordStore.isIndexReadable(origIndex));
             assertEquals(origEntries, scanIndex(origIndex));
 
             buildIndex(newIndex1);
-            assertTrue(recordStore.isIndexDisabled(origIndex));
+            commit(context);
+        }
 
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, withReplacementsHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex));
             commit(context);
         }
 
