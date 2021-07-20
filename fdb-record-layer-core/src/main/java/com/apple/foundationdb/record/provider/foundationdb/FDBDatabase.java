@@ -50,6 +50,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
@@ -1241,18 +1242,53 @@ public class FDBDatabase {
         // we will simply log the fact that this has taken place and where it has taken place here.
         StackTraceElement possiblyAsyncReturningLocation = null;
 
-        for (StackTraceElement stackElement : stack) {
+        for (int pos = 0; pos < stack.length; pos++) {
+            StackTraceElement stackElement = stack[pos];
             if (stackElement.getClassName().startsWith(CompletableFuture.class.getName())) {
-                logOrThrowBlockingInAsync(behavior, isComplete, stackElement, BLOCKING_IN_ASYNC_CONTEXT_MESSAGE);
+                //look to see if we can ignore this because of careful annotations
+                boolean canIgnore = false;
+                for (int annotationPos = pos - 1; annotationPos >= 0; annotationPos--) {
+                    StackTraceElement possibleIgnore = stack[annotationPos];
+                    if (canIgnoreBlockingInAsync(possibleIgnore.getClassName(), possibleIgnore.getMethodName())) {
+                        canIgnore = true;
+                        break;
+                    }
+                }
+                if (!canIgnore) {
+                    logOrThrowBlockingInAsync(behavior, isComplete, stackElement, BLOCKING_IN_ASYNC_CONTEXT_MESSAGE);
+                }
             } else if (stackElement.getMethodName().endsWith("Async")) {
                 possiblyAsyncReturningLocation = stackElement;
             }
         }
-
         if (possiblyAsyncReturningLocation != null && !isComplete) {
             // Maybe one day this will be configurable, but for now we will only allow this situation to log
             logOrThrowBlockingInAsync(BlockingInAsyncDetection.IGNORE_COMPLETE_WARN_BLOCKING, isComplete,
                     possiblyAsyncReturningLocation, BLOCKING_RETURNING_ASYNC_MESSAGE);
+        }
+    }
+
+    private boolean canIgnoreBlockingInAsync(final String className, final String methodName) {
+        try {
+            Class<?> clazz = Class.forName(className);
+            final Method[] methods = clazz.getMethods();
+            boolean found = false;
+            for (Method method : methods) {
+                /*
+                 * Since the same method name can be used with different argument sets, we just
+                 * check all of them--if one of them lacks the annotation, then it's not safe.
+                 */
+                if (method.getName().equals(methodName)) {
+                    found = true;
+                    if (method.getAnnotation(IgnoreBlockingInAsync.class) == null) {
+                        return false;
+                    }
+                }
+            }
+            return found;
+        } catch (ClassNotFoundException e) {
+            //this shouldn't happen, but when in doubt, let the caller think this isn't annotated for safety
+            return false;
         }
     }
 
