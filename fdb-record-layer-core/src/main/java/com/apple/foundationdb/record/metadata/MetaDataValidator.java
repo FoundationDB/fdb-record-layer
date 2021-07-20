@@ -24,12 +24,17 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.google.common.collect.Sets;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Set;
 
 /**
  * Validator for {@link RecordMetaData}.
@@ -130,6 +135,39 @@ public class MetaDataValidator implements RecordMetaDataProvider {
             throw new MetaDataException("Index " + index.getName() + " has last modified version " +
                                         index.getLastModifiedVersion() + " which is greater than the meta-data version " +
                                         metaData.getVersion());
+        }
+        final List<String> replacementIndexNames = index.getReplacedByIndexNames();
+        if (!replacementIndexNames.isEmpty()) {
+            // Make sure all of the indexes are in the meta-data
+            final List<String> missingReplacements = new ArrayList<>(replacementIndexNames.size());
+            for (String replacementIndexName : replacementIndexNames) {
+                if (!metaData.hasIndex(replacementIndexName)) {
+                    missingReplacements.add(replacementIndexName);
+                }
+            }
+            if (!missingReplacements.isEmpty()) {
+                throw new MetaDataException("Index " + index.getName() + " has replacement indexes "
+                                            + missingReplacements + " that are not in the meta-data");
+            }
+
+            // Check for cycles in the replacement graph
+            final Queue<String> indexesToCheck = new ArrayDeque<>(metaData.getAllIndexes().size());
+            final Set<String> seenIndexes = Sets.newHashSetWithExpectedSize(metaData.getAllIndexes().size());
+            indexesToCheck.add(index.getName());
+            while (!indexesToCheck.isEmpty()) {
+                final String toCheck = indexesToCheck.remove();
+                if (!seenIndexes.add(toCheck)) {
+                    // Already seen this index. There is a cycle in the replacement graph
+                    throw new MetaDataException("Index " + index.getName() + " has a circular dependency in its replacement index graph");
+                }
+                if (metaData.hasIndex(toCheck)) {
+                    // It's fine if an index is found in the replacement graph that is not in the meta-data. That
+                    // means that there is an index somewhere in the meta-data that lists a replacement index
+                    // that isn't in the meta-data. That index will fail to validate, but we can just ignore it here.
+                    final Index nextIndex = metaData.getIndex(toCheck);
+                    indexesToCheck.addAll(nextIndex.getReplacedByIndexNames());
+                }
+            }
         }
     }
 

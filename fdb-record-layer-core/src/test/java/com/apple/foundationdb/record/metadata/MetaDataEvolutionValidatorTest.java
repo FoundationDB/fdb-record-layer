@@ -52,7 +52,6 @@ import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -1500,6 +1499,36 @@ public class MetaDataEvolutionValidatorTest {
         validator.validate(metaData2, metaData3);
         RecordMetaData metaData4 = replaceIndex(metaData3, "MySimpleRecord$str_value_indexed", this::clearOptions);
         validator.validate(metaData3, metaData4);
+    }
+
+    @Test
+    public void changeReplacedByIndex() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed",
+                indexProto -> changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX, "MySimpleRecord$num_value_3_indexed"));
+        assertEquals(Collections.singletonList("MySimpleRecord$num_value_3_indexed"),
+                metaData2.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
+        validator.validate(metaData1, metaData2);
+        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        assertEquals(Collections.emptyList(),
+                metaData3.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
+        validator.validate(metaData2, metaData3);
+    }
+
+    @Test
+    public void changeReplacedByIndexSet() {
+        RecordMetaData metaData1 = RecordMetaData.build(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData2 = replaceIndex(metaData1, "MySimpleRecord$str_value_indexed", indexProto ->
+                changeOption(changeOption(indexProto, IndexOptions.REPLACED_BY_OPTION_PREFIX + "_0", "MySimpleRecord$num_value_3_indexed"),
+                        IndexOptions.REPLACED_BY_OPTION_PREFIX + "_1", "MySimpleRecord$num_value_unique")
+        );
+        assertThat(metaData2.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames(),
+                containsInAnyOrder("MySimpleRecord$num_value_3_indexed", "MySimpleRecord$num_value_unique"));
+        validator.validate(metaData1, metaData2);
+        RecordMetaData metaData3 = replaceIndex(metaData2, "MySimpleRecord$str_value_indexed", this::clearOptions);
+        assertEquals(Collections.emptyList(),
+                metaData3.getIndex("MySimpleRecord$str_value_indexed").getReplacedByIndexNames());
+        validator.validate(metaData2, metaData3);
     }
 
     @Test
