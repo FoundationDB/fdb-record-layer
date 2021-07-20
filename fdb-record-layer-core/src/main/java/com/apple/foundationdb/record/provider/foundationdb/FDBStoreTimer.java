@@ -419,6 +419,8 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         WAIT_LUCENE_FILE_LENGTH("lucene file length"),
         /** Time to rename a file in Lucene's FDBDirectory.*/
         WAIT_LUCENE_RENAME("lucene rename"),
+        /** Wait to perform validation of resolver reverse directory mapping. */
+        WAIT_VALIDATE_RESOLVER("wait validating resolver"),
         ;
 
         private final String title;
