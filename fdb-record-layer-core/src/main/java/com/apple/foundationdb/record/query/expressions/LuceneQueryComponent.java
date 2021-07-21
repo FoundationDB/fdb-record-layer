@@ -46,23 +46,31 @@ import java.util.Objects;
 @Experimental
 public class LuceneQueryComponent implements QueryComponent, ComponentWithComparison, ComponentWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Lucene-Query");
-    //TODO move to index maintainer but for the sake of dependancies its located here right now
-    public static final String FULL_TEXT_KEY_FIELD = "__full_text_key_field__";
 
+    //MultiFieldSearch determines whether MultiFieldQueryParser or QueryParserBase is used.
+    // QueryParserBase expects the query to contain the fields to be run against and takes a default field
+    // which in our use case is the primary key field.
+    // The MultiFieldQueryParser runs the query against all fields listed and uses AND to join them.
+    // If true and fields not empty we run against all fields listed
+    // If false and fields not empty we run with the QueryParserBase not specifying fields
+    // If true and fields empty we run against all fields in the root expression
+    // If false and fields empty we run against the primary key field.
+    public final boolean multiFieldSearch;
     private final Comparisons.LuceneComparison comparison;
     private final List<String> fields;
 
-    public LuceneQueryComponent(String query) {
-        this(new Comparisons.LuceneComparison(query), Lists.newArrayList(FULL_TEXT_KEY_FIELD));
-    }
-
     public LuceneQueryComponent(String query, List<String> fields) {
-        this(new Comparisons.LuceneComparison(query), fields);
+        this(new Comparisons.LuceneComparison(query), fields, fields.isEmpty());
     }
 
-    private LuceneQueryComponent(Comparisons.LuceneComparison comparison, List<String> fields) {
+    public LuceneQueryComponent(String query, List<String> fields, boolean multiField) {
+        this(new Comparisons.LuceneComparison(query), fields, multiField);
+    }
+
+    private LuceneQueryComponent(Comparisons.LuceneComparison comparison, List<String> fields, boolean multiFieldSearch) {
         this.comparison = comparison;
         this.fields = fields;
+        this.multiFieldSearch = multiFieldSearch;
     }
 
     @Nonnull
@@ -95,7 +103,7 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     @Override
     public QueryComponent withOtherComparison(final Comparisons.Comparison comparison) {
         Verify.verify(comparison instanceof Comparisons.LuceneComparison);
-        return new LuceneQueryComponent((Comparisons.LuceneComparison)comparison, fields);
+        return new LuceneQueryComponent((Comparisons.LuceneComparison)comparison, fields, this.multiFieldSearch);
     }
 
     @Override

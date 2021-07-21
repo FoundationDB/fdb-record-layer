@@ -58,6 +58,7 @@ import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
@@ -73,9 +74,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
+import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndexFieldNames;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.validateLucene;
-import static com.apple.foundationdb.record.query.expressions.LuceneQueryComponent.FULL_TEXT_KEY_FIELD;
 
 /**
  * Index maintainer for Lucene Indexes backed by FDB.  The insert, update, and delete functionality
@@ -117,11 +118,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull ScanProperties scanProperties) {
         LOG.trace("scan scanType={}", scanType);
         Verify.verify(range.getLow() != null);
-        Verify.verify(scanType == IndexScanType.BY_LUCENE);
+        Verify.verify(scanType == IndexScanType.BY_LUCENE || scanType == IndexScanType.BY_LUCENE_FULL_TEXT);
         try {
-            final QueryParser parser = new QueryParser(FULL_TEXT_KEY_FIELD, analyzer);
-            Query query = parser.parse(range.getLow().getString(0));
-            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
+            if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
+                List<String> fieldNames = listIndexFieldNames(state.index.getRootExpression());
+                MultiFieldQueryParser parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), analyzer);
+                parser.setDefaultOperator(QueryParser.Operator.OR);
+                Query query  = parser.parse(range.getLow().getString(0));
+                return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
+            } else {
+                // initialize default to scan primary key.
+                QueryParser parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, analyzer);
+                Query query = parser.parse(range.getLow().getString(0));
+                return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
+            }
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
                     "internalException", ioe);
@@ -154,7 +164,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // TODO: explore expanding this out into stored fields so they are queryable
             document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
             document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-            List<String> fullText = Lists.newArrayList();
             indexEntries.forEach( (entry ) -> {
                 try {
                     if (remove) {
@@ -180,7 +189,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                         Object value = entryKey.get(i + offset + j);
                                         if (value != null) {
                                             insertDocumentField(child, entryKey.get(i + offset + j), document, prefix);
-                                            fullText.add(value.toString());
                                         }
                                     }
                                 }
@@ -189,7 +197,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                 Object value = entryKey.get(i + offset);
                                 if (value != null) {
                                     insertDocumentField((LuceneFieldKeyExpression)expression, value, document, null);
-                                    fullText.add(value.toString());
                                 }
                             }
                         }
@@ -199,11 +206,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                             "savedRecord", savedRecord, ioe);
                 }
             });
-            String fullTextString = "";
-            for (String value : fullText) {
-                fullTextString = fullTextString.concat(" ").concat(value);
-            }
-            document.add(new TextField(FULL_TEXT_KEY_FIELD, fullTextString, Field.Store.NO));
             writer.addDocument(document);
         } catch (Exception e) {
             throw new RecordCoreException(e);

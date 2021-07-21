@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
@@ -47,8 +47,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
-import static com.apple.foundationdb.record.query.expressions.LuceneQueryComponent.FULL_TEXT_KEY_FIELD;
+import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndexFieldNames;
 
 /**
  * A planner to implement lucene query planning so that we can isolate the lucene functionality to
@@ -125,7 +124,10 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterMask != null) {
             filterMask.setSatisfied(true);
         }
-        return new LuceneIndexQueryPlan(index.getName(), comparison, false);
+        if (filter.multiFieldSearch) {
+            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_FULL_TEXT, comparison, false, null);
+        }
+        return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE, comparison, false, null);
     }
 
     private LuceneIndexQueryPlan getScanForAndLucene(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull AndComponent filter,
@@ -221,26 +223,7 @@ public class LucenePlanner extends RecordQueryPlanner {
 
     public boolean validateIndexField(@Nonnull Index index,
                                        @Nonnull String field) {
-        List<ImmutablePair<String, LuceneKeyExpression>> pairs = normalize(index.getRootExpression());
-        List<String> indexFields = Lists.newArrayList();
-        for (ImmutablePair<String, LuceneKeyExpression> pair : pairs) {
-            if (pair.right instanceof LuceneFieldKeyExpression) {
-                indexFields.add(pair.left != null ?
-                                pair.left.concat("_").concat(((LuceneFieldKeyExpression)pair.right).getFieldName()) :
-                                ((LuceneFieldKeyExpression)pair.right).getFieldName());
-                indexFields.add(((LuceneFieldKeyExpression)pair.right).getFieldName());
-            } else if (pair.right instanceof LuceneThenKeyExpression) {
-                indexFields.add(pair.left);
-                KeyExpression primaryKey = ((LuceneThenKeyExpression)pair.right).getPrimaryKey();
-                if (primaryKey instanceof FieldKeyExpression) {
-                    indexFields.add(((FieldKeyExpression)primaryKey).getFieldName());
-                }
-            } else {
-                indexFields.add(pair.left);
-            }
-        }
-        indexFields.add(FULL_TEXT_KEY_FIELD);
-        return indexFields.contains(field);
+        return listIndexFieldNames(index.getRootExpression()).contains(field);
     }
 
     @Override
