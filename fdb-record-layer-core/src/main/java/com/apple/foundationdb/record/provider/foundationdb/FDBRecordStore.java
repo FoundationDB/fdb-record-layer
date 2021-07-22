@@ -1994,7 +1994,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Schedule a post-commit hook to look for replaced indexes. This method delays executing the replaced-indexes
+     * Schedule a pre-commit hook to look for replaced indexes. This method delays executing the replaced-indexes
      * check logic until right before the transaction commits, and it will only schedule the check at most once.
      * This is to prevent multiple instances of that logic running at the same time. Because
      * {@link #removeReplacedIndexes()} needs to both read and (potentially) update the index state information, running
