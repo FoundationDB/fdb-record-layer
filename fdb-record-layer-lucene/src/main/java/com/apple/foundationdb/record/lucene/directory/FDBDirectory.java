@@ -28,9 +28,9 @@ import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IgnoreBlockingInAsync;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
@@ -175,7 +175,7 @@ public class FDBDirectory extends Directory {
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
             return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
-                    .thenApplyAsync((value) -> {
+                    .thenApply((value) -> {
                                 FDBLuceneFileReference fetchedref = value == null ? null : new FDBLuceneFileReference(Tuple.fromBytes(value));
                                 if (fetchedref != null) {
                                     this.fileReferenceCache.put(name, fetchedref);
@@ -229,21 +229,22 @@ public class FDBDirectory extends Directory {
     @SuppressWarnings("PMD.UnusedNullCheckInEquals") // checks and throws more relevant exception
     @Nonnull
     public CompletableFuture<byte[]> readBlock(@Nonnull String resourceDescription, @Nonnull CompletableFuture<FDBLuceneFileReference> referenceFuture, int block) throws RecordCoreException {
-        try {
-            LOGGER.trace("readBlock resourceDescription={}, block={}", resourceDescription, block);
-            final FDBLuceneFileReference reference = referenceFuture.join(); // Tried to fully pipeline this but the reality is that this is mostly cached after listAll, delete, etc.
+        LOGGER.trace("readBlock resourceDescription={}, block={}", resourceDescription, block);
+        // pipeline this to avoid asyncToSync problems with join
+        return referenceFuture.thenComposeAsync(reference -> {
             if (reference == null) {
                 throw new RecordCoreArgumentException(String.format("No reference with name %s was found", resourceDescription));
             }
             Long id = reference.getId();
-
             long start = System.nanoTime();
-            return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
-                    () -> context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
-            ), start);
-        } catch (ExecutionException e) {
-            throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
-        }
+            try {
+                return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK, blockCache.get(Pair.of(id, block),
+                        () -> context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
+                ), start);
+            } catch (ExecutionException e) {
+                throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
+            }
+        });
     }
 
     /**
@@ -255,59 +256,62 @@ public class FDBDirectory extends Directory {
      */
     @Override
     @Nonnull
+    @SuppressWarnings("PMD.PreserveStackTrace") //for some reason, PMD doesn't like that we strip the ExecutionException's trace
     public String[] listAll() {
-        List<String> outList;
-        long start = System.nanoTime();
+        final CompletableFuture<List<String>> instrument = context.instrument(FDBStoreTimer.Events.LUCENE_LIST_ALL, internalListAll(), System.nanoTime());
         try {
-            outList = listAllInternal();
-        } finally {
-            record(FDBStoreTimer.Events.LUCENE_LIST_ALL, System.nanoTime() - start);
+            List<String> outList = instrument.get();
+            //noinspection ToArrayCallWithZeroLengthArrayArgument
+            return outList.toArray(new String[outList.size()]);
+        } catch (ExecutionException ee) {
+            Throwable t = ee.getCause();
+            if (t instanceof RuntimeException) {
+                throw (RuntimeException)t;
+            } else {
+                throw new RecordCoreException(t);
+            }
+        } catch (InterruptedException e) {
+            throw new RecordCoreException(e);
         }
-        //noinspection ToArrayCallWithZeroLengthArrayArgument
-        return outList.toArray(new String[outList.size()]);
     }
 
-    private void record(StoreTimer.Event event, long durationNanos) {
-        final FDBStoreTimer timer = context.getTimer();
-        if (timer != null) {
-            timer.record(event, durationNanos);
-        }
-    }
-
-    private List<String> listAllInternal() {
-        //A private form of the method to allow easier instrumentation
-        List<String> outList = new ArrayList<>();
-        List<String> displayList = null;
-
-        long totalSize = 0L;
-        for (KeyValue kv : context.ensureActive().getRange(metaSubspace.range())) {
-            String name = metaSubspace.unpack(kv.getKey()).getString(0);
-            outList.add(name);
-            FDBLuceneFileReference fileReference = new FDBLuceneFileReference(Tuple.fromBytes(kv.getValue()));
-            // Only composite files and segments are prefetched.
-            if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
-                try {
-                    readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
-                } catch (RecordCoreException e) {
-                    LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
+    private CompletableFuture<List<String>> internalListAll() {
+        return context.ensureActive().getRange(metaSubspace.range()).asList().thenApply(keyValues -> {
+            List<String> outList = new ArrayList<>(keyValues.size());
+            List<String> displayList = null;
+            long totalSize = 0L;
+            for (KeyValue kv : keyValues) {
+                String name = metaSubspace.unpack(kv.getKey()).getString(0);
+                outList.add(name);
+                FDBLuceneFileReference fileReference = new FDBLuceneFileReference(Tuple.fromBytes(kv.getValue()));
+                // Only composite files and segments are prefetched.
+                // Note: we don't care about the results of this call here, all we're doing is warming the cache
+                if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
+                    try {
+                        readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
+                    } catch (RecordCoreException e) {
+                        LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
+                    }
+                }
+                fileReferenceCache.put(name, fileReference);
+                if (LOGGER.isDebugEnabled()) {
+                    if (displayList == null) {
+                        displayList = new ArrayList<>();
+                    }
+                    if (kv.getValue() != null) {
+                        displayList.add(name + "(" + fileReference.getSize() + ")");
+                        totalSize += fileReference.getSize();
+                    }
                 }
             }
-            this.fileReferenceCache.put(name, fileReference);
+
             if (LOGGER.isDebugEnabled()) {
-                if (displayList == null) {
-                    displayList = new ArrayList<>();
-                }
-                if (kv.getValue() != null) {
-                    displayList.add(name + "(" + fileReference.getSize() + ")");
-                    totalSize += fileReference.getSize();
-                }
+                LOGGER.debug("listAllFiles -> count={}, totalSize={}", outList.size(), totalSize);
+                LOGGER.debug("Files -> {}", displayList);
             }
-        }
-        if (LOGGER.isDebugEnabled()) {
-            LOGGER.debug("listAllFiles -> count={}, totalSize={}", outList.size(), totalSize);
-            LOGGER.debug("Files -> {}", displayList);
-        }
-        return outList;
+
+            return outList;
+        });
     }
 
     /**
@@ -315,10 +319,27 @@ public class FDBDirectory extends Directory {
      * @param name the name for the file reference
      */
     @Override
+    @IgnoreBlockingInAsync
+    @SuppressWarnings("ConstantConditions") //this won't throw an NPE, IDEA just can't analyze it properly
     public void deleteFile(@Nonnull String name) throws IOException {
-
-        LOGGER.trace("deleteFile -> {}", name);
-        boolean deleted = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
+        LOGGER.debug("deleteFile -> {}", name);
+        /*
+         * (bfines)Notes on the Concurrency model:
+         *
+         * This really should not be executed on the context's executor, because it can cause execution rejections,
+         * which in turn might result in deadlocks and resource exhaustion. In an ideal world, there would be a separate
+         * thread pool for handling blocking operations which have to occur in an asynchronous context, but that doesn't
+         * exist yet, so we have to deal with what we've got.
+         *
+         * if the file reference is cached, then this will actually execute on the local thread and it won't block
+         * in any meaningful way, which means this is perfectly safe. However, if the file reference is _not_ in the
+         * cache, then `getFDBLuceneFileReference(name)` will issue asynchronous work that we then block,
+         * which is bad news. For _now_, we ensure that this blocking will happen on the normal FJ pool, rather than
+         * on the context's thread pool in IndexWriterCommitCheckAsync, which avoids the deadlock issue although
+         * it doesn't resolve any performance problems that might result. Because we protect this call externally,
+         * we go ahead and annotate this method so that it doesn't blow off with BlockingInAsync errors.
+         */
+        boolean deleted = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApply(
                 (value) -> {
                     if (value == null) {
                         return false;
@@ -404,19 +425,31 @@ public class FDBDirectory extends Directory {
      * @param dest desc
      */
     @Override
+    @IgnoreBlockingInAsync
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
+        /*
+         * Note on concurrency safety:
+         *
+         * DO NOT call this on the context's thread pool--eventually, we'll need a separate thread pool for blocking
+         * operations like this, but in the short term, use the default FJ pool (see deleteFile for a more detailed
+         * note about how this should work). Because we defer to getFDBLuceneFileReference here, we won't
+         * throw any errors if the file name is already cached. However, in the event that the file reference isn't
+         * cached, we'll see lots of explosions, mostly around closing the IndexWriter. Because we carefully
+         * use the correct thread pool in IndexWriterCommitCheckAsync, we go ahead and temporarily annotate
+         * this method to avoid spurious errors until we can have a third stable thread pool.
+         */
         LOGGER.trace("rename -> source={}, dest={}", source, dest);
-        final byte[] key = metaSubspace.pack(source);
-        context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
-            if (value == null) {
+        context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME,getFDBLuceneFileReference(source).thenApply((Function<FDBLuceneFileReference, Void>)fileRef -> {
+            //we use getFDBLuceneFileReference here because it enables us to use the cache if it's available, which is good
+            if (fileRef == null) {
                 throw new RecordCoreArgumentException("Invalid source name in rename function for source")
                         .addLogInfo(LogMessageKeys.SOURCE_FILE,source)
                         .addLogInfo(LogMessageKeys.INDEX_TYPE, IndexTypes.LUCENE);
             }
-            fileReferenceCache.invalidate(source);
-            context.ensureActive().set(metaSubspace.pack(dest), value);
-            context.ensureActive().clear(key);
 
+            fileReferenceCache.invalidate(source);
+            context.ensureActive().set(metaSubspace.pack(dest),fileRef.getTuple().pack());
+            context.ensureActive().clear(metaSubspace.pack(source));
             return null;
         }));
     }

@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.NoSuchFileException;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -97,7 +98,13 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
     @Test
     public void testMissingSeek() {
-        assertThrows(RecordCoreArgumentException.class, () -> directory.readBlock("testDescription", directory.getFDBLuceneFileReference("testReference"), 1));
+        assertThrows(RecordCoreArgumentException.class, () -> {
+            try {
+                directory.readBlock("testDescription", directory.getFDBLuceneFileReference("testReference"), 1).get();
+            } catch (ExecutionException ee) {
+                throw ee.getCause();
+            }
+        });
     }
 
     @Test
@@ -136,7 +143,7 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         directory.deleteFile("test1");
         assertEquals(directory.listAll().length, 0);
 
-        assertCorrectMetricCount(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE,2);
+        assertCorrectMetricCount(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE,1);
     }
 
     @Test
