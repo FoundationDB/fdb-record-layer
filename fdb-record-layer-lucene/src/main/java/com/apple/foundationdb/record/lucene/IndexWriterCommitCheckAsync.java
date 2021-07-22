@@ -94,6 +94,11 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
     public CompletableFuture<Void> checkAsync() {
         LOGGER.trace("closing writer check");
         if (indexWriter.isOpen()) {
+            /*
+             * Here we very carefully _do_ want to use the default fork-join pool, in order to avoid potential
+             * deadlocks (although resource constraints may not be ideal, the context pool might deadlock if we aren't
+             * careful). For more information, see comments in FDBDirectory#deleteFile, which explain our choices here.
+             */
             return CompletableFuture.runAsync(() -> {
                 try {
                     IOUtils.close(indexWriter);
@@ -101,8 +106,7 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
                     LOGGER.error("IndexWriterCommitCheckSync Failed", ioe);
                     throw new RecordCoreStorageException("IndexWriterCommitCheckSync Failed", ioe);
                 }
-            },
-            executor);
+            });
         } else {
             return AsyncUtil.DONE;
         }
