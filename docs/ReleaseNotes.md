@@ -30,7 +30,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** `AutoContinuingCursor` continues on retriable exceptions [(Issue #1328)](https://github.com/FoundationDB/fdb-record-layer/issues/1328)
 * **Feature** Validate and repair LocatableResolver mappings [(Issue #1316)](https://github.com/FoundationDB/fdb-record-layer/issues/1316)
-* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Provide a method to clean readable indexes build data [(Issue #1334)](https://github.com/FoundationDB/fdb-record-layer/issues/1334)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

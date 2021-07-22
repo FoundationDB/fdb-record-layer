@@ -69,6 +69,14 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .build()) {
             indexer.buildIndex(true);
         }
+        vaccumReadableIndexesBuildData(); // clear intermediate build data
+    }
+
+    private void vaccumReadableIndexesBuildData() {
+        try (FDBRecordContext context = openContext()) {
+            recordStore.vaccumReadableIndexesBuildData();
+            context.commit();
+        }
     }
 
     @Test

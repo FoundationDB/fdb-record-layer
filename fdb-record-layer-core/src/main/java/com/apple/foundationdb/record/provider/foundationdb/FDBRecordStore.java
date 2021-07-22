@@ -2634,6 +2634,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                             throw wrapped;
                         } else {
                             updateIndexState(index.getName(), indexKey, IndexState.READABLE);
+                            clearReadableIndexBuildData(tr, index);
                             return true;
                         }
                     });
@@ -3699,6 +3700,20 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY, formerIndex.getSubspaceTupleKey())));
         if (getTimer() != null) {
             getTimer().recordSinceNanoTime(FDBStoreTimer.Events.REMOVE_FORMER_INDEX, startTime);
+        }
+    }
+
+    private void clearReadableIndexBuildData(Transaction tr, Index index) {
+        tr.clear(indexRangeSubspace(index).range());
+    }
+
+    public void vaccumReadableIndexesBuildData() {
+        Transaction tr = ensureContextActive();
+        Map<Index, IndexState> indexStates = getAllIndexStates(); // also adds state to read conflicts
+        for (Map.Entry<Index, IndexState> entry : indexStates.entrySet()) {
+            if (entry.getValue().equals(IndexState.READABLE)) {
+                clearReadableIndexBuildData(tr, entry.getKey());
+            }
         }
     }
 
