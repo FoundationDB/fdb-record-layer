@@ -99,6 +99,9 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.executor = executor;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
+        if (this.limitRemaining == Integer.MAX_VALUE) {
+            this.limitRemaining = 200;
+        }
         this.timer = state.context.getTimer();
         this.query = query;
         if (continuation != null) {
