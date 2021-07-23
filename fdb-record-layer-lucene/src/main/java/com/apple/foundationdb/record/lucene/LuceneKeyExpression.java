@@ -114,13 +114,13 @@ public interface LuceneKeyExpression extends KeyExpression {
                                 pair.left.concat("_").concat(((LuceneFieldKeyExpression)pair.right).getFieldName()) :
                                 ((LuceneFieldKeyExpression)pair.right).getFieldName());
             } else if (pair.right instanceof LuceneThenKeyExpression) {
-                indexFields.add(pair.left);
+                if (pair.left != null) indexFields.add(pair.left);
                 KeyExpression primaryKey = ((LuceneThenKeyExpression)pair.right).getPrimaryKey();
                 if (primaryKey instanceof FieldKeyExpression) {
                     indexFields.add(((FieldKeyExpression)primaryKey).getFieldName());
                 }
             } else {
-                indexFields.add(pair.left);
+                if (pair.left != null) indexFields.add(pair.left);
             }
         }
         return indexFields;

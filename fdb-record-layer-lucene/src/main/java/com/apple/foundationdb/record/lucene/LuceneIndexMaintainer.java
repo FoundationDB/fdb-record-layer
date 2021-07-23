@@ -119,6 +119,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Verify.verify(range.getLow() != null);
         Verify.verify(scanType == IndexScanType.BY_LUCENE || scanType == IndexScanType.BY_LUCENE_FULL_TEXT);
         try {
+            // This cannot work with nested documents the way that we currently use them. BlockJoin will be essential for this
+            // functionality in this way.
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
                 List<String> fieldNames = listIndexFieldNames(state.index.getRootExpression());
                 MultiFieldQueryParser parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), analyzer);
