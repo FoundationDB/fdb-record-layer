@@ -82,7 +82,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
     }
 
     private IndexingBase getScrubber(ScrubbingType type) {
-        OnlineIndexer.IndexingPolicy policy = new OnlineIndexer.IndexingPolicy();
         switch (type) {
             case DANGLING:
                 return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.defaultPolicy(), scrubbingPolicy);

@@ -237,19 +237,19 @@ public abstract class IndexingBase {
                 validateOrThrowEx(indexState == IndexState.READABLE, "Scrubber was called for a non-readable index. State: " + indexState);
                 return setScrubberTypeOrThrow(store).thenApply(ignore -> true);
             }
-            OnlineIndexer.IndexingPolicy.Handler handler = policy.getStateHandler(indexState);
-            if (handler == OnlineIndexer.IndexingPolicy.Handler.ERROR) {
+            OnlineIndexer.IndexingPolicy.DesiredAction desiredAction = policy.getStateDesiredAction(indexState);
+            if (desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.ERROR) {
                 throw new ValidationException("Index state is not as expected",
                         LogMessageKeys.INDEX_NAME, index.getName(),
                         LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
                         LogMessageKeys.INDEX_STATE, indexState,
-                        LogMessageKeys.INDEXING_POLICY_HANDLER, handler
+                        LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction
                         );
             }
-            boolean shouldClear = handler == OnlineIndexer.IndexingPolicy.Handler.REBUILD;
+            boolean shouldClear = desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD;
             boolean shouldBuild = shouldClear || indexState != IndexState.READABLE;
             message.addKeyAndValue(LogMessageKeys.INITIAL_INDEX_STATE, indexState);
-            message.addKeyAndValue(LogMessageKeys.INDEXING_POLICY_HANDLER, handler);
+            message.addKeyAndValue(LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction);
             message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, shouldBuild);
             message.addKeyAndValue(LogMessageKeys.SHOULD_CLEAR_EXISTING_DATA, shouldClear);
 
