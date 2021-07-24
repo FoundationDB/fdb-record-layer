@@ -448,7 +448,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.DEFAULT) // overwrite the default by-records with the same default (redundant line, just for testing)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.defaultPolicy()) // overwrite the default by-records with the same default (redundant line, just for testing)
                 .setTimer(timer)
                 .build()) {
 
@@ -699,7 +699,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
 
             // now try building if disabled, nothing should be happening
-            indexBuilder.buildIndex(true);
+            RecordCoreException e = assertThrows(IndexingBase.ValidationException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("Index state is not as expected"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
 

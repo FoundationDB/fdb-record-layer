@@ -26,6 +26,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexBuildProto;
+import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
@@ -153,7 +154,6 @@ public class OnlineIndexer implements AutoCloseable {
                   @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
                   @Nonnull Function<Config, Config> configLoader, @Nonnull Config config,
                   boolean syntheticIndex,
-                  @Nonnull IndexStatePrecondition indexStatePrecondition,
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
                   boolean trackProgress,
@@ -165,7 +165,6 @@ public class OnlineIndexer implements AutoCloseable {
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
                 syntheticIndex,
-                indexStatePrecondition,
                 trackProgress,
                 useSynchronizedSession,
                 leaseLengthMillis);
@@ -212,24 +211,23 @@ public class OnlineIndexer implements AutoCloseable {
         // the modified parameters.
         indexer = null;
 
-        final IndexStatePrecondition indexStatePrecondition = common.getIndexStatePrecondition();
         final IndexingBase.PartlyBuiltException partlyBuiltException = IndexingBase.getAPartlyBuildExceptionIfApplicable(ex);
         if (partlyBuiltException != null) {
             // An ongoing indexing process with a different method type was found. Some precondition cases should be handled.
             IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.savedStamp;
+            IndexingPolicy.Handler handler = indexingPolicy.getIfMismatchPrev();
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",
                         LogMessageKeys.CURR_ATTEMPT, attemptCount,
-                        LogMessageKeys.INDEX_STATE_PRECONDITION, indexStatePrecondition,
+                        LogMessageKeys.INDEXING_POLICY_HANDLER, handler,
                         LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp)
                         .addKeysAndValues(common.indexLogMessageKeyValues())
                         .toString());
             }
 
-            if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY) {
+            if (handler == IndexingPolicy.Handler.CONTINUE) {
                 // Make best effort to finish indexing. Attempt continuation of the previous method
-                indexer = null;
-                // Now, match the policy to the previous run
+                // Here: match the policy to the previous run
                 IndexBuildProto.IndexBuildIndexingStamp.Method method = conflictingIndexingTypeStamp.getMethod();
                 if (method == IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                     // Partly built by records. The fallback indicator should handle the policy
@@ -243,6 +241,10 @@ public class OnlineIndexer implements AutoCloseable {
                     indexingPolicy = IndexingPolicy.newBuilder()
                             .setSourceIndexSubspaceKey(sourceIndexSubspaceKey)
                             .setForbidRecordScan(origPolicy.forbidRecordScan)
+                            .setIfDisabled(origPolicy.ifDisabled)
+                            .setIfWriteOnly(origPolicy.ifWriteOnly)
+                            .setIfMismatchPrev(handler)
+                            .setIfReadable(origPolicy.ifReadable)
                             .build();
                     return indexingLauncher(indexingFunc, attemptCount, origPolicy);
                 }
@@ -252,18 +254,16 @@ public class OnlineIndexer implements AutoCloseable {
                         LogMessageKeys.ACTUAL_TYPE, conflictingIndexingTypeStamp);
             }
 
-            if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED) {
-                // Just rebuild
-                common.setIndexStatePrecondition(IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY);
+            if (handler == IndexingPolicy.Handler.REBUILD) {
+                // Here: Just rebuild
+                indexingPolicy.enforceRebuildIfWriteOnly();
                 return indexingLauncher(indexingFunc, attemptCount);
             }
 
-            if (indexStatePrecondition == IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED) {
+            if (handler == IndexingPolicy.Handler.ERROR) {
                 // Error it is
                 throw FDBExceptions.wrapException(ex);
             }
-
-            // All other precondition will be handled below
         }
 
         if (indexingPolicy.isByIndex() && IndexingByIndex.isValidationException(ex)) {
@@ -279,7 +279,7 @@ public class OnlineIndexer implements AutoCloseable {
                 }
                 // rebuild by the requested policy
                 indexingPolicy = requestedPolicy;
-                common.setIndexStatePrecondition(IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY);
+                indexingPolicy.enforceRebuildIfWriteOnly();
                 return indexingLauncher(indexingFunc, attemptCount);
             }
 
@@ -1030,7 +1030,7 @@ public class OnlineIndexer implements AutoCloseable {
         @Nullable
         protected Collection<RecordType> recordTypes;
         @Nonnull
-        private IndexingPolicy indexingPolicy = IndexingPolicy.DEFAULT;
+        private IndexingPolicy indexingPolicy = IndexingPolicy.defaultPolicy();
         @Nonnull
         protected Function<Config, Config> configLoader = old -> old;
         protected int limit = DEFAULT_LIMIT;
@@ -1043,6 +1043,7 @@ public class OnlineIndexer implements AutoCloseable {
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
         protected boolean syntheticIndex = false;
         private IndexStatePrecondition indexStatePrecondition = IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY;
+        private boolean explicitIndexStatePrecondition = false;
         private boolean useSynchronizedSession = true;
         private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
 
@@ -1697,6 +1698,10 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * This function will soon be deprecated. Please use {@link #setIndexingPolicy(IndexingPolicy)} with {@link IndexingPolicy.Builder} instead.
+         * For backward compatibility, calling this function will override the methods {@link IndexingPolicy.Builder} methods:
+         * setIfDisabled, setIfWriteOnly, setIfMismatchPrev
+         *
          * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
          * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
          * not corrupted.
@@ -1711,6 +1716,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public Builder setIndexStatePrecondition(@Nonnull IndexStatePrecondition indexStatePrecondition) {
             this.indexStatePrecondition = indexStatePrecondition;
+            this.explicitIndexStatePrecondition = true;
             return this;
         }
 
@@ -1752,7 +1758,7 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public Builder setIndexingPolicy(@Nullable final IndexingPolicy indexingPolicy) {
             if (indexingPolicy == null) {
-                this.indexingPolicy = IndexingPolicy.DEFAULT;
+                this.indexingPolicy = IndexingPolicy.defaultPolicy();
             } else {
                 this.indexingPolicy = indexingPolicy;
             }
@@ -1765,10 +1771,16 @@ public class OnlineIndexer implements AutoCloseable {
          */
         public OnlineIndexer build() {
             validate();
+            if (explicitIndexStatePrecondition) {
+                indexingPolicy.ifDisabled = indexStatePrecondition.ifDisabled;
+                indexingPolicy.ifWriteOnly = indexStatePrecondition.ifWriteOnly;
+                indexingPolicy.ifMismatchPrev = indexStatePrecondition.ifMismatchPrev;
+                indexingPolicy.ifReadable = indexStatePrecondition.ifReadable;
+            }
             Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes, configLoader, conf, syntheticIndex,
-                    indexStatePrecondition, useSynchronizedSession, leaseLengthMillis, trackProgress,
-                    indexingPolicy);
+            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes,
+                    configLoader, conf, syntheticIndex,
+                    useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
         }
 
         protected void validate() {
@@ -1820,10 +1832,19 @@ public class OnlineIndexer implements AutoCloseable {
      * A builder for the indexing policy.
      */
     public static class IndexingPolicy {
-        public static final IndexingPolicy DEFAULT = new IndexingPolicy();
         @Nullable private final String sourceIndex;
         @Nullable private final Object sourceIndexSubspaceKey; // overrides the sourceIndex
         private final boolean forbidRecordScan;
+        private Handler ifDisabled;
+        private Handler ifWriteOnly;
+        private Handler ifMismatchPrev;
+        private Handler ifReadable;
+
+        public enum Handler {
+            ERROR,
+            REBUILD,
+            CONTINUE,
+        }
 
         /**
          * Build the index from a source index. Source index must be readable, idempotent, and fully cover the target index.
@@ -1831,17 +1852,27 @@ public class OnlineIndexer implements AutoCloseable {
          * @param sourceIndexSubspaceKey if non-null, overrides the sourceIndex param
          * @param forbidRecordScan forbid fallback to a by-records scan
          */
-        public IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan) {
+        public IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
+                              Handler ifDisabled, Handler ifWriteOnly, Handler ifMismatchPrev, Handler ifReadable) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
+            this.ifDisabled = ifDisabled;
+            this.ifWriteOnly = ifWriteOnly;
+            this.ifMismatchPrev = ifMismatchPrev;
+            this.ifReadable = ifReadable;
         }
 
         /**
          * Build a non-active object.
          */
         public IndexingPolicy() {
-            this(null, null, false);
+            this(null, null, false,
+                    Handler.REBUILD, Handler.CONTINUE, Handler.CONTINUE, Handler.CONTINUE);
+        }
+
+        public static IndexingPolicy defaultPolicy() {
+            return new IndexingPolicy();
         }
 
         /**
@@ -1884,6 +1915,60 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * The desired action if the index is disabled.
+         * @return requested Handler.
+         */
+        public Handler getIfDisabled() {
+            return ifDisabled;
+        }
+
+        /**
+         * The desired action if the index is in write only mode.
+         * @return requested Handler.
+         */
+        public Handler getIfWriteOnly() {
+            return ifWriteOnly;
+        }
+
+        /**
+         * The desired action if the index is in partly built, but the requested policy mismatches the previous one.
+         * @return requested Handler.
+         */
+        public Handler getIfMismatchPrev() {
+            return ifMismatchPrev;
+        }
+
+        /**
+         * The desired action if the index is in readable mode (i.e. already built).
+         * @return requested Handler.
+         */
+        public Handler getIfReadable() {
+            return ifReadable;
+        }
+
+        /**
+         * Get the appropriate handler for a given index state.
+         * @param state A given index state
+         * @return The appropriate handler.
+         */
+        public Handler getStateHandler(IndexState state) {
+            switch (state) {
+                case DISABLED:      return getIfDisabled();
+                case WRITE_ONLY:    return getIfWriteOnly();
+                case READABLE:      return getIfReadable();
+                default: throw new RecordCoreException("bad index state: ", state);
+            }
+        }
+
+        /**
+         * Enforce an index rebuild when the index state is WRITE_ONLY. This is useful when other conditions
+         * require a full rebuild.
+         */
+        public void enforceRebuildIfWriteOnly() {
+            ifWriteOnly = Handler.REBUILD;
+        }
+
+        /**
          * Builder for {@link IndexingPolicy}.
          *
          * <pre><code>
@@ -1901,6 +1986,10 @@ public class OnlineIndexer implements AutoCloseable {
             boolean forbidRecordScan = false;
             String sourceIndex = null;
             private Object sourceIndexSubspaceKey = null;
+            private Handler ifDisabled = Handler.REBUILD;
+            private Handler ifWriteOnly = Handler.CONTINUE;
+            private Handler ifMismatchPrev = Handler.CONTINUE;
+            private Handler ifReadable = Handler.CONTINUE;
 
             protected Builder() {
             }
@@ -1952,8 +2041,54 @@ public class OnlineIndexer implements AutoCloseable {
                 return this;
             }
 
+
+            /**
+             * set the initial handling policy, action if the index is in disabled.
+             * @param ifDisabled CONTINUE: build the index (effectively, it's the same as rebuild)
+             *                   REBUILD: rebuild the index.
+             *                   ERROR: reject (with exception).
+             */
+            public Builder setIfDisabled(final Handler ifDisabled) {
+                this.ifDisabled = ifDisabled;
+                return this;
+            }
+
+            /**
+             * set the initial handling policy, action if the index is in write only mode (i.e. partly built).
+             * @param ifWriteOnly CONTINUE: (default) attempt to continue the previous indexing process
+             *                    REBUILD: clear the existing data and rebuild
+             *                    ERROR: reject (with exception).
+             */
+            public Builder setIfWriteOnly(final Handler ifWriteOnly) {
+                this.ifWriteOnly = ifWriteOnly;
+                return this;
+            }
+
+            /**
+             * set the initial handling policy, action if the index is in write-only mode but the previous indexing method mismatches the requested one.
+             * @param ifMismatchPrev CONTINUE: (default) attempt to continue the previous indexing process, using the previous policy
+             *                       REBUILD: clear the existing data and rebuild, using the new policy
+             *                       ERROR: reject (with exception).
+             */
+            public Builder setIfMismatchPrev(final Handler ifMismatchPrev) {
+                this.ifMismatchPrev = ifMismatchPrev;
+                return this;
+            }
+
+            /**
+             * set the initial handling policy, action if the index is in write-only mode but the previous indexing method mismatches the requested one.
+             * @param ifReadable CONTINUE: (default) do nothing.
+             *                   REBUILD: clear the existing data and rebuild.
+             *                   ERROR: reject (with exception)
+             */
+            public Builder setIfReadable(final Handler ifReadable) {
+                this.ifReadable = ifReadable;
+                return this;
+            }
+
             public IndexingPolicy build() {
-                return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan);
+                return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan,
+                        ifDisabled, ifWriteOnly, ifMismatchPrev, ifReadable);
             }
         }
     }
@@ -1994,12 +2129,12 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Only build if the index is disabled.
          */
-        BUILD_IF_DISABLED,
+        BUILD_IF_DISABLED(IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.ERROR, IndexingPolicy.Handler.ERROR, IndexingPolicy.Handler.ERROR),
         /**
          * Build if the index is disabled; Continue build if the index is write-only and the requested
          * method is the same as the previous one. Else throw a RecordCoreException exception.
          */
-        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED,
+        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED(IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.CONTINUE, IndexingPolicy.Handler.ERROR, IndexingPolicy.Handler.CONTINUE),
         /**
          * Build if the index is disabled; Continue build if the index is write-only.
          * If the index is write-only and partly built, continue building it according the previous indexing policy (ignoring
@@ -2011,20 +2146,20 @@ public class OnlineIndexer implements AutoCloseable {
          * Recommended. This should be sufficient if current index data is not corrupted.
          * </p>
          */
-        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY,
+        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY(IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.CONTINUE, IndexingPolicy.Handler.CONTINUE, IndexingPolicy.Handler.CONTINUE),
         /**
          * Build if the index is disabled; Continue build if the index is write-only - only if the requested
          * method matches the previous one, else restart the built.
          */
-        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED,
+        BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED(IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.CONTINUE, IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.CONTINUE),
         /**
          * Build if the index is disabled; Rebuild if the index is write-only.
          */
-        BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY,
+        BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY(IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.CONTINUE),
         /**
          * Rebuild the index anyway, no matter if it is disabled or write-only or readable.
          */
-        FORCE_BUILD,
+        FORCE_BUILD(IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.REBUILD, IndexingPolicy.Handler.REBUILD),
         /**
          * Continue build only if the index is write-only and the requested method matches the previous one; Never rebuild.
          * To use this option to build an index, one should mark the index as write-only and clear the existing
@@ -2032,6 +2167,17 @@ public class OnlineIndexer implements AutoCloseable {
          * variations) behave same as what it did before version 2.8.90.0, which is not recommended.
          * {@link #BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} should be adopted instead.
          */
-        ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY,
+        ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY(IndexingPolicy.Handler.ERROR, IndexingPolicy.Handler.CONTINUE, IndexingPolicy.Handler.ERROR, IndexingPolicy.Handler.ERROR),
+        ;
+        public final IndexingPolicy.Handler ifDisabled;
+        public final IndexingPolicy.Handler ifWriteOnly;
+        public final IndexingPolicy.Handler ifMismatchPrev;
+        public final IndexingPolicy.Handler ifReadable;
+        IndexStatePrecondition(IndexingPolicy.Handler ifDisabled, IndexingPolicy.Handler ifWriteOnly, IndexingPolicy.Handler ifMismatchPrev, IndexingPolicy.Handler ifReadable) {
+            this.ifDisabled = ifDisabled;
+            this.ifWriteOnly = ifWriteOnly;
+            this.ifMismatchPrev = ifMismatchPrev;
+            this.ifReadable = ifReadable;
+        }
     }
 }

@@ -71,7 +71,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
                 syntheticIndex,
-                OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED, // dummy
                 trackProgress,
                 true, // always use synchronized session
                 leaseLengthMillis);
@@ -83,12 +82,13 @@ public class OnlineIndexScrubber implements AutoCloseable {
     }
 
     private IndexingBase getScrubber(ScrubbingType type) {
+        OnlineIndexer.IndexingPolicy policy = new OnlineIndexer.IndexingPolicy();
         switch (type) {
             case DANGLING:
-                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
+                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.defaultPolicy(), scrubbingPolicy);
 
             case MISSING:
-                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
+                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.defaultPolicy(), scrubbingPolicy);
 
             default:
                 throw new MetaDataException("bad type");
