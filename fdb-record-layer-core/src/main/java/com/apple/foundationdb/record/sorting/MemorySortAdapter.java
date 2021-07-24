@@ -85,12 +85,12 @@ public interface MemorySortAdapter<K, V> extends Comparator<K> {
      * Get the maximum allowed size of the in-memory map.
      * @return the maximum size
      */
-    int getMaxMapSize();
+    int getMaxRecordCountInMemory();
 
     /**
      * Get action to perform when in-memory map is full.
      * @return size limit mode
      */
     @Nonnull
-    MemorySorter.SizeLimitMode getSizeLimitMode();
+    MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode();
 }

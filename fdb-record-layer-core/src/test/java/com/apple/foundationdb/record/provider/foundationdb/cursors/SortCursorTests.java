@@ -139,8 +139,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public MemorySorter.SizeLimitMode getSizeLimitMode() {
-            return MemorySorter.SizeLimitMode.DISCARD;
+        public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
+            return MemorySorter.RecordCountInMemoryLimitMode.DISCARD;
         }
     }
 
@@ -150,7 +150,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                 continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN);
         final MemoryAdapterBase adapter = new MemoryAdapterBase() {
             @Override
-            public int getMaxMapSize() {
+            public int getMaxRecordCountInMemory() {
                 return 20;
             }
         };
@@ -174,7 +174,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
                 };
         final MemoryAdapterBase adapter = new MemoryAdapterBase() {
             @Override
-            public int getMaxMapSize() {
+            public int getMaxRecordCountInMemory() {
                 return 10;
             }
         };
@@ -208,8 +208,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     abstract class FileSortAdapterBase extends MemoryAdapterBase implements FileSortAdapter<Tuple, FDBStoredRecord<Message>> {
         @Nonnull
         @Override
-        public MemorySorter.SizeLimitMode getSizeLimitMode() {
-            return MemorySorter.SizeLimitMode.STOP;
+        public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
+            return MemorySorter.RecordCountInMemoryLimitMode.STOP;
         }
 
         @Nonnull
@@ -249,22 +249,22 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     private FileSortAdapterBase fileSortMemoryAdapter() {
         return new FileSortAdapterBase() {
             @Override
-            public int getMinFileSize() {
+            public int getMinFileRecordCount() {
                 return 200;
             }
 
             @Override
-            public int getMaxNumFiles() {
+            public int getMaxFileCount() {
                 return 5;
             }
 
             @Override
-            public int getRecordsPerSection() {
+            public int getRecordCountPerSection() {
                 return 200;
             }
 
             @Override
-            public int getMaxMapSize() {
+            public int getMaxRecordCountInMemory() {
                 return 250;
             }
         };
@@ -273,22 +273,22 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
     private FileSortAdapterBase fileSortFilesAdapter() {
         return new FileSortAdapterBase() {
             @Override
-            public int getMinFileSize() {
+            public int getMinFileRecordCount() {
                 return 10;
             }
 
             @Override
-            public int getMaxNumFiles() {
+            public int getMaxFileCount() {
                 return 5;
             }
 
             @Override
-            public int getRecordsPerSection() {
+            public int getRecordCountPerSection() {
                 return 10;
             }
 
             @Override
-            public int getMaxMapSize() {
+            public int getMaxRecordCountInMemory() {
                 return 10;
             }
         };
@@ -301,22 +301,22 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         final SecretKey secretKey = keyGen.generateKey();
         return new FileSortAdapterBase() {
             @Override
-            public int getMinFileSize() {
+            public int getMinFileRecordCount() {
                 return 10;
             }
 
             @Override
-            public int getMaxNumFiles() {
+            public int getMaxFileCount() {
                 return 5;
             }
 
             @Override
-            public int getRecordsPerSection() {
+            public int getRecordCountPerSection() {
                 return 10;
             }
 
             @Override
-            public int getMaxMapSize() {
+            public int getMaxRecordCountInMemory() {
                 return 10;
             }
 

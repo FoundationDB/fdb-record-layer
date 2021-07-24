@@ -73,11 +73,11 @@ public class MemorySorter<K, V> {
         addKeyValue(adapter.generateKey(value), value);
     }
 
-    /** How the {@code sizeLimit} is interpreted for {@link #load}. */
-    public enum SizeLimitMode { 
-        /** Map retains top {@code sizeLimit} values and discards additional values. */
+    /** How the {@code getMaxRecordCountInMemory} is interpreted for {@link #load}. */
+    public enum RecordCountInMemoryLimitMode {
+        /** Map retains top {@code getMaxRecordCountInMemory} values and discards additional values. */
         DISCARD,
-        /** Map retains {@code sizeLimit} values and then stops. */
+        /** Map retains {@code getMaxRecordCountInMemory} values and then stops. */
         STOP
     }
 
@@ -86,10 +86,10 @@ public class MemorySorter<K, V> {
         private final boolean full;
         @Nonnull
         private final RecordCursorContinuation sourceContinuation;
-        @Nullable
+        @Nonnull
         private final RecordCursor.NoNextReason sourceNoNextReason;
 
-        public LoadResult(final boolean full, @Nonnull RecordCursorContinuation sourceContinuation, @Nullable RecordCursor.NoNextReason sourceNoNextReason) {
+        public LoadResult(final boolean full, @Nonnull RecordCursorContinuation sourceContinuation, @Nonnull RecordCursor.NoNextReason sourceNoNextReason) {
             this.full = full;
             this.sourceContinuation = sourceContinuation;
             this.sourceNoNextReason = sourceNoNextReason;
@@ -104,7 +104,7 @@ public class MemorySorter<K, V> {
             return sourceContinuation;
         }
 
-        @Nullable
+        @Nonnull
         public RecordCursor.NoNextReason getSourceNoNextReason() {
             return sourceNoNextReason;
         }
@@ -136,10 +136,10 @@ public class MemorySorter<K, V> {
                         return true;
                     }
                 }
-                if (map.size() <= adapter.getMaxMapSize()) {
+                if (map.size() <= adapter.getMaxRecordCountInMemory()) {
                     return true;
                 }
-                switch (adapter.getSizeLimitMode()) {
+                switch (adapter.getRecordCountInMemoryLimitMode()) {
                     case DISCARD:
                         map.pollLastEntry();
                         return true;
@@ -148,7 +148,7 @@ public class MemorySorter<K, V> {
                         loadResult = new LoadResult(true, sourceResult.getContinuation(), RecordCursor.NoNextReason.SCAN_LIMIT_REACHED);
                         return false;
                     default:
-                        throw new RecordCoreArgumentException("Unknown size limit mode: " + adapter.getSizeLimitMode());
+                        throw new RecordCoreArgumentException("Unknown size limit mode: " + adapter.getRecordCountInMemoryLimitMode());
                 }
             } finally {
                 if (timer != null) {

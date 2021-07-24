@@ -60,13 +60,14 @@ public class RecordQuerySortKey implements PlanHashable {
      * The adapter will have a unique encryption key.
      * The limit on the number of records returned limits the size of the sort buffer that needs to be kept,
      * and so may allow it to be in-memory only.
+     * @param <M> type used to represent stored records
      * @param recordStore the record store against which the plan is running
      * @param skipPlusLimit the maximum number of records to read
      * @return a new sort adapter
      */
     @Nonnull
     public <M extends Message> RecordQuerySortAdapter<M> getAdapter(@Nonnull FDBRecordStoreBase<M> recordStore, int skipPlusLimit) {
-        final int memoryLimit = Math.min(skipPlusLimit, RecordQuerySortAdapter.MAX_MEMORY_SIZE);
+        final int memoryLimit = Math.min(skipPlusLimit, RecordQuerySortAdapter.MAX_RECORD_COUNT_IN_MEMORY);
         final boolean memoryOnly = memoryLimit == skipPlusLimit;
         return new RecordQuerySortAdapter<>(memoryLimit, memoryOnly, this, recordStore);
     }

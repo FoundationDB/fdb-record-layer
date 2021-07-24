@@ -102,7 +102,7 @@ public class MemorySortCursor<K, V> implements RecordCursor<V> {
             return result;
         }
         // If filling the sorter didn't reach the limit, none were discarded and all the records in it must be all the records period.
-        boolean exhausted = sorter.getMap().size() < adapter.getMaxMapSize();
+        boolean exhausted = sorter.getMap().size() < adapter.getMaxRecordCountInMemory();
         MemorySortCursorContinuation<K, V> continuation = new MemorySortCursorContinuation<>(adapter, exhausted, Collections.emptyList(), minimumKey, inputContinuation);
         return RecordCursorResult.withoutNextValue(continuation, exhausted ? NoNextReason.SOURCE_EXHAUSTED : NoNextReason.RETURN_LIMIT_REACHED);
     }

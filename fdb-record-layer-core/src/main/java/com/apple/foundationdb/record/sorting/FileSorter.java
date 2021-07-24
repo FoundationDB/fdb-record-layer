@@ -84,6 +84,8 @@ import java.util.zip.InflaterInputStream;
  */
 @API(API.Status.EXPERIMENTAL)
 public class FileSorter<K, V>  {
+    public static final int SORT_FILE_VERSION = 1;
+
     @Nonnull
     private final MemorySorter<K, V> mapSorter;
     @Nonnull
@@ -122,11 +124,11 @@ public class FileSorter<K, V>  {
         private final boolean inMemory;
         @Nonnull
         private final RecordCursorContinuation sourceContinuation;
-        @Nullable
+        @Nonnull
         private final RecordCursor.NoNextReason sourceNoNextReason;
 
         public LoadResult(boolean loadComplete, boolean inMemory,
-                          @Nonnull RecordCursorContinuation sourceContinuation, @Nullable RecordCursor.NoNextReason sourceNoNextReason) {
+                          @Nonnull RecordCursorContinuation sourceContinuation, @Nonnull RecordCursor.NoNextReason sourceNoNextReason) {
             this.loadComplete = loadComplete;
             this.inMemory = inMemory;
             this.sourceContinuation = sourceContinuation;
@@ -146,7 +148,7 @@ public class FileSorter<K, V>  {
             return sourceContinuation;
         }
 
-        @Nullable
+        @Nonnull
         public RecordCursor.NoNextReason getSourceNoNextReason() {
             return sourceNoNextReason;
         }
@@ -156,12 +158,12 @@ public class FileSorter<K, V>  {
         loadResult = null;
         return AsyncUtil.whileTrue(() -> mapSorter.load(source, null).thenCompose(mapResult -> {
             if (mapResult.isFull()) {
-                return CompletableFuture.runAsync(() -> saveToNextFile(adapter.getMaxNumFiles()), executor).thenApply(vignore -> true);
+                return CompletableFuture.runAsync(() -> saveToNextFile(adapter.getMaxFileCount()), executor).thenApply(vignore -> true);
             }
             if (mapResult.getSourceNoNextReason().isOutOfBand()) {
                 loadResult = new LoadResult(false, false, mapResult.getSourceContinuation(), mapResult.getSourceNoNextReason());
                 return AsyncUtil.READY_FALSE;
-            } else if (files.isEmpty() && mapSorter.getMap().size() < adapter.getMinFileSize()) {
+            } else if (files.isEmpty() && mapSorter.getMap().size() < adapter.getMinFileRecordCount()) {
                 loadResult = new LoadResult(true, true, mapResult.getSourceContinuation(), mapResult.getSourceNoNextReason());
                 return AsyncUtil.READY_FALSE;
             } else {
@@ -186,6 +188,7 @@ public class FileSorter<K, V>  {
                     final CodedOutputStream headerStream = CodedOutputStream.newInstance(fileStream);
                     // To stay the same size, field existence must not change.
                     final RecordSortingProto.SortFileHeader.Builder fileHeader = RecordSortingProto.SortFileHeader.newBuilder()
+                            .setVersion(SORT_FILE_VERSION)
                             .setNumberOfRecords(0)
                             .setNumberOfSections(0);
                     headerStream.writeMessageNoTag(fileHeader.build());
@@ -194,10 +197,7 @@ public class FileSorter<K, V>  {
                             .setNumberOfBytes(0);
                     if (encryptionKey != null) {
                         cipher = CipherPool.borrowCipher();
-                        final byte[] iv = new byte[CipherPool.IV_SIZE];
-                        adapter.getSecureRandom().nextBytes(iv);
-                        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
-                        sectionHeader.setEncryptionIv(ByteString.copyFrom(iv));
+                        initCipherEncrypt(cipher, encryptionKey, adapter.getSecureRandom(), sectionHeader);
                     }
                     headerStream.writeMessageNoTag(sectionHeader.build());
                     final long headerEnd = headerStream.getTotalBytesWritten();
@@ -205,14 +205,7 @@ public class FileSorter<K, V>  {
                     final CodedOutputStream entryStream;
                     if (compress || cipher != null) {
                         headerStream.flush();
-                        OutputStream stream = new NoCloseFilterStream(fileStream);
-                        if (cipher != null) {
-                            stream = new CipherOutputStream(stream, cipher);
-                        }
-                        if (compress) {
-                            stream = new DeflaterOutputStream(stream);
-                        }
-                        outputStream = stream;
+                        outputStream = wrapOutputStream(fileStream, cipher, compress);
                         entryStream = CodedOutputStream.newInstance(outputStream);
                     } else {
                         outputStream = fileStream;
@@ -273,6 +266,49 @@ public class FileSorter<K, V>  {
         }
     }
 
+    private static void initCipherEncrypt(@Nonnull Cipher cipher, @Nonnull java.security.Key encryptionKey,
+                                   @Nonnull SecureRandom secureRandom,
+                                   @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
+                                   throws GeneralSecurityException {
+        final byte[] iv = new byte[CipherPool.IV_SIZE];
+        secureRandom.nextBytes(iv);
+        sectionHeader.setEncryptionIv(ByteString.copyFrom(iv));
+        cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
+    }
+
+    private static void initCipherDecrypt(@Nonnull Cipher cipher, @Nonnull java.security.Key encryptionKey,
+                                          @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
+                                          throws GeneralSecurityException {
+        final byte[] iv = sectionHeader.getEncryptionIv().toByteArray();
+        cipher.init(Cipher.DECRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
+    }
+
+    @Nonnull
+    private static OutputStream wrapOutputStream(@Nonnull FileOutputStream fileStream,
+                                                 @Nullable Cipher cipher, boolean compress) {
+        OutputStream stream = new NoCloseFilterStream(fileStream);
+        if (cipher != null) {
+            stream = new CipherOutputStream(stream, cipher);
+        }
+        if (compress) {
+            stream = new DeflaterOutputStream(stream);
+        }
+        return stream;
+    }
+
+    @Nonnull
+    private static InputStream wrapInputStream(@Nonnull FileInputStream fileStream,
+                                               @Nullable Cipher cipher, boolean compressed) {
+        InputStream stream = fileStream;
+        if (cipher != null) {
+            stream = new CipherInputStream(stream, cipher);
+        }
+        if (compressed) {
+            stream = new InflaterInputStream(stream);
+        }
+        return stream;
+    }
+
     // Both DeflaterOutputStream and CipherOutputStream have the problem that close() does finish work that isn't otherwise
     // available as a flush()-type operation. So close down those streams while keeping the actual FileOutputStream open.
     // Since those streams are pretty thin wrappers around Deflater and Cipher, an alternative would be to implement better
@@ -327,6 +363,9 @@ public class FileSorter<K, V>  {
             }
             final RecordSortingProto.SortFileHeader.Builder builder =  RecordSortingProto.SortFileHeader.newBuilder();
             headerStream.readMessage(builder, ExtensionRegistryLite.getEmptyRegistry());
+            if (builder.getVersion() != FileSorter.SORT_FILE_VERSION) {
+                throw new RecordCoreException("file header version mismatch");
+            }
             fileRecordEnd = builder.getNumberOfRecords();
         }
 
@@ -355,16 +394,9 @@ public class FileSorter<K, V>  {
                     fileChannel.position(sectionFilePosition);
                     sectionFilePosition += builder.getNumberOfBytes();
                     if (cipher != null) {
-                        IvParameterSpec iv = new IvParameterSpec(builder.getEncryptionIv().toByteArray());
-                        cipher.init(Cipher.DECRYPT_MODE, encryptionKey, iv);
+                        initCipherDecrypt(cipher, encryptionKey, builder);
                     }
-                    InputStream inputStream = fileStream;
-                    if (cipher != null) {
-                        inputStream = new CipherInputStream(inputStream, cipher);
-                    }
-                    if (compressed) {
-                        inputStream = new InflaterInputStream(inputStream);
-                    }
+                    InputStream inputStream = wrapInputStream(fileStream, cipher, compressed);
                     entryStream = CodedInputStream.newInstance(inputStream);
                 }
             }
@@ -415,7 +447,7 @@ public class FileSorter<K, V>  {
 
         public OutputState(@Nonnull File file, @Nonnull FileSortAdapter<?, ?> adapter) throws IOException, GeneralSecurityException {
             this.file = file;
-            this.recordsPerSection = adapter.getRecordsPerSection();
+            this.recordsPerSection = adapter.getRecordCountPerSection();
             fileStream = new FileOutputStream(file);
             outputStream = fileStream;
             fileChannel = fileStream.getChannel();
@@ -431,6 +463,7 @@ public class FileSorter<K, V>  {
                 cipher = null;
             }
             fileHeader = RecordSortingProto.SortFileHeader.newBuilder()
+                    .setVersion(SORT_FILE_VERSION)
                     .setNumberOfSections(0)
                     .setNumberOfRecords(0);
             headerStream.writeMessageNoTag(fileHeader.build());
@@ -478,23 +511,14 @@ public class FileSorter<K, V>  {
             headerStream.flush();
             sectionHeaderPosition = fileChannel.position();
             if (cipher != null) {
-                final byte[] iv = new byte[CipherPool.IV_SIZE];
-                secureRandom.nextBytes(iv);
-                cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
-                sectionHeader.setEncryptionIv(ByteString.copyFrom(iv));
+                initCipherEncrypt(cipher, encryptionKey, secureRandom, sectionHeader);
             }
             headerStream.writeMessageNoTag(sectionHeader.build());
             headerStream.flush();
             sectionRecordsPosition = fileChannel.position();
             if (compress || cipher != null) {
                 headerStream.flush();
-                outputStream = new NoCloseFilterStream(fileStream);
-                if (cipher != null) {
-                    outputStream = new CipherOutputStream(outputStream, cipher);
-                }
-                if (compress) {
-                    outputStream = new DeflaterOutputStream(outputStream);
-                }
+                outputStream = wrapOutputStream(fileStream, cipher, compress);
                 entryStream = CodedOutputStream.newInstance(outputStream);
             }
         }

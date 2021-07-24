@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.sorting;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordSortingProto;
 import com.apple.foundationdb.record.provider.common.CipherPool;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -92,6 +93,9 @@ public class SortedFileReader<V> implements AutoCloseable {
     private void skipLimit(int skip, int limit) throws IOException, GeneralSecurityException {
         final RecordSortingProto.SortFileHeader.Builder fileHeader = RecordSortingProto.SortFileHeader.newBuilder();
         headerStream.readMessage(fileHeader, ExtensionRegistryLite.getEmptyRegistry());
+        if (fileHeader.getVersion() != FileSorter.SORT_FILE_VERSION) {
+            throw new RecordCoreException("file header version mismatch");
+        }
         sectionFileStart = headerStream.getTotalBytesRead();
         headerStream.resetSizeCounter();
         sectionFileEnd = sectionFileStart;  // As though end of previous one.

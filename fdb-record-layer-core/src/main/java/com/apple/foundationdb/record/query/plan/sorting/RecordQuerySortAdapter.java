@@ -51,9 +51,9 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple, FDBStoredRecord<M>> {
-    public static final int MAX_MEMORY_SIZE = 1000;
-    public static final int MAX_FILES = 10;
-    public static final int RECORDS_PER_SECTION = 100;
+    public static final int MAX_RECORD_COUNT_IN_MEMORY = 1000;
+    public static final int MAX_FILE_COUNT = 10;
+    public static final int RECORD_COUNT_PER_SECTION = 100;
 
     private final int memoryLimit;
     private final boolean memoryOnly;
@@ -124,14 +124,14 @@ class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple
     }
 
     @Override
-    public int getMaxMapSize() {
-        return memoryOnly ? memoryLimit : MAX_MEMORY_SIZE;
+    public int getMaxRecordCountInMemory() {
+        return memoryOnly ? memoryLimit : MAX_RECORD_COUNT_IN_MEMORY;
     }
 
     @Nonnull
     @Override
-    public MemorySorter.SizeLimitMode getSizeLimitMode() {
-        return memoryOnly ? MemorySorter.SizeLimitMode.DISCARD : MemorySorter.SizeLimitMode.STOP;
+    public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
+        return memoryOnly ? MemorySorter.RecordCountInMemoryLimitMode.DISCARD : MemorySorter.RecordCountInMemoryLimitMode.STOP;
     }
 
     @Nonnull
@@ -151,18 +151,18 @@ class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple
     }
 
     @Override
-    public int getMinFileSize() {
-        return MAX_MEMORY_SIZE;
+    public int getMinFileRecordCount() {
+        return MAX_RECORD_COUNT_IN_MEMORY;
     }
 
     @Override
-    public int getMaxNumFiles() {
-        return MAX_FILES;
+    public int getMaxFileCount() {
+        return MAX_FILE_COUNT;
     }
 
     @Override
-    public int getRecordsPerSection() {
-        return RECORDS_PER_SECTION;
+    public int getRecordCountPerSection() {
+        return RECORD_COUNT_PER_SECTION;
     }
 
     @Override

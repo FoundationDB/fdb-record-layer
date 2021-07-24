@@ -68,20 +68,20 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
      * If loading finds fewer than this number of records, the results are kept in memory and returned from there.
      * @return minimum number of records
      */
-    int getMinFileSize();
+    int getMinFileRecordCount();
 
     /**
      * Get the maximum number of files to keep before merging.
      * @return the maximum number of files kept by a single cursor
      */
-    int getMaxNumFiles();
+    int getMaxFileCount();
 
     /**
      * Get the maximum number of files in a section.
      * Sections allow skipping through the file faster.
      * @return the number of records in each section
      */
-    int getRecordsPerSection();
+    int getRecordCountPerSection();
 
     // TODO: Limit on number of records total?
 
