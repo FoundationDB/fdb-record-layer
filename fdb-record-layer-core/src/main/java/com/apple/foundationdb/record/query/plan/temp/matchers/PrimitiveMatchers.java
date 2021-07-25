@@ -50,7 +50,7 @@ public class PrimitiveMatchers {
             @Override
             public Class<T> getRootClass() {
                 // Note: We should have the caller pass in a class object as we for many other matchers. However,
-                // this is not needed as this matcher is not used on top level purposes. Thus, we can avoid that additional.
+                // this is not needed as this matcher is not used on top level purposes. Thus, we can avoid that additional
                 // parameter for the sake of readability of the matcher API.
                 throw new RecordCoreException("this should return T.class");
             }

@@ -226,7 +226,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
                         final AliasMap locallyBoundMap = locallyBoundMapOptional.get();
 
                         final T entity = Objects.requireNonNull(getAliasToElementMap().get(alias));
-                            final T otherEntity = Objects.requireNonNull(getOtherAliasToElementMap().get(otherAlias));
+                        final T otherEntity = Objects.requireNonNull(getOtherAliasToElementMap().get(otherAlias));
 
                         final Iterable<M> matchResults =
                                 matchFunction.apply(entity, otherEntity, boundAliasesMap.combine(locallyBoundMap));

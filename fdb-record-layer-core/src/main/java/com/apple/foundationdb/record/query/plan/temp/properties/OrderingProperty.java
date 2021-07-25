@@ -23,15 +23,18 @@ package com.apple.foundationdb.record.query.plan.temp.properties;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
@@ -47,10 +50,14 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.ValueIndexExpansionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.ValuePredicate;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -62,6 +69,7 @@ import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A property that determines whether the expression may produce duplicate entries. If the given expression is a
@@ -112,18 +120,22 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
             return Optional.of(new OrderingInfo(equalityBoundKeyMap, keyPartBuilder.build(), null, null));
         } else if (expression instanceof RecordQueryIntersectionPlan) {
             final RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan)expression;
-            return fromChildrenForSetPlan(intersectionPlan,
+            return fromSetPlanAndChildren(intersectionPlan,
                     childResults,
                     orderingFromComparisonKey(intersectionPlan.getComparisonKey()),
                     Ordering::unionEqualityBoundKeys);
         } else if (expression instanceof RecordQueryUnionPlan) {
             final RecordQueryUnionPlan unionPlan = (RecordQueryUnionPlan)expression;
-            return fromChildrenForSetPlan(unionPlan,
+            return fromSetPlanAndChildren(unionPlan,
                     childResults,
                     orderingFromComparisonKey(unionPlan.getComparisonKey()),
                     Ordering::intersectEqualityBoundKeys);
         } else if (expression instanceof RecordQueryUnorderedUnionPlan) {
-            return fromChildrenForSetPlan((RecordQueryUnorderedUnionPlan)expression, childResults, Ordering.preserveOrder(), Ordering::intersectEqualityBoundKeys);
+            return fromSetPlanAndChildren((RecordQueryUnorderedUnionPlan)expression, childResults, Ordering.preserveOrder(), Ordering::intersectEqualityBoundKeys);
+        } else if (expression instanceof RecordQueryInUnionPlan) {
+            return fromChildrenAndInUnionPlan(childResults, (RecordQueryInUnionPlan)expression);
+        } else if (expression instanceof RecordQueryPredicatesFilterPlan) {
+            return fromChildrenAndPredicatesFilterPlan(childResults, (RecordQueryPredicatesFilterPlan)expression);
         } else {
             return orderingInfoFromSingleChild(expression, childResults);
         }
@@ -243,7 +255,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
     }
 
     @Nonnull
-    public static Optional<OrderingInfo> fromChildrenForSetPlan(@Nullable final RecordQuerySetPlan plan,
+    public static Optional<OrderingInfo> fromSetPlanAndChildren(@Nullable final RecordQuerySetPlan plan,
                                                                 @Nonnull final List<Optional<OrderingInfo>> childResults,
                                                                 @Nonnull final Ordering requiredOrdering,
                                                                 @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparisons.Comparison>> combineFn) {
@@ -272,6 +284,84 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
         return commonEqualityBoundKeysOptional
                 .map(commonEqualityBoundKeys ->
                         new Ordering(commonEqualityBoundKeys, commonOrderingKeys.get()));
+    }
+
+    public static Optional<OrderingInfo> fromChildrenAndInUnionPlan(@Nonnull final List<Optional<OrderingInfo>> orderingOptionals,
+                                                                    @Nonnull final RecordQueryInUnionPlan inUnionPlan) {
+        final Optional<OrderingInfo> childOrderingInfoOptional = Iterables.getOnlyElement(orderingOptionals);
+        if (childOrderingInfoOptional.isPresent()) {
+            final OrderingInfo childOrderingInfo = childOrderingInfoOptional.get();
+            final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundKeyMap = childOrderingInfo.getEqualityBoundKeyMap();
+            final KeyExpression comparisonKey = inUnionPlan.getComparisonKey();
+
+            final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(equalityBoundKeyMap);
+            final ImmutableList.Builder<KeyPart> resultKeyPartBuilder = ImmutableList.builder();
+            final List<KeyExpression> normalizedComparisonKeys = comparisonKey.normalizeKeyForPositions();
+            for (final KeyExpression normalizedKeyExpression : normalizedComparisonKeys) {
+                if (resultEqualityBoundKeyMap.containsKey(normalizedKeyExpression)) {
+                    resultEqualityBoundKeyMap.removeAll(normalizedKeyExpression);
+                }
+                resultKeyPartBuilder.add(KeyPart.of(normalizedKeyExpression, ComparisonRange.Type.EMPTY));
+            }
+
+            return Optional.of(new OrderingInfo(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), null, null));
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    public static Optional<OrderingInfo> fromChildrenAndPredicatesFilterPlan(@Nonnull final List<Optional<OrderingInfo>> orderingOptionals,
+                                                                             @Nonnull final RecordQueryPredicatesFilterPlan predicatesFilterPlan) {
+        final Optional<OrderingInfo> childOrderingInfoOptional = Iterables.getOnlyElement(orderingOptionals);
+        if (childOrderingInfoOptional.isPresent()) {
+            final OrderingInfo childOrderingInfo = childOrderingInfoOptional.get();
+
+            final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundFileKeyExpressions =
+                    predicatesFilterPlan.getPredicates()
+                            .stream()
+                            .flatMap(queryPredicate -> {
+                                if (!(queryPredicate instanceof ValuePredicate)) {
+                                    return Stream.empty();
+                                }
+                                final ValuePredicate valuePredicate = (ValuePredicate)queryPredicate;
+                                if (!valuePredicate.getComparison().getType().isEquality()) {
+                                    return Stream.empty();
+                                }
+
+                                if (!(valuePredicate.getValue() instanceof FieldValue)) {
+                                    return Stream.of();
+                                }
+                                return Stream.of(Pair.of((FieldValue)valuePredicate.getValue(), valuePredicate.getComparison()));
+                            })
+                            .map(valueComparisonPair -> {
+
+                                final FieldValue fieldValue = valueComparisonPair.getLeft();
+                                final String fieldName = fieldValue.getFieldName();
+                                KeyExpression keyExpression =
+                                        Key.Expressions.field(fieldName);
+                                final List<String> fieldPrefix = fieldValue.getFieldPrefix();
+                                for (int i = fieldPrefix.size() - 1; i >= 0; i --) {
+                                    keyExpression = Key.Expressions.field(fieldPrefix.get(i)).nest(keyExpression);
+                                }
+                                return Pair.of(keyExpression, valueComparisonPair.getRight());
+                            })
+                            .collect(ImmutableSetMultimap.toImmutableSetMultimap(Pair::getLeft, Pair::getRight));
+
+            final ImmutableList<KeyPart> resultOrderingKeyParts =
+                    childOrderingInfo.getOrderingKeyParts()
+                            .stream()
+                            .filter(keyPart -> !equalityBoundFileKeyExpressions.containsKey(keyPart.getNormalizedKeyExpression()))
+                            .collect(ImmutableList.toImmutableList());
+
+            final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap =
+                    HashMultimap.create(childOrderingInfo.getEqualityBoundKeyMap());
+
+            equalityBoundFileKeyExpressions.forEach(resultEqualityBoundKeyMap::put);
+
+            return Optional.of(new OrderingInfo(resultEqualityBoundKeyMap, resultOrderingKeyParts, null, null));
+        } else {
+            return Optional.empty();
+        }
     }
 
     /**

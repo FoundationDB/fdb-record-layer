@@ -224,7 +224,7 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        final PlanContext context = new MetaDataPlanContext(metaData, recordStoreState, query);
+        final PlanContext context = new MetaDataPlanContext(configuration, metaData, recordStoreState, query);
         Debugger.query(query, context);
         try {
             planPartial(context,

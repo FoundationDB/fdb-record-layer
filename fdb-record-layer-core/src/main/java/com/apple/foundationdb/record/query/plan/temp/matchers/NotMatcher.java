@@ -23,31 +23,25 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * A <code>BindingMatcher</code> matches a data structure while binding variables to parts of the data structure.
- *
- * <p>
- * Extreme care should be taken when implementing <code>BindingMatcher</code>s, since it can be very delicate.
- * In particular, matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>TypedMatcher</code> must use the (default) reference equals.
- * </p>
- * @param <T> the bindable type that this matcher binds to
+ * TODO.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TypedMatcher<T> implements BindingMatcher<T> {
+public class NotMatcher implements BindingMatcher<Object> {
     @Nonnull
-    private final Class<T> bindableClass;
+    private final BindingMatcher<?> downstream;
 
-    public TypedMatcher(@Nonnull final Class<T> bindableClass) {
-        this.bindableClass = bindableClass;
+    public NotMatcher(@Nonnull final BindingMatcher<?> downstream) {
+        this.downstream = downstream;
     }
 
     @Nonnull
     @Override
-    public Class<T> getRootClass() {
-        return bindableClass;
+    public Class<Object> getRootClass() {
+        return Object.class;
     }
 
     /**
@@ -61,21 +55,25 @@ public class TypedMatcher<T> implements BindingMatcher<T> {
      */
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
-        return Stream.of(PlannerBindings.from(this, in));
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Object in) {
+        final Optional<PlannerBindings> nestedBindings =
+                downstream.bindMatches(outerBindings, in)
+                        .findFirst();
+
+        if (nestedBindings.isPresent()) {
+            return Stream.empty();
+        }
+
+        return Stream.of(PlannerBindings.empty());
     }
 
     @Override
     public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
-        if (getRootClass().isAssignableFrom(atLeastType)) {
-            return "case _ => success ";
-        } else {
-            return "case _: " + getRootClass().getSimpleName() + " => success ";
-        }
+        return "not(" + downstream.explainMatcher(atLeastType, boundId, indentation) + ")";
     }
 
     @Nonnull
-    public static <T> TypedMatcher<T> typed(@Nonnull final Class<T> bindableClass) {
-        return new TypedMatcher<>(bindableClass);
+    public static <T> NotMatcher not(@Nonnull final BindingMatcher<T> downstream) {
+        return new NotMatcher(downstream);
     }
 }

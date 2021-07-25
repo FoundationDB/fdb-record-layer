@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
+import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -106,7 +108,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(baseAlias, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames))));
         final GraphExpansion graphExpansion = getChild().expand(childBase.getAlias(), Collections.emptyList());
         final SelectExpression selectExpression =
                 graphExpansion

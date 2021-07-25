@@ -113,7 +113,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN without an index is implemented as a filter on a scan, as opposed to a loop of a filter on a scan.
      */
-    @Test
+    @DualPlannerTest
     void testInQueryNoIndex() throws Exception {
         complexQuerySetup(NO_HOOK);
         final QueryComponent filter = Query.field("num_value_2").in(asList(0, 2));
@@ -166,13 +166,14 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN with an index is implemented as an index scan, with an IN join.
      */
-    @Test
+    @DualPlannerTest
     void testInQueryIndex() throws Exception {
         complexQuerySetup(NO_HOOK);
         List<Integer> ls = asList(1, 2, 4);
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").in(ls))
+                .setSort(field("num_value_3_indexed"))
                 .build();
 
         // Index(MySimpleRecord$num_value_3_indexed [EQUALS $__in_num_value_3_indexed__0]) WHERE __in_num_value_3_indexed__0 IN [1, 2, 4]
@@ -194,7 +195,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an IN (with parameter) with an index is implemented as an index scan, with an IN join.
      */
-    @Test
+    @DualPlannerTest
     void testInQueryParameter() throws Exception {
         complexQuerySetup(NO_HOOK);
         RecordQuery query = RecordQuery.newBuilder()

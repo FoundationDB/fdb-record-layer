@@ -23,10 +23,12 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchPartition;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PrimaryScanMatchCandidate;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
@@ -34,16 +36,15 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersec
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
-import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Set;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MatchPartitionMatchers.ofExpressionAndMatches;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.NotMatcher.not;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatchers.completeMatch;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.anyExpression;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.ofType;
 
 /**
@@ -61,22 +62,38 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalE
  * {@link MatchCandidate#toEquivalentExpression(PartialMatch)}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression> {
+public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpression> {
     private static final BindingMatcher<PartialMatch> completeMatchMatcher = completeMatch();
-    private static final BindingMatcher<RelationalExpression> expressionMatcher = anyExpression().where(not(ofType(SelectExpression.class)));
+    private static final BindingMatcher<SelectExpression> expressionMatcher = ofType(SelectExpression.class);
 
     private static final BindingMatcher<MatchPartition> rootMatcher =
             ofExpressionAndMatches(expressionMatcher, some(completeMatchMatcher));
-    
-    public DataAccessRule() {
+
+    public SelectDataAccessRule() {
         super(rootMatcher, completeMatchMatcher, expressionMatcher);
     }
 
     @Nonnull
-    protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull RelationalExpression expression,
+    protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull SelectExpression selectExpression,
                                                                    @Nonnull List<? extends PartialMatch> completeMatches,
                                                                    @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph) {
-        Verify.verify(computeIntersectedUnmatchedForEachQuantifiers(expression, completeMatches).isEmpty());
-        return compensatedScanGraph;
+        final Set<Quantifier.ForEach> unmatchedQuantifiers =
+                computeIntersectedUnmatchedForEachQuantifiers(selectExpression, completeMatches);
+        if (unmatchedQuantifiers.isEmpty()) {
+            return compensatedScanGraph;
+        }
+        
+        //
+        // Create a new SelectExpression that contains all the unmatched for each quantifiers as well as the
+        // compensated scan graph.
+        //
+        final ImmutableList.Builder<Quantifier.ForEach> allQuantifiersBuilder = ImmutableList.builder();
+        unmatchedQuantifiers.stream()
+                .map(quantifier -> Quantifier.forEachBuilder().from(quantifier).build(quantifier.getRangesOver()))
+                .forEach(allQuantifiersBuilder::add);
+        final Quantifier.ForEach compensatedScanQuantifier = Quantifier.forEach(compensatedScanGraph);
+        allQuantifiersBuilder.add(compensatedScanQuantifier);
+
+        return GroupExpressionRef.of(new SelectExpression(compensatedScanQuantifier.getFlowedValues(), allQuantifiersBuilder.build(), ImmutableList.of()));
     }
 }

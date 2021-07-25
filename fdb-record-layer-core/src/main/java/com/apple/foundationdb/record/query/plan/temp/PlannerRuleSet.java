@@ -32,11 +32,13 @@ import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressi
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIntersectionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.InComparisonToExplodeRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchIntermediateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchLeafRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MergeFetchIntoCoveringIndexRule;
@@ -55,6 +57,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.PushTypeFilterBelowFi
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveProjectionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.SelectDataAccessRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -79,7 +82,8 @@ public class PlannerRuleSet {
     private static final List<PlannerRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),
             new RemoveRedundantTypeFilterRule(),
-            new OrToLogicalUnionRule()
+            new OrToLogicalUnionRule(),
+            new InComparisonToExplodeRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableList.of(
             new MatchLeafRule(),
@@ -110,7 +114,8 @@ public class PlannerRuleSet {
             new PushReferencedFieldsThroughSelectRule(),
             new PushInterestingOrderingThroughSortRule(),
             new PushInterestingOrderingThroughDistinctRule(),
-            new PushInterestingOrderingThroughUnionRule()
+            new PushInterestingOrderingThroughUnionRule(),
+            new ImplementInUnionRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()
@@ -122,7 +127,8 @@ public class PlannerRuleSet {
             new AdjustMatchRule()
     );
     private static final List<PlannerRule<? extends MatchPartition>> MATCH_PARTITION_RULES = ImmutableList.of(
-            new DataAccessRule()
+            new DataAccessRule(),
+            new SelectDataAccessRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> ALL_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()

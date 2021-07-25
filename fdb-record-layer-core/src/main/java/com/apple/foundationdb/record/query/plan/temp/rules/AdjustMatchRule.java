@@ -84,44 +84,35 @@ public class AdjustMatchRule extends PlannerRule<PartialMatch> {
         for (final Map.Entry<ExpressionRef<? extends RelationalExpression>, RelationalExpression> entry : refToExpressionMap.entries()) {
             final ExpressionRef<? extends RelationalExpression> candidateReference = entry.getKey();
             final RelationalExpression candidateExpression = entry.getValue();
-            if (!matchedRefsForCandidate.contains(candidateReference)) {
-                matchWithCandidate(incompleteMatch.getQueryRef(),
-                        incompleteMatch.getQueryExpression(),
-                        incompleteMatch.getMatchCandidate(),
-                        candidateExpression).forEach(matchInfo ->
-                        call.yieldPartialMatch(incompleteMatch.getBoundAliasMap(),
-                                matchCandidate,
-                                incompleteMatch.getQueryExpression(),
-                                candidateReference,
-                                matchInfo));
-            }
+            matchWithCandidate(incompleteMatch,
+                    candidateExpression).ifPresent(matchInfo ->
+                    call.yieldPartialMatch(incompleteMatch.getBoundAliasMap(),
+                            matchCandidate,
+                            incompleteMatch.getQueryExpression(),
+                            candidateReference,
+                            matchInfo));
         }
     }
 
     @Nonnull
-    private Iterable<MatchInfo> matchWithCandidate(@Nonnull ExpressionRef<? extends RelationalExpression> group,
-                                                   @Nonnull RelationalExpression expression,
-                                                   @Nonnull MatchCandidate matchCandidate,
+    private Optional<MatchInfo> matchWithCandidate(@Nonnull PartialMatch partialMatch,
                                                    @Nonnull RelationalExpression candidateExpression) {
         Verify.verify(!candidateExpression.getQuantifiers().isEmpty());
 
         if (candidateExpression.getQuantifiers().size() > 1) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
         final ExpressionRef<? extends RelationalExpression> otherRangesOver = Iterables.getOnlyElement(candidateExpression.getQuantifiers()).getRangesOver();
 
         if (!candidateExpression.getCorrelatedTo().equals(otherRangesOver.getCorrelatedTo())) {
-            return ImmutableList.of();
+            return Optional.empty();
         }
 
-        final Set<PartialMatch> partialMatchesForCandidate = group.getPartialMatchesForCandidate(matchCandidate);
-        return partialMatchesForCandidate.stream()
-                .filter(partialMatch -> partialMatch.getCandidateRef() == otherRangesOver)
-                .map(partialMatch ->
-                        candidateExpression.adjustMatch(expression, partialMatch))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .collect(ImmutableList.toImmutableList());
+        if (partialMatch.getCandidateRef() != otherRangesOver) {
+            return Optional.empty();
+        }
+
+        return candidateExpression.adjustMatch(partialMatch);
     }
 }

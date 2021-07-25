@@ -1,5 +1,5 @@
 /*
- * UnmatchedFieldsProperty.java
+ * ScanComparisonsProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,21 +21,20 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A property for counting the total number of {@link KeyExpression} columns (i.e., field-like {@code KeyExpression}s
@@ -52,24 +51,17 @@ import java.util.List;
  *     <li>{@code concat(field1, field2)}, with a comparison {@code field1 = 'foo'}</li>
  *     <li>{@code concat(field1, field3, field4)}, with a comparison {@code field1 = 'foo', field3 < 5}</li>
  * </ul>
- * The {@code UnmatchedFieldsProperty} on such a planner expression is 2.
+ * The {@code UnmatchedFieldsCountProperty} on such a planner expression is 2.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
-    @Nonnull
-    private final PlanContext planContext;
-
-    public UnmatchedFieldsProperty(@Nonnull PlanContext context) {
-        this.planContext = context;
-    }
-
+public class ScanComparisonsProperty implements PlannerProperty<Set<ScanComparisons>> {
     @Nonnull
     @Override
-    public Integer evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Integer> childResults) {
-        int total = 0;
-        for (Integer result : childResults) {
-            if (result != null) {
-                total += result;
+    public Set<ScanComparisons> evaluateAtExpression(@Nonnull RelationalExpression expression, @Nonnull List<Set<ScanComparisons>> childResults) {
+        final ImmutableSet.Builder<ScanComparisons> resultBuilder = ImmutableSet.builder();
+        for (Set<ScanComparisons> childResult : childResults) {
+            if (childResult != null) {
+                resultBuilder.addAll(childResult);
             }
         }
 
@@ -77,40 +69,29 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
             expression = ((RecordQueryCoveringIndexPlan)expression).getIndexPlan();
         }
 
-        final int columnSize;
         if (expression instanceof RecordQueryPlanWithComparisons) {
-            final ScanComparisons comparisons = ((RecordQueryPlanWithComparisons)expression).getComparisons();
-            if (expression instanceof RecordQueryPlanWithIndex) {
-                final String indexName = ((RecordQueryPlanWithIndex)expression).getIndexName();
-                columnSize = planContext.getIndexByName(indexName).getRootExpression().getColumnSize();
-            } else if (expression instanceof RecordQueryScanPlan) {
-                columnSize = planContext.getGreatestPrimaryKeyWidth();
-            } else {
-                throw new RecordCoreException("unhandled plan with comparisons: can't find key expression");
-            }
-            return total + columnSize - (comparisons.getEqualitySize() +
-                                                            (comparisons.isEquality() ? 0 : 1));
-        } else {
-            return total;
+            resultBuilder.add(((RecordQueryPlanWithComparisons)expression).getComparisons());
         }
+
+        return resultBuilder.build();
     }
 
     @Nonnull
     @Override
-    public Integer evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Integer> memberResults) {
-        int min = Integer.MAX_VALUE;
-        for (Integer memberResult : memberResults) {
-            if (memberResult != null && memberResult < min) {
-                min = memberResult;
+    public Set<ScanComparisons> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Set<ScanComparisons>> memberResults) {
+        final ImmutableSet.Builder<ScanComparisons> resultBuilder = ImmutableSet.builder();
+        for (Set<ScanComparisons> memberResult : memberResults) {
+            if (memberResult != null) {
+                resultBuilder.addAll(memberResult);
             }
         }
-        return min;
+        return resultBuilder.build();
     }
 
-    public static int evaluate(@Nonnull PlanContext context, @Nonnull RelationalExpression expression) {
-        Integer result = expression.acceptPropertyVisitor(new UnmatchedFieldsProperty(context));
+    public static Set<ScanComparisons> evaluate(@Nonnull RelationalExpression expression) {
+        Set<ScanComparisons> result = expression.acceptPropertyVisitor(new ScanComparisonsProperty());
         if (result == null) {
-            return Integer.MAX_VALUE;
+            return ImmutableSet.of();
         }
         return result;
     }

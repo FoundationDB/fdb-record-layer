@@ -23,6 +23,9 @@ package com.apple.foundationdb.record.query.plan.temp.expressions;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.LinkedIdentitySet;
+import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
+import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.TopologicalSort;
@@ -100,4 +103,17 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
     @Nonnull
     RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers);
+
+    @Nonnull
+    @Override
+    default Set<Quantifier.ForEach> computeUnmatchedForEachQuantifiers(@Nonnull final PartialMatch partialMatch) {
+        final MatchInfo matchInfo = partialMatch.getMatchInfo();
+        final Set<Quantifier.ForEach> unmappedForEachQuantifiers = new LinkedIdentitySet<>();
+        for (final Quantifier quantifier : getQuantifiers()) {
+            if (quantifier instanceof Quantifier.ForEach && !matchInfo.getChildPartialMatch(quantifier.getAlias()).isPresent()) {
+                unmappedForEachQuantifiers.add((Quantifier.ForEach)quantifier);
+            }
+        }
+        return unmappedForEachQuantifiers;
+    }
 }

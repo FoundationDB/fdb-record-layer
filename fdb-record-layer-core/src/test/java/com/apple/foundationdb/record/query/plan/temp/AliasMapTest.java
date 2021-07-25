@@ -329,6 +329,55 @@ public class AliasMapTest {
     }
 
     @Test
+    void testMatchNoCorrelations1() {
+        final Set<CorrelationIdentifier> left = ImmutableSet.of(of("a"), of("b"));
+        final Set<CorrelationIdentifier> right = ImmutableSet.of(of("c"));
+
+        final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
+                .findMatches(
+                        left,
+                        l -> ImmutableSet.of(),
+                        right,
+                        r -> ImmutableSet.of(),
+                        (l, r, aliasMap) -> true);
+
+        final ImmutableSet<AliasMap> matches = ImmutableSet.copyOf(matchIterable);
+
+        assertEquals(ImmutableSet.of(
+                AliasMap.builder()
+                        .put(of("a"), of("x"))
+                        .put(of("b"), of("y"))
+                        .put(of("c"), of("z"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("a"), of("x"))
+                        .put(of("b"), of("z"))
+                        .put(of("c"), of("y"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("a"), of("y"))
+                        .put(of("b"), of("x"))
+                        .put(of("c"), of("z"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("a"), of("y"))
+                        .put(of("b"), of("z"))
+                        .put(of("c"), of("x"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("a"), of("z"))
+                        .put(of("b"), of("x"))
+                        .put(of("c"), of("y"))
+                        .build(),
+                AliasMap.builder()
+                        .put(of("a"), of("z"))
+                        .put(of("b"), of("y"))
+                        .put(of("c"), of("x"))
+                        .build()),
+                matches);
+    }
+
+    @Test
     void testMatchSomeCorrelations1() {
         final Set<CorrelationIdentifier> left = ImmutableSet.of(of("a"), of("b"), of("c"));
         final Set<CorrelationIdentifier> right = ImmutableSet.of(of("x"), of("y"), of("z"));

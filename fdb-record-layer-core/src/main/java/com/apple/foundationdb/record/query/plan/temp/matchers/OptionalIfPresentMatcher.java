@@ -24,9 +24,8 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.stream.Stream;
-
-import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher.newLine;
 
 /**
  * A <code>BindingMatcher</code> is an expression that can be matched against a
@@ -41,24 +40,19 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatc
  * @param <T> the bindable type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
-    private final Extractor<? super T, ?> extractor;
+public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> {
+    @Nonnull
     private final BindingMatcher<?> downstream;
 
-    protected TypedMatcherWithExtractAndDownstream(@Nonnull final Class<T> bindableClass,
-                                                   @Nonnull final Extractor<? super T, ?> extractor,
-                                                   @Nonnull final BindingMatcher<?> downstream) {
-        super(bindableClass);
-        this.extractor = extractor;
+    public OptionalIfPresentMatcher(@Nonnull final BindingMatcher<?> downstream) {
         this.downstream = downstream;
     }
 
-    public Extractor<? super T, ?> getExtractor() {
-        return extractor;
-    }
-
-    public BindingMatcher<?> getDownstream() {
-        return downstream;
+    @Nonnull
+    @Override
+    @SuppressWarnings("unchecked")
+    public Class<Optional<T>> getRootClass() {
+        return (Class<Optional<T>>)(Class<?>)Optional.class;
     }
 
     /**
@@ -70,37 +64,32 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
      * @param in the bindable we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
+    @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
-        return super.bindMatchesSafely(outerBindings, in)
-                .flatMap(bindings ->
-                        downstream
-                                .bindMatches(outerBindings, extractor.unapply(in))
-                                .map(bindings::mergedWith));
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Optional<T> in) {
+        return Stream.of(PlannerBindings.from(this, in))
+                .flatMap(bindings -> {
+                    if (!in.isPresent()) {
+                        return Stream.empty();
+                    }
+                    return downstream
+                            .bindMatches(outerBindings, in.get())
+                            .map(bindings::mergedWith);
+                });
     }
 
     @Override
     public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
-        final String nestedId = downstream.identifierFromMatcher();
-        final String nestedIndentation = indentation + INDENTATION;
-        final String doubleNestedIndentation = nestedIndentation + INDENTATION;
-
-        final String typeConstraint =
-                getRootClass().isAssignableFrom(atLeastType)
-                ? ""
-                : " if " + boundId + " instanceOf[" + getRootClass().getSimpleName() + "]";
-
-        return boundId + " match { " + newLine(nestedIndentation) +
-               "case " + extractor.explainExtraction(nestedId) + typeConstraint + " => " + newLine(doubleNestedIndentation) +
-               downstream.explainMatcher(downstream.unboundRootClass(), nestedId, doubleNestedIndentation) + newLine(indentation) +
-               "}";
+        if (Optional.class.isAssignableFrom(atLeastType)) {
+            return "case " + boundId + " if " + boundId + " isPresent() => success";
+        } else {
+            return "case " + boundId + ":Optional if " + boundId + " isPresent() => success";
+        }
     }
 
     @Nonnull
-    public static <S, T extends S> TypedMatcherWithExtractAndDownstream<T> typedWithDownstream(@Nonnull final Class<T> bindableClass,
-                                                                                               @Nonnull final Extractor<? super T, ?> extractor,
-                                                                                               @Nonnull final BindingMatcher<?> downstream) {
-        return new TypedMatcherWithExtractAndDownstream<>(bindableClass, extractor, downstream);
+    public static <T> OptionalIfPresentMatcher<T> present(@Nonnull final BindingMatcher<?> downstream) {
+        return new OptionalIfPresentMatcher<>(downstream);
     }
 }

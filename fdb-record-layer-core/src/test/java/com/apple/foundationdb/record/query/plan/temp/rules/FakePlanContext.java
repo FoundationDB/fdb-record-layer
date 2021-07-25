@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.google.common.collect.ImmutableSet;
@@ -43,6 +44,12 @@ public class FakePlanContext implements PlanContext {
 
     public FakePlanContext() {
         indexes = new TreeMap<>();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlannerConfiguration getPlannerConfiguration() {
+        return RecordQueryPlannerConfiguration.builder().build();
     }
 
     @Nonnull

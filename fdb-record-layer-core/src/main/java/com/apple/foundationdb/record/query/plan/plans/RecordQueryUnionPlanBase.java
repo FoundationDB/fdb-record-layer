@@ -243,7 +243,7 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
         return withChildren(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
     }
 
-    protected static boolean isReversed(@Nonnull List<Quantifier.Physical> quantifiers) {
+    public static boolean isReversed(@Nonnull List<Quantifier.Physical> quantifiers) {
         return quantifiers
                 .stream()
                 .map(Quantifier.Physical::getRangesOver)

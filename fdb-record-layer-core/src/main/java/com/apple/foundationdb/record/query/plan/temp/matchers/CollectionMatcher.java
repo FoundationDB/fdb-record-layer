@@ -32,9 +32,9 @@ import java.util.stream.Stream;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface CollectionMatcher<T> extends ContainerMatcher<T, Collection<? extends T>> {
-    @SuppressWarnings("unchecked")
     @Nonnull
     @Override
+    @SuppressWarnings("unchecked")
     default Class<Collection<? extends T>> getRootClass() {
         // the usual Java shenanigans to get a properly typed class object out of the class object
         return (Class<Collection<? extends T>>)(Class<?>)Collection.class;

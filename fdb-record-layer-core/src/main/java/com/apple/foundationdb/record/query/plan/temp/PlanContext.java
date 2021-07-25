@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,6 +37,10 @@ import java.util.Set;
  */
 @API(API.Status.EXPERIMENTAL)
 public interface PlanContext {
+
+    @Nonnull
+    RecordQueryPlannerConfiguration getPlannerConfiguration();
+
     @Nonnull
     Set<String> getRecordTypes();
 
