@@ -250,6 +250,23 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void testLimitNeedsMultipleScans() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            });
+            for (int i = 0; i < 800; i++) {
+                recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
+            }
+            assertEquals(251, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
+                    TupleRange.allOf(Tuple.from("idiot")), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(251).build().asScanProperties(false))
+                    .getCount().join());
+        }
+    }
+
+    @Test
     public void testNestedFieldSearch() {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {

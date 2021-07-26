@@ -137,6 +137,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (topDocs.scoreDocs.length - 1 < currentPosition && limitRemaining > 0 && !exhausted) {
             try {
                 performScan();
+                currentPosition = 0;
             } catch (IOException ioe) {
                 throw new RuntimeException(ioe);
             }
@@ -243,17 +244,23 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         indexReader = getIndexReader();
         searcher = new IndexSearcher(indexReader);
         int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
+        TopDocs newTopDocs;
         if (searchAfter != null && sort != null) {
-            topDocs = searcher.searchAfter(searchAfter, query, limit, sort);
+            newTopDocs = searcher.searchAfter(searchAfter, query, limit, sort);
         } else if (searchAfter != null) {
-            topDocs =  searcher.searchAfter(searchAfter, query, limit);
+            newTopDocs =  searcher.searchAfter(searchAfter, query, limit);
         } else if (sort != null) {
-            topDocs = searcher.search(query,  limit, sort);
+            newTopDocs = searcher.search(query,  limit, sort);
         } else {
-            topDocs = searcher.search(query, limit);
+            newTopDocs = searcher.search(query, limit);
         }
-        if (topDocs.scoreDocs.length < limit) {
+        if (newTopDocs.scoreDocs.length < limit) {
             exhausted = true;
+        }
+        if (topDocs != null) {
+            TopDocs.merge(topDocs.scoreDocs.length + newTopDocs.scoreDocs.length, new TopDocs[] {topDocs, newTopDocs});
+        } else {
+            topDocs = newTopDocs;
         }
     }
 
