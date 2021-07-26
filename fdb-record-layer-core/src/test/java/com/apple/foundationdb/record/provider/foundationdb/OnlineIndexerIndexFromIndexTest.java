@@ -76,7 +76,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     private void vaccumReadableIndexesBuildData() {
         try (FDBRecordContext context = openContext()) {
-            recordStore.vaccumReadableIndexesBuildData();
+            recordStore.vacuumReadableIndexesBuildData();
             context.commit();
         }
     }

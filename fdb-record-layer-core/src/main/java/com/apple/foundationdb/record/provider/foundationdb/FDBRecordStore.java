@@ -3707,7 +3707,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(indexRangeSubspace(index).range());
     }
 
-    public void vaccumReadableIndexesBuildData() {
+    public void vacuumReadableIndexesBuildData() {
         Transaction tr = ensureContextActive();
         Map<Index, IndexState> indexStates = getAllIndexStates(); // also adds state to read conflicts
         for (Map.Entry<Index, IndexState> entry : indexStates.entrySet()) {
