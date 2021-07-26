@@ -69,13 +69,12 @@ import java.util.zip.InflaterInputStream;
  * The files are then merged and values returned in order from there.
  * In addition to a final merge at the end, files can be merged when there are too many pending files.
  *
- * The files are divided into sections with headers that allow skipping ahead sequentially
+ * The files are divided into <em>sections</em> with headers that allow skipping ahead sequentially
  * somewhat faster than would be possible if every record had to be read,
  * but without as much overhead as fully indexing record positions into file positions.
  *
  * Files can be optionally compressed and encrypted. This applies at the section level: the section
  * headers are cleartext and the keys and records are not individually compressed / encrypted.
- *
  *
  * If the input set is small enough, it can remain in memory in the tree map
  * and can be returned directly from there.
@@ -168,6 +167,7 @@ public class FileSorter<K, V>  {
                 return AsyncUtil.READY_FALSE;
             } else {
                 loadResult = new LoadResult(true, false, mapResult.getSourceContinuation(), mapResult.getSourceNoNextReason());
+                // Save from memory and, if necessary, consolidate into a single file.
                 return CompletableFuture.runAsync(() -> saveToNextFile(1), executor).thenApply(vignore -> false);
             }
         })).thenApply(vignore -> loadResult);
@@ -189,6 +189,7 @@ public class FileSorter<K, V>  {
                     // To stay the same size, field existence must not change.
                     final RecordSortingProto.SortFileHeader.Builder fileHeader = RecordSortingProto.SortFileHeader.newBuilder()
                             .setVersion(SORT_FILE_VERSION)
+                            .setMetaDataVersion(adapter.getMetaDataVersion())
                             .setNumberOfRecords(0)
                             .setNumberOfSections(0);
                     headerStream.writeMessageNoTag(fileHeader.build());
@@ -196,8 +197,11 @@ public class FileSorter<K, V>  {
                             .setNumberOfRecords(0)
                             .setNumberOfBytes(0);
                     if (encryptionKey != null) {
-                        cipher = CipherPool.borrowCipher();
-                        initCipherEncrypt(cipher, encryptionKey, adapter.getSecureRandom(), sectionHeader);
+                        final String cipherName = adapter.getEncryptionCipherName();
+                        if (cipherName != null) {
+                            cipher = CipherPool.borrowCipher(cipherName);
+                            initCipherEncrypt(cipher, encryptionKey, adapter.getSecureRandom(), sectionHeader);
+                        }
                     }
                     headerStream.writeMessageNoTag(sectionHeader.build());
                     final long headerEnd = headerStream.getTotalBytesWritten();
@@ -266,45 +270,46 @@ public class FileSorter<K, V>  {
         }
     }
 
-    private static void initCipherEncrypt(@Nonnull Cipher cipher, @Nonnull java.security.Key encryptionKey,
-                                   @Nonnull SecureRandom secureRandom,
-                                   @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
-                                   throws GeneralSecurityException {
+    static void initCipherEncrypt(@Nonnull Cipher cipher,
+                                  @Nonnull java.security.Key encryptionKey,
+                                  @Nonnull SecureRandom secureRandom,
+                                  @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
+            throws GeneralSecurityException {
         final byte[] iv = new byte[CipherPool.IV_SIZE];
         secureRandom.nextBytes(iv);
         sectionHeader.setEncryptionIv(ByteString.copyFrom(iv));
         cipher.init(Cipher.ENCRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
     }
 
-    private static void initCipherDecrypt(@Nonnull Cipher cipher, @Nonnull java.security.Key encryptionKey,
-                                          @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
-                                          throws GeneralSecurityException {
+    static void initCipherDecrypt(@Nonnull Cipher cipher, @Nonnull java.security.Key encryptionKey,
+                                  @Nonnull RecordSortingProto.SortSectionHeader.Builder sectionHeader)
+            throws GeneralSecurityException {
         final byte[] iv = sectionHeader.getEncryptionIv().toByteArray();
         cipher.init(Cipher.DECRYPT_MODE, encryptionKey, new IvParameterSpec(iv));
     }
 
     @Nonnull
-    private static OutputStream wrapOutputStream(@Nonnull FileOutputStream fileStream,
-                                                 @Nullable Cipher cipher, boolean compress) {
+    static OutputStream wrapOutputStream(@Nonnull FileOutputStream fileStream,
+                                         @Nullable Cipher cipher, boolean compress) {
         OutputStream stream = new NoCloseFilterStream(fileStream);
-        if (cipher != null) {
-            stream = new CipherOutputStream(stream, cipher);
-        }
         if (compress) {
             stream = new DeflaterOutputStream(stream);
+        }
+        if (cipher != null) {
+            stream = new CipherOutputStream(stream, cipher);
         }
         return stream;
     }
 
     @Nonnull
-    private static InputStream wrapInputStream(@Nonnull FileInputStream fileStream,
-                                               @Nullable Cipher cipher, boolean compressed) {
+    static InputStream wrapInputStream(@Nonnull FileInputStream fileStream,
+                                       @Nullable Cipher cipher, boolean compressed) {
         InputStream stream = fileStream;
-        if (cipher != null) {
-            stream = new CipherInputStream(stream, cipher);
-        }
         if (compressed) {
             stream = new InflaterInputStream(stream);
+        }
+        if (cipher != null) {
+            stream = new CipherInputStream(stream, cipher);
         }
         return stream;
     }
@@ -356,8 +361,9 @@ public class FileSorter<K, V>  {
             entryStream = headerStream;
             compressed = adapter.isCompressed();
             encryptionKey = adapter.getEncryptionKey();
-            if (encryptionKey != null) {
-                cipher = CipherPool.borrowCipher();
+            final String cipherName = adapter.getEncryptionCipherName();
+            if (encryptionKey != null && cipherName != null) {
+                cipher = CipherPool.borrowCipher(cipherName);
             } else {
                 cipher = null;
             }
@@ -365,6 +371,9 @@ public class FileSorter<K, V>  {
             headerStream.readMessage(builder, ExtensionRegistryLite.getEmptyRegistry());
             if (builder.getVersion() != FileSorter.SORT_FILE_VERSION) {
                 throw new RecordCoreException("file header version mismatch");
+            }
+            if (builder.getMetaDataVersion() != adapter.getMetaDataVersion()) {
+                throw new RecordCoreException("file meta-data version mismatch");
             }
             fileRecordEnd = builder.getNumberOfRecords();
         }
@@ -442,6 +451,7 @@ public class FileSorter<K, V>  {
         @Nonnull
         final RecordSortingProto.SortSectionHeader.Builder sectionHeader;
 
+        long fileHeaderEnd;
         long sectionHeaderPosition;
         long sectionRecordsPosition;
 
@@ -455,18 +465,21 @@ public class FileSorter<K, V>  {
             entryStream = headerStream;
             compress = adapter.isCompressed();
             encryptionKey = adapter.getEncryptionKey();
-            if (encryptionKey != null) {
+            final String cipherName = adapter.getEncryptionCipherName();
+            if (encryptionKey != null && cipherName != null) {
                 secureRandom = adapter.getSecureRandom();
-                cipher = CipherPool.borrowCipher();
+                cipher = CipherPool.borrowCipher(cipherName);
             } else {
                 secureRandom = null;
                 cipher = null;
             }
             fileHeader = RecordSortingProto.SortFileHeader.newBuilder()
                     .setVersion(SORT_FILE_VERSION)
+                    .setMetaDataVersion(adapter.getMetaDataVersion())
                     .setNumberOfSections(0)
                     .setNumberOfRecords(0);
             headerStream.writeMessageNoTag(fileHeader.build());
+            fileHeaderEnd = headerStream.getTotalBytesWritten();
             sectionHeader = RecordSortingProto.SortSectionHeader.newBuilder()
                     .setSectionNumber(0)
                     .setStartRecordNumber(0)
@@ -496,6 +509,9 @@ public class FileSorter<K, V>  {
             fileChannel.position(0);
             headerStream.writeMessageNoTag(fileHeader.build());
             headerStream.flush();
+            if (fileChannel.position() != fileHeaderEnd) {
+                throw new RecordCoreException("header size changed");
+            }
             fileChannel.position(fileLength);
         }
 

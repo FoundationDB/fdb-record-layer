@@ -31,15 +31,12 @@ import com.google.protobuf.ExtensionRegistryLite;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.spec.IvParameterSpec;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.security.GeneralSecurityException;
-import java.util.zip.InflaterInputStream;
 
 /**
  * Read values from files written by {@link FileSorter}. Keys are skipped.
@@ -81,8 +78,9 @@ public class SortedFileReader<V> implements AutoCloseable {
         entryStream = headerStream;
         compressed = adapter.isCompressed();
         encryptionKey = adapter.getEncryptionKey();
-        if (encryptionKey != null) {
-            cipher = CipherPool.borrowCipher();
+        final String cipherName = adapter.getEncryptionCipherName();
+        if (encryptionKey != null && cipherName != null) {
+            cipher = CipherPool.borrowCipher(cipherName);
         } else {
             cipher = null;
         }
@@ -95,6 +93,9 @@ public class SortedFileReader<V> implements AutoCloseable {
         headerStream.readMessage(fileHeader, ExtensionRegistryLite.getEmptyRegistry());
         if (fileHeader.getVersion() != FileSorter.SORT_FILE_VERSION) {
             throw new RecordCoreException("file header version mismatch");
+        }
+        if (fileHeader.getMetaDataVersion() != adapter.getMetaDataVersion()) {
+            throw new RecordCoreException("file meta-data version mismatch");
         }
         sectionFileStart = headerStream.getTotalBytesRead();
         headerStream.resetSizeCounter();
@@ -121,17 +122,10 @@ public class SortedFileReader<V> implements AutoCloseable {
                     recordSectionPosition = 0;
                     if (compressed || encryptionKey != null) {
                         if (cipher != null) {
-                            IvParameterSpec iv = new IvParameterSpec(sectionHeader.getEncryptionIv().toByteArray());
-                            cipher.init(Cipher.DECRYPT_MODE, encryptionKey, iv);
+                            FileSorter.initCipherDecrypt(cipher, encryptionKey, sectionHeader);
                         }
                         fileChannel.position(sectionFileStart + headerStream.getTotalBytesRead());
-                        InputStream inputStream = fileStream;
-                        if (cipher != null) {
-                            inputStream = new CipherInputStream(inputStream, cipher);
-                        }
-                        if (compressed) {
-                            inputStream = new InflaterInputStream(inputStream);
-                        }
+                        InputStream inputStream = FileSorter.wrapInputStream(fileStream, cipher, compressed);
                         entryStream = CodedInputStream.newInstance(inputStream);
                     } else {
                         entryStream = headerStream;
@@ -189,17 +183,10 @@ public class SortedFileReader<V> implements AutoCloseable {
             recordSectionPosition = 0;
             if (fileChannel != null) {
                 if (cipher != null) {
-                    IvParameterSpec iv = new IvParameterSpec(sectionHeader.getEncryptionIv().toByteArray());
-                    cipher.init(Cipher.DECRYPT_MODE, encryptionKey, iv);
+                    FileSorter.initCipherDecrypt(cipher, encryptionKey, sectionHeader);
                 }
                 fileChannel.position(sectionRecordsPosition);
-                InputStream inputStream = fileStream;
-                if (cipher != null) {
-                    inputStream = new CipherInputStream(inputStream, cipher);
-                }
-                if (compressed) {
-                    inputStream = new InflaterInputStream(inputStream);
-                }
+                InputStream inputStream = FileSorter.wrapInputStream(fileStream, cipher, compressed);
                 entryStream = CodedInputStream.newInstance(inputStream);
             }
         }

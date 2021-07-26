@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.sorting;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 
@@ -45,6 +46,13 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
      */
     @Nonnull
     File generateFilename() throws IOException;
+
+    /**
+     * Get the version of the meta-data used to save the file.
+     * @return the meta-data version
+     * @see RecordMetaData#getVersion
+     */
+    int getMetaDataVersion();
 
     /**
      * Write the value to a Protobuf stream.
@@ -80,6 +88,7 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
      * Get the maximum number of files in a section.
      * Sections allow skipping through the file faster.
      * @return the number of records in each section
+     * @see FileSorter
      */
     int getRecordCountPerSection();
 
@@ -90,6 +99,13 @@ public interface FileSortAdapter<K, V> extends MemorySortAdapter<K, V> {
      * @return {@code true} if files are compressed
      */
     boolean isCompressed();
+
+    /**
+     * Get name of cipher to use for encrypting.
+     * @return cipher name to use or {@code null} for unencrypted files
+     */
+    @Nullable
+    String getEncryptionCipherName();
 
     /**
      * Get whether files should be encrypted.

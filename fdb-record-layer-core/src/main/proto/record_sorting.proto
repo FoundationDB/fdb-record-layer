@@ -47,8 +47,9 @@ message FileSortContinuation {
 
 message SortFileHeader {
     optional int32 version = 1;
-    optional fixed32 number_of_sections = 2;
-    optional fixed32 number_of_records = 3;
+    optional int32 meta_data_version = 2;
+    optional fixed32 number_of_sections = 3;
+    optional fixed32 number_of_records = 4;
 }
 
 message SortSectionHeader {

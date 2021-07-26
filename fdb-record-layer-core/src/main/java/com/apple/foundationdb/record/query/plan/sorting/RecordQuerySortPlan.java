@@ -1,5 +1,5 @@
 /*
- * SortQueryPlan.java
+ * RecordQuerySortPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -92,8 +92,8 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
                 innerContinuation -> getChild().execute(store, context, innerContinuation, executeInner).map(FDBQueriedRecord::getStoredRecord);
         final int skip = executeProperties.getSkip();
         final int limit = executeProperties.getReturnedRowLimitOrMax();
-        final int skipPlusLimit = limit == Integer.MAX_VALUE ? limit : skip + limit;
-        final RecordQuerySortAdapter<M> adapter = key.getAdapter(store, skipPlusLimit);
+        final int maxRecordsToRead = limit == Integer.MAX_VALUE ? limit : skip + limit;
+        final RecordQuerySortAdapter<M> adapter = key.getAdapter(store, maxRecordsToRead);
         final FDBStoreTimer timer = store.getTimer();
         final RecordCursor<FDBStoredRecord<M>> sorted;
         if (adapter.isMemoryOnly()) {
@@ -205,7 +205,8 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Override
     public int getComplexity() {
-        return 100 + getChild().getComplexity();
+        // TODO: Does not introduce any additional complexity, so not currently a good measure of sort vs no-sort.
+        return getChild().getComplexity();
     }
 
     @Nonnull

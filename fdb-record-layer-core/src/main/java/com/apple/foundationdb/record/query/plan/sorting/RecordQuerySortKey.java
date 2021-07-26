@@ -1,5 +1,5 @@
 /*
- * SortQueryKey.java
+ * RecordQuerySortKey.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -30,7 +30,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 
 /**
- * A {@link KeyExpression} used as the sort key for {@link RecordQuerySortPlan}.
+ * Defines, logically, how {@link RecordQuerySortPlan} should sort the records.
  * Also acts as a factory for {@link RecordQuerySortAdapter}.
  */
 @API(API.Status.EXPERIMENTAL)
@@ -62,13 +62,13 @@ public class RecordQuerySortKey implements PlanHashable {
      * and so may allow it to be in-memory only.
      * @param <M> type used to represent stored records
      * @param recordStore the record store against which the plan is running
-     * @param skipPlusLimit the maximum number of records to read
+     * @param maxRecordsToRead the maximum number of records to read
      * @return a new sort adapter
      */
     @Nonnull
-    public <M extends Message> RecordQuerySortAdapter<M> getAdapter(@Nonnull FDBRecordStoreBase<M> recordStore, int skipPlusLimit) {
-        final int memoryLimit = Math.min(skipPlusLimit, RecordQuerySortAdapter.MAX_RECORD_COUNT_IN_MEMORY);
-        final boolean memoryOnly = memoryLimit == skipPlusLimit;
+    public <M extends Message> RecordQuerySortAdapter<M> getAdapter(@Nonnull FDBRecordStoreBase<M> recordStore, int maxRecordsToRead) {
+        final int memoryLimit = Math.min(maxRecordsToRead, RecordQuerySortAdapter.MAX_RECORD_COUNT_IN_MEMORY);
+        final boolean memoryOnly = memoryLimit == maxRecordsToRead;
         return new RecordQuerySortAdapter<>(memoryLimit, memoryOnly, this, recordStore);
     }
 

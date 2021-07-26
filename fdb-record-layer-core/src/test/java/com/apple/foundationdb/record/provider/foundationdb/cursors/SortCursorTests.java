@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.provider.common.CipherPool;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
@@ -219,6 +220,11 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         }
 
         @Override
+        public int getMetaDataVersion() {
+            return recordStore.getRecordMetaData().getVersion();
+        }
+
+        @Override
         public void writeValue(@Nonnull final FDBStoredRecord<Message> record, @Nonnull final CodedOutputStream stream) throws IOException {
             serializer.write(record, stream);
         }
@@ -231,6 +237,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         @Override
         public boolean isCompressed() {
             return false;
+        }
+
+        @Nullable
+        @Override
+        public String getEncryptionCipherName() {
+            return null;
         }
 
         @Nullable
@@ -323,6 +335,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
             @Override
             public boolean isCompressed() {
                 return true;
+            }
+
+            @Nullable
+            @Override
+            public String getEncryptionCipherName() {
+                return CipherPool.DEFAULT_CIPHER;
             }
 
             @Nullable

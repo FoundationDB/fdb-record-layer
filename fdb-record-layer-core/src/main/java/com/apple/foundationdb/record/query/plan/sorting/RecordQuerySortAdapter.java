@@ -1,5 +1,5 @@
 /*
- * SortQueryKey.java
+ * RecordQuerySortAdapter.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,6 +22,8 @@ package com.apple.foundationdb.record.query.plan.sorting;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.provider.common.CipherPool;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -48,9 +50,10 @@ import java.util.function.Supplier;
 
 /**
  * A {@link MemorySortAdapter} / {@link FileSortAdapter} for use with {@link RecordQuerySortPlan}.
+ * @param <M> type used to represent stored records
  */
 @API(API.Status.EXPERIMENTAL)
-class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple, FDBStoredRecord<M>> {
+public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple, FDBStoredRecord<M>> {
     public static final int MAX_RECORD_COUNT_IN_MEMORY = 1000;
     public static final int MAX_FILE_COUNT = 10;
     public static final int RECORD_COUNT_PER_SECTION = 100;
@@ -61,6 +64,7 @@ class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple
     private final RecordQuerySortKey key;
     @Nonnull
     private final SortedRecordSerializer<M> serializer;
+    private final int metaDataVersion;
 
     @Nullable
     private Key encryptionKey;
@@ -76,7 +80,9 @@ class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple
             // Nothing goes wrong without this, but it avoids double encryption / compression.
             recordSerializer = ((TransformedRecordSerializer<M>)recordSerializer).untransformed();
         }
-        serializer = new SortedRecordSerializer<>(recordSerializer, recordStore.getRecordMetaData(), recordStore.getTimer());
+        final RecordMetaData metaData = recordStore.getRecordMetaData();
+        serializer = new SortedRecordSerializer<>(recordSerializer, metaData, recordStore.getTimer());
+        metaDataVersion = metaData.getVersion();
     }
 
     public boolean isMemoryOnly() {
@@ -141,6 +147,11 @@ class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple
     }
 
     @Override
+    public int getMetaDataVersion() {
+        return metaDataVersion;
+    }
+
+    @Override
     public void writeValue(@Nonnull final FDBStoredRecord<M> record, @Nonnull final CodedOutputStream stream) throws IOException {
         serializer.write(record, stream);
     }
@@ -168,6 +179,12 @@ class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple
     @Override
     public boolean isCompressed() {
         return true;
+    }
+
+    @Nullable
+    @Override
+    public String getEncryptionCipherName() {
+        return CipherPool.DEFAULT_CIPHER;
     }
 
     @Nullable

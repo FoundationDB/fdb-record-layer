@@ -105,6 +105,9 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
                 }
                 return nextFromIterator();
             }
+            if (sorter.getFiles().size() != 1) {
+                throw new RecordCoreException("sort loading did not produce exactly one file");
+            }
             try {
                 fileReader = new SortedFileReader<>(sorter.getFiles().get(0), adapter, timer, skip, limit);
             } catch (IOException | GeneralSecurityException ex) {
@@ -152,6 +155,8 @@ public class FileSortCursor<K, V> implements RecordCursor<V> {
     @Override
     public void close() {
         inputCursor.close();
+        // TODO: For now, delete the sort file.
+        //  In the future, it should be possible to save a query result to a file and open multiple cursors on that same file to page through the results.
         try {
             sorter.deleteFiles();
         } catch (IOException ex) {

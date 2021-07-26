@@ -76,7 +76,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
-import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortPlan;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithComparisonCountProperty;
@@ -280,14 +280,15 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (sort == null) {
                 throw new RecordCoreException("Unexpected failure to plan without sort");
             }
-            if (configuration.shouldAllowNonIndexSort()) {
+            final RecordQueryPlannerSortConfiguration sortConfiguration = configuration.getSortConfiguration();
+            if (sortConfiguration != null && sortConfiguration.shouldAllowNonIndexSort(query)) {
                 final PlanContext withoutSort = new PlanContext(query.toBuilder().setSort(null).build(),
                         planContext.indexes, planContext.commonPrimaryKey);
                 plan = plan(withoutSort, filter, null, false);
                 if (plan == null) {
                     throw new RecordCoreException("Unexpected failure to plan without sort");
                 }
-                plan = new RecordQuerySortPlan(plan, new RecordQuerySortKey(sort, sortReverse));
+                plan = new RecordQuerySortPlan(plan, sortConfiguration.getSortKey(sort, sortReverse));
             } else {
                 throw new RecordCoreException("Cannot sort without appropriate index: " + sort);
             }
