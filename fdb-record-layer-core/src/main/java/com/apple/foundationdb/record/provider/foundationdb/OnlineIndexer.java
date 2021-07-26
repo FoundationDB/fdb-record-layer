@@ -748,6 +748,9 @@ public class OnlineIndexer implements AutoCloseable {
     @Nonnull
     public CompletableFuture<Boolean> markReadableIfBuilt() {
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
+            if (store.isIndexReadable(index)) {
+                return AsyncUtil.READY_TRUE;
+            }
             final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
             return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
                     .thenCompose(hasNext -> {

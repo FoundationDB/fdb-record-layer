@@ -71,6 +71,14 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexer.buildIndex(true);
         }
+        vaccumReadableIndexesBuildData();
+    }
+
+    private void vaccumReadableIndexesBuildData() {
+        try (FDBRecordContext context = openContext()) {
+            recordStore.vaccumReadableIndexesBuildData();
+            context.commit();
+        }
     }
 
     private void buildIndexAndCrashHalfway(Index tgtIndex, int chunkSize, int count, FDBStoreTimer timer, @Nullable OnlineIndexer.IndexingPolicy policy) {
