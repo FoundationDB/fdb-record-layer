@@ -70,6 +70,8 @@ import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.g
 @API(API.Status.EXPERIMENTAL)
 class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
+    // pagination within single instance of record cursor for lucene queries.
+    private static final int MAX_PAGE_SIZE = 200;
     @Nonnull
     private final Executor executor;
     @Nonnull
@@ -88,6 +90,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final List<KeyExpression> fields;
     private Sort sort = null;
     private ScoreDoc searchAfter = null;
+    private boolean exhausted = false;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -99,9 +102,6 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         this.executor = executor;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
-        if (this.limitRemaining == Integer.MAX_VALUE) {
-            this.limitRemaining = 200;
-        }
         this.timer = state.context.getTimer();
         this.query = query;
         if (continuation != null) {
@@ -128,6 +128,13 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             return CompletableFuture.completedFuture(nextResult);
         }
         if (topDocs == null) {
+            try {
+                performScan();
+            } catch (IOException ioe) {
+                throw new RuntimeException(ioe);
+            }
+        }
+        if (topDocs.scoreDocs.length - 1 < currentPosition && limitRemaining > 0 && !exhausted) {
             try {
                 performScan();
             } catch (IOException ioe) {
@@ -235,14 +242,18 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private void performScan() throws IOException {
         indexReader = getIndexReader();
         searcher = new IndexSearcher(indexReader);
+        int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
         if (searchAfter != null && sort != null) {
-            topDocs = searcher.searchAfter(searchAfter, query, limitRemaining, sort);
+            topDocs = searcher.searchAfter(searchAfter, query, limit, sort);
         } else if (searchAfter != null) {
-            topDocs =  searcher.searchAfter(searchAfter, query, limitRemaining);
+            topDocs =  searcher.searchAfter(searchAfter, query, limit);
         } else if (sort != null) {
-            topDocs = searcher.search(query,  limitRemaining, sort);
+            topDocs = searcher.search(query,  limit, sort);
         } else {
-            topDocs = searcher.search(query, limitRemaining);
+            topDocs = searcher.search(query, limit);
+        }
+        if (topDocs.scoreDocs.length < limit) {
+            exhausted = true;
         }
     }
 

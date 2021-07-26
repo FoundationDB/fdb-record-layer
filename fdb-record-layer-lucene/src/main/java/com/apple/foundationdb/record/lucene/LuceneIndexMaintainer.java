@@ -121,18 +121,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         try {
             // This cannot work with nested documents the way that we currently use them. BlockJoin will be essential for this
             // functionality in this way.
+            QueryParser parser;
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
                 List<String> fieldNames = listIndexFieldNames(state.index.getRootExpression());
-                MultiFieldQueryParser parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), analyzer);
+                parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), analyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
-                Query query  = parser.parse(range.getLow().getString(0));
-                return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
             } else {
                 // initialize default to scan primary key.
-                QueryParser parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, analyzer);
-                Query query = parser.parse(range.getLow().getString(0));
-                return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
+                parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, analyzer);
             }
+            Query query = parser.parse(range.getLow().getString(0));
+            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
                     "internalException", ioe);

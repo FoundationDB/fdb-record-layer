@@ -50,10 +50,9 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
     // QueryParserBase expects the query to contain the fields to be run against and takes a default field
     // which in our use case is the primary key field.
     // The MultiFieldQueryParser runs the query against all fields listed and uses AND to join them.
-    // If true and fields not empty we run against all fields listed
-    // If false and fields not empty we run with the QueryParserBase not specifying fields
-    // If true and fields empty we run against all fields in the root expression
-    // If false and fields empty we run against the primary key field.
+    // If the compotent is created with empty fields we default to MultiField search.
+    // It can also be specified by the user in creation of the component.
+    // If True then we use the MultiFieldQueryParser to query all fields specified in the root expression.
     public final boolean multiFieldSearch;
     private final Comparisons.LuceneComparison comparison;
     private final List<String> fields;
