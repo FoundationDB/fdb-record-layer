@@ -40,6 +40,9 @@ Another, smaller change that has been made is that by default, new indexes added
 // end next release
 -->
 
+### 3.0.198.0
+
+
 ### 3.0.197.0
 
 * **Feature** PlanOrderingKey for Intersection / (ordered) Union [(Issue #1319)](https://github.com/FoundationDB/fdb-record-layer/issues/1319)
