@@ -84,10 +84,10 @@ public class OnlineIndexScrubber implements AutoCloseable {
     private IndexingBase getScrubber(ScrubbingType type) {
         switch (type) {
             case DANGLING:
-                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.defaultPolicy(), scrubbingPolicy);
+                return new IndexingScrubDangling(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
 
             case MISSING:
-                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.defaultPolicy(), scrubbingPolicy);
+                return new IndexingScrubMissing(common, OnlineIndexer.IndexingPolicy.DEFAULT, scrubbingPolicy);
 
             default:
                 throw new MetaDataException("bad type");

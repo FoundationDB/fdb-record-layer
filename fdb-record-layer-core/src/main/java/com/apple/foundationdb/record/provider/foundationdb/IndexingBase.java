@@ -242,8 +242,7 @@ public abstract class IndexingBase {
                 throw new ValidationException("Index state is not as expected",
                         LogMessageKeys.INDEX_NAME, index.getName(),
                         LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
-                        LogMessageKeys.INDEX_STATE, indexState,
-                        LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction
+                        LogMessageKeys.INDEX_STATE, indexState
                         );
             }
             boolean shouldClear = desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD;
@@ -252,7 +251,6 @@ public abstract class IndexingBase {
             message.addKeyAndValue(LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction);
             message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, shouldBuild);
             message.addKeyAndValue(LogMessageKeys.SHOULD_CLEAR_EXISTING_DATA, shouldClear);
-
 
             if (!shouldBuild) {
                 return AsyncUtil.READY_FALSE; // do not index
