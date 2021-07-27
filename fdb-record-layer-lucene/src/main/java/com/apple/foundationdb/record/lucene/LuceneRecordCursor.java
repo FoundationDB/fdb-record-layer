@@ -127,20 +127,18 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             // hasNext is false to avoid the NoNextReason changing.
             return CompletableFuture.completedFuture(nextResult);
         }
-        if (topDocs == null) {
+        if (topDocs == null || (topDocs.scoreDocs.length-1 < currentPosition && limitRemaining > 0 && !exhausted)) {
+            long startTime = System.nanoTime();
             try {
                 performScan();
-            } catch (IOException ioe) {
-                throw new RuntimeException(ioe);
+            } catch (IOException ioException) {
+                throw new RuntimeException(ioException);
             }
-        }
-        if (topDocs.scoreDocs.length - 1 < currentPosition && limitRemaining > 0 && !exhausted) {
-            try {
-                performScan();
-                currentPosition = 0;
-            } catch (IOException ioe) {
-                throw new RuntimeException(ioe);
+            if (timer != null) {
+                timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_INDEX_SCAN, startTime);
+                timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
             }
+            currentPosition = 0;
         }
         if (limitRemaining > 0 && currentPosition < topDocs.scoreDocs.length && limitManager.tryRecordScan()) {
             return CompletableFuture.supplyAsync(() -> {

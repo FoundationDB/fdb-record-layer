@@ -263,6 +263,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     TupleRange.allOf(Tuple.from("idiot")), null,
                     ExecuteProperties.newBuilder().setReturnedRowLimit(251).build().asScanProperties(false))
                     .getCount().join());
+            assertEquals(2, recordStore.getTimer().getCount(FDBStoreTimer.Events.LUCENE_INDEX_SCAN));
+            assertEquals(400, recordStore.getTimer().getCount(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
         }
     }
 
