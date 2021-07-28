@@ -695,8 +695,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      *
      * {@link #commit} will wait for the future to be completed (exceptionally if the check fails)
      * before committing the underlying transaction.
-     * <p>
-     * It is possible for this method to throw an exception caused by an earlier unsuccessful check that has become ready in the meantime.
+     *
      * @param check the check to be performed
      */
     public synchronized void addCommitCheck(@Nonnull CompletableFuture<Void> check) {
@@ -720,8 +719,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * This method is suitable for checks that cannot be started until just before commit.
      * For checks that can be started before {@code addCommitCheck} time, {@link #addCommitCheck(CompletableFuture)}
      * may be more convenient.
-     * <p>
-     * It is possible for this method to throw an exception caused by an earlier unsuccessful check that has become ready in the meantime.
+     *
      * @param check the check to be performed
      */
     public void addCommitCheck(@Nonnull CommitCheckAsync check) {
@@ -742,7 +740,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Fetches a post-commit hook, creating a new one if it does not already exist. The provided supplier will be
+     * Fetches a pre-commit check, creating a new one if it does not already exist. The provided supplier will be
      * invoked if and only if there is not already a commit check of the specified name.
      *
      * @param name the name of the commit check to add
@@ -756,7 +754,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Fetches a previously installed commit check by name. This only works for commit checks that were added
+     * Fetches a previously installed pre-commit check by name. This only works for commit checks that were added
      * via {@link #getOrCreateCommitCheck(String, Function)} or {@link #addCommitCheck(String, CommitCheckAsync)}.
      *
      * @param name the name of the commit check to fetch
@@ -776,7 +774,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nonnull
     public CompletableFuture<Void> runCommitChecks() {
         List<CompletableFuture<Void>> futures;
-        synchronized (this) {
+        synchronized (commitChecks) {
             if (commitChecks.isEmpty()) {
                 return AsyncUtil.DONE;
             } else {

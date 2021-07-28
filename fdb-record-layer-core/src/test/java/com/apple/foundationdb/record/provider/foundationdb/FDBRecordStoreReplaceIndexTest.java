@@ -396,7 +396,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                         Collections.singletonMap(IndexOptions.REPLACED_BY_OPTION_PREFIX, "fakeIndex"));
                 metaDataBuilder.addIndex("MySimpleRecord", index);
             }));
-            assertThat(err.getMessage(), containsString("Index indexWithFakeReplacement has replacement indexes [fakeIndex] that are not in the meta-data"));
+            assertThat(err.getMessage(), containsString("Index indexWithFakeReplacement has replacement index fakeIndex that is not in the meta-data"));
         }
     }
 
@@ -411,7 +411,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                                 IndexOptions.REPLACED_BY_OPTION_PREFIX + "_01", "MySimpleRecord$str_value_indexed"));
                 metaDataBuilder.addIndex("MySimpleRecord", index);
             }));
-            assertThat(err.getMessage(), containsString("Index indexWithOneFakeReplacement has replacement indexes [fakeIndex] that are not in the meta-data"));
+            assertThat(err.getMessage(), containsString("Index indexWithOneFakeReplacement has replacement index fakeIndex that is not in the meta-data"));
         }
     }
 
@@ -426,7 +426,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.addIndex("MySimpleRecord", index1);
                 metaDataBuilder.addIndex("MySimpleRecord", index2);
             }));
-            assertThat(err.getMessage(), containsString("has a circular dependency in its replacement index graph"));
+            assertThat(err.getMessage(), containsString("has replacement indexes"));
         }
     }
 
@@ -439,7 +439,47 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
                         Collections.singletonMap(IndexOptions.REPLACED_BY_OPTION_PREFIX, "indexWithSelfReplacement"));
                 metaDataBuilder.addIndex("MySimpleRecord", index);
             }));
-            assertThat(err.getMessage(), containsString("Index indexWithSelfReplacement has a circular dependency in its replacement index graph"));
+            assertThat(err.getMessage(), containsString("Index indexWithSelfReplacement has replacement index indexWithSelfReplacement that itself has replacement indexes"));
+        }
+    }
+
+    @Test
+    public void replacementLineFails() {
+        try (FDBRecordContext context = openContext()) {
+            MetaDataException err = assertThrows(MetaDataException.class, () -> openSimpleRecordStore(context, metaDataBuilder -> {
+                final KeyExpression expr = Key.Expressions.field("num_value_2");
+                final Index indexA = new Index("indexA", expr, IndexTypes.VALUE,
+                        Collections.singletonMap(IndexOptions.REPLACED_BY_OPTION_PREFIX, "indexB"));
+                final Index indexB = new Index("indexB", expr, IndexTypes.VALUE,
+                        Collections.singletonMap(IndexOptions.REPLACED_BY_OPTION_PREFIX, "indexC"));
+                final Index indexC = new Index("indexC", expr);
+                metaDataBuilder.addIndex("MySimpleRecord", indexA);
+                metaDataBuilder.addIndex("MySimpleRecord", indexB);
+                metaDataBuilder.addIndex("MySimpleRecord", indexC);
+            }));
+            assertThat(err.getMessage(), containsString("has replacement indexes"));
+        }
+    }
+
+    @Test
+    public void replacementMoreComplicatedGraphFails() {
+        try (FDBRecordContext context = openContext()) {
+            MetaDataException err = assertThrows(MetaDataException.class, () -> openSimpleRecordStore(context, metaDataBuilder -> {
+                final KeyExpression expr = Key.Expressions.field("num_value_2");
+                final Index indexA = new Index("indexA", expr, IndexTypes.VALUE,
+                        ImmutableMap.of(IndexOptions.REPLACED_BY_OPTION_PREFIX + "_0", "indexB",
+                                IndexOptions.REPLACED_BY_OPTION_PREFIX + "_1", "indexC"));
+                final Index indexB = new Index("indexB", expr, IndexTypes.VALUE,
+                        Collections.singletonMap(IndexOptions.REPLACED_BY_OPTION_PREFIX, "indexD"));
+                final Index indexC = new Index("indexC", expr, IndexTypes.VALUE,
+                        Collections.singletonMap(IndexOptions.REPLACED_BY_OPTION_PREFIX, "indexD"));
+                final Index indexD = new Index("indexD", expr);
+                metaDataBuilder.addIndex("MySimpleRecord", indexA);
+                metaDataBuilder.addIndex("MySimpleRecord", indexB);
+                metaDataBuilder.addIndex("MySimpleRecord", indexC);
+                metaDataBuilder.addIndex("MySimpleRecord", indexD);
+            }));
+            assertThat(err.getMessage(), containsString("has replacement indexes"));
         }
     }
 }
