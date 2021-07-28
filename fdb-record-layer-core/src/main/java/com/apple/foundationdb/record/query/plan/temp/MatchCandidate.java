@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.RecordType;
@@ -34,6 +35,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,6 +57,10 @@ import java.util.Set;
  * {@link ComparisonRange}s which usually are the direct result of graph matching.
  */
 public interface MatchCandidate {
+
+    @Nonnull
+    Logger LOGGER = LoggerFactory.getLogger(MatchCandidate.class);
+
     /**
      * Returns the name of the match candidate. If this candidate represents and index, it will be the name of the index.
      * @return the name of this match candidate
@@ -213,7 +220,18 @@ public interface MatchCandidate {
         if (type.equals(IndexTypes.VALUE)) {
             final Quantifier.ForEach baseQuantifier = createBaseQuantifier(availableRecordTypes, recordTypeNamesForIndex);
             final ValueIndexExpansionVisitor expansionVisitor = new ValueIndexExpansionVisitor(index, recordTypesForIndex);
-            return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKeyForIndex, isReverse));
+            try {
+                return Optional.of(expansionVisitor.expand(baseQuantifier, commonPrimaryKeyForIndex, isReverse));
+            } catch (final UnsupportedOperationException uOE) {
+                // just log and return empty
+                if (LOGGER.isDebugEnabled()) {
+                    final String message =
+                            KeyValueLogMessage.of("unsupported value index",
+                                    "reason", uOE.getMessage(),
+                                    "indexName", index.getName());
+                    LOGGER.debug(message, uOE);
+                }
+            }
         }
 
         return Optional.empty();
