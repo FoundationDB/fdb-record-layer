@@ -1696,10 +1696,6 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * This function will soon be deprecated. Please use {@link #setIndexingPolicy(IndexingPolicy)} with {@link IndexingPolicy.Builder} instead.
-         * For backward compatibility, calling this function will override the methods {@link IndexingPolicy.Builder} methods:
-         * setIfDisabled, setIfWriteOnly, setIfMismatchPrev
-         *
          * Set how should {@link #buildIndexAsync()} (or its variations) build the index based on its state. Normally
          * this should be {@link IndexStatePrecondition#BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY} if the index is
          * not corrupted.
@@ -1711,7 +1707,19 @@ public class OnlineIndexer implements AutoCloseable {
          * @see IndexStatePrecondition
          * @param indexStatePrecondition build option to use
          * @return this builder
+         *
+         * @deprecated use {@link IndexingPolicy.Builder} instead. Example:
+         * <p>
+         *   setIndexingPolicyBuilder(OnlineIndexer.IndexingPolicy.newBuilder()
+         *                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
+         *                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
+         *                         .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+         *                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
+         * </p>
+         * For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
+         * methods: setIfDisabled, setIfWriteOnly, setIfMismatchPrev, setIfReadable
          */
+        @Deprecated
         public Builder setIndexStatePrecondition(@Nonnull IndexStatePrecondition indexStatePrecondition) {
             this.indexStatePrecondition = indexStatePrecondition;
             return this;
@@ -1748,9 +1756,10 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * This method will soon be deprecated, please prefer {@link #setInexingPolicyBuilder}.
          * Add an {@link IndexingPolicy} policy. If set, this policy will determine how the index should be
          * built.
+         * If calling both this method and {@link #setIndexingPolicyBuilder}, the last call will override the others.
+         * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
          * @param indexingPolicy see {@link IndexingPolicy}
          * @return this Builder
          */
@@ -1767,10 +1776,12 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Add an {@link IndexingPolicy.Builder}. If set, this policy will determine how the index should be
          * built.
+         * If calling both this method and {@link #setIndexingPolicy}, the last call will override the others.
+         * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
          * @param builder an IndexingPolicy builder.
          * @return this Builder
          */
-        public Builder setInexingPolicyBuilder(@Nonnull final IndexingPolicy.Builder builder) {
+        public Builder setIndexingPolicyBuilder(@Nonnull final IndexingPolicy.Builder builder) {
             this.indexingPolicy = null;
             this.indexingPolicyBuilder = builder;
             return this;
