@@ -334,6 +334,15 @@ public class RecordMetaData implements RecordMetaDataProvider {
         return result;
     }
 
+    /**
+     * Get all indexes in the meta-data that were modified after the given version. This is useful for determining
+     * which indexes have changed when the meta-data used by a given record store is updated.
+     *
+     * @param version the oldest version from which to look for changed indexes
+     * @return a map linking each index that has been modified since the given version to the list of record
+     *    types on which that index is defined
+     */
+    @Nonnull
     public Map<Index, List<RecordType>> getIndexesSince(int version) {
         Map<Index, List<RecordType>> result = new HashMap<>();
         for (RecordType recordType : recordTypes.values()) {
@@ -372,6 +381,28 @@ public class RecordMetaData implements RecordMetaDataProvider {
             }
         }
         return result;
+    }
+
+    /**
+     * Get all indexes in the meta-data that were modified after the given version that should be built. This is
+     * similar to {@link #getIndexesSince(int)}, but it filters out any indexes that stores should no longer try
+     * and keep built. In practice, this currently excludes any index that has
+     * {@linkplain Index#getReplacedByIndexNames() replacement indexes} defined, as record stores should no longer
+     * try to build those indexes, instead relying on the new indexes that replaced them.
+     *
+     * @param version the oldest version from which to look for changed indexes
+     * @return a map linking each index that has been modified since the given version to the list of record
+     *    types on which that index is defined
+     * @see #getIndexesSince(int)
+     * @see Index#getReplacedByIndexNames()
+     * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
+     */
+    @API(API.Status.INTERNAL)
+    @Nonnull
+    public Map<Index, List<RecordType>> getIndexesToBuildSince(int version) {
+        final Map<Index, List<RecordType>> indexesToBuild = getIndexesSince(version);
+        indexesToBuild.keySet().removeIf(index -> !index.getReplacedByIndexNames().isEmpty());
+        return indexesToBuild;
     }
 
     @Nonnull

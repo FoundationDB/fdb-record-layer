@@ -388,6 +388,37 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void rebuildAllIndexesDoesNotRebuildIfReplaced() {
+        final String recordTypeName = "MySimpleRecord";
+        final Index origIndex = new Index("origIndex", Key.Expressions.field("num_value_2"));
+        final Index newIndex = new Index("newIndex", Key.Expressions.field("num_value_2"));
+        final RecordMetaDataHook metaDataHook = addIndexAndReplacements(recordTypeName, origIndex, newIndex);
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex), "index with replacements should begin disabled");
+            recordStore.rebuildAllIndexes();
+            assertTrue(recordStore.isIndexDisabled(origIndex), "index with replacements should not be built with all indexes");
+            commit(context);
+        }
+    }
+
+    @Test
+    public void excludeIndexWithReplacementsFromSetToBuild() {
+        final String recordTypeName = "MySimpleRecord";
+        final Index origIndex = new Index("origIndex", Key.Expressions.field("num_value_2"));
+        final Index newIndex = new Index("newIndex", Key.Expressions.field("num_value_2"));
+        final RecordMetaDataHook metaDataHook = addIndexAndReplacements(recordTypeName, origIndex, newIndex);
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataHook);
+            assertTrue(recordStore.isIndexDisabled(origIndex), "index with replacements should begin disabled");
+            assertTrue(recordStore.isIndexReadable(newIndex), "newIndex should begin built");
+            assertTrue(recordStore.getIndexesToBuild().keySet().stream().noneMatch(index -> index.getName().equals(origIndex.getName())),
+                    "index with replacements should not be listed as index to build even if unbuilt");
+            commit(context);
+        }
+    }
+
+    @Test
     public void replacementIndexMissingInMetaDataFails() {
         try (FDBRecordContext context = openContext()) {
             MetaDataException err = assertThrows(MetaDataException.class, () -> openSimpleRecordStore(context, metaDataBuilder -> {

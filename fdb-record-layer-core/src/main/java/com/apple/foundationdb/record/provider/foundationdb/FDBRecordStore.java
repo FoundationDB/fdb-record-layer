@@ -2221,7 +2221,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
         addRebuildRecordCountsJob(work);
-        return rebuildIndexes(getRecordMetaData().getIndexesSince(-1), Collections.emptyMap(), work, RebuildIndexReason.REBUILD_ALL, null);
+        return rebuildIndexes(getRecordMetaData().getIndexesToBuildSince(-1), Collections.emptyMap(), work, RebuildIndexReason.REBUILD_ALL, null);
+    }
+
+    /**
+     * Get unbuilt indexes for this store that should be built. This will return any index that is defined on this
+     * record store where the state is not {@link IndexState#READABLE} (i.e., the index cannot be queried) that
+     * does not have index options set indicating that this index should not be built. For example, if the index
+     * has {@linkplain Index#getReplacedByIndexNames() replacement indexes} defined, then the index will be excluded
+     * from the return result because the new indexes replacing it should be built in its stead.
+     *
+     * @return a map linking each unbuilt index that should be built to the list of record types on which it is
+     *     defined
+     * @see Index#getReplacedByIndexNames()
+     */
+    @Nonnull
+    public Map<Index, List<RecordType>> getIndexesToBuild() {
+        if (recordStoreStateRef.get() == null) {
+            throw uninitializedStoreException("cannot get indexes to build on uninitialized store");
+        }
+        final Map<Index, List<RecordType>> indexesToBuild = getRecordMetaData().getIndexesToBuildSince(-1);
+        beginRecordStoreStateRead();
+        try {
+            indexesToBuild.keySet().removeIf(this::isIndexReadable);
+            return indexesToBuild;
+        } finally {
+            endRecordStoreStateRead();
+        }
     }
 
     @Nonnull
@@ -3475,7 +3501,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
-        final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
+        final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
             RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);

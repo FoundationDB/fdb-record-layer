@@ -941,6 +941,21 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
+    public void indexesToBuild() throws Exception {
+        final String indexName = "MySimpleRecord$str_value_indexed";
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            final Index index = recordStore.getRecordMetaData().getIndex(indexName);
+            assertTrue(recordStore.markIndexDisabled(index).get(), "index should not have been disabled initially");
+            assertTrue(recordStore.getIndexesToBuild().containsKey(index), "index should have been included in indexes to build");
+
+            recordStore.rebuildIndex(index).get();
+            assertEquals(Collections.emptyMap(), recordStore.getIndexesToBuild());
+            commit(context);
+        }
+    }
+
+    @Test
     public void scanDisabledIndex() throws Exception {
         final String indexName = "MySimpleRecord$num_value_3_indexed";
 
