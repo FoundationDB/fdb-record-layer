@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -682,40 +682,61 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                         })
                         .orElseThrow(() -> new RecordCoreException("there should be at least one ordering"));
 
+        final ImmutableSet<BoundKeyPart> equalityBoundKeyParts = partition
+                .stream()
+                .map(partialMatch -> partialMatch.getMatchInfo().getBoundKeyParts())
+                .flatMap(boundOrderingKeyParts ->
+                        boundOrderingKeyParts.stream()
+                                .filter(boundOrderingKey -> boundOrderingKey.getComparisonRangeType() == ComparisonRange.Type.EQUALITY))
+                .collect(ImmutableSet.toImmutableSet());
+
         return compatibleOrderingKeyPartsOptional
-                .map(parts -> comparisonKey(commonPrimaryKeyParts, parts));
+                .flatMap(parts -> comparisonKey(commonPrimaryKeyParts, equalityBoundKeyParts, parts));
     }
 
     /**
      * Private helper method to compute a {@link KeyExpression} based upon a primary key and ordering information
      * coming from a match in form of a list of {@link BoundKeyPart}.
      * @param commonPrimaryKeyParts common primary key
+     * @param equalityBoundKeyParts  a set of equality-bound key parts
      * @param indexOrderingParts alist of {@link BoundKeyPart}s
      * @return a newly constructed {@link KeyExpression} that is used for the comparison key of the intersection
      *         expression
      */
     @Nonnull
-    private static KeyExpression comparisonKey(@Nonnull List<KeyExpression> commonPrimaryKeyParts,
-                                               @Nonnull List<BoundKeyPart> indexOrderingParts) {
+    private static Optional<KeyExpression> comparisonKey(@Nonnull List<KeyExpression> commonPrimaryKeyParts,
+                                                         @Nonnull ImmutableSet<BoundKeyPart> equalityBoundKeyParts,
+                                                         @Nonnull List<BoundKeyPart> indexOrderingParts) {
+        final ImmutableSet<KeyExpression> equalityBoundPartsSet = equalityBoundKeyParts.stream()
+                .map(BoundKeyPart::getNormalizedKeyExpression)
+                .collect(ImmutableSet.toImmutableSet());
+
         final ImmutableSet<KeyExpression> indexOrderingPartsSet = indexOrderingParts.stream()
                 .map(BoundKeyPart::getNormalizedKeyExpression)
                 .collect(ImmutableSet.toImmutableSet());
 
-        final ImmutableList<KeyExpression> comparisonKeyParts =
+        final boolean allComparisonPartsInIndexParts =
                 commonPrimaryKeyParts
                         .stream()
-                        .filter(indexOrderingPartsSet::contains)
-                        .collect(ImmutableList.toImmutableList());
+                        .filter(commonPrimaryKeyPart -> !equalityBoundPartsSet.contains(commonPrimaryKeyPart))
+                        .allMatch(indexOrderingPartsSet::contains);
 
-        if (comparisonKeyParts.isEmpty()) {
-            return Key.Expressions.value(true);
+        if (!allComparisonPartsInIndexParts) {
+            return Optional.empty();
         }
 
-        if (comparisonKeyParts.size() == 1) {
-            return Iterables.getOnlyElement(comparisonKeyParts);
+        if (indexOrderingParts.isEmpty()) {
+            Key.Expressions.value(true);
         }
 
-        return Key.Expressions.concat(comparisonKeyParts);
+        if (indexOrderingParts.size() == 1) {
+            return Optional.of(Iterables.getOnlyElement(indexOrderingParts).getNormalizedKeyExpression());
+        }
+
+        return Optional.of(Key.Expressions.concat(
+                indexOrderingParts.stream()
+                        .map(KeyPart::getNormalizedKeyExpression)
+                        .collect(ImmutableList.toImmutableList())));
     }
 
     @Nonnull

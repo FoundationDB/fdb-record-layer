@@ -884,6 +884,8 @@ public class Comparisons {
         private final Type type;
         @Nonnull
         protected final String parameter;
+        @Nullable
+        protected final Bindings.Internal internal;
         @Nonnull
         protected final ParameterRelationshipGraph parameterRelationshipGraph;
         @Nonnull
@@ -899,12 +901,10 @@ public class Comparisons {
         }
 
         public ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nullable Bindings.Internal internal, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-            this(type, checkInternalBinding(parameter, internal), parameterRelationshipGraph);
-        }
-
-        protected ParameterComparison(@Nonnull Type type, @Nonnull String parameter, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
+            checkInternalBinding(parameter, internal);
             this.type = type;
             this.parameter = parameter;
+            this.internal = internal;
             if (type.isUnary()) {
                 throw new RecordCoreException("Unary comparison type " + type + " cannot be bound to a parameter");
             }
@@ -1000,10 +1000,14 @@ public class Comparisons {
         public int planHash(@Nonnull final PlanHashKind hashKind) {
             switch (hashKind) {
                 case LEGACY:
-                    return type.name().hashCode() + parameter.hashCode();
+                    return type.name().hashCode() + ((internal == Bindings.Internal.CORRELATION) ? 0 : parameter.hashCode());
                 case FOR_CONTINUATION:
                 case STRUCTURAL_WITHOUT_LITERALS:
-                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, parameter);
+                    if (internal == Bindings.Internal.CORRELATION) {
+                        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type);
+                    } else {
+                        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, type, parameter);
+                    }
                 default:
                     throw new UnsupportedOperationException("Hash Kind " + hashKind.name() + " is not supported");
             }
@@ -1018,7 +1022,7 @@ public class Comparisons {
         @Override
         public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
-            return new ParameterComparison(type, parameter, parameterRelationshipGraph);
+            return new ParameterComparison(type, parameter, internal, parameterRelationshipGraph);
         }
 
         @Nonnull

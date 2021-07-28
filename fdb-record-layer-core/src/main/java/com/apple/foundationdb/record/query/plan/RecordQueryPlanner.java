@@ -196,19 +196,15 @@ public class RecordQueryPlanner implements QueryPlanner {
                 .build();
     }
 
-    /**
-     * Set the {@link RecordQueryPlannerConfiguration} for this planner.
-     * If an {@link com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference} is already set using
-     * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
-     * @param configuration a configuration object for this planner
-     */
-    public void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration) {
-        this.configuration = configuration;
-    }
-
     @Nonnull
+    @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;
+    }
+    
+    @Override
+    public void setConfiguration(@Nonnull RecordQueryPlannerConfiguration configuration) {
+        this.configuration = configuration;
     }
 
     /**

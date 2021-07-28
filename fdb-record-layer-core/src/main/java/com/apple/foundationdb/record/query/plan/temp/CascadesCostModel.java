@@ -243,7 +243,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         }
 
         //
-        // If both an InUnions we just return 0
+        // If both are InUnions we just return 0, that is we keep comparing the two inUnion plans using regular
+        // heuristics.
         //
         if (rightExpression instanceof RecordQueryInUnionPlan) {
             return OptionalInt.of(0);
@@ -253,8 +254,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
 
         // right is not in union
 
-        // If at least one scan comparison on the in union side uses a comparison to the in-values, then the in union
-        // plan is useful.
+        // If no scan comparison on the in union side uses a comparison to the in-values, then the in union
+        // plan is not useful.
         final Set<ScanComparisons> scanComparisonsSet = ScanComparisonsProperty.evaluate(inUnionPlan);
 
         final ImmutableSet<String> parametersInScanComparisons =

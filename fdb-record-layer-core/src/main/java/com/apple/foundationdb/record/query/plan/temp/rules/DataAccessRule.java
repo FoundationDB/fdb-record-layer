@@ -61,6 +61,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalE
  * {@link MatchCandidate#toEquivalentExpression(PartialMatch)}.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression> {
     private static final BindingMatcher<PartialMatch> completeMatchMatcher = completeMatch();
     private static final BindingMatcher<RelationalExpression> expressionMatcher = anyExpression().where(not(ofType(SelectExpression.class)));
@@ -73,6 +74,7 @@ public class DataAccessRule extends AbstractDataAccessRule<RelationalExpression>
     }
 
     @Nonnull
+    @Override
     protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull RelationalExpression expression,
                                                                    @Nonnull List<? extends PartialMatch> completeMatches,
                                                                    @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph) {

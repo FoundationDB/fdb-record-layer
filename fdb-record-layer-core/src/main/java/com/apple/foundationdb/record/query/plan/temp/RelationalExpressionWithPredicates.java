@@ -56,18 +56,18 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
     /**
      * Return all {@link FieldValue}s contained in the predicates handed in.
      * @param predicates a collection of predicates
-     * @param predicatePredicate an actual predicate performing additional filtering for the kinds of
+     * @param filteringPredicate an actual predicate performing additional filtering for the kinds of
      *        {@link PredicateWithValue}s the caller is interested in
      * @return a set of {@link FieldValue}s
      */
     @Nonnull
     static ImmutableSet<FieldValue> fieldValuesFromPredicates(@Nonnull final Collection<? extends QueryPredicate> predicates,
-                                                              @Nonnull final Predicate<PredicateWithValue> predicatePredicate) {
+                                                              @Nonnull final Predicate<PredicateWithValue> filteringPredicate) {
         return predicates
                 .stream()
                 .flatMap(predicate -> {
                     final Iterable<? extends QueryPredicate> filters =
-                            predicate.filter(p -> p instanceof PredicateWithValue && predicatePredicate.test((PredicateWithValue)p));
+                            predicate.filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p));
                     return StreamSupport.stream(filters.spliterator(), false)
                             .map(p -> (PredicateWithValue)p)
                             .flatMap(predicateWithValue ->

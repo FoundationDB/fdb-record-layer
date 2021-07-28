@@ -1,9 +1,9 @@
 /*
- * DataAccessRule.java
+ * SelectDataAccessRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,10 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.MatchPartition;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
-import com.apple.foundationdb.record.query.plan.temp.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalIntersectionExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.google.common.collect.ImmutableList;
@@ -49,19 +43,13 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalE
 
 /**
  * A rule that utilizes index matching information compiled by {@link CascadesPlanner} to create one or more
- * expressions for data access. While this rule delegates specifics to the {@link MatchCandidate}s, the following are
- * possible outcomes of the application of this transformation rule. Based on the match info, we may create for a single match:
- *
- * <ul>
- *     <li>a {@link PrimaryScanExpression} for a single {@link PrimaryScanMatchCandidate},</li>
- *     <li>an {@link IndexScanExpression} for a single {@link ValueIndexScanMatchCandidate}</li>
- *     <li>an intersection ({@link LogicalIntersectionExpression}) of data accesses </li>
- * </ul>
- *
- * The logic that this rules delegates to to actually create the expressions can be found in
- * {@link MatchCandidate#toEquivalentExpression(PartialMatch)}.
+ * expressions for data access specifically for a {@link SelectExpression}. A {@link SelectExpression} is behaves
+ * different than essentially all other expressions in a way that we can break such an expression on the fly
+ * and only replace the matched part of the original expression with the scan over the materialized view. That allows
+ * us to relax restrictions (.e.g. to match all quantifiers the select expression owns) while matching select expressions.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpression> {
     private static final BindingMatcher<PartialMatch> completeMatchMatcher = completeMatch();
     private static final BindingMatcher<SelectExpression> expressionMatcher = ofType(SelectExpression.class);
@@ -74,6 +62,7 @@ public class SelectDataAccessRule extends AbstractDataAccessRule<SelectExpressio
     }
 
     @Nonnull
+    @Override
     protected ExpressionRef<? extends RelationalExpression> inject(@Nonnull SelectExpression selectExpression,
                                                                    @Nonnull List<? extends PartialMatch> completeMatches,
                                                                    @Nonnull final ExpressionRef<? extends RelationalExpression> compensatedScanGraph) {

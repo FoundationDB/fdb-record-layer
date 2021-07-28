@@ -33,8 +33,6 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyExpressionVisitor;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
-import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
@@ -224,7 +222,7 @@ public class FieldKeyExpression extends BaseKeyExpression implements AtomKeyExpr
         switch (fanType) {
             case FanOut:
                 return Quantifier.forEach(GroupExpressionRef.of(
-                        new ExplodeExpression(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames))));
+                        ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
             default:
                 throw new RecordCoreException("unrecognized fan type");
         }

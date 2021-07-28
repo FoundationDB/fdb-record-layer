@@ -98,7 +98,7 @@ public class UnionVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 newChildren.add(GroupExpressionRef.of(newPlan));
             }
             RecordQueryPlan newUnionPlan = new RecordQueryFetchFromPartialRecordPlan(
-                    unionPlan.withChildren(newChildren),
+                    unionPlan.withChildrenReferences(newChildren),
                     TranslateValueFunction.unableToTranslate());
 
             if (shouldPullOutFilter) {

@@ -21,15 +21,12 @@
 package com.apple.foundationdb.record.query.plan.temp.properties;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -37,21 +34,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * A property for counting the total number of {@link KeyExpression} columns (i.e., field-like {@code KeyExpression}s
- * such as {@link com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression} and
- * {@link com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression}) that are not matched with at
- * least one {@link com.apple.foundationdb.record.query.expressions.Comparisons.Comparison} in a planner expression
- * tree. This is computed over all {@link KeyExpression}s in various scan expressions over indexes
- * (e.g. {@link IndexScanExpression}, {@link RecordQueryScanPlan}), and also primary scans
- * (e.g. {@link RecordQueryScanPlan}).
- *
- * <p>
- * For example, suppose that a planner expression scans two indexes:
- * <ul>
- *     <li>{@code concat(field1, field2)}, with a comparison {@code field1 = 'foo'}</li>
- *     <li>{@code concat(field1, field3, field4)}, with a comparison {@code field1 = 'foo', field3 < 5}</li>
- * </ul>
- * The {@code UnmatchedFieldsCountProperty} on such a planner expression is 2.
+ * A property for collecting all {@link ScanComparisons} for the sub tree the property is evaluated on.
  */
 @API(API.Status.EXPERIMENTAL)
 public class ScanComparisonsProperty implements PlannerProperty<Set<ScanComparisons>> {

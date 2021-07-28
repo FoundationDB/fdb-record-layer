@@ -43,7 +43,7 @@ public class MatchPartitionMatchers {
 
     @Nonnull
     public static <C extends Collection<? extends PartialMatch>> BindingMatcher<MatchPartition> ofMatches(@Nonnull final BindingMatcher<C> downstream) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(MatchPartition.class,
+        return typedWithDownstream(MatchPartition.class,
                 Extractor.of(MatchPartition::getPartialMatches, name -> "partialMatches(" + name + ")"),
                 downstream);
     }

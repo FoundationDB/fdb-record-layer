@@ -29,6 +29,12 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 
 public interface PredicatedMatcher {
     /**
+     * Find complete matches.
+     * @return an {@link Iterable} of {@link AliasMap}s where each {@link AliasMap} is considered a match.
+     */
+    Iterable<AliasMap> findCompleteMatches();
+
+    /**
      * Find matches.
      * @return an {@link Iterable} of {@link AliasMap}s where each {@link AliasMap} is considered a match.
      */

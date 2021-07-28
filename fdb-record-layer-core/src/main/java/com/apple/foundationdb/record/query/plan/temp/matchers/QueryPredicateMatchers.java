@@ -85,7 +85,7 @@ public class QueryPredicateMatchers {
     }
 
     public static TypedMatcher<Comparisons.Comparison> anyComparisonOfType(@Nonnull final Comparisons.Type type) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(Comparisons.Comparison.class,
+        return typedWithDownstream(Comparisons.Comparison.class,
                 Extractor.of(Comparisons.Comparison::getType, name -> "type(" + name + ")"),
                 PrimitiveMatchers.equalsObject(type));
     }

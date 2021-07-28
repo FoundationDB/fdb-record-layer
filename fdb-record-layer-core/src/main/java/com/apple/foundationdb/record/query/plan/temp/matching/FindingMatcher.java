@@ -95,18 +95,18 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
      */
     @Nonnull
     @Override
-    public Iterable<AliasMap> findMatches() {
-        if (getAliases().size() != getOtherAliases().size()) {
-            return ImmutableList.of();
-        }
-
-        return match(this::enumerate);
+    public Iterable<AliasMap> findCompleteMatches() {
+        return match(this::enumerate, true);
     }
 
+    /**
+     * Match using the method {@link #enumerate} as {@link EnumerationFunction}.
+     * @return an iterable of {@link AliasMap}s.
+     */
     @Nonnull
     @Override
-    protected Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive) {
-        return ImmutableList.of(otherPermutation);
+    public Iterable<AliasMap> findMatches() {
+        return match(this::enumerate, false);
     }
 
     /**
@@ -130,9 +130,11 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
         final Set<CorrelationIdentifier> aliases = getAliases();
         final AliasMap boundAliasesMap = getBoundAliasesMap();
 
-        if (aliases.isEmpty()) {
+        if (otherOrdered.isEmpty()) {
             return ImmutableList.of(boundAliasesMap).iterator();
         }
+
+        int size = otherOrdered.size();
 
         return new AbstractIterator<AliasMap>() {
             @Override
@@ -142,7 +144,7 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
                     final AliasMap.Builder aliasMapBuilder = AliasMap.builder(aliases.size());
 
                     int i;
-                    for (i = 0; i < aliases.size(); i++) {
+                    for (i = 0; i < size; i++) {
                         final AliasMap aliasMap = aliasMapBuilder.build();
 
                         final CorrelationIdentifier alias = ordered.get(i);
@@ -166,8 +168,9 @@ public class FindingMatcher<T> extends BaseMatcher<T> implements PredicatedMatch
                         aliasMapBuilder.put(alias, otherAlias);
                     }
 
-                    if (i == aliases.size()) {
-                        return boundAliasesMap.derived(ordered.size()).zip(ordered, otherOrdered).build();
+                    if (i == size) {
+                        iterator.skip(i - 1);
+                        return boundAliasesMap.derived(ordered.size()).zip(ordered, otherOrdered, i).build();
                     } else {
                         // we can skip all permutations where the i-th value is bound the way it currently is
                         iterator.skip(i);

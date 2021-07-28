@@ -285,7 +285,7 @@ public class AliasMapTest {
         final Set<CorrelationIdentifier> right = ImmutableSet.of(of("x"), of("y"), of("z"));
         
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> ImmutableSet.of(),
                         right,
@@ -331,10 +331,10 @@ public class AliasMapTest {
     @Test
     void testMatchNoCorrelations1() {
         final Set<CorrelationIdentifier> left = ImmutableSet.of(of("a"), of("b"));
-        final Set<CorrelationIdentifier> right = ImmutableSet.of(of("c"));
+        final Set<CorrelationIdentifier> right = ImmutableSet.of(of("c"), of("d"));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> ImmutableSet.of(),
                         right,
@@ -345,34 +345,12 @@ public class AliasMapTest {
 
         assertEquals(ImmutableSet.of(
                 AliasMap.builder()
-                        .put(of("a"), of("x"))
-                        .put(of("b"), of("y"))
-                        .put(of("c"), of("z"))
+                        .put(of("a"), of("c"))
+                        .put(of("b"), of("d"))
                         .build(),
                 AliasMap.builder()
-                        .put(of("a"), of("x"))
-                        .put(of("b"), of("z"))
-                        .put(of("c"), of("y"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("a"), of("y"))
-                        .put(of("b"), of("x"))
-                        .put(of("c"), of("z"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("a"), of("y"))
-                        .put(of("b"), of("z"))
-                        .put(of("c"), of("x"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("a"), of("z"))
-                        .put(of("b"), of("x"))
-                        .put(of("c"), of("y"))
-                        .build(),
-                AliasMap.builder()
-                        .put(of("a"), of("z"))
-                        .put(of("b"), of("y"))
-                        .put(of("c"), of("x"))
+                        .put(of("b"), of("c"))
+                        .put(of("a"), of("d"))
                         .build()),
                 matches);
     }
@@ -389,7 +367,7 @@ public class AliasMapTest {
                 ImmutableMap.of(of("y"), ImmutableSet.of(of("x")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -419,7 +397,7 @@ public class AliasMapTest {
                 ImmutableMap.of(of("z"), ImmutableSet.of(of("y")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -458,7 +436,7 @@ public class AliasMapTest {
                         of("z"), ImmutableSet.of(of("y")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -490,7 +468,7 @@ public class AliasMapTest {
                         of("z"), ImmutableSet.of(of("x")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -514,7 +492,7 @@ public class AliasMapTest {
                 ImmutableMap.of();
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -540,7 +518,7 @@ public class AliasMapTest {
                         of("z"), ImmutableSet.of(of("y")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -572,7 +550,7 @@ public class AliasMapTest {
                         of("z"), ImmutableSet.of(of("y"), of("i")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -606,7 +584,7 @@ public class AliasMapTest {
                         of("j"), ImmutableSet.of(of("u")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,

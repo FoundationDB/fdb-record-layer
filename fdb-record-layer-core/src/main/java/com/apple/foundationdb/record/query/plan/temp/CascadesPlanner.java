@@ -362,10 +362,12 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
+    @Override
     public RecordQueryPlannerConfiguration getConfiguration() {
         return configuration;
     }
 
+    @Override
     public void setConfiguration(@Nonnull final RecordQueryPlannerConfiguration configuration) {
         this.configuration = configuration;
     }

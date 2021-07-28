@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2019 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
@@ -33,7 +34,6 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpressio
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers;
-import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
@@ -54,27 +54,65 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredic
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.selectExpression;
 
 /**
- * TODO
+ * A rule that traverses a predicate in a {@link SelectExpression} and attempts to extract IN-comparisons into
+ * separate {@link ExplodeExpression}s, e.g.
  *
- * A simple rule that performs some basic Boolean normalization by flattening a nested {@link AndPredicate} into a single,
- * wider AND. This rule only attempts to remove a single {@code AndComponent}; it may be repeated if necessary.
- * For example, it would transform:
- * <code>
- *     Query.and(
- *         Query.and(Query.field("a").equals("foo"), Query.field("b").equals("bar")),
- *         Query.field(c").equals("baz"),
- *         Query.and(Query.field("d").equals("food"), Query.field("e").equals("bare"))
- * </code>
- * to
- * <code>
- *     Query.and(
- *         Query.field("a").equals("foo"),
- *         Query.field("b").equals("bar"),
- *         Query.field("c").equals("baz")),
- *         Query.and(Query.field("d").equals("food"), Query.field("e").equals("bare"))
- * </code>
+ * <pre>
+ * {@code
+ * SELECT ...
+ * FROM T
+ * WHERE t.a IN (1, 2, 3)
+ * }
+ * </pre>
+ *
+ * is transformed to
+ *
+ * <pre>
+ * {@code
+ * SELECT ...
+ * FROM T, EXPLODE(LIST(1, 2, 3)) AS e
+ * WHERE t.a = e
+ * }
+ * </pre>
+ *
+ *
+ * The transformation cannot be done for a class of predicates that contain an IN within incompatible
+ * constructs such as {@link com.apple.foundationdb.record.query.predicates.NotPredicate} as the transformed expression
+ *
+ * <pre>
+ * {@code
+ * Not(num_value_3_indexed EQUALS $__in_num_value_3_indexed__0) is not producing the correct result.
+ * }
+ * </pre>
+ *
+ * <em>not</em> is one of the cases that can cause this.
+ *
+ * In general for any possible record {@code  r} the following should hold:
+ *
+ * <pre>
+ * {@code
+ * for any v in IN-list: transformedPredicate(v) implies original IN-list predicate
+ * }
+ * </pre>
+ *
+ * or in other words
+ *
+ * <pre>
+ * {@code
+ * if ∃ v in IN-list such that transformedPredicate(v) is true then original IN-list predicate is true
+ * }
+ * </pre>
+ *
+ * In the <em>not</em> case:
+ *
+ * <pre>
+ * {@code
+ * there is no v in (1, 4, 2) such that not(num_value_3_indexed = v) implies not(num_value_3_indexed in (1, 4, 2))
+ * }
+ * </pre>
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("PMD.TooManyStaticImports")
 public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
     private static final BindingMatcher<ValuePredicate> inPredicateMatcher =
             valuePredicate(ValueMatchers.anyValue(), anyComparisonOfType(Comparisons.Type.IN));
@@ -116,13 +154,13 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
                     explodeExpression = new ExplodeExpression(QuantifiedColumnValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), 0));
                 } else {
-                    throw new RecordCoreException("unknown in comparison");
+                    throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }
 
                 final Quantifier.ForEach newQuantifier = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
                 transformedPredicates.add(
                         new ValuePredicate(((ValuePredicate)predicate).getValue(),
-                                new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, newQuantifier.getAlias().toString())));
+                                new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, newQuantifier.getAlias().toString(), Bindings.Internal.CORRELATION)));
                 transformedQuantifiers.add(newQuantifier);
             } else {
                 transformedPredicates.add(predicate);

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -108,6 +109,7 @@ public class PlannerRuleSet {
             new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionPlan.class),
             new PushSetOperationThroughFetchRule<>(RecordQueryUnionPlan.class),
             new PushSetOperationThroughFetchRule<>(RecordQueryUnorderedUnionPlan.class),
+            new PushSetOperationThroughFetchRule<>(RecordQueryInUnionPlan.class),
             new RemoveProjectionRule(),
             new PushReferencedFieldsThroughDistinctRule(),
             new PushReferencedFieldsThroughFilterRule(),

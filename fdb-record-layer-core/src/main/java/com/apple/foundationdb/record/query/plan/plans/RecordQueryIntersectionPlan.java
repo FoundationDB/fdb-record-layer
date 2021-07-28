@@ -271,7 +271,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public RecordQueryIntersectionPlan withChildren(@Nonnull final List<? extends ExpressionRef<? extends RelationalExpression>> newChildren) {
+    public RecordQueryIntersectionPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
         return new RecordQueryIntersectionPlan(
                 newChildren.stream()
                         .map(Quantifier::physical)

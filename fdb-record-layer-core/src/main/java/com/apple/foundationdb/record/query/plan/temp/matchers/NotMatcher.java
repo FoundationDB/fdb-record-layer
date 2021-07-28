@@ -1,9 +1,9 @@
 /*
- * TypeMatcher.java
+ * NotMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,8 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * TODO.
+ * Matcher that matches the current object if its downstream was unable to match and vice versa. Note that downstream
+ * bindings are not kept (as that is not meaningful).
  */
 @API(API.Status.EXPERIMENTAL)
 public class NotMatcher implements BindingMatcher<Object> {

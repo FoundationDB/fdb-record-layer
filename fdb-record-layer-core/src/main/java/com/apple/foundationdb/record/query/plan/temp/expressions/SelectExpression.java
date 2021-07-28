@@ -210,7 +210,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         
         final ImmutableSet.Builder<CorrelationIdentifier> matchedCorrelatedToBuilder = ImmutableSet.builder();
         // Loop through all child matches and reject a match if the children matches were unable to match all
-        // for each quantifiers. Also keep track of all aliases the matched quantifiers are correlated to.
+        // for-each quantifiers. Also keep track of all aliases the matched quantifiers are correlated to.
         for (final Quantifier quantifier : getQuantifiers()) {
             if (partialMatchMap.containsKeyUnwrapped(quantifier)) {
                 if (quantifier instanceof Quantifier.ForEach) {
@@ -242,24 +242,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         if (!allNonMatchedQuantifiersIndependent) {
             return ImmutableList.of();
         }
-
-//        // Loop through all child matches and reject a match if the children matches were unable to match all
-//        // for each quantifiers..
-//        final boolean allChildrenForEachQuantifiersMatched =
-//                getQuantifiers()
-//                        .stream()
-//                        .filter(partialMatchMap::containsKeyUnwrapped)
-//                        .allMatch(quantifier -> {
-//                            final PartialMatch childPartialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(quantifier));
-//
-//                            return childPartialMatch.getQueryExpression()
-//                                    .computeUnmatchedForEachQuantifiers(childPartialMatch).isEmpty();
-//                        });
-//
-//        if (!allChildrenForEachQuantifiersMatched) {
-//            return ImmutableList.of();
-//        }
-
 
         // Loop through all for each quantifiers on the other side to ensure that they are all matched.
         // If any are not matched we cannot establish a match at all.

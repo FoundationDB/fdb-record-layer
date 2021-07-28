@@ -33,14 +33,12 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.PartialMatchMatche
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 /**
  * A rule that attempts to improve an existing {@link PartialMatch} by <em>absorbing</em> an expression on the
@@ -70,14 +68,7 @@ public class AdjustMatchRule extends PlannerRule<PartialMatch> {
 
         final ExpressionRef<? extends RelationalExpression> queryReference = incompleteMatch.getQueryRef();
         final MatchCandidate matchCandidate = incompleteMatch.getMatchCandidate();
-
-        // for the already matching candidates
-        final Set<ExpressionRef<? extends RelationalExpression>> matchedRefsForCandidate =
-                queryReference.getPartialMatchesForCandidate(matchCandidate)
-                        .stream()
-                        .map(PartialMatch::getCandidateRef)
-                        .collect(ImmutableSet.toImmutableSet());
-
+        
         final SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> refToExpressionMap =
                 matchCandidate.findReferencingExpressions(ImmutableList.of(queryReference));
 

@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
@@ -143,5 +142,15 @@ public interface RecordQuerySetPlan extends RecordQueryPlan {
      * @return a new set-based plan
      */
     @Nonnull
-    RecordQuerySetPlan withChildren(@Nonnull final List<? extends ExpressionRef<? extends RelationalExpression>> newChildren);
+    RecordQuerySetPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren);
+
+    /**
+     * Returns whether the set operation is dynamic if it only has exactly one leg, i.e., the leg of the plan can be
+     * executed many times side-by-side as if the set operation were created over many legs. This usually only makes
+     * sense if the leg is correlated to some outer that feeds a dynamic argument to the inner leg.
+     * @return {@code true} if this set operation is dynamic, {@code false} otherwise
+     */
+    default boolean isDynamic() {
+        return false;
+    }
 }

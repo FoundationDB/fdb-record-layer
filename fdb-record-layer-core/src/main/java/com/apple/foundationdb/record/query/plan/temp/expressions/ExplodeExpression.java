@@ -32,6 +32,8 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -125,5 +127,11 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Override
     public String toString() {
         return resultValue.toString();
+    }
+
+    public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,
+                                                 final int index,
+                                                 @Nonnull final List<String> fieldNames) {
+        return new ExplodeExpression(new FieldValue(QuantifiedColumnValue.of(correlationIdentifier, index), fieldNames));
     }
 }
