@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
@@ -102,5 +103,30 @@ public interface LuceneKeyExpression extends KeyExpression {
             return ((ThenKeyExpression)expression).getChildren().stream().flatMap(e -> normalize(e, givenPrefix).stream()).collect(Collectors.toList());
         }
         throw new RecordCoreArgumentException("tried to normalize a non-lucene, non-grouping expression. These are currently unsupported.", LogMessageKeys.KEY_EXPRESSION, expression);
+    }
+
+    static List<String> listIndexFieldNames(KeyExpression expression) {
+        List<ImmutablePair<String, LuceneKeyExpression>> pairs = normalize(expression);
+        List<String> indexFields = Lists.newArrayList();
+        for (ImmutablePair<String, LuceneKeyExpression> pair : pairs) {
+            if (pair.right instanceof LuceneFieldKeyExpression) {
+                indexFields.add(pair.left != null ?
+                                pair.left.concat("_").concat(((LuceneFieldKeyExpression)pair.right).getFieldName()) :
+                                ((LuceneFieldKeyExpression)pair.right).getFieldName());
+            } else if (pair.right instanceof LuceneThenKeyExpression) {
+                if (pair.left != null) {
+                    indexFields.add(pair.left);
+                }
+                KeyExpression primaryKey = ((LuceneThenKeyExpression)pair.right).getPrimaryKey();
+                if (primaryKey instanceof FieldKeyExpression) {
+                    indexFields.add(((FieldKeyExpression)primaryKey).getFieldName());
+                }
+            } else {
+                if (pair.left != null) {
+                    indexFields.add(pair.left);
+                }
+            }
+        }
+        return indexFields;
     }
 }

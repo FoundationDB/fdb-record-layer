@@ -112,7 +112,11 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         String newQuery = String.format("(%s) %s (%s)", plan1.getLuceneQueryString(), type, plan2.getLuceneQueryString());
         Comparisons.LuceneComparison comparison = new Comparisons.LuceneComparison(newQuery);
         boolean newReverse = plan1.isReverse() ? plan1.isReverse() : plan2.isReverse();
-        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, IndexScanType.BY_LUCENE, comparison, newReverse, newSort);
+        IndexScanType scanType = IndexScanType.BY_LUCENE;
+        if (plan1.scanType == IndexScanType.BY_LUCENE_FULL_TEXT || plan2.scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
+            scanType = IndexScanType.BY_LUCENE_FULL_TEXT;
+        }
+        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort);
         if (plan1.createsDuplicates() || plan2.createsDuplicates()) {
             plan.setCreatesDuplicates();
         }

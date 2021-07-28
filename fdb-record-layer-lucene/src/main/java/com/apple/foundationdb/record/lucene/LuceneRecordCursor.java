@@ -70,6 +70,8 @@ import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.g
 @API(API.Status.EXPERIMENTAL)
 class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
+    // pagination within single instance of record cursor for lucene queries.
+    private static final int MAX_PAGE_SIZE = 200;
     @Nonnull
     private final Executor executor;
     @Nonnull
@@ -88,6 +90,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private final List<KeyExpression> fields;
     private Sort sort = null;
     private ScoreDoc searchAfter = null;
+    private boolean exhausted = false;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -127,9 +130,17 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (topDocs == null) {
             try {
                 performScan();
-            } catch (IOException ioe) {
-                throw new RuntimeException(ioe);
+            } catch (IOException ioException) {
+                throw new RuntimeException(ioException);
             }
+        }
+        if (topDocs.scoreDocs.length - 1 < currentPosition && limitRemaining > 0 && !exhausted) {
+            try {
+                performScan();
+            } catch (IOException ioException) {
+                throw new RuntimeException(ioException);
+            }
+            currentPosition = Math.max(currentPosition - MAX_PAGE_SIZE, 0);
         }
         if (limitRemaining > 0 && currentPosition < topDocs.scoreDocs.length && limitManager.tryRecordScan()) {
             return CompletableFuture.supplyAsync(() -> {
@@ -230,16 +241,30 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private void performScan() throws IOException {
+        long startTime = System.nanoTime();
         indexReader = getIndexReader();
         searcher = new IndexSearcher(indexReader);
+        int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
+        TopDocs newTopDocs;
         if (searchAfter != null && sort != null) {
-            topDocs = searcher.searchAfter(searchAfter, query, limitRemaining, sort);
+            newTopDocs = searcher.searchAfter(searchAfter, query, limit, sort);
         } else if (searchAfter != null) {
-            topDocs =  searcher.searchAfter(searchAfter, query, limitRemaining);
+            newTopDocs =  searcher.searchAfter(searchAfter, query, limit);
         } else if (sort != null) {
-            topDocs = searcher.search(query,  limitRemaining, sort);
+            newTopDocs = searcher.search(query,  limit, sort);
         } else {
-            topDocs = searcher.search(query, limitRemaining);
+            newTopDocs = searcher.search(query, limit);
+        }
+        if (newTopDocs.scoreDocs.length < limit) {
+            exhausted = true;
+        }
+        topDocs = newTopDocs;
+        if (topDocs.scoreDocs.length != 0) {
+            searchAfter = topDocs.scoreDocs[topDocs.scoreDocs.length - 1];
+        }
+        if (timer != null) {
+            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_INDEX_SCAN, startTime);
+            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
         }
     }
 

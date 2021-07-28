@@ -44,7 +44,7 @@ public class LuceneTypeConverter implements KeyExpressionVisitor {
         if (fke instanceof LuceneFieldKeyExpression) {
             return fke;
         }
-        return new LuceneFieldKeyExpression(fke, LuceneKeyExpression.FieldType.STRING, true, true);
+        return new LuceneFieldKeyExpression(fke, LuceneKeyExpression.FieldType.STRING, false, false);
     }
 
     @Override
