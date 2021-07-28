@@ -264,7 +264,26 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     ExecuteProperties.newBuilder().setReturnedRowLimit(251).build().asScanProperties(false))
                     .getCount().join());
             assertEquals(2, recordStore.getTimer().getCount(FDBStoreTimer.Events.LUCENE_INDEX_SCAN));
-            assertEquals(400, recordStore.getTimer().getCount(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
+            assertEquals(251, recordStore.getTimer().getCount(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
+        }
+    }
+
+    @Test
+    public void testSkipOverMaxPageSize() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            });
+            for (int i = 0; i < 251; i++) {
+                recordStore.saveRecord(createSimpleDocument(1623L + i, DYLAN, 2));
+            }
+            assertEquals(50, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
+                    TupleRange.allOf(Tuple.from("idiot")), null,
+                    ExecuteProperties.newBuilder().setReturnedRowLimit(251).setSkip(201).build().asScanProperties(false))
+                    .getCount().join());
+            assertEquals(2, recordStore.getTimer().getCount(FDBStoreTimer.Events.LUCENE_INDEX_SCAN));
+            assertEquals(251, recordStore.getTimer().getCount(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS));
         }
     }
 

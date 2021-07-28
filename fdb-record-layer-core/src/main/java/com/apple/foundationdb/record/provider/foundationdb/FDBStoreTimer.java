@@ -212,7 +212,7 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         LUCENE_LIST_ALL("lucene list all"),
         /** Number of getFileReference calls in the FDBDirectory.*/
         LUCENE_GET_FILE_REFERENCE("lucene get file references"),
-        /** Number of documents returned from a single Lucene Index Scan */
+        /** Number of documents returned from a single Lucene Index Scan. */
         LUCENE_INDEX_SCAN("lucene search returned documents"),
         ;
 
@@ -649,7 +649,7 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         LUCENE_BLOCK_READS("lucene block reads", false),
         /** Time to write a file references in Lucene's FDBDirectory.*/
         LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
-        /** Matched documents returned from lucene index reader scans **/
+        /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
         ;
 

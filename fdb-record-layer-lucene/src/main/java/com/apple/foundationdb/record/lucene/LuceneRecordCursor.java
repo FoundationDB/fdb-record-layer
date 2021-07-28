@@ -127,18 +127,20 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             // hasNext is false to avoid the NoNextReason changing.
             return CompletableFuture.completedFuture(nextResult);
         }
-        if (topDocs == null || (topDocs.scoreDocs.length-1 < currentPosition && limitRemaining > 0 && !exhausted)) {
-            long startTime = System.nanoTime();
+        if (topDocs == null) {
             try {
                 performScan();
             } catch (IOException ioException) {
                 throw new RuntimeException(ioException);
             }
-            if (timer != null) {
-                timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_INDEX_SCAN, startTime);
-                timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
+        }
+        if (topDocs.scoreDocs.length - 1 < currentPosition && limitRemaining > 0 && !exhausted) {
+            try {
+                performScan();
+            } catch (IOException ioException) {
+                throw new RuntimeException(ioException);
             }
-            currentPosition = 0;
+            currentPosition = Math.max(currentPosition - MAX_PAGE_SIZE, 0);
         }
         if (limitRemaining > 0 && currentPosition < topDocs.scoreDocs.length && limitManager.tryRecordScan()) {
             return CompletableFuture.supplyAsync(() -> {
@@ -239,6 +241,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private void performScan() throws IOException {
+        long startTime = System.nanoTime();
         indexReader = getIndexReader();
         searcher = new IndexSearcher(indexReader);
         int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
@@ -255,10 +258,13 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         if (newTopDocs.scoreDocs.length < limit) {
             exhausted = true;
         }
-        if (topDocs != null) {
-            TopDocs.merge(topDocs.scoreDocs.length + newTopDocs.scoreDocs.length, new TopDocs[] {topDocs, newTopDocs});
-        } else {
-            topDocs = newTopDocs;
+        topDocs = newTopDocs;
+        if (topDocs.scoreDocs.length != 0) {
+            searchAfter = topDocs.scoreDocs[topDocs.scoreDocs.length - 1];
+        }
+        if (timer != null) {
+            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_INDEX_SCAN, startTime);
+            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
         }
     }
 
