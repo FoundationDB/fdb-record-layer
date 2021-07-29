@@ -35,15 +35,11 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 public class RecordLayerDriver implements RelationalDriver {
-    private final FDBDatabase fdbDb;
-
     private final Catalog dataCatalog;
 
     //internal constructor, use factory patterns instead
-    RecordLayerDriver(Catalog dataCatalog,
-                      FDBDatabase fdbDb) {
+    RecordLayerDriver(Catalog dataCatalog) {
         this.dataCatalog = dataCatalog;
-        this.fdbDb = fdbDb;
     }
 
     @Override
@@ -55,7 +51,7 @@ public class RecordLayerDriver implements RelationalDriver {
          * 1. Go to Catalog and verify that the given Database exists
          */
         RelationalDatabase frl = dataCatalog.getDatabase(url);
-        RecordStoreConnection conn =  new RecordStoreConnection(fdbDb,frl);
+        RecordStoreConnection conn =  new RecordStoreConnection((RecordLayerDatabase)frl);
         ((RecordLayerDatabase)frl).setConnection(conn);
         return conn;
     }

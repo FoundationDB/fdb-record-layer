@@ -33,23 +33,28 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
+import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
     private FDBDatabase fdbDatabase;
     private RecordLayerCatalog catalog;
+    private final MutableRecordMetaDataStore metaDataStore = new MapRecordMetaDataStore();
     private final List<RecordLayerDatabase> databases = new LinkedList<>();
 
     @Override
@@ -67,8 +72,9 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
         final RecordLayerCatalog.Builder catalogBuilder = new RecordLayerCatalog.Builder();
         catalogBuilder.setKeySpace(keySpace)
-                .setMetadataProvider(id -> getRecordMetadataBuilder().build())
+                .setMetadataProvider(metaDataStore)
                 .setSerializerRegistry(new TestSerializerRegistry())
+                .setDatabaseLocator(dbPath -> fdbDatabase)
                 .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion));
 
         catalog = catalogBuilder.build();
@@ -104,10 +110,30 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     private KeySpace getKeySpaceForSetup() {
         KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
         KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-        KeySpaceDirectory schemaDirectory = new KeySpaceDirectory("test", KeySpaceDirectory.KeyType.NULL);
+        KeySpaceDirectory schemaDirectory = new KeySpaceDirectory("schemaid", KeySpaceDirectory.KeyType.STRING);
         dbDirectory = dbDirectory.addSubdirectory(schemaDirectory);
         rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
 
         return new KeySpace(rootDirectory);
+    }
+
+    public void createDatabase(List<Object> dbUri, DatabaseTemplate dbTemplate) {
+        //URI is of the format /<dbid>, and each schema should be in /<dbid>/<schemaid>
+
+        //get an FDBDatabase from the locator, so that we can open a transaction against it
+        RecordContextTransaction context = new RecordContextTransaction(fdbDatabase.openContext());
+
+        KeySpacePath path = catalog.getFDBDatabaseAndKeySpacePath(dbUri,getKeySpaceForSetup()).getRight();
+
+        for(Map.Entry<String,String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()){
+            KeySpacePath schemaPath = path.add("schemaid",schemaData.getKey());
+            metaDataStore.mapSchema(schemaData.getKey(),schemaData.getValue());
+            catalog.createSchema(schemaPath,schemaData.getValue(),context);
+        }
+        context.commit();
+    }
+
+    public void createSchemaTemplate(RecordLayerTemplate template){
+        metaDataStore.putMetadata(template.getUniqueName(),template);
     }
 }

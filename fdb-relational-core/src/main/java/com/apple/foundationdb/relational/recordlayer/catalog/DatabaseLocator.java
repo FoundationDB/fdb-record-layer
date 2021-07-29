@@ -1,5 +1,5 @@
 /*
- * MutableRecordMetaDataStore.java
+ * DatabaseLocator.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,14 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
-import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 
-public interface MutableRecordMetaDataStore extends RecordMetaDataStore{
+import java.util.List;
 
-    void putMetadata(String schemaUuid, RecordMetaDataProvider storeMeta);
-
-    //TODO(bfines) this probably won't live long, but it temporarily
-    // solves the problem of mapping schema to template during load time
-    void mapSchema(String schema, String templateName);
+public interface DatabaseLocator {
+    FDBDatabase locateDatabase(List<Object> dbPath);
 }

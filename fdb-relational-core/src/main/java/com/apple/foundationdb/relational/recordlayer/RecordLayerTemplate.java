@@ -24,16 +24,19 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 
 import javax.annotation.Nonnull;
 
-public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataStore {
+public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataProvider {
     private final String name;
 
-    private final RecordMetaDataStore metaDataProvider;
+    /*
+     * We use a RecordMetaDataProvider here instead of a RecordMetaDataStore because
+     * we have explicitly performed the lookup to find the metadata which describes the template.
+     */
+    private final RecordMetaDataProvider metaDataProvider;
 
-    public RecordLayerTemplate(String name, RecordMetaDataStore metaDataProvider) {
+    public RecordLayerTemplate(String name, RecordMetaDataProvider metaDataProvider) {
         this.name = name;
         this.metaDataProvider = metaDataProvider;
     }
@@ -45,14 +48,14 @@ public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataStore 
 
     @Override
     public boolean isValid(@Nonnull DatabaseSchema schema) {
-        int version = metaDataProvider.loadMetaData(schema.getSchemaName()).getRecordMetaData().getVersion();
+        int version = getRecordMetaData().getVersion();
         return schema.getSchemaVersion() >= version;
 
         //TODO(bfines) validate that all the tables and indexes match what is expected
     }
 
     @Override
-    public RecordMetaDataProvider loadMetaData(String storeUuid) {
-        return metaDataProvider.loadMetaData(storeUuid);
+    public RecordMetaData getRecordMetaData() {
+        return metaDataProvider.getRecordMetaData();
     }
 }

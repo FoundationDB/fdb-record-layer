@@ -34,9 +34,8 @@ public class RecordStoreConnection implements DatabaseConnection {
     private String currentSchemaLabel;
     private boolean autoCommit = true;
 
-    public RecordStoreConnection(FDBDatabase fdbDb,
-                                 RelationalDatabase frl) {
-        this.fdbDb = fdbDb;
+    public RecordStoreConnection(RecordLayerDatabase frl) {
+        this.fdbDb = frl.getFDBDatabase();
         this.frl = frl;
     }
 

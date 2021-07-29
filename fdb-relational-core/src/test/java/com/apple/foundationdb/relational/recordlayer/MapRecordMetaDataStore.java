@@ -28,14 +28,21 @@ import java.util.concurrent.ConcurrentMap;
 
 public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     private final ConcurrentMap<String, RecordMetaDataProvider> metadataMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String,String> schemaToTemplateMap = new ConcurrentHashMap<>();
 
     @Override
     public RecordMetaDataProvider loadMetaData(String storeUuid) {
+        storeUuid = schemaToTemplateMap.getOrDefault(storeUuid,storeUuid);
         return metadataMap.get(storeUuid);
     }
 
     @Override
     public void putMetadata(String schemaUuid, RecordMetaDataProvider storeMeta) {
         this.metadataMap.put(schemaUuid,storeMeta);
+    }
+
+    @Override
+    public void mapSchema(String schema, String templateName) {
+        schemaToTemplateMap.put(schema,templateName);
     }
 }

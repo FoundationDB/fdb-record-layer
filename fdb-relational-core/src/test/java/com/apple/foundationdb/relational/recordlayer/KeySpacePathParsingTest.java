@@ -42,11 +42,12 @@ public class KeySpacePathParsingTest {
         url.add("testApp");
         url.add(12345L);
 
-        final Pair<FDBDatabase, KeySpacePath> pair = RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting());
-        final FDBDatabase fdbDatabase = pair.getLeft();
-        final KeySpacePath keySpacePath = pair.getRight();
-        final String key = keySpacePath.toTuple(fdbDatabase.openContext()).toString();
-        assert key != null && key.equals("(\"prod\", \"testApp\", 12345)");
+        Assertions.fail("TODO: Re-implement for DatabaseLocator");
+//        final Pair<FDBDatabase, KeySpacePath> pair = RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting());
+//        final FDBDatabase fdbDatabase = pair.getLeft();
+//        final KeySpacePath keySpacePath = pair.getRight();
+//        final String key = keySpacePath.toTuple(fdbDatabase.openContext()).toString();
+//        assert key != null && key.equals("(\"prod\", \"testApp\", 12345)");
     }
 
     @Test
@@ -55,8 +56,9 @@ public class KeySpacePathParsingTest {
         url.add("prod");
 
         // Valid url must have more than 1 elements, since the first one is the cluster file
-        Assertions.assertThrows(AssertionError.class,
-                () -> RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting()));
+        Assertions.fail("TODO: Re-implement for DatabaseLocator");
+//        Assertions.assertThrows(AssertionError.class,
+//                () -> RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting()));
     }
 
     @Test
@@ -68,8 +70,9 @@ public class KeySpacePathParsingTest {
         url.add("testApp");
         
         // The tuple key's types don't match with the keySpace
-        Assertions.assertThrows(RecordCoreArgumentException.class,
-                () -> RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting()));
+        Assertions.fail("TODO: Re-implement for DatabaseLocator");
+//        Assertions.assertThrows(RecordCoreArgumentException.class,
+//                () -> RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting()));
     }
 
     private KeySpace getKeySpaceForTesting() {

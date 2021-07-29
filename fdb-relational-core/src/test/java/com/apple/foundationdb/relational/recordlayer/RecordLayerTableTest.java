@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
@@ -43,6 +44,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -54,6 +56,18 @@ public class RecordLayerTableTest {
     @RegisterExtension
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
 
+    @BeforeEach
+    public final void setupCatalog(){
+        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
+        builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("name"));
+        catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
+
+        catalog.createDatabase(Arrays.asList(null,null,"record_layer_table_test"),
+                DatabaseTemplate.newBuilder()
+                        .withSchema("test","RestaurantRecord")
+                        .build());
+    }
+
     @Test
     void canInsertAndScanASingleRecord() throws Exception {
         final ArrayList<Object> dbUrl = new ArrayList<>();
@@ -64,7 +78,7 @@ public class RecordLayerTableTest {
         // The element for dbid
         dbUrl.add("record_layer_table_test");
 
-        RecordLayerDriver driver = new RecordLayerDriver(catalog, catalog.getFdbDatabase());
+        RecordLayerDriver driver = new RecordLayerDriver(catalog);
         try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");

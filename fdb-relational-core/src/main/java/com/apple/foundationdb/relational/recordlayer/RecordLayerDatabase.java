@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -29,6 +30,7 @@ import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 
@@ -39,6 +41,7 @@ import java.util.Map;
 
 @NotThreadSafe
 public class RecordLayerDatabase implements RelationalDatabase {
+    private final FDBDatabase fdbDb;
     private final RecordMetaDataStore metaDataProvider;
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final int formatVersion;
@@ -50,11 +53,13 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     private final Map<String, RecordLayerSchema> schemas = new HashMap<>();
 
-    public RecordLayerDatabase(RecordMetaDataStore metaDataProvider,
+    public RecordLayerDatabase(FDBDatabase fdbDb,
+                               RecordMetaDataStore metaDataProvider,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                int formatVersion,
                                SerializerRegistry serializerRegistry,
                                KeySpacePath dbPathPrefix) {
+        this.fdbDb = fdbDb;
         this.metaDataProvider = metaDataProvider;
         this.userVersionChecker = userVersionChecker;
         this.formatVersion = formatVersion;
@@ -105,7 +110,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
         //TODO(bfines) error handling if this store doesn't exist
 
         //TODO(bfines) this is probably not right in general
-        final KeySpacePath storePath = ksPath.add(storeName);
+        final KeySpacePath storePath = ksPath.add("schemaid",storeName);
 
         return FDBRecordStore.newBuilder()
                 .setKeySpacePath(storePath)
@@ -114,7 +119,11 @@ public class RecordLayerDatabase implements RelationalDatabase {
                 .setUserVersionChecker(userVersionChecker)
                 .setFormatVersion(formatVersion)
                 .setContext(txn)
-                .createOrOpen();
+                .open();
+    }
+
+    public FDBDatabase getFDBDatabase() {
+       return fdbDb;
     }
 
     /* ****************************************************************************************************************/

@@ -22,11 +22,14 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
@@ -38,18 +41,24 @@ import com.google.common.annotations.VisibleForTesting;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
+import java.net.URI;
 import java.util.List;
 
 public class RecordLayerCatalog implements Catalog {
     private static final int DEFAULT_FORMAT_VERSION = 8;
     //pluggable
+    private final DatabaseLocator databaseLocator;
     private final RecordMetaDataStore metadataProvider;
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final SerializerRegistry serializerRegistry;
     private final KeySpace keySpace;
 
-    private RecordLayerCatalog(RecordMetaDataStore metadataProvider, FDBRecordStoreBase.UserVersionChecker userVersionChecker,
-                               SerializerRegistry serializerRegistry, KeySpace keySpace) {
+    private RecordLayerCatalog(DatabaseLocator locator,
+                               RecordMetaDataStore metadataProvider,
+                               FDBRecordStoreBase.UserVersionChecker userVersionChecker,
+                               SerializerRegistry serializerRegistry,
+                               KeySpace keySpace) {
+        this.databaseLocator = locator;
         this.metadataProvider = metadataProvider;
         this.userVersionChecker = userVersionChecker;
         this.serializerRegistry = serializerRegistry;
@@ -58,30 +67,42 @@ public class RecordLayerCatalog implements Catalog {
 
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
-        return new RecordLayerTemplate(templateId, metadataProvider);
+        return new RecordLayerTemplate(templateId, metadataProvider.loadMetaData(templateId));
     }
 
     @Nonnull
     public RelationalDatabase getDatabase(@Nonnull List<Object> url) throws RelationalException {
-        final KeySpacePath keySpacePath = getFDBDatabaseAndKeySpacePath(url, keySpace).getRight();
-        return new RecordLayerDatabase(metadataProvider, userVersionChecker,
+        final Pair<FDBDatabase, KeySpacePath> dbAndKeySpace = getFDBDatabaseAndKeySpacePath(url, keySpace);
+        final KeySpacePath keySpacePath = dbAndKeySpace.getRight();
+        return new RecordLayerDatabase(dbAndKeySpace.getLeft(),metadataProvider, userVersionChecker,
                 DEFAULT_FORMAT_VERSION, serializerRegistry, keySpacePath);
     }
 
     @VisibleForTesting
-    public static Pair<FDBDatabase, KeySpacePath> getFDBDatabaseAndKeySpacePath(@Nonnull List<Object> databaseUrl, @Nonnull KeySpace keySpace) {
+    public Pair<FDBDatabase, KeySpacePath> getFDBDatabaseAndKeySpacePath(@Nonnull List<Object> databaseUrl, @Nonnull KeySpace keySpace) {
+        FDBDatabase fdbDatabase = databaseLocator.locateDatabase(databaseUrl);
         final Tuple urlTuple = Tuple.fromList(databaseUrl);
         assert urlTuple.size() > 1 : "Invalid databaseUrl without enough elements";
-        final Object clusterFileObject = urlTuple.get(0);
-        assert clusterFileObject == null || clusterFileObject instanceof String : "Valid databaseUrl must have valid clusterFile String or null at beginning";
-        final String clusterFile = (String) clusterFileObject;
-        final FDBDatabase fdbDatabase = FDBDatabaseFactory.instance().getDatabase(clusterFile);
         final Tuple databaseTuple = TupleHelpers.subTuple(urlTuple, 1, urlTuple.size());
         final KeySpacePath keySpacePath = keySpace.resolveFromKey(fdbDatabase.openContext(), databaseTuple).toPath();
         return Pair.of(fdbDatabase, keySpacePath);
     }
 
+    public void createSchema(KeySpacePath schemaPath, @Nonnull String schemaTemplateUri, Transaction transaction) {
+//        KeySpacePath schemaPath = KeySpaceUtils.uriToPath(schemaUri,keySpace);
+        FDBRecordContext ctx = transaction.unwrap(FDBRecordContext.class);
+        FDBRecordStore.newBuilder()
+                .setKeySpacePath(schemaPath)
+                .setSerializer(serializerRegistry.loadSerializer(schemaPath))
+                .setMetaDataProvider(metadataProvider.loadMetaData(schemaTemplateUri))
+                .setUserVersionChecker(userVersionChecker)
+                .setFormatVersion(DEFAULT_FORMAT_VERSION)
+                .setContext(ctx)
+                .createOrOpen();
+    }
+
     public static class Builder {
+        private DatabaseLocator databaseLocator;
         private RecordMetaDataStore metadataProvider;
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
         private SerializerRegistry serializerRegistry;
@@ -102,6 +123,11 @@ public class RecordLayerCatalog implements Catalog {
             return this;
         }
 
+        public Builder setDatabaseLocator(@Nonnull DatabaseLocator locator) {
+            this.databaseLocator = locator;
+            return this;
+        }
+
         public Builder setKeySpace(@Nonnull KeySpace keySpace) {
             this.keySpace = keySpace;
             return this;
@@ -117,7 +143,7 @@ public class RecordLayerCatalog implements Catalog {
             if (keySpace == null) {
                 throw new IllegalStateException("RecordLayerCatalog must have its keySpace");
             }
-            return new RecordLayerCatalog(metadataProvider, userVersionChecker, serializerRegistry, keySpace);
+            return new RecordLayerCatalog(databaseLocator,metadataProvider, userVersionChecker, serializerRegistry, keySpace);
         }
     }
 }
