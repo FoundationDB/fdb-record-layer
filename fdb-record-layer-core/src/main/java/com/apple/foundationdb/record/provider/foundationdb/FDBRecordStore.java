@@ -1814,7 +1814,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             } else {
                 return AsyncUtil.READY_FALSE;
             }
-        });
+        }).thenCompose(this::removeReplacedIndexesIfChanged);
     }
 
     private CompletableFuture<Void> checkUserVersion(@Nullable UserVersionChecker userVersionChecker, int oldUserVersion, int oldMetaDataVersion,
@@ -1993,6 +1993,100 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }
     }
 
+    /**
+     * Schedule a pre-commit hook to look for replaced indexes. This method delays executing the replaced-indexes
+     * check logic until right before the transaction commits, and it will only schedule the check at most once.
+     * This is to prevent multiple instances of that logic running at the same time. Because
+     * {@link #removeReplacedIndexes()} needs to both read and (potentially) update the index state information, running
+     * that method concurrently with itself or with other index state updates can result in errors. So, unless it
+     * can be guaranteed via other means that that method is the only method removing replacement indexes, this
+     * method should be preferred over calling the method directly.
+     *
+     * @param changed whether the index state information has changed
+     * @return whether the commit check was scheduled
+     * @see #removeReplacedIndexes()
+     * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
+     */
+    private boolean addRemoveReplacedIndexesCommitCheckIfChanged(boolean changed) {
+        if (changed) {
+            final String commitCheckName = "removeReplacedIndexes_" + ByteArrayUtil2.toHexString(getSubspace().pack());
+            getRecordContext().getOrCreateCommitCheck(commitCheckName, name -> this::removeReplacedIndexes);
+        }
+        return changed;
+    }
+
+    /**
+     * Remove any replaced indexes if the index state information has changed. This executes right away (if the
+     * index states have, in fact, changed). Note that it is unsafe to call {@link #removeReplacedIndexes()} twice
+     * concurrently on the same record store, so this method should only be called if it can be guaranteed to be
+     * the only thing calling {@link #removeReplacedIndexes()} at that time. If this cannot be guaranteed, then
+     * calling {@link #addRemoveReplacedIndexesCommitCheckIfChanged(boolean)} will ensure that the check is eventually
+     * run once and therefore protects against concurrent accesses.
+     *
+     * @param changed whether index state information has changed
+     * @return a future that will return whether {@link #removeReplacedIndexes()} was called
+     * @see #removeReplacedIndexes()
+     * @see #addRemoveReplacedIndexesCommitCheckIfChanged(boolean)
+     * @see com.apple.foundationdb.record.metadata.IndexOptions#REPLACED_BY_OPTION_PREFIX
+     */
+    @Nonnull
+    private CompletableFuture<Boolean> removeReplacedIndexesIfChanged(boolean changed) {
+        if (changed) {
+            return removeReplacedIndexes().thenApply(vignore -> true);
+        } else {
+            return AsyncUtil.READY_FALSE;
+        }
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> removeReplacedIndexes() {
+        if (recordStoreStateRef.get() == null) {
+            return preloadRecordStoreStateAsync().thenCompose(vignore -> removeReplacedIndexes());
+        }
+
+        // Look for any indexes that can be removed because they have been replaced with new indexes
+        beginRecordStoreStateRead();
+        final RecordMetaData metaData = getRecordMetaData();
+        final List<Index> indexesToRemove = new ArrayList<>();
+        try {
+            for (Index index : metaData.getAllIndexes()) {
+                final List<String> replacedByNames = index.getReplacedByIndexNames();
+                if (!replacedByNames.isEmpty()) {
+                    // Check if all of the replaced by index names are readable
+                    if (replacedByNames.stream()
+                            .allMatch(replacedByName -> metaData.hasIndex(replacedByName) && isIndexReadable(replacedByName))) {
+                        indexesToRemove.add(index);
+                    }
+                }
+            }
+        } finally {
+            endRecordStoreStateRead();
+        }
+
+        // If there are no indexes to remove, terminate now
+        if (indexesToRemove.isEmpty()) {
+            return AsyncUtil.DONE;
+        }
+
+        // Mark all the replaced indexes as DISABLED. This also deletes their data
+        beginRecordStoreStateWrite();
+        boolean haveFuture = false;
+        try {
+            final List<CompletableFuture<Boolean>> indexRemoveFutures = new ArrayList<>(indexesToRemove.size());
+            for (Index index : indexesToRemove) {
+                indexRemoveFutures.add(markIndexDisabled(index));
+            }
+            CompletableFuture<Void> future = AsyncUtil.whenAll(indexRemoveFutures)
+                    .whenComplete((vignore, errIgnore) -> endRecordStoreStateWrite());
+            haveFuture = true;
+            return future;
+        } finally {
+            if (!haveFuture) {
+                endRecordStoreStateWrite();
+            }
+        }
+    }
+
     private void beginRecordStoreStateRead() {
         // When the record store state is being updated multiple times, this function (and its implicit retry loop at
         // the atomic reference level) will retry the update on the new record store state, so the operation always
@@ -2127,7 +2221,33 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         tr.clear(getSubspace().range(Tuple.from(INDEX_UNIQUENESS_VIOLATIONS_KEY)));
         List<CompletableFuture<Void>> work = new LinkedList<>();
         addRebuildRecordCountsJob(work);
-        return rebuildIndexes(getRecordMetaData().getIndexesSince(-1), Collections.emptyMap(), work, RebuildIndexReason.REBUILD_ALL, null);
+        return rebuildIndexes(getRecordMetaData().getIndexesToBuildSince(-1), Collections.emptyMap(), work, RebuildIndexReason.REBUILD_ALL, null);
+    }
+
+    /**
+     * Get unbuilt indexes for this store that should be built. This will return any index that is defined on this
+     * record store where the state is not {@link IndexState#READABLE} (i.e., the index cannot be queried) that
+     * does not have index options set indicating that this index should not be built. For example, if the index
+     * has {@linkplain Index#getReplacedByIndexNames() replacement indexes} defined, then the index will be excluded
+     * from the return result because the new indexes replacing it should be built in its stead.
+     *
+     * @return a map linking each unbuilt index that should be built to the list of record types on which it is
+     *     defined
+     * @see Index#getReplacedByIndexNames()
+     */
+    @Nonnull
+    public Map<Index, List<RecordType>> getIndexesToBuild() {
+        if (recordStoreStateRef.get() == null) {
+            throw uninitializedStoreException("cannot get indexes to build on uninitialized store");
+        }
+        final Map<Index, List<RecordType>> indexesToBuild = getRecordMetaData().getIndexesToBuildSince(-1);
+        beginRecordStoreStateRead();
+        try {
+            indexesToBuild.keySet().removeIf(this::isIndexReadable);
+            return indexesToBuild;
+        } finally {
+            endRecordStoreStateRead();
+        }
     }
 
     @Nonnull
@@ -2641,7 +2761,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return AsyncUtil.READY_FALSE;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
             haveFuture = true;
             return future;
         } finally {
@@ -2709,7 +2829,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                 } else {
                     return false;
                 }
-            }).whenComplete((b, t) -> endRecordStoreStateWrite());
+            }).whenComplete((b, t) -> endRecordStoreStateWrite()).thenApply(this::addRemoveReplacedIndexesCommitCheckIfChanged);
             haveFuture = true;
             return future;
         } finally {
@@ -3382,7 +3502,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                         int oldFormatVersion, @Nonnull RecordMetaData metaData, int oldMetaDataVersion,
                                                         boolean rebuildRecordCounts, List<CompletableFuture<Void>> work) {
         final boolean newStore = oldFormatVersion == 0;
-        final Map<Index, List<RecordType>> indexes = metaData.getIndexesSince(oldMetaDataVersion);
+        final Map<Index, List<RecordType>> indexes = metaData.getIndexesToBuildSince(oldMetaDataVersion);
         if (!indexes.isEmpty()) {
             // If all the new indexes are only for a record type whose primary key has a type prefix, then we can scan less.
             RecordType singleRecordTypeWithPrefixKey = singleRecordTypeWithPrefixKey(indexes);

@@ -151,7 +151,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @Nullable
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
-    private final Queue<CommitCheckAsync> commitChecks = new ArrayDeque<>();
+    private final Map<String, CommitCheckAsync> commitChecks = new LinkedHashMap<>();
     @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
@@ -691,33 +691,11 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
-     * Add a {@link CommitCheckAsync} to be performed before {@link #commit} finishes.
-     *
-     * This method is suitable for checks that cannot be started until just before commit.
-     * For checks that can be started before {@code addCommitCheck} time, {@link #addCommitCheck(CompletableFuture)}
-     * may be more convenient.
-     * <p>
-     * It is possible for this method to throw an exception caused by an earlier unsuccessful check that has become ready in the meantime.
-     * @param check the check to be performed
-     */
-    public synchronized void addCommitCheck(@Nonnull CommitCheckAsync check) {
-        while (!commitChecks.isEmpty()) {
-            if (commitChecks.peek().isReady()) {
-                asyncToSync(FDBStoreTimer.Waits.WAIT_ERROR_CHECK, commitChecks.remove().checkAsync());
-            } else {
-                break;
-            }
-        }
-        commitChecks.add(check);
-    }
-
-    /**
      * Add a check to be completed before {@link #commit} finishes.
      *
      * {@link #commit} will wait for the future to be completed (exceptionally if the check fails)
      * before committing the underlying transaction.
-     * <p>
-     * It is possible for this method to throw an exception caused by an earlier unsuccessful check that has become ready in the meantime.
+     *
      * @param check the check to be performed
      */
     public synchronized void addCommitCheck(@Nonnull CompletableFuture<Void> check) {
@@ -736,17 +714,71 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     }
 
     /**
+     * Add a {@link CommitCheckAsync} to be performed before {@link #commit} finishes.
+     *
+     * This method is suitable for checks that cannot be started until just before commit.
+     * For checks that can be started before {@code addCommitCheck} time, {@link #addCommitCheck(CompletableFuture)}
+     * may be more convenient.
+     *
+     * @param check the check to be performed
+     */
+    public void addCommitCheck(@Nonnull CommitCheckAsync check) {
+        addAnonymousCommitHookToMap(commitChecks, check);
+    }
+
+    /**
+     * Add a {@link CommitCheckAsync} by name to be performed before {@link #commit()} finishes. This behaves
+     * like {@link #addCommitCheck(CommitCheckAsync)}, but it allows a name to be specified so that different
+     * commit checks can be distinguished.
+     *
+     * @param name the name of the commit check to add
+     * @param check the check to be performed
+     * @see #addCommitCheck(CommitCheckAsync)
+     */
+    public void addCommitCheck(@Nonnull String name, @Nonnull CommitCheckAsync check) {
+        addCommitHook(commitChecks, name, check);
+    }
+
+    /**
+     * Fetches a pre-commit check, creating a new one if it does not already exist. The provided supplier will be
+     * invoked if and only if there is not already a commit check of the specified name.
+     *
+     * @param name the name of the commit check to add
+     * @param ifNotExists supplier to invoke if the commit check does not exist
+     * @return the existing or newly created commit check
+     * @see #addCommitCheck(CommitCheckAsync)
+     */
+    @Nonnull
+    public CommitCheckAsync getOrCreateCommitCheck(@Nonnull String name, @Nonnull Function<String, CommitCheckAsync> ifNotExists) {
+        return getOrCreateCommitHook(commitChecks, name, ifNotExists);
+    }
+
+    /**
+     * Fetches a previously installed pre-commit check by name. This only works for commit checks that were added
+     * via {@link #getOrCreateCommitCheck(String, Function)} or {@link #addCommitCheck(String, CommitCheckAsync)}.
+     *
+     * @param name the name of the commit check to fetch
+     * @return the existing check of {@code null} if no check exists of that name
+     * @see #getOrCreateCommitCheck(String, Function)
+     * @see #addCommitCheck(String, CommitCheckAsync)
+     */
+    @Nullable
+    public CommitCheckAsync getCommitCheck(@Nonnull String name) {
+        return getCommitHook(commitChecks, name);
+    }
+
+    /**
      * Run any {@link CommitCheckAsync}s that are still outstanding.
      * @return a future that is complete when all checks have been performed
      */
     @Nonnull
     public CompletableFuture<Void> runCommitChecks() {
         List<CompletableFuture<Void>> futures;
-        synchronized (this) {
+        synchronized (commitChecks) {
             if (commitChecks.isEmpty()) {
                 return AsyncUtil.DONE;
             } else {
-                futures = commitChecks.stream().map(CommitCheckAsync::checkAsync).collect(Collectors.toList());
+                futures = commitChecks.values().stream().map(CommitCheckAsync::checkAsync).collect(Collectors.toList());
             }
         }
         return AsyncUtil.whenAll(futures);
@@ -780,10 +812,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nonnull
     public PostCommit getOrCreatePostCommit(@Nonnull String name, @Nonnull Function<String, PostCommit> ifNotExists) {
-        checkPostCommitName(name);
-        synchronized (postCommits) {
-            return MapUtils.computeIfAbsent(postCommits, name, ifNotExists);
-        }
+        return getOrCreateCommitHook(postCommits, name, ifNotExists);
     }
 
     /**
@@ -795,14 +824,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nullable
     public PostCommit getPostCommit(@Nonnull String name) {
-        // Callers of the public API cannot "see" anonymous or internal post-commit hooks.
-        if (isInternalCommitHookName(name)) {
-            return null;
-        }
-
-        synchronized (postCommits) {
-            return postCommits.get(name);
-        }
+        return getCommitHook(postCommits, name);
     }
 
     /**
@@ -819,14 +841,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param postCommit the post commit to install
      */
     public void addPostCommit(@Nonnull String name, @Nonnull PostCommit postCommit) {
-        checkPostCommitName(name);
-        synchronized (postCommits) {
-            if (postCommits.containsKey(name)) {
-                throw new RecordCoreArgumentException("Post-commit already exists")
-                        .addLogInfo(LogMessageKeys.COMMIT_NAME, name);
-            }
-            postCommits.put(name, postCommit);
-        }
+        addCommitHook(postCommits, name, postCommit);
     }
 
     /**
@@ -836,13 +851,48 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param postCommit post-commit hook to install
      */
     public void addPostCommit(@Nonnull PostCommit postCommit) {
-        synchronized (postCommits) {
+        addAnonymousCommitHookToMap(postCommits, postCommit);
+    }
+
+    private <T> void addAnonymousCommitHookToMap(@Nonnull Map<String, T> map, @Nonnull T item) {
+        synchronized (map) {
             String name;
             // Yes, a collision is exceedingly unlikely, but...
             do {
                 name = INTERNAL_COMMIT_HOOK_PREFIX + "anon-" + (new Random()).nextInt(Integer.MAX_VALUE);
-            } while (postCommits.containsKey(name));
-            postCommits.put(name, postCommit);
+            } while (map.containsKey(name));
+            map.put(name, item);
+        }
+    }
+
+    private <T> void addCommitHook(@Nonnull Map<String, T> map, @Nonnull String name, @Nonnull T item) {
+        checkCommitHookName(name);
+        synchronized (map) {
+            if (map.containsKey(name)) {
+                throw new RecordCoreArgumentException("Commit hook already exists")
+                        .addLogInfo(LogMessageKeys.COMMIT_NAME, name);
+            }
+            map.put(name, item);
+        }
+    }
+
+    private <T> T getOrCreateCommitHook(@Nonnull Map<String, T> map, @Nonnull String name,
+                                        @Nonnull Function<String, T> ifNotExists) {
+        checkCommitHookName(name);
+        synchronized (map) {
+            return MapUtils.computeIfAbsent(map, name, ifNotExists);
+        }
+    }
+
+    @Nullable
+    private <T> T getCommitHook(@Nonnull Map<String, T> map, @Nonnull String name) {
+        // Callers of the public API cannot "see" anonymous or internal post-commit hooks.
+        if (isInternalCommitHookName(name)) {
+            return null;
+        }
+
+        synchronized (map) {
+            return map.get(name);
         }
     }
 
@@ -853,7 +903,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @Nullable
     public PostCommit removePostCommit(@Nonnull String name) {
-        checkPostCommitName(name);
+        checkCommitHookName(name);
         synchronized (postCommits) {
             return postCommits.remove(name);
         }
@@ -873,9 +923,9 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
     }
 
-    private void checkPostCommitName(@Nonnull String name) {
+    private void checkCommitHookName(@Nonnull String name) {
         if (isInternalCommitHookName(name)) {
-            throw new RecordCoreArgumentException("Invalid post-commit name")
+            throw new RecordCoreArgumentException("Invalid commit hook name")
                     .addLogInfo(LogMessageKeys.COMMIT_NAME, name);
         }
     }

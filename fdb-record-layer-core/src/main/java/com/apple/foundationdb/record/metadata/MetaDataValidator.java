@@ -131,6 +131,27 @@ public class MetaDataValidator implements RecordMetaDataProvider {
                                         index.getLastModifiedVersion() + " which is greater than the meta-data version " +
                                         metaData.getVersion());
         }
+        final List<String> replacementIndexNames = index.getReplacedByIndexNames();
+        if (!replacementIndexNames.isEmpty()) {
+            // Make sure all of the indexes are in the meta-data
+            for (String replacementIndexName : replacementIndexNames) {
+                if (metaData.hasIndex(replacementIndexName)) {
+                    // Make sure none of the replacement indexes themselves have any indexes that they are being
+                    // replaced by, as that can either lead to ambiguous situations where indexes may or may not
+                    // be fully replaced (if, for example, its replacement indexes aren't READABLE but the indexes
+                    // replacing its replacements are). In theory, this could be fixed by more complicated replacement
+                    // logic that traverses the replacement graph to make sure all leaves in the graph are built
+                    final Index replacementIndex = metaData.getIndex(replacementIndexName);
+                    if (!replacementIndex.getReplacedByIndexNames().isEmpty()) {
+                        throw new MetaDataException("Index " + index.getName() + " has replacement index "
+                                                    + replacementIndexName + " that itself has replacement indexes");
+                    }
+                } else {
+                    throw new MetaDataException("Index " + index.getName() + " has replacement index "
+                                                + replacementIndexName + " that is not in the meta-data");
+                }
+            }
+        }
     }
 
     protected void validateFormerIndex(@Nonnull FormerIndex formerIndex) {
