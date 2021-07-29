@@ -22,13 +22,14 @@ package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 
 import javax.annotation.Nonnull;
 
 /**
  * A factory for creating {@link PassThroughRecordStoreStateCache}s. That class is a singleton, but it is useful
  * to have a factory nonetheless so that one can be provided to the
- * {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory FDBDatabaseFactory}.
+ * {@link FDBDatabaseFactory FDBDatabaseFactory}.
  */
 @API(API.Status.EXPERIMENTAL)
 public class PassThroughRecordStoreStateCacheFactory implements FDBRecordStoreStateCacheFactory {

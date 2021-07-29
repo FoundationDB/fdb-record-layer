@@ -22,18 +22,19 @@ package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 
 import javax.annotation.Nonnull;
 
 /**
  * A factory interface for {@link FDBRecordStoreStateCache}s. This can be given to the
- * {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory FDBDatabaseFactory}
+ * {@link FDBDatabaseFactory FDBDatabaseFactory}
  * singleton to ensure that each
  * {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase FDBDatabase} is provided with its own cache
  * instance.
  *
  * @see FDBRecordStoreStateCache
- * @see com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory#setStoreStateCacheFactory(FDBRecordStoreStateCacheFactory)
+ * @see FDBDatabaseFactory#setStoreStateCacheFactory(FDBRecordStoreStateCacheFactory)
  */
 @API(API.Status.EXPERIMENTAL)
 public interface FDBRecordStoreStateCacheFactory {

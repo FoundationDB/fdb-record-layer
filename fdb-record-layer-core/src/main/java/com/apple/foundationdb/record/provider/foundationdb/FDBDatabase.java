@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Database;
-import com.apple.foundationdb.FDB;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
@@ -203,11 +202,10 @@ public class FDBDatabase {
 
     protected synchronized void openFDB() {
         if (!opened) {
-            final FDB fdb = factory.initFDB();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(KeyValueLogMessage.of("Opening FDB", LogMessageKeys.CLUSTER, clusterFile));
             }
-            database = fdb.open(clusterFile);
+            database = factory.open(clusterFile);
             setDirectoryCacheSize(factory.getDirectoryCacheSize());
             opened = true;
         }

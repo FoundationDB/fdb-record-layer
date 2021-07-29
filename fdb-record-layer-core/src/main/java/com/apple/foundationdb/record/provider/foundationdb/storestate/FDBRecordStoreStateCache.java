@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.storestate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -41,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
  * Note that if the client is connecting to multiple clusters, there should be one cache per cluster. In general, as
  * there is one {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabase FDBDatabase} object per cluster,
  * it is sufficient to provide a {@link FDBRecordStoreStateCacheFactory} to the
- * {@link com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory FDBDatabaseFactory}
+ * {@link FDBDatabaseFactory FDBDatabaseFactory}
  * singleton. One can also provide a cache instance to an {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore FDBRecordStore}
  * at build time.
  * </p>
@@ -51,7 +52,7 @@ import java.util.concurrent.CompletableFuture;
  * within the Record Layer.
  * </p>
  *
- * @see com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory#setStoreStateCacheFactory(FDBRecordStoreStateCacheFactory)
+ * @see FDBDatabaseFactory#setStoreStateCacheFactory(FDBRecordStoreStateCacheFactory)
  * @see com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore.BaseBuilder#setStoreStateCache(FDBRecordStoreStateCache)
  */
 @API(API.Status.EXPERIMENTAL)
