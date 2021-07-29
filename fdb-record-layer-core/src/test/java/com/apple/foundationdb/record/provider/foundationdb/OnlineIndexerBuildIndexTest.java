@@ -168,7 +168,9 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             builder.setWeakReadSemantics(new FDBDatabase.WeakReadSemantics(0L, Long.MAX_VALUE, true));
         }
         if (!safeBuild) {
-            builder.setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY);
+            builder.setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                    .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                    .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
             builder.setUseSynchronizedSession(false);
         }
 

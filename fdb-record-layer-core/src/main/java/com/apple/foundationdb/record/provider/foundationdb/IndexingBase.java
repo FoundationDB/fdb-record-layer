@@ -230,8 +230,6 @@ public abstract class IndexingBase {
     @Nonnull
     private CompletableFuture<Void> handleStateAndDoBuildIndexAsync(boolean markReadable, KeyValueLogMessage message) {
 
-        OnlineIndexer.IndexStatePrecondition indexStatePrecondition = common.getIndexStatePrecondition();
-        message.addKeyAndValue(LogMessageKeys.INDEX_STATE_PRECONDITION, indexStatePrecondition);
         final Index index = common.getIndex();
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(index);
@@ -239,40 +237,21 @@ public abstract class IndexingBase {
                 validateOrThrowEx(indexState == IndexState.READABLE, "Scrubber was called for a non-readable index. State: " + indexState);
                 return setScrubberTypeOrThrow(store).thenApply(ignore -> true);
             }
-            boolean shouldBuild = true;         // defaults are the common cases
-            boolean shouldClear = false;        // (will clear only if shouldBuild)
-            boolean shouldMarkWriteOnly = indexState != IndexState.WRITE_ONLY; // may avoid it to allow error if not WRITE_ONLY
-            switch (indexStatePrecondition) {
-                case FORCE_BUILD:
-                    shouldClear = true;
-                    break;
-
-                case BUILD_IF_DISABLED:
-                    shouldBuild = indexState == IndexState.DISABLED;
-                    break;
-
-                case BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY:
-                    shouldBuild = indexState == IndexState.DISABLED || indexState == IndexState.WRITE_ONLY;
-                    shouldClear = indexState == IndexState.WRITE_ONLY;
-                    break;
-
-                case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY:
-                case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED:
-                case BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED:
-                    shouldBuild = indexState == IndexState.DISABLED || indexState == IndexState.WRITE_ONLY;
-                    break;
-
-                case ERROR_IF_DISABLED_CONTINUE_IF_WRITE_ONLY:
-                    shouldMarkWriteOnly = false; // let it err if not write only (why wait? je)
-                    break;
-
-                default:
-                    throw new RecordCoreException("unknown index state precondition " + indexStatePrecondition);
+            OnlineIndexer.IndexingPolicy.DesiredAction desiredAction = policy.getStateDesiredAction(indexState);
+            if (desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.ERROR) {
+                throw new ValidationException("Index state is not as expected",
+                        LogMessageKeys.INDEX_NAME, index.getName(),
+                        LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                        LogMessageKeys.INDEX_STATE, indexState
+                        );
             }
-
+            boolean shouldClear = desiredAction == OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD;
+            boolean shouldBuild = shouldClear || indexState != IndexState.READABLE;
             message.addKeyAndValue(LogMessageKeys.INITIAL_INDEX_STATE, indexState);
+            message.addKeyAndValue(LogMessageKeys.INDEXING_POLICY_DESIRED_ACTION, desiredAction);
             message.addKeyAndValue(LogMessageKeys.SHOULD_BUILD_INDEX, shouldBuild);
             message.addKeyAndValue(LogMessageKeys.SHOULD_CLEAR_EXISTING_DATA, shouldClear);
+
             if (!shouldBuild) {
                 return AsyncUtil.READY_FALSE; // do not index
             }
@@ -280,7 +259,7 @@ public abstract class IndexingBase {
                 store.clearIndexData(index);
                 forceStampOverwrite = true; // The code can work without this line, but it'll save probing the missing ranges
             }
-            if (shouldMarkWriteOnly || shouldClear) {
+            if (shouldClear || indexState != IndexState.WRITE_ONLY) {
                 // a fresh build
                 return store.markIndexWriteOnly(index).thenCompose(ignore -> setIndexingTypeOrThrow(store, false)).thenApply(ignore -> true);
             } else {

@@ -71,7 +71,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
         this.common = new IndexingCommon(runner, recordStoreBuilder,
                 index, recordTypes, configLoader, config,
                 syntheticIndex,
-                OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED, // dummy
                 trackProgress,
                 true, // always use synchronized session
                 leaseLengthMillis);

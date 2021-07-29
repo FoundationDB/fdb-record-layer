@@ -390,8 +390,12 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder().build()) // create a default by-records policy (redundant line, just for testing)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                )
                 .setTimer(timer)
                 .build()) {
 
@@ -447,8 +451,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
-                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.DEFAULT) // overwrite the default by-records with the same default (redundant line, just for testing)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE))
                 .setTimer(timer)
                 .build()) {
 
@@ -461,7 +468,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setTimer(timer)
-                .build()) { // IndexStatePrecondition gets the default BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY)
+                .build()) {
 
             // now continue building, overriding the requested method with the previous one
             indexBuilder.buildIndex(true);
@@ -496,10 +503,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -517,7 +524,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .build()) { // IndexStatePrecondition gets the default BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY)
+                .build()) {
 
             // now continue building, overriding the requested method with the previous one
             indexBuilder.buildIndex(true);
@@ -552,10 +559,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -575,7 +582,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
                         .build())
-                .build()) { // IndexStatePrecondition gets the default BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY)
+                .build()) {
 
             // now continue building, overriding the requested method with the previous one
             indexBuilder.buildIndex(true);
@@ -611,10 +618,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED)
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -629,7 +636,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
     @Test
     public void testIndexFromIndexRebuildIfWriteOnlyAndForceBuildAndBuildIfDisabled() {
-        // test various IndexStatePrecondition options to ensure coverage (note that the last section will disable and rebuild the source index)
+        // test various policy options to ensure coverage (note that the last section will disable and rebuild the source index)
         final FDBStoreTimer timer = new FDBStoreTimer();
         final int numRecords = 1329;
         final int chunkSize  = 42;
@@ -655,10 +662,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
                 .setTimer(timer)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_REBUILD_IF_WRITE_ONLY)
                 .build()) {
             // now continue building from the last successful range
             indexBuilder.buildIndex(true);
@@ -676,10 +683,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
                 .setTimer(timer)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.FORCE_BUILD)
                 .build()) {
             // now force building (but leave it write_only)
             indexBuilder.buildIndex(false);
@@ -694,12 +702,15 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
                 .setTimer(timer)
                 .build()) {
 
             // now try building if disabled, nothing should be happening
-            indexBuilder.buildIndex(true);
+            RecordCoreException e = assertThrows(IndexingBase.ValidationException.class, indexBuilder::buildIndex);
+            assertTrue(e.getMessage().contains("Index state is not as expected"));
         }
         assertEquals(0, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RECORDS_SCANNED));
 
@@ -713,7 +724,9 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(srcIndex).setSubspace(subspace)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED)
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
+                        .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
                 .setTimer(timer)
                 .build()) {
             indexer.buildIndex(true);
@@ -785,10 +798,10 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
                 .setTimer(timer)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_REBUILD_IF_POLICY_CHANGED)
                 .build()) {
             indexBuilder.buildIndex(true);
         }
@@ -842,9 +855,9 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .forbidRecordScan()
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .setTimer(timer)
-                .setIndexStatePrecondition(OnlineIndexer.IndexStatePrecondition.BUILD_IF_DISABLED_CONTINUE_BUILD_IF_WRITE_ONLY_ERROR_IF_POLICY_CHANGED)
                 .build()) {
 
             RecordCoreException e = assertThrows(RecordCoreException.class, indexBuilder::buildIndex);

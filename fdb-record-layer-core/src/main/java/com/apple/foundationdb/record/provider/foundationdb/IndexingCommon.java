@@ -58,7 +58,6 @@ public class IndexingCommon {
     private final boolean trackProgress;
     private final long leaseLengthMillis;
 
-    @Nonnull private OnlineIndexer.IndexStatePrecondition indexStatePrecondition;
     @Nonnull public OnlineIndexer.Config config; // this item may be modified on the fly
     @Nullable private final Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader;
     private int configLoaderInvocationCount = 0;
@@ -75,7 +74,6 @@ public class IndexingCommon {
                    @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
                    @Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader, @Nonnull OnlineIndexer.Config config,
                    boolean syntheticIndex,
-                   @Nonnull OnlineIndexer.IndexStatePrecondition indexStatePrecondition,
                    boolean trackProgress,
                    boolean useSynchronizedSession,
                    long leaseLengthMillis) {
@@ -86,7 +84,6 @@ public class IndexingCommon {
         this.configLoader = configLoader;
         this.config = config;
         this.syntheticIndex = syntheticIndex;
-        this.indexStatePrecondition = indexStatePrecondition;
         this.trackProgress = trackProgress;
         this.recordStoreBuilder = recordStoreBuilder;
         this.leaseLengthMillis = leaseLengthMillis;
@@ -154,15 +151,6 @@ public class IndexingCommon {
 
     public void setSynchronizedSessionRunner(@Nullable final SynchronizedSessionRunner synchronizedSessionRunner) {
         this.synchronizedSessionRunner = synchronizedSessionRunner;
-    }
-
-    @Nonnull
-    public OnlineIndexer.IndexStatePrecondition getIndexStatePrecondition() {
-        return indexStatePrecondition;
-    }
-
-    public void setIndexStatePrecondition(@Nonnull final OnlineIndexer.IndexStatePrecondition indexStatePrecondition) {
-        this.indexStatePrecondition = indexStatePrecondition;
     }
 
     @Nullable

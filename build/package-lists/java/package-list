@@ -170,8 +170,8 @@ javax.xml.transform.stax
 javax.xml.transform.stream
 javax.xml.validation
 javax.xml.ws
-javax.xml.ws.handler
-javax.xml.ws.handler.soap
+javax.xml.ws.desiredAction
+javax.xml.ws.desiredAction.soap
 javax.xml.ws.http
 javax.xml.ws.soap
 javax.xml.ws.spi
