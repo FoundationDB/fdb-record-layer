@@ -204,8 +204,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
                         .setLogWarningsLimit(Integer.MAX_VALUE)
-                        .setAllowRepair(false)
-                        .build())
+                        .setAllowRepair(false))
                 .setTimer(timer)
                 .build()) {
             indexScrubber.scrubDanglingIndexEntries();
@@ -286,8 +285,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .setEntriesScanLimit(1)
-                        .build())
+                        .setEntriesScanLimit(1))
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {
@@ -304,8 +302,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
         try (OnlineIndexScrubber indexScrubber = OnlineIndexScrubber.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
                 .setScrubbingPolicy(OnlineIndexScrubber.ScrubbingPolicy.newBuilder()
-                        .setEntriesScanLimit(chunkSize * 3)
-                        .build())
+                        .setEntriesScanLimit(chunkSize * 3))
                 .setTimer(timer)
                 .setLimit(chunkSize)
                 .build()) {

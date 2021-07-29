@@ -72,18 +72,22 @@ public class IndexingScrubDangling extends IndexingBase {
 
     @Nonnull private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
     private long scanCounter = 0;
+    private int logWarningCounter;
 
     public IndexingScrubDangling(@Nonnull final IndexingCommon common,
                                  @Nonnull final OnlineIndexer.IndexingPolicy policy,
                                  @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
         super(common, policy, true);
         this.scrubbingPolicy = scrubbingPolicy;
+        this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
     }
 
     @Override
     List<Object> indexingLogMessageKeyValues() {
         return Arrays.asList(
-                LogMessageKeys.INDEXING_METHOD, "scrub repair missing"
+                LogMessageKeys.INDEXING_METHOD, "scrub dangling index entries",
+                LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
+                LogMessageKeys.LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
 
@@ -200,7 +204,8 @@ public class IndexingScrubDangling extends IndexingBase {
             final Tuple valueKey = indexEntry.getKey();
             final byte[] keyBytes = store.indexSubspace(common.getIndex()).pack(valueKey);
 
-            if (LOGGER.isWarnEnabled() && scrubbingPolicy.shouldLogWarning()) {
+            if (LOGGER.isWarnEnabled() && logWarningCounter > 0) {
+                logWarningCounter --;
                 LOGGER.warn(KeyValueLogMessage.build("Scrubber: dangling index entry",
                         LogMessageKeys.KEY, valueKey.toString())
                         .addKeysAndValues(common.indexLogMessageKeyValues())

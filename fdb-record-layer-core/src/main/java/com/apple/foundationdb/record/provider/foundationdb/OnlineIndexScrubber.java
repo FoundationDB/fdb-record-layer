@@ -134,7 +134,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
      */
     public static class ScrubbingPolicy {
         public static final ScrubbingPolicy DEFAULT = new ScrubbingPolicy(1000, true, 0);
-        private int logWarningsLimit;
+        private final int logWarningsLimit;
         private final boolean allowRepair;
         private final long entriesScanLimit;
 
@@ -146,20 +146,16 @@ public class OnlineIndexScrubber implements AutoCloseable {
             this.entriesScanLimit = entriesScanLimit;
         }
 
-        boolean shouldLogWarning() {
-            if (logWarningsLimit <= 0 || !allowRepair) {
-                return false;
-            }
-            logWarningsLimit--;
-            return true;
-        }
-
         boolean allowRepair() {
             return allowRepair;
         }
 
         long getEntriesScanLimit() {
             return entriesScanLimit;
+        }
+
+        public int getLogWarningsLimit() {
+            return logWarningsLimit;
         }
 
         /**
@@ -257,8 +253,10 @@ public class OnlineIndexScrubber implements AutoCloseable {
         protected Collection<RecordType> recordTypes;
         @Nonnull
         protected Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader = old -> old;
-        @Nonnull
-        ScrubbingPolicy scrubbingPolicy = ScrubbingPolicy.DEFAULT;
+
+        ScrubbingPolicy scrubbingPolicy = null;
+        ScrubbingPolicy.Builder scrubbingPolicyBuilder = null;
+
 
         protected int limit = 2000;
         protected int maxWriteLimitBytes = OnlineIndexer.DEFAULT_WRITE_LIMIT_BYTES;
@@ -846,16 +844,28 @@ public class OnlineIndexScrubber implements AutoCloseable {
         }
 
         /**
-         * Add a {@link ScrubbingPolicy} policy. If set, this policy will enforce index scrubbing (instead of index
-         * building).
-         * A scrubbing job will validate (and fix, if applicable) indexes after they were already scrub and set to a
-         * READABLE state (see {@link com.apple.foundationdb.record.IndexState}). It is designed to support an ongoing
+         * Add a {@link ScrubbingPolicy} policy.
+         * A scrubbing job will validate (and fix, if applicable) index entries of readable indexes. It is designed to support an ongoing
          * index consistency verification.
          * @param scrubbingPolicy see {@link ScrubbingPolicy}
          * @return this Builder
          */
         public Builder setScrubbingPolicy(@Nonnull final ScrubbingPolicy scrubbingPolicy) {
+            this.scrubbingPolicyBuilder = null;
             this.scrubbingPolicy = scrubbingPolicy;
+            return this;
+        }
+
+        /**
+         * Add a {@link ScrubbingPolicy.Builder} policy builder.
+         * A scrubbing job will validate (and fix, if applicable) index entries of readable indexes. It is designed to support an ongoing
+         * index consistency verification.
+         * @param scrubbingPolicyBuilder see {@link ScrubbingPolicy.Builder}
+         * @return this Builder
+         */
+        public Builder setScrubbingPolicy(@Nonnull final ScrubbingPolicy.Builder scrubbingPolicyBuilder) {
+            this.scrubbingPolicy = null;
+            this.scrubbingPolicyBuilder = scrubbingPolicyBuilder;
             return this;
         }
 
@@ -866,6 +876,12 @@ public class OnlineIndexScrubber implements AutoCloseable {
         public OnlineIndexScrubber build() {
             validate();
             OnlineIndexer.Config conf = new OnlineIndexer.Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
+            if (scrubbingPolicyBuilder != null) {
+                scrubbingPolicy = scrubbingPolicyBuilder.build();
+            }
+            if (scrubbingPolicy == null) {
+                scrubbingPolicy = ScrubbingPolicy.DEFAULT;
+            }
             return new OnlineIndexScrubber(runner, recordStoreBuilder, index, recordTypes,
                     configLoader, conf, syntheticIndex,
                     leaseLengthMillis, trackProgress,
