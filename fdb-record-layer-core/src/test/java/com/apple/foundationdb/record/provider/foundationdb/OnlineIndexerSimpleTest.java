@@ -867,7 +867,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 // it would be better if this test can test the config loader with bare metal OnlineIndexer.runAsync
                 // instead.
                 .setUseSynchronizedSession(false)
-                .setIndexingPolicyBuilder(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)

@@ -390,7 +390,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexingPolicyBuilder(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
@@ -451,7 +451,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexingPolicyBuilder(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
@@ -702,7 +702,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         timer.reset();
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(tgtIndex).setSubspace(subspace)
-                .setIndexingPolicyBuilder(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
                 .setTimer(timer)
@@ -724,7 +724,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         openSimpleMetaData(hook);
         try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
                 .setDatabase(fdb).setMetaData(metaData).setIndex(srcIndex).setSubspace(subspace)
-                .setIndexingPolicyBuilder(OnlineIndexer.IndexingPolicy.newBuilder()
+                .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
                 .setTimer(timer)

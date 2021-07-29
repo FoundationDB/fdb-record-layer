@@ -1710,7 +1710,7 @@ public class OnlineIndexer implements AutoCloseable {
          *
          * @deprecated use {@link IndexingPolicy.Builder} instead. Example:
          * <p>
-         *   setIndexingPolicyBuilder(OnlineIndexer.IndexingPolicy.newBuilder()
+         *   setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
          *                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
@@ -1758,7 +1758,6 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Add an {@link IndexingPolicy} policy. If set, this policy will determine how the index should be
          * built.
-         * If calling both this method and {@link #setIndexingPolicyBuilder}, the last call will override the others.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
          * @param indexingPolicy see {@link IndexingPolicy}
          * @return this Builder
@@ -1776,12 +1775,11 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Add an {@link IndexingPolicy.Builder}. If set, this policy will determine how the index should be
          * built.
-         * If calling both this method and {@link #setIndexingPolicy}, the last call will override the others.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
          * @param builder an IndexingPolicy builder.
          * @return this Builder
          */
-        public Builder setIndexingPolicyBuilder(@Nonnull final IndexingPolicy.Builder builder) {
+        public Builder setIndexingPolicy(@Nonnull final IndexingPolicy.Builder builder) {
             this.indexingPolicy = null;
             this.indexingPolicyBuilder = builder;
             return this;
