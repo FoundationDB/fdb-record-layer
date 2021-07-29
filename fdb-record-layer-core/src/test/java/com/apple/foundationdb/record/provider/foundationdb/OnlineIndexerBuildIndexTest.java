@@ -170,7 +170,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         if (!safeBuild) {
             builder.setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                     .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
-                    .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
+                    .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
             builder.setUseSynchronizedSession(false);
         }
 

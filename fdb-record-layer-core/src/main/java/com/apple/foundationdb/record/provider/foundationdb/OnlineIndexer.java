@@ -215,7 +215,7 @@ public class OnlineIndexer implements AutoCloseable {
         if (partlyBuiltException != null) {
             // An ongoing indexing process with a different method type was found. Some precondition cases should be handled.
             IndexBuildProto.IndexBuildIndexingStamp conflictingIndexingTypeStamp = partlyBuiltException.savedStamp;
-            IndexingPolicy.DesiredAction desiredAction = indexingPolicy.getIfMismatchPrev();
+            IndexingPolicy.DesiredAction desiredAction = indexingPolicy.getIfMismatchPrevious();
             if (LOGGER.isInfoEnabled()) {
                 LOGGER.info(KeyValueLogMessage.build("conflicting indexing type stamp",
                         LogMessageKeys.CURR_ATTEMPT, attemptCount,
@@ -1713,11 +1713,11 @@ public class OnlineIndexer implements AutoCloseable {
          *   setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
          *                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
          *                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-         *                         .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+         *                         .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
          *                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR));
          * </p>
          * For backward compatibility, calling this function in any order will override the {@link IndexingPolicy.Builder}
-         * methods: setIfDisabled, setIfWriteOnly, setIfMismatchPrev, setIfReadable
+         * methods: setIfDisabled, setIfWriteOnly, setIfMismatchPrevious, setIfReadable
          */
         @Deprecated
         public Builder setIndexStatePrecondition(@Nonnull IndexStatePrecondition indexStatePrecondition) {
@@ -1804,7 +1804,7 @@ public class OnlineIndexer implements AutoCloseable {
                 indexingPolicyBuilder
                         .setIfDisabled(indexStatePrecondition.ifDisabled)
                         .setIfWriteOnly(indexStatePrecondition.ifWriteOnly)
-                        .setIfMismatchPrev(indexStatePrecondition.ifMismatchPrev)
+                        .setIfMismatchPrevious(indexStatePrecondition.ifMismatchPrevious)
                         .setIfReadable(indexStatePrecondition.ifReadable);
             }
             if (indexingPolicyBuilder != null) {
@@ -1876,7 +1876,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final boolean forbidRecordScan;
         private final DesiredAction ifDisabled;
         private final DesiredAction ifWriteOnly;
-        private final DesiredAction ifMismatchPrev;
+        private final DesiredAction ifMismatchPrevious;
         private final DesiredAction ifReadable;
 
         public enum DesiredAction {
@@ -1892,17 +1892,17 @@ public class OnlineIndexer implements AutoCloseable {
          * @param forbidRecordScan forbid fallback to a by-records scan
          * @param ifDisabled desired action if the existing index state is DISABLED
          * @param ifWriteOnly desired action if the existing index state is WRITE_ONLY (i.e. partly built)
-         * @param ifMismatchPrev desired action if the index is partly built, but by a different method then currently requested
+         * @param ifMismatchPrevious desired action if the index is partly built, but by a different method then currently requested
          * @param ifReadable desired action if the existing index state is READABLE (i.e. already built)
          */
         public IndexingPolicy(@Nullable String sourceIndex, @Nullable Object sourceIndexSubspaceKey, boolean forbidRecordScan,
-                              DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrev, DesiredAction ifReadable) {
+                              DesiredAction ifDisabled, DesiredAction ifWriteOnly, DesiredAction ifMismatchPrevious, DesiredAction ifReadable) {
             this.sourceIndex = sourceIndex;
             this.forbidRecordScan = forbidRecordScan;
             this.sourceIndexSubspaceKey = sourceIndexSubspaceKey;
             this.ifDisabled = ifDisabled;
             this.ifWriteOnly = ifWriteOnly;
-            this.ifMismatchPrev = ifMismatchPrev;
+            this.ifMismatchPrevious = ifMismatchPrevious;
             this.ifReadable = ifReadable;
         }
 
@@ -1957,7 +1957,7 @@ public class OnlineIndexer implements AutoCloseable {
                     .setForbidRecordScan(forbidRecordScan)
                     .setIfDisabled(ifDisabled)
                     .setIfWriteOnly(ifWriteOnly)
-                    .setIfMismatchPrev(ifMismatchPrev)
+                    .setIfMismatchPrevious(ifMismatchPrevious)
                     .setIfReadable(ifReadable);
         }
 
@@ -1981,8 +1981,8 @@ public class OnlineIndexer implements AutoCloseable {
          * The desired action if the index is in partly built, but the requested policy mismatches the previous one.
          * @return requested {@link DesiredAction}
          */
-        public DesiredAction getIfMismatchPrev() {
-            return ifMismatchPrev;
+        public DesiredAction getIfMismatchPrevious() {
+            return ifMismatchPrevious;
         }
 
         /**
@@ -2027,7 +2027,7 @@ public class OnlineIndexer implements AutoCloseable {
             private Object sourceIndexSubspaceKey = null;
             private DesiredAction ifDisabled = DesiredAction.REBUILD;
             private DesiredAction ifWriteOnly = DesiredAction.CONTINUE;
-            private DesiredAction ifMismatchPrev = DesiredAction.CONTINUE;
+            private DesiredAction ifMismatchPrevious = DesiredAction.CONTINUE;
             private DesiredAction ifReadable = DesiredAction.CONTINUE;
 
             protected Builder() {
@@ -2107,13 +2107,13 @@ public class OnlineIndexer implements AutoCloseable {
 
             /**
              * Set the desired action if the index is in a write-only mode but the previous indexing method mismatches the requested one.
-             * @param ifMismatchPrev CONTINUE: (default) attempt to continue the previous indexing process, using the previous policy
+             * @param ifMismatchPrevious CONTINUE: (default) attempt to continue the previous indexing process, using the previous policy
              *                       REBUILD: clear the existing data and rebuild, using the new policy
              *                       ERROR: reject (with exception).
              * @return this builder
              */
-            public Builder setIfMismatchPrev(final DesiredAction ifMismatchPrev) {
-                this.ifMismatchPrev = ifMismatchPrev;
+            public Builder setIfMismatchPrevious(final DesiredAction ifMismatchPrevious) {
+                this.ifMismatchPrevious = ifMismatchPrevious;
                 return this;
             }
 
@@ -2131,7 +2131,7 @@ public class OnlineIndexer implements AutoCloseable {
 
             public IndexingPolicy build() {
                 return new IndexingPolicy(sourceIndex, sourceIndexSubspaceKey, forbidRecordScan,
-                        ifDisabled, ifWriteOnly, ifMismatchPrev, ifReadable);
+                        ifDisabled, ifWriteOnly, ifMismatchPrevious, ifReadable);
             }
         }
     }
@@ -2214,12 +2214,12 @@ public class OnlineIndexer implements AutoCloseable {
         ;
         public final IndexingPolicy.DesiredAction ifDisabled;
         public final IndexingPolicy.DesiredAction ifWriteOnly;
-        public final IndexingPolicy.DesiredAction ifMismatchPrev;
+        public final IndexingPolicy.DesiredAction ifMismatchPrevious;
         public final IndexingPolicy.DesiredAction ifReadable;
-        IndexStatePrecondition(IndexingPolicy.DesiredAction ifDisabled, IndexingPolicy.DesiredAction ifWriteOnly, IndexingPolicy.DesiredAction ifMismatchPrev, IndexingPolicy.DesiredAction ifReadable) {
+        IndexStatePrecondition(IndexingPolicy.DesiredAction ifDisabled, IndexingPolicy.DesiredAction ifWriteOnly, IndexingPolicy.DesiredAction ifMismatchPrevious, IndexingPolicy.DesiredAction ifReadable) {
             this.ifDisabled = ifDisabled;
             this.ifWriteOnly = ifWriteOnly;
-            this.ifMismatchPrev = ifMismatchPrev;
+            this.ifMismatchPrevious = ifMismatchPrevious;
             this.ifReadable = ifReadable;
         }
     }

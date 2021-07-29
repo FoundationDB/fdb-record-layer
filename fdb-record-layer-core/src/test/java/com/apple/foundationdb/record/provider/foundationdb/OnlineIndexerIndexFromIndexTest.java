@@ -393,7 +393,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfDisabled(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                 )
                 .setTimer(timer)
@@ -454,7 +454,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE))
                 .setTimer(timer)
                 .build()) {
@@ -506,7 +506,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -562,7 +562,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -621,7 +621,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setTimer(timer)
                 .build()) {
@@ -798,7 +798,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.REBUILD)
                         .build())
                 .setLimit(chunkSize)
                 .setTimer(timer)
@@ -855,7 +855,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index2")
                         .forbidRecordScan()
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .build())
                 .setTimer(timer)
                 .build()) {

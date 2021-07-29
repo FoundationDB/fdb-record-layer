@@ -870,7 +870,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                 .setIndexingPolicy(OnlineIndexer.IndexingPolicy.newBuilder()
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfWriteOnly(OnlineIndexer.IndexingPolicy.DesiredAction.CONTINUE)
-                        .setIfMismatchPrev(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
+                        .setIfMismatchPrevious(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR)
                         .setIfReadable(OnlineIndexer.IndexingPolicy.DesiredAction.ERROR))
                 .build()) {
             int limit = indexBuilder.getLimit();
