@@ -30,7 +30,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Indexes can now be marked as being replaced by other indexes [(Issue #1315)](https://github.com/FoundationDB/fdb-record-layer/issues/1315)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.201.0
+
+* **Feature** Indexes can now be marked as being replaced by other indexes [(Issue #1315)](https://github.com/FoundationDB/fdb-record-layer/issues/1315)
 
 ### 3.0.200.0
 
