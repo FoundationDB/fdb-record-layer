@@ -71,18 +71,22 @@ public class IndexingScrubMissing extends IndexingBase {
 
     @Nonnull private final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy;
     private long scanCounter = 0;
+    private int logWarningCounter;
 
     public IndexingScrubMissing(@Nonnull final IndexingCommon common,
                                 @Nonnull final OnlineIndexer.IndexingPolicy policy,
                                 @Nonnull final OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
         super(common, policy, true);
         this.scrubbingPolicy = scrubbingPolicy;
+        this.logWarningCounter = scrubbingPolicy.getLogWarningsLimit();
     }
 
     @Override
     List<Object> indexingLogMessageKeyValues() {
         return Arrays.asList(
-                LogMessageKeys.INDEXING_METHOD, "scrub repair missing"
+                LogMessageKeys.INDEXING_METHOD, "scrub missing index entries",
+                LogMessageKeys.ALLOW_REPAIR, scrubbingPolicy.allowRepair(),
+                LogMessageKeys.LIMIT, scrubbingPolicy.getEntriesScanLimit()
         );
     }
 
@@ -215,7 +219,8 @@ public class IndexingScrubMissing extends IndexingBase {
                     }
                     // Here: Oh, No! the index is missing!!
                     // (Maybe) report an error and (maybe) return this record to be index
-                    if (LOGGER.isWarnEnabled() && scrubbingPolicy.shouldLogWarning()) {
+                    if (LOGGER.isWarnEnabled() && logWarningCounter > 0) {
+                        logWarningCounter --;
                         LOGGER.warn(KeyValueLogMessage.build("Scrubber: missing index entry",
                                 LogMessageKeys.KEY, rec.getPrimaryKey().toString())
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
