@@ -26,11 +26,11 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* Index scrubber: log warnings when repair is not allowed [(Issue #1345)](https://github.com/FoundationDB/fdb-record-layer/issues/1345)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* Use IndexingPolicy instead of indexStatePrecondition [(Issue #1336)](https://github.com/FoundationDB/fdb-record-layer/issues/1336)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,11 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.202.0
+
+* Index scrubber: log warnings when repair is not allowed [(Issue #1345)](https://github.com/FoundationDB/fdb-record-layer/issues/1345)
+* Use IndexingPolicy instead of indexStatePrecondition [(Issue #1336)](https://github.com/FoundationDB/fdb-record-layer/issues/1336)
 
 ### 3.0.201.0
 
