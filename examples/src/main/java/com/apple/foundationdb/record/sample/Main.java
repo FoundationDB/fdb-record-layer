@@ -127,7 +127,7 @@ public class Main {
 
         // Clear out any data that may be in the record store.
         LOGGER.info("Clearing the Record Store ...");
-        fdb.runAsync(path::deleteAllDataAsync);
+        fdb.runAsync(path::deleteAllDataAsync).join();
 
         // Build the metadata. This simple approach only works for primary
         // keys and secondary indexes defined in the Protobuf message types.
@@ -455,7 +455,7 @@ public class Main {
                     SampleProto.Customer.Builder builder = SampleProto.Customer.newBuilder().mergeFrom(record.getRecord());
                     addressMap.put(builder.getFirstName() + " " + builder.getLastName(),
                             builder.getEmailAddressList());
-                });
+                }).join();
             }
             return addressMap;
         });
