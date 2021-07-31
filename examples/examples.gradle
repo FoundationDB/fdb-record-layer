@@ -34,4 +34,4 @@ dependencies {
 }
 
 mainClassName = 'com.apple.foundationdb.record.sample.Main'
-applicationDefaultJvmArgs = ["-Dlog4j.configurationFile=${projectDir}/resources/log4j2.properties"]
+applicationDefaultJvmArgs = ["-Dlog4j.configurationFile=${projectDir}/src/main/resources/log4j2.properties"]

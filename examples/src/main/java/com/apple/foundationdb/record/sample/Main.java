@@ -316,7 +316,7 @@ public class Main {
         recordStoreBuilder.setMetaDataProvider(rmd2);
 
         // Calling "open" on an existing record store with new meta-data will
-        // create the index and place them in a "write-only" mode that means that
+        // create the index and place them in a "disabled" mode that means that
         // they cannot yet be used for queries. (In particular, the query planner
         // will ignore this index and any attempt to read from the index will
         // throw an error.) To enable querying, one must invoke the online index
@@ -332,7 +332,7 @@ public class Main {
         LOGGER.info("Running index builds of new indexes:");
         // Build all of the indexes in parallel by firing off a future for each and
         // then wait for all of them.
-        AsyncUtil.whenAll(storeState.getWriteOnlyIndexNames().stream()
+        AsyncUtil.whenAll(storeState.getDisabledIndexNames().stream()
                 .map(indexName -> {
                     // Build this index. It will begin the background job and return a future
                     // that will complete when the index is ready for querying.
