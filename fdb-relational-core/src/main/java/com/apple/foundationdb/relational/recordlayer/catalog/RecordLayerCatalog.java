@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.tuple.Tuple;
@@ -43,6 +44,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import java.net.URI;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public class RecordLayerCatalog implements Catalog {
     private static final int DEFAULT_FORMAT_VERSION = 8;
@@ -52,17 +54,23 @@ public class RecordLayerCatalog implements Catalog {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final SerializerRegistry serializerRegistry;
     private final KeySpace keySpace;
+    private final int formatVersion;
+    private final ExistenceCheckerForStore existenceCheckerForStore;
 
     private RecordLayerCatalog(DatabaseLocator locator,
                                RecordMetaDataStore metadataProvider,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                SerializerRegistry serializerRegistry,
-                               KeySpace keySpace) {
+                               KeySpace keySpace,
+                               int formatVersion,
+                               ExistenceCheckerForStore existenceCheckerForStore) {
         this.databaseLocator = locator;
         this.metadataProvider = metadataProvider;
         this.userVersionChecker = userVersionChecker;
         this.serializerRegistry = serializerRegistry;
         this.keySpace = keySpace;
+        this.formatVersion = formatVersion;
+        this.existenceCheckerForStore = existenceCheckerForStore;
     }
 
     @Nonnull
@@ -75,7 +83,7 @@ public class RecordLayerCatalog implements Catalog {
         final Pair<FDBDatabase, KeySpacePath> dbAndKeySpace = getFDBDatabaseAndKeySpacePath(url, keySpace);
         final KeySpacePath keySpacePath = dbAndKeySpace.getRight();
         return new RecordLayerDatabase(dbAndKeySpace.getLeft(),metadataProvider, userVersionChecker,
-                DEFAULT_FORMAT_VERSION, serializerRegistry, keySpacePath);
+                formatVersion, serializerRegistry, keySpacePath, existenceCheckerForStore);
     }
 
     @VisibleForTesting
@@ -96,9 +104,9 @@ public class RecordLayerCatalog implements Catalog {
                 .setSerializer(serializerRegistry.loadSerializer(schemaPath))
                 .setMetaDataProvider(metadataProvider.loadMetaData(schemaTemplateUri))
                 .setUserVersionChecker(userVersionChecker)
-                .setFormatVersion(DEFAULT_FORMAT_VERSION)
+                .setFormatVersion(formatVersion)
                 .setContext(ctx)
-                .createOrOpen();
+                .createOrOpen(existenceCheckerForStore.forStore(schemaTemplateUri));
     }
 
     public static class Builder {
@@ -107,6 +115,8 @@ public class RecordLayerCatalog implements Catalog {
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
         private SerializerRegistry serializerRegistry;
         private KeySpace keySpace;
+        private int formatVersion;
+        private ExistenceCheckerForStore existenceCheckerForStore;
 
         public Builder setMetadataProvider(@Nonnull RecordMetaDataStore metadataProvider) {
             this.metadataProvider = metadataProvider;
@@ -133,6 +143,16 @@ public class RecordLayerCatalog implements Catalog {
             return this;
         }
 
+        public Builder setFormatVersion(int formatVersion) {
+            this.formatVersion = formatVersion;
+            return this;
+        }
+
+        public Builder setExistenceCheckerForStore(ExistenceCheckerForStore existenceCheckerForStore) {
+            this.existenceCheckerForStore = existenceCheckerForStore;
+            return this;
+        }
+
         public RecordLayerCatalog build() {
             if (metadataProvider == null) {
                 throw new IllegalStateException("RecordLayerCatalog must have its metadataProvider");
@@ -143,7 +163,14 @@ public class RecordLayerCatalog implements Catalog {
             if (keySpace == null) {
                 throw new IllegalStateException("RecordLayerCatalog must have its keySpace");
             }
-            return new RecordLayerCatalog(databaseLocator,metadataProvider, userVersionChecker, serializerRegistry, keySpace);
+            if (formatVersion <= 0) {
+                formatVersion = DEFAULT_FORMAT_VERSION;
+            }
+            if (existenceCheckerForStore == null) {
+                existenceCheckerForStore = storeName -> FDBRecordStoreBase.StoreExistenceCheck.NONE;
+            }
+            return new RecordLayerCatalog(databaseLocator,metadataProvider, userVersionChecker,
+                    serializerRegistry, keySpace, formatVersion, existenceCheckerForStore);
         }
     }
 }

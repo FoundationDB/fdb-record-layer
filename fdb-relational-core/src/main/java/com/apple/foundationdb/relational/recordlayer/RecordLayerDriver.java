@@ -22,16 +22,20 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
+import com.apple.foundationdb.relational.api.InvalidTypeException;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 public class RecordLayerDriver implements RelationalDriver {
@@ -43,7 +47,7 @@ public class RecordLayerDriver implements RelationalDriver {
     }
 
     @Override
-    public DatabaseConnection connect(@Nonnull List<Object> url, @Nonnull Options connectionOptions) throws RelationalException {
+    public DatabaseConnection connect(@Nonnull List<Object> url, @Nonnull Options connectionOptions, @Nullable Transaction existingTransaction) throws RelationalException {
         int formatVersion = parseFormatVersion(url,connectionOptions);
         /*
          * Basic Algorithm for Opening a connection:
@@ -51,7 +55,10 @@ public class RecordLayerDriver implements RelationalDriver {
          * 1. Go to Catalog and verify that the given Database exists
          */
         RelationalDatabase frl = dataCatalog.getDatabase(url);
-        RecordStoreConnection conn =  new RecordStoreConnection((RecordLayerDatabase)frl);
+        if (existingTransaction != null && !(existingTransaction instanceof RecordContextTransaction)) {
+            throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
+        }
+        RecordStoreConnection conn =  new RecordStoreConnection((RecordLayerDatabase)frl, (RecordContextTransaction) existingTransaction);
         ((RecordLayerDatabase)frl).setConnection(conn);
         return conn;
     }

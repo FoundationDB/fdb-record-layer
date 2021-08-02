@@ -32,12 +32,14 @@ import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.recordlayer.catalog.ExistenceCheckerForStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @NotThreadSafe
 public class RecordLayerDatabase implements RelationalDatabase {
@@ -53,18 +55,22 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     private final Map<String, RecordLayerSchema> schemas = new HashMap<>();
 
+    private final ExistenceCheckerForStore existenceCheckerForStore;
+
     public RecordLayerDatabase(FDBDatabase fdbDb,
                                RecordMetaDataStore metaDataProvider,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                int formatVersion,
                                SerializerRegistry serializerRegistry,
-                               KeySpacePath dbPathPrefix) {
+                               KeySpacePath dbPathPrefix,
+                               ExistenceCheckerForStore existenceCheckerForStore) {
         this.fdbDb = fdbDb;
         this.metaDataProvider = metaDataProvider;
         this.userVersionChecker = userVersionChecker;
         this.formatVersion = formatVersion;
         this.serializerRegistry = serializerRegistry;
         this.ksPath = dbPathPrefix;
+        this.existenceCheckerForStore = existenceCheckerForStore;
     }
 
     void setConnection(@Nonnull RecordStoreConnection conn){
@@ -119,7 +125,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
                 .setUserVersionChecker(userVersionChecker)
                 .setFormatVersion(formatVersion)
                 .setContext(txn)
-                .open();
+                .createOrOpen(existenceCheckerForStore.forStore(storeName));
     }
 
     public FDBDatabase getFDBDatabase() {

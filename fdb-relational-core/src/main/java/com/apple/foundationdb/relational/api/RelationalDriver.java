@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
@@ -32,11 +33,12 @@ public interface RelationalDriver {
      *
      * @param url the url path for the database structure.
      * @param connectionOptions connection options that can be used to configure the connection
+     * @param existingTransaction the existing Transaction for this connection to reuse
      * @return a connection to the specified database
      * @throws RelationalException if something goes wrong during opening the database (for example, if no
      * database can be found in the catalog for the specified database url)
      */
-    DatabaseConnection connect(@Nonnull List<Object> url, @Nonnull Options connectionOptions) throws RelationalException;
+    DatabaseConnection connect(@Nonnull List<Object> url, @Nonnull Options connectionOptions, @Nullable Transaction existingTransaction) throws RelationalException;
 
     /**
      * @return the major version of the Relational Driver.

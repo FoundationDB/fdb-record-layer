@@ -26,17 +26,22 @@ import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 
+import javax.annotation.Nullable;
+
 public class RecordStoreConnection implements DatabaseConnection {
     private final FDBDatabase fdbDb;
     final RelationalDatabase frl;
 
-    RecordContextTransaction transaction = null;
+    RecordContextTransaction transaction;
     private String currentSchemaLabel;
     private boolean autoCommit = true;
+    private boolean usingAnExistingTransaction;
 
-    public RecordStoreConnection(RecordLayerDatabase frl) {
+    public RecordStoreConnection(RecordLayerDatabase frl, @Nullable RecordContextTransaction existingTransaction) {
         this.fdbDb = frl.getFDBDatabase();
         this.frl = frl;
+        this.transaction = existingTransaction;
+        this.usingAnExistingTransaction = existingTransaction != null;
     }
 
     @Override
@@ -51,7 +56,7 @@ public class RecordStoreConnection implements DatabaseConnection {
 
     @Override
     public boolean isAutoCommitEnabled() {
-        return this.autoCommit;
+        return !usingAnExistingTransaction && this.autoCommit;
     }
 
     @Override
@@ -73,6 +78,7 @@ public class RecordStoreConnection implements DatabaseConnection {
                 }
             }
             transaction = null;
+            usingAnExistingTransaction = false;
         }else{
             err = new RelationalException("No transaction to commit", RelationalException.ErrorCode.TRANSACTION_INACTIVE);
         }
@@ -91,6 +97,7 @@ public class RecordStoreConnection implements DatabaseConnection {
                 err = RelationalException.convert(re);
             }
             transaction = null;
+            usingAnExistingTransaction = false;
         }
         if (err != null) {
             throw err;
@@ -116,7 +123,9 @@ public class RecordStoreConnection implements DatabaseConnection {
 
     @Override
     public void beginTransaction() {
-        transaction = new RecordContextTransaction(fdbDb.openContext());
+        if (!inActiveTransaction()) {
+            transaction = new RecordContextTransaction(fdbDb.openContext());
+        }
     }
 
     boolean inActiveTransaction() {
