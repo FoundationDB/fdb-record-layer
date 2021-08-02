@@ -88,7 +88,7 @@ public class OperationOption<T> {
         return new OperationOption<>(TIMEOUT_POLICY_NAME, policy);
     }
 
-    static OperationOption<String> index(String indexName){
+    public static OperationOption<String> index(String indexName){
         return new OperationOption<>(INDEX_HINT_NAME,indexName);
     }
 
@@ -105,4 +105,5 @@ public class OperationOption<T> {
     public static OperationOption<Boolean> forceVerifyDdl(){
         return new OperationOption<>(FORCE_VERIFY_DDL,Boolean.TRUE);
     }
+
 }

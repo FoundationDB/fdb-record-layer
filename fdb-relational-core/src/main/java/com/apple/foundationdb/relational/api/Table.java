@@ -54,4 +54,6 @@ public interface Table extends Scannable,AutoCloseable{
      * the field, and the value in the array is the name of that field
      */
     String[] getPrimaryKeys();
+
+    String getName();
 }

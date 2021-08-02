@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
@@ -87,5 +88,9 @@ public class RecordContextTransaction implements Transaction {
     void addTerminationListener(@Nonnull Runnable onTerminateListener){
         assert !isClosed : "Cannot add a termination listener to a closed transaction!";
         txnTerminateListeners.add(onTerminateListener);
+    }
+
+    public FDBRecordContext getContext() {
+        return context;
     }
 }

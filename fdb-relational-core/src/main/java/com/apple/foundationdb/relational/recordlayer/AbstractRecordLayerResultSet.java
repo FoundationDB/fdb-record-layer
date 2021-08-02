@@ -30,22 +30,6 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.google.protobuf.Message;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
-    protected final NestableTuple startKey;
-    protected final NestableTuple endKey;
-    protected final RecordStoreConnection sourceConnection;
-    protected final Options scanOptions;
-
-    protected final Scannable scannable;
-    protected Continuation lastContinuation = null;
-
-    public AbstractRecordLayerResultSet(Scannable scannable, NestableTuple start,NestableTuple end,
-                                        RecordStoreConnection sourceConnection,Options scanOptions) {
-        this.scannable = scannable;
-        this.startKey = start;
-        this.endKey = end;
-        this.sourceConnection = sourceConnection;
-        this.scanOptions = scanOptions;
-    }
 
     @Override
     public IsolationLevel getActualIsolationLevel() {

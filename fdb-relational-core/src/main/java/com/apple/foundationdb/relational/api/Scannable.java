@@ -36,6 +36,8 @@ public interface Scannable {
      */
     Scanner<KeyValue> openScan(@Nonnull Transaction t, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey,@Nonnull Options scanOptions) throws RelationalException;
 
+    KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key,@Nonnull Options scanOptions) throws RelationalException;
+
     /**
      * The index is the position in the KeyValue(key first, then value), and the value is
      * the name of the field at that position.

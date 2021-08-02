@@ -21,19 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.Index;
-import com.apple.foundationdb.relational.api.NestableTuple;
-import com.apple.foundationdb.relational.api.OperationOption;
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Queryable;
-import com.apple.foundationdb.relational.api.Scannable;
-import com.apple.foundationdb.relational.api.Statement;
-import com.apple.foundationdb.relational.api.Table;
-import com.apple.foundationdb.relational.api.TableScan;
-import com.apple.foundationdb.relational.api.RelationalException;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.*;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
+import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -61,7 +51,7 @@ public class RecordStoreStatement implements Statement {
     }
 
     @Override
-    public RelationalResultSet executeScan(@Nonnull TableScan scan,@Nonnull  Options options) throws RelationalException {
+    public @Nonnull RelationalResultSet executeScan(@Nonnull TableScan scan,@Nonnull  Options options) throws RelationalException {
         ensureTransactionActive();
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),scan.getTableName());
@@ -69,25 +59,7 @@ public class RecordStoreStatement implements Statement {
 
         Table table = schema.loadTable(schemaAndTable[1],options);
 
-        Scannable source;
-
-        String indexName = options.getOption(OperationOption.INDEX_HINT_NAME,null);
-        if(indexName!=null){
-            Index index = null;
-            final Set<Index> readableIndexes = table.getAvailableIndexes();
-            for (Index idx : readableIndexes) {
-                if (idx.getName().equals(indexName)) {
-                    index = idx;
-                    break;
-                }
-            }
-            if (index == null) {
-                throw new RelationalException("Unknown index: <" + indexName + "> on type <" + scan.getTableName() + ">", RelationalException.ErrorCode.UNKNOWN_INDEX);
-            }
-            source = index;
-        }else{
-            source = table;
-        }
+        Scannable source = getSourceScannable(options, table);
 
         NestableTuple start = toNestableTuple(scan.getStartKey(),source.getKeyFieldNames());
         NestableTuple end = toNestableTuple(scan.getEndKey(),source.getKeyFieldNames());
@@ -95,10 +67,26 @@ public class RecordStoreStatement implements Statement {
         return new RecordLayerResultSet(source,start,end,conn,options);
     }
 
-
     @Override
-    public RelationalResultSet executeGet(@Nonnull String tableName, @Nullable NestableTuple key, Options options) throws RelationalException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+    public @Nonnull RelationalResultSet executeGet(@Nonnull String tableName,@Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
+        //check that the key is valid
+        Preconditions.checkArgument(key.toMap().size()!=0,"Cannot perform a GET without specifying a key");
+        ensureTransactionActive();
+
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
+        DatabaseSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+
+        Table table = schema.loadTable(schemaAndTable[1],options);
+
+        Scannable source = getSourceScannable(options,table);
+
+        NestableTuple tuple = toNestableTuple(key.toMap(),source.getKeyFieldNames(),true);
+        if(tuple==null){
+            throw new RelationalException("Insufficient columns to perform GET on table <"+table.getName()+">",RelationalException.ErrorCode.INVALID_PRIMARYKEY_SET);
+        }
+
+        final KeyValue keyValue = source.get(conn.transaction, tuple, options);
+        return new KeyValueResultSet(keyValue,table.getFieldNames(),true);
     }
 
     @Override
@@ -146,11 +134,10 @@ public class RecordStoreStatement implements Statement {
     }
 
     @Override
-    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<NestableTuple> keys, Options options) throws RelationalException {
+    public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, Options options) throws RelationalException {
         if(!keys.hasNext()){
             return 0;
         }
-        NestableTuple toDelete = keys.next();
 
         ensureTransactionActive();
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
@@ -158,6 +145,8 @@ public class RecordStoreStatement implements Statement {
 
         Table table = schema.loadTable(schemaAndTable[1],options);
 
+        Scannable source = getSourceScannable(options,table);
+        NestableTuple toDelete = toNestableTuple(keys.next(),source.getKeyFieldNames(),true);
         int count = 0;
         RelationalException err = null;
         try{
@@ -167,7 +156,7 @@ public class RecordStoreStatement implements Statement {
                 }
                 toDelete = null;
                 if (keys.hasNext()) {
-                    toDelete = keys.next();
+                    toDelete = toNestableTuple(keys.next(),source.getKeyFieldNames(),true);
                 }
             }
             if(conn.isAutoCommitEnabled()){
@@ -229,20 +218,57 @@ public class RecordStoreStatement implements Statement {
     }
 
     private @Nullable NestableTuple toNestableTuple(Map<String, Object> fieldMap, String[] fieldNames) {
-        if(fieldMap.size()<=0){
+        return toNestableTuple(fieldMap, fieldNames,false);
+    }
+
+    private @Nullable
+    NestableTuple toNestableTuple(KeySet key, String[] fieldNames, boolean failOnMissingColumns) {
+        return toNestableTuple(key.toMap(),fieldNames,failOnMissingColumns);
+    }
+
+    private @Nullable
+    NestableTuple toNestableTuple(Map<String, Object> fieldMap, String[] fieldNames, boolean failOnMissingColumns) {
+        if (fieldMap.size() <= 0) {
             return null;
         }
 
         Tuple t = new Tuple();
-        for(String fieldName:fieldNames){
+        for (String fieldName : fieldNames) {
             final Object o = fieldMap.get(fieldName);
-            if(o==null){
-                break;
-            }else{
-                t =t.addObject(o);
+            if (o == null) {
+                if (failOnMissingColumns) {
+                    return null;
+                } else {
+                    break;
+                }
+            } else {
+                t = t.addObject(o);
             }
         }
         return new FDBTuple(t);
+
+    }
+
+    private @Nonnull Scannable getSourceScannable(@Nonnull Options options,@Nonnull Table table) {
+        Scannable source;
+        String indexName = options.getOption(OperationOption.INDEX_HINT_NAME,null);
+        if(indexName!=null){
+            Index index = null;
+            final Set<Index> readableIndexes = table.getAvailableIndexes();
+            for (Index idx : readableIndexes) {
+                if (idx.getName().equals(indexName)) {
+                    index = idx;
+                    break;
+                }
+            }
+            if (index == null) {
+                throw new RelationalException("Unknown index: <" + indexName + "> on type <" + table.getName() + ">", RelationalException.ErrorCode.UNKNOWN_INDEX);
+            }
+            source = index;
+        }else{
+            source = table;
+        }
+        return source;
     }
 
 }

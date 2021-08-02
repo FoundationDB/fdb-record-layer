@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.Scanner;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
@@ -30,20 +31,30 @@ import com.apple.foundationdb.relational.api.RelationalException;
 import com.google.protobuf.Message;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
-    private final String[] keyFieldNames;
+    protected final NestableTuple startKey;
+    protected final NestableTuple endKey;
+    protected final RecordStoreConnection sourceConnection;
+    protected final Options scanOptions;
+
+    protected final Scannable scannable;
+    protected Continuation lastContinuation = null;
+
+    public RecordLayerResultSet(Scannable scannable, NestableTuple start,NestableTuple end,
+                                        RecordStoreConnection sourceConnection,Options scanOptions) {
+        this.scannable = scannable;
+        this.startKey = start;
+        this.endKey = end;
+        this.sourceConnection = sourceConnection;
+        this.scanOptions = scanOptions;
+        this.fieldNames = scannable.getFieldNames();
+    }
+
+    private final String[] fieldNames;
 
     private Scanner<KeyValue> currentCursor;
 
     private KeyValue currentRow;
 
-    public RecordLayerResultSet(Scannable scannable,
-                                NestableTuple start,
-                                NestableTuple end,
-                                RecordStoreConnection connection,
-                                Options scanOptions ) {
-        super(scannable,start,end,connection,scanOptions);
-        this.keyFieldNames = scannable.getFieldNames();
-    }
 
     @Override
     public boolean next() throws RelationalException {
@@ -79,15 +90,15 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if(position < currentRow.keyColumnCount()){
             o = currentRow.key().getObject(position);
         }else{
-            o = currentRow.key().getObject(position-currentRow.keyColumnCount());
+            o = currentRow.value().getObject(position-currentRow.keyColumnCount());
         }
         return o;
     }
 
     @Override
     protected int getPosition(String fieldName) {
-        for(int pos = 0; pos < keyFieldNames.length;pos++){
-            if(keyFieldNames[pos].equalsIgnoreCase(fieldName)){
+        for(int pos = 0; pos < fieldNames.length; pos++){
+            if(fieldNames[pos].equalsIgnoreCase(fieldName)){
                 return pos;
             }
         }

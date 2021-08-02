@@ -59,8 +59,9 @@ public class RelationalException extends RuntimeException{
         UNKNOWN("UK000"),
         UNKNOWN_INDEX("TB00UI"),
         NO_SUCH_FIELD("RSNSF"), //no field of specified name in result set
-        CANNOT_CONVERT_TO_MESSAGE("RSCTM") //cannot convert a ResultRow to a Message object
-        ;
+        CANNOT_CONVERT_TO_MESSAGE("RSCTM"), //cannot convert a ResultRow to a Message object
+        INVALID_PATH("U0IP1"),
+        INVALID_PRIMARYKEY_SET("U0IPKS");
 
         private final String errorCode;
 

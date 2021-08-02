@@ -23,7 +23,6 @@ package com.apple.foundationdb.relational.api;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Iterator;
 
 public interface Statement extends AutoCloseable{
@@ -39,9 +38,9 @@ public interface Statement extends AutoCloseable{
 
     RelationalResultSet executeQuery(Queryable query, Options options) throws RelationalException;
 
-    RelationalResultSet executeScan(@Nonnull TableScan scan,@Nonnull  Options options) throws RelationalException;
+    @Nonnull RelationalResultSet executeScan(@Nonnull TableScan scan,@Nonnull  Options options) throws RelationalException;
 
-    RelationalResultSet executeGet(@Nonnull String tableName, @Nullable NestableTuple key, Options options) throws RelationalException;
+    @Nonnull RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key,@Nonnull Options options) throws RelationalException;
 
     int executeInsert(@Nonnull String tableName, @Nonnull Iterator<Message> data,Options options) throws RelationalException;
 
@@ -49,9 +48,9 @@ public interface Statement extends AutoCloseable{
         return executeInsert(tableName,data.iterator(),options);
     }
 
-    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<NestableTuple> keys,Options options) throws RelationalException;
+    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys,Options options) throws RelationalException;
 
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<NestableTuple> keys,Options options) throws RelationalException{
+    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys,Options options) throws RelationalException{
         return executeDelete(tableName,keys.iterator(),options);
     }
 

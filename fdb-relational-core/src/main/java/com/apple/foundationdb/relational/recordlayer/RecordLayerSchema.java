@@ -88,7 +88,7 @@ public class RecordLayerSchema implements DatabaseSchema {
         RecordTypeTable t = loadedTables.get(tableName);
         boolean putBack = false;
         if(t==null){
-            t= new RecordTypeTable(this,tableName,db);
+            t= new RecordTypeTable(this,tableName);
             putBack = true;
         }
         if(options.hasOption(OperationOption.FORCE_VERIFY_DDL)){

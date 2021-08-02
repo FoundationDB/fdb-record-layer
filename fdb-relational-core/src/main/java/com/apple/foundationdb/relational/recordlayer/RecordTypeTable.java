@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
@@ -33,18 +32,13 @@ import com.apple.foundationdb.relational.api.Index;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Scanner;
 import com.apple.foundationdb.relational.api.Table;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
-import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -52,58 +46,33 @@ import java.util.stream.Collectors;
 /**
  * A table implementation based on a specific record type.
  */
-public class RecordTypeTable implements Table {
+public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message>> implements Table {
     private final RecordLayerSchema schema;
     private final String tableName;
-    private final RecordLayerDatabase recordLayerDatabase;
     private final RecordStoreConnection conn;
 
     private RecordType currentTypeRef;
-    public RecordTypeTable(RecordLayerSchema schema,
-                           String tableName,
-                           RecordLayerDatabase recordLayerDatabase) {
+    public RecordTypeTable(@Nonnull RecordLayerSchema schema,
+                           @Nonnull String tableName) {
         this.schema = schema;
         this.tableName = tableName;
-        this.recordLayerDatabase = recordLayerDatabase;
         this.conn = schema.conn;
     }
 
     @Override
-    public DatabaseSchema getSchema() {
+    public @Nonnull RecordLayerSchema getSchema() {
         return schema;
     }
 
+
     @Override
-    public Scanner<KeyValue> openScan(@Nonnull Transaction t,
-                                      @Nullable NestableTuple startKey,
-                                      @Nullable NestableTuple endKey,
-                                      @Nonnull Options scanOptions) throws RelationalException {
-
-        //TODO(bfines) this will need to be rewired to support continuations
-        TupleRange range;
-        if(startKey==null){
-            if(endKey==null){
-                range = TupleRange.ALL; //this is almost certainly incorrect
-            }else{
-                range = TupleRange.between(null,TupleUtils.toFDBTuple(endKey));
-            }
-        }else if(endKey==null){
-            range = TupleRange.between(TupleUtils.toFDBTuple(startKey),null);
-        }else {
-            range = TupleRange.between(TupleUtils.toFDBTuple(startKey),TupleUtils.toFDBTuple(endKey));
-        }
-
+    public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull Options scanOptions) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
-        RecordType type = loadRecordType();
-        //TODO(bfines) get the type index for this
-        ScanProperties props = optionsToProperties(scanOptions);
-        final RecordCursor<FDBStoredRecord<Message>> cursor = store.scanRecords(range, null, props);
-        return CursorScanner.create(cursor, record -> new ImmutableKeyValue(new EmptyTuple(), new ValueTuple(record.getRecord())),true);
-    }
-
-    private ScanProperties optionsToProperties(Options scanOptions) {
-        //TODO(bfines) implement fully
-        return new ScanProperties(ExecuteProperties.newBuilder().build());
+        final FDBStoredRecord<Message> storedRecord = store.loadRecord(TupleUtils.toFDBTuple(key));
+        if (storedRecord == null) {
+            return null;
+        }
+        return new ImmutableKeyValue(TupleUtils.toRelationalTuple(storedRecord.getPrimaryKey()), new MessageTuple(storedRecord.getRecord()));
     }
 
     @Override
@@ -136,7 +105,7 @@ public class RecordTypeTable implements Table {
 
     @Override
     public Set<Index> getAvailableIndexes() {
-        return loadRecordType().getIndexes().stream().map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index,conn)).collect(Collectors.toSet());
+        return loadRecordType().getIndexes().stream().map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index,this,conn)).collect(Collectors.toSet());
     }
 
     @Override
@@ -161,6 +130,26 @@ public class RecordTypeTable implements Table {
     public String[] getPrimaryKeys() {
         RecordType type = loadRecordType();
         return type.getPrimaryKey().validate(type.getDescriptor()).stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
+    }
+
+    @Override
+    public String getName() {
+        return tableName;
+    }
+
+    @Override
+    protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range, ScanProperties props) {
+        return store.scanRecords(range, null, props);
+    }
+
+    @Override
+    protected Function<FDBStoredRecord<Message>, KeyValue> keyValueTransform() {
+        return record -> new ImmutableKeyValue(new EmptyTuple(), new MessageTuple(record.getRecord()));
+    }
+
+    @Override
+    protected boolean supportsMessageParsing() {
+        return true;
     }
 
     RecordType loadRecordType() {
