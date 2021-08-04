@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -37,6 +36,7 @@ import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
+import com.apple.foundationdb.relational.recordlayer.catalog.DatabaseLocator;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -49,13 +49,20 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.net.URI;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
+    private MapRecordMetaDataStore metaDataStore;
     private FDBDatabase fdbDatabase;
     private RecordLayerCatalog catalog;
-    private final MutableRecordMetaDataStore metaDataStore = new MapRecordMetaDataStore();
+    private KeySpace keySpace;
+
     private final List<RecordLayerDatabase> databases = new LinkedList<>();
+
 
     @Override
     public void afterEach(ExtensionContext context) {
@@ -68,8 +75,9 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     @Override
     public void beforeEach(ExtensionContext context) {
-        final KeySpace keySpace = getKeySpaceForSetup();
+        keySpace = getKeySpaceForSetup();
 
+        metaDataStore = new MapRecordMetaDataStore();
         final RecordLayerCatalog.Builder catalogBuilder = new RecordLayerCatalog.Builder();
         catalogBuilder.setKeySpace(keySpace)
                 .setMetadataProvider(metaDataStore)
@@ -83,22 +91,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     @Override
     @Nonnull
-    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
+    public SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException {
         return catalog.getSchemaTemplate(templateId);
     }
 
-    @Override
     @Nonnull
-    public RecordLayerDatabase getDatabase(@Nonnull List<Object> url) throws RelationalException {
-        RelationalDatabase relationalDatabase = catalog.getDatabase(url);
-        assert relationalDatabase instanceof RecordLayerDatabase : "The returned relationalDatabase should be a RecordLayerDatabase object";
-        RecordLayerDatabase recordLayerDatabase = (RecordLayerDatabase) relationalDatabase;
-        databases.add(recordLayerDatabase);
-        return recordLayerDatabase;
-    }
-
-    public FDBDatabase getFdbDatabase() {
-        return fdbDatabase;
+    @Override
+    public RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException {
+        return catalog.getDatabase(url);
     }
 
     private static RecordMetaDataBuilder getRecordMetadataBuilder() {
@@ -113,27 +113,31 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         KeySpaceDirectory schemaDirectory = new KeySpaceDirectory("schemaid", KeySpaceDirectory.KeyType.STRING);
         dbDirectory = dbDirectory.addSubdirectory(schemaDirectory);
         rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
-
+        //add the templates subdirectory
+        rootDirectory.addSubdirectory(new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.LONG,123));
         return new KeySpace(rootDirectory);
     }
 
-    public void createDatabase(List<Object> dbUri, DatabaseTemplate dbTemplate) {
+    public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {
         //URI is of the format /<dbid>, and each schema should be in /<dbid>/<schemaid>
+        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri,keySpace);
 
         //get an FDBDatabase from the locator, so that we can open a transaction against it
+//        final FDBDatabase fdbDatabase = catalog.getLocator().locateDatabase(dbPath);
         RecordContextTransaction context = new RecordContextTransaction(fdbDatabase.openContext());
 
-        KeySpacePath path = catalog.getFDBDatabaseAndKeySpacePath(dbUri,getKeySpaceForSetup()).getRight();
-
         for(Map.Entry<String,String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()){
-            KeySpacePath schemaPath = path.add("schemaid",schemaData.getKey());
-            metaDataStore.mapSchema(schemaData.getKey(),schemaData.getValue());
-            catalog.createSchema(schemaPath,schemaData.getValue(),context);
+            URI templateUri = URI.create("/123/"+schemaData.getValue());
+
+            //create the schema from the template
+            URI schemaUri = URI.create(dbUri.getPath()+"/"+schemaData.getKey());
+
+            catalog.createSchema(schemaUri,templateUri,context);
         }
         context.commit();
     }
 
     public void createSchemaTemplate(RecordLayerTemplate template){
-        metaDataStore.putMetadata(template.getUniqueName(),template);
+        metaDataStore.putMetadata(URI.create("/123"+template.getUniqueName().getPath()),template);
     }
 }

@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.api.catalog;
 import com.apple.foundationdb.relational.api.RelationalException;
 
 import javax.annotation.Nonnull;
-import java.util.List;
+import java.net.URI;
 
 /**
  * Representation of a metadata catalog.
@@ -38,12 +38,12 @@ public interface Catalog {
      * wrong. If there is no schema template with the given id, then the error code is NO_SUCH_SCHEMA_TEMPLATE
      */
     @Nonnull
-    SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException;
+    SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException;
 
     /**
      * @param url the url to locate a unique database instance, in object list data structure representing the cluster and keySpace directory for the database
      * @return the Database for that id.
      * @throws RelationalException if the Database doesn't exist, or if something else goes wrong.
      */
-    @Nonnull RelationalDatabase getDatabase(@Nonnull List<Object> url) throws RelationalException;
+    @Nonnull RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException;
 }

@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -121,15 +122,16 @@ public class RecordLayerDatabase implements RelationalDatabase {
         return FDBRecordStore.newBuilder()
                 .setKeySpacePath(storePath)
                 .setSerializer(serializerRegistry.loadSerializer(storePath))
-                .setMetaDataProvider(metaDataProvider.loadMetaData(storeName))
+                //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
+                .setMetaDataProvider(metaDataProvider.loadMetaData(URI.create("/123/RestaurantRecord")))
                 .setUserVersionChecker(userVersionChecker)
                 .setFormatVersion(formatVersion)
                 .setContext(txn)
-                .createOrOpen(existenceCheckerForStore.forStore(storeName));
+                .createOrOpen(existenceCheckerForStore.forStore(storePath));
     }
 
-    public FDBDatabase getFDBDatabase() {
-       return fdbDb;
+    FDBDatabase getFDBDatabase() {
+        return fdbDb;
     }
 
     /* ****************************************************************************************************************/

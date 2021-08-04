@@ -23,26 +23,21 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
+import javax.annotation.Nonnull;
+import java.net.URI;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
-    private final ConcurrentMap<String, RecordMetaDataProvider> metadataMap = new ConcurrentHashMap<>();
-    private final ConcurrentMap<String,String> schemaToTemplateMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<URI, RecordMetaDataProvider> metadataMap = new ConcurrentHashMap<>();
 
     @Override
-    public RecordMetaDataProvider loadMetaData(String storeUuid) {
-        storeUuid = schemaToTemplateMap.getOrDefault(storeUuid,storeUuid);
-        return metadataMap.get(storeUuid);
+    public RecordMetaDataProvider loadMetaData(@Nonnull URI schemaURI) {
+        return metadataMap.get(schemaURI);
     }
 
     @Override
-    public void putMetadata(String schemaUuid, RecordMetaDataProvider storeMeta) {
+    public void putMetadata(@Nonnull URI schemaUuid, RecordMetaDataProvider storeMeta) {
         this.metadataMap.put(schemaUuid,storeMeta);
-    }
-
-    @Override
-    public void mapSchema(String schema, String templateName) {
-        schemaToTemplateMap.put(schema,templateName);
     }
 }

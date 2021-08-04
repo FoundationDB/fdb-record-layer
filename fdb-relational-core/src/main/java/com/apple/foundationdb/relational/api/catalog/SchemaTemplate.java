@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import javax.annotation.Nonnull;
+import java.net.URI;
 
 /**
  * Represents a SchemaTemplate
@@ -30,7 +31,7 @@ public interface SchemaTemplate {
     /**
      * @return the unique identifier for this template. All templates <em>must</em> have a unique name
      */
-    String getUniqueName();
+    URI getUniqueName();
 
     /**
      * @param schema the schema to validate

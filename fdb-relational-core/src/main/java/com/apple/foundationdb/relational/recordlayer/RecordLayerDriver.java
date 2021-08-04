@@ -20,11 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.InvalidTypeException;
 import com.apple.foundationdb.relational.api.Options;
@@ -36,7 +31,7 @@ import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
+import java.net.URI;
 
 public class RecordLayerDriver implements RelationalDriver {
     private final Catalog dataCatalog;
@@ -47,7 +42,12 @@ public class RecordLayerDriver implements RelationalDriver {
     }
 
     @Override
-    public DatabaseConnection connect(@Nonnull List<Object> url, @Nonnull Options connectionOptions, @Nullable Transaction existingTransaction) throws RelationalException {
+    public DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
+        return connect(url,null,connectionOptions);
+    }
+
+    @Override
+    public DatabaseConnection connect(@Nonnull URI url,  @Nullable Transaction existingTransaction,@Nonnull Options connectionOptions) throws RelationalException {
         int formatVersion = parseFormatVersion(url,connectionOptions);
         /*
          * Basic Algorithm for Opening a connection:
@@ -55,6 +55,7 @@ public class RecordLayerDriver implements RelationalDriver {
          * 1. Go to Catalog and verify that the given Database exists
          */
         RelationalDatabase frl = dataCatalog.getDatabase(url);
+        assert frl instanceof RecordLayerDatabase: "Catalog does not produce RecordLayer Databases, use a different driver for type <"+frl.getClass()+">";
         if (existingTransaction != null && !(existingTransaction instanceof RecordContextTransaction)) {
             throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
         }
@@ -75,11 +76,7 @@ public class RecordLayerDriver implements RelationalDriver {
     }
 
     /*private helper methods*/
-    private KeySpacePath convertUrl(String url) {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
-    }
-
-    private int parseFormatVersion(List<Object> url, Options connectionOptions) {
+    private int parseFormatVersion(URI url, Options connectionOptions) {
         return 1;
     }
 }

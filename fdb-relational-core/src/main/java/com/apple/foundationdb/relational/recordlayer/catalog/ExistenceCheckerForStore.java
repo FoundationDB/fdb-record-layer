@@ -21,7 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+
+import java.net.URI;
 
 public interface ExistenceCheckerForStore {
-    FDBRecordStoreBase.StoreExistenceCheck forStore(String storeName);
+    FDBRecordStoreBase.StoreExistenceCheck forStore(KeySpacePath storePath);
 }

@@ -20,20 +20,19 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
-import org.apache.commons.lang3.tuple.Pair;
+import com.apple.foundationdb.relational.api.RelationalException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
 public class KeySpacePathParsingTest {
+    private final KeySpace testSpace = getKeySpaceForTesting();
     @Test
     void testParsingKeySpacePath() {
         final List<Object> url = new ArrayList<>();
@@ -42,12 +41,10 @@ public class KeySpacePathParsingTest {
         url.add("testApp");
         url.add(12345L);
 
-        Assertions.fail("TODO: Re-implement for DatabaseLocator");
-//        final Pair<FDBDatabase, KeySpacePath> pair = RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting());
-//        final FDBDatabase fdbDatabase = pair.getLeft();
-//        final KeySpacePath keySpacePath = pair.getRight();
-//        final String key = keySpacePath.toTuple(fdbDatabase.openContext()).toString();
-//        assert key != null && key.equals("(\"prod\", \"testApp\", 12345)");
+        URI expected = URI.create("/prod/testApp/12345");
+        KeySpacePath path = KeySpaceUtils.uriToPath(expected,testSpace);
+        final URI uri = KeySpaceUtils.pathToURI(path);
+        Assertions.assertEquals(expected,uri,"Invalid parsing of URI or KeySpacePaths");
     }
 
     @Test
@@ -55,20 +52,14 @@ public class KeySpacePathParsingTest {
         final List<Object> url = new ArrayList<>();
         url.add("prod");
 
-        // Valid url must have more than 1 elements, since the first one is the cluster file
-        Assertions.fail("TODO: Re-implement for DatabaseLocator");
+        Assertions.fail("Implement");
+//        // Valid url must have more than 1 elements, since the first one is the cluster file
 //        Assertions.assertThrows(AssertionError.class,
 //                () -> RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting()));
     }
 
     @Test
     void testUrlNotValidForKeySpace() {
-        final List<Object> url = new ArrayList<>();
-        url.add(null);
-        url.add("prod");
-        url.add(12345L);
-        url.add("testApp");
-        
         // The tuple key's types don't match with the keySpace
         Assertions.fail("TODO: Re-implement for DatabaseLocator");
 //        Assertions.assertThrows(RecordCoreArgumentException.class,

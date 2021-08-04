@@ -22,7 +22,10 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 
+import javax.annotation.Nonnull;
+import java.net.URI;
+
 public interface RecordMetaDataStore {
 
-    RecordMetaDataProvider loadMetaData(String storeUuid);
+    RecordMetaDataProvider loadMetaData(@Nonnull URI storeUuid);
 }

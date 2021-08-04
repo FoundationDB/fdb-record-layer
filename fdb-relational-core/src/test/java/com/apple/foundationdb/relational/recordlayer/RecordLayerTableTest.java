@@ -39,9 +39,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
-import java.util.Arrays;
+import java.net.URI;
 import java.util.Collections;
-import java.util.List;
 
 /**
  * Basic integration tests outlining the full process of using Relational to insert and scan records from a database.
@@ -54,9 +53,9 @@ public class RecordLayerTableTest {
     public final void setupCatalog(){
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
-        catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
+        catalog.createSchemaTemplate(new RecordLayerTemplate(URI.create("/RestaurantRecord"), builder.build()));
 
-        catalog.createDatabase(Arrays.asList(null,null,"record_layer_table_test"),
+        catalog.createDatabase(URI.create("/record_layer_table_test"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("test","RestaurantRecord")
                         .build());
@@ -65,8 +64,8 @@ public class RecordLayerTableTest {
     @Test
     void canInsertAndGetASingleRecord() {
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final List<Object> dbUrl = Arrays.asList(null,null,"record_layer_table_test");
-        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()), null)) {
+        final URI dbUrl = URI.create("/record_layer_table_test");
+        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()) {
@@ -98,8 +97,8 @@ public class RecordLayerTableTest {
     @Test
     void canDeleteASingleRecord() {
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final List<Object> dbUrl = Arrays.asList(null,null,"record_layer_table_test");
-        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()), null)) {
+        final URI dbUrl = URI.create("/record_layer_table_test");
+        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()) {
@@ -138,10 +137,10 @@ public class RecordLayerTableTest {
     }
 
     @Test
-    void canInsertAndGetASingleRecordFromIndex() {
+    void canInsertAndScanASingleRecordFromIndex() throws Exception {
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final List<Object> dbUrl = Arrays.asList(null,null,"record_layer_table_test");
-        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()), null)) {
+        URI uri = URI.create("/record_layer_table_test");
+        try(DatabaseConnection conn = driver.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()) {
@@ -171,10 +170,9 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndScanASingleRecord() throws Exception {
-        final List<Object> dbUrl = Arrays.asList(null,null,"record_layer_table_test");
-
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()), null)){
+        final URI dbUrl = URI.create("/record_layer_table_test");
+        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()){
@@ -205,10 +203,10 @@ public class RecordLayerTableTest {
 
     @Test
     void demo() {
-        final List<Object> dbUrl = Arrays.asList(null, null, "record_layer_table_test");
+        final URI dbUrl = URI.create("/record_layer_table_test");
 
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()), null)) {
+        try (DatabaseConnection conn = driver.connect(dbUrl, null,Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
             //create a statement to execute against

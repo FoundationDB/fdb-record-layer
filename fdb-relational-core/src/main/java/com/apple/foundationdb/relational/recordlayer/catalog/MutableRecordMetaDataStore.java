@@ -23,11 +23,14 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
-public interface MutableRecordMetaDataStore extends RecordMetaDataStore{
+import javax.annotation.Nonnull;
+import java.net.URI;
 
-    void putMetadata(String schemaUuid, RecordMetaDataProvider storeMeta);
+public interface MutableRecordMetaDataStore extends RecordMetaDataStore{
 
     //TODO(bfines) this probably won't live long, but it temporarily
     // solves the problem of mapping schema to template during load time
-    void mapSchema(String schema, String templateName);
+//    void mapSchema(String schema, String templateName);
+//
+    void putMetadata(@Nonnull URI schemaUri, RecordMetaDataProvider storeMeta);
 }

@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerDatabase;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
@@ -74,12 +75,12 @@ public class RecordLayerCatalog implements Catalog {
     }
 
     @Nonnull
-    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
+    public SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException {
         return new RecordLayerTemplate(templateId, metadataProvider.loadMetaData(templateId));
     }
 
     @Nonnull
-    public RelationalDatabase getDatabase(@Nonnull List<Object> url) throws RelationalException {
+    public RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException {
         final Pair<FDBDatabase, KeySpacePath> dbAndKeySpace = getFDBDatabaseAndKeySpacePath(url, keySpace);
         final KeySpacePath keySpacePath = dbAndKeySpace.getRight();
         return new RecordLayerDatabase(dbAndKeySpace.getLeft(),metadataProvider, userVersionChecker,
@@ -87,17 +88,18 @@ public class RecordLayerCatalog implements Catalog {
     }
 
     @VisibleForTesting
-    public Pair<FDBDatabase, KeySpacePath> getFDBDatabaseAndKeySpacePath(@Nonnull List<Object> databaseUrl, @Nonnull KeySpace keySpace) {
-        FDBDatabase fdbDatabase = databaseLocator.locateDatabase(databaseUrl);
-        final Tuple urlTuple = Tuple.fromList(databaseUrl);
-        assert urlTuple.size() > 1 : "Invalid databaseUrl without enough elements";
-        final Tuple databaseTuple = TupleHelpers.subTuple(urlTuple, 1, urlTuple.size());
-        final KeySpacePath keySpacePath = keySpace.resolveFromKey(fdbDatabase.openContext(), databaseTuple).toPath();
-        return Pair.of(fdbDatabase, keySpacePath);
+    Pair<FDBDatabase, KeySpacePath> getFDBDatabaseAndKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
+        KeySpacePath dbPath = KeySpaceUtils.uriToPath(url,keySpace);
+        return Pair.of(databaseLocator.locateDatabase(dbPath),dbPath);
     }
 
-    public void createSchema(KeySpacePath schemaPath, @Nonnull String schemaTemplateUri, Transaction transaction) {
-//        KeySpacePath schemaPath = KeySpaceUtils.uriToPath(schemaUri,keySpace);
+    public DatabaseLocator getLocator() {
+        return databaseLocator;
+    }
+
+    public void createSchema(@Nonnull URI schemaUri, @Nonnull URI schemaTemplateUri, Transaction transaction) {
+        KeySpacePath schemaPath = KeySpaceUtils.uriToPath(schemaUri,keySpace);
+        KeySpacePath templatePath = KeySpaceUtils.uriToPath(schemaTemplateUri,keySpace);
         FDBRecordContext ctx = transaction.unwrap(FDBRecordContext.class);
         FDBRecordStore.newBuilder()
                 .setKeySpacePath(schemaPath)
@@ -106,7 +108,7 @@ public class RecordLayerCatalog implements Catalog {
                 .setUserVersionChecker(userVersionChecker)
                 .setFormatVersion(formatVersion)
                 .setContext(ctx)
-                .createOrOpen(existenceCheckerForStore.forStore(schemaTemplateUri));
+                .createOrOpen(existenceCheckerForStore.forStore(templatePath));
     }
 
     public static class Builder {
