@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
+import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithOneOfComparison;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
@@ -122,9 +123,10 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
     }
 
     // Find equivalent key expressions for fields used by the given filter.
-    // Does not attempt to deal with OneOfThemWithComponent, as the repeated nested field will be spread across multiple
+    // Does not attempt to deal with OneOfThemWithComparison/OneOfThemWithComponent, as the repeated nested field will be spread across multiple
     // index entries. Reconstituting that as a singleton in a partial record might work for the simplest case, but
     // could not for multiple such filter conditions.
+    // QueryKeyExpressionWithOneOfComparison is okay if a scalar field produces a repeated result.
     public static boolean findFilterReferencedFields(@Nonnull QueryComponent filter, @Nonnull Set<KeyExpression> filterFields) {
         if (filter instanceof FieldWithComparison) {
             filterFields.add(Key.Expressions.field(((FieldWithComparison)filter).getFieldName()));
@@ -140,6 +142,10 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
         }
         if (filter instanceof QueryKeyExpressionWithComparison) {
             final QueryableKeyExpression keyExpression = ((QueryKeyExpressionWithComparison)filter).getKeyExpression();
+            return findFilterReferencedFields(keyExpression, filterFields);
+        }
+        if (filter instanceof QueryKeyExpressionWithOneOfComparison) {
+            final QueryableKeyExpression keyExpression = ((QueryKeyExpressionWithOneOfComparison)filter).getKeyExpression();
             return findFilterReferencedFields(keyExpression, filterFields);
         }
         if (filter instanceof NestedField) {
