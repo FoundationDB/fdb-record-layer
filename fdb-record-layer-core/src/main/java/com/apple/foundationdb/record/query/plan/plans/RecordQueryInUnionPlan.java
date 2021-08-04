@@ -117,7 +117,14 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
         if (size > maxNumberOfValuesAllowed) {
             throw new RecordCoreException("too many IN values").addLogInfo("size", size);
         }
+        if (size == 0) {
+            return RecordCursor.empty();
+        }
         final RecordQueryPlan childPlan = getInnerPlan();
+        if (size == 1) {
+            final EvaluationContext childContext = getValuesContexts(context).get(0);
+            return childPlan.executePlan(store, childContext, continuation, executeProperties);
+        }
         final ExecuteProperties childExecuteProperties;
         // Can pass the limit down to all sides, since that is the most we'll take total.
         if (executeProperties.getSkip() > 0) {

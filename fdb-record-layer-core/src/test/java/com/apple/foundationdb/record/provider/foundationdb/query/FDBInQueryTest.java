@@ -543,11 +543,19 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
             assertEquals(1428066748, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
             assertEquals(1407869064, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
             assertEquals(65237271, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-            assertEquals(30, querySimpleRecordStore(hook, plan,
-                    () -> EvaluationContext.forBinding("inList", asList(1, 3, 4)),
-                    record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
-                    context -> { }));
         }
+        assertEquals(30, querySimpleRecordStore(hook, plan,
+                () -> EvaluationContext.forBinding("inList", asList(1, 3, 4)),
+                record -> assertThat(record.getNumValue3Indexed(), anyOf(is(1), is(3), is(4))),
+                context -> { }));
+        assertEquals(0, querySimpleRecordStore(hook, plan,
+                () -> EvaluationContext.forBinding("inList", asList()),
+                record -> fail("should not have any records"),
+                context -> { }));
+        assertEquals(10, querySimpleRecordStore(hook, plan,
+                () -> EvaluationContext.forBinding("inList", asList(3)),
+                record -> assertThat(record.getNumValue3Indexed(), is(3)),
+                context -> { }));
     }
 
     /**
