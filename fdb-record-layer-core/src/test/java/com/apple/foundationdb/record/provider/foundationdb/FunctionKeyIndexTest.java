@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
+import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -62,6 +63,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
+import static com.apple.foundationdb.record.TestHelpers.assertDiscardedExactly;
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedNone;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.empty;
@@ -69,6 +71,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTupleString;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
@@ -372,6 +375,43 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
             }
             assertEquals(2, count);
             assertDiscardedNone(context);
+        }
+    }
+
+    @Test
+    public void testOneOfQueryCoveringValueIndex() throws Exception {
+        Index coveringIndex = new Index("int_str_index", "int_value", "str_value");
+
+        Records records = Records.create();
+        for (int i = 0; i < 10; i++) {
+            String strValue = (char)('a' + i) + "_" + (char)('b' + i);
+            records.add(i, strValue);
+        }
+        saveRecords(records, coveringIndex);
+
+        QueryComponent funcFilter = Query.keyExpression(function("chars", field("str_value"))).oneOfThem().equalsValue("c");
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("TypesRecord")
+                .setFilter(Query.and(Query.field("int_value").greaterThan(1), funcFilter))
+                .setRequiredResults(Collections.singletonList(field("int_value")))
+                .build();
+        // Covering(Index(int_str_index ([1],>) -> [int_value: KEY[0], long_value: KEY[2], str_value: KEY[1]]) | ANY chars(Field { 'str_value' None}) EQUALS c
+        RecordQueryPlan plan = planner.plan(query);
+
+        assertThat(plan, PlanMatchers.filter(funcFilter, coveringIndexScan(indexScan(allOf(indexName(coveringIndex.getName()), bounds(hasTupleString("([1],>")))))));
+        assertEquals(-1785473859, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(-1937041998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(1964563906, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, coveringIndex);
+            List<Integer> results = recordStore.executeQuery(plan)
+                    .map(r -> fromMessage(r.getRecord()).getIntValue())
+                    .asList()
+                    .join();
+            // 0 - 1 indexed out; 2 returned; 3 - 9 filtered out.
+            assertEquals(Collections.singletonList(2), results);
+            assertDiscardedExactly(10 - 2 - 1, context);
         }
     }
 
