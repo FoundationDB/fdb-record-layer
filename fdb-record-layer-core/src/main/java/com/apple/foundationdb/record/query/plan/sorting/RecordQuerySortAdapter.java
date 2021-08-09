@@ -54,9 +54,10 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple, FDBQueriedRecord<M>> {
-    public static final int MAX_RECORD_COUNT_IN_MEMORY = 1000;
-    public static final int MAX_FILE_COUNT = 10;
-    public static final int RECORD_COUNT_PER_SECTION = 100;
+    // To use different values, override the associated methods.
+    public static final int DEFAULT_MAX_RECORD_COUNT_IN_MEMORY = 1000;
+    public static final int DEFAULT_MAX_FILE_COUNT = 10;
+    public static final int DEFAULT_RECORD_COUNT_PER_SECTION = 100;
 
     private final int memoryLimit;
     private final boolean memoryOnly;
@@ -131,7 +132,7 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
 
     @Override
     public int getMaxRecordCountInMemory() {
-        return memoryOnly ? memoryLimit : MAX_RECORD_COUNT_IN_MEMORY;
+        return memoryOnly ? memoryLimit : DEFAULT_MAX_RECORD_COUNT_IN_MEMORY;
     }
 
     @Nonnull
@@ -163,17 +164,17 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
 
     @Override
     public int getMinFileRecordCount() {
-        return MAX_RECORD_COUNT_IN_MEMORY;
+        return DEFAULT_MAX_RECORD_COUNT_IN_MEMORY;
     }
 
     @Override
     public int getMaxFileCount() {
-        return MAX_FILE_COUNT;
+        return DEFAULT_MAX_FILE_COUNT;
     }
 
     @Override
     public int getRecordCountPerSection() {
-        return RECORD_COUNT_PER_SECTION;
+        return DEFAULT_RECORD_COUNT_PER_SECTION;
     }
 
     @Override

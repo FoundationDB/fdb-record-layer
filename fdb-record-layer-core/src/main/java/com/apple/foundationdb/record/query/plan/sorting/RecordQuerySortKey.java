@@ -67,7 +67,7 @@ public class RecordQuerySortKey implements PlanHashable {
      */
     @Nonnull
     public <M extends Message> RecordQuerySortAdapter<M> getAdapter(@Nonnull FDBRecordStoreBase<M> recordStore, int maxRecordsToRead) {
-        final int memoryLimit = Math.min(maxRecordsToRead, RecordQuerySortAdapter.MAX_RECORD_COUNT_IN_MEMORY);
+        final int memoryLimit = Math.min(maxRecordsToRead, RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY);
         final boolean memoryOnly = memoryLimit == maxRecordsToRead;
         return new RecordQuerySortAdapter<>(memoryLimit, memoryOnly, this, recordStore);
     }

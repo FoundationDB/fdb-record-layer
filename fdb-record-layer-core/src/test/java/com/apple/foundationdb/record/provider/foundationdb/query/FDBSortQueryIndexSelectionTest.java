@@ -1021,13 +1021,13 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 assertEquals(countBeforeSorting, timer.getCount(SortEvents.Events.MEMORY_SORT_STORE_RECORD));
                 assertEquals(numberOfResultsToReturn, timer.getCount(SortEvents.Events.MEMORY_SORT_LOAD_RECORD));
             } else {
-                int nfiles = numberOfRecordsToSave / RecordQuerySortAdapter.MAX_RECORD_COUNT_IN_MEMORY;
+                int nfiles = numberOfRecordsToSave / RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY;
                 assertEquals(nfiles, timer.getCount(SortEvents.Events.FILE_SORT_OPEN_FILE));
                 assertEquals(nfiles - 1, timer.getCount(SortEvents.Events.FILE_SORT_MERGE_FILES));
                 assertEquals(countBeforeSorting, timer.getCount(SortEvents.Events.FILE_SORT_SAVE_RECORD));
                 assertEquals(numberOfResultsToReturn, timer.getCount(SortEvents.Events.FILE_SORT_LOAD_RECORD));
-                assertEquals(skip / RecordQuerySortAdapter.RECORD_COUNT_PER_SECTION, timer.getCount(SortEvents.Events.FILE_SORT_SKIP_SECTION));
-                assertEquals(skip % RecordQuerySortAdapter.RECORD_COUNT_PER_SECTION, timer.getCount(SortEvents.Events.FILE_SORT_SKIP_RECORD));
+                assertEquals(skip / RecordQuerySortAdapter.DEFAULT_RECORD_COUNT_PER_SECTION, timer.getCount(SortEvents.Events.FILE_SORT_SKIP_SECTION));
+                assertEquals(skip % RecordQuerySortAdapter.DEFAULT_RECORD_COUNT_PER_SECTION, timer.getCount(SortEvents.Events.FILE_SORT_SKIP_RECORD));
                 assertThat(timer.getCount(SortEvents.Counts.FILE_SORT_FILE_BYTES), allOf(greaterThan(1000), lessThan(100000)));
             }
         }
