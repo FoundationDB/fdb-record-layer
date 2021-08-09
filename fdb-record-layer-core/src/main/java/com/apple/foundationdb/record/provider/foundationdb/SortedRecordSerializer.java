@@ -21,9 +21,11 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordSortingProto;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -60,9 +62,68 @@ public class SortedRecordSerializer<M extends Message> {
         this.timer = timer;
     }
 
-    static class Sorted<M extends Message> extends FDBQueriedRecord.Stored<M> {
-        Sorted(@Nonnull FDBStoredRecord<M> stored) {
-            super(stored);
+    static class Sorted<M extends Message> extends FDBQueriedRecord<M> {
+        @Nonnull
+        private final Tuple primaryKey;
+        @Nonnull
+        private final RecordType recordType;
+        @Nonnull
+        private final M record;
+        @Nullable
+        private final FDBRecordVersion version;
+
+        public Sorted(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record, FDBRecordVersion version) {
+            this.primaryKey = primaryKey;
+            this.recordType = recordType;
+            this.record = record;
+            this.version = version;
+        }
+
+        @Nullable
+        @Override
+        public Index getIndex() {
+            return null;
+        }
+
+        @Nullable
+        @Override
+        public IndexEntry getIndexEntry() {
+            return null;
+        }
+
+        @Nonnull
+        @Override
+        public Tuple getPrimaryKey() {
+            return primaryKey;
+        }
+
+        @Nonnull
+        @Override
+        public RecordType getRecordType() {
+            return recordType;
+        }
+
+        @Nonnull
+        @Override
+        public M getRecord() {
+            return record;
+        }
+
+        @Override
+        public boolean hasVersion() {
+            return version != null;
+        }
+
+        @Nullable
+        @Override
+        public FDBRecordVersion getVersion() {
+            return version;
+        }
+
+        @Nullable
+        @Override
+        public FDBStoredRecord<M> getStoredRecord() {
+            return null;
         }
     }
 
@@ -106,21 +167,18 @@ public class SortedRecordSerializer<M extends Message> {
 
     @Nonnull
     public FDBQueriedRecord<M> deserialize(@Nonnull RecordSortingProto.SortedRecord sortedRecord) {
-        final SplitHelper.SizeInfo size = new SplitHelper.SizeInfo();
         final byte[] primaryKeyBytes = sortedRecord.getPrimaryKey().toByteArray();
         final Tuple primaryKey = Tuple.fromBytes(primaryKeyBytes);
         final byte[] recordBytes = sortedRecord.getMessage().toByteArray();
         final M record = serializer.deserialize(recordMetaData, primaryKey, recordBytes, timer);
         final RecordType recordType = recordMetaData.getRecordTypeForDescriptor(record.getDescriptorForType());
-        size.set(primaryKeyBytes, recordBytes);
         final FDBRecordVersion version;
         if (sortedRecord.hasVersion()) {
             version = FDBRecordVersion.fromBytes(sortedRecord.getVersion().toByteArray());
         } else {
             version = null;
         }
-        FDBStoredRecord<M> storedRecord = new FDBStoredRecord<>(primaryKey, recordType, record, size, version);
-        return new Sorted<>(storedRecord);
+        return new Sorted<>(primaryKey, recordType, record, version);
     }
 
     public void writeSortKeyAndRecord(@Nonnull Tuple sortKey, @Nonnull FDBRecord<M> record, @Nonnull CodedOutputStream stream) throws IOException {

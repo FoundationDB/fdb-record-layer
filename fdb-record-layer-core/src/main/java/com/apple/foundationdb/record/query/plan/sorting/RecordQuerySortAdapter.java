@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.provider.common.CipherPool;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TransformedRecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.SortedRecordSerializer;
 import com.apple.foundationdb.record.sorting.FileSortAdapter;
 import com.apple.foundationdb.record.sorting.MemorySortAdapter;
@@ -53,7 +53,7 @@ import java.util.function.Supplier;
  * @param <M> type used to represent stored records
  */
 @API(API.Status.EXPERIMENTAL)
-public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple, FDBStoredRecord<M>> {
+public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapter<Tuple, FDBQueriedRecord<M>> {
     public static final int MAX_RECORD_COUNT_IN_MEMORY = 1000;
     public static final int MAX_FILE_COUNT = 10;
     public static final int RECORD_COUNT_PER_SECTION = 100;
@@ -96,7 +96,7 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
 
     @Nonnull
     @Override
-    public Tuple generateKey(@Nonnull FDBStoredRecord<M> value) {
+    public Tuple generateKey(@Nonnull FDBQueriedRecord<M> value) {
         return key.getKey().evaluateSingleton(value).toTuple();
     }
 
@@ -119,14 +119,14 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
 
     @Nonnull
     @Override
-    public byte[] serializeValue(final FDBStoredRecord<M> record) {
+    public byte[] serializeValue(final FDBQueriedRecord<M> record) {
         return serializer.serialize(record);
     }
 
     @Nonnull
     @Override
-    public FDBStoredRecord<M> deserializeValue(@Nonnull final byte[] bytes) {
-        return serializer.deserialize(bytes).getStoredRecord();
+    public FDBQueriedRecord<M> deserializeValue(@Nonnull final byte[] bytes) {
+        return serializer.deserialize(bytes);
     }
 
     @Override
@@ -152,13 +152,13 @@ public class RecordQuerySortAdapter<M extends Message> implements FileSortAdapte
     }
 
     @Override
-    public void writeValue(@Nonnull final FDBStoredRecord<M> record, @Nonnull final CodedOutputStream stream) throws IOException {
+    public void writeValue(@Nonnull final FDBQueriedRecord<M> record, @Nonnull final CodedOutputStream stream) throws IOException {
         serializer.write(record, stream);
     }
 
     @Override
-    public FDBStoredRecord<M> readValue(@Nonnull final CodedInputStream stream) throws IOException {
-        return serializer.read(stream).getStoredRecord();
+    public FDBQueriedRecord<M> readValue(@Nonnull final CodedInputStream stream) throws IOException {
+        return serializer.read(stream);
     }
 
     @Override

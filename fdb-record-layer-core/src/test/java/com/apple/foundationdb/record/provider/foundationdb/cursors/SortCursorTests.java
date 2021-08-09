@@ -30,9 +30,9 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.CipherPool;
 import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSerializer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.SortedRecordSerializer;
 import com.apple.foundationdb.record.sorting.FileSortAdapter;
 import com.apple.foundationdb.record.sorting.FileSortCursor;
@@ -97,7 +97,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         Collections.sort(sortedNums);
     }
 
-    abstract class MemoryAdapterBase implements MemorySortAdapter<Tuple, FDBStoredRecord<Message>> {
+    abstract class MemoryAdapterBase implements MemorySortAdapter<Tuple, FDBQueriedRecord<Message>> {
         @Override
         public int compare(Tuple o1, Tuple o2) {
             return o1.compareTo(o2);
@@ -105,7 +105,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public Tuple generateKey(FDBStoredRecord<Message> record) {
+        public Tuple generateKey(FDBQueriedRecord<Message> record) {
             return num2Field.evaluateSingleton(record).toTuple();
         }
 
@@ -128,14 +128,14 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
         @Nonnull
         @Override
-        public byte[] serializeValue(final FDBStoredRecord<Message> record) {
+        public byte[] serializeValue(final FDBQueriedRecord<Message> record) {
             return serializer.serialize(record);
         }
 
         @Nonnull
         @Override
-        public FDBStoredRecord<Message> deserializeValue(@Nonnull final byte[] bytes) {
-            return serializer.deserialize(bytes).getStoredRecord();
+        public FDBQueriedRecord<Message> deserializeValue(@Nonnull final byte[] bytes) {
+            return serializer.deserialize(bytes);
         }
 
         @Nonnull
@@ -147,8 +147,8 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     @Test
     public void memorySort() throws Exception {
-        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> scanRecords =
-                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN);
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
         final MemoryAdapterBase adapter = new MemoryAdapterBase() {
             @Override
             public int getMaxRecordCountInMemory() {
@@ -159,7 +159,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBStoredRecord<Message>> cursor = MemorySortCursor.create(adapter, scanRecords, timer, null)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.create(adapter, scanRecords, timer, null)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -168,10 +168,10 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     @Test
     public void memorySortContinuations() throws Exception {
-        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> scanRecords =
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
                 continuation -> {
                     final ExecuteProperties executeProperties = ExecuteProperties.newBuilder().setScannedRecordsLimit(20).build();
-                    return recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, new ScanProperties(executeProperties));
+                    return recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, new ScanProperties(executeProperties)).map(FDBQueriedRecord::stored);
                 };
         final MemoryAdapterBase adapter = new MemoryAdapterBase() {
             @Override
@@ -187,9 +187,9 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         do {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context);
-                try (RecordCursor<FDBStoredRecord<Message>> cursor = MemorySortCursor.create(adapter, scanRecords, timer, continuation)) {
+                try (RecordCursor<FDBQueriedRecord<Message>> cursor = MemorySortCursor.create(adapter, scanRecords, timer, continuation)) {
                     while (true) {
-                        RecordCursorResult<FDBStoredRecord<Message>> result = cursor.getNext();
+                        RecordCursorResult<FDBQueriedRecord<Message>> result = cursor.getNext();
                         if (result.hasNext()) {
                             int num2 = TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(result.get().getRecord()).getNumValue2();
                             resultNums.add(num2);
@@ -206,7 +206,7 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         assertEquals(sortedNums, resultNums);
     }
 
-    abstract class FileSortAdapterBase extends MemoryAdapterBase implements FileSortAdapter<Tuple, FDBStoredRecord<Message>> {
+    abstract class FileSortAdapterBase extends MemoryAdapterBase implements FileSortAdapter<Tuple, FDBQueriedRecord<Message>> {
         @Nonnull
         @Override
         public MemorySorter.RecordCountInMemoryLimitMode getRecordCountInMemoryLimitMode() {
@@ -225,13 +225,13 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
         }
 
         @Override
-        public void writeValue(@Nonnull final FDBStoredRecord<Message> record, @Nonnull final CodedOutputStream stream) throws IOException {
+        public void writeValue(@Nonnull final FDBQueriedRecord<Message> record, @Nonnull final CodedOutputStream stream) throws IOException {
             serializer.write(record, stream);
         }
 
         @Override
-        public FDBStoredRecord<Message> readValue(@Nonnull final CodedInputStream stream) throws IOException {
-            return serializer.read(stream).getStoredRecord();
+        public FDBQueriedRecord<Message> readValue(@Nonnull final CodedInputStream stream) throws IOException {
+            return serializer.read(stream);
         }
 
         @Override
@@ -359,12 +359,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     @Test
     public void fileSortMemory() throws Exception {
-        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> scanRecords =
-                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN);
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBStoredRecord<Message>> cursor = FileSortCursor.create(fileSortMemoryAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortMemoryAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -373,12 +373,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     @Test
     public void fileSortFiles() throws Exception {
-        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> scanRecords =
-                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN);
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBStoredRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -387,12 +387,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     @Test
     public void fileSortSkip() throws Exception {
-        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> scanRecords =
-                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN);
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBStoredRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, null, 13, 8)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortFilesAdapter(), scanRecords, timer, null, 13, 8)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
@@ -401,12 +401,12 @@ public class SortCursorTests extends FDBRecordStoreTestBase {
 
     @Test
     public void fileSortEncrypted() throws Exception {
-        final Function<byte[], RecordCursor<FDBStoredRecord<Message>>> scanRecords =
-                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN);
+        final Function<byte[], RecordCursor<FDBQueriedRecord<Message>>> scanRecords =
+                continuation -> recordStore.scanRecords(null, null, EndpointType.TREE_START, EndpointType.TREE_END, continuation, ScanProperties.FORWARD_SCAN).map(FDBQueriedRecord::stored);
         List<Integer> resultNums;
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
-            try (RecordCursor<FDBStoredRecord<Message>> cursor = FileSortCursor.create(fileSortEncryptedAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = FileSortCursor.create(fileSortEncryptedAdapter(), scanRecords, timer, null, 0, Integer.MAX_VALUE)) {
                 resultNums = cursor.map(r -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(r.getRecord()).getNumValue2()).asList().get();
             }
         }
