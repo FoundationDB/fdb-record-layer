@@ -32,11 +32,7 @@ import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
-import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
-import com.apple.foundationdb.relational.recordlayer.catalog.DatabaseLocator;
-import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.ddl.ConstantActionFactory;
-import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -48,11 +44,9 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
-    private MapRecordMetaDataStore metaDataStore;
     private FDBDatabase fdbDatabase;
-    private RecordLayerCatalog catalog;
-    private KeySpace keySpace;
 
+    private Catalog catalog;
     private ConstantActionFactory constantActionFactory;
 
     private final List<RecordLayerDatabase> databases = new LinkedList<>();
@@ -69,26 +63,17 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     @Override
     public void beforeEach(ExtensionContext context) {
-        keySpace = getKeySpaceForSetup();
-
-        metaDataStore = new MapRecordMetaDataStore();
-        RecordLayerCatalog.Builder catalogBuilder = new RecordLayerCatalog.Builder();
-        catalogBuilder = catalogBuilder.setKeySpace(keySpace)
-                .setMetadataProvider(metaDataStore)
-                .setSerializerRegistry(new TestSerializerRegistry())
-                .setDatabaseLocator(dbPath -> fdbDatabase)
-                .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion));
-
-        constantActionFactory = new RecordLayerConstantActionFactory.Builder()
-                .setBaseKeySpace(keySpace)
-                .setBaseTemplatePath(URI.create("/t"))
-                .setMetaDataStore(metaDataStore)
-                .setSerializerRegistry(new TestSerializerRegistry())
-                .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion))
-                .build();
-
-        catalog = catalogBuilder.build();
+        KeySpace keySpace = getKeySpaceForSetup();
         fdbDatabase = FDBDatabaseFactory.instance().getDatabase();
+
+        RecordLayerEngine engine = new RecordLayerEngine(dbPath -> fdbDatabase,
+                new MapRecordMetaDataStore(),
+                (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
+                new TestSerializerRegistry(),
+                keySpace,
+                URI.create("/t"));
+        catalog = engine.getCatalog();
+        constantActionFactory = engine.getConstantActionFactory();
     }
 
     @Override
