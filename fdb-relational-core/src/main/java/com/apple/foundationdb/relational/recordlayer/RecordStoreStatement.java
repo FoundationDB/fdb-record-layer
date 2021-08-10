@@ -82,7 +82,7 @@ public class RecordStoreStatement implements Statement {
 
         NestableTuple tuple = toNestableTuple(key.toMap(),source.getKeyFieldNames(),true);
         if(tuple==null){
-            throw new RelationalException("Insufficient columns to perform GET on table <"+table.getName()+">",RelationalException.ErrorCode.INVALID_PRIMARYKEY_SET);
+            throw new RelationalException("Insufficient columns to perform GET on table <"+table.getName()+">",RelationalException.ErrorCode.INVALID_PARAMETER);
         }
 
         final KeyValue keyValue = source.get(conn.transaction, tuple, options);
@@ -208,7 +208,7 @@ public class RecordStoreStatement implements Statement {
             //look for the schema in the table name
             String[] t = tableName.split("\\.");
             if(t.length!=2){
-                throw new RelationalException("Invalid table format",RelationalException.ErrorCode.INVALID_TYPE);
+                throw new RelationalException("Invalid table format",RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
             }
             schema = t[0];
             tableN = t[1];

@@ -102,7 +102,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
                 return pos;
             }
         }
-        throw new RelationalException(fieldName,RelationalException.ErrorCode.NO_SUCH_FIELD);
+        throw new RelationalException(fieldName,RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Override

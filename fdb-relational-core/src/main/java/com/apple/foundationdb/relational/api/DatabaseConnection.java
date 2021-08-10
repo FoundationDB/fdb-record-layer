@@ -20,12 +20,6 @@
 
 package com.apple.foundationdb.relational.api;
 
-import com.google.protobuf.Message;
-import com.google.protobuf.MessageOrBuilder;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
 /**
  * Represents a connection to a Relational database.
  *
@@ -68,7 +62,7 @@ public interface DatabaseConnection extends AutoCloseable{
      * schema template).
      *
      * @param schema the schema to set.
-     * @throws RelationalException with error code {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#NO_SUCH_SCHEMA}
+     * @throws RelationalException with error code {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#SCHEMA_NOT_FOUND}
      *         if no schema of that name exists in the database, and no schema template exists to create one.
      * @throws RelationalException if something goes wrong during execution. This can be anything, so rely
      * on the error code to determine exactly what went wrong

@@ -30,7 +30,6 @@ import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.catalog.ExistenceCheckerForStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
@@ -140,7 +139,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
         try{
             return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId);
         }catch(MetaDataException mde){
-            throw new RelationalException(mde.getMessage(),RelationalException.ErrorCode.UNKNOWN_SCHEMA);
+            throw new RelationalException(mde.getMessage(),RelationalException.ErrorCode.UNDEFINED_SCHEMA);
         }
     }
 

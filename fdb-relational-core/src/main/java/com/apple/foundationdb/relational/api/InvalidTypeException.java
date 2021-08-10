@@ -23,14 +23,14 @@ package com.apple.foundationdb.relational.api;
 public class InvalidTypeException extends RelationalException{
 
     public InvalidTypeException(String message) {
-        super(message, ErrorCode.INVALID_TYPE);
+        super(message, ErrorCode.CANNOT_CONVERT_TYPE);
     }
 
     public InvalidTypeException(String message, Throwable cause) {
-        super(message, ErrorCode.INVALID_TYPE, cause);
+        super(message, ErrorCode.CANNOT_CONVERT_TYPE, cause);
     }
 
     public InvalidTypeException(Throwable cause) {
-        super(ErrorCode.INVALID_TYPE, cause);
+        super(ErrorCode.CANNOT_CONVERT_TYPE, cause);
     }
 }

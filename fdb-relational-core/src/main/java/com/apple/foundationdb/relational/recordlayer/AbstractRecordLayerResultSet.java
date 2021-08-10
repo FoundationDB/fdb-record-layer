@@ -20,11 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.IsolationLevel;
-import com.apple.foundationdb.relational.api.NestableTuple;
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Scannable;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.google.protobuf.Message;
@@ -48,7 +44,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return false; //TODO(bfines) return a default value here
         }
         if(!(o instanceof Boolean)){
-            throw new RelationalException("Boolean", RelationalException.ErrorCode.INVALID_TYPE);
+            throw new RelationalException("Boolean", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
         return (Boolean) o;
@@ -67,7 +63,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return 0L;
         }
         if(!(o instanceof Number)){
-            throw new RelationalException("Long", RelationalException.ErrorCode.INVALID_TYPE);
+            throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
         return ((Number)o).longValue();
@@ -85,7 +81,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return 0L;
         }
         if(!(o instanceof Number)){
-            throw new RelationalException("Long", RelationalException.ErrorCode.INVALID_TYPE);
+            throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
         return ((Number)o).floatValue();
@@ -103,7 +99,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return 0L;
         }
         if(!(o instanceof Number)){
-            throw new RelationalException("Long", RelationalException.ErrorCode.INVALID_TYPE);
+            throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
         return ((Number)o).doubleValue();
@@ -127,7 +123,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return null;
         }
         if(!(o instanceof String)){
-            throw new RelationalException("String", RelationalException.ErrorCode.INVALID_TYPE);
+            throw new RelationalException("String", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
         return (String)o;
@@ -145,7 +141,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return null;
         }
         if(!(o instanceof Message)){
-            throw new RelationalException("Message", RelationalException.ErrorCode.INVALID_TYPE);
+            throw new RelationalException("Message", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
         return (Message)o;
@@ -163,7 +159,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
             return null;
         }
         if(!(o instanceof Iterable)){
-            throw new RelationalException("Iterable", RelationalException.ErrorCode.INVALID_TYPE);
+            throw new RelationalException("Iterable", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
         return (Iterable<?>)o;

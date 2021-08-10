@@ -127,7 +127,7 @@ public class RecordLayerInsertTest {
                             String name = resultSet.getString("name");
                             Assertions.fail("Should not have found name!");
                         } catch (RelationalException ve) {
-                            Assertions.assertEquals(RelationalException.ErrorCode.NO_SUCH_FIELD, ve.getErrorCode(), "Incorrect error code");
+                            Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE, ve.getErrorCode(), "Incorrect error code");
                         }
                     }
                 }
@@ -171,7 +171,7 @@ public class RecordLayerInsertTest {
                             String name = resultSet.getString("name");
                             Assertions.fail("Should not have found name!");
                         } catch (RelationalException ve) {
-                            Assertions.assertEquals(RelationalException.ErrorCode.NO_SUCH_FIELD, ve.getErrorCode(), "Incorrect error code");
+                            Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE, ve.getErrorCode(), "Incorrect error code");
                         }
                     }
                 }
