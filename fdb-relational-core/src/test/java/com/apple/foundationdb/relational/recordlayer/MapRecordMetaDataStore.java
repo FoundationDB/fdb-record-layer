@@ -28,6 +28,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDa
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -37,7 +38,9 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
 
     @Override
     public RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI schemaUri) {
-        return schemaMap.get(schemaUri);
+        //TODO(bfines) if we ever use non-path elements of the URI, this will need to change
+        URI upperCase = URI.create(schemaUri.getPath().toUpperCase(Locale.ROOT));
+        return schemaMap.get(upperCase);
     }
 
     @Override
@@ -51,9 +54,8 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
         if(provider==null){
             throw new RelationalException("No Schema Template at path <"+templateUri+"> found", RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
-//        RecordMetaDataProto.MetaData templateMeta = provider.getRecordMetaData().toProto();
-//        RecordMetaData schemaMetaData = RecordMetaData.build(templateMeta);
-        schemaMap.put(schemaUri,provider);
+        URI schemaKey =URI.create(schemaUri.getPath().toUpperCase(Locale.ROOT));
+        schemaMap.put(schemaKey,provider);
     }
 
     @Override

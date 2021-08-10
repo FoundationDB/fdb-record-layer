@@ -33,7 +33,7 @@ import java.net.URI;
 import java.util.Map;
 
 public class CreateDatabaseConstantAction implements ConstantAction{
-    private final URI dbPathUri;
+    private final URI dbUrl;
     private final DatabaseTemplate dbTemplate;
     private final Options constantActionOptions;
 
@@ -41,8 +41,8 @@ public class CreateDatabaseConstantAction implements ConstantAction{
     private final KeySpace keySpace;
     private final URI templateBasePath;
 
-    public CreateDatabaseConstantAction(URI dbPathUri, DatabaseTemplate dbTemplate, Options constantActionOptions, ConstantActionFactory caFactory, KeySpace keySpace, URI templateBasePath) {
-        this.dbPathUri = dbPathUri;
+    public CreateDatabaseConstantAction(URI dbUrl, DatabaseTemplate dbTemplate, Options constantActionOptions, ConstantActionFactory caFactory, KeySpace keySpace, URI templateBasePath) {
+        this.dbUrl = dbUrl;
         this.dbTemplate = dbTemplate;
         this.constantActionOptions = constantActionOptions;
         this.caFactory = caFactory;
@@ -53,7 +53,18 @@ public class CreateDatabaseConstantAction implements ConstantAction{
     @Override
     public void execute(Transaction txn) throws RelationalException {
         //TODO(bfines) catch errors here
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbPathUri,keySpace);
+        String dbPathStr = dbUrl.getPath();
+        String dbPrefixPath = dbPathStr.substring(0,dbPathStr.lastIndexOf("/"));
+        final String dbName = dbPathStr.substring(dbPathStr.lastIndexOf("/") + 1);
+        KeySpacePath dbPath;
+        if(dbPrefixPath.length()<1 || dbPrefixPath.equalsIgnoreCase("/")){
+            keySpace.getRoot().addSubdirectory(new KeySpaceDirectory(dbName,KeySpaceDirectory.KeyType.NULL));
+        }else {
+            KeySpacePath dbParentPath = KeySpaceUtils.uriToPath(URI.create(dbPrefixPath), keySpace);
+            dbParentPath.getDirectory().addSubdirectory(new KeySpaceDirectory(dbName, KeySpaceDirectory.KeyType.NULL));
+        }
+
+        dbPath = KeySpaceUtils.uriToPath(dbUrl,keySpace);
 
         final KeySpaceDirectory dbDirectory = dbPath.getDirectory();
 
@@ -63,7 +74,7 @@ public class CreateDatabaseConstantAction implements ConstantAction{
 
             URI templateUri =  URI.create(templateBasePath.toString()+"/"+schemaData.getValue());
 
-            URI schemaUri = URI.create(dbPathUri.getPath()+"/"+schemaData.getKey());
+            URI schemaUri = URI.create(dbUrl.getPath()+"/"+schemaData.getKey());
 
             caFactory.getCreateSchemaConstantAction(schemaUri,templateUri,constantActionOptions).execute(txn);
         }

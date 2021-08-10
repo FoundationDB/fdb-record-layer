@@ -48,22 +48,16 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void testInvalidUrl() {
-        final List<Object> url = new ArrayList<>();
-        url.add("prod");
-
-        Assertions.fail("Implement");
-//        // Valid url must have more than 1 elements, since the first one is the cluster file
-//        Assertions.assertThrows(AssertionError.class,
-//                () -> RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting()));
+    void cannotParseEmptyUri() {
+        RelationalException ve = Assertions.assertThrows(RelationalException.class,()->KeySpaceUtils.uriToPath(URI.create(""),testSpace));
+        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH,ve.getErrorCode(),"Incorrect returned error code");
     }
 
     @Test
     void testUrlNotValidForKeySpace() {
-        // The tuple key's types don't match with the keySpace
-        Assertions.fail("TODO: Re-implement for DatabaseLocator");
-//        Assertions.assertThrows(RecordCoreArgumentException.class,
-//                () -> RecordLayerCatalog.getFDBDatabaseAndKeySpacePath(url, getKeySpaceForTesting()));
+        //throws the right exception when we can't parse an entry
+        RelationalException ve = Assertions.assertThrows(RelationalException.class,()->KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"),testSpace));
+        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH,ve.getErrorCode(),"Incorrect returned error code");
     }
 
     private KeySpace getKeySpaceForTesting() {

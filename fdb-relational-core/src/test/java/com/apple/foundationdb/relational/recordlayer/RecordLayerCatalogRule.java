@@ -85,16 +85,22 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     @Nonnull
     @Override
     public RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException {
-        return catalog.getDatabase(url);
+        try {
+            return catalog.getDatabase(url);
+        }catch(RelationalException ve){
+            if(ve.getErrorCode().equals(RelationalException.ErrorCode.INVALID_PATH)){
+                throw new RelationalException("Database <"+url+"> is unknown or does not exist", RelationalException.ErrorCode.UNDEFINED_DATABASE,ve);
+            }else{
+                throw ve;
+            }
+        }
     }
 
     private KeySpace getKeySpaceForSetup() {
-        KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
-        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.NULL);
-        rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
+//        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.NULL);
         //add the templates subdirectory
-        rootDirectory.addSubdirectory(new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.STRING,"T"));
-        return new KeySpace(rootDirectory);
+        KeySpaceDirectory templatesDirectory = new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.STRING,"T");
+        return new KeySpace(templatesDirectory);
     }
 
     public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {

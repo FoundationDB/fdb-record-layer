@@ -180,7 +180,7 @@ public class InsertTest {
          * We want to make sure that we don't accidentally pick up data from different tables
          */
         RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("/dbId/databaseId"), Options.create())){
+        try (DatabaseConnection conn = driver.connect(URI.create("/dbid"), Options.create())){
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){

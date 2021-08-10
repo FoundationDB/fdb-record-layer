@@ -53,15 +53,25 @@ public class KeySpaceUtils {
     }
 
     public static @Nonnull KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
-        String[] pathElems = url.getPath().split("/");
+        String path = url.getPath();
+        if(path.length()<1){
+            throw new RelationalException("<"+url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
+        }
+        if(!path.startsWith("/")){
+            path = "/"+path;
+        }
+        String[] pathElems = path.split("/");
         KeySpaceDirectory directory = keySpace.getRoot();
         KeySpacePath thePath = null;
         for(KeySpaceDirectory sub : directory.getSubdirectories()) {
-            thePath = uriToPathRecursive(keySpace, sub, keySpace.path(sub.getName()), pathElems, 0);
+            thePath = uriToPathRecursive(keySpace, sub, keySpace.path(sub.getName()), pathElems, 1);
+            if(thePath!=null){
+                break;
+            }
         }
 
         if (thePath == null) {
-            throw new RelationalException(url + " is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("<"+url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
         }
 
         return thePath;
@@ -79,13 +89,12 @@ public class KeySpaceUtils {
             return parentPath;
         }
         String pathElem = pathElems[position];
+        String pathName = directory.getName();
         Object dirVal = directory.getValue();
         Object pathValue = null;
         switch (directory.getKeyType()) {
             case NULL:
-//                if (pathElem.length() > 0) {
-//                    return null; //this path doesn't match
-//                }
+                pathName = pathElem;
                 break;
             case BYTES:
                 //TODO(bfines) this may not be correct,depending on how charsets are used
@@ -159,9 +168,9 @@ public class KeySpaceUtils {
         }
 
         if(directory.getParent()==keySpace.getRoot()){
-            parentPath = keySpace.path(directory.getName(),pathValue);
+            parentPath = keySpace.path(pathName,pathValue);
         }else{
-            parentPath = parentPath.add(directory.getName(),pathValue);
+            parentPath = parentPath.add(pathName,pathValue);
         }
 
         if(directory.isLeaf()){

@@ -29,11 +29,13 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+@Disabled("DDL parsing is not an active part of the relational project yet")
 public class DdlParserListenerTest {
     /* ****************************************************************************************************************/
     /*CREATE SCHEMA TEMPLATE tests*/
