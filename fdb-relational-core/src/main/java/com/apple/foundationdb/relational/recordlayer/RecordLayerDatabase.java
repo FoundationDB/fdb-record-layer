@@ -115,11 +115,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
     FDBRecordStore loadStore(FDBRecordContext txn, String storeName) {
         //TODO(bfines) error handling if this store doesn't exist
 
-        //TODO(bfines) this is probably not right in general
-        final KeySpacePath parent = ksPath.getParent();
-        assert parent != null : "Programmer error: DB paths should not be the root of the KeySpace";
-
-        final KeySpacePath storePath = parent.add( storeName);
+        final KeySpacePath storePath = ksPath.add( storeName);
 
         try {
             return FDBRecordStore.newBuilder()

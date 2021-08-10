@@ -25,19 +25,24 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
+import com.apple.foundationdb.relational.api.KeySet;
+import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Statement;
+import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.junit.jupiter.api.function.Executable;
 
 import java.net.URI;
 import java.util.Collections;
+import java.util.function.Consumer;
 
 public class InsertTest {
     @RegisterExtension
@@ -49,7 +54,7 @@ public class InsertTest {
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate(URI.create("/Restaurant"), builder.build()));
 
-        catalog.createDatabase(URI.create("/dbId"),
+        catalog.createDatabase(URI.create("/dbid"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("main", "Restaurant")
                         .build());
@@ -61,8 +66,8 @@ public class InsertTest {
          * We want to make sure that we don't accidentally pick up data from different tables
          */
         RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("/dbId"), Options.create())){
-            conn.setSchema("/dbId/main");
+        try (DatabaseConnection conn = driver.connect(URI.create("/dbid"), Options.create())){
+            conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){
                 long id = System.currentTimeMillis();
@@ -70,11 +75,85 @@ public class InsertTest {
                 int inserted = s.executeInsert("RestaurantRecord", Collections.singleton(record),Options.create());
                 Assertions.assertEquals(1,inserted, "Did not insert properly!");
 
-                Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setName("reviewerName"+id).setId(id).build();
-                inserted = s.executeInsert("RestaurantReviwer",Collections.singleton(reviewer),Options.create());
+                Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setName("reviewerName"+id).setId(id-1).build();
+                inserted = s.executeInsert("RestaurantReviewer",Collections.singleton(reviewer),Options.create());
                 Assertions.assertEquals(1,inserted, "Did not insert reviewers properly!");
+
+
+                //now prove we can get them back out
+                RelationalResultSet relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("rest_no", record.getRestNo()), Options.create());
+                assertGetMatches(record, relationalResultSet, vry -> {
+                    Assertions.assertEquals(record.getName(), vry.getString("name"), "Incorrect name!");
+                    Assertions.assertEquals(record.getRestNo(), vry.getLong("rest_no"), "Incorrect rest_no!");
+                });
+
+                relationalResultSet = s.executeGet("RestaurantReviewer",new KeySet().setKeyColumn("id",reviewer.getId()),Options.create());
+                assertGetMatches(reviewer, relationalResultSet, vry -> {
+                    Assertions.assertEquals(reviewer.getName(), vry.getString("name"), "Incorrect reviewer name");
+                    Assertions.assertEquals(reviewer.getId(), vry.getLong("id"), "Incorrect reviewer id");
+                });
+
+                //now make sure that they don't show up in the other table
+                relationalResultSet = s.executeGet("RestaurantRecord", new KeySet().setKeyColumn("name", reviewer.getName()), Options.create().withOption(OperationOption.index("RestaurantRecord$name")));
+                Assertions.assertNotNull(relationalResultSet,"Did not return a valid result set!");
+                Assertions.assertFalse(relationalResultSet.next(),"Records should not be returned!");
+
+                relationalResultSet = s.executeGet("RestaurantReviewer", new KeySet().setKeyColumn("name", record.getName()), Options.create().withOption(OperationOption.index("RestaurantReviewer$name")));
+                Assertions.assertNotNull(relationalResultSet,"Did not return a valid result set!");
+                Assertions.assertFalse(relationalResultSet.next(),"Records should not be returned!");
+
+                /*
+                 * now try to scan the entirety of each table and validate the results
+                 * we can have data from multiple test runs contaminating this scan, because it's unbounded. This is
+                 * actually OK, because wwhat we really care about is that the scan doesn't return data from
+                 * other tables. So all we do here is check the returned message type
+                 */
+                final RelationalResultSet recordScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),Options.create());
+                Assertions.assertNotNull(recordScan,"Did not return a valid result set!");
+                while(recordScan.next()){
+                    if(recordScan.supportsMessageParsing()){
+                        Message row = recordScan.parseMessage();
+                        Assertions.assertEquals(record.getDescriptorForType(),row.getDescriptorForType());
+                    }
+                    Assertions.assertDoesNotThrow(() -> {
+                        //make sure that the correct fields are returned
+                        recordScan.getString("name");
+                        recordScan.getLong("rest_no");
+                    });
+                    RelationalException invalidType = Assertions.assertThrows(RelationalException.class, () -> recordScan.getLong("id"));
+                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE,invalidType.getErrorCode(),"Incorrect data error code!");
+                }
+
+                final RelationalResultSet reviewerScan = s.executeScan(TableScan.newBuilder().withTableName("RestaurantReviewer").build(),Options.create());
+                Assertions.assertNotNull(reviewerScan,"Did not return a valid result set!");
+                while(reviewerScan.next()){
+                    if(reviewerScan.supportsMessageParsing()){
+                        Message row = reviewerScan.parseMessage();
+                        Assertions.assertEquals(record.getDescriptorForType(),row.getDescriptorForType());
+                    }
+                    Assertions.assertDoesNotThrow(() -> {
+                        //make sure that the correct fields are returned
+                        reviewerScan.getString("name");
+                        reviewerScan.getLong("id");
+                    });
+
+                    RelationalException invalidType = Assertions.assertThrows(RelationalException.class, () -> reviewerScan.getLong("rest_no"));
+                    Assertions.assertEquals(RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE,invalidType.getErrorCode(),"Incorrect data error code!");
+                }
             }
         }
+    }
+
+    private void assertGetMatches(Message expected, RelationalResultSet queryResult, Consumer<RelationalResultSet> nonMessageCheck){
+        Assertions.assertNotNull(queryResult,"Did not return a valid result set!");
+        Assertions.assertTrue(queryResult.next(),"Did not return a record!");
+        if(queryResult.supportsMessageParsing()){
+            Message m = queryResult.parseMessage();
+            Assertions.assertEquals(expected,m,"Incorrect returned record!");
+        }else{
+            nonMessageCheck.accept(queryResult);
+        }
+        Assertions.assertFalse(queryResult.next(),"Too many records returned!");
     }
 
     @Test
@@ -83,7 +162,7 @@ public class InsertTest {
          * We want to make sure that we don't accidentally pick up data from different tables
          */
         RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("/dbId/databaseId"), Options.create())){
+        try (DatabaseConnection conn = driver.connect(URI.create("/dbid"), Options.create())){
             conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){

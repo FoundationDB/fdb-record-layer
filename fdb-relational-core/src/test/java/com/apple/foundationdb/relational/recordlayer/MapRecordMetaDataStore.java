@@ -51,9 +51,9 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
         if(provider==null){
             throw new RelationalException("No Schema Template at path <"+templateUri+"> found", RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
-        RecordMetaDataProto.MetaData templateMeta = provider.getRecordMetaData().toProto();
-        RecordMetaData schemaMetaData = RecordMetaData.build(templateMeta);
-        schemaMap.put(schemaUri,schemaMetaData);
+//        RecordMetaDataProto.MetaData templateMeta = provider.getRecordMetaData().toProto();
+//        RecordMetaData schemaMetaData = RecordMetaData.build(templateMeta);
+        schemaMap.put(schemaUri,provider);
     }
 
     @Override

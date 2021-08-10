@@ -98,8 +98,15 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public boolean insertRecord(@Nonnull Message message) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
+        if (!store.getRecordMetaData().getRecordType(this.tableName).getDescriptor().equals(message.getDescriptorForType())) {
+            throw new RelationalException("type of message <"+message.getClass()+"> does not match the required type for table <"+getName()+">", RelationalException.ErrorCode.INVALID_PARAMETER);
+        }
         //TODO(bfines) maybe this should return something other than boolean?
-        store.insertRecord(message);
+        try {
+            store.insertRecord(message);
+        }catch(MetaDataException mde){
+            throw new RelationalException("type of message <"+message.getClass()+"> does not match the required type for table <"+getName()+">", RelationalException.ErrorCode.INVALID_PARAMETER,mde);
+        }
         return true;
     }
 

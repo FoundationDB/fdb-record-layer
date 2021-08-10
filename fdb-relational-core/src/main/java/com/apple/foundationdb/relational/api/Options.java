@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Options {
-    private Map<String,Object> options = new HashMap<>();
+    private Map<String,Object> optionsMap = new HashMap<>();
 
     public static Options create() {
         return new Options();
@@ -32,19 +32,19 @@ public class Options {
 
     @SuppressWarnings("unchecked")
     public <T> T getOption(String name, T defaultValue) {
-        return (T)options.getOrDefault(name,defaultValue);
+        return (T) optionsMap.getOrDefault(name,defaultValue);
     }
 
     public <T> Options withOption(OperationOption<T> option){
-        options.put(option.getOptionName(),option.getValue());
+        optionsMap.put(option.getOptionName(),option.getValue());
         return this;
     }
 
     public boolean hasOption(String optionName) {
-        return options.containsKey(optionName);
+        return optionsMap.containsKey(optionName);
     }
 
     public int size() {
-        return options.size();
+        return optionsMap.size();
     }
 }
