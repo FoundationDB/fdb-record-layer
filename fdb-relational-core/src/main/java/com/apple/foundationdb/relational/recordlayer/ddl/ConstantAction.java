@@ -18,11 +18,12 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.ddl;
+package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 
 public interface ConstantAction {
 
-    void execute() throws RelationalException;
+    void execute(Transaction txn) throws RelationalException;
 }

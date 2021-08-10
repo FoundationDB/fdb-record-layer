@@ -43,4 +43,8 @@ public class Options {
     public boolean hasOption(String optionName) {
         return options.containsKey(optionName);
     }
+
+    public int size() {
+        return options.size();
+    }
 }

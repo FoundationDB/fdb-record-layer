@@ -20,16 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.Restaurant;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
@@ -38,21 +35,16 @@ import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 import com.apple.foundationdb.relational.recordlayer.catalog.DatabaseLocator;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
+import com.apple.foundationdb.relational.recordlayer.ddl.ConstantActionFactory;
+import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.net.URI;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
@@ -60,6 +52,8 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     private FDBDatabase fdbDatabase;
     private RecordLayerCatalog catalog;
     private KeySpace keySpace;
+
+    private ConstantActionFactory constantActionFactory;
 
     private final List<RecordLayerDatabase> databases = new LinkedList<>();
 
@@ -85,6 +79,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
                 .setDatabaseLocator(dbPath -> fdbDatabase)
                 .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion));
 
+        constantActionFactory = new RecordLayerConstantActionFactory.Builder()
+                .setBaseKeySpace(keySpace)
+                .setBaseTemplatePath(URI.create("/t"))
+                .setMetaDataStore(metaDataStore)
+                .setSerializerRegistry(new TestSerializerRegistry())
+                .setUserVersionChecker((oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion))
+                .build();
+
         catalog = catalogBuilder.build();
         fdbDatabase = FDBDatabaseFactory.instance().getDatabase();
     }
@@ -101,43 +103,26 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         return catalog.getDatabase(url);
     }
 
-    private static RecordMetaDataBuilder getRecordMetadataBuilder() {
-        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
-        builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("name"));
-        return builder;
-    }
-
     private KeySpace getKeySpaceForSetup() {
         KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
-        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
+        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.NULL);
         rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
         //add the templates subdirectory
-        rootDirectory.addSubdirectory(new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.LONG,123));
+        rootDirectory.addSubdirectory(new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.STRING,"T"));
         return new KeySpace(rootDirectory);
     }
 
     public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {
-        //URI is of the format /<dbid>, and each schema should be in /<dbid>/<schemaid>
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri,keySpace);
-
-        final KeySpaceDirectory dbDirectory = dbPath.getDirectory();
-        //get an FDBDatabase from the locator, so that we can open a transaction against it
-//        final FDBDatabase fdbDatabase = catalog.getLocator().locateDatabase(dbPath);
-        RecordContextTransaction context = new RecordContextTransaction(fdbDatabase.openContext());
-
-        for (Map.Entry<String, String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
-            final KeySpaceDirectory schemaDirectory = dbDirectory.addSubdirectory(new KeySpaceDirectory(schemaData.getKey(), KeySpaceDirectory.KeyType.NULL));
-            URI templateUri = URI.create("/123/" + schemaData.getValue());
-
-            //create the schema from the template
-            URI schemaUri = URI.create(dbUri.getPath()+"/"+schemaData.getKey());
-
-            catalog.createSchema(schemaUri,templateUri,context);
+        try(final Transaction txn= new RecordContextTransaction(fdbDatabase.openContext())){
+            constantActionFactory.getCreateDatabaseConstantAction(dbUri,dbTemplate, Options.create()).execute(txn);
+            txn.commit();
         }
-        context.commit();
     }
 
     public void createSchemaTemplate(RecordLayerTemplate template) {
-        metaDataStore.setSchemaTemplateMetaData(URI.create("/123" + template.getUniqueName().getPath()), template);
+        try(final Transaction txn= new RecordContextTransaction(fdbDatabase.openContext())){
+            constantActionFactory.getCreateSchemaTemplateConstantAction(template, Options.create()).execute(txn);
+            txn.commit();
+        }
     }
 }

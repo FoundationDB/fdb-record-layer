@@ -20,37 +20,43 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
-import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Properties;
+import java.net.URI;
 
 public class NoOpConstantActionFactory implements ConstantActionFactory{
     public static final NoOpConstantActionFactory INSTANCE = new NoOpConstantActionFactory();
 
     private NoOpConstantActionFactory(){}
 
+    @Nonnull
     @Override
-    public @Nonnull ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull String templateName, @Nonnull Properties templateProperties) {
+    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
         return NoOpConstantAction.INSTANCE;
     }
 
     @Nonnull
     @Override
-    public ConstantAction getCreateTableConstantAction(@Nonnull String tableName, @Nonnull List<ColumnDescriptor> columns, @Nonnull Properties tableProps) {
+    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
         return NoOpConstantAction.INSTANCE;
     }
 
     @Nonnull
     @Override
-    public ConstantAction getCreateValueIndexConstantAction(@Nonnull String indexName, @Nonnull String tableName, @Nonnull List<ValueIndexColumnDescriptor> indexedColumns, @Nonnull Properties tableProps) {
+    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUri, @Nonnull URI templateUri, Options constantActionOptions) {
         return NoOpConstantAction.INSTANCE;
     }
 
     private static class NoOpConstantAction implements ConstantAction {
         private static final NoOpConstantAction INSTANCE = new NoOpConstantAction();
-        @Override public void execute() throws RelationalException { }
+
+        @Override
+        public void execute(Transaction txn) throws RelationalException {
+        }
     }
 }

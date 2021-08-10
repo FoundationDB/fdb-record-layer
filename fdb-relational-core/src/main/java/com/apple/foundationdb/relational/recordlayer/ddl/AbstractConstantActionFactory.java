@@ -20,28 +20,32 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
 import javax.annotation.Nonnull;
-import java.util.List;
-import java.util.Properties;
+import java.net.URI;
 
-public abstract class AbstractConstantActionFactory implements ConstantActionFactory{
-
+/**
+ * Skeleton implementation of a ConstantActionFactory.
+ */
+public abstract class AbstractConstantActionFactory implements ConstantActionFactory {
+    @Nonnull
     @Override
-    public @Nonnull ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull String templateName, @Nonnull Properties templateProperties) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaTemplateConstantAction(templateName,templateProperties);
+    public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate templateName, @Nonnull Options templateProperties) {
+        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaTemplateConstantAction(templateName, templateProperties);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getCreateTableConstantAction(@Nonnull String tableName, @Nonnull List<ColumnDescriptor> columns, @Nonnull Properties tableProps) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateTableConstantAction(tableName,columns,tableProps);
+    public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
+        return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath,template,constantActionOptions);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getCreateValueIndexConstantAction(@Nonnull String indexName, @Nonnull String tableName, @Nonnull List<ValueIndexColumnDescriptor> indexedColumns, @Nonnull Properties tableProps) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateValueIndexConstantAction(indexName,tableName,indexedColumns,tableProps);
+    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUri, @Nonnull URI templateUri, Options constantActionOptions) {
+        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaConstantAction(schemaUri,templateUri,constantActionOptions);
     }
 }

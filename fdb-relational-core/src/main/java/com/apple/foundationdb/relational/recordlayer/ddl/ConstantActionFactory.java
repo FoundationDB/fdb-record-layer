@@ -20,21 +20,20 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.relational.api.ddl.ConstantAction;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.ThreadSafe;
-import java.util.List;
-import java.util.Properties;
+import java.net.URI;
 
 @ThreadSafe
 public interface ConstantActionFactory {
 
-    //TODO(bfines) decide if properties are better here, or a custom object like Options
-    @Nonnull ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull String templateName, @Nonnull Properties templateProperties);
+    @Nonnull ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);
 
-    //TODO(bfines) add schema
-    @Nonnull ConstantAction getCreateTableConstantAction(@Nonnull String tableName, @Nonnull List<ColumnDescriptor> columns, @Nonnull Properties tableProps);
+    @Nonnull ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions);
 
-    @Nonnull ConstantAction getCreateValueIndexConstantAction(@Nonnull String indexName, @Nonnull String tableName, @Nonnull List<ValueIndexColumnDescriptor> indexedColumns,@Nonnull Properties tableProps);
+    @Nonnull ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUri,@Nonnull URI templateUri, Options constantActionOptions);
 }

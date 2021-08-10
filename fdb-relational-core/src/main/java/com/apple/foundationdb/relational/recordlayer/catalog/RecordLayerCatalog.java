@@ -21,16 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.tuple.TupleHelpers;
-import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
@@ -39,8 +33,6 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerDatabase;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
-import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
@@ -50,7 +42,7 @@ import java.util.concurrent.CompletableFuture;
 public class RecordLayerCatalog implements Catalog {
     private static final int DEFAULT_FORMAT_VERSION = 8;
     //pluggable
-    private final DatabaseFinder databaseFinder;
+    private final DatabaseLocator databaseFinder;
     private final MutableRecordMetaDataStore metaDataStore;
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final SerializerRegistry serializerRegistry;
@@ -58,7 +50,8 @@ public class RecordLayerCatalog implements Catalog {
     private final int formatVersion;
     private final ExistenceCheckerForStore existenceCheckerForStore;
 
-    private RecordLayerCatalog(DatabaseFinder locator,
+
+    private RecordLayerCatalog(DatabaseLocator locator,
                                MutableRecordMetaDataStore metaDataStore,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                SerializerRegistry serializerRegistry,
@@ -81,38 +74,14 @@ public class RecordLayerCatalog implements Catalog {
 
     @Nonnull
     public RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException {
-        final Pair<FDBDatabase, KeySpacePath> dbAndKeySpace = getFDBDatabaseAndKeySpacePath(url, keySpace);
-        final KeySpacePath keySpacePath = dbAndKeySpace.getRight();
-        return new RecordLayerDatabase(dbAndKeySpace.getLeft(),metaDataStore, userVersionChecker,
-                formatVersion, serializerRegistry, keySpacePath, existenceCheckerForStore);
-    }
-
-    @VisibleForTesting
-    Pair<FDBDatabase, KeySpacePath> getFDBDatabaseAndKeySpacePath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(url,keySpace);
-        return Pair.of(databaseLocator.locateDatabase(dbPath),dbPath);
-    }
-
-    public void createSchema(@Nonnull URI schemaUri, @Nonnull URI schemaTemplateUri, Transaction transaction) {
-        KeySpacePath schemaPath = KeySpaceUtils.uriToPath(schemaUri,keySpace);
-        KeySpacePath templatePath = KeySpaceUtils.uriToPath(schemaTemplateUri,keySpace);
-        FDBRecordContext ctx = transaction.unwrap(FDBRecordContext.class);
-
-        //create the metadata
-        metaDataStore.createSchemaMetaData(schemaUri,schemaTemplateUri);
-
-        FDBRecordStore.newBuilder()
-                .setKeySpacePath(schemaPath)
-                .setSerializer(serializerRegistry.loadSerializer(schemaPath))
-                .setMetaDataProvider(metaDataStore.loadSchemaMetaData(schemaUri))
-                .setUserVersionChecker(userVersionChecker)
-                .setFormatVersion(formatVersion)
-                .setContext(ctx)
-                .createOrOpen(existenceCheckerForStore.forStore(templatePath));
+        final FDBDatabase fdbDatabase = databaseFinder.locateDatabase(dbPath);
+        return new RecordLayerDatabase(fdbDatabase,metaDataStore, userVersionChecker,
+                formatVersion, serializerRegistry, dbPath, existenceCheckerForStore);
     }
 
     public static class Builder {
-        private DatabaseFinder databaseFinder;
+        private DatabaseLocator databaseFinder;
         private MutableRecordMetaDataStore metadataProvider;
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
         private SerializerRegistry serializerRegistry;
@@ -136,7 +105,7 @@ public class RecordLayerCatalog implements Catalog {
         }
 
         public Builder setDatabaseLocator(@Nonnull DatabaseLocator locator) {
-            this.databaseLocator = locator;
+            this.databaseFinder = locator;
             return this;
         }
 
@@ -171,7 +140,7 @@ public class RecordLayerCatalog implements Catalog {
             if (existenceCheckerForStore == null) {
                 existenceCheckerForStore = storeName -> FDBRecordStoreBase.StoreExistenceCheck.NONE;
             }
-            return new RecordLayerCatalog(databaseLocator,metadataProvider, userVersionChecker,
+            return new RecordLayerCatalog(databaseFinder,metadataProvider, userVersionChecker,
                     serializerRegistry, keySpace, formatVersion, existenceCheckerForStore);
         }
     }
