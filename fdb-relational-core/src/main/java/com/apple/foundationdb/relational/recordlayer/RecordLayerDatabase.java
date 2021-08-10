@@ -20,12 +20,14 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalException;
@@ -36,15 +38,13 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
-import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @NotThreadSafe
 public class RecordLayerDatabase implements RelationalDatabase {
     private final FDBDatabase fdbDb;
-    private final RecordMetaDataStore metaDataProvider;
+    private final RecordMetaDataStore metaDataStore;
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final int formatVersion;
 
@@ -58,14 +58,14 @@ public class RecordLayerDatabase implements RelationalDatabase {
     private final ExistenceCheckerForStore existenceCheckerForStore;
 
     public RecordLayerDatabase(FDBDatabase fdbDb,
-                               RecordMetaDataStore metaDataProvider,
+                               RecordMetaDataStore metaDataStore,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                int formatVersion,
                                SerializerRegistry serializerRegistry,
                                KeySpacePath dbPathPrefix,
                                ExistenceCheckerForStore existenceCheckerForStore) {
         this.fdbDb = fdbDb;
-        this.metaDataProvider = metaDataProvider;
+        this.metaDataStore = metaDataStore;
         this.userVersionChecker = userVersionChecker;
         this.formatVersion = formatVersion;
         this.serializerRegistry = serializerRegistry;
@@ -116,17 +116,24 @@ public class RecordLayerDatabase implements RelationalDatabase {
         //TODO(bfines) error handling if this store doesn't exist
 
         //TODO(bfines) this is probably not right in general
-        final KeySpacePath storePath = ksPath.add("schemaid",storeName);
+        final KeySpacePath parent = ksPath.getParent();
+        assert parent != null : "Programmer error: DB paths should not be the root of the KeySpace";
 
-        return FDBRecordStore.newBuilder()
-                .setKeySpacePath(storePath)
-                .setSerializer(serializerRegistry.loadSerializer(storePath))
-                //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
-                .setMetaDataProvider(metaDataProvider.loadMetaData(URI.create("/123/RestaurantRecord")))
-                .setUserVersionChecker(userVersionChecker)
-                .setFormatVersion(formatVersion)
-                .setContext(txn)
-                .createOrOpen(existenceCheckerForStore.forStore(storePath));
+        final KeySpacePath storePath = parent.add( storeName);
+
+        try {
+            return FDBRecordStore.newBuilder()
+                    .setKeySpacePath(storePath)
+                    .setSerializer(serializerRegistry.loadSerializer(storePath))
+                    //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
+                    .setMetaDataProvider(metaDataStore.loadSchemaMetaData(KeySpaceUtils.pathToURI(storePath)))
+                    .setUserVersionChecker(userVersionChecker)
+                    .setFormatVersion(formatVersion)
+                    .setContext(txn)
+                    .open();
+        }catch(RecordCoreException rce){
+            throw new RelationalException("Schema <"+storeName+"> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA,rce.getCause());
+        }
     }
 
     FDBDatabase getFDBDatabase() {
@@ -138,8 +145,11 @@ public class RecordLayerDatabase implements RelationalDatabase {
     FDBRecordStore loadRecordStore(String schemaId) {
         try{
             return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId);
-        }catch(MetaDataException mde){
-            throw new RelationalException(mde.getMessage(),RelationalException.ErrorCode.UNDEFINED_SCHEMA);
+        } catch(NoSuchDirectoryException nsde){
+            throw new RelationalException("Unknown schema <"+schemaId+">", RelationalException.ErrorCode.UNKNOWN_SCHEMA,nsde);
+        }
+        catch (MetaDataException mde) {
+            throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA,mde);
         }
     }
 

@@ -161,7 +161,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                 //make sure to clear our state if the transaction ends
                 this.conn.transaction.addTerminationListener(() -> currentTypeRef = null);
             } catch (MetaDataException mde) {
-                throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNDEFINED_SCHEMA);
+                throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA);
             }
         }
         return currentTypeRef;

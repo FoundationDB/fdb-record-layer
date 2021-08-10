@@ -50,23 +50,23 @@ import java.util.concurrent.CompletableFuture;
 public class RecordLayerCatalog implements Catalog {
     private static final int DEFAULT_FORMAT_VERSION = 8;
     //pluggable
-    private final DatabaseLocator databaseLocator;
-    private final RecordMetaDataStore metadataProvider;
+    private final DatabaseFinder databaseFinder;
+    private final MutableRecordMetaDataStore metaDataStore;
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final SerializerRegistry serializerRegistry;
     private final KeySpace keySpace;
     private final int formatVersion;
     private final ExistenceCheckerForStore existenceCheckerForStore;
 
-    private RecordLayerCatalog(DatabaseLocator locator,
-                               RecordMetaDataStore metadataProvider,
+    private RecordLayerCatalog(DatabaseFinder locator,
+                               MutableRecordMetaDataStore metaDataStore,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                SerializerRegistry serializerRegistry,
                                KeySpace keySpace,
                                int formatVersion,
                                ExistenceCheckerForStore existenceCheckerForStore) {
-        this.databaseLocator = locator;
-        this.metadataProvider = metadataProvider;
+        this.databaseFinder = locator;
+        this.metaDataStore = metaDataStore;
         this.userVersionChecker = userVersionChecker;
         this.serializerRegistry = serializerRegistry;
         this.keySpace = keySpace;
@@ -76,14 +76,14 @@ public class RecordLayerCatalog implements Catalog {
 
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException {
-        return new RecordLayerTemplate(templateId, metadataProvider.loadMetaData(templateId));
+        return new RecordLayerTemplate(templateId, metaDataStore.loadSchemaMetaData(templateId));
     }
 
     @Nonnull
     public RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException {
         final Pair<FDBDatabase, KeySpacePath> dbAndKeySpace = getFDBDatabaseAndKeySpacePath(url, keySpace);
         final KeySpacePath keySpacePath = dbAndKeySpace.getRight();
-        return new RecordLayerDatabase(dbAndKeySpace.getLeft(),metadataProvider, userVersionChecker,
+        return new RecordLayerDatabase(dbAndKeySpace.getLeft(),metaDataStore, userVersionChecker,
                 formatVersion, serializerRegistry, keySpacePath, existenceCheckerForStore);
     }
 
@@ -93,18 +93,18 @@ public class RecordLayerCatalog implements Catalog {
         return Pair.of(databaseLocator.locateDatabase(dbPath),dbPath);
     }
 
-    public DatabaseLocator getLocator() {
-        return databaseLocator;
-    }
-
     public void createSchema(@Nonnull URI schemaUri, @Nonnull URI schemaTemplateUri, Transaction transaction) {
         KeySpacePath schemaPath = KeySpaceUtils.uriToPath(schemaUri,keySpace);
         KeySpacePath templatePath = KeySpaceUtils.uriToPath(schemaTemplateUri,keySpace);
         FDBRecordContext ctx = transaction.unwrap(FDBRecordContext.class);
+
+        //create the metadata
+        metaDataStore.createSchemaMetaData(schemaUri,schemaTemplateUri);
+
         FDBRecordStore.newBuilder()
                 .setKeySpacePath(schemaPath)
                 .setSerializer(serializerRegistry.loadSerializer(schemaPath))
-                .setMetaDataProvider(metadataProvider.loadMetaData(schemaTemplateUri))
+                .setMetaDataProvider(metaDataStore.loadSchemaMetaData(schemaUri))
                 .setUserVersionChecker(userVersionChecker)
                 .setFormatVersion(formatVersion)
                 .setContext(ctx)
@@ -112,15 +112,15 @@ public class RecordLayerCatalog implements Catalog {
     }
 
     public static class Builder {
-        private DatabaseLocator databaseLocator;
-        private RecordMetaDataStore metadataProvider;
+        private DatabaseFinder databaseFinder;
+        private MutableRecordMetaDataStore metadataProvider;
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
         private SerializerRegistry serializerRegistry;
         private KeySpace keySpace;
         private int formatVersion;
         private ExistenceCheckerForStore existenceCheckerForStore;
 
-        public Builder setMetadataProvider(@Nonnull RecordMetaDataStore metadataProvider) {
+        public Builder setMetadataProvider(@Nonnull MutableRecordMetaDataStore metadataProvider) {
             this.metadataProvider = metadataProvider;
             return this;
         }

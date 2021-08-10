@@ -20,7 +20,10 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
+import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
 import javax.annotation.Nonnull;
@@ -30,14 +33,31 @@ import java.util.concurrent.ConcurrentMap;
 
 public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     private final ConcurrentMap<URI, RecordMetaDataProvider> metadataMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<URI, RecordMetaDataProvider> schemaMap = new ConcurrentHashMap<>();
 
     @Override
-    public RecordMetaDataProvider loadMetaData(@Nonnull URI schemaURI) {
-        return metadataMap.get(schemaURI);
+    public RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI schemaUri) {
+        return schemaMap.get(schemaUri);
     }
 
     @Override
-    public void putMetadata(@Nonnull URI schemaUuid, RecordMetaDataProvider storeMeta) {
+    public void setSchemaTemplateMetaData(@Nonnull URI schemaUuid, RecordMetaDataProvider storeMeta) {
         this.metadataMap.put(schemaUuid,storeMeta);
+    }
+
+    @Override
+    public void createSchemaMetaData(@Nonnull URI schemaUri, @Nonnull URI templateUri) {
+        RecordMetaDataProvider provider = loadTemplateMetaData(templateUri);
+        if(provider==null){
+            throw new RelationalException("No Schema Template at path <"+templateUri+"> found", RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        RecordMetaDataProto.MetaData templateMeta = provider.getRecordMetaData().toProto();
+        RecordMetaData schemaMetaData = RecordMetaData.build(templateMeta);
+        schemaMap.put(schemaUri,schemaMetaData);
+    }
+
+    @Override
+    public RecordMetaDataProvider loadTemplateMetaData(@Nonnull URI templateUri) {
+        return metadataMap.get(templateUri);
     }
 }

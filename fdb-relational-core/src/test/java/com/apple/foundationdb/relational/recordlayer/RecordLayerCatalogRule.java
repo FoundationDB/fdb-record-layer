@@ -78,8 +78,8 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         keySpace = getKeySpaceForSetup();
 
         metaDataStore = new MapRecordMetaDataStore();
-        final RecordLayerCatalog.Builder catalogBuilder = new RecordLayerCatalog.Builder();
-        catalogBuilder.setKeySpace(keySpace)
+        RecordLayerCatalog.Builder catalogBuilder = new RecordLayerCatalog.Builder();
+        catalogBuilder = catalogBuilder.setKeySpace(keySpace)
                 .setMetadataProvider(metaDataStore)
                 .setSerializerRegistry(new TestSerializerRegistry())
                 .setDatabaseLocator(dbPath -> fdbDatabase)
@@ -110,8 +110,6 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     private KeySpace getKeySpaceForSetup() {
         KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
         KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-        KeySpaceDirectory schemaDirectory = new KeySpaceDirectory("schemaid", KeySpaceDirectory.KeyType.STRING);
-        dbDirectory = dbDirectory.addSubdirectory(schemaDirectory);
         rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
         //add the templates subdirectory
         rootDirectory.addSubdirectory(new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.LONG,123));
@@ -122,12 +120,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         //URI is of the format /<dbid>, and each schema should be in /<dbid>/<schemaid>
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUri,keySpace);
 
+        final KeySpaceDirectory dbDirectory = dbPath.getDirectory();
         //get an FDBDatabase from the locator, so that we can open a transaction against it
 //        final FDBDatabase fdbDatabase = catalog.getLocator().locateDatabase(dbPath);
         RecordContextTransaction context = new RecordContextTransaction(fdbDatabase.openContext());
 
-        for(Map.Entry<String,String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()){
-            URI templateUri = URI.create("/123/"+schemaData.getValue());
+        for (Map.Entry<String, String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
+            final KeySpaceDirectory schemaDirectory = dbDirectory.addSubdirectory(new KeySpaceDirectory(schemaData.getKey(), KeySpaceDirectory.KeyType.NULL));
+            URI templateUri = URI.create("/123/" + schemaData.getValue());
 
             //create the schema from the template
             URI schemaUri = URI.create(dbUri.getPath()+"/"+schemaData.getKey());
@@ -137,7 +137,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         context.commit();
     }
 
-    public void createSchemaTemplate(RecordLayerTemplate template){
-        metaDataStore.putMetadata(URI.create("/123"+template.getUniqueName().getPath()),template);
+    public void createSchemaTemplate(RecordLayerTemplate template) {
+        metaDataStore.setSchemaTemplateMetaData(URI.create("/123" + template.getUniqueName().getPath()), template);
     }
 }

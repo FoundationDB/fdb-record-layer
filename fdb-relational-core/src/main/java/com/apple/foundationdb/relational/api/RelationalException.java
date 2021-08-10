@@ -39,7 +39,10 @@ public class RelationalException extends RuntimeException{
     }
 
     public static RelationalException convert(Throwable re) {
-        return new RelationalException(ErrorCode.UNKNOWN,re);
+        if (re instanceof RelationalException) {
+            return (RelationalException) re;
+        }
+        return new RelationalException(ErrorCode.UNKNOWN, re);
     }
 
     public ErrorCode getErrorCode(){
@@ -92,8 +95,9 @@ public class RelationalException extends RuntimeException{
         SCHEMA_NOT_FOUND("4200Q"),
         UNDEFINED_TABLE("42F01"),
         UNDEFINED_DATABASE("42F02"),
-        UNDEFINED_SCHEMA("42P03"),
+        UNKNOWN_SCHEMA("42P03"),
         UNKNOWN_INDEX("42F04"),
+        UNKNOWN_SCHEMA_TEMPLATE("42P05"),
         /**
          * Indicates that a query has timed out during execution.
          */

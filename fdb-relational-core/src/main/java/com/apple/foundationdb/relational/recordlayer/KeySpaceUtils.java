@@ -40,14 +40,15 @@ public class KeySpaceUtils {
             final KeySpaceDirectory directory = keySpacePath.getDirectory();
             switch (directory.getKeyType()) {
                 case NULL:
-                    return "";
+                    //special-case handling for the root node
+                    return directory.getName().equals("/")? "" : directory.getName();
                 case BYTES:
                     //TODO(bfines) this is almost certainly not correct
                     return new String((byte[]) keySpacePath.getValue(), StandardCharsets.UTF_8);
                 default:
                     return keySpacePath.getValue().toString();
             }
-        }).reduce("", (left, right) -> left + "/" + right);
+        }).reduce("", (left, right) -> left.endsWith("/")? left+right : left + "/" + right);
         return URI.create(path);
     }
 
@@ -82,9 +83,9 @@ public class KeySpaceUtils {
         Object pathValue = null;
         switch (directory.getKeyType()) {
             case NULL:
-                if (pathElem.length() > 0) {
-                    return null; //this path doesn't match
-                }
+//                if (pathElem.length() > 0) {
+//                    return null; //this path doesn't match
+//                }
                 break;
             case BYTES:
                 //TODO(bfines) this may not be correct,depending on how charsets are used

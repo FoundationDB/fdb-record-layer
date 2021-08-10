@@ -28,9 +28,8 @@ import java.net.URI;
 
 public interface MutableRecordMetaDataStore extends RecordMetaDataStore{
 
-    //TODO(bfines) this probably won't live long, but it temporarily
-    // solves the problem of mapping schema to template during load time
-//    void mapSchema(String schema, String templateName);
-//
-    void putMetadata(@Nonnull URI schemaUri, RecordMetaDataProvider storeMeta);
+    void setSchemaTemplateMetaData(@Nonnull URI templateUri, RecordMetaDataProvider storeMeta);
+
+    void createSchemaMetaData(@Nonnull URI schemaUri,@Nonnull URI templateUri);
+
 }

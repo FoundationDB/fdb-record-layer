@@ -27,5 +27,7 @@ import java.net.URI;
 
 public interface RecordMetaDataStore {
 
-    RecordMetaDataProvider loadMetaData(@Nonnull URI storeUuid);
+    RecordMetaDataProvider loadTemplateMetaData(@Nonnull URI templateUri);
+
+    RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI storeUuid);
 }
