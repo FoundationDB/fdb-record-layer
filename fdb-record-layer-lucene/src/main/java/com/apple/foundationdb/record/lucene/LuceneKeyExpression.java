@@ -75,10 +75,6 @@ public interface LuceneKeyExpression extends KeyExpression {
         throw new MetaDataException("Unsupported field type, please check allowed lucene field types under LuceneField class", LogMessageKeys.KEY_EXPRESSION, expression);
     }
 
-    static List<ImmutablePair<String, LuceneKeyExpression>> normalize(KeyExpression expression) {
-        return normalize(expression, null);
-    }
-
     // Todo: limit depth of recursion
     static List<ImmutablePair<String, LuceneKeyExpression>> normalize(KeyExpression expression, @Nullable String givenPrefix) {
         if (expression instanceof LuceneFieldKeyExpression) {
@@ -106,7 +102,7 @@ public interface LuceneKeyExpression extends KeyExpression {
     }
 
     static List<String> listIndexFieldNames(KeyExpression expression) {
-        List<ImmutablePair<String, LuceneKeyExpression>> pairs = normalize(expression);
+        List<ImmutablePair<String, LuceneKeyExpression>> pairs = normalize(expression, null);
         List<String> indexFields = Lists.newArrayList();
         for (ImmutablePair<String, LuceneKeyExpression> pair : pairs) {
             if (pair.right instanceof LuceneFieldKeyExpression) {
