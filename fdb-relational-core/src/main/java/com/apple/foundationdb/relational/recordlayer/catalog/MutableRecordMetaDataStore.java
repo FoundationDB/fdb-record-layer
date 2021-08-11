@@ -30,6 +30,6 @@ public interface MutableRecordMetaDataStore extends RecordMetaDataStore{
 
     void setSchemaTemplateMetaData(@Nonnull URI templateUri, RecordMetaDataProvider storeMeta);
 
-    void createSchemaMetaData(@Nonnull URI schemaUri,@Nonnull URI templateUri);
+    void createSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId, @Nonnull URI templateUri);
 
 }

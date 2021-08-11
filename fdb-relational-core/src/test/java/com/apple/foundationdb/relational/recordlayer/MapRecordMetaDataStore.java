@@ -37,9 +37,9 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     private final ConcurrentMap<URI, RecordMetaDataProvider> schemaMap = new ConcurrentHashMap<>();
 
     @Override
-    public RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI schemaUri) {
+    public RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId) {
         //TODO(bfines) if we ever use non-path elements of the URI, this will need to change
-        URI upperCase = URI.create(schemaUri.getPath().toUpperCase(Locale.ROOT));
+        URI upperCase = URI.create((KeySpaceUtils.getPath(dbUrl) + "/" + schemaId).toUpperCase(Locale.ROOT));
         return schemaMap.get(upperCase);
     }
 
@@ -49,12 +49,12 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     }
 
     @Override
-    public void createSchemaMetaData(@Nonnull URI schemaUri, @Nonnull URI templateUri) {
+    public void createSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId, @Nonnull URI templateUri) {
         RecordMetaDataProvider provider = loadTemplateMetaData(templateUri);
         if(provider==null){
             throw new RelationalException("No Schema Template at path <"+templateUri+"> found", RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
-        URI schemaKey =URI.create(schemaUri.getPath().toUpperCase(Locale.ROOT));
+        URI schemaKey =URI.create((KeySpaceUtils.getPath(dbUrl) + "/" + schemaId).toUpperCase(Locale.ROOT));
         schemaMap.put(schemaKey,provider);
     }
 

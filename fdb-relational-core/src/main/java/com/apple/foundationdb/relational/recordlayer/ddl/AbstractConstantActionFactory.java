@@ -45,7 +45,7 @@ public abstract class AbstractConstantActionFactory implements ConstantActionFac
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUri, @Nonnull URI templateUri, Options constantActionOptions) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaConstantAction(schemaUri,templateUri,constantActionOptions);
+    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaId, @Nonnull URI templateUri, Options constantActionOptions) {
+        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaConstantAction(dbPath, schemaId, templateUri,constantActionOptions);
     }
 }

@@ -55,7 +55,7 @@ public class RecordLayerTableTest {
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate(URI.create("/RestaurantRecord"), builder.build()));
 
-        catalog.createDatabase(URI.create("/record_layer_table_test"),
+        catalog.createDatabase(URI.create("//record_layer_table_test"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("test","RestaurantRecord")
                         .build());
@@ -64,7 +64,7 @@ public class RecordLayerTableTest {
     @Test
     void canInsertAndGetASingleRecord() {
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final URI dbUrl = URI.create("/record_layer_table_test");
+        final URI dbUrl = URI.create("//record_layer_table_test");
         try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -97,7 +97,7 @@ public class RecordLayerTableTest {
     @Test
     void canDeleteASingleRecord() {
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final URI dbUrl = URI.create("/record_layer_table_test");
+        final URI dbUrl = URI.create("//record_layer_table_test");
         try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -139,7 +139,7 @@ public class RecordLayerTableTest {
     @Test
     void canInsertAndScanASingleRecordFromIndex() throws Exception {
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        URI uri = URI.create("/record_layer_table_test");
+        URI uri = URI.create("//record_layer_table_test");
         try(DatabaseConnection conn = driver.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
@@ -171,7 +171,7 @@ public class RecordLayerTableTest {
     @Test
     void canInsertAndScanASingleRecord() throws Exception {
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final URI dbUrl = URI.create("/record_layer_table_test");
+        final URI dbUrl = URI.create("//record_layer_table_test");
         try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
@@ -203,7 +203,7 @@ public class RecordLayerTableTest {
 
     @Test
     void demo() {
-        final URI dbUrl = URI.create("/record_layer_table_test");
+        final URI dbUrl = URI.create("//record_layer_table_test");
 
         RecordLayerDriver driver = new RecordLayerDriver(catalog);
         try (DatabaseConnection conn = driver.connect(dbUrl, null,Options.create().withOption(OperationOption.forceVerifyDdl()))) {

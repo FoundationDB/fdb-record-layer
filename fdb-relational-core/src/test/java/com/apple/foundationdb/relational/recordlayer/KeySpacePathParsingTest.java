@@ -28,19 +28,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 
 public class KeySpacePathParsingTest {
     private final KeySpace testSpace = getKeySpaceForTesting();
     @Test
     void testParsingKeySpacePath() {
-        final List<Object> url = new ArrayList<>();
-        url.add(null);
-        url.add("prod");
-        url.add("testApp");
-        url.add(12345L);
-
         URI expected = URI.create("/prod/testApp/12345");
         KeySpacePath path = KeySpaceUtils.uriToPath(expected,testSpace);
         final URI uri = KeySpaceUtils.pathToURI(path);
@@ -58,6 +50,50 @@ public class KeySpacePathParsingTest {
         //throws the right exception when we can't parse an entry
         RelationalException ve = Assertions.assertThrows(RelationalException.class,()->KeySpaceUtils.uriToPath(URI.create("/prod/testApp/notAUser"),testSpace));
         Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH,ve.getErrorCode(),"Incorrect returned error code");
+    }
+
+    @Test
+    void testUrlWithEmptyForStringType() {
+        // Default keySpace doesn't have directory with null type
+        final URI expected = URI.create("//testApp/12345");
+        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> KeySpaceUtils.uriToPath(expected, testSpace));
+        Assertions.assertEquals(RelationalException.ErrorCode.INVALID_PATH, ve.getErrorCode(), "Incorrect returned error code");
+    }
+
+    @Test
+    void testUrlWithDoubleSlashAtBeginning() {
+        final KeySpaceDirectory env = new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.NULL);
+        final KeySpaceDirectory app = new KeySpaceDirectory("App", KeySpaceDirectory.KeyType.STRING);
+        final KeySpaceDirectory user = new KeySpaceDirectory("User", KeySpaceDirectory.KeyType.LONG);
+        env.addSubdirectory(app);
+        app.addSubdirectory(user);
+        KeySpace keySpace = new KeySpace(env);
+
+        final URI expected = URI.create("//testApp/12345");
+        final KeySpacePath path = KeySpaceUtils.uriToPath(expected, keySpace);
+        Assertions.assertEquals(expected, KeySpaceUtils.pathToURI(path), "KeySpacePath is not parsed as expected");
+    }
+
+    @Test
+    void testWithNullSubDirectory() {
+        final KeySpaceDirectory env = new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.STRING);
+        final KeySpaceDirectory app = new KeySpaceDirectory("App", KeySpaceDirectory.KeyType.STRING);
+        final KeySpaceDirectory nullApp = new KeySpaceDirectory("NullApp", KeySpaceDirectory.KeyType.NULL);
+        final KeySpaceDirectory user = new KeySpaceDirectory("User", KeySpaceDirectory.KeyType.LONG);
+        final KeySpaceDirectory user2 = new KeySpaceDirectory("User", KeySpaceDirectory.KeyType.LONG);
+        env.addSubdirectory(app);
+        env.addSubdirectory(nullApp);
+        app.addSubdirectory(user);
+        nullApp.addSubdirectory(user2);
+        final KeySpace keySpace = new KeySpace(env);
+
+        final URI expected = URI.create("/prod/testApp/12345");
+        final KeySpacePath path = KeySpaceUtils.uriToPath(expected, keySpace);
+        Assertions.assertEquals(expected, KeySpaceUtils.pathToURI(path), "Invalid parsing of URI or KeySpacePaths");
+
+        final URI expected2 = URI.create("/prod//12345");
+        final KeySpacePath path2 = KeySpaceUtils.uriToPath(expected2, keySpace);
+        Assertions.assertEquals(expected2, KeySpaceUtils.pathToURI(path2), "Invalid parsing of URI or KeySpacePaths");
     }
 
     private KeySpace getKeySpaceForTesting() {

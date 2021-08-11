@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
 import javax.annotation.Nonnull;
@@ -42,7 +43,7 @@ public class CreateSchemaTemplateConstantAction implements ConstantAction {
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        final String path = template.getUniqueName().getPath();
+        final String path = KeySpaceUtils.getPath(template.getUniqueName());
         String templatePath = path.startsWith("/") ? baseTemplatePath + path : baseTemplatePath + "/" + path;
         URI templateUri = URI.create(templatePath);
 

@@ -29,5 +29,5 @@ public interface RecordMetaDataStore {
 
     RecordMetaDataProvider loadTemplateMetaData(@Nonnull URI templateUri);
 
-    RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI storeUuid);
+    RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId);
 }

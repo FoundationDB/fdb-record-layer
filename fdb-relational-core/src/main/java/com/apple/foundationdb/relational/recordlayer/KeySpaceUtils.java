@@ -40,22 +40,21 @@ public class KeySpaceUtils {
             final KeySpaceDirectory directory = keySpacePath.getDirectory();
             switch (directory.getKeyType()) {
                 case NULL:
-                    //special-case handling for the root node
-                    return directory.getName().equals("/")? "" : directory.getName();
+                    return "";
                 case BYTES:
                     //TODO(bfines) this is almost certainly not correct
                     return new String((byte[]) keySpacePath.getValue(), StandardCharsets.UTF_8);
                 default:
                     return keySpacePath.getValue().toString();
             }
-        }).reduce("", (left, right) -> left.endsWith("/")? left+right : left + "/" + right);
+        }).reduce("", (left, right) -> left + "/" + right);
         return URI.create(path);
     }
 
     public static @Nonnull KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
-        String path = url.getPath();
+        String path = getPath(url);
         if(path.length()<1){
-            throw new RelationalException("<"+url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("Invalid url that does not translate into the KeySpacePath: <" + url + ">", RelationalException.ErrorCode.INVALID_PATH);
         }
         if(!path.startsWith("/")){
             path = "/"+path;
@@ -71,10 +70,19 @@ public class KeySpaceUtils {
         }
 
         if (thePath == null) {
-            throw new RelationalException("<"+url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("Invalid url that does not translate into the KeySpacePath: <" + url + ">", RelationalException.ErrorCode.INVALID_PATH);
         }
 
         return thePath;
+    }
+
+    public static KeySpacePath getSchemaPath(@Nonnull URI dbUrl, @Nonnull String schemaId, @Nonnull KeySpace keySpace) {
+        KeySpacePath dbPath = uriToPath(dbUrl, keySpace);
+        return dbPath.add(schemaId);
+    }
+
+    public static String getPath(@Nonnull URI url) {
+        return url.toString().startsWith("//") ? "//" + url.getAuthority() + url.getPath() : url.getPath();
     }
 
     /* ****************************************************************************************************************/
@@ -94,7 +102,10 @@ public class KeySpaceUtils {
         Object pathValue = null;
         switch (directory.getKeyType()) {
             case NULL:
-                pathName = pathElem;
+                // empty string in URI represents NULL value, and non-empty value is invalid for directory with NULL KeyType
+                if (!pathElem.isEmpty()) {
+                    return null;
+                }
                 break;
             case BYTES:
                 //TODO(bfines) this may not be correct,depending on how charsets are used
@@ -107,7 +118,10 @@ public class KeySpaceUtils {
                 break;
             case STRING:
                 pathValue = pathElem;
-                if(Objects.equals(dirVal,KeySpaceDirectory.ANY_VALUE)){
+                // empty string in URI represents NULL value, and empty value is invalid for directory with String KeyType
+                if (pathElem.isEmpty()) {
+                    return null;
+                } else if(Objects.equals(dirVal,KeySpaceDirectory.ANY_VALUE)){
                     break;
                 }else if(!Objects.equals(dirVal,pathElem)){
                     return null;

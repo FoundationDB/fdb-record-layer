@@ -53,30 +53,15 @@ public class CreateDatabaseConstantAction implements ConstantAction{
     @Override
     public void execute(Transaction txn) throws RelationalException {
         //TODO(bfines) catch errors here
-        String dbPathStr = dbUrl.getPath();
-        String dbPrefixPath = dbPathStr.substring(0,dbPathStr.lastIndexOf("/"));
-        final String dbName = dbPathStr.substring(dbPathStr.lastIndexOf("/") + 1);
-        KeySpacePath dbPath;
-        if(dbPrefixPath.length()<1 || dbPrefixPath.equalsIgnoreCase("/")){
-            keySpace.getRoot().addSubdirectory(new KeySpaceDirectory(dbName,KeySpaceDirectory.KeyType.NULL));
-        }else {
-            KeySpacePath dbParentPath = KeySpaceUtils.uriToPath(URI.create(dbPrefixPath), keySpace);
-            dbParentPath.getDirectory().addSubdirectory(new KeySpaceDirectory(dbName, KeySpaceDirectory.KeyType.NULL));
-        }
-
-        dbPath = KeySpaceUtils.uriToPath(dbUrl,keySpace);
+        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl,keySpace);
 
         final KeySpaceDirectory dbDirectory = dbPath.getDirectory();
 
         for(Map.Entry<String,String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()){
-            //make sure that the subdirectory is available in the keyspace
-            final KeySpaceDirectory schemaDir = dbDirectory.addSubdirectory(new KeySpaceDirectory(schemaData.getKey(),KeySpaceDirectory.KeyType.NULL ));
 
             URI templateUri =  URI.create(templateBasePath.toString()+"/"+schemaData.getValue());
 
-            URI schemaUri = URI.create(dbUrl.getPath()+"/"+schemaData.getKey());
-
-            caFactory.getCreateSchemaConstantAction(schemaUri,templateUri,constantActionOptions).execute(txn);
+            caFactory.getCreateSchemaConstantAction(dbUrl, schemaData.getKey(), templateUri, constantActionOptions).execute(txn);
         }
 
     }

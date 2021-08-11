@@ -69,7 +69,7 @@ public class RecordLayerCatalog implements Catalog {
 
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException {
-        return new RecordLayerTemplate(templateId, metaDataStore.loadSchemaMetaData(templateId));
+        return new RecordLayerTemplate(templateId, metaDataStore.loadTemplateMetaData(templateId));
     }
 
     @Nonnull

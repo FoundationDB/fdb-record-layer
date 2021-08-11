@@ -122,7 +122,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
                     .setKeySpacePath(storePath)
                     .setSerializer(serializerRegistry.loadSerializer(storePath))
                     //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
-                    .setMetaDataProvider(metaDataStore.loadSchemaMetaData(KeySpaceUtils.pathToURI(storePath)))
+                    .setMetaDataProvider(metaDataStore.loadSchemaMetaData(KeySpaceUtils.pathToURI(ksPath), storeName))
                     .setUserVersionChecker(userVersionChecker)
                     .setFormatVersion(formatVersion)
                     .setContext(txn)

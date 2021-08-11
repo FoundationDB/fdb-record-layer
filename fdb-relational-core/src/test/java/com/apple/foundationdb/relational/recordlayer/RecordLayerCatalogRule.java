@@ -71,7 +71,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 new TestSerializerRegistry(),
                 keySpace,
-                URI.create("/t"));
+                URI.create("/1"));
         catalog = engine.getCatalog();
         constantActionFactory = engine.getConstantActionFactory();
     }
@@ -97,10 +97,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     }
 
     private KeySpace getKeySpaceForSetup() {
-//        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.NULL);
+        KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
+        KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
+        KeySpaceDirectory schemaDirectory = new KeySpaceDirectory("test", KeySpaceDirectory.KeyType.STRING, "T");
+        dbDirectory.addSubdirectory(schemaDirectory);
+        rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
         //add the templates subdirectory
-        KeySpaceDirectory templatesDirectory = new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.STRING,"T");
-        return new KeySpace(templatesDirectory);
+        rootDirectory.addSubdirectory(new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.LONG,1L));
+        return new KeySpace(rootDirectory);
     }
 
     public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {

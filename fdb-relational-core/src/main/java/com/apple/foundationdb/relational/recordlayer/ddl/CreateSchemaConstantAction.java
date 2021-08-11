@@ -34,7 +34,8 @@ import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDa
 import java.net.URI;
 
 public class CreateSchemaConstantAction implements ConstantAction{
-    private final URI schemaUri;
+    private final URI dbUrl;
+    private final String schemaId;
     private final URI templateUri;
     private final KeySpace keySpace;
 
@@ -43,14 +44,16 @@ public class CreateSchemaConstantAction implements ConstantAction{
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final int formatVersion;
 
-    public CreateSchemaConstantAction(URI schemaUri,
+    public CreateSchemaConstantAction(URI dbUrl,
+                                      String schemaId,
                                       URI templateUri,
                                       KeySpace keySpace,
                                       MutableRecordMetaDataStore metaDataStore,
                                       SerializerRegistry serializerRegistry,
                                       FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                       int formatVersion) {
-        this.schemaUri = schemaUri;
+        this.dbUrl = dbUrl;
+        this.schemaId = schemaId;
         this.templateUri = templateUri;
         this.keySpace = keySpace;
         this.metaDataStore = metaDataStore;
@@ -63,16 +66,16 @@ public class CreateSchemaConstantAction implements ConstantAction{
     @Override
     public void execute(Transaction txn) throws RelationalException {
         //TODO(bfines) error handling
-        KeySpacePath schemaPath = KeySpaceUtils.uriToPath(schemaUri,keySpace);
+        KeySpacePath schemaPath = KeySpaceUtils.getSchemaPath(dbUrl, schemaId, keySpace);
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
 
         //create the metadata
-        metaDataStore.createSchemaMetaData(schemaUri,templateUri);
+        metaDataStore.createSchemaMetaData(dbUrl, schemaId, templateUri);
 
         FDBRecordStore.newBuilder()
                 .setKeySpacePath(schemaPath)
                 .setSerializer(serializerRegistry.loadSerializer(schemaPath))
-                .setMetaDataProvider(metaDataStore.loadSchemaMetaData(schemaUri))
+                .setMetaDataProvider(metaDataStore.loadSchemaMetaData(dbUrl, schemaId))
                 .setUserVersionChecker(userVersionChecker)
                 .setFormatVersion(formatVersion)
                 .setContext(ctx)

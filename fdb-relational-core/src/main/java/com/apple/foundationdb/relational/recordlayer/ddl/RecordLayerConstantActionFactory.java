@@ -70,8 +70,8 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory{
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUri, @Nonnull URI templateUri, Options constantActionOptions) {
-        return new CreateSchemaConstantAction(schemaUri,templateUri,baseKeySpace,metaDataStore,serializerRegistry,userVersionChecker,formatVersion);
+    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaId, @Nonnull URI templateUri, Options constantActionOptions) {
+        return new CreateSchemaConstantAction(dbPath, schemaId,templateUri,baseKeySpace,metaDataStore,serializerRegistry,userVersionChecker,formatVersion);
     }
 
     public static class Builder{
