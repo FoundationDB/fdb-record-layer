@@ -70,10 +70,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexer.buildIndex(true);
         }
-        vaccumReadableIndexesBuildData();
-    }
-
-    private void vaccumReadableIndexesBuildData() {
         try (FDBRecordContext context = openContext()) {
             recordStore.vacuumReadableIndexesBuildData();
             context.commit();
