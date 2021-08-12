@@ -53,7 +53,7 @@ class ClientLogEventCounterTest {
             countReads = "READ".equals(arg) || "BOTH".equals(arg);
             countWrites = "WRITE".equals(arg) || "BOTH".equals(arg);
         }
-        FDB fdb = FDB.selectAPIVersion(600);
+        FDB fdb = FDB.selectAPIVersion(630);
         Database database = fdb.open(cluster);
         Executor executor = database.getExecutor();
         TupleKeyCountTree root = new TupleKeyCountTree();
