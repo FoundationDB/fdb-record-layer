@@ -40,6 +40,9 @@ Another, smaller change that has been made is that by default, new indexes added
 // end next release
 -->
 
+### 3.0.207.0
+
+
 ### 3.0.206.0
 
 * OnlineIndexerIndexFromIndexTest.testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange timeout failures [(Issue #1267)](https://github.com/FoundationDB/fdb-record-layer/issues/1267)
