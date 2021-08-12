@@ -127,4 +127,15 @@ public interface QueryPlanner {
      * @param indexScanPreference whether to prefer index scan over record scan
      */
     void setIndexScanPreference(@Nonnull IndexScanPreference indexScanPreference);
+
+    @Nonnull
+    RecordQueryPlannerConfiguration getConfiguration();
+
+    /**
+     * Set the {@link RecordQueryPlannerConfiguration} for this planner.
+     * If an {@link com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference} is already set using
+     * {@link #setIndexScanPreference(IndexScanPreference)} then it will be ignored.
+     * @param configuration a configuration object for this planner
+     */
+    void setConfiguration(@Nonnull final RecordQueryPlannerConfiguration configuration);
 }

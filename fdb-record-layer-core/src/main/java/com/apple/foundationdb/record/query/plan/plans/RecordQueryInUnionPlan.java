@@ -35,9 +35,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.UnionCursor;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
@@ -64,8 +66,8 @@ import java.util.stream.Collectors;
  * A query plan that executes union over instantiations of a child plan for each of the elements of some {@code IN} list(s).
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("RecordQueryInUnionPlan");
+public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQuerySetPlan {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("In-Union-Plan");
 
     @Nonnull
     protected final Quantifier.Physical inner;
@@ -100,6 +102,23 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
     @Nonnull
     public KeyExpression getComparisonKey() {
         return comparisonKey;
+    }
+
+    @Nonnull
+    @Override
+    public Set<KeyExpression> getRequiredFields() {
+        return ImmutableSet.copyOf(comparisonKey.normalizeKeyForPositions());
+    }
+
+    @Nonnull
+    @Override
+    public RecordQuerySetPlan withChildrenReferences(@Nonnull final List<? extends ExpressionRef<? extends RecordQueryPlan>> newChildren) {
+        return withChild(Iterables.getOnlyElement(newChildren).get());
+    }
+
+    @Override
+    public boolean isDynamic() {
+        return true;
     }
 
     @Nonnull
@@ -171,12 +190,25 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
-        return PlannerGraph.fromNodeAndChildGraphs(
+        final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
-                        NodeInfo.IN_UNION_OPERATOR,
-                        valuesSources.stream().map(Object::toString).collect(Collectors.toList()),
-                        ImmutableMap.of()),
-                childGraphs);
+                        NodeInfo.IN_UNION_OPERATOR);
+        final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
+        final PlannerGraph.DataNodeWithInfo valuesNode =
+                new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
+                        ImmutableList.of("VALUES({{values}}"),
+                        ImmutableMap.of("values",
+                                Attribute.gml(Objects.requireNonNull(valuesSources).stream()
+                                        .map(String::valueOf)
+                                        .map(Attribute::gml)
+                                        .collect(ImmutableList.toImmutableList()))));
+        final PlannerGraph.Edge fromValuesEdge = new PlannerGraph.Edge();
+        return PlannerGraph.builder(root)
+                .addGraph(graphForInner)
+                .addNode(valuesNode)
+                .addEdge(valuesNode, root, fromValuesEdge)
+                .addEdge(graphForInner.getRoot(), root, new PlannerGraph.Edge(ImmutableSet.of(fromValuesEdge)))
+                .build();
     }
 
     @Nonnull
@@ -200,7 +232,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
+    public RecordQueryInUnionPlan withChild(@Nonnull final RecordQueryPlan child) {
         return new RecordQueryInUnionPlan(child, valuesSources, comparisonKey, reverse, maxNumberOfValuesAllowed);
     }
 
@@ -262,9 +294,16 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
 
         @Nonnull
         protected abstract List<Object> getValues(@Nonnull EvaluationContext context);
+
+        public int baseHash(@Nonnull final PlanHashKind hashKind, @Nonnull ObjectPlanHash objectPlanHash) {
+            return objectPlanHash.planHash(hashKind);
+        }
     }
 
     public static class InValues extends InValuesSource {
+        @Nonnull
+        private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("In-Values");
+
         @Nonnull
         private final List<Object> values;
 
@@ -287,9 +326,9 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
             if (hashKind == PlanHashKind.STRUCTURAL_WITHOUT_LITERALS) {
-                return PlanHashable.objectPlanHash(hashKind, getBindingName());
+                return baseHash(hashKind, OBJECT_PLAN_HASH_IN_VALUES_SOURCE);
             } else {
-                return PlanHashable.objectsPlanHash(hashKind, getBindingName(), values);
+                return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_IN_VALUES_SOURCE), values);
             }
         }
 
@@ -328,6 +367,9 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
 
     public static class InParameter extends InValuesSource {
         @Nonnull
+        private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE = new ObjectPlanHash("In-Parameter");
+
+        @Nonnull
         private final String parameterName;
 
         public InParameter(@Nonnull String bindingName, @Nonnull final String parameterName) {
@@ -342,7 +384,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild {
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.objectsPlanHash(hashKind, getBindingName(), parameterName);
+            return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE), parameterName);
         }
 
         @Override

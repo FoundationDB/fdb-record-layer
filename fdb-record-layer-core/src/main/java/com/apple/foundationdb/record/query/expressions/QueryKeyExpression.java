@@ -343,7 +343,7 @@ public class QueryKeyExpression {
                                              @Nonnull String param,
                                              @Nonnull ParameterRelationshipGraph parameterRelationshipGraph,
                                              @Nonnull Function<Object, Object> conversion) {
-            super(type, param, parameterRelationshipGraph);
+            super(type, param, null, parameterRelationshipGraph);
             this.conversion = conversion;
         }
 

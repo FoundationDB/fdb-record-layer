@@ -110,9 +110,9 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
 
         final List<? extends Collection<? extends RecordQueryPlan>> plansByQuantifier = bindings.getAll(unionLegPlansMatcher);
 
-        // group each leg's plans by their "sorted-ness"
+        // group each leg's plans by their provided ordering
 
-        final ImmutableList<Set<Map.Entry<Ordering, ImmutableList<RecordQueryPlan>>>> plansByQuantifierSortedness =
+        final ImmutableList<Set<Map.Entry<Ordering, ImmutableList<RecordQueryPlan>>>> plansByQuantifierOrdering =
                 plansByQuantifier
                         .stream()
                         .map(plansForQuantifier -> {
@@ -133,7 +133,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                             return groupedBySortedness.entrySet();
                         }).collect(ImmutableList.toImmutableList());
 
-        for (final List<Map.Entry<Ordering, ImmutableList<RecordQueryPlan>>> entries : CrossProduct.crossProduct(plansByQuantifierSortedness)) {
+        for (final List<Map.Entry<Ordering, ImmutableList<RecordQueryPlan>>> entries : CrossProduct.crossProduct(plansByQuantifierOrdering)) {
             final ImmutableList<Optional<Ordering>> orderingOptionals =
                     entries.stream()
                             .map(entry ->

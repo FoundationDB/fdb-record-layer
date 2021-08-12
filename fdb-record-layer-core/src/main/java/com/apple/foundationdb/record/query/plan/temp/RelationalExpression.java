@@ -444,7 +444,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
         // We strive to find a binding for every alias in the grand union of all correlatedTo sets of all quantifiers.
         // There are three kinds of correlations on those quantifiers:
         //
-        // 1. correlations to quantifiers outside of the sub-graph rooted at this expressions
+        // 1. correlations to quantifiers outside of the sub-graph rooted at this expression
         // 2. correlations among each other, e.g. q2 is correlated to q1 and both are underneath this expression
         // 3. previously bound mappings -- we won't touch those here.
         //
@@ -676,14 +676,12 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
 
     /**
      * Override that is called by {@link AdjustMatchRule} to improve an already existing {@link PartialMatch}.
-     * @param expression the query expression
      * @param partialMatch the partial match already existing between {@code expression} and {@code this}
      * @return {@code Optional.empty()} if the match could not be adjusted, Optional.of(matchInfo) for a new adjusted
      *         match, otherwise.
      */
     @Nonnull
-    default Optional<MatchInfo> adjustMatch(@Nonnull final RelationalExpression expression,
-                                            @Nonnull final PartialMatch partialMatch) {
+    default Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         return Optional.empty();
     }
 
@@ -708,6 +706,10 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
 
     default Compensation compensate(@Nonnull final PartialMatch partialMatch, @Nonnull final Map<CorrelationIdentifier, ComparisonRange> boundParameterPrefixMap) {
         throw new RecordCoreException("expression matched but no compensation logic implemented");
+    }
+
+    default Set<Quantifier.ForEach> computeUnmatchedForEachQuantifiers(@Nonnull final PartialMatch partialMatch) {
+        return ImmutableSet.of();
     }
 
     /**

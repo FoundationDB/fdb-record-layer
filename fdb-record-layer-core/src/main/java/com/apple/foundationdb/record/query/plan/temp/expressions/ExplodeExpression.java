@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -51,16 +50,10 @@ import java.util.Set;
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression implements RelationalExpression, InternalPlannerGraphRewritable {
     @Nonnull
-    private final CorrelationIdentifier correlationIdentifier;
-    @Nonnull
-    private final List<String> fieldNames;
-    @Nonnull
-    private final FieldValue resultValue;
+    private final Value resultValue;
 
-    public ExplodeExpression(@Nonnull final CorrelationIdentifier correlationIdentifier, @Nonnull final List<String> fieldNames) {
-        this.correlationIdentifier = correlationIdentifier;
-        this.fieldNames = fieldNames;
-        this.resultValue = new FieldValue(QuantifiedColumnValue.of(correlationIdentifier, 0), fieldNames);
+    public ExplodeExpression(@Nonnull final Value resultValue) {
+        this.resultValue = resultValue;
     }
 
     @Nonnull
@@ -78,7 +71,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return ImmutableSet.of(correlationIdentifier);
+        return resultValue.getCorrelatedTo();
     }
 
     @Override
@@ -87,10 +80,8 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         if (this == otherExpression) {
             return true;
         }
-        final ExplodeExpression otherExplodeExpression = (ExplodeExpression)otherExpression;
         return getClass() == otherExpression.getClass() &&
-               semanticEqualsForResults(otherExpression, equivalencesMap) &&
-               fieldNames.equals(otherExplodeExpression.fieldNames);
+               semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
     @Override
@@ -101,10 +92,11 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public ExplodeExpression rebase(@Nonnull final AliasMap translationMap) {
-        if (!translationMap.containsSource(correlationIdentifier)) {
+        final Value rebasedResultValue = resultValue.rebase(translationMap);
+        if (rebasedResultValue == this.resultValue) {
             return this;
         } else {
-            return new ExplodeExpression(translationMap.getTargetOrThrow(correlationIdentifier), fieldNames);
+            return new ExplodeExpression(rebasedResultValue);
         }
     }
 
@@ -135,5 +127,11 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Override
     public String toString() {
         return resultValue.toString();
+    }
+
+    public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,
+                                                 final int index,
+                                                 @Nonnull final List<String> fieldNames) {
+        return new ExplodeExpression(new FieldValue(QuantifiedColumnValue.of(correlationIdentifier, index), fieldNames));
     }
 }

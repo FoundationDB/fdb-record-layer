@@ -375,7 +375,7 @@ public class Ordering {
 
                 //
                 // At this point we have either found an actual next key which at least on one side does not have
-                // an equality binding or we wont find one at all and this is thew last iteration.
+                // an equality binding or we wont find one at all and this is the last iteration.
                 // Before we either continue or give up we need to weave in the information from the required ordering
                 // that is passed in.
                 // If there is a required key part that is equality-bound on both sides, the caller can impose
@@ -400,6 +400,9 @@ public class Ordering {
                             mergedOrderingKeysBuilder.add(requiredKeyPart);
                             equalityBoundKeyMap.removeAll(requiredKeyPart.getNormalizedKeyExpression());
                         }
+                    } else {
+                        toBeAdded = null;
+                        break;
                     }
                 }
 

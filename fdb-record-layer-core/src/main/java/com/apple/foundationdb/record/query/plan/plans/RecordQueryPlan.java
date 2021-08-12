@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
@@ -271,5 +272,13 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
         }
 
         return false;
+    }
+
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    static <R extends RecordQueryPlan> ExpressionRef<R> narrowReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
+        Verify.verify(reference.getMembers().stream().allMatch(member -> member instanceof RecordQueryPlan));
+        return (GroupExpressionRef<R>)reference;
     }
 }

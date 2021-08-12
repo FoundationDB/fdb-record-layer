@@ -32,11 +32,11 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordVersion;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
+import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.Extractor;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers;
 import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher;
-import com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
@@ -51,6 +51,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcher.typed;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatcherWithExtractAndDownstream.typedWithDownstream;
 
 /**
  * A set of {@link Comparisons.Comparison} for scanning an index.
@@ -352,7 +355,7 @@ public class ScanComparisons implements PlanHashable {
 
     @Nonnull
     public static BindingMatcher<ScanComparisons> range(@Nonnull String tupleString) {
-        return TypedMatcherWithExtractAndDownstream.typedWithDownstream(ScanComparisons.class,
+        return typedWithDownstream(ScanComparisons.class,
                 Extractor.of(
                         scanComparisons -> {
                             try {
@@ -380,6 +383,18 @@ public class ScanComparisons implements PlanHashable {
                         });
             }
         };
+    }
+
+    @Nonnull
+    public static BindingMatcher<ScanComparisons> equalities(@Nonnull CollectionMatcher<Comparisons.Comparison> equalityComparisonsCollectionMatcher) {
+        return typedWithDownstream(ScanComparisons.class,
+                Extractor.of(ScanComparisons::getEqualityComparisons, name -> "equalities(" + name + ")"),
+                equalityComparisonsCollectionMatcher);
+    }
+
+    @Nonnull
+    public static BindingMatcher<Comparisons.ParameterComparison> anyParameterComparison() {
+        return typed(Comparisons.ParameterComparison.class);
     }
 
     private static class InequalityRangeCombiner {

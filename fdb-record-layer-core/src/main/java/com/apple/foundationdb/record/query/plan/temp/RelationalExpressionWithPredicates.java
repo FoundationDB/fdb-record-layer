@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.StreamSupport;
 
 /**
@@ -49,15 +50,29 @@ public interface RelationalExpressionWithPredicates extends RelationalExpression
      */
     @Nonnull
     static ImmutableSet<FieldValue> fieldValuesFromPredicates(@Nonnull final Collection<? extends QueryPredicate> predicates) {
+        return fieldValuesFromPredicates(predicates, queryPredicate -> true);
+    }
+
+    /**
+     * Return all {@link FieldValue}s contained in the predicates handed in.
+     * @param predicates a collection of predicates
+     * @param filteringPredicate an actual predicate performing additional filtering for the kinds of
+     *        {@link PredicateWithValue}s the caller is interested in
+     * @return a set of {@link FieldValue}s
+     */
+    @Nonnull
+    static ImmutableSet<FieldValue> fieldValuesFromPredicates(@Nonnull final Collection<? extends QueryPredicate> predicates,
+                                                              @Nonnull final Predicate<PredicateWithValue> filteringPredicate) {
         return predicates
                 .stream()
                 .flatMap(predicate -> {
                     final Iterable<? extends QueryPredicate> filters =
-                            predicate.filter(p -> p instanceof PredicateWithValue);
+                            predicate.filter(p -> p instanceof PredicateWithValue && filteringPredicate.test((PredicateWithValue)p));
                     return StreamSupport.stream(filters.spliterator(), false)
                             .map(p -> (PredicateWithValue)p)
-                            .flatMap(predicateWithValue -> StreamSupport.stream(predicateWithValue.getValue()
-                                    .filter(v -> v instanceof FieldValue).spliterator(), false))
+                            .flatMap(predicateWithValue ->
+                                    StreamSupport.stream(predicateWithValue.getValue()
+                                            .filter(v -> v instanceof FieldValue).spliterator(), false))
                             .map(value -> (FieldValue)value);
                 })
                 .map(fieldValue -> (FieldValue)fieldValue.rebase(AliasMap.of(fieldValue.getChild().getAlias(), CorrelationIdentifier.UNGROUNDED)))

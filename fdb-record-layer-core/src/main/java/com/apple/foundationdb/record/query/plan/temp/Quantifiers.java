@@ -196,7 +196,7 @@ public class Quantifiers {
                 quantifiers,
                 otherQuantifiers,
                 quantifierMatchPredicate.and(matchPredicate))
-                .findMatches();
+                .findCompleteMatches();
     }
 
     /**

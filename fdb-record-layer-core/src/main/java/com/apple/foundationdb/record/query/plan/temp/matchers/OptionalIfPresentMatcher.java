@@ -1,9 +1,9 @@
 /*
- * TypeMatcher.java
+ * OptionalIfPresentMatcher.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,31 +23,27 @@ package com.apple.foundationdb.record.query.plan.temp.matchers;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * A <code>BindingMatcher</code> matches a data structure while binding variables to parts of the data structure.
- *
- * <p>
- * Extreme care should be taken when implementing <code>BindingMatcher</code>s, since it can be very delicate.
- * In particular, matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>TypedMatcher</code> must use the (default) reference equals.
- * </p>
+ * A matcher that matches an optional if the object is present.
  * @param <T> the bindable type that this matcher binds to
  */
 @API(API.Status.EXPERIMENTAL)
-public class TypedMatcher<T> implements BindingMatcher<T> {
+public class OptionalIfPresentMatcher<T> implements BindingMatcher<Optional<T>> {
     @Nonnull
-    private final Class<T> bindableClass;
+    private final BindingMatcher<?> downstream;
 
-    public TypedMatcher(@Nonnull final Class<T> bindableClass) {
-        this.bindableClass = bindableClass;
+    public OptionalIfPresentMatcher(@Nonnull final BindingMatcher<?> downstream) {
+        this.downstream = downstream;
     }
 
     @Nonnull
     @Override
-    public Class<T> getRootClass() {
-        return bindableClass;
+    @SuppressWarnings("unchecked")
+    public Class<Optional<T>> getRootClass() {
+        return (Class<Optional<T>>)(Class<?>)Optional.class;
     }
 
     /**
@@ -59,23 +55,32 @@ public class TypedMatcher<T> implements BindingMatcher<T> {
      * @param in the bindable we attempt to match
      * @return a stream of {@link PlannerBindings} containing the matched bindings, or an empty stream is no match was found
      */
+    @SuppressWarnings("OptionalIsPresent")
     @Nonnull
     @Override
-    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull T in) {
-        return Stream.of(PlannerBindings.from(this, in));
+    public Stream<PlannerBindings> bindMatchesSafely(@Nonnull PlannerBindings outerBindings, @Nonnull Optional<T> in) {
+        return Stream.of(PlannerBindings.from(this, in))
+                .flatMap(bindings -> {
+                    if (!in.isPresent()) {
+                        return Stream.empty();
+                    }
+                    return downstream
+                            .bindMatches(outerBindings, in.get())
+                            .map(bindings::mergedWith);
+                });
     }
 
     @Override
     public String explainMatcher(@Nonnull final Class<?> atLeastType, @Nonnull final String boundId, @Nonnull final String indentation) {
-        if (getRootClass().isAssignableFrom(atLeastType)) {
-            return "case _ => success ";
+        if (Optional.class.isAssignableFrom(atLeastType)) {
+            return "case " + boundId + " if " + boundId + " isPresent() => success";
         } else {
-            return "case _: " + getRootClass().getSimpleName() + " => success ";
+            return "case " + boundId + ":Optional if " + boundId + " isPresent() => success";
         }
     }
 
     @Nonnull
-    public static <T> TypedMatcher<T> typed(@Nonnull final Class<T> bindableClass) {
-        return new TypedMatcher<>(bindableClass);
+    public static <T> OptionalIfPresentMatcher<T> present(@Nonnull final BindingMatcher<?> downstream) {
+        return new OptionalIfPresentMatcher<>(downstream);
     }
 }

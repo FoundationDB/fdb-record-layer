@@ -250,7 +250,7 @@ public class SpecificMatchingTest {
                 ImmutableMap.of(of("z"), ImmutableSet.of(of("y")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -289,7 +289,7 @@ public class SpecificMatchingTest {
                         of("z"), ImmutableSet.of(of("y")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -321,7 +321,7 @@ public class SpecificMatchingTest {
                         of("z"), ImmutableSet.of(of("x")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -345,7 +345,7 @@ public class SpecificMatchingTest {
                 ImmutableMap.of();
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -371,7 +371,7 @@ public class SpecificMatchingTest {
                         of("z"), ImmutableSet.of(of("y")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -403,7 +403,7 @@ public class SpecificMatchingTest {
                         of("z"), ImmutableSet.of(of("y"), of("i")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,
@@ -437,7 +437,7 @@ public class SpecificMatchingTest {
                         of("j"), ImmutableSet.of(of("u")));
 
         final Iterable<AliasMap> matchIterable = AliasMap.emptyMap()
-                .findMatches(
+                .findCompleteMatches(
                         left,
                         l -> dependenciesLeft.getOrDefault(l, ImmutableSet.of()),
                         right,

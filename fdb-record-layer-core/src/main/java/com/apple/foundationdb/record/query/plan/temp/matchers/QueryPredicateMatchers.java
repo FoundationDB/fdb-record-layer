@@ -80,6 +80,16 @@ public class QueryPredicateMatchers {
                 downstream);
     }
 
+    public static TypedMatcher<Comparisons.Comparison> anyComparison() {
+        return typed(Comparisons.Comparison.class);
+    }
+
+    public static TypedMatcher<Comparisons.Comparison> anyComparisonOfType(@Nonnull final Comparisons.Type type) {
+        return typedWithDownstream(Comparisons.Comparison.class,
+                Extractor.of(Comparisons.Comparison::getType, name -> "type(" + name + ")"),
+                PrimitiveMatchers.equalsObject(type));
+    }
+
     @Nonnull
     public static <V extends Value> BindingMatcher<ValuePredicate> valuePredicate(@Nonnull final BindingMatcher<V> downstreamValue,
                                                                                   @Nonnull final Comparisons.Comparison comparison) {

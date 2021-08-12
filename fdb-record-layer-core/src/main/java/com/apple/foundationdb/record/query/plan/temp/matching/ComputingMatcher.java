@@ -21,19 +21,16 @@
 package com.apple.foundationdb.record.query.plan.temp.matching;
 
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.ChooseK;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.CrossProduct;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterator;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
@@ -43,12 +40,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Spliterator;
-import java.util.Spliterators;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
-import java.util.stream.StreamSupport;
 
 /**
  * This class implements a {@link GenericMatcher} which matches two sets of elements of type {@code T} to compute
@@ -123,58 +116,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
     @Nonnull
     @Override
     public Iterable<BoundMatch<R>> match() {
-        return match(this::enumerate);
-    }
-
-    @Override
-    @Nonnull
-    protected Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive) {
-        final Set<CorrelationIdentifier> otherAliases = getOtherAliases();
-        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = getOtherDependsOnMap();
-        Preconditions.checkArgument(limitInclusive <= otherAliases.size());
-        return () -> IntStream.rangeClosed(0, limitInclusive)
-                .boxed()
-                .flatMap(k -> {
-                    final EnumeratingIterator<CorrelationIdentifier> combinationsIterator =
-                            ChooseK.chooseK(otherAliases, k)
-                                    .iterator();
-
-                    final Iterator<List<CorrelationIdentifier>> filteredCombinationsIterator = new AbstractIterator<List<CorrelationIdentifier>>() {
-                        @Override
-                        protected List<CorrelationIdentifier> computeNext() {
-                            while (combinationsIterator.hasNext()) {
-                                final List<CorrelationIdentifier> combination = combinationsIterator.next();
-                                final Set<CorrelationIdentifier> visibleAliases = Sets.newHashSetWithExpectedSize(otherAliases.size());
-
-                                int i;
-                                for (i = 0; i < combination.size(); i++) {
-                                    final CorrelationIdentifier alias = combination.get(i);
-                                    final boolean brokenCombination = otherDependsOnMap.get(alias)
-                                            .stream()
-                                            .anyMatch(dependsOnAlias -> otherAliases.contains(dependsOnAlias) && // not an external dependency
-                                                                        !visibleAliases.contains(dependsOnAlias));
-                                    if (brokenCombination) {
-                                        break;
-                                    } else {
-                                        visibleAliases.add(alias);
-                                    }
-                                }
-
-                                if (i < combination.size()) {
-                                    combinationsIterator.skip(i);
-                                } else {
-                                    return combination;
-                                }
-                            }
-                            return endOfData();
-                        }
-                    };
-
-                    return StreamSupport.stream(
-                            Spliterators.spliteratorUnknownSize(filteredCombinationsIterator, Spliterator.ORDERED),
-                            false);
-                })
-                .iterator();
+        return match(this::enumerate, false);
     }
 
     /**
@@ -226,7 +168,7 @@ public class ComputingMatcher<T, M, R> extends BaseMatcher<T> implements Generic
                         final AliasMap locallyBoundMap = locallyBoundMapOptional.get();
 
                         final T entity = Objects.requireNonNull(getAliasToElementMap().get(alias));
-                            final T otherEntity = Objects.requireNonNull(getOtherAliasToElementMap().get(otherAlias));
+                        final T otherEntity = Objects.requireNonNull(getOtherAliasToElementMap().get(otherAlias));
 
                         final Iterable<M> matchResults =
                                 matchFunction.apply(entity, otherEntity, boundAliasesMap.combine(locallyBoundMap));

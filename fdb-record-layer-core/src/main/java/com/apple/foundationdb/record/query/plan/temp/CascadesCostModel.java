@@ -22,24 +22,29 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.QueryPlanner.IndexScanPreference;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.properties.ExpressionCountProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.PredicateCountProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.RelationalExpressionDepthProperty;
+import com.apple.foundationdb.record.query.plan.temp.properties.ScanComparisonsProperty;
 import com.apple.foundationdb.record.query.plan.temp.properties.TypeFilterCountProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.UnmatchedFieldsProperty;
+import com.apple.foundationdb.record.query.plan.temp.properties.UnmatchedFieldsCountProperty;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -101,6 +106,14 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
                 Integer.compare(numDataAccessA, numDataAccessB);
         if (countDataAccessesCompare != 0) {
             return countDataAccessesCompare;
+        }
+
+        // special case
+        // if one plan is a inUnion plan
+        final OptionalInt inUnionVsOtherOptional =
+                flipFlop(() -> compareInUnion(a, b), () -> compareInUnion(b, a));
+        if (inUnionVsOtherOptional.isPresent() && inUnionVsOtherOptional.getAsInt() != 0) {
+            return inUnionVsOtherOptional.getAsInt();
         }
 
         final int typeFilterCountA = TypeFilterCountProperty.evaluate(a);
@@ -165,8 +178,8 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return distinctFilterPositionCompare;
         }
 
-        int ufpA = UnmatchedFieldsProperty.evaluate(planContext, a);
-        int ufpB = UnmatchedFieldsProperty.evaluate(planContext, b);
+        int ufpA = UnmatchedFieldsCountProperty.evaluate(planContext, a);
+        int ufpB = UnmatchedFieldsCountProperty.evaluate(planContext, b);
         if (ufpA != ufpB) {
             return Integer.compare(ufpA, ufpB);
         }
@@ -221,6 +234,48 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
             return OptionalInt.of(1);
         }
         return OptionalInt.empty();
+    }
+
+    private OptionalInt compareInUnion(@Nonnull final RelationalExpression leftExpression,
+                                       @Nonnull final RelationalExpression rightExpression) {
+        if (!(leftExpression instanceof RecordQueryInUnionPlan)) {
+            return OptionalInt.empty();
+        }
+
+        //
+        // If both are InUnions we just return 0, that is we keep comparing the two inUnion plans using regular
+        // heuristics.
+        //
+        if (rightExpression instanceof RecordQueryInUnionPlan) {
+            return OptionalInt.of(0);
+        }
+
+        final RecordQueryInUnionPlan inUnionPlan = (RecordQueryInUnionPlan)leftExpression;
+
+        // right is not in union
+
+        // If no scan comparison on the in union side uses a comparison to the in-values, then the in union
+        // plan is not useful.
+        final Set<ScanComparisons> scanComparisonsSet = ScanComparisonsProperty.evaluate(inUnionPlan);
+
+        final ImmutableSet<String> parametersInScanComparisons =
+                scanComparisonsSet
+                        .stream()
+                        .flatMap(scanComparisons ->
+                                scanComparisons.getEqualityComparisons()
+                                        .stream()
+                                        .filter(comparison -> comparison instanceof Comparisons.ParameterComparison)
+                                        .map(comparison -> (Comparisons.ParameterComparison)comparison))
+                        .map(Comparisons.ParameterComparison::getParameter)
+                        .collect(ImmutableSet.toImmutableSet());
+
+        if (inUnionPlan.getValuesSources()
+                .stream()
+                .noneMatch(inValuesSource -> parametersInScanComparisons.contains(inValuesSource.getBindingName()))) {
+            return OptionalInt.of(1);
+        }
+
+        return OptionalInt.of(0);
     }
 
     private static boolean isSingularIndexScanWithFetch(@Nonnull Map<Class<? extends RelationalExpression>, Integer> countDataAccessMapIndexScan) {
