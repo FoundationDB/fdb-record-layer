@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
@@ -71,10 +70,6 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
                 .build()) {
             indexer.buildIndex(true);
         }
-        vaccumReadableIndexesBuildData();
-    }
-
-    private void vaccumReadableIndexesBuildData() {
         try (FDBRecordContext context = openContext()) {
             recordStore.vacuumReadableIndexesBuildData();
             context.commit();
@@ -107,7 +102,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexSimple() {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final long numRecords = 1000;
+        final long numRecords = 80;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
@@ -139,8 +134,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexContinuation() {
 
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1327;
-        final int chunkSize  = 42;
+        final int numRecords = 107;
+        final int chunkSize  = 17;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -317,12 +312,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    @Disabled("Temporarily disabled to avoid spurious test failures in CI: see https://github.com/FoundationDB/fdb-record-layer/issues/1267")
     public void testIndexFromIndexPersistentContinuation() {
         // start indexing by Index, verify continuation
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1329;
-        final int chunkSize  = 42;
+        final int numRecords = 49;
+        final int chunkSize  = 12;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -336,7 +330,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 4, timer,
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
                 .setSourceIndex("src_index")
                 .forbidRecordScan()
@@ -365,8 +359,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexPersistentPreventBadContinuation() {
         // start indexing by index, verify refusal to continue by records, then continue by index
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 78;
+        final int chunkSize  = 17;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -381,7 +375,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 1, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -427,8 +421,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexPersistentContinuePreviousByIndex() {
         // start indexing by Index, verify refusal to continue by records, then allow continuation of the previous by index method - overriding the by records request
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 98;
+        final int chunkSize  = 16;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
@@ -442,7 +436,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .setForbidRecordScan(true)
@@ -483,8 +477,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexPersistentContinuePreviousByRecords() {
         // start indexing by records, allow continuation of previous by records method - overriding the by-index request
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 90;
+        final int chunkSize  = 17;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
@@ -498,7 +492,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer, null);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
@@ -539,8 +533,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexPersistentContinuePreviousByRecordsWithoutTypeStamp() {
         // start indexing by records, earse the type stamp to simulate old code, verify refusal to continue, then allow continuation of previous by records method - overriding the by-index request
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 77;
+        final int chunkSize  = 20;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
@@ -554,7 +548,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer, null);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
 
         openSimpleMetaData(hook);
         try (OnlineIndexer indexBuilder = OnlineIndexer.newBuilder()
@@ -597,8 +591,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange() {
         // start indexing by records, request a rebuild - by index - if the indexing type stamp had changed
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 79;
+        final int chunkSize  = 21;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
@@ -612,7 +606,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer, null);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 2, timer, null);
 
         openSimpleMetaData(hook);
         timer.reset();
@@ -638,8 +632,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexRebuildIfWriteOnlyAndForceBuildAndBuildIfDisabled() {
         // test various policy options to ensure coverage (note that the last section will disable and rebuild the source index)
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1329;
-        final int chunkSize  = 42;
+        final int numRecords = 87;
+        final int chunkSize  = 18;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -653,7 +647,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
         buildSrcIndex(srcIndex);
 
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 5, timer, null);
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer, null);
 
         openSimpleMetaData(hook);
         timer.reset();
@@ -738,8 +732,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexSrcVersionModifiedWithFallback() {
         // start indexing by index, change src index' last modified version, assert failing to continue, continue with REBUILD_IF.. option
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 81;
+        final int chunkSize  = 10;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -755,7 +749,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // partly build by-index
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 4, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -812,12 +806,11 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     }
 
     @Test
-    @Disabled("Temporarily disabled to avoid spurious test failures in CI: see https://github.com/FoundationDB/fdb-record-layer/issues/1267")
     public void testIndexFromIndexOtherSrcIndexWithFallback() {
         // start indexing by src_index, attempt continue with src_index2
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 83;
+        final int chunkSize  = 10;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -886,8 +879,8 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexOtherSrcIndexBecomesUnusable() {
         // start indexing by src_index, attempt continue with src_index2
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize  = 42;
+        final int numRecords = 88;
+        final int chunkSize  = 15;
         final int numChunks  = 1 + (numRecords / chunkSize);
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
@@ -912,7 +905,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
 
         // partly build by-index src_index
         openSimpleMetaData(hook);
-        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 7, timer,
+        buildIndexAndCrashHalfway(tgtIndex, chunkSize, 3, timer,
                 OnlineIndexer.IndexingPolicy.newBuilder()
                         .setSourceIndex("src_index")
                         .forbidRecordScan()
@@ -955,7 +948,7 @@ public class OnlineIndexerIndexFromIndexTest extends OnlineIndexerTest {
     public void testIndexFromIndexRebuild() {
         // test the inline rebuildIndex function by-index
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final long numRecords = 1000;
+        final long numRecords = 80;
 
         Index srcIndex = new Index("src_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         Index tgtIndex = new Index("tgt_index", field("num_value_3_indexed"), IndexTypes.VALUE);
