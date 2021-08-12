@@ -44,7 +44,7 @@ class DatabaseClientLogEventsTest {
         if (args.length > 2) {
             end = ZonedDateTime.parse(args[2]).toInstant();
         }
-        FDB fdb = FDB.selectAPIVersion(600);
+        FDB fdb = FDB.selectAPIVersion(630);
         Database database = fdb.open(cluster);
         Executor executor = database.getExecutor();
         DatabaseClientLogEvents.EventConsumer consumer = (tr, event) -> {
