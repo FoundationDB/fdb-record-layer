@@ -16,7 +16,7 @@ Another, smaller change that has been made is that by default, new indexes added
 // begin next release
 ### NEXT_RELEASE
 
-* OnlineIndexerIndexFromIndexTest.testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange timeout failures [(Issue #1267)](https://github.com/FoundationDB/fdb-record-layer/issues/1267)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.206.0
+
+* OnlineIndexerIndexFromIndexTest.testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange timeout failures [(Issue #1267)](https://github.com/FoundationDB/fdb-record-layer/issues/1267)
 
 ### 3.0.205.0
 
