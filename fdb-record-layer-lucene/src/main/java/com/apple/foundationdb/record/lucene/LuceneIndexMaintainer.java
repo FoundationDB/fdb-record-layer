@@ -71,6 +71,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -138,14 +139,31 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     protected static class DocumentEntry {
-        String fieldName;
-        Object value;
-        LuceneFieldKeyExpression expression;
+        final String fieldName;
+        final Object value;
+        final LuceneFieldKeyExpression expression;
 
         DocumentEntry(String name, Object value, LuceneFieldKeyExpression expression) {
             this.fieldName = name;
             this.value = value;
             this.expression = expression;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final DocumentEntry entry = (DocumentEntry)o;
+            return fieldName.equals(entry.fieldName) && Objects.equals(value, entry.value) && expression.equals(entry.expression);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(fieldName, value, expression);
         }
 
     }
@@ -232,12 +250,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             oldRecordFields.addAll(getFields(root, oldRecord, oldRecord.getRecord()));
         }
 
-        // evaluate which fields are changed
-        //Not sure if we want to allow deletion of fields. Or if the updated record will contain all fields not
-        // just the updated ones. Assuming here that the record will be complete if being updated as previously.
-        List<DocumentEntry> updatedFields = newRecordFields;
-        updatedFields.removeAll(oldRecordFields);
-
+        // if no relevant fields are changed then nothing needs to be done.
+        if (newRecordFields.equals(oldRecordFields)) {
+            return AsyncUtil.DONE;
+        }
 
         try {
             // create writer and document
@@ -245,13 +261,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             Document document = new Document();
 
             // if old record has fields in the index and there are changes then delete old record
-            if (!oldRecordFields.isEmpty() && (!updatedFields.isEmpty() || newRecord == null)) {
+            if (!oldRecordFields.isEmpty()) {
                 Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(oldRecord.getPrimaryKey().pack()));
                 writer.deleteDocuments(query);
             }
 
             // if there are changes then update the index with the new document.
-            if (!updatedFields.isEmpty()) {
+            if (!newRecordFields.isEmpty()) {
                 byte[] primaryKey = newRecord.getPrimaryKey().pack();
                 BytesRef ref = new BytesRef(primaryKey);
                 document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
