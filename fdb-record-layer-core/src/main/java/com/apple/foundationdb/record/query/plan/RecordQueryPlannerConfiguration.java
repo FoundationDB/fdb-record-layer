@@ -22,8 +22,10 @@ package com.apple.foundationdb.record.query.plan;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A set of configuration options for the {@link RecordQueryPlanner}.
@@ -42,6 +44,8 @@ public class RecordQueryPlannerConfiguration {
     private final int maxTotalTaskCount;
     private final boolean useFullKeyForValueIndex;
     private final int maxNumMatchesPerRuleCall;
+    @Nullable
+    private final RecordQueryPlannerSortConfiguration sortConfiguration;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -53,7 +57,8 @@ public class RecordQueryPlannerConfiguration {
                                             int maxTaskQueueSize,
                                             int maxTotalTaskCount,
                                             boolean useFullKeyForValueIndex,
-                                            int maxNumMatchesPerRuleCall) {
+                                            int maxNumMatchesPerRuleCall,
+                                            @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -65,6 +70,7 @@ public class RecordQueryPlannerConfiguration {
         this.maxTotalTaskCount = maxTotalTaskCount;
         this.useFullKeyForValueIndex = useFullKeyForValueIndex;
         this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
+        this.sortConfiguration = sortConfiguration;
     }
 
     /**
@@ -184,6 +190,15 @@ public class RecordQueryPlannerConfiguration {
         return maxNumMatchesPerRuleCall;
     }
 
+    /**
+     * Get configuration for planning sorting, including whether the planner is allowed to use an in-memory sort plan.
+     * @return configuration to use for planning non-index sorting, or {@code null} to never allow it
+     */
+    @Nullable
+    public RecordQueryPlannerSortConfiguration getSortConfiguration() {
+        return sortConfiguration;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -210,6 +225,8 @@ public class RecordQueryPlannerConfiguration {
         private int maxTotalTaskCount = 0;
         private boolean useFullKeyForValueIndex = true;
         private int maxNumMatchesPerRuleCall = 0;
+        @Nullable
+        private RecordQueryPlannerSortConfiguration sortConfiguration;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -223,6 +240,7 @@ public class RecordQueryPlannerConfiguration {
             this.maxTotalTaskCount = configuration.maxTotalTaskCount;
             this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
             this.maxNumMatchesPerRuleCall = configuration.maxNumMatchesPerRuleCall;
+            this.sortConfiguration = configuration.sortConfiguration;
         }
 
         public Builder() {
@@ -308,8 +326,28 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+        /**
+         * Set configuration for planning sorting, including whether the planner is allowed to use an in-memory sort plan.
+         * @param sortConfiguration configuration to use for planning non-index sorting, or {@code null} to never allow it
+         * @return this builder
+         */
+        public Builder setSortConfiguration(final RecordQueryPlannerSortConfiguration sortConfiguration) {
+            this.sortConfiguration = sortConfiguration;
+            return this;
+        }
+
+        /**
+         * Set whether the planner is allowed to use an in-memory sort plan.
+         * @param allowNonIndexSort whether to allow non-index sorting
+         * @return this builder
+         */
+        public Builder setAllowNonIndexSort(final boolean allowNonIndexSort) {
+            setSortConfiguration(allowNonIndexSort ? RecordQueryPlannerSortConfiguration.getDefaultInstance() : null);
+            return this;
+        }
+ 
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, attemptFailedInJoinAsUnionMaxSize, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, attemptFailedInJoinAsUnionMaxSize, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall, sortConfiguration);
         }
     }
 }
