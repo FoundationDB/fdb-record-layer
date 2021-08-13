@@ -79,7 +79,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                 comparisonString = "%s:(+\"%s\")";
                 break;
             case IS_NULL:
-                comparisonString = "NOT %s:[* TO *]";
+                comparisonString = "*:* AND NOT %s:[* TO *]";
                 break;
             case NOT_EQUALS:
                 comparisonString = "NOT %s:";
