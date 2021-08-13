@@ -625,7 +625,9 @@ public abstract class FDBDatabaseFactory {
     public abstract FDBDatabase getDatabase(@Nullable String clusterFile);
 
     @Nonnull
-    public abstract FDBDatabase getDatabase();
+    public FDBDatabase getDatabase() {
+        return getDatabase(null);
+    }
 
     /**
      * Get the locality provider that is used to discover the server location of the keys.

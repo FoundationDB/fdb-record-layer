@@ -212,12 +212,6 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     @Override
     @Nonnull
-    public synchronized FDBDatabase getDatabase() {
-        return getDatabase(null);
-    }
-
-    @Override
-    @Nonnull
     public FDBLocalityProvider getLocalityProvider() {
         return localityProvider;
     }
