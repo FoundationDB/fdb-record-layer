@@ -82,7 +82,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     @Test
     void testScrubberSimpleMissing() throws ExecutionException, InterruptedException {
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final long numRecords = 100;
+        final long numRecords = 50;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
@@ -157,7 +157,7 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     @Test
     void testScrubberSimpleDangling() throws ExecutionException, InterruptedException {
         final FDBStoreTimer timer = new FDBStoreTimer();
-        long numRecords = 100;
+        long numRecords = 51;
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
         FDBRecordStoreTestBase.RecordMetaDataHook hook = myHook(tgtIndex);
@@ -248,8 +248,8 @@ class OnlineIndexScrubberTest extends OnlineIndexerTest {
     @Test
     void testScrubberLimits() {
         final FDBStoreTimer timer = new FDBStoreTimer();
-        final int numRecords = 1328;
-        final int chunkSize = 42;
+        final int numRecords = 52;
+        final int chunkSize = 7;
         final int numChunks = 1 + (numRecords / chunkSize);
 
         Index tgtIndex = new Index("tgt_index", field("num_value_2"), EmptyKeyExpression.EMPTY, IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
