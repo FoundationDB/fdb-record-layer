@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScoreForRankPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortKey;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import org.hamcrest.Matcher;
 
@@ -234,5 +235,10 @@ public class PlanMatchers {
     public static Matcher<RecordQueryPlan> compositeBitmap(@Nonnull Matcher<ComposedBitmapIndexQueryPlan.ComposerBase> composerMatcher,
                                                            @Nonnull List<Matcher<RecordQueryPlan>> childMatchers) {
         return new ComposedBitmapIndexMatcher(composerMatcher, childMatchers);
+    }
+
+    public static Matcher<RecordQueryPlan> sort(@Nonnull Matcher<RecordQuerySortKey> keyMatcher,
+                                                @Nonnull Matcher<RecordQueryPlan> childMatcher) {
+        return new SortMatcher(keyMatcher, childMatcher);
     }
 }

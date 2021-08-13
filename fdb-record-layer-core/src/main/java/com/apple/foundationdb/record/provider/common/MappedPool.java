@@ -33,8 +33,8 @@ import java.util.concurrent.ExecutionException;
 
 /**
  * MappedPool Class Attempts to reuse objects organized by keys.
- * This class can be used for objects that require thread safety but our expensive to create.
- * The number of keys in the ConcurrentHashMap are unbounded but the queue for each key is bounded to 64.
+ * This class can be used for objects that require thread safety but are expensive to create.
+ * The number of keys in the ConcurrentHashMap is unbounded but the queue for each key is bounded to 64.
  *
  *  Examples include Ciphers and Compressors
  *
