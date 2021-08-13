@@ -50,7 +50,7 @@ public abstract class FDBDatabaseFactory {
      * existing call sites would continue to work.
      */
     @Nonnull
-    private static final FDBDatabaseFactory INSTANCE = new FDBDatabaseFactoryImpl();
+    private static final FDBDatabaseFactoryImpl INSTANCE = new FDBDatabaseFactoryImpl();
 
     /**
      * The default number of entries that is to be cached, per database, from
@@ -102,7 +102,7 @@ public abstract class FDBDatabaseFactory {
     private Function<FDBLatencySource, Long> latencyInjector = DEFAULT_LATENCY_INJECTOR;
 
     @Nonnull
-    public static FDBDatabaseFactory instance() {
+    public static FDBDatabaseFactoryImpl instance() {
         return FDBDatabaseFactory.INSTANCE;
     }
 

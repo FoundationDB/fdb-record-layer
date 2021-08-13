@@ -40,7 +40,7 @@ public abstract class FDBTestBase {
 
     @BeforeAll
     public static void initFDB() {
-        FDBDatabaseFactory factory = FDBDatabaseFactory.instance();
+        FDBDatabaseFactoryImpl factory = FDBDatabaseFactory.instance();
         factory.setUnclosedWarning(true);
         factory.initFDB();
     }
