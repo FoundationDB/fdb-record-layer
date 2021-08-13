@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class DatabaseTemplate {
-    private final Map<String,String> schemaToTemplateNameMap;
+    private final Map<String, String> schemaToTemplateNameMap;
 
     public DatabaseTemplate(Map<String, String> schemaToTemplateNameMap) {
         this.schemaToTemplateNameMap = schemaToTemplateNameMap;
@@ -36,22 +36,24 @@ public class DatabaseTemplate {
     }
 
     /**
+     * Get the mapping from defined schema names to their corresponding template names.
+     *
      * @return a map of schema names to their corresponding template names;
      */
-    public Map<String,String> getSchemaToTemplateNameMap(){
+    public Map<String, String> getSchemaToTemplateNameMap() {
         return Collections.unmodifiableMap(schemaToTemplateNameMap);
     }
 
     public static class Builder {
-        private final Map<String,String> schemaToTemplateNameMap = new HashMap<>();
+        private final Map<String, String> schemaToTemplateNameMap = new HashMap<>();
 
-        public Builder withSchema(String schema,String schemaTemplate){
+        public Builder withSchema(String schema, String schemaTemplate) {
             //TODO(bfines) here might be a decent place to verify that the schema template actually exists
-            schemaToTemplateNameMap.put(schema,schemaTemplate);
+            schemaToTemplateNameMap.put(schema, schemaTemplate);
             return this;
         }
 
-        public DatabaseTemplate build(){
+        public DatabaseTemplate build() {
             return new DatabaseTemplate(Collections.unmodifiableMap(schemaToTemplateNameMap));
         }
     }

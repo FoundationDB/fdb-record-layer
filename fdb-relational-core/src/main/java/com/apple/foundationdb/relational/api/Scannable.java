@@ -26,17 +26,18 @@ import javax.annotation.Nullable;
 public interface Scannable {
 
     /**
+     * Open a scan against this entity.
      *
-     * @param t the transaction to use.
-     * @param startKey the key to start the scan from(inclusive), or {@code null} if we wish to start at the beginning.
-     * @param endKey the key to end the scan at (exclusive), or {@code null} if we wish to scan all the way to the end.
+     * @param t           the transaction to use.
+     * @param startKey    the key to start the scan from(inclusive), or {@code null} if we wish to start at the beginning.
+     * @param endKey      the key to end the scan at (exclusive), or {@code null} if we wish to scan all the way to the end.
      * @param scanOptions options for the scan
      * @return a Scanner over the range [startKey,endKey), with the specified options and using the specified transaction.
      * @throws RelationalException if something goes wrong during scanning.
      */
-    Scanner<KeyValue> openScan(@Nonnull Transaction t, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey,@Nonnull Options scanOptions) throws RelationalException;
+    Scanner<KeyValue> openScan(@Nonnull Transaction t, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey, @Nonnull Options scanOptions) throws RelationalException;
 
-    KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key,@Nonnull Options scanOptions) throws RelationalException;
+    KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull Options scanOptions) throws RelationalException;
 
     /**
      * The index is the position in the KeyValue(key first, then value), and the value is

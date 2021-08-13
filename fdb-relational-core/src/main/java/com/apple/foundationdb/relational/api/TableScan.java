@@ -31,8 +31,8 @@ import java.util.Map;
  */
 public class TableScan {
     private final String tableName;
-    private final Map<String,Object> startKey;
-    private final Map<String,Object> endKey;
+    private final Map<String, Object> startKey;
+    private final Map<String, Object> endKey;
 
     public TableScan(String tableName, Map<String, Object> startKey, Map<String, Object> endKey) {
         this.tableName = tableName;
@@ -56,10 +56,10 @@ public class TableScan {
         return endKey;
     }
 
-    public static class Builder{
+    public static class Builder {
         private String tableName;
-        private Map<String,Object> startKey;
-        private Map<String,Object> endKey;
+        private Map<String, Object> startKey;
+        private Map<String, Object> endKey;
 
         public Builder withTableName(String tableName) {
             this.tableName = tableName;
@@ -67,28 +67,28 @@ public class TableScan {
         }
 
         public Builder setStartKey(String keyColumn, Object value) {
-            if(this.startKey==null){
+            if (this.startKey == null) {
                 this.startKey = new HashMap<>();
             }
-            this.startKey.put(keyColumn,value);
+            this.startKey.put(keyColumn, value);
             return this;
         }
 
         public Builder setEndKey(String keyColumn, Object value) {
-            if(this.endKey==null){
+            if (this.endKey == null) {
                 this.endKey = new HashMap<>();
             }
-            this.endKey.put(keyColumn,value);
+            this.endKey.put(keyColumn, value);
             return this;
         }
 
-        public TableScan build(){
-            Preconditions.checkNotNull(this.tableName,"Cannot create a scan without a table name");
+        public TableScan build() {
+            Preconditions.checkNotNull(this.tableName, "Cannot create a scan without a table name");
 
-            Map<String,Object> sk = startKey!=null? Collections.unmodifiableMap(startKey): Collections.emptyMap();
-            Map<String,Object> ek = endKey!=null? Collections.unmodifiableMap(endKey): Collections.emptyMap();
+            Map<String, Object> sk = startKey != null ? Collections.unmodifiableMap(startKey) : Collections.emptyMap();
+            Map<String, Object> ek = endKey != null ? Collections.unmodifiableMap(endKey) : Collections.emptyMap();
 
-            return new TableScan(tableName,sk,ek);
+            return new TableScan(tableName, sk, ek);
         }
     }
 }

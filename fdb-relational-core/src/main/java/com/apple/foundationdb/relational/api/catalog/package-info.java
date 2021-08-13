@@ -1,5 +1,5 @@
 /*
- * Scanner.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,16 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api;
-
-import java.util.Iterator;
-
-public interface Scanner<T> extends Iterator<T>, AutoCloseable {
-
-    @Override
-    void close() throws RelationalException;
-
-    Continuation continuation();
-
-    boolean supportsMessageParsing();
-}
+/**
+ * Interfaces and core API functions around implementing a Catalog instance.
+ */
+package com.apple.foundationdb.relational.api.catalog;

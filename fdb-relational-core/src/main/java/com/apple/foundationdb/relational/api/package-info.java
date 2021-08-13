@@ -1,5 +1,5 @@
 /*
- * Options.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,33 +18,10 @@
  * limitations under the License.
  */
 
+/**
+ * The Relational Client API.
+ *
+ * Code in this package (and it's subpackages) is the code which should be used by clients as they interact
+ * with the Relational system.
+ */
 package com.apple.foundationdb.relational.api;
-
-import java.util.HashMap;
-import java.util.Map;
-
-public class Options {
-    private Map<String, Object> optionsMap = new HashMap<>();
-
-    public static Options create() {
-        return new Options();
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T> T getOption(String name, T defaultValue) {
-        return (T) optionsMap.getOrDefault(name, defaultValue);
-    }
-
-    public <T> Options withOption(OperationOption<T> option) {
-        optionsMap.put(option.getOptionName(), option.getValue());
-        return this;
-    }
-
-    public boolean hasOption(String optionName) {
-        return optionsMap.containsKey(optionName);
-    }
-
-    public int size() {
-        return optionsMap.size();
-    }
-}

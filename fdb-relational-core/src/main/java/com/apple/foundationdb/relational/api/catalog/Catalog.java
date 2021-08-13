@@ -32,18 +32,22 @@ public interface Catalog {
 
     /**
      * Get the Schema Template uniquely identified by the templateId.
+     *
      * @param templateId the unique id of the template.
      * @return the SchemaTemplate.
      * @throws RelationalException If there is no schema with the given id, or if something systemic goes
-     * wrong. If there is no schema template with the given id, then the error code is NO_SUCH_SCHEMA_TEMPLATE
+     *                           wrong. If there is no schema template with the given id, then the error code is NO_SUCH_SCHEMA_TEMPLATE
      */
     @Nonnull
     SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException;
 
     /**
+     * Get a database at the specified location.
+     *
      * @param url the url to locate a unique database instance, in object list data structure representing the cluster and keySpace directory for the database
      * @return the Database for that id.
      * @throws RelationalException if the Database doesn't exist, or if something else goes wrong.
      */
-    @Nonnull RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException;
+    @Nonnull
+    RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException;
 }

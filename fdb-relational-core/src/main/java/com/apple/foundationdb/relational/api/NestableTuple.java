@@ -23,76 +23,92 @@ package com.apple.foundationdb.relational.api;
 
 /**
  * Represents a tuple within the store.
- *
+ * <p>
  * The individual fields of the tuple can themselves be NestableTuples(representing nested
  * data structures). There can also be repeated fields, which is a bit of an extension on
  * standard SQL types.
- *
+ * <p>
  * The intent of this class is to represent a single result in a set of results in a generic form.
  */
 public interface NestableTuple {
 
     /**
+     * Get the number of fields in this tuple.
+     *
      * @return the number of fields in the tuple.
      */
     int getNumFields();
 
     /**
+     * Get the value at the specified position, as a long.
+     *
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a long.
-     * @throws InvalidTypeException if the field at the position cannot be converted to a long
+     * @throws InvalidTypeException     if the field at the position cannot be converted to a long
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
-    long getLong(int position) throws InvalidTypeException,IllegalArgumentException;
+    long getLong(int position) throws InvalidTypeException, IllegalArgumentException;
 
 
     /**
+     * Get the value at the specified position, as a float.
+     *
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a float.
-     * @throws InvalidTypeException if the field at the position cannot be converted to an float
+     * @throws InvalidTypeException     if the field at the position cannot be converted to an float
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
-    float getFloat(int position) throws InvalidTypeException,IllegalArgumentException;
+    float getFloat(int position) throws InvalidTypeException, IllegalArgumentException;
 
     /**
+     * Get the value at the specified position, as a double.
+     *
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a float.
-     * @throws InvalidTypeException if the field at the position cannot be converted to a double
+     * @throws InvalidTypeException     if the field at the position cannot be converted to a double
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
-    double getDouble(int position) throws InvalidTypeException,IllegalArgumentException;
+    double getDouble(int position) throws InvalidTypeException, IllegalArgumentException;
 
     /**
+     * Get the value at the specified position, as a String.
+     *
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a string.
-     * @throws InvalidTypeException if the field at the position cannot be converted to a string
+     * @throws InvalidTypeException     if the field at the position cannot be converted to a string
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
-    String getString(int position) throws InvalidTypeException,IllegalArgumentException;
+    String getString(int position) throws InvalidTypeException, IllegalArgumentException;
 
     /**
+     * Get the value at the specified position, as a byte[].
+     *
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a byte[].
-     * @throws InvalidTypeException if the field at the position cannot be converted to a byte[]
+     * @throws InvalidTypeException     if the field at the position cannot be converted to a byte[]
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
-    byte[] getBytes(int position) throws InvalidTypeException,IllegalArgumentException;
+    byte[] getBytes(int position) throws InvalidTypeException, IllegalArgumentException;
 
     /**
+     * Get the value at the specified position, as a nested tuple.
+     *
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as a NestableTuple
-     * @throws InvalidTypeException if the field at the position cannot be converted to a NestableTuple
+     * @throws InvalidTypeException     if the field at the position cannot be converted to a NestableTuple
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
-    NestableTuple getTuple(int position) throws InvalidTypeException,IllegalArgumentException;
+    NestableTuple getTuple(int position) throws InvalidTypeException, IllegalArgumentException;
 
     /**
+     * Get the value at the specified position, as an sequence of nested tuples.
+     *
      * @param position the position in the tuple
      * @return the value of the tuple at the specified position, as an iterable
-     * @throws InvalidTypeException if the field at the position cannot be converted to a NestableTuple
+     * @throws InvalidTypeException     if the field at the position cannot be converted to a NestableTuple
      * @throws IllegalArgumentException if {@code position < 0 } or {@code position >=}{@link #getNumFields()}
      */
-    Iterable<NestableTuple> getArray(int position) throws InvalidTypeException,IllegalArgumentException;
+    Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, IllegalArgumentException;
 
     Object getObject(int position);
 }

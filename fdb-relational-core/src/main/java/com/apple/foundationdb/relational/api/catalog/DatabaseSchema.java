@@ -29,7 +29,7 @@ import javax.annotation.Nonnull;
 import java.util.Set;
 
 @ConnectionScoped
-public interface DatabaseSchema extends AutoCloseable{
+public interface DatabaseSchema extends AutoCloseable {
 
     @Nonnull
     String getSchemaName();

@@ -26,13 +26,13 @@ public enum IsolationLevel {
     SERIALIZABLE;
 
     public static IsolationLevel fromFdbLevel(com.apple.foundationdb.record.IsolationLevel isolationLevel) {
-        switch(isolationLevel){
+        switch (isolationLevel) {
             case SNAPSHOT:
                 return SNAPSHOT_ISOLATION;
             case SERIALIZABLE:
                 return SERIALIZABLE;
             default:
-                throw new IllegalStateException("Unknown FDB isolation level: "+isolationLevel);
+                throw new IllegalStateException("Unknown FDB isolation level: " + isolationLevel);
         }
     }
 }

@@ -20,20 +20,20 @@
 
 package com.apple.foundationdb.relational.api;
 
-public class RelationalException extends RuntimeException{
+public class RelationalException extends RuntimeException {
     private final ErrorCode errorCode;
 
-    public RelationalException(String message,ErrorCode errorCode) {
+    public RelationalException(String message, ErrorCode errorCode) {
         super(message);
         this.errorCode = errorCode;
     }
 
-    public RelationalException(String message,ErrorCode errorCode, Throwable cause) {
+    public RelationalException(String message, ErrorCode errorCode, Throwable cause) {
         super(message, cause);
         this.errorCode = errorCode;
     }
 
-    public RelationalException(ErrorCode errorCode,Throwable cause) {
+    public RelationalException(ErrorCode errorCode, Throwable cause) {
         super(cause);
         this.errorCode = errorCode;
     }
@@ -45,22 +45,22 @@ public class RelationalException extends RuntimeException{
         return new RelationalException(ErrorCode.UNKNOWN, re);
     }
 
-    public ErrorCode getErrorCode(){
+    public ErrorCode getErrorCode() {
         return errorCode;
     }
 
     /**
      * An enumeration form of the different error codes that Relational makes use of.
-     *
+     * <p>
      * Error codes in Relational follow the SQLSTATE format wherever possible (to maximize interoperability and
      * ease of understanding). To that end, all error codes are 5-digit codes, where the first 2 characters are the
      * Class of the error, and the remaining 3 characters describe the error itself.
-     *
+     * <p>
      * It is important to note that not every error in Relational directly translates to a known standard SQLSTATE
      * code. In those cases, you'll want to look here for the technical definition of those error codes.
-     *
+     * <p>
      * The Class codes are as follows:
-     *
+     * <p>
      * 00 | Success
      * 01 | Warning
      * 08 | Connection Exception
@@ -73,19 +73,18 @@ public class RelationalException extends RuntimeException{
      * 53 | Insufficient Resources
      * 58 | System Error (errors external to Relational)
      * XX | Internal Error
-     *
+     * <p>
      * To add a new Error Code:
-     *
+     * <p>
      * First, look at https://en.wikipedia.org/wiki/SQLSTATE to see if the standard has already
      * defined an error code that would be applicable for your purpose. If so, use that one (this means that we
      * are in-line with published SQL codes whenever possible). However, often you'll find that the standard does
      * not have an error code that matches what you're trying to do. In that case, choose a class from
      * the above table, and then define a unique code--do not define a duplicate!
-     *
      */
-    public enum ErrorCode{
+    public enum ErrorCode {
         /**
-         * Indicates a successful operation
+         * Indicates a successful operation.
          */
         SUCCESS("00000"),
         CANNOT_CONVERT_TYPE("22000"),
@@ -117,7 +116,7 @@ public class RelationalException extends RuntimeException{
             this.errorCode = errorCode;
         }
 
-        String getCodeString(){
+        String getCodeString() {
             return errorCode;
         }
     }

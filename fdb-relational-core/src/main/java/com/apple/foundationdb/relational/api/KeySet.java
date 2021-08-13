@@ -25,14 +25,14 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class KeySet {
-    private Map<String,Object> keySet;
+    private Map<String, Object> keySet;
 
-    public Map<String,Object> toMap(){
+    public Map<String, Object> toMap() {
         return Collections.unmodifiableMap(keySet);
     }
 
-    public KeySet setKeyColumn(String columnName, Object value){
-        if(keySet==null){
+    public KeySet setKeyColumn(String columnName, Object value) {
+        if (keySet == null) {
             keySet = new HashMap<>();
         }
         keySet.put(columnName, value);

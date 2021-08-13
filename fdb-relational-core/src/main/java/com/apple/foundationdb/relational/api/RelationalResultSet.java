@@ -35,6 +35,8 @@ public interface RelationalResultSet extends AutoCloseable {
     void close() throws RelationalException;
 
     /**
+     * Get the actual isolation level used in the scan.
+     *
      * @return the actual isolation level used in the scan. If the timeout policy is set to
      * {@link OperationOption.TimeoutPolicy#DOWNGRADE_ISOLATION}, then
      * this isolation level <em>may</em> be {@link IsolationLevel#READ_COMMITTED},
@@ -43,6 +45,8 @@ public interface RelationalResultSet extends AutoCloseable {
     IsolationLevel getActualIsolationLevel();
 
     /**
+     * Get the isolation level at the start of the read operation.
+     *
      * @return the isolation level that was requested when the scan was initiated. This may
      * differ from {@link #getActualIsolationLevel()}
      */
@@ -73,7 +77,7 @@ public interface RelationalResultSet extends AutoCloseable {
     String getString(String fieldName) throws RelationalException;
 
     /**
-     * Return this value as a protobuf message (if possible)
+     * Return this value as a protobuf message (if possible).
      *
      * @param position the position to get the value from
      * @return the object at the specified position, as a protobuf Message
@@ -89,11 +93,15 @@ public interface RelationalResultSet extends AutoCloseable {
     Iterable<?> getRepeated(String fieldName) throws RelationalException;
 
     /**
+     * Determine if this result set support directly returning protobuf objects.
+     *
      * @return {@code true} if rows can be parsed directly to protobuf message objects, {@code false} otherwise.
      */
     boolean supportsMessageParsing();
+
     /**
      * Parse the current row as a protobuf message.
+     *
      * @param <M> the type of Message to parse.
      * @return the current row as a protobuf message object.
      * @throws RelationalException if something goes wrong

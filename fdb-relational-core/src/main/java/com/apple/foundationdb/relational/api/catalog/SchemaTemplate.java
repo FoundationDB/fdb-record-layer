@@ -24,16 +24,20 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 
 /**
- * Represents a SchemaTemplate
+ * Represents a SchemaTemplate.
  */
 public interface SchemaTemplate {
 
     /**
+     * Get the unique identifier for this template.
+     *
      * @return the unique identifier for this template. All templates <em>must</em> have a unique name
      */
     URI getUniqueName();
 
     /**
+     * Determine if the specified DatabaseSchema instance is valid.
+     *
      * @param schema the schema to validate
      * @return true if this schema is valid w.r.t to this template, {@code false} if the schema
      * has "drifted" (i.e. the schema is no longer the same as the template defines). This can happen

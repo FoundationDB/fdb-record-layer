@@ -23,12 +23,12 @@ package com.apple.foundationdb.relational.api.catalog;
 import com.apple.foundationdb.relational.recordlayer.ddl.ColumnDescriptor;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 import java.util.Set;
 
 public interface TableMetaData {
 
     /**
+     * Get a list of all the columns in this table.
      *
      * @return a listing of columns for this table. The position in the array is the position in the underlying
      * Tuple(keys first, then value columns), and the value is the information for that Column at that position.
@@ -38,13 +38,19 @@ public interface TableMetaData {
     ColumnDescriptor[] getColumns();
 
     /**
+     * Get a list of the key columns in this table.
+     *
      * @return a listing of only key columns for this table. The position in the array is the position in the
      * underlying key tuple, and the value is the information for that column at that position. No entry is null.
      */
-    @Nonnull ColumnDescriptor[] getKeyColumns();
+    @Nonnull
+    ColumnDescriptor[] getKeyColumns();
 
     /**
+     * Get a list of all the indexes in this table.
+     *
      * @return Metadata about each index in the individual table.
      */
-    @Nonnull Set<IndexMetaData> getIndexes();
+    @Nonnull
+    Set<IndexMetaData> getIndexes();
 }

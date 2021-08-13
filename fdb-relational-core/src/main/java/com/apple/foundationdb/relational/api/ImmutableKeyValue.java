@@ -23,11 +23,11 @@ package com.apple.foundationdb.relational.api;
 import javax.annotation.Nonnull;
 import java.util.Objects;
 
-public class ImmutableKeyValue implements KeyValue{
+public class ImmutableKeyValue implements KeyValue {
     private final NestableTuple key;
     private final NestableTuple value;
 
-    public ImmutableKeyValue(@Nonnull NestableTuple key,@Nonnull NestableTuple value) {
+    public ImmutableKeyValue(@Nonnull NestableTuple key, @Nonnull NestableTuple value) {
         this.key = key;
         this.value = value;
     }
@@ -49,8 +49,12 @@ public class ImmutableKeyValue implements KeyValue{
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         ImmutableKeyValue that = (ImmutableKeyValue) o;
         return key.equals(that.key);
     }

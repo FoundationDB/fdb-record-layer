@@ -25,33 +25,36 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 
-public interface Statement extends AutoCloseable{
+public interface Statement extends AutoCloseable {
 
     RelationalResultSet executeQuery(String query, Options options) throws RelationalException;
 
-    default String explainQuery(String query, Options options) throws RelationalException{
-        try(RelationalResultSet rrs = executeQuery("explain plan for "+ query,options)){
+    RelationalResultSet executeQuery(Queryable query, Options options) throws RelationalException;
+
+    default String explainQuery(String query, Options options) throws RelationalException {
+        try (RelationalResultSet rrs = executeQuery("explain plan for " + query, options)) {
             rrs.next();
             return rrs.getString(0);
         }
     }
 
-    RelationalResultSet executeQuery(Queryable query, Options options) throws RelationalException;
 
-    @Nonnull RelationalResultSet executeScan(@Nonnull TableScan scan,@Nonnull  Options options) throws RelationalException;
+    @Nonnull
+    RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException;
 
-    @Nonnull RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key,@Nonnull Options options) throws RelationalException;
+    @Nonnull
+    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException;
 
-    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<Message> data,Options options) throws RelationalException;
+    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<Message> data, Options options) throws RelationalException;
 
-    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<Message> data,Options options) throws RelationalException{
-        return executeInsert(tableName,data.iterator(),options);
+    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<Message> data, Options options) throws RelationalException {
+        return executeInsert(tableName, data.iterator(), options);
     }
 
-    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys,Options options) throws RelationalException;
+    int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, Options options) throws RelationalException;
 
-    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys,Options options) throws RelationalException{
-        return executeDelete(tableName,keys.iterator(),options);
+    default int executeDelete(@Nonnull String tableName, @Nonnull Iterable<KeySet> keys, Options options) throws RelationalException {
+        return executeDelete(tableName, keys.iterator(), options);
     }
 
     Continuation getContinuation();

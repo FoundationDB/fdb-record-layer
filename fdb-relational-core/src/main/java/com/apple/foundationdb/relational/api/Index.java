@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.api;
 import javax.annotation.Nonnull;
 
 @ConnectionScoped
-public interface Index extends Scannable,AutoCloseable{
+public interface Index extends Scannable, AutoCloseable {
 
     @Nonnull
     String getName();

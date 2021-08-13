@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.api;
 
-public class InvalidTypeException extends RelationalException{
+public class InvalidTypeException extends RelationalException {
 
     public InvalidTypeException(String message) {
         super(message, ErrorCode.CANNOT_CONVERT_TYPE);
