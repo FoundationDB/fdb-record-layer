@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
@@ -107,6 +108,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setKeySpacePath(path)
                 .setContext(context)
                 .setMetaDataProvider(metaData);
+    }
+
+    private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, int group) {
+        return TestRecordsTextProto.SimpleDocument.newBuilder()
+                .setDocId(docId)
+                .setGroup(group)
+                .build();
     }
 
     private TestRecordsTextProto.SimpleDocument createSimpleDocument(long docId, String text, int group) {
@@ -173,6 +181,23 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
                     TupleRange.allOf(Tuple.from("idiot")), continuation.toByteArray(), ScanProperties.FORWARD_SCAN);
             assertEquals(2, recordCursor.getCount().join());
+        }
+    }
+
+    @Test
+    public void testNullValue() throws ExecutionException, InterruptedException {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, 2));
+            recordStore.saveRecord(createSimpleDocument(1632L, DYLAN, 2));
+            RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
+                    TupleRange.allOf(Tuple.from("*:* AND NOT text:[* TO *]")), null, ScanProperties.FORWARD_SCAN);
+            List<IndexEntry> indexEntries = recordCursor.asList().join();
+            assertEquals(1, indexEntries.size());
+            assertEquals(1623L, indexEntries.get(0).getKeyValue(1));
         }
     }
 

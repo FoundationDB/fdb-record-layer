@@ -208,7 +208,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         if (expression instanceof LuceneFieldKeyExpression) {
             List<DocumentEntry> evaluatedKeys = Lists.newArrayList();
             for (Key.Evaluated key : expression.evaluateMessage(record, message)) {
-                evaluatedKeys.add(new DocumentEntry(((LuceneFieldKeyExpression)expression).getFieldName(), key.values().get(0), (LuceneFieldKeyExpression) expression));
+                Object value = key.values().get(0);
+                if (key.containsNonUniqueNull()) {
+                    value = null;
+                }
+                evaluatedKeys.add(new DocumentEntry(((LuceneFieldKeyExpression)expression).getFieldName(), value, (LuceneFieldKeyExpression) expression));
             }
             return evaluatedKeys;
         }
@@ -216,16 +220,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private void insertField(DocumentEntry entry, final Document document) {
-        switch (entry.expression.getType()) {
+
+        Object value = entry.value;
+        String fieldName = entry.fieldName;
+        LuceneFieldKeyExpression expression = entry.expression;
+        switch (expression.getType()) {
             case INT:
                 // Todo: figure out how to expand functionality to include storage, sorting etc.
-                document.add(new IntPoint(entry.fieldName, (Integer)entry.value));
+                document.add(new IntPoint(fieldName, (Integer)value));
                 break;
             case STRING:
-                document.add(new TextField(entry.fieldName, entry.value == null ? "" : (String)entry.value, entry.expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                document.add(new TextField(fieldName, value == null ? "" : value.toString(), expression.isStored() ? Field.Store.YES : Field.Store.NO));
                 break;
             case LONG:
-                document.add(new LongPoint(entry.fieldName, (long)entry.value));
+                document.add(new LongPoint(fieldName, (long)value));
                 break;
             default:
                 throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", entry.expression.getType());
