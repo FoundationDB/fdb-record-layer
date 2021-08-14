@@ -42,9 +42,9 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FDBDatabaseFactory.class);
     private static final int API_VERSION = 630;
-    // when set to true, static options have been set on the FDB instance.
-    //made volatile because multiple FDBDatabaseFactory instances can be created technically, and thus can be racy during init
-    private static volatile boolean staticOptionsSet = false;
+
+    @Nonnull
+    private static final FDBDatabaseFactoryImpl INSTANCE = new FDBDatabaseFactoryImpl();
 
     @Nonnull
     private FDBLocalityProvider localityProvider = FDBLocalityUtil.instance();
@@ -62,15 +62,17 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
 
     private boolean runLoopProfilingEnabled = false;
 
-    //made volatile because multiple FDBDatabaseFactory instances can be created technically, and thus can be racy during init
-    private static volatile int threadsPerClientVersion = 1; //default is 1, which is basically disabled
-
     /**
      * The default is a log-based predicate, which can also be used to enable tracing on a more granular level
      * (such as by request) using {@link #setTransactionIsTracedSupplier(Supplier)}.
      */
     @Nonnull
     private Supplier<Boolean> transactionIsTracedSupplier = LOGGER::isTraceEnabled;
+
+    @Nonnull
+    public static FDBDatabaseFactoryImpl instance() {
+        return INSTANCE;
+    }
 
     protected synchronized FDB initFDB() {
         if (!inited) {
@@ -101,26 +103,6 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
             inited = true;
         }
         return fdb;
-    }
-
-    /**
-     * Set the number of threads per FDB client version. The default value is 1.
-     *
-     * @param threadsPerClientV the number of threads per client version. Cannot be less than 1
-     */
-    public static void setThreadsPerClientVersion(int threadsPerClientV) {
-        if (staticOptionsSet) {
-            throw new RecordCoreException("threads per client version cannot be changed as the version has already been initiated");
-        }
-        if (threadsPerClientV < 1) {
-            //if the thread count is too low, disable the setting
-            threadsPerClientV = 1;
-        }
-        threadsPerClientVersion = threadsPerClientV;
-    }
-
-    public static int getThreadsPerClientVersion() {
-        return threadsPerClientVersion;
     }
 
     private static synchronized void setStaticOptions(final FDB fdb) {
@@ -219,6 +201,19 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     @Override
     public void setLocalityProvider(@Nonnull FDBLocalityProvider localityProvider) {
         this.localityProvider = localityProvider;
+    }
+
+    /**
+     * Set the number of threads per FDB client version. The default value is 1.
+     *
+     * @param threadsPerClientV the number of threads per client version. Cannot be less than 1.
+     */
+    public static void setThreadsPerClientVersion(int threadsPerClientV) {
+        FDBDatabaseFactory.setThreadsPerClientVersion(threadsPerClientV);
+    }
+
+    public static int getThreadsPerClientVersion() {
+        return threadsPerClientVersion;
     }
 
     @Nonnull

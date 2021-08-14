@@ -45,12 +45,26 @@ import java.util.function.Supplier;
 public abstract class FDBDatabaseFactory {
 
     /**
-     * Default implementation of {@link FDBDatabaseFactory}. For backwards compatibility reasons, the abstract class
-     * used to be the concrete implementation and hence {@link #instance()} exists on the abstract class so that
-     * existing call sites would continue to work.
+     * When set to true, static options have been set on the FDB instance.
+     * Made volatile because multiple  {@link FDBDatabaseFactory} instances can be created technically, and thus can be
+     * racy
+     * during init.
+     * <p>
+     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
+     * backwards compatibility, it'll be moved there permanently in the next major release.
      */
-    @Nonnull
-    private static final FDBDatabaseFactoryImpl INSTANCE = new FDBDatabaseFactoryImpl();
+    protected static volatile boolean staticOptionsSet = false;
+
+    /**
+     * Made volatile because multiple {@link FDBDatabaseFactory} instances can be created technically, and thus can be
+     * racy during init.
+     * <p>
+     * Default is 1, which is basically disabled.
+     * <p>
+     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
+     * backwards compatibility, it'll be moved there permanently in the next major release.
+     */
+    protected static volatile int threadsPerClientVersion = 1;
 
     /**
      * The default number of entries that is to be cached, per database, from
@@ -101,9 +115,20 @@ public abstract class FDBDatabaseFactory {
 
     private Function<FDBLatencySource, Long> latencyInjector = DEFAULT_LATENCY_INJECTOR;
 
+    /**
+     * Default implementation of {@link FDBDatabaseFactory}. For backwards compatibility reasons, the abstract class
+     * used to be the concrete implementation and hence this method exists on the abstract class so that
+     * existing call sites would continue to work.
+     *
+     * @return singleton instance of {@link FDBDatabaseFactoryImpl}.
+     *
+     * @deprecated Call {@link FDBDatabaseFactoryImpl#instance()} instead. This method will be removed in the next major
+     * release.
+     */
+    @Deprecated
     @Nonnull
     public static FDBDatabaseFactoryImpl instance() {
-        return FDBDatabaseFactory.INSTANCE;
+        return FDBDatabaseFactoryImpl.instance();
     }
 
     @Nullable
@@ -533,6 +558,37 @@ public abstract class FDBDatabaseFactory {
         return newExecutor;
     }
 
+    /**
+     * Set the number of threads per FDB client version. The default value is 1.
+     *
+     * @param threadsPerClientV the number of threads per client version. Cannot be less than 1.
+     *
+     * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This will be removed in a future release.
+     */
+    @Deprecated
+    public static void setThreadsPerClientVersion(int threadsPerClientV) {
+        if (staticOptionsSet) {
+            throw new RecordCoreException("threads per client version cannot be changed as the version has already been initiated");
+        }
+        if (threadsPerClientV < 1) {
+            //if the thread count is too low, disable the setting
+            threadsPerClientV = 1;
+        }
+        threadsPerClientVersion = threadsPerClientV;
+    }
+
+    /**
+     * Get the number of threads per FDB client version. The default value is 1.
+     *
+     * @return the number of threads per client version to use.
+     *
+     * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This will be removed in a future release.
+     */
+    @Deprecated
+    public static int getThreadsPerClientVersion() {
+        return threadsPerClientVersion;
+    }
+
     @Nonnull
     public Supplier<BlockingInAsyncDetection> getBlockingInAsyncDetectionSupplier() {
         return this.blockingInAsyncDetectionSupplier;
@@ -595,6 +651,8 @@ public abstract class FDBDatabaseFactory {
      * @param runLoopProfilingEnabled whether run-loop profiling should be enabled
      *
      * @see NetworkOptions#setEnableSlowTaskProfiling()
+     * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This method will be removed in the abstract class
+     * in the next major release.
      */
     public abstract void setRunLoopProfilingEnabled(boolean runLoopProfilingEnabled);
 
@@ -604,6 +662,8 @@ public abstract class FDBDatabaseFactory {
      * @return whether additional run-loop profiling has been enabled
      *
      * @see #setRunLoopProfilingEnabled(boolean)
+     * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This method will be removed in the abstract class
+     * in the next major release.
      */
     public abstract boolean isRunLoopProfilingEnabled();
 
