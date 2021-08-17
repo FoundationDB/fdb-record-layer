@@ -48,12 +48,14 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.match.PlanMatchers;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -378,8 +380,9 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    @Test
-    public void testOneOfQueryCoveringValueIndex() throws Exception {
+    @ParameterizedTest
+    @BooleanSource
+    public void testOneOfQueryCoveringValueIndex(boolean negated) throws Exception {
         Index coveringIndex = new Index("int_str_index", "int_value", "str_value");
 
         Records records = Records.create();
@@ -390,6 +393,9 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         saveRecords(records, coveringIndex);
 
         QueryComponent funcFilter = Query.keyExpression(function("chars", field("str_value"))).oneOfThem().equalsValue("c");
+        if (negated) {
+            funcFilter = Query.not(funcFilter);
+        }
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("TypesRecord")
                 .setFilter(Query.and(Query.field("int_value").greaterThan(1), funcFilter))
@@ -399,9 +405,15 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
         RecordQueryPlan plan = planner.plan(query);
 
         assertThat(plan, PlanMatchers.filter(funcFilter, coveringIndexScan(indexScan(allOf(indexName(coveringIndex.getName()), bounds(hasTupleString("([1],>")))))));
-        assertEquals(-1785473859, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(-1937041998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(1964563906, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        if (negated) {
+            assertEquals(-1785473858, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-842591344, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1235952736, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertEquals(-1785473859, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1937041998, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1964563906, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
 
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, coveringIndex);
@@ -409,9 +421,14 @@ public class FunctionKeyIndexTest extends FDBRecordStoreTestBase {
                     .map(r -> fromMessage(r.getRecord()).getIntValue())
                     .asList()
                     .join();
-            // 0 - 1 indexed out; 2 returned; 3 - 9 filtered out.
-            assertEquals(Collections.singletonList(2), results);
-            assertDiscardedExactly(10 - 2 - 1, context);
+            // 0 - 1 indexed out; 2 returned; 3 - 9 filtered out; last two reversed when negated.
+            if (negated) {
+                assertEquals(Arrays.asList(3, 4, 5, 6, 7, 8, 9), results);
+                assertDiscardedExactly(1, context);
+            } else {
+                assertEquals(Collections.singletonList(2), results);
+                assertDiscardedExactly(10 - 2 - 1, context);
+            }
         }
     }
 

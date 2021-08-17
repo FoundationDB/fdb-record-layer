@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
 import com.apple.foundationdb.record.query.expressions.FieldWithComparison;
 import com.apple.foundationdb.record.query.expressions.NestedField;
+import com.apple.foundationdb.record.query.expressions.NotComponent;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithComparison;
 import com.apple.foundationdb.record.query.expressions.QueryKeyExpressionWithOneOfComparison;
@@ -137,6 +138,13 @@ public class FilterVisitor extends RecordQueryPlannerSubstitutionVisitor {
                 if (!findFilterReferencedFields(child, filterFields)) {
                     return false;
                 }
+            }
+            return true;
+        }
+        if (filter instanceof NotComponent) {
+            final QueryComponent child = ((NotComponent)filter).getChild();
+            if (!findFilterReferencedFields(child, filterFields)) {
+                return false;
             }
             return true;
         }
