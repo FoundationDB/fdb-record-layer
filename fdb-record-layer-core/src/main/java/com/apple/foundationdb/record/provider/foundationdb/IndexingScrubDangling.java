@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -158,6 +159,8 @@ public class IndexingScrubDangling extends IndexingBase {
 
         return ranges.onHasNext().thenCompose(hasNext -> {
             if (Boolean.FALSE.equals(hasNext)) {
+                Transaction tr = store.getContext().ensureActive();
+                tr.clear(indexScrubIndexRangeSubspace(store, index).range());
                 return AsyncUtil.READY_FALSE; // no more missing ranges - all done
             }
             final Range range = ranges.next();
