@@ -125,6 +125,18 @@ public class SortedRecordSerializer<M extends Message> {
         public FDBStoredRecord<M> getStoredRecord() {
             return null;
         }
+
+        @Nonnull
+        @Override
+        public Object getResultElement() {
+            return record;
+        }
+
+        @Nonnull
+        @Override
+        public Class<?> getResultElementType() {
+            return Message.class;
+        }
     }
 
     public void write(@Nonnull FDBRecord<M> record, CodedOutputStream stream) throws IOException {

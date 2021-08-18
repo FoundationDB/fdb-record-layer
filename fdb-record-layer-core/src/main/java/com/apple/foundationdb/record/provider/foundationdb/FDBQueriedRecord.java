@@ -128,6 +128,18 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         public IndexEntry getIndexEntry() {
             return indexed.getIndexEntry();
         }
+
+        @Nonnull
+        @Override
+        public Object getResultElement() {
+            return indexed;
+        }
+
+        @Nonnull
+        @Override
+        public Class<?> getResultElementType() {
+            return FDBIndexedRecord.class;
+        }
     }
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
@@ -183,6 +195,18 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Override
         public IndexEntry getIndexEntry() {
             return null;
+        }
+
+        @Nonnull
+        @Override
+        public Object getResultElement() {
+            return stored;
+        }
+
+        @Nonnull
+        @Override
+        public Class<?> getResultElementType() {
+            return FDBStoredRecord.class;
         }
     }
 
@@ -251,6 +275,18 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Override
         public FDBStoredRecord<M> getStoredRecord() {
             return null;
+        }
+
+        @Nonnull
+        @Override
+        public Object getResultElement() {
+            return record;
+        }
+
+        @Nonnull
+        @Override
+        public Class<?> getResultElementType() {
+            return Message.class;
         }
     }
 

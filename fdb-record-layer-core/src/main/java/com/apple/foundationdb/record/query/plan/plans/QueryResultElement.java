@@ -20,8 +20,25 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import javax.annotation.Nonnull;
+
 /**
- * Marker interface for the elements that can be stored in a {@link QueryResult}.
+ * Interface for the elements that can be stored in a {@link QueryResult}.
  */
 public interface QueryResultElement {
+
+    /**
+     * Get teh value stored in this result element. This is the actual evaluated element value for the result
+     * @return the evaluated value for the result element
+     */
+    @Nonnull
+    Object getResultElement();
+
+    /**
+     * Get the type for this result element
+     * @return The type (class) of this result element
+     */
+    @Nonnull
+    Class<?> getResultElementType();
+
 }
