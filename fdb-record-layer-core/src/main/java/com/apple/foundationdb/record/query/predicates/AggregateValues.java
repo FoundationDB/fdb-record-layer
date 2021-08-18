@@ -1,0 +1,273 @@
+/*
+ * SumAggregateValue.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.predicates;
+
+import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
+import com.apple.foundationdb.record.query.plan.plans.SingularResultElement;
+
+import javax.annotation.Nonnull;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
+/**
+ * A utility class to offer specific implementations of {@link AggregateValue}s.
+ */
+public class AggregateValues {
+
+    // ------------------ SUM Aggregators ------------------------------
+
+    /** Aggregate value for Sum of Integers. */
+    public static class SumInteger extends PrimitiveAggregateBase<Integer> {
+        public SumInteger(@Nonnull final Value inner) {
+            super(inner, 0, Math::addExact, "Sum-Integer-Aggregate-Value", SumInteger::new);
+        }
+    }
+
+    /** Aggregate value for Sum of Longs. */
+    public static class SumLong extends PrimitiveAggregateBase<Long> {
+        public SumLong(@Nonnull final Value inner) {
+            super(inner, 0L, Math::addExact, "Sum-Long-Aggregate-Value", SumLong::new);
+        }
+    }
+
+    /** Aggregate value for Sum of Floats. */
+    public static class SumFloat extends PrimitiveAggregateBase<Float> {
+        public SumFloat(@Nonnull final Value inner) {
+            super(inner, 0.0F, (current, next) -> (current + next), "Sum-Float-Aggregate-Value", SumFloat::new);
+        }
+    }
+
+    /** Aggregate value for Sum of Doubles. */
+    public static class SumDouble extends PrimitiveAggregateBase<Double> {
+        public SumDouble(@Nonnull final Value inner) {
+            super(inner, 0.0D, (current, next) -> (current + next), "Sum-Double-Aggregate-Value", SumDouble::new);
+        }
+    }
+
+    // ------------------ MIN Aggregators ------------------------------
+
+    /** Aggregate value for Minimum of Integers. */
+    public static class MinInteger extends PrimitiveAggregateBase<Integer> {
+        public MinInteger(@Nonnull final Value inner) {
+            super(inner, Integer.MAX_VALUE, Math::min, "Min-Integer-Aggregate-Value", MinInteger::new);
+        }
+    }
+
+    /** Aggregate value for Minimum of Longs. */
+    public static class MinLong extends PrimitiveAggregateBase<Long> {
+        public MinLong(@Nonnull final Value inner) {
+            super(inner, Long.MAX_VALUE, Math::min, "Min-Long-Aggregate-Value", MinLong::new);
+        }
+    }
+
+    /** Aggregate value for Minimum of Floats. */
+    public static class MinFloat extends PrimitiveAggregateBase<Float> {
+        public MinFloat(@Nonnull final Value inner) {
+            super(inner, Float.MAX_VALUE, Math::min, "Min-Float-Aggregate-Value", MinFloat::new);
+        }
+    }
+
+    /** Aggregate value for Minimum of Doubles. */
+    public static class MinDouble extends PrimitiveAggregateBase<Double> {
+        public MinDouble(@Nonnull final Value inner) {
+            super(inner, Double.MAX_VALUE, Math::min, "Min-Double-Aggregate-Value", MinDouble::new);
+        }
+    }
+
+    // ------------------ MAX Aggregators ------------------------------
+
+    /** Aggregate value for Maximum of Integers. */
+    public static class MaxInteger extends PrimitiveAggregateBase<Integer> {
+        public MaxInteger(@Nonnull final Value inner) {
+            super(inner, Integer.MIN_VALUE, Math::max, "Max-Integer-Aggregate-Value", MaxInteger::new);
+        }
+    }
+
+    /** Aggregate value for Maximum of Longs. */
+    public static class MaxLong extends PrimitiveAggregateBase<Long> {
+        public MaxLong(@Nonnull final Value inner) {
+            super(inner, Long.MIN_VALUE, Math::max, "Max-Long-Aggregate-Value", MaxLong::new);
+        }
+    }
+
+    /** Aggregate value for Maximum of Floats. */
+    public static class MaxFloat extends PrimitiveAggregateBase<Float> {
+        public MaxFloat(@Nonnull final Value inner) {
+            super(inner, Float.MIN_VALUE, Math::max, "Max-Float-Aggregate-Value", MaxFloat::new);
+        }
+    }
+
+    /** Aggregate value for Maximum of Doubles. */
+    public static class MaxDouble extends PrimitiveAggregateBase<Double> {
+        public MaxDouble(@Nonnull final Value inner) {
+            super(inner, Double.MIN_VALUE, Math::max, "Max-Double-Aggregate-Value", MaxDouble::new);
+        }
+    }
+
+    // ------------------ AVG Aggregators ------------------------------
+
+    /** Aggregate value for Average of Integers. */
+    public static class AvgInteger extends AverageAggregateBase<Integer> {
+        public AvgInteger(@Nonnull final Value inner) {
+            super(inner, 0, Math::addExact, (sum, count) -> (sum.doubleValue() / count),
+                    "Avg-Integer-Aggregate-Value", AvgInteger::new);
+        }
+    }
+
+    /** Aggregate value for Average of Longs. */
+    public static class AvgLong extends AverageAggregateBase<Long> {
+        public AvgLong(@Nonnull final Value inner) {
+            super(inner, 0L, Math::addExact, (sum, count) -> (sum.doubleValue() / count),
+                    "Avg-Long-Aggregate-Value", AvgLong::new);
+        }
+    }
+
+    /** Aggregate value for Average of Floats. */
+    public static class AvgFloat extends AverageAggregateBase<Float> {
+        public AvgFloat(@Nonnull final Value inner) {
+            super(inner, 0.0F, Float::sum, (sum, count) -> (sum.doubleValue() / count),
+                    "Avg-Float-Aggregate-Value", AvgFloat::new);
+        }
+    }
+
+    /** Aggregate value for Average of Doubles. */
+    public static class AvgDouble extends AverageAggregateBase<Double> {
+        public AvgDouble(@Nonnull final Value inner) {
+            super(inner, 0.0D, Double::sum, (sum, count) -> (sum / count),
+                    "Avg-Double-Aggregate-Value", AvgDouble::new);
+        }
+    }
+
+    /**
+     * A base class for {@link AggregateValue} of primitives.
+     * For primitive values, the state is the same as the aggregated value and so there is no need to convert S to T.
+     * @param <T> the state and aggregated value type.
+     */
+    private abstract static class PrimitiveAggregateBase<T> extends BaseAggregateValue<T, T> {
+        @Nonnull
+        private BiFunction<T, T, T> accumulateOp; // the function to apply in order to accumulate values
+
+        public PrimitiveAggregateBase(@Nonnull final Value inner, final T initial,
+                                      @Nonnull final BiFunction<T, T, T> accumulateOp,
+                                      @Nonnull final String hashObjectName,
+                                      @Nonnull final  Function<Value, Value> withChildrenOp) {
+            super(inner, initial, hashObjectName, withChildrenOp);
+            this.accumulateOp = accumulateOp;
+        }
+
+        @Nonnull
+        @Override
+        protected T accumulate(final T currentState, final T next) {
+            return accumulateOp.apply(currentState, next);
+        }
+
+        @Nonnull
+        @Override
+        public List<QueryResultElement> finish(final T currentState) {
+            return Collections.singletonList(narrow(currentState));
+        }
+
+        // TODO: This needs to be moved into the Value.eval() method (that currently returns Object).
+        private QueryResultElement narrow(Object rawValue) {
+            if (rawValue instanceof Integer) {
+                return SingularResultElement.of((Integer)rawValue);
+            } else if (rawValue instanceof Long) {
+                return SingularResultElement.of((Long)rawValue);
+            } else if (rawValue instanceof Float) {
+                return SingularResultElement.of((Float)rawValue);
+            } else if (rawValue instanceof Double) {
+                return SingularResultElement.of((Double)rawValue);
+            } else {
+                // TODO: Get correct exception
+                throw new RuntimeException("Unrecognized type in aggregation: " + rawValue.getClass().getSimpleName());
+            }
+        }
+    }
+
+    /**
+     * A base class for {@link AggregateValue} of averages.
+     * Average is a special case as the state is different than the final values. For average, we hold two values for the
+     * state: sum and count. For every value we accumulate into sum and increment the count. For finish(), we divide
+     * the sum by count. {@link AverageState} holds the actual state value.
+     *
+     * @param <T> the type of operand that this class aggregates
+     */
+    private abstract static class AverageAggregateBase<T> extends BaseAggregateValue<AverageState<T>, T> {
+        @Nonnull
+        private final BiFunction<T, T, T> accumulateOp; // the operation used to accumulate values into the sum
+        @Nonnull
+        private final BiFunction<T, Integer, Double> finishOp; // the operation used to derive result from the state
+
+        public AverageAggregateBase(@Nonnull final Value inner, final T initial,
+                                    @Nonnull final BiFunction<T, T, T> accumulateOp, @Nonnull final BiFunction<T, Integer, Double> finishOp,
+                                    @Nonnull final String hashObjectName, @Nonnull final Function<Value, Value> withChildrenOp) {
+            super(inner, new AverageState<>(initial), hashObjectName, withChildrenOp);
+            this.accumulateOp = accumulateOp;
+            this.finishOp = finishOp;
+        }
+
+        @Nonnull
+        @Override
+        protected AverageState<T> accumulate(final AverageState<T> currentState, final T next) {
+            return currentState.accumulate(accumulateOp, next);
+        }
+
+        @Nonnull
+        @Override
+        public List<QueryResultElement> finish(final AverageState<T> currentState) {
+            return currentState.finish(finishOp);
+        }
+    }
+
+    private static class AverageState<T> {
+        @Nonnull
+        private final T initial; // store initial to return in the empty case
+        @Nonnull
+        private final T sum; // The running sum of all the values so far
+        private int count; // The running count of items accumulated so far
+
+        public AverageState(final T initial) {
+            this.sum = initial;
+            this.initial = initial;
+            this.count = 0;
+        }
+
+        private AverageState(final T sum, int count, T initial) {
+            this.sum = sum;
+            this.count = count;
+            this.initial = initial;
+        }
+
+        public AverageState<T> accumulate(BiFunction<T, T, T> op, T nextValue) {
+            // Construct a new state so that the state is immutable (initial state should not be modified)
+            return new AverageState<>(op.apply(sum, nextValue), count + 1, initial);
+        }
+
+        public List<QueryResultElement> finish(BiFunction<T, Integer, Double> op) {
+            if (count == 0) {
+                return Collections.singletonList(SingularResultElement.of(0.0));
+            }
+            return Collections.singletonList(SingularResultElement.of(op.apply(sum, count)));
+        }
+    }
+}
