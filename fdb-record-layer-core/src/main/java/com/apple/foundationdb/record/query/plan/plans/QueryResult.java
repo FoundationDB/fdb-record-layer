@@ -102,6 +102,13 @@ public class QueryResult {
     }
 
     /**
+     * @return the size of the result -= the number of elements.
+     */
+    public int size() {
+        return elements.size();
+    }
+
+    /**
      * Retrieve the element at the ith position in the result (0 based).
      * @param i the index of the requested element.
      * @return the required element
