@@ -20,16 +20,29 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
-import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
 
 public interface MutableRecordMetaDataStore extends RecordMetaDataStore{
+    /**
+     * Load the schema template given a template identifier
+     */
+    RecordLayerTemplate loadTemplate(@Nonnull String templateId);
 
-    void setSchemaTemplateMetaData(@Nonnull URI templateUri, RecordMetaDataProvider storeMeta);
+    /**
+     * Add a RecordLayerTemplate to this store
+     * There could be multiple templates maintained by this store
+     * The templateId got from {@link RecordLayerTemplate#getUniqueId()} is used as the key to uniquely identify the template from the mapping
+     */
+    void addSchemaTemplate(@Nonnull RecordLayerTemplate schemaTemplate);
 
-    void createSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId, @Nonnull URI templateUri);
+    /**
+     * Assign a schema url to a template irrevocably
+     * So the schema specified by the schemaUrl is supposed to use the schema template identified by the templateId
+     * One schema can be assigned to a template only once during creation, then it cannot switch to any other template
+     */
+    void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId);
 
 }

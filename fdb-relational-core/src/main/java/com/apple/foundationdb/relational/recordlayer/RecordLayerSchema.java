@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
@@ -32,7 +33,6 @@ import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +47,8 @@ public class RecordLayerSchema implements DatabaseSchema {
     @Nonnull
     private final String schemaName;
 
+    private final FDBRecordStoreBase.StoreExistenceCheck existenceCheck;
+
     //TODO(bfines) destroy this when the connection's transaction ends
     private FDBRecordStore currentStore;
 
@@ -55,10 +57,11 @@ public class RecordLayerSchema implements DatabaseSchema {
      */
     private final Map<String,RecordTypeTable> loadedTables = new HashMap<>();
 
-    public RecordLayerSchema(@Nonnull String schemaName,RecordLayerDatabase recordLayerDatabase,RecordStoreConnection connection) {
+    public RecordLayerSchema(@Nonnull String schemaName, RecordLayerDatabase recordLayerDatabase, RecordStoreConnection connection, @Nonnull Options options) {
         this.schemaName = schemaName;
         this.db = recordLayerDatabase;
         this.conn = connection;
+        this.existenceCheck = getExistenceCheckGivenOptions(options);
     }
 
     @Override
@@ -124,8 +127,28 @@ public class RecordLayerSchema implements DatabaseSchema {
         if(currentStore!=null){
             return currentStore;
         }
-        currentStore = db.loadRecordStore(schemaName);
+        currentStore = db.loadRecordStore(schemaName, existenceCheck);
         conn.transaction.addTerminationListener(() -> currentStore = null);
         return currentStore;
+    }
+
+    private FDBRecordStoreBase.StoreExistenceCheck getExistenceCheckGivenOptions(@Nonnull Options options) {
+        final OperationOption.SchemaExistenceCheck existenceCheck = options.getOption(OperationOption.SCHEMA_EXISTENCE_CHECK,
+                OperationOption.SchemaExistenceCheck.NONE);
+        switch (existenceCheck) {
+            case NONE:
+                return FDBRecordStoreBase.StoreExistenceCheck.NONE;
+            case ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES:
+                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES;
+            case ERROR_IF_NO_INFO_AND_NOT_EMPTY:
+                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NO_INFO_AND_NOT_EMPTY;
+            case ERROR_IF_EXISTS:
+                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS;
+            case ERROR_IF_NOT_EXISTS:
+                return FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_NOT_EXISTS;
+            default:
+                throw new RelationalException("Invalid StoreExistenceCheck in options: <" + existenceCheck + ">",
+                        RelationalException.ErrorCode.INVALID_PARAMETER);
+        }
     }
 }

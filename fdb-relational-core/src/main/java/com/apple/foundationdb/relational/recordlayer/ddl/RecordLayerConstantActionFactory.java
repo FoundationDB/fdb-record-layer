@@ -39,39 +39,37 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory{
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final int formatVersion;
     private final KeySpace baseKeySpace;
-    private final URI baseTemplatePath;
 
     public RecordLayerConstantActionFactory(MutableRecordMetaDataStore metaDataStore,
                                             SerializerRegistry serializerRegistry,
                                             FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                             int formatVersion,
-                                            KeySpace baseKeySpace,
-                                            URI baseTemplatePath) {
+                                            KeySpace baseKeySpace) {
         this.metaDataStore = metaDataStore;
         this.serializerRegistry = serializerRegistry;
         this.userVersionChecker = userVersionChecker;
         this.formatVersion = formatVersion;
         this.baseKeySpace = baseKeySpace;
-        this.baseTemplatePath = baseTemplatePath;
     }
 
 
     @Nonnull
     @Override
     public ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties) {
-        return new CreateSchemaTemplateConstantAction(baseTemplatePath,template,metaDataStore);
+        return new CreateSchemaTemplateConstantAction(template, metaDataStore);
     }
 
     @Nonnull
     @Override
     public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-        return new CreateDatabaseConstantAction(dbPath,template,constantActionOptions,this,baseKeySpace,baseTemplatePath);
+        return new CreateDatabaseConstantAction(dbPath,template,constantActionOptions,this);
     }
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaId, @Nonnull URI templateUri, Options constantActionOptions) {
-        return new CreateSchemaConstantAction(dbPath, schemaId,templateUri,baseKeySpace,metaDataStore,serializerRegistry,userVersionChecker,formatVersion);
+    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
+        return new CreateSchemaConstantAction(schemaUrl, templateId, baseKeySpace,
+                metaDataStore, serializerRegistry, userVersionChecker, formatVersion);
     }
 
     public static class Builder{
@@ -80,7 +78,6 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory{
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
         private int formatVersion = DEFAULT_FORMAT_VERSION;
         private KeySpace baseKeySpace;
-        private URI baseTemplatePath;
 
         public Builder setMetaDataStore(MutableRecordMetaDataStore metaDataStore) {
             this.metaDataStore = metaDataStore;
@@ -107,13 +104,8 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory{
             return this;
         }
 
-        public Builder setBaseTemplatePath(URI baseTemplatePath) {
-            this.baseTemplatePath = baseTemplatePath;
-            return this;
-        }
-
         public RecordLayerConstantActionFactory build(){
-            return new RecordLayerConstantActionFactory(metaDataStore,serializerRegistry,userVersionChecker,formatVersion,baseKeySpace,baseTemplatePath);
+            return new RecordLayerConstantActionFactory(metaDataStore, serializerRegistry, userVersionChecker, formatVersion, baseKeySpace);
         }
     }
 }

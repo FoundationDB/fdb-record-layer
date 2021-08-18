@@ -76,13 +76,42 @@ public class KeySpaceUtils {
         return thePath;
     }
 
-    public static KeySpacePath getSchemaPath(@Nonnull URI dbUrl, @Nonnull String schemaId, @Nonnull KeySpace keySpace) {
+    public static KeySpacePath getSchemaPath(@Nonnull URI schemaUrl, @Nonnull KeySpace keySpace) {
+        String schemaPath = getPath(schemaUrl);
+        int indexOfLastSlash = schemaPath.lastIndexOf("/");
+        if (indexOfLastSlash < 1) {
+            throw new RelationalException("Invalid schemaUrl: <" + schemaUrl + ">", RelationalException.ErrorCode.INVALID_PATH);
+        }
+        String schemaId = schemaPath.substring(indexOfLastSlash);
+        if (schemaId.isEmpty()) {
+            throw new RelationalException("Invalid schemaUrl with empty schema: <" + schemaUrl + ">", RelationalException.ErrorCode.INVALID_PATH);
+        }
+        URI dbUrl = URI.create(schemaPath.substring(0, indexOfLastSlash));
         KeySpacePath dbPath = uriToPath(dbUrl, keySpace);
+        extendKeySpaceForSchema(keySpace, dbPath, schemaId);
         return dbPath.add(schemaId);
     }
 
     public static String getPath(@Nonnull URI url) {
         return url.toString().startsWith("//") ? "//" + url.getAuthority() + url.getPath() : url.getPath();
+    }
+
+    /**
+     * Add the directory in the keySpace with the schemaId as the name
+     * @param keySpace the KeySpace to add directory onto
+     * @param dbPath the KeySpacePath used to find the database directory
+     * @param schemaId the identifier for the schema to add
+     */
+    public static KeySpace extendKeySpaceForSchema(@Nonnull KeySpace keySpace, @Nonnull KeySpacePath dbPath, @Nonnull String schemaId) {
+        KeySpaceDirectory current = keySpace.getRoot();
+        for (KeySpacePath path : dbPath.flatten()) {
+            KeySpaceDirectory directory = path.getDirectory();
+            current = current.getSubdirectory(directory.getName());
+        }
+        if (current.isLeaf() || current.getSubdirectories().stream().noneMatch(dr -> dr.getName().equals(schemaId))) {
+            current = addSchemaDirectory(current, schemaId);
+        }
+        return keySpace;
     }
 
     /* ****************************************************************************************************************/
@@ -199,6 +228,14 @@ public class KeySpaceUtils {
         }
         //no valid path
         return null;
+    }
+
+    // Add schema directory to the keySpace if needed
+    private static synchronized KeySpaceDirectory addSchemaDirectory(@Nonnull KeySpaceDirectory dbDirectory, @Nonnull String schemaId) {
+        if (dbDirectory.isLeaf() || dbDirectory.getSubdirectories().stream().noneMatch(dr -> dr.getName().equals(schemaId))) {
+            dbDirectory.addSubdirectory(new KeySpaceDirectory(schemaId, KeySpaceDirectory.KeyType.STRING, schemaId));
+        }
+        return dbDirectory;
     }
 
 }

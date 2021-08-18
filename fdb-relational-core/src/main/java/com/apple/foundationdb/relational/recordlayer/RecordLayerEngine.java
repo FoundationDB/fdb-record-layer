@@ -52,8 +52,7 @@ public class RecordLayerEngine {
                              MutableRecordMetaDataStore metaDataStore,
                              FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                              SerializerRegistry serializerRegistry,
-                             KeySpace keySpace,
-                             URI schemaTemplateBasePath) {
+                             KeySpace keySpace) {
         this.databaseFinder = databaseFinder;
         this.metaDataStore = metaDataStore;
         this.userVersionChecker = userVersionChecker;
@@ -73,7 +72,6 @@ public class RecordLayerEngine {
                 .setSerializerRegistry(serializerRegistry)
                 .setBaseKeySpace(keySpace)
                 .setUserVersionChecker(userVersionChecker)
-                .setBaseTemplatePath(schemaTemplateBasePath)
                 .build();
 
     }

@@ -20,9 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataProto;
-import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
@@ -33,33 +30,55 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
-    private final ConcurrentMap<URI, RecordMetaDataProvider> metadataMap = new ConcurrentHashMap<>();
-    private final ConcurrentMap<URI, RecordMetaDataProvider> schemaMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, RecordLayerTemplate> templateMap = new ConcurrentHashMap<>();
+    private final ConcurrentMap<URI, String> schemaToTemplateMap = new ConcurrentHashMap<>();
 
     @Override
-    public RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId) {
+    public RecordLayerTemplate loadMetaData(@Nonnull URI schemaUrl) {
         //TODO(bfines) if we ever use non-path elements of the URI, this will need to change
-        URI upperCase = URI.create((KeySpaceUtils.getPath(dbUrl) + "/" + schemaId).toUpperCase(Locale.ROOT));
-        return schemaMap.get(upperCase);
-    }
-
-    @Override
-    public void setSchemaTemplateMetaData(@Nonnull URI schemaUuid, RecordMetaDataProvider storeMeta) {
-        this.metadataMap.put(schemaUuid,storeMeta);
-    }
-
-    @Override
-    public void createSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId, @Nonnull URI templateUri) {
-        RecordMetaDataProvider provider = loadTemplateMetaData(templateUri);
-        if(provider==null){
-            throw new RelationalException("No Schema Template at path <"+templateUri+"> found", RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        URI schemaKey = convertToUpperCase(schemaUrl);
+        String templateId = schemaToTemplateMap.get(schemaKey);
+        if (templateId == null) {
+            throw new RelationalException("No schema template found for schema: <" + schemaUrl + ">",
+                    RelationalException.ErrorCode.UNKNOWN_SCHEMA);
         }
-        URI schemaKey =URI.create((KeySpaceUtils.getPath(dbUrl) + "/" + schemaId).toUpperCase(Locale.ROOT));
-        schemaMap.put(schemaKey,provider);
+        return templateMap.get(templateId);
     }
 
     @Override
-    public RecordMetaDataProvider loadTemplateMetaData(@Nonnull URI templateUri) {
-        return metadataMap.get(templateUri);
+    public void addSchemaTemplate(@Nonnull RecordLayerTemplate schemaTemplate) {
+        this.templateMap.put(schemaTemplate.getUniqueId(), schemaTemplate);
+    }
+
+    @Override
+    public void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId) {
+        RecordLayerTemplate template = loadTemplate(templateId);
+        if(template == null){
+            throw new RelationalException("Unknown or non-existing schema template: <" + templateId + ">",
+                    RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        URI schemaKey = convertToUpperCase(schemaUrl);
+        if (schemaToTemplateMap.containsKey(schemaKey)) {
+            throw new RelationalException("One schema cannot be assigned with a template twice, schemaKey: <" + schemaKey
+                    + ">, existingTemplateId: <" + schemaToTemplateMap.get(schemaKey)
+                    + ">, new added templateId: <" + templateId + ">",
+                    RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+        String existingTemplateId = schemaToTemplateMap.putIfAbsent(schemaKey, templateId);
+        if (existingTemplateId != null && !existingTemplateId.equals(templateId)) {
+            throw new RelationalException("One schema cannot be assigned with a template twice, schemaKey: <" + schemaKey
+                    + ">, existingTemplateId: <" + existingTemplateId
+                    + ">, new added templateId: <" + templateId + ">",
+                    RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+        }
+    }
+
+    @Override
+    public RecordLayerTemplate loadTemplate(@Nonnull String templateId) {
+        return templateMap.get(templateId);
+    }
+
+    private static URI convertToUpperCase(@Nonnull URI schemaUrl) {
+        return URI.create(KeySpaceUtils.getPath(schemaUrl).toUpperCase(Locale.ROOT));
     }
 }

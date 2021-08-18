@@ -1,5 +1,5 @@
 /*
- * ExistenceCheckerForStore.java
+ * ExistenceCheckerForSchema.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,10 +21,9 @@
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 
 import java.net.URI;
 
-public interface ExistenceCheckerForStore {
-    FDBRecordStoreBase.StoreExistenceCheck forStore(KeySpacePath storePath);
+public interface ExistenceCheckerForSchema {
+    FDBRecordStoreBase.StoreExistenceCheck forSchema(URI schemaUrl);
 }

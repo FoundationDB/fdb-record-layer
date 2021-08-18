@@ -53,7 +53,7 @@ public class RecordLayerTableTest {
     public final void setupCatalog(){
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
-        catalog.createSchemaTemplate(new RecordLayerTemplate(URI.create("/RestaurantRecord"), builder.build()));
+        catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
 
         catalog.createDatabase(URI.create("//record_layer_table_test"),
                 DatabaseTemplate.newBuilder()

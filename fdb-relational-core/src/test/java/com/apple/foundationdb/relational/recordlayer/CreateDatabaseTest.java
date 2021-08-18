@@ -44,14 +44,14 @@ public class CreateDatabaseTest {
     void canCreateDatabase() {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
-        catalog.createSchemaTemplate(new RecordLayerTemplate(URI.create("/Restaurant"), builder.build()));
+        catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
 
-        catalog.createDatabase(URI.create("/test_table"),
+        catalog.createDatabase(URI.create("//test_table"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("test", "Restaurant")
                         .build());
 
-        final RelationalDatabase database = catalog.getDatabase(URI.create("/test_table"));
+        final RelationalDatabase database = catalog.getDatabase(URI.create("//test_table"));
         Assertions.assertNotNull(database,"No database returned!");
     }
 
@@ -64,7 +64,7 @@ public class CreateDatabaseTest {
         final DatabaseTemplate template = DatabaseTemplate.newBuilder()
                 .withSchema("test", "NoSuchSchemaTemplate")
                 .build();
-        RelationalException ve = Assertions.assertThrows(RelationalException.class, ()->catalog.createDatabase(URI.create("/test_table"), template));
+        RelationalException ve = Assertions.assertThrows(RelationalException.class, ()->catalog.createDatabase(URI.create("//test_table"), template));
         Assertions.assertEquals(RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE,ve.getErrorCode(),"Incorect error code!");
     }
 

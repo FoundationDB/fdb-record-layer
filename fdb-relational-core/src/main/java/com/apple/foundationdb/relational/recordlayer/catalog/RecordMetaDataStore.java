@@ -26,8 +26,8 @@ import javax.annotation.Nonnull;
 import java.net.URI;
 
 public interface RecordMetaDataStore {
-
-    RecordMetaDataProvider loadTemplateMetaData(@Nonnull URI templateUri);
-
-    RecordMetaDataProvider loadSchemaMetaData(@Nonnull URI dbUrl, @Nonnull String schemaId);
+    /**
+     * Load the metadata provider given a schema url
+     */
+    RecordMetaDataProvider loadMetaData(@Nonnull URI schemaUrl);
 }

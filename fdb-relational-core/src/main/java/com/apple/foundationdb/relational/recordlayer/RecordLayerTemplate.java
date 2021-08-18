@@ -26,10 +26,9 @@ import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 
 public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataProvider {
-    private final URI name;
+    private final String templateId;
 
     /*
      * We use a RecordMetaDataProvider here instead of a RecordMetaDataStore because
@@ -37,14 +36,14 @@ public class RecordLayerTemplate implements SchemaTemplate, RecordMetaDataProvid
      */
     private final RecordMetaDataProvider metaDataProvider;
 
-    public RecordLayerTemplate(URI name, RecordMetaDataProvider metaDataProvider) {
-        this.name = name;
+    public RecordLayerTemplate(String templateId, RecordMetaDataProvider metaDataProvider) {
+        this.templateId = templateId;
         this.metaDataProvider = metaDataProvider;
     }
 
     @Override
-    public URI getUniqueName() {
-        return name;
+    public String getUniqueId() {
+        return templateId;
     }
 
     @Override

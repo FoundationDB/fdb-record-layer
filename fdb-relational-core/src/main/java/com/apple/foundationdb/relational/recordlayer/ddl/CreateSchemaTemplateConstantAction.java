@@ -20,36 +20,27 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
-import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 
 public class CreateSchemaTemplateConstantAction implements ConstantAction {
     private final SchemaTemplate template;
     private final MutableRecordMetaDataStore metaDataStore;
-    private final URI baseTemplatePath;
 
-    public CreateSchemaTemplateConstantAction(@Nonnull URI baseTemplatePath, @Nonnull  SchemaTemplate template,@Nonnull MutableRecordMetaDataStore metaDataStore) {
+    public CreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,@Nonnull MutableRecordMetaDataStore metaDataStore) {
         this.template = template;
         this.metaDataStore = metaDataStore;
-        this.baseTemplatePath = baseTemplatePath;
     }
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        final String path = KeySpaceUtils.getPath(template.getUniqueName());
-        String templatePath = path.startsWith("/") ? baseTemplatePath + path : baseTemplatePath + "/" + path;
-        URI templateUri = URI.create(templatePath);
+        assert template instanceof RecordLayerTemplate: "Cannot use this constant action with SchemaTemplate of type <"+template.getClass()+">";
 
-        assert template instanceof RecordMetaDataProvider: "Cannot use this constant action with SchemaTemplate of type <"+template.getClass()+">";
-
-
-        metaDataStore.setSchemaTemplateMetaData(templateUri,((RecordMetaDataProvider) template));
+        metaDataStore.addSchemaTemplate((RecordLayerTemplate) template);
     }
 }

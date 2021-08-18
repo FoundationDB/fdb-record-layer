@@ -96,6 +96,37 @@ public class KeySpacePathParsingTest {
         Assertions.assertEquals(expected2, KeySpaceUtils.pathToURI(path2), "Invalid parsing of URI or KeySpacePaths");
     }
 
+    @Test
+    void testKeySpaceForSchemaExtension() {
+        final KeySpaceDirectory env = new KeySpaceDirectory("env", KeySpaceDirectory.KeyType.STRING);
+        final KeySpaceDirectory db = new KeySpaceDirectory("db", KeySpaceDirectory.KeyType.STRING);
+        env.addSubdirectory(db);
+        KeySpace keySpace = new KeySpace(env);
+
+        KeySpacePath dbPath = KeySpaceUtils.uriToPath(URI.create("/prod/testDb"), keySpace);
+        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "testSchema");
+        String keySpaceString = extended.toString();
+        Assertions.assertEquals("/ (NULL)\n    +- env (STRING)\n       +- db (STRING)\n          +- testSchema (STRING=testSchema)\n", keySpaceString);
+
+        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("testSchema");
+        Assertions.assertEquals("testSchema", schemaDirectory.getValue());
+    }
+
+    @Test
+    void testSchemaInKeySpaceNotToBeOverridden() {
+        final KeySpaceDirectory env = new KeySpaceDirectory("env", KeySpaceDirectory.KeyType.STRING);
+        final KeySpaceDirectory db = new KeySpaceDirectory("db", KeySpaceDirectory.KeyType.STRING);
+        final KeySpaceDirectory schema = new KeySpaceDirectory("testSchema", KeySpaceDirectory.KeyType.STRING, "T");
+        db.addSubdirectory(schema);
+        env.addSubdirectory(db);
+        KeySpace keySpace = new KeySpace(env);
+
+        KeySpacePath dbPath = KeySpaceUtils.uriToPath(URI.create("/prod/testDb"), keySpace);
+        KeySpace extended = KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, "testSchema");
+        KeySpaceDirectory schemaDirectory = extended.getDirectory("env").getSubdirectory("db").getSubdirectory("testSchema");
+        Assertions.assertEquals("T", schemaDirectory.getValue());
+    }
+
     private KeySpace getKeySpaceForTesting() {
         final KeySpaceDirectory env = new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory app = new KeySpaceDirectory("App", KeySpaceDirectory.KeyType.STRING);

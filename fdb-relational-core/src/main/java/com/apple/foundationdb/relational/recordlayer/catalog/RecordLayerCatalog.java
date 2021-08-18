@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.RelationalException;
@@ -31,13 +30,10 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerDatabase;
-import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 public class RecordLayerCatalog implements Catalog {
     private static final int DEFAULT_FORMAT_VERSION = 8;
@@ -46,9 +42,12 @@ public class RecordLayerCatalog implements Catalog {
     private final MutableRecordMetaDataStore metaDataStore;
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final SerializerRegistry serializerRegistry;
+    /**
+     * The clients needs to make sure the passed in keySpace supports all the {@link KeySpacePath} that its databases will be built on potentially
+     * The clients volunteers to have the directories for schemas included in this keySpace. Dynamically creation of new schemas is also supported.
+     */
     private final KeySpace keySpace;
     private final int formatVersion;
-    private final ExistenceCheckerForStore existenceCheckerForStore;
 
 
     private RecordLayerCatalog(DatabaseLocator locator,
@@ -56,28 +55,30 @@ public class RecordLayerCatalog implements Catalog {
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                SerializerRegistry serializerRegistry,
                                KeySpace keySpace,
-                               int formatVersion,
-                               ExistenceCheckerForStore existenceCheckerForStore) {
+                               int formatVersion) {
         this.databaseFinder = locator;
         this.metaDataStore = metaDataStore;
         this.userVersionChecker = userVersionChecker;
         this.serializerRegistry = serializerRegistry;
         this.keySpace = keySpace;
         this.formatVersion = formatVersion;
-        this.existenceCheckerForStore = existenceCheckerForStore;
     }
 
     @Nonnull
-    public SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException {
-        return new RecordLayerTemplate(templateId, metaDataStore.loadTemplateMetaData(templateId));
+    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
+        return metaDataStore.loadTemplate(templateId);
     }
 
     @Nonnull
-    public RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException {
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(url,keySpace);
+    public RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException {
+        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl,keySpace);
         final FDBDatabase fdbDatabase = databaseFinder.locateDatabase(dbPath);
         return new RecordLayerDatabase(fdbDatabase,metaDataStore, userVersionChecker,
-                formatVersion, serializerRegistry, dbPath, existenceCheckerForStore);
+                formatVersion, serializerRegistry, dbPath, this);
+    }
+
+    public KeySpace extendKeySpaceForSchema(@Nonnull KeySpacePath dbPath, @Nonnull String schemaId) {
+        return KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, schemaId);
     }
 
     public static class Builder {
@@ -87,7 +88,6 @@ public class RecordLayerCatalog implements Catalog {
         private SerializerRegistry serializerRegistry;
         private KeySpace keySpace;
         private int formatVersion;
-        private ExistenceCheckerForStore existenceCheckerForStore;
 
         public Builder setMetadataProvider(@Nonnull MutableRecordMetaDataStore metadataProvider) {
             this.metadataProvider = metadataProvider;
@@ -119,11 +119,6 @@ public class RecordLayerCatalog implements Catalog {
             return this;
         }
 
-        public Builder setExistenceCheckerForStore(ExistenceCheckerForStore existenceCheckerForStore) {
-            this.existenceCheckerForStore = existenceCheckerForStore;
-            return this;
-        }
-
         public RecordLayerCatalog build() {
             if (metadataProvider == null) {
                 throw new IllegalStateException("RecordLayerCatalog must have its metadataProvider");
@@ -137,11 +132,8 @@ public class RecordLayerCatalog implements Catalog {
             if (formatVersion <= 0) {
                 formatVersion = DEFAULT_FORMAT_VERSION;
             }
-            if (existenceCheckerForStore == null) {
-                existenceCheckerForStore = storeName -> FDBRecordStoreBase.StoreExistenceCheck.NONE;
-            }
             return new RecordLayerCatalog(databaseFinder,metadataProvider, userVersionChecker,
-                    serializerRegistry, keySpace, formatVersion, existenceCheckerForStore);
+                    serializerRegistry, keySpace, formatVersion);
         }
     }
 }

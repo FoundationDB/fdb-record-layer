@@ -33,7 +33,7 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
-import com.apple.foundationdb.relational.recordlayer.catalog.ExistenceCheckerForStore;
+import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
 
 import javax.annotation.Nonnull;
@@ -55,7 +55,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     private final Map<String, RecordLayerSchema> schemas = new HashMap<>();
 
-    private final ExistenceCheckerForStore existenceCheckerForStore;
+    private final RecordLayerCatalog catalog;
 
     public RecordLayerDatabase(FDBDatabase fdbDb,
                                RecordMetaDataStore metaDataStore,
@@ -63,14 +63,14 @@ public class RecordLayerDatabase implements RelationalDatabase {
                                int formatVersion,
                                SerializerRegistry serializerRegistry,
                                KeySpacePath dbPathPrefix,
-                               ExistenceCheckerForStore existenceCheckerForStore) {
+                               RecordLayerCatalog catalog) {
         this.fdbDb = fdbDb;
         this.metaDataStore = metaDataStore;
         this.userVersionChecker = userVersionChecker;
         this.formatVersion = formatVersion;
         this.serializerRegistry = serializerRegistry;
         this.ksPath = dbPathPrefix;
-        this.existenceCheckerForStore = existenceCheckerForStore;
+        this.catalog = catalog;
     }
 
     void setConnection(@Nonnull RecordStoreConnection conn){
@@ -82,9 +82,12 @@ public class RecordLayerDatabase implements RelationalDatabase {
         RecordLayerSchema schema = schemas.get(schemaId);
         boolean putBack = false;
         if(schema==null){
-            schema = new RecordLayerSchema(schemaId,this,connection);
+            // The SchemaExistenceCheck from the options is only taken when the schema is created firstly
+            // It is an immutable parameter for the schema and the options for the following operations on that schema are ignored
+            schema = new RecordLayerSchema(schemaId,this,connection, options);
             putBack = true;
         }
+        catalog.extendKeySpaceForSchema(ksPath, schemaId);
         if(options.hasOption(OperationOption.FORCE_VERIFY_DDL)){
             if(!this.connection.inActiveTransaction()){
                 this.connection.beginTransaction();
@@ -112,21 +115,21 @@ public class RecordLayerDatabase implements RelationalDatabase {
         schemas.clear();
     }
 
-    FDBRecordStore loadStore(FDBRecordContext txn, String storeName) {
+    FDBRecordStore loadStore(@Nonnull FDBRecordContext txn, @Nonnull String storeName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         //TODO(bfines) error handling if this store doesn't exist
 
-        final KeySpacePath storePath = ksPath.add( storeName);
+        final KeySpacePath storePath = ksPath.add(storeName);
 
         try {
             return FDBRecordStore.newBuilder()
                     .setKeySpacePath(storePath)
                     .setSerializer(serializerRegistry.loadSerializer(storePath))
                     //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
-                    .setMetaDataProvider(metaDataStore.loadSchemaMetaData(KeySpaceUtils.pathToURI(ksPath), storeName))
+                    .setMetaDataProvider(metaDataStore.loadMetaData(KeySpaceUtils.pathToURI(storePath)))
                     .setUserVersionChecker(userVersionChecker)
                     .setFormatVersion(formatVersion)
                     .setContext(txn)
-                    .open();
+                    .createOrOpen(existenceCheck);
         }catch(RecordCoreException rce){
             throw new RelationalException("Schema <"+storeName+"> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA,rce.getCause());
         }
@@ -138,9 +141,9 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     /* ****************************************************************************************************************/
     /* private helper methods*/
-    FDBRecordStore loadRecordStore(String schemaId) {
+    FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         try{
-            return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId);
+            return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
         } catch(NoSuchDirectoryException nsde){
             throw new RelationalException("Unknown schema <"+schemaId+">", RelationalException.ErrorCode.UNKNOWN_SCHEMA,nsde);
         }

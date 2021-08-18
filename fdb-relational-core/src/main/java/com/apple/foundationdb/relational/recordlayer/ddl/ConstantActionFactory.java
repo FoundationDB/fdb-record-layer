@@ -35,5 +35,5 @@ public interface ConstantActionFactory {
 
     @Nonnull ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions);
 
-    @Nonnull ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaId, @Nonnull URI templateUri, Options constantActionOptions);
+    @Nonnull ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions);
 }

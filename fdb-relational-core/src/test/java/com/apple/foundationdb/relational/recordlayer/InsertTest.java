@@ -52,9 +52,9 @@ public class InsertTest {
     public final void setupCatalog() {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
-        catalog.createSchemaTemplate(new RecordLayerTemplate(URI.create("/Restaurant"), builder.build()));
+        catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
 
-        catalog.createDatabase(URI.create("/dbid"),
+        catalog.createDatabase(URI.create("//dbid"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("main", "Restaurant")
                         .build());
@@ -66,7 +66,7 @@ public class InsertTest {
          * We want to make sure that we don't accidentally pick up data from different tables
          */
         RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("/dbid"), Options.create())){
+        try (DatabaseConnection conn = driver.connect(URI.create("//dbid"), Options.create())){
             conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){
@@ -162,7 +162,7 @@ public class InsertTest {
          * We want to make sure that we don't accidentally pick up data from different tables
          */
         RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("/dbid"), Options.create())){
+        try (DatabaseConnection conn = driver.connect(URI.create("//dbid"), Options.create())){
             conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){
@@ -180,7 +180,7 @@ public class InsertTest {
          * We want to make sure that we don't accidentally pick up data from different tables
          */
         RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("/dbid"), Options.create())){
+        try (DatabaseConnection conn = driver.connect(URI.create("//dbid"), Options.create())){
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){

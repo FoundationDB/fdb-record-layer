@@ -48,7 +48,7 @@ public class NoOpConstantActionFactory implements ConstantActionFactory{
 
     @Nonnull
     @Override
-    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI dbPath, @Nonnull String schemaId, @Nonnull URI templateUri, Options constantActionOptions) {
+    public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
         return NoOpConstantAction.INSTANCE;
     }
 

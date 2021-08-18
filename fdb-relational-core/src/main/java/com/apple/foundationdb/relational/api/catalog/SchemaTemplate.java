@@ -33,7 +33,7 @@ public interface SchemaTemplate {
      *
      * @return the unique identifier for this template. All templates <em>must</em> have a unique name
      */
-    URI getUniqueName();
+    String getUniqueId();
 
     /**
      * Determine if the specified DatabaseSchema instance is valid.

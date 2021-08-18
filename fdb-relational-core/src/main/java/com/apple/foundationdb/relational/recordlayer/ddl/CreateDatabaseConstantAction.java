@@ -38,30 +38,19 @@ public class CreateDatabaseConstantAction implements ConstantAction{
     private final Options constantActionOptions;
 
     private final ConstantActionFactory caFactory;
-    private final KeySpace keySpace;
-    private final URI templateBasePath;
 
-    public CreateDatabaseConstantAction(URI dbUrl, DatabaseTemplate dbTemplate, Options constantActionOptions, ConstantActionFactory caFactory, KeySpace keySpace, URI templateBasePath) {
+    public CreateDatabaseConstantAction(URI dbUrl, DatabaseTemplate dbTemplate, Options constantActionOptions, ConstantActionFactory caFactory) {
         this.dbUrl = dbUrl;
         this.dbTemplate = dbTemplate;
         this.constantActionOptions = constantActionOptions;
         this.caFactory = caFactory;
-        this.keySpace = keySpace;
-        this.templateBasePath = templateBasePath;
     }
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        //TODO(bfines) catch errors here
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl,keySpace);
-
-        final KeySpaceDirectory dbDirectory = dbPath.getDirectory();
-
         for(Map.Entry<String,String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()){
-
-            URI templateUri =  URI.create(templateBasePath.toString()+"/"+schemaData.getValue());
-
-            caFactory.getCreateSchemaConstantAction(dbUrl, schemaData.getKey(), templateUri, constantActionOptions).execute(txn);
+            URI schemaUrl = URI.create(KeySpaceUtils.getPath(dbUrl) + "/" + schemaData.getKey());
+            caFactory.getCreateSchemaConstantAction(schemaUrl, schemaData.getValue(), constantActionOptions).execute(txn);
         }
 
     }

@@ -70,26 +70,25 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
                 new MapRecordMetaDataStore(),
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 new TestSerializerRegistry(),
-                keySpace,
-                URI.create("/1"));
+                keySpace);
         catalog = engine.getCatalog();
         constantActionFactory = engine.getConstantActionFactory();
     }
 
     @Override
     @Nonnull
-    public SchemaTemplate getSchemaTemplate(@Nonnull URI templateId) throws RelationalException {
+    public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
         return catalog.getSchemaTemplate(templateId);
     }
 
     @Nonnull
     @Override
-    public RelationalDatabase getDatabase(@Nonnull URI url) throws RelationalException {
+    public RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException {
         try {
-            return catalog.getDatabase(url);
+            return catalog.getDatabase(dbUrl);
         }catch(RelationalException ve){
             if(ve.getErrorCode().equals(RelationalException.ErrorCode.INVALID_PATH)){
-                throw new RelationalException("Database <"+url+"> is unknown or does not exist", RelationalException.ErrorCode.UNDEFINED_DATABASE,ve);
+                throw new RelationalException("Database is unknown or does not exist: <" + dbUrl + ">", RelationalException.ErrorCode.UNDEFINED_DATABASE,ve);
             }else{
                 throw ve;
             }
@@ -99,11 +98,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     private KeySpace getKeySpaceForSetup() {
         KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
         KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-        KeySpaceDirectory schemaDirectory = new KeySpaceDirectory("test", KeySpaceDirectory.KeyType.STRING, "T");
-        dbDirectory.addSubdirectory(schemaDirectory);
         rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
-        //add the templates subdirectory
-        rootDirectory.addSubdirectory(new KeySpaceDirectory("templates", KeySpaceDirectory.KeyType.LONG,1L));
         return new KeySpace(rootDirectory);
     }
 
