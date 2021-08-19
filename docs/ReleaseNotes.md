@@ -40,6 +40,9 @@ Another, smaller change that has been made is that by default, new indexes added
 // end next release
 -->
 
+### 3.0.211.0
+
+
 ### 3.0.210.0
 
 * **Bug fix** relax conditions enforced in ImplementInUnionRule [(Issue #1369)](https://github.com/FoundationDB/fdb-record-layer/issues/1369)
