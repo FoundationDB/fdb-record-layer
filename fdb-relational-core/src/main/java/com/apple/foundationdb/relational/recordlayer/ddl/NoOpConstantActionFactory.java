@@ -29,10 +29,11 @@ import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import javax.annotation.Nonnull;
 import java.net.URI;
 
-public class NoOpConstantActionFactory implements ConstantActionFactory{
+public class NoOpConstantActionFactory implements ConstantActionFactory {
     public static final NoOpConstantActionFactory INSTANCE = new NoOpConstantActionFactory();
 
-    private NoOpConstantActionFactory(){}
+    private NoOpConstantActionFactory() {
+    }
 
     @Nonnull
     @Override

@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirect
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.RelationalException;
-import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
@@ -73,43 +72,43 @@ public class RecordLayerDatabase implements RelationalDatabase {
         this.catalog = catalog;
     }
 
-    void setConnection(@Nonnull RecordStoreConnection conn){
+    void setConnection(@Nonnull RecordStoreConnection conn) {
         this.connection = conn;
     }
 
     @Override
-    public @Nonnull RecordLayerSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException{
+    public @Nonnull RecordLayerSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException {
         RecordLayerSchema schema = schemas.get(schemaId);
         boolean putBack = false;
-        if(schema==null){
+        if (schema == null) {
             // The SchemaExistenceCheck from the options is only taken when the schema is created firstly
             // It is an immutable parameter for the schema and the options for the following operations on that schema are ignored
-            schema = new RecordLayerSchema(schemaId,this,connection, options);
+            schema = new RecordLayerSchema(schemaId, this, connection, options);
             putBack = true;
         }
         catalog.extendKeySpaceForSchema(ksPath, schemaId);
-        if(options.hasOption(OperationOption.FORCE_VERIFY_DDL)){
-            if(!this.connection.inActiveTransaction()){
+        if (options.hasOption(OperationOption.FORCE_VERIFY_DDL)) {
+            if (!this.connection.inActiveTransaction()) {
                 this.connection.beginTransaction();
-                try{
+                try {
                     schema.loadStore();
-                } finally{
+                } finally {
                     this.connection.rollback();
                 }
-            }else{
+            } else {
                 schema.loadStore();
             }
         }
 
-        if(putBack){
-            schemas.put(schemaId,schema);
+        if (putBack) {
+            schemas.put(schemaId, schema);
         }
         return schema;
     }
 
     @Override
     public void close() throws RelationalException {
-        for(RecordLayerSchema schema: schemas.values()){
+        for (RecordLayerSchema schema : schemas.values()) {
             schema.close();
         }
         schemas.clear();
@@ -130,8 +129,8 @@ public class RecordLayerDatabase implements RelationalDatabase {
                     .setFormatVersion(formatVersion)
                     .setContext(txn)
                     .createOrOpen(existenceCheck);
-        }catch(RecordCoreException rce){
-            throw new RelationalException("Schema <"+storeName+"> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA,rce.getCause());
+        } catch (RecordCoreException rce) {
+            throw new RelationalException("Schema <" + storeName + "> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA, rce.getCause());
         }
     }
 
@@ -146,14 +145,12 @@ public class RecordLayerDatabase implements RelationalDatabase {
             return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
         } catch(NoSuchDirectoryException nsde){
             throw new RelationalException("Unknown schema <"+schemaId+">", RelationalException.ErrorCode.UNKNOWN_SCHEMA,nsde);
-        }
-        catch (MetaDataException mde) {
-            throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA,mde);
+        } catch (MetaDataException mde) {
+            throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA, mde);
         }
     }
 
     void clearDatabase(@Nonnull FDBRecordContext context) {
         FDBRecordStore.deleteStore(context, ksPath);
     }
-
 }

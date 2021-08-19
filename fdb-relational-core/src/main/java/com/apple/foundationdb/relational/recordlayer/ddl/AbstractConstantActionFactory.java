@@ -40,7 +40,7 @@ public abstract class AbstractConstantActionFactory implements ConstantActionFac
     @Nonnull
     @Override
     public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-        return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath,template,constantActionOptions);
+        return NoOpConstantActionFactory.INSTANCE.getCreateDatabaseConstantAction(dbPath, template, constantActionOptions);
     }
 
     @Nonnull

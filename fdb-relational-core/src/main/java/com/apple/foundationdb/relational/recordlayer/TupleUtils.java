@@ -25,12 +25,12 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 
 public class TupleUtils {
 
-    static Tuple toFDBTuple(NestableTuple relationalTuple){
-        if(!(relationalTuple instanceof FDBTuple)){
+    static Tuple toFDBTuple(NestableTuple relationalTuple) {
+        if (!(relationalTuple instanceof FDBTuple)) {
             relationalTuple = new FDBTuple(relationalTuple);
         }
 
-        return ((FDBTuple)relationalTuple).fdbTuple();
+        return ((FDBTuple) relationalTuple).fdbTuple();
     }
 
     public static NestableTuple toRelationalTuple(Tuple key) {

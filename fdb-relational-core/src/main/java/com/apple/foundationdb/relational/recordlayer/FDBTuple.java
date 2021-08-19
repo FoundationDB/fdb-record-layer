@@ -37,16 +37,17 @@ class FDBTuple extends AbstractTuple {
 
     /**
      * Copy-constructor to make an FDB tuple from another type of tuple
+     *
      * @param copy the tuple to copy
      */
-    FDBTuple(@Nonnull NestableTuple copy){
+    FDBTuple(@Nonnull NestableTuple copy) {
         this.t = new Tuple();
-        for(int i=0;i<copy.getNumFields();i++){
+        for (int i = 0; i < copy.getNumFields(); i++) {
             this.t.addObject(copy.getObject(i));
         }
     }
 
-    void setTuple(Tuple t){
+    void setTuple(Tuple t) {
         this.t = t;
     }
 
@@ -62,19 +63,19 @@ class FDBTuple extends AbstractTuple {
 
     @Override
     public NestableTuple getTuple(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= t.size()){
+        if (position < 0 || position >= t.size()) {
             throw new IllegalArgumentException();
         }
         try {
             return new FDBTuple(t.getNestedTuple(position));
-        }catch(ClassCastException cce){
-            throw new InvalidTypeException("Object <"+t.get(position)+"> cannot be converted to a Tuple type");
+        } catch (ClassCastException cce) {
+            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to a Tuple type");
         }
     }
 
     @Override
     public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= t.size()){
+        if (position < 0 || position >= t.size()) {
             throw new IllegalArgumentException();
         }
         try {
@@ -86,8 +87,8 @@ class FDBTuple extends AbstractTuple {
                     return new ValueTuple(obj);
                 }
             }).collect(Collectors.toList());
-        }catch(ClassCastException cce){
-            throw new InvalidTypeException("Object <"+t.get(position)+"> cannot be converted to an iterable type");
+        } catch (ClassCastException cce) {
+            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to an iterable type");
         }
     }
 

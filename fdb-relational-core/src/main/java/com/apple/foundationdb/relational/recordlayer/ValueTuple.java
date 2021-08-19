@@ -27,7 +27,7 @@ class ValueTuple extends AbstractTuple {
         this.obj = obj;
     }
 
-    void setObject(Object o){
+    void setObject(Object o) {
         this.obj = o;
     }
 

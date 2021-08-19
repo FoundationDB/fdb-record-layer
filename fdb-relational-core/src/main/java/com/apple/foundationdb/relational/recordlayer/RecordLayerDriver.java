@@ -43,24 +43,24 @@ public class RecordLayerDriver implements RelationalDriver {
 
     @Override
     public DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
-        return connect(url,null,connectionOptions);
+        return connect(url, null, connectionOptions);
     }
 
     @Override
-    public DatabaseConnection connect(@Nonnull URI url,  @Nullable Transaction existingTransaction,@Nonnull Options connectionOptions) throws RelationalException {
-        int formatVersion = parseFormatVersion(url,connectionOptions);
+    public DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
+        int formatVersion = parseFormatVersion(url, connectionOptions);
         /*
          * Basic Algorithm for Opening a connection:
          *
          * 1. Go to Catalog and verify that the given Database exists
          */
         RelationalDatabase frl = dataCatalog.getDatabase(url);
-        assert frl instanceof RecordLayerDatabase: "Catalog does not produce RecordLayer Databases, use a different driver for type <"+frl.getClass()+">";
+        assert frl instanceof RecordLayerDatabase : "Catalog does not produce RecordLayer Databases, use a different driver for type <" + frl.getClass() + ">";
         if (existingTransaction != null && !(existingTransaction instanceof RecordContextTransaction)) {
             throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
         }
-        RecordStoreConnection conn =  new RecordStoreConnection((RecordLayerDatabase)frl, (RecordContextTransaction) existingTransaction);
-        ((RecordLayerDatabase)frl).setConnection(conn);
+        RecordStoreConnection conn = new RecordStoreConnection((RecordLayerDatabase) frl, (RecordContextTransaction) existingTransaction);
+        ((RecordLayerDatabase) frl).setConnection(conn);
         return conn;
     }
 

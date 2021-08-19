@@ -31,87 +31,87 @@ public abstract class AbstractTuple implements NestableTuple {
 
     @Override
     public long getLong(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= getNumFields()){
+        if (position < 0 || position >= getNumFields()) {
             throw new IllegalArgumentException();
         }
         Object o = getObject(position);
-        if(!(o instanceof Number)){
-            throw new InvalidTypeException("Value <"+o+"> cannot be cast to a scalar type");
+        if (!(o instanceof Number)) {
+            throw new InvalidTypeException("Value <" + o + "> cannot be cast to a scalar type");
         }
-        return ((Number)o).longValue();
+        return ((Number) o).longValue();
     }
 
     @Override
     public float getFloat(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= getNumFields()){
+        if (position < 0 || position >= getNumFields()) {
             throw new IllegalArgumentException();
         }
 
         Object o = getObject(position);
-        if(!(o instanceof Number)){
-            throw new InvalidTypeException("Value <"+o+"> cannot be cast to a float type");
+        if (!(o instanceof Number)) {
+            throw new InvalidTypeException("Value <" + o + "> cannot be cast to a float type");
         }
-        return ((Number)o).floatValue();
+        return ((Number) o).floatValue();
     }
 
     @Override
     public double getDouble(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= getNumFields()){
+        if (position < 0 || position >= getNumFields()) {
             throw new IllegalArgumentException();
         }
 
         Object o = getObject(position);
-        if(!(o instanceof Number)){
-            throw new InvalidTypeException("Value <"+o+"> cannot be cast to a double type");
+        if (!(o instanceof Number)) {
+            throw new InvalidTypeException("Value <" + o + "> cannot be cast to a double type");
         }
-        return ((Number)o).doubleValue();
+        return ((Number) o).doubleValue();
     }
 
     @Override
     public String getString(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= getNumFields()){
+        if (position < 0 || position >= getNumFields()) {
             throw new IllegalArgumentException();
         }
 
         Object o = getObject(position);
-        if(!(o instanceof String)){
-            throw new InvalidTypeException("Value <"+o+"> cannot be cast to a String");
+        if (!(o instanceof String)) {
+            throw new InvalidTypeException("Value <" + o + "> cannot be cast to a String");
         }
-        return (String)o;
+        return (String) o;
     }
 
     @Override
     public byte[] getBytes(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= getNumFields()){
+        if (position < 0 || position >= getNumFields()) {
             throw new IllegalArgumentException();
         }
 
         Object o = getObject(position);
-        if(!(o instanceof byte[])){
-            throw new InvalidTypeException("Value <"+o+"> cannot be cast to a byte[]");
+        if (!(o instanceof byte[])) {
+            throw new InvalidTypeException("Value <" + o + "> cannot be cast to a byte[]");
         }
-        return (byte[])o;
+        return (byte[]) o;
     }
 
     @Override
     public NestableTuple getTuple(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= getNumFields()){
+        if (position < 0 || position >= getNumFields()) {
             throw new IllegalArgumentException();
         }
 
         Object o = getObject(position);
-        if(o instanceof NestableTuple){
-            return (NestableTuple)o;
-        }else if(o instanceof Tuple){
-            return new FDBTuple((Tuple)o);
-        }else{
-            throw new InvalidTypeException("Value <"+o+"> cannot be cast to a tuple");
+        if (o instanceof NestableTuple) {
+            return (NestableTuple) o;
+        } else if (o instanceof Tuple) {
+            return new FDBTuple((Tuple) o);
+        } else {
+            throw new InvalidTypeException("Value <" + o + "> cannot be cast to a tuple");
         }
     }
 
     @Override
     public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, IllegalArgumentException {
-        if(position <0 || position >= getNumFields()){
+        if (position < 0 || position >= getNumFields()) {
             throw new IllegalArgumentException();
         }
 

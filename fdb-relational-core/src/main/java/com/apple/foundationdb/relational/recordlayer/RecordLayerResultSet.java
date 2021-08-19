@@ -37,8 +37,8 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     protected final Scannable scannable;
     protected Continuation lastContinuation = null;
 
-    public RecordLayerResultSet(Scannable scannable, NestableTuple start,NestableTuple end,
-                                        RecordStoreConnection sourceConnection,Options scanOptions) {
+    public RecordLayerResultSet(Scannable scannable, NestableTuple start, NestableTuple end,
+                                RecordStoreConnection sourceConnection, Options scanOptions) {
         this.scannable = scannable;
         this.startKey = start;
         this.endKey = end;
@@ -58,9 +58,9 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     public boolean next() throws RelationalException {
         currentRow = null;
         if (currentCursor == null) {
-            currentCursor = scannable.openScan(sourceConnection.transaction, startKey,endKey, scanOptions.withOption(OperationOption.continuation(lastContinuation)));
+            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, scanOptions.withOption(OperationOption.continuation(lastContinuation)));
         }
-        if(!currentCursor.hasNext()){
+        if (!currentCursor.hasNext()) {
             return false;
         }
 
@@ -78,41 +78,41 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public Object getObject(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
-        if(currentRow==null){
+        if (currentRow == null) {
             throw new IllegalStateException("Iterator was not advanced or has terminated");
         }
-        if(position <0 || position >= (currentRow.keyColumnCount()+currentRow.value().getNumFields())){
+        if (position < 0 || position >= (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
             throw new ArrayIndexOutOfBoundsException();
         }
         Object o;
-        if(position < currentRow.keyColumnCount()){
+        if (position < currentRow.keyColumnCount()) {
             o = currentRow.key().getObject(position);
-        }else{
-            o = currentRow.value().getObject(position-currentRow.keyColumnCount());
+        } else {
+            o = currentRow.value().getObject(position - currentRow.keyColumnCount());
         }
         return o;
     }
 
     @Override
     protected int getPosition(String fieldName) {
-        for(int pos = 0; pos < fieldNames.length; pos++){
-            if(fieldNames[pos].equalsIgnoreCase(fieldName)){
+        for (int pos = 0; pos < fieldNames.length; pos++) {
+            if (fieldNames[pos].equalsIgnoreCase(fieldName)) {
                 return pos;
             }
         }
-        throw new RelationalException(fieldName,RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE);
+        throw new RelationalException(fieldName, RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE);
     }
 
     @Override
     public boolean supportsMessageParsing() {
-        return currentRow.keyColumnCount()==0 && currentRow.value().getObject(0) instanceof Message;
+        return currentRow.keyColumnCount() == 0 && currentRow.value().getObject(0) instanceof Message;
     }
 
     @Override
     public <M extends Message> M parseMessage() throws RelationalException {
-        if(!supportsMessageParsing()){
+        if (!supportsMessageParsing()) {
             throw new UnsupportedOperationException("This ResultSet does not support Message Parsing");
         }
-        return (M)currentRow.value().getObject(0);
+        return (M) currentRow.value().getObject(0);
     }
 }

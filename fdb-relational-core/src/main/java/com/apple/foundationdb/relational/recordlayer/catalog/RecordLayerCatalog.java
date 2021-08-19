@@ -71,9 +71,9 @@ public class RecordLayerCatalog implements Catalog {
 
     @Nonnull
     public RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException {
-        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl,keySpace);
+        KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl, keySpace);
         final FDBDatabase fdbDatabase = databaseFinder.locateDatabase(dbPath);
-        return new RecordLayerDatabase(fdbDatabase,metaDataStore, userVersionChecker,
+        return new RecordLayerDatabase(fdbDatabase, metaDataStore, userVersionChecker,
                 formatVersion, serializerRegistry, dbPath, this);
     }
 
@@ -132,7 +132,7 @@ public class RecordLayerCatalog implements Catalog {
             if (formatVersion <= 0) {
                 formatVersion = DEFAULT_FORMAT_VERSION;
             }
-            return new RecordLayerCatalog(databaseFinder,metadataProvider, userVersionChecker,
+            return new RecordLayerCatalog(databaseFinder, metadataProvider, userVersionChecker,
                     serializerRegistry, keySpace, formatVersion);
         }
     }

@@ -37,7 +37,7 @@ public class DdlParserListener extends RelationalParserBaseListener {
         this.constantActionFactory = constantActionFactory;
     }
 
-    public List<ConstantAction> getParsedActions(){
+    public List<ConstantAction> getParsedActions() {
         return Collections.unmodifiableList(parsedActions);
     }
 

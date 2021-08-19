@@ -44,32 +44,32 @@ public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
                                             @Nonnull Options scanOptions) throws RelationalException {
         //TODO(bfines) this will need to be rewired to support continuations
         TupleRange range;
-        if(startKey==null){
-            if(endKey==null){
+        if (startKey == null) {
+            if (endKey == null) {
                 range = TupleRange.ALL; //this is almost certainly incorrect
-            }else{
-                range = TupleRange.between(null,TupleUtils.toFDBTuple(endKey));
+            } else {
+                range = TupleRange.between(null, TupleUtils.toFDBTuple(endKey));
             }
-        }else if(endKey==null){
-            range = TupleRange.between(TupleUtils.toFDBTuple(startKey),null);
-        }else {
-            range = TupleRange.between(TupleUtils.toFDBTuple(startKey),TupleUtils.toFDBTuple(endKey));
+        } else if (endKey == null) {
+            range = TupleRange.between(TupleUtils.toFDBTuple(startKey), null);
+        } else {
+            range = TupleRange.between(TupleUtils.toFDBTuple(startKey), TupleUtils.toFDBTuple(endKey));
         }
 
         FDBRecordStore store = getSchema().loadStore();
         //TODO(bfines) get the type index for this
         ScanProperties props = optionsToProperties(scanOptions);
-        final RecordCursor<CURSOR_TYPE> cursor = openScan(store,range,props);
-        return CursorScanner.create(cursor, keyValueTransform(),supportsMessageParsing());
+        final RecordCursor<CURSOR_TYPE> cursor = openScan(store, range, props);
+        return CursorScanner.create(cursor, keyValueTransform(), supportsMessageParsing());
     }
 
     /* ****************************************************************************************************************/
     /*abstract methods*/
     protected abstract RecordLayerSchema getSchema();
 
-    protected abstract RecordCursor<CURSOR_TYPE> openScan(FDBRecordStore store,TupleRange range, ScanProperties props);
+    protected abstract RecordCursor<CURSOR_TYPE> openScan(FDBRecordStore store, TupleRange range, ScanProperties props);
 
-    protected abstract Function<CURSOR_TYPE,KeyValue> keyValueTransform();
+    protected abstract Function<CURSOR_TYPE, KeyValue> keyValueTransform();
 
     protected abstract boolean supportsMessageParsing();
 

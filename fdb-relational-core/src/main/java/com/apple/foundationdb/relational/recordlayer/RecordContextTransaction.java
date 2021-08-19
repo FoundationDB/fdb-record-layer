@@ -73,19 +73,19 @@ public class RecordContextTransaction implements Transaction {
     @Nonnull
     @Override
     public <T> T unwrap(@Nonnull Class<? extends T> type) throws ClassCastException {
-        if(FDBRecordContext.class.isAssignableFrom(type)){
+        if (FDBRecordContext.class.isAssignableFrom(type)) {
             return type.cast(context);
         }
         return Transaction.super.unwrap(type);
     }
 
-    private void notifyTerminated(){
-        for(Runnable callable: txnTerminateListeners){
+    private void notifyTerminated() {
+        for (Runnable callable : txnTerminateListeners) {
             callable.run();
         }
     }
 
-    void addTerminationListener(@Nonnull Runnable onTerminateListener){
+    void addTerminationListener(@Nonnull Runnable onTerminateListener) {
         assert !isClosed : "Cannot add a termination listener to a closed transaction!";
         txnTerminateListeners.add(onTerminateListener);
     }

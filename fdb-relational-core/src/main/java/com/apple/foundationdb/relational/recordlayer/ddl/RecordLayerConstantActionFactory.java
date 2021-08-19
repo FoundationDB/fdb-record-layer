@@ -31,7 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDa
 import javax.annotation.Nonnull;
 import java.net.URI;
 
-public class RecordLayerConstantActionFactory implements ConstantActionFactory{
+public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     public static final int DEFAULT_FORMAT_VERSION = 8;
 
     private final MutableRecordMetaDataStore metaDataStore;
@@ -62,7 +62,7 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory{
     @Nonnull
     @Override
     public ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions) {
-        return new CreateDatabaseConstantAction(dbPath,template,constantActionOptions,this);
+        return new CreateDatabaseConstantAction(dbPath, template, constantActionOptions, this);
     }
 
     @Nonnull
@@ -72,7 +72,7 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory{
                 metaDataStore, serializerRegistry, userVersionChecker, formatVersion);
     }
 
-    public static class Builder{
+    public static class Builder {
         private MutableRecordMetaDataStore metaDataStore;
         private SerializerRegistry serializerRegistry;
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
@@ -104,7 +104,8 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory{
             return this;
         }
 
-        public RecordLayerConstantActionFactory build(){
+
+        public RecordLayerConstantActionFactory build() {
             return new RecordLayerConstantActionFactory(metaDataStore, serializerRegistry, userVersionChecker, formatVersion, baseKeySpace);
         }
     }

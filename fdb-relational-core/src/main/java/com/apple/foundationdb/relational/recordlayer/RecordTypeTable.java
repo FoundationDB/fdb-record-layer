@@ -50,6 +50,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     private final RecordStoreConnection conn;
 
     private RecordType currentTypeRef;
+
     public RecordTypeTable(@Nonnull RecordLayerSchema schema,
                            @Nonnull String tableName) {
         this.schema = schema;
@@ -58,7 +59,8 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public @Nonnull RecordLayerSchema getSchema() {
+    public @Nonnull
+    RecordLayerSchema getSchema() {
         return schema;
     }
 
@@ -97,20 +99,20 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     public boolean insertRecord(@Nonnull Message message) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         if (!store.getRecordMetaData().getRecordType(this.tableName).getDescriptor().equals(message.getDescriptorForType())) {
-            throw new RelationalException("type of message <"+message.getClass()+"> does not match the required type for table <"+getName()+">", RelationalException.ErrorCode.INVALID_PARAMETER);
+            throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", RelationalException.ErrorCode.INVALID_PARAMETER);
         }
         //TODO(bfines) maybe this should return something other than boolean?
         try {
             store.insertRecord(message);
-        }catch(MetaDataException mde){
-            throw new RelationalException("type of message <"+message.getClass()+"> does not match the required type for table <"+getName()+">", RelationalException.ErrorCode.INVALID_PARAMETER,mde);
+        } catch (MetaDataException mde) {
+            throw new RelationalException("type of message <" + message.getClass() + "> does not match the required type for table <" + getName() + ">", RelationalException.ErrorCode.INVALID_PARAMETER, mde);
         }
         return true;
     }
 
     @Override
     public Set<Index> getAvailableIndexes() {
-        return loadRecordType().getIndexes().stream().map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index,this,conn)).collect(Collectors.toSet());
+        return loadRecordType().getIndexes().stream().map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index, this, conn)).collect(Collectors.toSet());
     }
 
     @Override
@@ -119,14 +121,14 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     void validate() {
-        if(!this.conn.inActiveTransaction()){
+        if (!this.conn.inActiveTransaction()) {
             this.conn.beginTransaction();
-            try{
+            try {
                 loadRecordType();
-            } finally{
+            } finally {
                 this.conn.rollback();
             }
-        }else{
+        } else {
             loadRecordType();
         }
     }
@@ -158,7 +160,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     RecordType loadRecordType() {
-        if(currentTypeRef==null) {
+        if (currentTypeRef == null) {
             FDBRecordStore store = schema.loadStore();
             try {
                 //just try to load the store, and see if it fails. If it fails, it's not there

@@ -56,7 +56,8 @@ public class KeySpaceUtils {
         return URI.create("/"+uriPath);
     }
 
-    public static @Nonnull KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
+    public static @Nonnull
+    KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
         String path = getPath(url);
         if (path.length() < 1) {
             throw new RelationalException("<" + url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
@@ -160,7 +161,7 @@ public class KeySpaceUtils {
                 // empty string in URI represents NULL value, and empty value is invalid for directory with String KeyType
                 if (pathElem.isEmpty()) {
                     return null;
-                } else if(Objects.equals(dirVal,KeySpaceDirectory.ANY_VALUE)){
+                } else if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
                     break;
                 } else if (!Objects.equals(dirVal, pathElem)) {
                     return null;
@@ -226,7 +227,7 @@ public class KeySpaceUtils {
             } else {
                 parentPath = parentPath.add(pathName, pathValue);
             }
-        }catch(NoSuchDirectoryException nsde){
+        } catch (NoSuchDirectoryException nsde) {
             //safety valve--shouldn't really ever be used, but if it happens we know it's not a valid path
             return null;
         }

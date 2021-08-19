@@ -54,7 +54,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     /*
      * Used for reference tracking to make sure that we close all the tables that we open.
      */
-    private final Map<String,RecordTypeTable> loadedTables = new HashMap<>();
+    private final Map<String, RecordTypeTable> loadedTables = new HashMap<>();
 
     public RecordLayerSchema(@Nonnull String schemaName, RecordLayerDatabase recordLayerDatabase, RecordStoreConnection connection, @Nonnull Options options) {
         this.schemaName = schemaName;
@@ -88,14 +88,14 @@ public class RecordLayerSchema implements DatabaseSchema {
         // return an index object instead
         RecordTypeTable t = loadedTables.get(tableName);
         boolean putBack = false;
-        if(t==null){
-            t= new RecordTypeTable(this,tableName);
+        if (t == null) {
+            t = new RecordTypeTable(this, tableName);
             putBack = true;
         }
-        if(options.hasOption(OperationOption.FORCE_VERIFY_DDL)){
+        if (options.hasOption(OperationOption.FORCE_VERIFY_DDL)) {
             t.validate();
         }
-        if(putBack) {
+        if (putBack) {
             loadedTables.put(tableName.toUpperCase(Locale.ROOT), t);
         }
         return t;
@@ -104,7 +104,7 @@ public class RecordLayerSchema implements DatabaseSchema {
     @Override
     public void close() throws RelationalException {
         currentStore = null;
-        for(RecordTypeTable table : loadedTables.values()){
+        for (RecordTypeTable table : loadedTables.values()) {
             table.close();
         }
         loadedTables.clear();
@@ -112,17 +112,17 @@ public class RecordLayerSchema implements DatabaseSchema {
 
     /* ****************************************************************************************************************/
     /*package-private helper methods*/
-    FDBRecordStore loadStore(){
-        if(!this.conn.inActiveTransaction()){
-            if(this.conn.isAutoCommitEnabled()){
+    FDBRecordStore loadStore() {
+        if (!this.conn.inActiveTransaction()) {
+            if (this.conn.isAutoCommitEnabled()) {
                 this.conn.beginTransaction();
-            }else{
+            } else {
                 throw new RelationalException("cannot load schema without an active transaction",
                         RelationalException.ErrorCode.TRANSACTION_INACTIVE);
             }
         }
 
-        if(currentStore!=null){
+        if (currentStore != null) {
             return currentStore;
         }
         currentStore = db.loadRecordStore(schemaName, existenceCheck);

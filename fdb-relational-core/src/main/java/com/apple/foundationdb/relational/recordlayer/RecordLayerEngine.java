@@ -76,11 +76,11 @@ public class RecordLayerEngine {
 
     }
 
-    public Catalog getCatalog(){
+    public Catalog getCatalog() {
         return catalog;
     }
 
-    public ConstantActionFactory getConstantActionFactory(){
+    public ConstantActionFactory getConstantActionFactory() {
         return constantActionFactory;
     }
 }

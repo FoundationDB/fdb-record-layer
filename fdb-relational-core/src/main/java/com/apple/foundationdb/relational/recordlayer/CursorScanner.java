@@ -31,17 +31,17 @@ import java.util.function.Function;
 
 public class CursorScanner<T> implements Scanner<KeyValue> {
     private RecordCursorIterator<T> cursor;
-    private final Function<T,KeyValue> transform;
+    private final Function<T, KeyValue> transform;
     private boolean supportsMessageParsing;
 
-    private CursorScanner(RecordCursor<T> cursor, Function<T, KeyValue> transform,boolean supportsMessageParsing) {
+    private CursorScanner(RecordCursor<T> cursor, Function<T, KeyValue> transform, boolean supportsMessageParsing) {
         this.cursor = cursor.asIterator();
         this.transform = transform;
         this.supportsMessageParsing = supportsMessageParsing;
     }
 
-    public static <T> CursorScanner<T> create(RecordCursor<T> cursor, Function<T,KeyValue> transform,boolean supportsMessageParsing){
-        return new CursorScanner<>(cursor,transform,supportsMessageParsing);
+    public static <T> CursorScanner<T> create(RecordCursor<T> cursor, Function<T, KeyValue> transform, boolean supportsMessageParsing) {
+        return new CursorScanner<>(cursor, transform, supportsMessageParsing);
     }
 
     @Override
@@ -68,7 +68,7 @@ public class CursorScanner<T> implements Scanner<KeyValue> {
 
     @Override
     public KeyValue next() {
-        if(!hasNext()){
+        if (!hasNext()) {
             throw new NoSuchElementException();
         }
         return transform.apply(cursor.next());

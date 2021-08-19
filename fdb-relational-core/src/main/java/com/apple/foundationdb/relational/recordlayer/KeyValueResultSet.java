@@ -48,7 +48,7 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
     public boolean next() throws RelationalException {
         if (!nextCalled) {
             nextCalled = true;
-            return keyValue!=null;
+            return keyValue != null;
         } else {
             return false;
         }
@@ -61,28 +61,28 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public Object getObject(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
-        if(!nextCalled){
+        if (!nextCalled) {
             throw new IllegalStateException("Iterator was not advanced");
         }
-        if(keyValue==null){
-            throw new RelationalException("empty result set",RelationalException.ErrorCode.UNKNOWN);
+        if (keyValue == null) {
+            throw new RelationalException("empty result set", RelationalException.ErrorCode.UNKNOWN);
         }
 
-        if(position <0 || position >= (keyValue.keyColumnCount()+keyValue.value().getNumFields())){
+        if (position < 0 || position >= (keyValue.keyColumnCount() + keyValue.value().getNumFields())) {
             throw new ArrayIndexOutOfBoundsException();
         }
         if (!allDataInValue && position < keyValue.keyColumnCount()) {
             return keyValue.key().getObject(position);
         } else {
-            return keyValue.value().getObject( position);
+            return keyValue.value().getObject(position);
         }
     }
 
     @Override
     protected int getPosition(String fieldName) {
-        int position =0;
-        for(String field:fieldNames){
-            if(field.equalsIgnoreCase(fieldName)){
+        int position = 0;
+        for (String field : fieldNames) {
+            if (field.equalsIgnoreCase(fieldName)) {
                 return position;
             }
             position++;

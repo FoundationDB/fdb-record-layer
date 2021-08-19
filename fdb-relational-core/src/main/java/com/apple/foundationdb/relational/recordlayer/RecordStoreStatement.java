@@ -50,57 +50,59 @@ public class RecordStoreStatement implements Statement {
     }
 
     @Override
-    public @Nonnull RelationalResultSet executeScan(@Nonnull TableScan scan,@Nonnull  Options options) throws RelationalException {
+    public @Nonnull
+    RelationalResultSet executeScan(@Nonnull TableScan scan, @Nonnull Options options) throws RelationalException {
         ensureTransactionActive();
 
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),scan.getTableName());
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), scan.getTableName());
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
 
-        Table table = schema.loadTable(schemaAndTable[1],options);
+        Table table = schema.loadTable(schemaAndTable[1], options);
 
         Scannable source = getSourceScannable(options, table);
 
-        NestableTuple start = toNestableTuple(scan.getStartKey(),source.getKeyFieldNames());
-        NestableTuple end = toNestableTuple(scan.getEndKey(),source.getKeyFieldNames());
+        NestableTuple start = toNestableTuple(scan.getStartKey(), source.getKeyFieldNames());
+        NestableTuple end = toNestableTuple(scan.getEndKey(), source.getKeyFieldNames());
 
-        return new RecordLayerResultSet(source,start,end,conn,options);
+        return new RecordLayerResultSet(source, start, end, conn, options);
     }
 
     @Override
-    public @Nonnull RelationalResultSet executeGet(@Nonnull String tableName,@Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
+    public @Nonnull
+    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
         //check that the key is valid
-        Preconditions.checkArgument(key.toMap().size()!=0,"Cannot perform a GET without specifying a key");
+        Preconditions.checkArgument(key.toMap().size() != 0, "Cannot perform a GET without specifying a key");
         ensureTransactionActive();
 
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
 
-        Table table = schema.loadTable(schemaAndTable[1],options);
+        Table table = schema.loadTable(schemaAndTable[1], options);
 
-        Scannable source = getSourceScannable(options,table);
+        Scannable source = getSourceScannable(options, table);
 
-        NestableTuple tuple = toNestableTuple(key.toMap(),source.getKeyFieldNames(),true);
-        if(tuple==null){
-            throw new RelationalException("Insufficient columns to perform GET on table <"+table.getName()+">",RelationalException.ErrorCode.INVALID_PARAMETER);
+        NestableTuple tuple = toNestableTuple(key.toMap(), source.getKeyFieldNames(), true);
+        if (tuple == null) {
+            throw new RelationalException("Insufficient columns to perform GET on table <" + table.getName() + ">", RelationalException.ErrorCode.INVALID_PARAMETER);
         }
 
         final KeyValue keyValue = source.get(conn.transaction, tuple, options);
-        return new KeyValueResultSet(keyValue,table.getFieldNames(),true);
+        return new KeyValueResultSet(keyValue, table.getFieldNames(), true);
     }
 
     @Override
     public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<Message> data, Options options) throws RelationalException {
         //do this check first because otherwise we might start an expensive transaction that does nothing
-        if(!data.hasNext()){
+        if (!data.hasNext()) {
             return 0;
         }
 
         ensureTransactionActive();
 
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
 
-        Table table = schema.loadTable(schemaAndTable[1],options);
+        Table table = schema.loadTable(schemaAndTable[1], options);
 
         int rowCount = 0;
         RelationalException err = null;
@@ -126,7 +128,7 @@ public class RecordStoreStatement implements Statement {
             }
         }
 
-        if(err!=null){
+        if (err != null) {
             throw err;
         }
         return rowCount;
@@ -134,44 +136,44 @@ public class RecordStoreStatement implements Statement {
 
     @Override
     public int executeDelete(@Nonnull String tableName, @Nonnull Iterator<KeySet> keys, Options options) throws RelationalException {
-        if(!keys.hasNext()){
+        if (!keys.hasNext()) {
             return 0;
         }
 
         ensureTransactionActive();
-        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
-        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        String[] schemaAndTable = getSchemaAndTable(conn.getSchema(), tableName);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
 
-        Table table = schema.loadTable(schemaAndTable[1],options);
+        Table table = schema.loadTable(schemaAndTable[1], options);
 
-        Scannable source = getSourceScannable(options,table);
-        NestableTuple toDelete = toNestableTuple(keys.next(),source.getKeyFieldNames(),true);
+        Scannable source = getSourceScannable(options, table);
+        NestableTuple toDelete = toNestableTuple(keys.next(), source.getKeyFieldNames(), true);
         int count = 0;
         RelationalException err = null;
-        try{
-            while(toDelete!=null) {
-                if(table.deleteRecord(toDelete)){
+        try {
+            while (toDelete != null) {
+                if (table.deleteRecord(toDelete)) {
                     count++;
                 }
                 toDelete = null;
                 if (keys.hasNext()) {
-                    toDelete = toNestableTuple(keys.next(),source.getKeyFieldNames(),true);
+                    toDelete = toNestableTuple(keys.next(), source.getKeyFieldNames(), true);
                 }
             }
-            if(conn.isAutoCommitEnabled()){
+            if (conn.isAutoCommitEnabled()) {
                 conn.commit();
             }
-        }catch(RuntimeException re){
+        } catch (RuntimeException re) {
             err = RelationalException.convert(re);
-            if(conn.isAutoCommitEnabled()){
+            if (conn.isAutoCommitEnabled()) {
                 try {
                     conn.rollback();
-                }catch(RelationalException ve){
+                } catch (RelationalException ve) {
                     err.addSuppressed(ve);
                 }
             }
         }
-        if(err!=null){
+        if (err != null) {
             throw err;
         }
         return count;
@@ -191,38 +193,39 @@ public class RecordStoreStatement implements Statement {
     /* ****************************************************************************************************************/
     /*private helper methods*/
     private void ensureTransactionActive() {
-        if(!conn.inActiveTransaction()){
-            if(conn.isAutoCommitEnabled()) {
+        if (!conn.inActiveTransaction()) {
+            if (conn.isAutoCommitEnabled()) {
                 conn.beginTransaction();
-            }else{
-                throw new RelationalException("Transaction not begun",RelationalException.ErrorCode.TRANSACTION_INACTIVE);
+            } else {
+                throw new RelationalException("Transaction not begun", RelationalException.ErrorCode.TRANSACTION_INACTIVE);
             }
         }
     }
 
-    private String[] getSchemaAndTable(@Nullable String schemaName,@Nonnull String tableName){
+    private String[] getSchemaAndTable(@Nullable String schemaName, @Nonnull String tableName) {
         String schema = schemaName;
         String tableN = tableName;
-        if(schema==null){
+        if (schema == null) {
             //look for the schema in the table name
             String[] t = tableName.split("\\.");
-            if(t.length!=2){
-                throw new RelationalException("Invalid table format",RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
+            if (t.length != 2) {
+                throw new RelationalException("Invalid table format", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
             }
             schema = t[0];
             tableN = t[1];
         }
 
-        return new String[]{schema,tableN};
+        return new String[]{schema, tableN};
     }
 
-    private @Nullable NestableTuple toNestableTuple(Map<String, Object> fieldMap, String[] fieldNames) {
-        return toNestableTuple(fieldMap, fieldNames,false);
+    private @Nullable
+    NestableTuple toNestableTuple(Map<String, Object> fieldMap, String[] fieldNames) {
+        return toNestableTuple(fieldMap, fieldNames, false);
     }
 
     private @Nullable
     NestableTuple toNestableTuple(KeySet key, String[] fieldNames, boolean failOnMissingColumns) {
-        return toNestableTuple(key.toMap(),fieldNames,failOnMissingColumns);
+        return toNestableTuple(key.toMap(), fieldNames, failOnMissingColumns);
     }
 
     private @Nullable
@@ -248,10 +251,11 @@ public class RecordStoreStatement implements Statement {
 
     }
 
-    private @Nonnull Scannable getSourceScannable(@Nonnull Options options,@Nonnull Table table) {
+    private @Nonnull
+    Scannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) {
         Scannable source;
-        String indexName = options.getOption(OperationOption.INDEX_HINT_NAME,null);
-        if(indexName!=null){
+        String indexName = options.getOption(OperationOption.INDEX_HINT_NAME, null);
+        if (indexName != null) {
             Index index = null;
             final Set<Index> readableIndexes = table.getAvailableIndexes();
             for (Index idx : readableIndexes) {
@@ -264,7 +268,7 @@ public class RecordStoreStatement implements Statement {
                 throw new RelationalException("Unknown index: <" + indexName + "> on type <" + table.getName() + ">", RelationalException.ErrorCode.UNKNOWN_INDEX);
             }
             source = index;
-        }else{
+        } else {
             source = table;
         }
         return source;

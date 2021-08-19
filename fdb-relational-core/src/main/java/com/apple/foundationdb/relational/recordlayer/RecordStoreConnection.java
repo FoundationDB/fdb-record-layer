@@ -62,7 +62,7 @@ public class RecordStoreConnection implements DatabaseConnection {
     @Override
     public void commit() throws RelationalException {
         RelationalException err = null;
-        if(transaction!=null) {
+        if (transaction != null) {
             try {
                 transaction.commit();
             } catch (RuntimeException re) {
@@ -79,7 +79,7 @@ public class RecordStoreConnection implements DatabaseConnection {
             }
             transaction = null;
             usingAnExistingTransaction = false;
-        }else{
+        } else {
             err = new RelationalException("No transaction to commit", RelationalException.ErrorCode.TRANSACTION_INACTIVE);
         }
         if (err != null) {
@@ -90,7 +90,7 @@ public class RecordStoreConnection implements DatabaseConnection {
     @Override
     public void rollback() throws RelationalException {
         RelationalException err = null;
-        if(transaction!=null) {
+        if (transaction != null) {
             try {
                 transaction.close();
             } catch (RuntimeException re) {
@@ -129,6 +129,6 @@ public class RecordStoreConnection implements DatabaseConnection {
     }
 
     boolean inActiveTransaction() {
-        return transaction!=null;
+        return transaction != null;
     }
 }

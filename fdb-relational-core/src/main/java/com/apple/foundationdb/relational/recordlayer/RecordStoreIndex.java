@@ -48,7 +48,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     private final RecordStoreConnection conn;
     private final RecordTypeTable table;
 
-    public RecordStoreIndex(com.apple.foundationdb.record.metadata.Index index, RecordTypeTable table,RecordStoreConnection conn) {
+    public RecordStoreIndex(com.apple.foundationdb.record.metadata.Index index, RecordTypeTable table, RecordStoreConnection conn) {
         this.index = index;
         this.conn = conn;
         this.table = table;
@@ -83,7 +83,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         scanProperties.getExecuteProperties().setReturnedRowLimit(1);
         final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = store.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();
         IndexEntry entry;
-        if(!indexEntryRecordCursor.hasNext()){
+        if (!indexEntryRecordCursor.hasNext()) {
             return null;
         }
         entry = indexEntryRecordCursor.next();
@@ -92,7 +92,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         final CompletableFuture<FDBIndexedRecord<Message>> indexRecord = store.loadIndexEntryRecord(entry, IndexOrphanBehavior.ERROR);
         //TODO(bfines): add in store timing
         final FDBIndexedRecord<Message> storedRecord = t.unwrap(FDBRecordContext.class).asyncToSync(null, indexRecord);
-        if(storedRecord==null){
+        if (storedRecord == null) {
             return null;
         }
         return new ImmutableKeyValue(TupleUtils.toRelationalTuple(storedRecord.getPrimaryKey()), new MessageTuple(storedRecord.getRecord()));
@@ -111,18 +111,18 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
 
     @Override
     protected RecordLayerSchema getSchema() {
-        return (RecordLayerSchema)table.getSchema();
+        return (RecordLayerSchema) table.getSchema();
     }
 
     @Override
     protected RecordCursor<IndexEntry> openScan(FDBRecordStore store, TupleRange range, ScanProperties props) {
         //TODO(bfines) get scan type from Options and/or ScanProperties
-        return store.scanIndex(index,IndexScanType.BY_VALUE,range,null,props);
+        return store.scanIndex(index, IndexScanType.BY_VALUE, range, null, props);
     }
 
     @Override
     protected Function<IndexEntry, KeyValue> keyValueTransform() {
-        return indexEntry -> new ImmutableKeyValue(TupleUtils.toRelationalTuple(indexEntry.getKey()),TupleUtils.toRelationalTuple(indexEntry.getValue()));
+        return indexEntry -> new ImmutableKeyValue(TupleUtils.toRelationalTuple(indexEntry.getKey()), TupleUtils.toRelationalTuple(indexEntry.getValue()));
     }
 
     @Override

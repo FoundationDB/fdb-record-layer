@@ -32,14 +32,14 @@ public class CreateSchemaTemplateConstantAction implements ConstantAction {
     private final SchemaTemplate template;
     private final MutableRecordMetaDataStore metaDataStore;
 
-    public CreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template,@Nonnull MutableRecordMetaDataStore metaDataStore) {
+    public CreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull MutableRecordMetaDataStore metaDataStore) {
         this.template = template;
         this.metaDataStore = metaDataStore;
     }
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        assert template instanceof RecordLayerTemplate: "Cannot use this constant action with SchemaTemplate of type <"+template.getClass()+">";
+        assert template instanceof RecordLayerTemplate : "Cannot use this constant action with SchemaTemplate of type <" + template.getClass() + ">";
 
         metaDataStore.addSchemaTemplate((RecordLayerTemplate) template);
     }

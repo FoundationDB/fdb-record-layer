@@ -20,9 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
-import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
@@ -32,7 +29,7 @@ import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import java.net.URI;
 import java.util.Map;
 
-public class CreateDatabaseConstantAction implements ConstantAction{
+public class CreateDatabaseConstantAction implements ConstantAction {
     private final URI dbUrl;
     private final DatabaseTemplate dbTemplate;
     private final Options constantActionOptions;
@@ -48,10 +45,9 @@ public class CreateDatabaseConstantAction implements ConstantAction{
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        for(Map.Entry<String,String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()){
+        for (Map.Entry<String, String> schemaData : dbTemplate.getSchemaToTemplateNameMap().entrySet()) {
             URI schemaUrl = URI.create(KeySpaceUtils.getPath(dbUrl) + "/" + schemaData.getKey());
             caFactory.getCreateSchemaConstantAction(schemaUrl, schemaData.getValue(), constantActionOptions).execute(txn);
         }
-
     }
 }

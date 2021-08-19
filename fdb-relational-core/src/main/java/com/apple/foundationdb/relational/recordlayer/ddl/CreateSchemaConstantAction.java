@@ -33,7 +33,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDa
 
 import java.net.URI;
 
-public class CreateSchemaConstantAction implements ConstantAction{
+public class CreateSchemaConstantAction implements ConstantAction {
     private final URI schemaUrl;
     private final String templateId;
     private final KeySpace keySpace;

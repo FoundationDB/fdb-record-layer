@@ -25,7 +25,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 import javax.annotation.Nonnull;
 import java.net.URI;
 
-public interface MutableRecordMetaDataStore extends RecordMetaDataStore{
+public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
     /**
      * Load the schema template given a template identifier
      */

@@ -40,10 +40,10 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     @Override
     public boolean getBoolean(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
         Object o = getObject(position);
-        if(o ==null){
+        if (o == null) {
             return false; //TODO(bfines) return a default value here
         }
-        if(!(o instanceof Boolean)){
+        if (!(o instanceof Boolean)) {
             throw new RelationalException("Boolean", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
@@ -59,14 +59,14 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     @Override
     public long getLong(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
         Object o = getObject(position);
-        if(o==null){
+        if (o == null) {
             return 0L;
         }
-        if(!(o instanceof Number)){
+        if (!(o instanceof Number)) {
             throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
-        return ((Number)o).longValue();
+        return ((Number) o).longValue();
     }
 
     @Override
@@ -77,14 +77,14 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     @Override
     public float getFloat(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
         Object o = getObject(position);
-        if(o==null){
+        if (o == null) {
             return 0L;
         }
-        if(!(o instanceof Number)){
+        if (!(o instanceof Number)) {
             throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
-        return ((Number)o).floatValue();
+        return ((Number) o).floatValue();
     }
 
     @Override
@@ -95,14 +95,14 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     @Override
     public double getDouble(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
         Object o = getObject(position);
-        if(o==null){
+        if (o == null) {
             return 0L;
         }
-        if(!(o instanceof Number)){
+        if (!(o instanceof Number)) {
             throw new RelationalException("Long", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
-        return ((Number)o).doubleValue();
+        return ((Number) o).doubleValue();
     }
 
     @Override
@@ -119,14 +119,14 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     @Override
     public String getString(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
         Object o = getObject(position);
-        if(o==null){
+        if (o == null) {
             return null;
         }
-        if(!(o instanceof String)){
+        if (!(o instanceof String)) {
             throw new RelationalException("String", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
-        return (String)o;
+        return (String) o;
     }
 
     @Override
@@ -137,14 +137,14 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     @Override
     public Message getMessage(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
         Object o = getObject(position);
-        if(o==null){
+        if (o == null) {
             return null;
         }
-        if(!(o instanceof Message)){
+        if (!(o instanceof Message)) {
             throw new RelationalException("Message", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
-        return (Message)o;
+        return (Message) o;
     }
 
     @Override
@@ -155,14 +155,14 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     @Override
     public Iterable<?> getRepeated(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
         Object o = getObject(position);
-        if(o==null){
+        if (o == null) {
             return null;
         }
-        if(!(o instanceof Iterable)){
+        if (!(o instanceof Iterable)) {
             throw new RelationalException("Iterable", RelationalException.ErrorCode.CANNOT_CONVERT_TYPE);
         }
 
-        return (Iterable<?>)o;
+        return (Iterable<?>) o;
     }
 
     @Override
