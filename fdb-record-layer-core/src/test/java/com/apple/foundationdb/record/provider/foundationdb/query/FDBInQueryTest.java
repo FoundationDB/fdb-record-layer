@@ -274,6 +274,54 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that an IN (with parameter) with an index is implemented as an index scan, with an IN join in the presence
+     * of other equality-bound index parts.
+     */
+    @DualPlannerTest
+    void testInQueryParameter2() throws Exception {
+        RecordMetaDataHook hook = metaData -> {
+            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
+            metaData.removeIndex("MySimpleRecord$num_value_unique");
+            metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_3_indexed", "num_value_2", "num_value_unique"));
+        };
+
+        complexQuerySetup(hook);
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(Query.field("num_value_3_indexed").equalsParameter("p"),
+                        Query.field("num_value_2").in("valueThrees")))
+                .setSort(Key.Expressions.field("num_value_unique"))
+                .build();
+
+        planner.setConfiguration(InAsOrUnionMode.AS_UNION.configure(planner.getConfiguration().asBuilder())
+                .build());
+
+        RecordQueryPlan plan = planner.plan(query);
+
+        if (planner instanceof RecordQueryPlanner) {
+            assertMatchesExactly(plan,
+                    inUnionPlan(
+                            indexPlan()
+                                    .where(indexName("multi_index"))
+                                    .and(scanComparisons(range("[EQUALS $p, EQUALS $__in_num_value_2__0]")))
+                    ).where(inUnionValuesSources(exactly(RecordQueryPlanMatchers.inUnionInParameter(equalsObject("valueThrees"))))));
+            assertEquals(1360223246, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(2045945193, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(2045945193, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertMatchesExactly(plan,
+                    fetchFromPartialRecordPlan(inUnionPlan(
+                            coveringIndexPlan().where(indexPlanOf(indexPlan()
+                                    .where(indexName("multi_index"))
+                                    .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
+                    ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
+            assertEquals(1947663752, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+    }
+
+    /**
      * Verify that an in with a bad parameter plans correctly but fails upon execution.
      */
     @Test
