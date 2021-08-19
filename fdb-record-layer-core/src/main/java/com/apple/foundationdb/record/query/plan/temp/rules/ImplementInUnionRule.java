@@ -182,9 +182,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                         final Comparisons.ParameterComparison parameterComparison = (Comparisons.ParameterComparison)comparison;
                         if (parameterComparison.getParameter().equals(explodeQuantifier.getAlias().getId())) {
                             matchingKeyExpression = expressionComparisonEntry.getKey();
-                        } else {
-                            matchingKeyExpression = null;
-                            break;
                         }
                     }
                 }
