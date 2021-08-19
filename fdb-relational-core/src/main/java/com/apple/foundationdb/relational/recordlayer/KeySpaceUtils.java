@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.RelationalException;
 
 import javax.annotation.Nonnull;
@@ -34,43 +35,52 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class KeySpaceUtils {
-    public static @Nonnull
-    URI pathToURI(@Nonnull KeySpacePath dbPath) {
-        final String path = dbPath.flatten().stream().map(keySpacePath -> {
-            final KeySpaceDirectory directory = keySpacePath.getDirectory();
-            switch (directory.getKeyType()) {
+    public static @Nonnull URI pathToURI(@Nonnull KeySpacePath dbPath) {
+        KeySpacePath path = dbPath;
+        String uriPath = "";
+        while (path != null) {
+            switch (path.getDirectory().getKeyType()) {
                 case NULL:
-                    return "";
-                case BYTES:
-                    //TODO(bfines) this is almost certainly not correct
-                    return new String((byte[]) keySpacePath.getValue(), StandardCharsets.UTF_8);
+                    uriPath = "/" + uriPath;
+                    break;
                 default:
-                    return keySpacePath.getValue().toString();
+                    if (uriPath.length() > 0) {
+                        uriPath = path.getValue().toString() + "/" + uriPath;
+                    } else {
+                        uriPath = path.getValue().toString();
+                    }
             }
-        }).reduce("", (left, right) -> left + "/" + right);
-        return URI.create(path);
+            path = path.getParent();
+        }
+
+        return URI.create("/"+uriPath);
     }
 
     public static @Nonnull KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
         String path = getPath(url);
-        if(path.length()<1){
-            throw new RelationalException("Invalid url that does not translate into the KeySpacePath: <" + url + ">", RelationalException.ErrorCode.INVALID_PATH);
+        if (path.length() < 1) {
+            throw new RelationalException("<" + url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
         }
-        if(!path.startsWith("/")){
-            path = "/"+path;
+        if (!path.startsWith("/")) {
+            path = "/" + path;
         }
         String[] pathElems = path.split("/");
+        //TODO(bfines): this is super inefficient, we need to replace it with something more coherent
+        if(path.endsWith("/")){
+            pathElems = Arrays.copyOf(pathElems,pathElems.length+1);
+            pathElems[pathElems.length-1] = "";
+        }
         KeySpaceDirectory directory = keySpace.getRoot();
         KeySpacePath thePath = null;
-        for(KeySpaceDirectory sub : directory.getSubdirectories()) {
+        for (KeySpaceDirectory sub : directory.getSubdirectories()) {
             thePath = uriToPathRecursive(keySpace, sub, keySpace.path(sub.getName()), pathElems, 1);
-            if(thePath!=null){
+            if (thePath != null) {
                 break;
             }
         }
 
         if (thePath == null) {
-            throw new RelationalException("Invalid url that does not translate into the KeySpacePath: <" + url + ">", RelationalException.ErrorCode.INVALID_PATH);
+            throw new RelationalException("<" + url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
         }
 
         return thePath;
@@ -152,7 +162,7 @@ public class KeySpaceUtils {
                     return null;
                 } else if(Objects.equals(dirVal,KeySpaceDirectory.ANY_VALUE)){
                     break;
-                }else if(!Objects.equals(dirVal,pathElem)){
+                } else if (!Objects.equals(dirVal, pathElem)) {
                     return null;
                 }
                 break;
@@ -160,8 +170,8 @@ public class KeySpaceUtils {
                 try {
                     long l = Long.parseLong(pathElem);
                     pathValue = l;
-                    if(Objects.equals(dirVal,KeySpaceDirectory.ANY_VALUE)){
-                       break;
+                    if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
+                        break;
                     } else if (!Objects.equals(dirVal, l)) {
                         return null;
                     }
@@ -210,13 +220,18 @@ public class KeySpaceUtils {
                 break;
         }
 
-        if(directory.getParent()==keySpace.getRoot()){
-            parentPath = keySpace.path(pathName,pathValue);
-        }else{
-            parentPath = parentPath.add(pathName,pathValue);
+        try {
+            if (directory.getParent() == keySpace.getRoot()) {
+                parentPath = keySpace.path(pathName, pathValue);
+            } else {
+                parentPath = parentPath.add(pathName, pathValue);
+            }
+        }catch(NoSuchDirectoryException nsde){
+            //safety valve--shouldn't really ever be used, but if it happens we know it's not a valid path
+            return null;
         }
 
-        if(directory.isLeaf()){
+        if (directory.isLeaf()) {
             return parentPath; //we found the path!
         }
 

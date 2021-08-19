@@ -127,6 +127,25 @@ public class KeySpacePathParsingTest {
         Assertions.assertEquals("T", schemaDirectory.getValue());
     }
 
+    @Test
+    void canParseURIs() {
+        /*
+         * Explicitly tests that KeySpacePaths can correctly be parsed from URIs
+         */
+        final KeySpace keySpace = sampleKeySpace();
+        KeySpacePath parsedMain = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/"), keySpace);
+        KeySpacePath expectedMain = keySpace.path("testRoot").add("domainId",1234L).add("database",1L).add("firstStore");
+        Assertions.assertEquals(expectedMain,parsedMain,"Incorrectly parsed the first store path");
+
+        KeySpacePath parsedServer = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/1"),keySpace);
+        KeySpacePath expectedServer = keySpace.path("testRoot").add("domainId",1234L).add("database",1L).add("secondStore",1L);
+        Assertions.assertEquals(expectedServer,parsedServer,"Incorrectly parsed the second store path");
+
+        KeySpacePath parsedDatabase = KeySpaceUtils.uriToPath(URI.create("/testRoot/1234/1/2"),keySpace);
+        KeySpacePath expectedDatabase = keySpace.path("testRoot").add("domainId",1234L).add("database",1L).add("thirdStore",2L);
+        Assertions.assertEquals(expectedDatabase,parsedDatabase,"Incorrectly parsed the second store path");
+    }
+
     private KeySpace getKeySpaceForTesting() {
         final KeySpaceDirectory env = new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory app = new KeySpaceDirectory("App", KeySpaceDirectory.KeyType.STRING);
@@ -134,5 +153,25 @@ public class KeySpacePathParsingTest {
         env.addSubdirectory(app);
         app.addSubdirectory(user);
         return new KeySpace(env);
+    }
+
+    private KeySpace sampleKeySpace(){
+        final KeySpaceDirectory ds1 = new KeySpaceDirectory("domainId",KeySpaceDirectory.KeyType.LONG);
+        final KeySpaceDirectory database1 = new KeySpaceDirectory("database", KeySpaceDirectory.KeyType.LONG);
+        final KeySpaceDirectory main = new KeySpaceDirectory("firstStore", KeySpaceDirectory.KeyType.NULL);
+        // in reality, the following items are actually DirectoryLayerDirectory instances; since we don't really want to
+        // mess with a DirectoryLayer in these tests, we just use fake mappings:
+        // "S" = 1
+        // "C" = 2
+        // "DSY" = 3
+        final KeySpaceDirectory server = new KeySpaceDirectory("secondStore", KeySpaceDirectory.KeyType.LONG,1L);
+        final KeySpaceDirectory databaseStore = new KeySpaceDirectory("thirdStore", KeySpaceDirectory.KeyType.LONG,2L);
+        final KeySpaceDirectory fourthStore = new KeySpaceDirectory("fourthStore", KeySpaceDirectory.KeyType.LONG,3L);
+        ds1.addSubdirectory(database1);
+        database1.addSubdirectory(server).addSubdirectory(main).addSubdirectory(databaseStore).addSubdirectory(fourthStore);
+
+        final KeySpaceDirectory base = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING,"testRoot");
+        base.addSubdirectory(ds1);
+        return new KeySpace(base);
     }
 }
