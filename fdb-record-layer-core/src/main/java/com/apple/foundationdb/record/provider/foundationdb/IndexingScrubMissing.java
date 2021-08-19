@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncIterator;
 import com.apple.foundationdb.async.AsyncUtil;
@@ -156,7 +157,11 @@ public class IndexingScrubMissing extends IndexingBase {
 
         return ranges.onHasNext().thenCompose(hasNext -> {
             if (Boolean.FALSE.equals(hasNext)) {
-                return AsyncUtil.READY_FALSE; // no more missing ranges - all done
+                // Here: no more missing ranges - all done
+                // To avoid stale metadata, we'll keep the scrubbed-ranges indicator empty until the next scrub call.
+                Transaction tr = store.getContext().ensureActive();
+                tr.clear(indexScrubRecordsRangeSubspace(store, index).range());
+                return AsyncUtil.READY_FALSE;
             }
             final Range range = ranges.next();
             final Tuple rangeStart = RangeSet.isFirstKey(range.begin) ? null : Tuple.fromBytes(range.begin);
