@@ -18,9 +18,14 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.ConnectionScoped;
+import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
+import com.apple.foundationdb.relational.recordlayer.Index;
+import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;

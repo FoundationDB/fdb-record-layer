@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Table;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 
@@ -84,7 +83,6 @@ public class RecordLayerSchema implements DatabaseSchema {
         return recordTypes.values().stream().map(RecordType::getName).collect(Collectors.toSet());
     }
 
-    @Override
     @Nonnull public Table loadTable(@Nonnull String tableName, @Nonnull Options options) throws RelationalException {
         //TODO(bfines) load the record type index, rather than just the generic type, then
         // return an index object instead

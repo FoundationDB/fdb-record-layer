@@ -30,7 +30,7 @@ import javax.annotation.Nullable;
 
 public class RecordStoreConnection implements DatabaseConnection {
     private final FDBDatabase fdbDb;
-    final RelationalDatabase frl;
+    final RecordLayerDatabase frl;
 
     RecordContextTransaction transaction;
     private String currentSchemaLabel;

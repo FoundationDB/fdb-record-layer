@@ -21,8 +21,6 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.api.ConnectionScoped;
-import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.Table;
 import com.apple.foundationdb.relational.api.RelationalException;
 
 import javax.annotation.Nonnull;
@@ -37,9 +35,6 @@ public interface DatabaseSchema extends AutoCloseable {
     int getSchemaVersion();
 
     Set<String> listTables();
-
-    @Nonnull
-    Table loadTable(@Nonnull String tableName, @Nonnull Options options) throws RelationalException;
 
     @Override
     void close() throws RelationalException;

@@ -78,7 +78,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
     }
 
     @Override
-    public @Nonnull DatabaseSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException{
+    public @Nonnull RecordLayerSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException{
         RecordLayerSchema schema = schemas.get(schemaId);
         boolean putBack = false;
         if(schema==null){

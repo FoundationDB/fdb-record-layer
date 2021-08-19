@@ -22,7 +22,6 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.*;
-import com.apple.foundationdb.relational.api.catalog.DatabaseSchema;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 
@@ -55,7 +54,7 @@ public class RecordStoreStatement implements Statement {
         ensureTransactionActive();
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),scan.getTableName());
-        DatabaseSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
 
         Table table = schema.loadTable(schemaAndTable[1],options);
 
@@ -74,7 +73,7 @@ public class RecordStoreStatement implements Statement {
         ensureTransactionActive();
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
-        DatabaseSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
 
         Table table = schema.loadTable(schemaAndTable[1],options);
 
@@ -99,7 +98,7 @@ public class RecordStoreStatement implements Statement {
         ensureTransactionActive();
 
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
-        DatabaseSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
 
         Table table = schema.loadTable(schemaAndTable[1],options);
 
@@ -141,7 +140,7 @@ public class RecordStoreStatement implements Statement {
 
         ensureTransactionActive();
         String[] schemaAndTable = getSchemaAndTable(conn.getSchema(),tableName);
-        DatabaseSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0],options);
 
         Table table = schema.loadTable(schemaAndTable[1],options);
 

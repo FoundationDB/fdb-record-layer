@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.Scanner;
 import com.apple.foundationdb.relational.api.RelationalException;
 
 import java.util.NoSuchElementException;
