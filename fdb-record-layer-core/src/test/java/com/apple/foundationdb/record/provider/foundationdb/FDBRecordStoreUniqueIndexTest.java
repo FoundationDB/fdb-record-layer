@@ -23,6 +23,10 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexOptions;
+import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.Tag;
@@ -33,8 +37,15 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.either;
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests of uniqueness checks.
@@ -109,6 +120,48 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
 
             CompletableFuture.allOf(futures).get();
             assertThrows(RecordIndexUniquenessViolation.class, () -> commit(context));
+        }
+    }
+
+    /**
+     * Validate the behavior when a unique index is added on existing data that already has duplicates on the same data.
+     * The new index should not be built, as that is impossible to do without breaking the constraints of the index, but
+     * it also shouldn't fail the store opening or commit, as otherwise, the store would never be able to be opened.
+     *
+     * @throws Exception from store opening code
+     */
+    @Test
+    public void buildUniqueInCheckVersion() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            // create a uniqueness violation on a field without a unique index
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1066L)
+                    .setNumValue2(42)
+                    .build());
+            recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                    .setRecNo(1412L)
+                    .setNumValue2(42)
+                    .build());
+
+            commit(context);
+        }
+
+        final Index uniqueIndex = new Index("unique_num_value_2_index", Key.Expressions.field("num_value_2"),
+                IndexTypes.VALUE, IndexOptions.UNIQUE_OPTIONS);
+        assertTrue(uniqueIndex.isUnique());
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", uniqueIndex));
+
+            assertFalse(recordStore.isIndexReadable(uniqueIndex), "index with uniqueness violations should not be readable after being added to the meta-data");
+            final List<RecordIndexUniquenessViolation> uniquenessViolations = recordStore.scanUniquenessViolations(uniqueIndex).asList().get();
+            assertThat(uniquenessViolations, not(empty()));
+            for (RecordIndexUniquenessViolation uniquenessViolation : uniquenessViolations) {
+                assertThat(uniquenessViolation.getPrimaryKey(), either(equalTo(Tuple.from(1066L))).or(equalTo(Tuple.from(1412L))));
+            }
+
+            commit(context);
         }
     }
 }

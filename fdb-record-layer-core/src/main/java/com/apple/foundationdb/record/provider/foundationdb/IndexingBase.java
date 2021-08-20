@@ -768,20 +768,16 @@ public abstract class IndexingBase {
     // rebuildIndexAsyc - builds the whole index inline (without commiting)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
-
-        CompletableFuture<Void> rangeFuture = forEachTargetIndex(index -> {
+        return forEachTargetIndex(index -> store.clearAndMarkIndexWriteOnly(index).thenCompose(bignore -> {
+            // Insert the full range into the range set. (The internal rebuild method only indexes the records and
+            // does not update the range set.) This is important because if marking the index as readable fails (for
+            // example, because of uniqueness violations), we still want to record in the range set that the entire
+            // range was built so that future index builds don't re-scan the record data and so that non-idempotent
+            // indexes know to update the index on all record saves.
             Transaction tr = store.ensureContextActive();
-            store.clearIndexData(index);
-
-            // Clear the associated range set (done as part of clearIndexData above) and make it instead equal to
-            // the complete range. This isn't super necessary, but it is done
-            // to avoid (1) concurrent OnlineIndexBuilders doing more work and
-            // (2) to allow for write-only indexes to continue to do the right thing.
             RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-            return rangeSet.insertRange(tr, null, null, true);
-        }).thenApply(ignore -> null);
-        CompletableFuture<Void> buildFuture = rebuildIndexInternalAsync(store);
-        return CompletableFuture.allOf(rangeFuture, buildFuture);
+            return rangeSet.insertRange(tr, null, null);
+        })).thenCompose(vignore -> rebuildIndexInternalAsync(store));
     }
 
     abstract CompletableFuture<Void> rebuildIndexInternalAsync(FDBRecordStore store);
