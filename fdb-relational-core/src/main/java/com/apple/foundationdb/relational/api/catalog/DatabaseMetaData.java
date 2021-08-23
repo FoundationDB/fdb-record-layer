@@ -34,7 +34,7 @@ public interface DatabaseMetaData {
      * @return metadata about the specified table.
      * @throws RelationalException if something goes wrong. If no table is found, then the thrown exception
      * will have an {@code ErrorCode} of {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#UNDEFINED_TABLE}.
-     * If no schema is found, the error code will be {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#UNDEFINED_SCHEMA}
+     * If no schema is found, the error code will be {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#UNKNOWN_SCHEMA}
      */
     @Nonnull
     TableMetaData getTableMetaData(@Nonnull String schemaId,@Nonnull String tableId) throws RelationalException;

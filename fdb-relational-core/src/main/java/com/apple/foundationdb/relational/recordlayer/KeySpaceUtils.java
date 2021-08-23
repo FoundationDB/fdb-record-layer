@@ -108,10 +108,12 @@ public class KeySpaceUtils {
     }
 
     /**
-     * Add the directory in the keySpace with the schemaId as the name
+     * Add the directory in the keySpace with the schemaId as the name.
+     *
      * @param keySpace the KeySpace to add directory onto
      * @param dbPath the KeySpacePath used to find the database directory
      * @param schemaId the identifier for the schema to add
+     * @return A KeySpace which includes an extended directory structure for the specified schema.
      */
     public static KeySpace extendKeySpaceForSchema(@Nonnull KeySpace keySpace, @Nonnull KeySpacePath dbPath, @Nonnull String schemaId) {
         KeySpaceDirectory current = keySpace.getRoot();

@@ -28,6 +28,9 @@ import java.net.URI;
 public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
     /**
      * Load the schema template given a template identifier
+     *
+     * @param templateId the unique ID of the template to load.
+     * @return the template information for the specified uniqued identifier.
      */
     RecordLayerTemplate loadTemplate(@Nonnull String templateId);
 
@@ -35,6 +38,8 @@ public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
      * Add a RecordLayerTemplate to this store
      * There could be multiple templates maintained by this store
      * The templateId got from {@link RecordLayerTemplate#getUniqueId()} is used as the key to uniquely identify the template from the mapping
+     *
+     * @param schemaTemplate the template to add.
      */
     void addSchemaTemplate(@Nonnull RecordLayerTemplate schemaTemplate);
 
@@ -42,6 +47,9 @@ public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
      * Assign a schema url to a template irrevocably
      * So the schema specified by the schemaUrl is supposed to use the schema template identified by the templateId
      * One schema can be assigned to a template only once during creation, then it cannot switch to any other template
+     *
+     * @param schemaUrl the URI for the schema to assign.
+     * @param templateId the unique id for the schema template to assign for this schema.
      */
     void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId);
 

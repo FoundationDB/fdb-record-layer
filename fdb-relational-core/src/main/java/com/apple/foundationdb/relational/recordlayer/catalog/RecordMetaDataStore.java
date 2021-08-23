@@ -28,6 +28,9 @@ import java.net.URI;
 public interface RecordMetaDataStore {
     /**
      * Load the metadata provider given a schema url
+     *
+     * @param schemaUrl the URI for the schema to get metadata for.
+     * @return the metadata for the schema.
      */
     RecordMetaDataProvider loadMetaData(@Nonnull URI schemaUrl);
 }
