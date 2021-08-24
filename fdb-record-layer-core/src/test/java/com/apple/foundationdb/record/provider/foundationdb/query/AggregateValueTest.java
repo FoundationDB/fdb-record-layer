@@ -55,96 +55,94 @@ public class AggregateValueTest {
 
     @Test
     void testSumInteger() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumInteger(intValue)), 6, 21, 0);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumInteger(intValue)), 6, 21);
     }
 
     @Test
     void testSumLong() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumLong(longValue)), 6, 21L, 0L);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumLong(longValue)), 6, 21L);
     }
 
     @Test
     void testSumFloat() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumFloat(floatValue)), 6, 21.0F, 0.0F);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumFloat(floatValue)), 6, 21.0F);
     }
 
     @Test
     void testSumDouble() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumDouble(doubleValue)), 6, 21.0D, 0.0D);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.SumDouble(doubleValue)), 6, 21.0D);
     }
 
     @Test
     void testMinInteger() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinInteger(intValue)), 6, 1, Integer.MAX_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinInteger(intValue)), 6, 1);
     }
 
     @Test
     void testMinLong() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinLong(longValue)), 6, 1L, Long.MAX_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinLong(longValue)), 6, 1L);
     }
 
     @Test
     void testMinFloat() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinFloat(floatValue)), 6, 1.0F, Float.MAX_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinFloat(floatValue)), 6, 1.0F);
     }
 
     @Test
     void testMinDouble() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinDouble(doubleValue)), 6, 1.0D, Double.MAX_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MinDouble(doubleValue)), 6, 1.0D);
     }
 
     @Test
     void testMaxInteger() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxInteger(intValue)), 6, 6, Integer.MIN_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxInteger(intValue)), 6, 6);
     }
 
     @Test
     void testMaxLong() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxLong(longValue)), 6, 6L, Long.MIN_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxLong(longValue)), 6, 6L);
     }
 
     @Test
     void testMaxFloat() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxFloat(floatValue)), 6, 6.0F, Float.MIN_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxFloat(floatValue)), 6, 6.0F);
     }
 
     @Test
     void testMaxDouble() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxDouble(doubleValue)), 6, 6.0D, Double.MIN_VALUE);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.MaxDouble(doubleValue)), 6, 6.0D);
     }
 
     @Test
     void testAvgInteger() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgInteger(intValue)), 6, 3.5D, 0.0D);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgInteger(intValue)), 6, 3.5D);
     }
 
     @Test
     void testAvgLong() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgLong(longValue)), 6, 3.5D, 0.0D);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgLong(longValue)), 6, 3.5D);
     }
 
     @Test
     void testAvgFloat() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgFloat(floatValue)), 6, 3.5D, 0.0D);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgFloat(floatValue)), 6, 3.5D);
     }
 
     @Test
     void testAvgDouble() throws Exception {
-        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgDouble(doubleValue)), 6, 3.5D, 0.0D);
+        accumulateAndAssert(new SimpleAccumulator<>(new AggregateValues.AvgDouble(doubleValue)), 6, 3.5D);
     }
 
-    private <S, T> void accumulateAndAssert(final SimpleAccumulator<S, T> accumulator, final int accumulateCount, final Object value, final Object valueAfterReset) {
+    private <S> void accumulateAndAssert(final SimpleAccumulator<S> accumulator, final int accumulateCount, final Object value) {
         accumulate(accumulateCount, accumulator);
         assertFinish(accumulator, value);
-        accumulator.reset();
-        assertFinish(accumulator, valueAfterReset);
     }
 
-    private <S, T> void assertFinish(final SimpleAccumulator<S, T> accumulator, final Object value) {
-        Assertions.assertEquals(value, accumulator.finish().get(0));
+    private <S> void assertFinish(final SimpleAccumulator<S> accumulator, final Object value) {
+        Assertions.assertEquals(value, accumulator.finish().get(0).getResultElement());
     }
 
-    private <S, T> void accumulate(final int count, final SimpleAccumulator<S, T> accumulator) {
+    private <S> void accumulate(final int count, final SimpleAccumulator<S> accumulator) {
         for (int i = 0; i < count; i++) {
             accumulator.accumulate(null, null, null, null);
         }
@@ -154,11 +152,7 @@ public class AggregateValueTest {
         @Nonnull
         List<T> values; // The objects to be returned by this value's eval() method
 
-        int itemCount = 0;
-
-        public MockValue(final @Nonnull List<T> values) {
-            this.values = values;
-        }
+        int index = 0;
 
         public MockValue(final T[] values) {
             this.values = Arrays.asList(values);
@@ -189,7 +183,7 @@ public class AggregateValueTest {
         @Nullable
         @Override
         public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-            return values.get((itemCount++) % values.size());
+            return values.get((index++) % values.size());
         }
     }
 }

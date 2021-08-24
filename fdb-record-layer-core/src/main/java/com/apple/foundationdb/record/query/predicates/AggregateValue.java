@@ -33,12 +33,14 @@ import java.util.List;
 /**
  * A value representing an aggregate: a value calculated (derived) from other values by applying an aggregation operator (e.g.
  * SUM, MIN, AVG etc.).
+ * This class (as all {@link Value}s) is stateless. It is used to evaluate and return runtime results based on the given
+ * parameters.
  *
- * @param <S> the state type. The state holds the values as they are being aggregated, and where the eventual result is derived from.
+ * @param <S> the state type. The state holds the interim results as they are being accumulated, and where the eventual result is derived from.
  */
 public interface AggregateValue<S> extends Value.CompileTimeValue {
     /**
-     * Return the initial state for the aggregation. This is the result that the aggregation will start with.
+     * Return the initial state for the aggregation. This is what the aggregation will start with.
      * @return the initial value for the aggregation
      */
     @Nonnull
@@ -61,12 +63,10 @@ public interface AggregateValue<S> extends Value.CompileTimeValue {
 
     /**
      * Convert the accumulated state to a result. This would normally be done when the aggregation is complete and we need to
-     * create a record that needs to be flown onwards. The created result will contain the final aggregated value(s).
+     * create a query result element that needs to flow onwards. The created result will contain the final aggregated value.
      * @param currentState the so-far accumulated state
      * @return the record that holds the final aggregated result
-     * // TODO: The return type will change based off of the decision on how to flow non-Message values upstream.
-     * // TODO: The return value should not be a list - it should be a single generic type ??
      */
     @Nonnull
-    List<QueryResultElement> finish(S currentState);
+    QueryResultElement finish(S currentState);
 }
