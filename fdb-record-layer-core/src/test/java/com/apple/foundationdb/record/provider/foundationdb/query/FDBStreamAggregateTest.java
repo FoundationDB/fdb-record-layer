@@ -57,7 +57,7 @@ import java.util.List;
 @Tag(Tags.RequiresFDB)
 public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
 
-    /**
+    /*
      * The database contains:
      * -----------------------------------------------------------------------------------------------------------
      * | recno | NumValue2 | NumValue3Indexed | StrValueIndexed |

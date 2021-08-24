@@ -29,14 +29,14 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * An {@link AggregateAccumulator} for a single {@link com.apple.foundationdb.record.query.predicates.AggregateValue AggregateValue}.
  * @param <S> the type of state carried through the accumulation
- * @param <T> the type of result that is being aggregated (e.g. Integer for SUM).
  */
-public class SimpleAccumulator<S, T> implements AggregateAccumulator {
+public class SimpleAccumulator<S> implements AggregateAccumulator {
     @Nonnull
     private AggregateValue<S> value;
     @Nonnull
@@ -48,11 +48,6 @@ public class SimpleAccumulator<S, T> implements AggregateAccumulator {
     }
 
     @Override
-    public void reset() {
-        currentState = value.initial();
-    }
-
-    @Override
     public <M extends Message> void accumulate(@Nonnull FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                @Nullable final FDBRecord<M> record, @Nonnull final M message) {
         currentState = value.accumulate(currentState, store, context, record, message);
@@ -60,6 +55,6 @@ public class SimpleAccumulator<S, T> implements AggregateAccumulator {
 
     @Override
     public List<QueryResultElement> finish() {
-        return value.finish(currentState);
+        return Collections.singletonList(value.finish(currentState));
     }
 }

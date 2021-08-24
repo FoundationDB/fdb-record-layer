@@ -102,7 +102,8 @@ public class QueryResult {
     }
 
     /**
-     * @return the size of the result -= the number of elements.
+     * return the size of the result = the number of elements.
+     * @return the size of the result = the number of elements.
      */
     public int size() {
         return elements.size();

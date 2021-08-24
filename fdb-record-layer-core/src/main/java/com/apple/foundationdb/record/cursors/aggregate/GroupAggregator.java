@@ -73,7 +73,9 @@ public class GroupAggregator<M extends Message> {
     @Nonnull
     private final List<Value> groupCriteria;
     @Nonnull
-    private final AggregateAccumulator accumulator;
+    private List<AggregateValue<?>> aggregateValues;
+    @Nonnull
+    private AggregateAccumulator accumulator;
     // The current group (evaluated). This will be used to decide if the next record is a group break
     @Nullable
     private List<QueryResultElement> currentGroup;
@@ -95,7 +97,8 @@ public class GroupAggregator<M extends Message> {
     public GroupAggregator(@Nonnull final List<Value> groupCriteria, @Nonnull List<AggregateValue<?>> aggregateValues,
                            @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull CorrelationIdentifier alias) {
         this.groupCriteria = groupCriteria;
-        this.accumulator = new AccumulatorList(aggregateValues.stream().map(SimpleAccumulator::new).collect(Collectors.toList()));
+        this.aggregateValues = aggregateValues;
+        this.accumulator = createAccumulator(aggregateValues);
         this.store = store;
         this.context = context;
         this.alias = alias;
@@ -115,7 +118,7 @@ public class GroupAggregator<M extends Message> {
      *
      * @return true IFF the next record provided constitutes a group break
      */
-     public boolean apply(@Nonnull FDBQueriedRecord<M> record) {
+    public boolean apply(@Nonnull FDBQueriedRecord<M> record) {
         List<QueryResultElement> nextGroup = eval(record, groupCriteria);
         boolean groupBreak = isGroupBreak(currentGroup, nextGroup);
         if (groupBreak) {
@@ -157,7 +160,8 @@ public class GroupAggregator<M extends Message> {
                 .addAll(accumulator.finish())
                 .build();
         currentGroup = nextGroup;
-        accumulator.reset();
+        // "Reset" the accumulator by creating a fresh one.
+        accumulator = createAccumulator(aggregateValues);
     }
 
     @SuppressWarnings("unchecked")
@@ -173,6 +177,11 @@ public class GroupAggregator<M extends Message> {
                 .map(value -> value.eval(store, nestedContext, record, record.getRecord()))
                 .map(this::narrow)
                 .collect(Collectors.toList());
+    }
+
+    @Nonnull
+    private AggregateAccumulator createAccumulator(final @Nonnull List<AggregateValue<?>> aggregateValues) {
+        return new AccumulatorList(aggregateValues.stream().map(SimpleAccumulator::new).collect(Collectors.toList()));
     }
 
     // TODO: This needs to be moved into the Value.eval() method (that currently returns Object).
