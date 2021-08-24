@@ -34,14 +34,14 @@ import java.util.Collections;
 import java.util.function.Function;
 
 /**
- * A Base class that encapsulates the logic of a {@link AggregateValue}.
+ * A Base class that encapsulates the logic of an {@link AggregateValue}.
  * This class is a stateless calculator for aggregate values, parsing the next values from the given inner values.
  *
  * @param <S> the type of the state maintained vy this aggregate value
  * @param <T> the type of operand that this class aggregates
  * <p>
- * In most cases, S and T are the same. In some cases, though (See Average for example), the state has different type
- * than the operand, and there is a calculation that needs to be made to derive the result from the state.
+ * In most cases, S and T are the same. In some cases, though (See {@link com.apple.foundationdb.record.query.predicates.AggregateValues.AverageAggregateBase Average}
+ * for example), the state has different type than the operand, and there is a calculation that needs to be made to derive the result from the state.
  */
 public abstract class BaseAggregateValue<S, T> implements AggregateValue<S> {
     // The field value on which this aggregate is working. This represents the field value that we can evaluate to get to the numeric

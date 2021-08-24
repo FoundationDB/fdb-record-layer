@@ -29,6 +29,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -45,11 +46,6 @@ public class AccumulatorList implements AggregateAccumulator {
     }
 
     @Override
-    public void reset() {
-        accumulators.forEach(AggregateAccumulator::reset);
-    }
-
-    @Override
     public <M extends Message> void accumulate(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                @Nullable final FDBRecord<M> record, @Nonnull final M message) {
         accumulators.forEach(accumulator -> accumulator.accumulate(store, context, record, message));
@@ -57,6 +53,6 @@ public class AccumulatorList implements AggregateAccumulator {
 
     @Override
     public List<QueryResultElement> finish() {
-        return accumulators.stream().map(accumulator -> accumulator.finish()).flatMap(l -> l.stream()).collect(Collectors.toList());
+        return accumulators.stream().flatMap(accumulator -> accumulator.finish().stream()).collect(Collectors.toList());
     }
 }

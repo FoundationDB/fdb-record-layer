@@ -28,14 +28,14 @@ import javax.annotation.Nonnull;
 public interface QueryResultElement {
 
     /**
-     * Get teh value stored in this result element. This is the actual evaluated element value for the result
+     * Get the value stored in this result element. This is the actual evaluated element value for the result.
      * @return the evaluated value for the result element
      */
     @Nonnull
     Object getResultElement();
 
     /**
-     * Get the type for this result element
+     * Get the type for this result element.
      * @return The type (class) of this result element
      */
     @Nonnull

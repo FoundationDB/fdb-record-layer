@@ -26,7 +26,7 @@ import java.util.Objects;
 /**
  * A representation of a {@link QueryResultElement} that contains a single value: Integer, Long etc.
  *
- * @param <T> teh type of literal
+ * @param <T> the type of the element
  */
 public class SingularResultElement<T> implements QueryResultElement {
     @Nonnull

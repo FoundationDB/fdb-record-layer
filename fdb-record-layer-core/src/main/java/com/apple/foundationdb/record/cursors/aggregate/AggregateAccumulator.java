@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -33,14 +34,11 @@ import java.util.List;
 /**
  * This interface encapsulates the aggregation operator behavior: It holds onto the current state
  * and applies a new record onto the current state to arrive at the new accumulated state.
+ * The {@link #accumulate} method is used to evaluate a {@link Value} and to accumulate the result into the running aggregate.
+ * Since the {@link Value} is stateless, this class is used to hold the aggregated state, applying the aggregation methods as necessary.
+ * The {@link #finish()} method is used to finalize the aggregation flow and return the result.
  */
 public interface AggregateAccumulator {
-    /**
-     * Reset the accumulator to its initial state.
-     * TODO: Should we eliminate the reset and just instantiate new?
-     */
-    void reset();
-
     /**
      * Apply a new record on top of the current aggregation.
      *
@@ -54,10 +52,9 @@ public interface AggregateAccumulator {
                                         @Nullable final FDBRecord<M> record, @Nonnull final M message);
 
     /**
-     * Calculate and return the {@link Message} from the accumulated state.
-     * TODO: The return type is temporary - will be decided once the record has been replaced by QueryResult
+     * Calculate and return the {@link QueryResultElement} from the accumulated state.
      *
-     * @return the calculated results accumulated so far.
+     * @return the calculated results accumulated.
      */
     List<QueryResultElement> finish();
 }
