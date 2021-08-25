@@ -21,24 +21,34 @@
 package com.apple.foundationdb.record.query.plan.temp.matching;
 
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.ChooseK;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
+import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterator;
 import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.function.Function;
+import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.plan.temp.TopologicalSort.anyTopologicalOrderPermutation;
 import static com.apple.foundationdb.record.query.plan.temp.TopologicalSort.topologicalOrderPermutations;
@@ -66,7 +76,7 @@ import static com.apple.foundationdb.record.query.plan.temp.TopologicalSort.topo
  *
  * @param <T> the type representing the domain of matching
  */
-public abstract class BaseMatcher<T> {
+public class BaseMatcher<T> {
     /**
      * Map with previously-bound aliases. Any match that is computed and passed back to the client is an amendment of
      * this map, i.e., every resulting match's {@link AliasMap} always contains at least the bindings in this map.
@@ -222,11 +232,20 @@ public abstract class BaseMatcher<T> {
      * allows a matcher of a particular type {@code T} to provide matchers of different types of results {@code R}.
      *
      * @param enumerationFunction enumeration function. See {@link EnumerationFunction} for further explanations.
+     * @param isCompleteMatchesOnly indicator if only complete matches are warranted by caller
      * @param <R> the result type of the enumeration function
      * @return an {@link Iterable} of type {@code R}
      */
     @Nonnull
-    protected <R> Iterable<R> match(@Nonnull final EnumerationFunction<R> enumerationFunction) {
+    protected <R> Iterable<R> match(@Nonnull final EnumerationFunction<R> enumerationFunction, final boolean isCompleteMatchesOnly) {
+        //
+        // Short-circuit the case where complete matches are requested but impossible due to
+        // the sets having a different cardinality.
+        //
+        if (isCompleteMatchesOnly && getAliases().size() != getOtherAliases().size()) {
+            return ImmutableList.of();
+        }
+
         //
         // We do not know which id in "this" maps to which in "other". In fact, we cannot know as it is
         // intentionally modeled this way. We need to find a feasible ordering that matches. In reality, the
@@ -242,12 +261,14 @@ public abstract class BaseMatcher<T> {
                         otherDependsOnMap);
 
         // There should always be a topologically sound ordering that we can use.
-        Verify.verify(aliases.isEmpty() || otherOrderedOptional.isPresent());
+        Verify.verify(!isCompleteMatchesOnly || aliases.isEmpty() || otherOrderedOptional.isPresent());
 
         final List<CorrelationIdentifier> otherPermutation = otherOrderedOptional.orElse(ImmutableList.of());
 
         final Iterable<List<CorrelationIdentifier>> otherCombinationsIterable =
-                otherCombinations(otherPermutation,
+                isCompleteMatchesOnly
+                ? ImmutableList.of(otherPermutation)
+                : otherCombinations(otherPermutation,
                         Math.min(aliases.size(), otherPermutation.size()));
 
         return IterableHelpers
@@ -262,7 +283,54 @@ public abstract class BaseMatcher<T> {
     }
 
     @Nonnull
-    protected abstract Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive);
+    protected Iterable<List<CorrelationIdentifier>> otherCombinations(final List<CorrelationIdentifier> otherPermutation, final int limitInclusive) {
+        final Set<CorrelationIdentifier> otherAliases = getOtherAliases();
+        final ImmutableSetMultimap<CorrelationIdentifier, CorrelationIdentifier> otherDependsOnMap = getOtherDependsOnMap();
+        Preconditions.checkArgument(limitInclusive <= otherAliases.size());
+        return () -> IntStream.rangeClosed(0, limitInclusive)
+                .boxed()
+                .flatMap(k -> {
+                    final EnumeratingIterator<CorrelationIdentifier> combinationsIterator =
+                            ChooseK.chooseK(otherAliases, k)
+                                    .iterator();
+
+                    final Iterator<List<CorrelationIdentifier>> filteredCombinationsIterator = new AbstractIterator<List<CorrelationIdentifier>>() {
+                        @Override
+                        protected List<CorrelationIdentifier> computeNext() {
+                            while (combinationsIterator.hasNext()) {
+                                final List<CorrelationIdentifier> combination = combinationsIterator.next();
+                                final Set<CorrelationIdentifier> visibleAliases = Sets.newHashSetWithExpectedSize(otherAliases.size());
+
+                                int i;
+                                for (i = 0; i < combination.size(); i++) {
+                                    final CorrelationIdentifier alias = combination.get(i);
+                                    final boolean brokenCombination = otherDependsOnMap.get(alias)
+                                            .stream()
+                                            .anyMatch(dependsOnAlias -> otherAliases.contains(dependsOnAlias) && // not an external dependency
+                                                                        !visibleAliases.contains(dependsOnAlias));
+                                    if (brokenCombination) {
+                                        break;
+                                    } else {
+                                        visibleAliases.add(alias);
+                                    }
+                                }
+
+                                if (i < combination.size()) {
+                                    combinationsIterator.skip(i);
+                                } else {
+                                    return combination;
+                                }
+                            }
+                            return endOfData();
+                        }
+                    };
+
+                    return StreamSupport.stream(
+                            Spliterators.spliteratorUnknownSize(filteredCombinationsIterator, Spliterator.ORDERED),
+                            false);
+                })
+                .iterator();
+    }
 
     /**
      * Helper to determine whether this {@code set} is equals to {@code otherSet} after translation using the given

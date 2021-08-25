@@ -40,6 +40,37 @@ Another, smaller change that has been made is that by default, new indexes added
 // end next release
 -->
 
+### 3.0.212.0
+
+
+### 3.0.211.0
+
+
+### 3.0.210.0
+
+* **Bug fix** relax conditions enforced in ImplementInUnionRule [(Issue #1369)](https://github.com/FoundationDB/fdb-record-layer/issues/1369)
+*OnlineIndexScrubberTest.testScrubberLimits - reduce number of records [(Issue #1363)](https://github.com/FoundationDB/fdb-record-layer/issues/1363)
+* OnlineIndexScrubber: clear ranges when exhausted [(Issue #1367)](https://github.com/FoundationDB/fdb-record-layer/issues/1367)
+* **Feature** Prototype non-index sorting [(Issue #1161)](https://github.com/FoundationDB/fdb-record-layer/issues/1161)
+
+### 3.0.209.0
+
+
+### 3.0.208.0
+
+
+### 3.0.207.0
+
+
+### 3.0.206.0
+
+* OnlineIndexerIndexFromIndexTest.testIndexFromIndexPersistentContinueRebuildWhenTypeStampChange timeout failures [(Issue #1267)](https://github.com/FoundationDB/fdb-record-layer/issues/1267)
+
+### 3.0.205.0
+
+* **Feature** Cascades planner can plan IN as a dynamic UNION [(Issue #1339)](https://github.com/FoundationDB/fdb-record-layer/issues/1339)
+* **Breaking change** InUnion uses a different plan hash [(Issue #1339)](https://github.com/FoundationDB/fdb-record-layer/issues/1339)
+
 ### 3.0.204.0
 
 

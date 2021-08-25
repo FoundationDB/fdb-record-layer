@@ -55,7 +55,7 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
 
     @Override
     public boolean contains(Object o) {
-        if (!(o instanceof RelationalExpression)) { // also handles null check
+        if (o == null) {
             return false;
         } else {
             return members.contains(identity.wrap(o));
@@ -97,6 +97,11 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
             @Override
             public T next() {
                 return innerIterator.next().get();
+            }
+
+            @Override
+            public void remove() {
+                innerIterator.remove();
             }
         };
     }

@@ -24,7 +24,9 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestHelpers;
@@ -46,6 +48,8 @@ import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.sorting.RecordQuerySortAdapter;
+import com.apple.foundationdb.record.sorting.SortEvents;
 import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.auto.service.AutoService;
@@ -56,14 +60,17 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Objects;
+import java.util.PrimitiveIterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
@@ -80,6 +87,7 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.hasTup
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexName;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.indexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.scan;
+import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.sort;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFilter;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unbounded;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -88,9 +96,11 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -928,6 +938,98 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
             }
             assertEquals(100, i);
             assertDiscardedNone(context);
+        }
+    }
+
+    /**
+     * Verify that sort that cannot be done with any index can be enabled for in-memory sort.
+     */
+    public enum SortWithoutIndexMode {
+        DISALLOWED, MEMORY, FILE
+    }
+
+    @EnumSource(SortWithoutIndexMode.class)
+    @ParameterizedTest(name = "sortWithoutIndex [mode = {0}]")
+    public void sortWithoutIndex(SortWithoutIndexMode mode) throws Exception {
+        final int numberOfRecordsToSave = 2000;
+        final int numberOfResultsToReturn = 5;
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+
+            for (int i = 0; i < numberOfRecordsToSave; i++) {
+                TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+                recBuilder.setRecNo((2244 * i + 1649) % 2357); // Slightly larger prime.
+                recBuilder.setNumValue2(i);
+                recBuilder.setNumValue3Indexed(i % 5);
+                recordStore.saveRecord(recBuilder.build());
+            }
+            commit(context);
+        }
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_3_indexed").greaterThanOrEquals(2))
+                .setSort(field("num_value_2"), true)
+                .build();
+
+        if (mode == SortWithoutIndexMode.DISALLOWED) {
+            assertThrows(RecordCoreException.class, () -> {
+                planner.plan(query);
+            });
+            return;
+        }
+
+        ((RecordQueryPlanner)planner).setConfiguration(((RecordQueryPlanner)planner).getConfiguration().asBuilder().setAllowNonIndexSort(true).build());
+
+        // Index(MySimpleRecord$num_value_3_indexed [[2],>) ORDER BY num_value_2 DESC
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, sort(allOf(hasProperty("reverse", equalTo(true))),
+                indexScan(allOf(indexName("MySimpleRecord$num_value_3_indexed"), bounds(hasTupleString("[[2],>"))))));
+        assertEquals(256365917, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+        assertEquals(172993081, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+        assertEquals(748321565, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+
+        // Skip + limit is enough to overflow memory buffer. Skips into middle of section.
+        final int skip = mode == SortWithoutIndexMode.FILE ? numberOfRecordsToSave / 2 + 1 : 0;
+        ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder().setSkip(skip).setReturnedRowLimit(numberOfResultsToReturn);
+        final PrimitiveIterator.OfInt sortedInts = IntStream.iterate(numberOfRecordsToSave - 1, i -> i - 1)
+                .filter(i -> i % 5 >= 2)
+                .skip(skip).limit(numberOfResultsToReturn)
+                .iterator();
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            timer.reset();
+            try (RecordCursor<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan, null, executeProperties.build())) {
+                while (true) {
+                    RecordCursorResult<FDBQueriedRecord<Message>> next = cursor.getNext();
+                    if (!next.hasNext()) {
+                        break;
+                    }
+                    FDBQueriedRecord<Message> rec = next.get();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(rec.getRecord());
+                    assertTrue(sortedInts.hasNext());
+                    assertEquals(sortedInts.nextInt(), myrec.getNumValue2());
+                }
+            }
+            assertFalse(sortedInts.hasNext());
+            assertDiscardedNone(context);
+            int countBeforeSorting = (numberOfRecordsToSave / 5) * 3;
+            if (mode == SortWithoutIndexMode.MEMORY) {
+                assertEquals(0, timer.getCount(SortEvents.Events.FILE_SORT_OPEN_FILE));
+                assertEquals(countBeforeSorting, timer.getCount(SortEvents.Events.MEMORY_SORT_STORE_RECORD));
+                assertEquals(numberOfResultsToReturn, timer.getCount(SortEvents.Events.MEMORY_SORT_LOAD_RECORD));
+            } else {
+                int nfiles = numberOfRecordsToSave / RecordQuerySortAdapter.DEFAULT_MAX_RECORD_COUNT_IN_MEMORY;
+                assertEquals(nfiles, timer.getCount(SortEvents.Events.FILE_SORT_OPEN_FILE));
+                assertEquals(nfiles - 1, timer.getCount(SortEvents.Events.FILE_SORT_MERGE_FILES));
+                assertEquals(countBeforeSorting, timer.getCount(SortEvents.Events.FILE_SORT_SAVE_RECORD));
+                assertEquals(numberOfResultsToReturn, timer.getCount(SortEvents.Events.FILE_SORT_LOAD_RECORD));
+                assertEquals(skip / RecordQuerySortAdapter.DEFAULT_RECORD_COUNT_PER_SECTION, timer.getCount(SortEvents.Events.FILE_SORT_SKIP_SECTION));
+                assertEquals(skip % RecordQuerySortAdapter.DEFAULT_RECORD_COUNT_PER_SECTION, timer.getCount(SortEvents.Events.FILE_SORT_SKIP_RECORD));
+                assertThat(timer.getCount(SortEvents.Counts.FILE_SORT_FILE_BYTES), allOf(greaterThan(1000), lessThan(100000)));
+            }
         }
     }
 

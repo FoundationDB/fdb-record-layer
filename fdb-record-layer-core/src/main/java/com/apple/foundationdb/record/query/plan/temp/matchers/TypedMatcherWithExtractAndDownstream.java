@@ -45,12 +45,20 @@ public class TypedMatcherWithExtractAndDownstream<T> extends TypedMatcher<T> {
     private final Extractor<? super T, ?> extractor;
     private final BindingMatcher<?> downstream;
 
-    private TypedMatcherWithExtractAndDownstream(@Nonnull final Class<T> bindableClass,
-                                                 @Nonnull final Extractor<? super T, ?> extractor,
-                                                 @Nonnull final BindingMatcher<?> downstream) {
+    protected TypedMatcherWithExtractAndDownstream(@Nonnull final Class<T> bindableClass,
+                                                   @Nonnull final Extractor<? super T, ?> extractor,
+                                                   @Nonnull final BindingMatcher<?> downstream) {
         super(bindableClass);
         this.extractor = extractor;
         this.downstream = downstream;
+    }
+
+    public Extractor<? super T, ?> getExtractor() {
+        return extractor;
+    }
+
+    public BindingMatcher<?> getDownstream() {
+        return downstream;
     }
 
     /**

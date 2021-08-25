@@ -26,15 +26,16 @@ import com.apple.foundationdb.record.query.plan.temp.rules.DataAccessRule;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 
 /**
  * Interface for all kinds of compensation. A compensation is the byproduct of expression DAG matching.
@@ -110,7 +111,7 @@ import java.util.function.Function;
  * compensation is required. In this example, no compensation is required as the individual indexes being intersected
  * complement each other nicely.
  */
-public interface Compensation extends Function<ExpressionRef<RelationalExpression>, RelationalExpression> {
+public interface Compensation {
     /**
      * Named object to indicate that this compensation is in fact no compensation, that is no additional operators
      * need to be injected to compensate for a match.
@@ -128,7 +129,7 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
         }
 
         @Override
-        public RelationalExpression apply(final ExpressionRef<RelationalExpression> reference) {
+        public RelationalExpression apply(@Nonnull final ExpressionRef<RelationalExpression> reference) {
             throw new RecordCoreException("this method should not be called");
         }
     };
@@ -156,6 +157,11 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
             return true;
         }
 
+        @Override
+        public boolean isImpossible() {
+            return true;
+        }
+
         @Nonnull
         @Override
         public Compensation intersect(@Nonnull final Compensation otherCompensation) {
@@ -163,10 +169,12 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
         }
 
         @Override
-        public RelationalExpression apply(final ExpressionRef<RelationalExpression> reference) {
+        public RelationalExpression apply(@Nonnull final ExpressionRef<RelationalExpression> reference) {
             throw new RecordCoreException("this method should not be called");
         }
     };
+
+    RelationalExpression apply(@Nonnull final ExpressionRef<RelationalExpression> reference);
 
     /**
      * Returns if this compensation object needs to be applied in order to correct the result of a match.
@@ -176,6 +184,10 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
      */
     default boolean isNeeded() {
         return true;
+    }
+
+    default boolean isImpossible() {
+        return false;
     }
 
     /**
@@ -260,12 +272,14 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
      *        method
      * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
      *        used for compensation
+     * @param unmappedForEachQuantifiers a set of quantifiers that are not mapped in the original {@link PartialMatch}
      * @return a new compensation
      */
     @Nonnull
     static Compensation ofChildCompensationAndPredicateMap(@Nonnull final Compensation childCompensation,
-                                                           @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap) {
-        return predicateCompensationMap.isEmpty() ? noCompensation() : new ForMatch(childCompensation, predicateCompensationMap);
+                                                           @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                                                           @Nonnull final Set<Quantifier.ForEach> unmappedForEachQuantifiers) {
+        return predicateCompensationMap.isEmpty() ? noCompensation() : new ForMatch(childCompensation, predicateCompensationMap, unmappedForEachQuantifiers);
     }
 
     /**
@@ -275,6 +289,9 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
     interface WithPredicateCompensation extends Compensation {
         @Nonnull
         Compensation getChildCompensation();
+
+        @Nonnull
+        Set<Quantifier> getUnmappedForEachQuantifiers();
 
         @Nonnull
         Map<QueryPredicate, QueryPredicate> getPredicateCompensationMap();
@@ -287,11 +304,13 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
          *        method
          * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
          *        used for compensation
+         * @param unmappedForEachQuantifiers a set of unmapped quantifiers
          * @return a new compensation
          */
         @Nonnull
         WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull Compensation childCompensation,
-                                                                      @Nonnull IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap);
+                                                                      @Nonnull IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                                                                      @Nonnull Set<? extends Quantifier> unmappedForEachQuantifiers);
 
         /**
          * Specific implementation of union-ing two compensations both of type {@link WithPredicateCompensation}.
@@ -311,8 +330,12 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
             }
 
             final WithPredicateCompensation otherWithPredicateCompensation = (WithPredicateCompensation)otherCompensation;
-            final Map<QueryPredicate, QueryPredicate> otherCompensationMap = otherWithPredicateCompensation.getPredicateCompensationMap();
 
+            if (!getUnmappedForEachQuantifiers().isEmpty() || !otherWithPredicateCompensation.getUnmappedForEachQuantifiers().isEmpty()) {
+                return impossibleCompensation();
+            }
+
+            final Map<QueryPredicate, QueryPredicate> otherCompensationMap = otherWithPredicateCompensation.getPredicateCompensationMap();
             final IdentityHashMap<QueryPredicate, QueryPredicate> combinedMap = Maps.newIdentityHashMap();
 
             combinedMap.putAll(getPredicateCompensationMap());
@@ -323,7 +346,7 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
                     // Both compensations have a compensation for this particular predicate which is essentially
                     // reapplying the predicate.
                     //
-                    // TODO Remember that both sides are effectively asking for a specific
+                    // TODO Remember that both sides are effectively asking for a specific compensation predicate
                     // (to post filtering, etc. of their side after the candidate scan). So in the most generic case
                     // you have a query predicate that is matched in both compensations differently (cannot happen today)
                     // and compensated differently.
@@ -344,7 +367,7 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
                 return unionedChildCompensation;
             }
 
-            return derivedWithPredicateCompensationMap(unionedChildCompensation, combinedMap);
+            return derivedWithPredicateCompensationMap(unionedChildCompensation, combinedMap, ImmutableSet.of());
         }
 
         /**
@@ -380,7 +403,11 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
                 }
             }
 
-            final Compensation intersectedChildCompensation = getChildCompensation().intersect(otherWithPredicateCompensation.getChildCompensation());
+            final Compensation childCompensation = getChildCompensation();
+            Verify.verify(!(childCompensation instanceof WithPredicateCompensation) ||
+                          ((WithPredicateCompensation)childCompensation).getUnmappedForEachQuantifiers().isEmpty());
+
+            final Compensation intersectedChildCompensation = childCompensation.intersect(otherWithPredicateCompensation.getChildCompensation());
             if (!intersectedChildCompensation.isNeeded() && combinedMap.isEmpty()) {
                 return Compensation.noCompensation();
             }
@@ -389,7 +416,10 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
                 return intersectedChildCompensation;
             }
 
-            return derivedWithPredicateCompensationMap(intersectedChildCompensation, combinedMap);
+            final Sets.SetView<Quantifier> intersectedForEachQuantifiers =
+                    Sets.intersection(getUnmappedForEachQuantifiers(), otherWithPredicateCompensation.getUnmappedForEachQuantifiers());
+
+            return derivedWithPredicateCompensationMap(intersectedChildCompensation, combinedMap, intersectedForEachQuantifiers);
         }
     }
 
@@ -401,19 +431,31 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
         private final Compensation childCompensation;
 
         @Nonnull
+        private final Set<Quantifier> unmappedForEachQuantfiers;
+
+        @Nonnull
         final Map<QueryPredicate, QueryPredicate> predicateCompensationMap;
 
         public ForMatch(@Nonnull final Compensation childCompensation,
-                        @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap) {
+                        @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                        @Nonnull final Collection<? extends Quantifier> unmappedForEachQuantifiers) {
             this.childCompensation = childCompensation;
             this.predicateCompensationMap = Maps.newIdentityHashMap();
             this.predicateCompensationMap.putAll(predicateCompensationMap);
+            this.unmappedForEachQuantfiers = new LinkedIdentitySet<>();
+            this.unmappedForEachQuantfiers.addAll(unmappedForEachQuantifiers);
         }
 
         @Override
         @Nonnull
         public Compensation getChildCompensation() {
             return childCompensation;
+        }
+
+        @Nonnull
+        @Override
+        public Set<Quantifier> getUnmappedForEachQuantifiers() {
+            return unmappedForEachQuantfiers;
         }
 
         @Nonnull
@@ -425,9 +467,10 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
         @Nonnull
         @Override
         public WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull final Compensation childCompensation,
-                                                                             @Nonnull final IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap) {
+                                                                             @Nonnull final IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                                                                             @Nonnull final Set<? extends Quantifier> unmappedForEachQuantifiers) {
             Verify.verify(!predicateCompensationMap.isEmpty());
-            return new ForMatch(childCompensation, predicateCompensationMap);
+            return new ForMatch(childCompensation, predicateCompensationMap, unmappedForEachQuantifiers);
         }
 
         /**
@@ -438,7 +481,7 @@ public interface Compensation extends Function<ExpressionRef<RelationalExpressio
          *         filter
          */
         @Override
-        public RelationalExpression apply(ExpressionRef<RelationalExpression> reference) {
+        public RelationalExpression apply(@Nonnull ExpressionRef<RelationalExpression> reference) {
             // apply the child as needed
             if (childCompensation.isNeeded()) {
                 reference = GroupExpressionRef.of(childCompensation.apply(reference));

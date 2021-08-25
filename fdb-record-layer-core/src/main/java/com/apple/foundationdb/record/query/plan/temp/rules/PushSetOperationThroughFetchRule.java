@@ -21,17 +21,16 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
+import com.apple.foundationdb.record.query.plan.plans.TranslateValueFunction;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -152,9 +151,17 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final RecordQuerySetPlan setOperationPlan = bindings.get(getMatcher());
         final List<? extends Quantifier.Physical> quantifiersOverFetches = bindings.getAll(quantifierOverFetchMatcher);
-        if (quantifiersOverFetches.size() <= 1) {
-            // pulling up the fetch is meaningless in this case
-            return;
+
+        // if set operation is dynamic all quantifiers must have fetches
+        if (setOperationPlan.isDynamic()) {
+            if (quantifiersOverFetches.size() < setOperationPlan.getQuantifiers().size()) {
+                return;
+            }
+        } else {
+            if (quantifiersOverFetches.size() <= 1) {
+                // pulling up the fetch is meaningless in this case
+                return;
+            }
         }
 
         final List<? extends RecordQueryFetchFromPartialRecordPlan> fetchPlans = bindings.getAll(fetchPlanMatcher);
@@ -168,8 +175,17 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final List<? extends Value> requiredValues = setOperationPlan.getRequiredValues(CorrelationIdentifier.uniqueID());
         final Set<CorrelationIdentifier> pushableAliases = setOperationPlan.tryPushValues(dependentFunctions, quantifiersOverFetches, requiredValues);
-        if (pushableAliases.size() <= 1) {
-            return;
+
+        // if set operation is dynamic all aliases must be pushable
+        if (setOperationPlan.isDynamic()) {
+            if (pushableAliases.size() < setOperationPlan.getQuantifiers().size()) {
+                return;
+            }
+        } else {
+            if (pushableAliases.size() <= 1) {
+                // pulling up the fetch is meaningless in this case
+                return;
+            }
         }
 
         final ImmutableList.Builder<Quantifier.Physical> pushableQuantifiersBuilder = ImmutableList.builder();
@@ -207,7 +223,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
 
         final TranslateValueFunction combinedTranslateValueFunction = setOperationPlan.pushValueFunction(pushableDependentFunctions);
 
-        final RecordQuerySetPlan newSetOperationPlan = setOperationPlan.withChildren(newPushedInnerPlans);
+        final RecordQuerySetPlan newSetOperationPlan = setOperationPlan.withChildrenReferences(newPushedInnerPlans);
         final RecordQueryFetchFromPartialRecordPlan newFetchPlan =
                 new RecordQueryFetchFromPartialRecordPlan(newSetOperationPlan,
                         combinedTranslateValueFunction);
@@ -215,13 +231,14 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
         if (nonPushableQuantifiers.isEmpty()) {
             call.yield(GroupExpressionRef.of(newFetchPlan));
         } else {
-            final List<ExpressionRef<? extends RelationalExpression>> newFetchPlanAndResidualInners =
+            final List<ExpressionRef<? extends RecordQueryPlan>> newFetchPlanAndResidualInners =
                     Streams.concat(Stream.of(GroupExpressionRef.of(newFetchPlan)),
                             nonPushableQuantifiers
                                     .stream()
-                                    .map(Quantifier.Physical::getRangesOver))
+                                    .map(Quantifier.Physical::getRangesOver)
+                                    .map(RecordQueryPlan::narrowReference))
                             .collect(ImmutableList.toImmutableList());
-            call.yield(GroupExpressionRef.of(setOperationPlan.withChildren(newFetchPlanAndResidualInners)));
+            call.yield(GroupExpressionRef.of(setOperationPlan.withChildrenReferences(newFetchPlanAndResidualInners)));
         }
     }
 }

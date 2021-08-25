@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
+import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
@@ -50,6 +51,10 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.TypedMatche
 public class RelationalExpressionMatchers {
     private RelationalExpressionMatchers() {
         // do not instantiate
+    }
+
+    public static BindingMatcher<RelationalExpression> anyExpression() {
+        return typed(RelationalExpression.class);
     }
 
     public static <R extends RelationalExpression> TypedMatcher<R> ofType(@Nonnull final Class<R> bindableClass) {
@@ -199,5 +204,10 @@ public class RelationalExpressionMatchers {
     public static BindingMatcher<SelectExpression> selectExpression(@Nonnull final CollectionMatcher<? extends QueryPredicate> downstreamPredicates,
                                                                     @Nonnull final CollectionMatcher<? extends Quantifier> downstreamQuantifiers) {
         return ofTypeWithPredicatesAndOwning(SelectExpression.class, downstreamPredicates, downstreamQuantifiers);
+    }
+
+    @Nonnull
+    public static BindingMatcher<ExplodeExpression> explodeExpression() {
+        return ofTypeOwning(ExplodeExpression.class, CollectionMatcher.empty());
     }
 }

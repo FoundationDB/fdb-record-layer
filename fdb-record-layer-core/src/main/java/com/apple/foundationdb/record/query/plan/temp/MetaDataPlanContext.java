@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
@@ -47,6 +48,9 @@ import java.util.stream.Collectors;
 @API(API.Status.EXPERIMENTAL)
 public class MetaDataPlanContext implements PlanContext {
     @Nonnull
+    private final RecordQueryPlannerConfiguration plannerConfiguration;
+
+    @Nonnull
     private final RecordStoreState recordStoreState;
     @Nonnull
     private final RecordMetaData metaData;
@@ -63,7 +67,11 @@ public class MetaDataPlanContext implements PlanContext {
     @Nonnull
     private final Set<MatchCandidate> matchCandidates;
 
-    public MetaDataPlanContext(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull RecordQuery query) {
+    public MetaDataPlanContext(@Nonnull RecordQueryPlannerConfiguration plannerConfiguration,
+                               @Nonnull RecordMetaData metaData,
+                               @Nonnull RecordStoreState recordStoreState,
+                               @Nonnull RecordQuery query) {
+        this.plannerConfiguration = plannerConfiguration;
         this.metaData = metaData;
         this.recordStoreState = recordStoreState;
         this.indexes = HashBiMap.create();
@@ -119,6 +127,12 @@ public class MetaDataPlanContext implements PlanContext {
                 .ifPresent(matchCandidatesBuilder::add);
 
         this.matchCandidates = matchCandidatesBuilder.build();
+    }
+
+    @Nonnull
+    @Override
+    public RecordQueryPlannerConfiguration getPlannerConfiguration() {
+        return plannerConfiguration;
     }
 
     @Nullable

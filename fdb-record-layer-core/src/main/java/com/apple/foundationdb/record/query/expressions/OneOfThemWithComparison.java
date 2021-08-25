@@ -106,7 +106,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(baseAlias, fieldNames)));
+        final Quantifier childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
         final SelectExpression selectExpression =
                 GraphExpansion.ofPredicate(new QuantifiedObjectValue(childBase.getAlias()).withComparison(comparison)).buildSelectWithBase(childBase);
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));

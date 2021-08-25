@@ -21,20 +21,17 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 
 import javax.annotation.Nonnull;
 import java.util.stream.Stream;
 
 /**
- * A <code>BindingMatcher</code> is an expression that can be matched against a
- * {@link RelationalExpression} tree, while binding certain expressions/references in the tree to expression matcher objects.
- * The bindings can be retrieved from the rule call once the binding is matched.
+ * A <code>BindingMatcher</code> matches a data structure while binding variables to parts of the data structure.
  *
  * <p>
- * Extreme care should be taken when implementing <code>ExpressionMatcher</code>, since it can be very delicate.
- * In particular, expression matchers may (or may not) be reused between successive rule calls and should be stateless.
- * Additionally, implementors of <code>ExpressionMatcher</code> must use the (default) reference equals.
+ * Extreme care should be taken when implementing <code>BindingMatcher</code>s, since it can be very delicate.
+ * In particular, matchers may (or may not) be reused between successive rule calls and should be stateless.
+ * Additionally, implementors of <code>TypedMatcher</code> must use the (default) reference equals.
  * </p>
  * @param <T> the bindable type that this matcher binds to
  */

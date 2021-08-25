@@ -55,6 +55,11 @@ public class LiteralValue<T> implements LeafValue {
         return value;
     }
 
+    @Nullable
+    public T getLiteralValue() {
+        return value;
+    }
+
     @Nonnull
     @Override
     public Value rebaseLeaf(@Nonnull final AliasMap translationMap) {

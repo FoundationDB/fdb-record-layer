@@ -1,5 +1,5 @@
 /*
- * UnmatchedFieldsProperty.java
+ * UnmatchedFieldsCountProperty.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -52,14 +52,14 @@ import java.util.List;
  *     <li>{@code concat(field1, field2)}, with a comparison {@code field1 = 'foo'}</li>
  *     <li>{@code concat(field1, field3, field4)}, with a comparison {@code field1 = 'foo', field3 < 5}</li>
  * </ul>
- * The {@code UnmatchedFieldsProperty} on such a planner expression is 2.
+ * The {@code UnmatchedFieldsCountProperty} on such a planner expression is 2.
  */
 @API(API.Status.EXPERIMENTAL)
-public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
+public class UnmatchedFieldsCountProperty implements PlannerProperty<Integer> {
     @Nonnull
     private final PlanContext planContext;
 
-    public UnmatchedFieldsProperty(@Nonnull PlanContext context) {
+    public UnmatchedFieldsCountProperty(@Nonnull PlanContext context) {
         this.planContext = context;
     }
 
@@ -108,7 +108,7 @@ public class UnmatchedFieldsProperty implements PlannerProperty<Integer> {
     }
 
     public static int evaluate(@Nonnull PlanContext context, @Nonnull RelationalExpression expression) {
-        Integer result = expression.acceptPropertyVisitor(new UnmatchedFieldsProperty(context));
+        Integer result = expression.acceptPropertyVisitor(new UnmatchedFieldsCountProperty(context));
         if (result == null) {
             return Integer.MAX_VALUE;
         }

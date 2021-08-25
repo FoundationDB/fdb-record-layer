@@ -106,7 +106,7 @@ public class OneOfThemWithComponent extends BaseRepeatedField implements Compone
                 .addAll(fieldNamePrefix)
                 .add(getFieldName())
                 .build();
-        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(new ExplodeExpression(baseAlias, fieldNames)));
+        final Quantifier.ForEach childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
         final GraphExpansion graphExpansion = getChild().expand(childBase.getAlias(), Collections.emptyList());
         final SelectExpression selectExpression =
                 graphExpansion

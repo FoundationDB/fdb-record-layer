@@ -35,7 +35,9 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -46,8 +48,8 @@ import com.apple.foundationdb.record.provider.foundationdb.indexes.StandardIndex
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -69,12 +71,12 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndexFieldNames;
-import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.normalize;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.validateLucene;
 
 /**
@@ -88,7 +90,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final Analyzer analyzer;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
-    private List<ImmutablePair<String, LuceneKeyExpression>> fields = new ArrayList<>(2);
     private final Executor executor;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer analyzer) {
@@ -96,7 +97,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.analyzer = analyzer;
         KeyExpression rootExpression = this.state.index.getRootExpression();
         validateLucene(rootExpression);
-        fields = normalize(rootExpression);
         this.executor = executor;
     }
 
@@ -138,100 +138,157 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
+    protected static class DocumentEntry {
+        final String fieldName;
+        final Object value;
+        final LuceneFieldKeyExpression expression;
+
+        DocumentEntry(String name, Object value, LuceneFieldKeyExpression expression) {
+            this.fieldName = name;
+            this.value = value;
+            this.expression = expression;
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final DocumentEntry entry = (DocumentEntry)o;
+            return fieldName.equals(entry.fieldName) && Objects.equals(value, entry.value) && expression.equals(entry.expression);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(fieldName, value, expression);
+        }
+
+    }
+
+    public <M extends Message> List<DocumentEntry> getFields(KeyExpression expression,
+                                                                             FDBIndexableRecord<M> record, Message message) {
+        if (expression instanceof LuceneThenKeyExpression) {
+            List<DocumentEntry> evaluatedList = Lists.newArrayList();
+            for (KeyExpression child : ((LuceneThenKeyExpression)expression).getChildren()) {
+                evaluatedList.addAll(getFields(child, record, message));
+            }
+            if (((LuceneThenKeyExpression)expression).getPrimaryKey() == null) {
+                return evaluatedList;
+            }
+            DocumentEntry primaryKey = evaluatedList.get(((LuceneThenKeyExpression)expression).getPrimaryKeyPosition());
+            evaluatedList.remove(primaryKey);
+            List<DocumentEntry> result = Lists.newArrayList();
+            String prefix = primaryKey.value.toString().concat("_");
+            for (DocumentEntry entry : evaluatedList) {
+                result.add(new DocumentEntry(prefix.concat(entry.fieldName), entry.value, entry.expression));
+            }
+            return result;
+        }
+        if (expression instanceof NestingKeyExpression) {
+            final List<Key.Evaluated> parentKeys = ((NestingKeyExpression)expression).getParent().evaluateMessage(record, message);
+            List<DocumentEntry> result = new ArrayList<>();
+            for (Key.Evaluated value : parentKeys) {
+                //TODO we may have to make this act like the NestingKeyExpression logic which takes only the first in the message list
+                for (DocumentEntry entry : getFields(((NestingKeyExpression)expression).getChild(), record, (Message)value.toList().get(0))) {
+                    if (((NestingKeyExpression)expression).getParent().getFanType().equals(KeyExpression.FanType.None)) {
+                        result.add(new DocumentEntry(((NestingKeyExpression)expression).getParent().getFieldName().concat("_").concat(entry.fieldName), entry.value, entry.expression));
+                    } else {
+                        result.add(entry);
+                    }
+                }
+            }
+            return result;
+        }
+        if (expression instanceof GroupingKeyExpression) {
+            return getFields(((GroupingKeyExpression)expression).getWholeKey(), record, message);
+        }
+        if (expression instanceof LuceneFieldKeyExpression) {
+            List<DocumentEntry> evaluatedKeys = Lists.newArrayList();
+            for (Key.Evaluated key : expression.evaluateMessage(record, message)) {
+                Object value = key.values().get(0);
+                if (key.containsNonUniqueNull()) {
+                    value = null;
+                }
+                evaluatedKeys.add(new DocumentEntry(((LuceneFieldKeyExpression)expression).getFieldName(), value, (LuceneFieldKeyExpression) expression));
+            }
+            return evaluatedKeys;
+        }
+        return Lists.newArrayList();
+    }
+
+    private void insertField(DocumentEntry entry, final Document document) {
+
+        Object value = entry.value;
+        String fieldName = entry.fieldName;
+        LuceneFieldKeyExpression expression = entry.expression;
+        switch (expression.getType()) {
+            case INT:
+                // Todo: figure out how to expand functionality to include storage, sorting etc.
+                document.add(new IntPoint(fieldName, (Integer)value));
+                break;
+            case STRING:
+                document.add(new TextField(fieldName, value == null ? "" : value.toString(), expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                break;
+            case LONG:
+                document.add(new LongPoint(fieldName, (long)value));
+                break;
+            default:
+                throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", entry.expression.getType());
+        }
+    }
+
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
         LOG.trace("update oldRecord={}, newRecord{}", oldRecord, newRecord);
-        return super.update(oldRecord, newRecord);
-    }
 
-    @Nonnull
-    @Override
-    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
-                                                                          final boolean remove,
-                                                                          @Nonnull final List<IndexEntry> indexEntries) {
-        LOG.trace("updateIndexKeys savedRecord={}, remove=={}, indexEntries={}", savedRecord, remove, indexEntries);
+        List<DocumentEntry> oldRecordFields = Lists.newArrayList();
+        KeyExpression root = state.index.getRootExpression();
+        List<DocumentEntry> newRecordFields = Lists.newArrayList();
 
-        if (indexEntries.isEmpty()) {
+        // evaluate fields from records provided
+        if (newRecord != null) {
+            newRecordFields.addAll(getFields(root, newRecord, newRecord.getRecord()));
+        }
+        if (oldRecord != null) {
+            oldRecordFields.addAll(getFields(root, oldRecord, oldRecord.getRecord()));
+        }
+
+        // if no relevant fields are changed then nothing needs to be done.
+        if (newRecordFields.equals(oldRecordFields)) {
             return AsyncUtil.DONE;
         }
+
         try {
+            // create writer and document
             final IndexWriter writer = getOrCreateIndexWriter(state, analyzer, executor);
             Document document = new Document();
-            byte[] primaryKey = savedRecord.getPrimaryKey().pack();
-            BytesRef ref = new BytesRef(primaryKey);
-            // TODO: explore expanding this out into stored fields so they are queryable
-            document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
-            document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-            indexEntries.forEach( (entry ) -> {
-                try {
-                    if (remove) {
-                        Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(savedRecord.getPrimaryKey().pack()));
-                        writer.deleteDocuments(query);
-                    } else {
-                        int offset = 0;
-                        Tuple entryKey = entry.getKey();
-                        //TODO I think this can be simplified for Fields to be a single
-                        for (int i = 0; i < fields.size(); i++) {
-                            ImmutablePair<String, LuceneKeyExpression> keyPair = fields.get(i);
-                            LuceneKeyExpression expression = keyPair.right;
-                            String prefix = keyPair.left;
-                            if (expression instanceof LuceneThenKeyExpression) {
-                                int prefixLocation = ((LuceneThenKeyExpression)expression).getPrimaryKeyPosition();
-                                final Object o = entryKey.get(prefixLocation + i);
-                                String subPrefix = o == null ? "" : o.toString();
-                                prefix = prefix == null ? subPrefix : prefix.concat("_").concat(subPrefix);
-                                List<LuceneFieldKeyExpression> children = ((LuceneThenKeyExpression)expression).getLuceneChildren();
-                                for (int j = 0; j < children.size(); j++) {
-                                    if (j != prefixLocation) {
-                                        LuceneFieldKeyExpression child = children.get(j);
-                                        Object value = entryKey.get(i + offset + j);
-                                        if (value != null) {
-                                            insertDocumentField(child, entryKey.get(i + offset + j), document, prefix);
-                                        }
-                                    }
-                                }
-                                offset += children.size() - 1;
-                            } else if (expression instanceof LuceneFieldKeyExpression) {
-                                Object value = entryKey.get(i + offset);
-                                if (value != null) {
-                                    insertDocumentField((LuceneFieldKeyExpression)expression, value, document, null);
-                                }
-                            }
-                        }
-                    }
-                } catch (IOException ioe) {
-                    throw new RecordCoreException("Issue updating index keys", "Key", entry, "IndexEntries", indexEntries,
-                            "savedRecord", savedRecord, ioe);
+
+            // if old record has fields in the index and there are changes then delete old record
+            if (!oldRecordFields.isEmpty()) {
+                Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(oldRecord.getPrimaryKey().pack()));
+                writer.deleteDocuments(query);
+            }
+
+            // if there are changes then update the index with the new document.
+            if (!newRecordFields.isEmpty()) {
+                byte[] primaryKey = newRecord.getPrimaryKey().pack();
+                BytesRef ref = new BytesRef(primaryKey);
+                document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
+                document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+                for (DocumentEntry entry : newRecordFields) {
+                    insertField(entry, document);
                 }
-            });
-            writer.addDocument(document);
-        } catch (Exception e) {
-            throw new RecordCoreException(e);
+                writer.addDocument(document);
+            }
+        } catch (IOException e) {
+            throw new RecordCoreException("Issue updating index keys", "oldRecord", oldRecord, "newRecord", newRecord, e);
         }
         return AsyncUtil.DONE;
-    }
-
-    private void insertDocumentField(final LuceneFieldKeyExpression expression, Object value,
-                                     final Document document, String prefix) {
-        if (!(value == null && expression.getType() != LuceneKeyExpression.FieldType.STRING)) {
-            String fieldName = prefix == null ? expression.getFieldName() : prefix.concat("_").concat(expression.getFieldName());
-            switch (expression.getType()) {
-                case INT:
-                    // Todo: figure out how to expand functionality to include storage, sorting etc.
-                    document.add(new IntPoint(fieldName, (Integer)value));
-                    break;
-                case STRING:
-                    document.add(new TextField(fieldName, value == null ? "" : (String)value, expression.isStored() ? Field.Store.YES : Field.Store.NO));
-                    break;
-                case LONG:
-                    document.add(new LongPoint(fieldName, (long) value));
-                    break;
-                default:
-                    throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", expression.getType());
-            }
-        }
     }
 
     @Nonnull

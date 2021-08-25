@@ -207,15 +207,39 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableList.of();
         }
         final Map<CorrelationIdentifier, ComparisonRange> mergedParameterBindingMap = mergedParameterBindingMapOptional.get();
+        
+        final ImmutableSet.Builder<CorrelationIdentifier> matchedCorrelatedToBuilder = ImmutableSet.builder();
+        // Loop through all child matches and reject a match if the children matches were unable to match all
+        // for-each quantifiers. Also keep track of all aliases the matched quantifiers are correlated to.
+        for (final Quantifier quantifier : getQuantifiers()) {
+            if (partialMatchMap.containsKeyUnwrapped(quantifier)) {
+                if (quantifier instanceof Quantifier.ForEach) {
+                    // current quantifier is matched
+                    final PartialMatch childPartialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(quantifier));
 
-        // Loop through all for each quantifiers on this side to ensure that they are all matched
-        // If any are not matched we cannot establish a match at all.
-        final boolean allForEachQuantifiersMatched = getQuantifiers()
-                .stream()
-                .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                .allMatch(quantifier -> aliasMap.containsSource(quantifier.getAlias()));
+                    if (!childPartialMatch.getQueryExpression()
+                            .computeUnmatchedForEachQuantifiers(childPartialMatch).isEmpty()) {
+                        return ImmutableList.of();
+                    }
+                }
 
-        if (!allForEachQuantifiersMatched) {
+                matchedCorrelatedToBuilder.addAll(quantifier.getCorrelatedTo());
+            }
+        }
+
+        for (final Value resultValue : getResultValues()) {
+            matchedCorrelatedToBuilder.addAll(resultValue.getCorrelatedTo());
+        }
+
+        final ImmutableSet<CorrelationIdentifier> matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
+
+        final boolean allNonMatchedQuantifiersIndependent =
+                getQuantifiers()
+                        .stream()
+                        .filter(quantifier -> !partialMatchMap.containsKeyUnwrapped(quantifier))
+                        .noneMatch(quantifier -> matchedCorrelatedTo.contains(quantifier.getAlias()));
+
+        if (!allNonMatchedQuantifiersIndependent) {
             return ImmutableList.of();
         }
 
@@ -473,7 +497,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         // optimal way. We need to fold over all those compensations to form one child compensation. The tree that
         // is formed by partial matches therefore collapses into a chain of compensations.
         //
-        final Compensation childCompensation = getQuantifiers()
+        final List<? extends Quantifier> quantifiers = getQuantifiers();
+        final Compensation childCompensation = quantifiers
                 .stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                 .flatMap(quantifier ->
@@ -482,6 +507,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                                 .map(Stream::of)
                                 .orElse(Stream.empty()))
                 .reduce(Compensation.noCompensation(), Compensation::union);
+
+        //
+        // The fact that we matched the partial match handed must mean that the child compensation is not impossible.
+        //
+        Verify.verify(!childCompensation.isImpossible());
 
         //
         // Go through all predicates and invoke the reapplication logic for each associated mapping. Remember, each
@@ -503,6 +533,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             reappliedPredicateOptional.ifPresent(reappliedPredicate -> toBeReappliedPredicatesMap.put(predicate, reappliedPredicate));
         }
 
-        return Compensation.ofChildCompensationAndPredicateMap(childCompensation, toBeReappliedPredicatesMap);
+        return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
+                toBeReappliedPredicatesMap,
+                computeUnmatchedForEachQuantifiers(partialMatch));
     }
 }

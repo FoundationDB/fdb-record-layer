@@ -36,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -62,8 +63,9 @@ public class FDBClientLogEvents {
     public static final long PROTOCOL_VERSION_6_0 = 0x0FDB00A570010001L;
     public static final long PROTOCOL_VERSION_6_1 = 0x0FDB00B061060001L;
     public static final long PROTOCOL_VERSION_6_2 = 0x0FDB00B062010001L;
+    public static final long PROTOCOL_VERSION_6_3 = 0x0FDB00B063010001L;
     private static final long[] SUPPORTED_PROTOCOL_VERSIONS = {
-            PROTOCOL_VERSION_5_2, PROTOCOL_VERSION_6_0, PROTOCOL_VERSION_6_1, PROTOCOL_VERSION_6_2
+            PROTOCOL_VERSION_5_2, PROTOCOL_VERSION_6_0, PROTOCOL_VERSION_6_1, PROTOCOL_VERSION_6_2, PROTOCOL_VERSION_6_3
     };
 
     //                    0               1         2         3         4         5         6         7
@@ -99,14 +101,16 @@ public class FDBClientLogEvents {
      */
     public abstract static class Event {
         protected final double startTimestamp;
+        protected final String dcId;
 
-        protected Event(double startTimestamp) {
+        protected Event(double startTimestamp, String dcId) {
             this.startTimestamp = startTimestamp;
+            this.dcId = dcId;
         }
 
         public abstract int getType();
 
-        public double getStartTimestampDouoble() {
+        public double getStartTimestampDouble() {
             return startTimestamp;
         }
 
@@ -123,6 +127,19 @@ public class FDBClientLogEvents {
         public String getStartTimestampString() {
             Instant startTimestamp = getStartTimestamp();
             return startTimestamp.atOffset(ZoneId.systemDefault().getRules().getOffset(startTimestamp)).toString();
+        }
+
+        public String getDcId() {
+            return dcId;
+        }
+
+        protected StringJoiner toStringBase() {
+            StringJoiner joiner = new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
+                    .add("startTimestamp=" + getStartTimestampString());
+            if (dcId.length() > 0) {
+                joiner.add("dcId=" + dcId);
+            }
+            return joiner;
         }
     }
 
@@ -145,11 +162,13 @@ public class FDBClientLogEvents {
     public static class EventGetVersion extends Event {
         private final double latency;
         private final int priority;
+        private final long readVersion;
 
-        public EventGetVersion(double startTimestamp, double latency, int priority) {
-            super(startTimestamp);
+        public EventGetVersion(double startTimestamp, String dcId, double latency, int priority, long readVersion) {
+            super(startTimestamp, dcId);
             this.latency = latency;
             this.priority = priority;
+            this.readVersion = readVersion;
         }
 
         @Override
@@ -165,12 +184,16 @@ public class FDBClientLogEvents {
             return priority;
         }
 
+        public long getReadVersion() {
+            return readVersion;
+        }
+
         @Override
         public String toString() {
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
-                    .add("startTimestamp=" + getStartTimestampString())
+            return toStringBase()
                     .add("latency=" + latency)
                     .add("priority=" + priority)
+                    .add("readVersion=" + readVersion)
                     .toString();
         }
     }
@@ -185,8 +208,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final byte[] key;
 
-        public EventGet(double startTimestamp, double latency, int size, @Nonnull byte[] key) {
-            super(startTimestamp);
+        public EventGet(double startTimestamp, String dcId, double latency, int size, @Nonnull byte[] key) {
+            super(startTimestamp, dcId);
             this.latency = latency;
             this.size = size;
             this.key = key;
@@ -212,8 +235,7 @@ public class FDBClientLogEvents {
 
         @Override
         public String toString() {
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
-                    .add("startTimestamp=" + getStartTimestampString())
+            return toStringBase()
                     .add("latency=" + latency)
                     .add("size=" + size)
                     .add("key=" + ByteArrayUtil.printable(key))
@@ -230,8 +252,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final Range range;
 
-        public EventGetRange(double startTimestamp, double latency, int size, @Nonnull Range range) {
-            super(startTimestamp);
+        public EventGetRange(double startTimestamp, String dcId, double latency, int size, @Nonnull Range range) {
+            super(startTimestamp, dcId);
             this.latency = latency;
             this.size = size;
             this.range = range;
@@ -257,8 +279,7 @@ public class FDBClientLogEvents {
 
         @Override
         public String toString() {
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
-                    .add("startTimestamp=" + getStartTimestampString())
+            return toStringBase()
                     .add("latency=" + latency)
                     .add("size=" + size)
                     .add("range=" + range)
@@ -273,15 +294,17 @@ public class FDBClientLogEvents {
         private final double latency;
         private final int numMutations;
         private final int commitBytes;
+        private final long commitVersion;
         @Nonnull
         private final CommitRequest commitRequest;
 
-        public EventCommit(double startTimestamp, double latency, int numMutations, int commitBytes,
+        public EventCommit(double startTimestamp, String dcId, double latency, int numMutations, int commitBytes, long commitVersion,
                            @Nonnull CommitRequest commitRequest) {
-            super(startTimestamp);
+            super(startTimestamp, dcId);
             this.latency = latency;
             this.numMutations = numMutations;
             this.commitBytes = commitBytes;
+            this.commitVersion = commitVersion;
             this.commitRequest = commitRequest;
         }
 
@@ -309,11 +332,11 @@ public class FDBClientLogEvents {
 
         @Override
         public String toString() {
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
-                    .add("startTimestamp=" + getStartTimestampString())
+            return toStringBase()
                     .add("latency=" + latency)
                     .add("numMutations=" + numMutations)
                     .add("commitBytes=" + commitBytes)
+                    .add("commitVersion=" + commitVersion)
                     .add("commitRequest=" + commitRequest)
                     .toString();
         }
@@ -328,8 +351,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final byte[] key;
 
-        public EventGetError(double startTimestamp, int errorCode, @Nonnull byte[] key) {
-            super(startTimestamp);
+        public EventGetError(double startTimestamp, String dcId, int errorCode, @Nonnull byte[] key) {
+            super(startTimestamp, dcId);
             this.errorCode = errorCode;
             this.key = key;
         }
@@ -350,8 +373,7 @@ public class FDBClientLogEvents {
 
         @Override
         public String toString() {
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
-                    .add("startTimestamp=" + getStartTimestampString())
+            return toStringBase()
                     .add("errorCode=" + errorCode)
                     .add("key=" + Arrays.toString(key))
                     .toString();
@@ -366,8 +388,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final Range range;
 
-        public EventGetRangeError(double startTimestamp, int errorCode, @Nonnull Range range) {
-            super(startTimestamp);
+        public EventGetRangeError(double startTimestamp, String dcId, int errorCode, @Nonnull Range range) {
+            super(startTimestamp, dcId);
             this.errorCode = errorCode;
             this.range = range;
         }
@@ -388,8 +410,7 @@ public class FDBClientLogEvents {
 
         @Override
         public String toString() {
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
-                    .add("startTimestamp=" + getStartTimestampString())
+            return toStringBase()
                     .add("errorCode=" + errorCode)
                     .add("range=" + range)
                     .toString();
@@ -404,8 +425,8 @@ public class FDBClientLogEvents {
         @Nonnull
         private final CommitRequest commitRequest;
 
-        public EventCommitError(double startTimestamp, int errorCode, @Nonnull CommitRequest commitRequest) {
-            super(startTimestamp);
+        public EventCommitError(double startTimestamp, String dcId, int errorCode, @Nonnull CommitRequest commitRequest) {
+            super(startTimestamp, dcId);
             this.errorCode = errorCode;
             this.commitRequest = commitRequest;
         }
@@ -426,8 +447,7 @@ public class FDBClientLogEvents {
 
         @Override
         public String toString() {
-            return new StringJoiner(", ", getClass().getSimpleName() + "[", "]")
-                    .add("startTimestamp=" + getStartTimestampString())
+            return toStringBase()
                     .add("errorCode=" + errorCode)
                     .add("commitRequest=" + commitRequest)
                     .toString();
@@ -501,13 +521,18 @@ public class FDBClientLogEvents {
         @Nonnull
         private final Mutation[] mutations;
         private final long snapshotVersion;
+        private final boolean reportConflictingKeys;
 
-        public CommitRequest(@Nonnull Range[] readConflictRanges, @Nonnull Range[] writeConflictRanges,
-                             @Nonnull Mutation[] mutations, long snapshotVersion) {
+        public CommitRequest(@Nonnull Range[] readConflictRanges,
+                             @Nonnull Range[] writeConflictRanges,
+                             @Nonnull Mutation[] mutations,
+                             long snapshotVersion,
+                             boolean reportConflictingKeys) {
             this.readConflictRanges = readConflictRanges;
             this.writeConflictRanges = writeConflictRanges;
             this.mutations = mutations;
             this.snapshotVersion = snapshotVersion;
+            this.reportConflictingKeys = reportConflictingKeys;
         }
 
         @Nonnull
@@ -529,6 +554,10 @@ public class FDBClientLogEvents {
             return snapshotVersion;
         }
 
+        public boolean isReportConflictingKeys() {
+            return reportConflictingKeys;
+        }
+
         @Override
         public String toString() {
             return new StringJoiner(", ", CommitRequest.class.getSimpleName() + "[", "]")
@@ -536,6 +565,7 @@ public class FDBClientLogEvents {
                     .add("writeConflictRanges=" + Arrays.toString(writeConflictRanges))
                     .add("mutations=" + Arrays.toString(mutations))
                     .add("snapshotVersion=" + snapshotVersion)
+                    .add("reportConflictingKeys=" + reportConflictingKeys)
                     .toString();
         }
     }
@@ -554,29 +584,42 @@ public class FDBClientLogEvents {
         }
         return AsyncUtil.whileTrue(() -> {
             final int type = buffer.getInt();
+            final double startTime = buffer.getDouble();
+            String dcId = "";
+            if (protocolVersion >= PROTOCOL_VERSION_6_3) {
+                int dcIdLength = buffer.getInt();
+                if (dcIdLength > 0) {
+                    byte[] dcIdBytes = new byte[dcIdLength];
+                    buffer.get(dcIdBytes);
+                    dcId = new String(dcIdBytes, StandardCharsets.UTF_8);
+                }
+            }
             final Event event;
             switch (type) {
                 case GET_VERSION_LATENCY:
-                    event = new EventGetVersion(buffer.getDouble(), buffer.getDouble(),
-                            protocolVersion < PROTOCOL_VERSION_6_2 ? 0 : buffer.getInt());
+                    event = new EventGetVersion(startTime, dcId, buffer.getDouble(),
+                            protocolVersion < PROTOCOL_VERSION_6_2 ? 0 : buffer.getInt(),
+                            protocolVersion < PROTOCOL_VERSION_6_3 ? 0L : buffer.getLong());
                     break;
                 case GET_LATENCY:
-                    event = new EventGet(buffer.getDouble(), buffer.getDouble(), buffer.getInt(), deserializeByteArray(buffer));
+                    event = new EventGet(startTime, dcId, buffer.getDouble(), buffer.getInt(), deserializeByteArray(buffer));
                     break;
                 case GET_RANGE_LATENCY:
-                    event = new EventGetRange(buffer.getDouble(), buffer.getDouble(), buffer.getInt(), deserializeRange(buffer));
+                    event = new EventGetRange(startTime, dcId, buffer.getDouble(), buffer.getInt(), deserializeRange(buffer));
                     break;
                 case COMMIT_LATENCY:
-                    event = new EventCommit(buffer.getDouble(), buffer.getDouble(), buffer.getInt(), buffer.getInt(), deserializeCommit(buffer));
+                    event = new EventCommit(startTime, dcId, buffer.getDouble(), buffer.getInt(), buffer.getInt(),
+                            protocolVersion < PROTOCOL_VERSION_6_3 ? 0L : buffer.getLong(),
+                            deserializeCommit(protocolVersion, buffer));
                     break;
                 case ERROR_GET:
-                    event = new EventGetError(buffer.getDouble(), buffer.getInt(), deserializeByteArray(buffer));
+                    event = new EventGetError(startTime, dcId, buffer.getInt(), deserializeByteArray(buffer));
                     break;
                 case ERROR_GET_RANGE:
-                    event = new EventGetRangeError(buffer.getDouble(), buffer.getInt(), deserializeRange(buffer));
+                    event = new EventGetRangeError(startTime, dcId, buffer.getInt(), deserializeRange(buffer));
                     break;
                 case ERROR_COMMIT:
-                    event = new EventCommitError(buffer.getDouble(), buffer.getInt(), deserializeCommit(buffer));
+                    event = new EventCommitError(startTime, dcId, buffer.getInt(), deserializeCommit(protocolVersion, buffer));
                     break;
                 default:
                     throw new IllegalStateException("Unknown event type: " + type);
@@ -624,9 +667,13 @@ public class FDBClientLogEvents {
     }
 
     @Nonnull
-    protected static CommitRequest deserializeCommit(@Nonnull ByteBuffer buffer) {
-        return new CommitRequest(deserializeRangeArray(buffer), deserializeRangeArray(buffer),
-                deserializeMutationArray(buffer), buffer.getLong());
+    protected static CommitRequest deserializeCommit(long protocolVersion, @Nonnull ByteBuffer buffer) {
+        return new CommitRequest(
+                deserializeRangeArray(buffer),
+                deserializeRangeArray(buffer),
+                deserializeMutationArray(buffer),
+                buffer.getLong(),
+                protocolVersion >= PROTOCOL_VERSION_6_3 && (buffer.get() != 0));
     }
 
     protected static class EventDeserializer implements AsyncConsumer<KeyValue> {

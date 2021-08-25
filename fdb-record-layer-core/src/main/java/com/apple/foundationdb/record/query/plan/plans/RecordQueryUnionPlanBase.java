@@ -240,10 +240,10 @@ public abstract class RecordQueryUnionPlanBase implements RecordQueryPlanWithChi
 
     @Override
     public QueryPlan<FDBQueriedRecord<Message>> strictlySorted() {
-        return withChildren(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
+        return withChildrenReferences(getChildren().stream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList()));
     }
 
-    protected static boolean isReversed(@Nonnull List<Quantifier.Physical> quantifiers) {
+    public static boolean isReversed(@Nonnull List<Quantifier.Physical> quantifiers) {
         return quantifiers
                 .stream()
                 .map(Quantifier.Physical::getRangesOver)
