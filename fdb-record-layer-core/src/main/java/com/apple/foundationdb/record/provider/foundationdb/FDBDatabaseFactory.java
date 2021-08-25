@@ -625,6 +625,7 @@ public abstract class FDBDatabaseFactory {
      * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This method will be removed in the abstract class
      * in the next major release.
      */
+    @Deprecated
     public abstract void setRunLoopProfilingEnabled(boolean runLoopProfilingEnabled);
 
     /**
@@ -636,6 +637,7 @@ public abstract class FDBDatabaseFactory {
      * @deprecated Call directly on {@link FDBDatabaseFactoryImpl}. This method will be removed in the abstract class
      * in the next major release.
      */
+    @Deprecated
     public abstract boolean isRunLoopProfilingEnabled();
 
     /**
