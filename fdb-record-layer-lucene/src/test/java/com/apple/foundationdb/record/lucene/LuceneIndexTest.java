@@ -177,7 +177,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             RecordCursorProto.LuceneIndexContinuation continuation =  RecordCursorProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(1)
-                    .setScore(0.30086955F)
+                    .setScore(0.27130663F)
                     .setShard(0)
                     .build();
             RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -266,7 +266,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             RecordCursorProto.LuceneIndexContinuation continuation = RecordCursorProto.LuceneIndexContinuation.newBuilder()
                     .setDoc(151)
-                    .setScore(0.0024906613F)
+                    .setScore(0.0025435707F)
                     .setShard(0)
                     .build();
             assertEquals(48, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
