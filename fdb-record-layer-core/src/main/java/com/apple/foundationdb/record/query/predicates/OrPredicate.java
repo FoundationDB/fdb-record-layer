@@ -96,7 +96,14 @@ public class OrPredicate extends AndOrPredicate {
         return new OrPredicate(ImmutableList.copyOf(newChildren));
     }
 
-    public static QueryPredicate or(@Nonnull Collection<QueryPredicate> children) {
+    @Nonnull
+    public static QueryPredicate or(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
+                                    @Nonnull QueryPredicate... operands) {
+        return or(toList(first, second, operands));
+    }
+
+    @Nonnull
+    public static QueryPredicate or(@Nonnull Collection<? extends QueryPredicate> children) {
         Verify.verify(!children.isEmpty());
         if (children.size() == 1) {
             return Iterables.getOnlyElement(children);
