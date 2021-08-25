@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
-import com.apple.foundationdb.relational.recordlayer.ddl.ConstantActionFactory;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -46,8 +45,7 @@ import java.util.concurrent.CompletableFuture;
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
     private FDBDatabase fdbDatabase;
 
-    private Catalog catalog;
-    private ConstantActionFactory constantActionFactory;
+    private RecordLayerEngine engine;
 
     private final List<RecordLayerDatabase> databases = new LinkedList<>();
 
@@ -59,6 +57,8 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
                 db.clearDatabase(ctx);
             }
         }
+
+        engine.deregisterDriver();
     }
 
     @Override
@@ -66,26 +66,25 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         KeySpace keySpace = getKeySpaceForSetup();
         fdbDatabase = FDBDatabaseFactory.instance().getDatabase();
 
-        RecordLayerEngine engine = new RecordLayerEngine(dbPath -> fdbDatabase,
+        engine = new RecordLayerEngine(dbPath -> fdbDatabase,
                 new MapRecordMetaDataStore(),
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 new TestSerializerRegistry(),
                 keySpace);
-        catalog = engine.getCatalog();
-        constantActionFactory = engine.getConstantActionFactory();
+        engine.registerDriver();
     }
 
     @Override
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
-        return catalog.getSchemaTemplate(templateId);
+        return engine.getCatalog().getSchemaTemplate(templateId);
     }
 
     @Nonnull
     @Override
     public RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException {
         try {
-            return catalog.getDatabase(dbUrl);
+            return engine.getCatalog().getDatabase(dbUrl);
         }catch(RelationalException ve){
             if(ve.getErrorCode().equals(RelationalException.ErrorCode.INVALID_PATH)){
                 throw new RelationalException("Database is unknown or does not exist: <" + dbUrl + ">", RelationalException.ErrorCode.UNDEFINED_DATABASE,ve);
@@ -104,14 +103,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {
         try(final Transaction txn= new RecordContextTransaction(fdbDatabase.openContext())){
-            constantActionFactory.getCreateDatabaseConstantAction(dbUri,dbTemplate, Options.create()).execute(txn);
+            engine.getConstantActionFactory().getCreateDatabaseConstantAction(dbUri,dbTemplate, Options.create()).execute(txn);
             txn.commit();
         }
     }
 
     public void createSchemaTemplate(RecordLayerTemplate template) {
         try(final Transaction txn= new RecordContextTransaction(fdbDatabase.openContext())){
-            constantActionFactory.getCreateSchemaTemplateConstantAction(template, Options.create()).execute(txn);
+            engine.getConstantActionFactory().getCreateSchemaTemplateConstantAction(template, Options.create()).execute(txn);
             txn.commit();
         }
     }

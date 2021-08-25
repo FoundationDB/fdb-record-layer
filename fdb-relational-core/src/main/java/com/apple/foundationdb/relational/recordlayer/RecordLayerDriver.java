@@ -26,7 +26,6 @@ import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalException;
-import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 
 import javax.annotation.Nonnull;
@@ -34,11 +33,11 @@ import javax.annotation.Nullable;
 import java.net.URI;
 
 public class RecordLayerDriver implements RelationalDriver {
-    private final Catalog dataCatalog;
+    private final RecordLayerEngine engine;
 
     //internal constructor, use factory patterns instead
-    RecordLayerDriver(Catalog dataCatalog) {
-        this.dataCatalog = dataCatalog;
+    RecordLayerDriver(RecordLayerEngine engine) {
+        this.engine = engine;
     }
 
     @Override
@@ -54,7 +53,7 @@ public class RecordLayerDriver implements RelationalDriver {
          *
          * 1. Go to Catalog and verify that the given Database exists
          */
-        RelationalDatabase frl = dataCatalog.getDatabase(url);
+        RelationalDatabase frl = engine.getCatalog().getDatabase(url);
         assert frl instanceof RecordLayerDatabase : "Catalog does not produce RecordLayer Databases, use a different driver for type <" + frl.getClass() + ">";
         if (existingTransaction != null && !(existingTransaction instanceof RecordContextTransaction)) {
             throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
@@ -73,6 +72,12 @@ public class RecordLayerDriver implements RelationalDriver {
     @Override
     public int getMinorVersion() {
         return 0;
+    }
+
+    @Override
+    public boolean acceptsURL(URI url) {
+        return engine.getScheme().equalsIgnoreCase(url.getScheme());
+//        return url.startsWith(engine.getScheme());
     }
 
     /*private helper methods*/

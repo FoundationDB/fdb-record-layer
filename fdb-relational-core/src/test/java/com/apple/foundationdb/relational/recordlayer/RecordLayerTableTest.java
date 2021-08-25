@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
+import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
@@ -63,9 +64,8 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndGetASingleRecord() {
-        RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final URI dbUrl = URI.create("//record_layer_table_test");
-        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()) {
@@ -96,9 +96,8 @@ public class RecordLayerTableTest {
 
     @Test
     void canDeleteASingleRecord() {
-        RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final URI dbUrl = URI.create("//record_layer_table_test");
-        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()) {
@@ -138,9 +137,8 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndScanASingleRecordFromIndex() throws Exception {
-        RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        URI uri = URI.create("//record_layer_table_test");
-        try(DatabaseConnection conn = driver.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))){
+        URI uri = URI.create("rlsc:embed://record_layer_table_test");
+        try(DatabaseConnection conn = Relational.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()) {
@@ -170,9 +168,8 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndScanASingleRecord() throws Exception {
-        RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        final URI dbUrl = URI.create("//record_layer_table_test");
-        try(DatabaseConnection conn = driver.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
+        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
             try(Statement s = conn.createStatement()){
@@ -203,10 +200,9 @@ public class RecordLayerTableTest {
 
     @Test
     void demo() {
-        final URI dbUrl = URI.create("//record_layer_table_test");
+        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
 
-        RecordLayerDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(dbUrl, null,Options.create().withOption(OperationOption.forceVerifyDdl()))) {
+        try (DatabaseConnection conn = Relational.connect(dbUrl, null,Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
             //create a statement to execute against

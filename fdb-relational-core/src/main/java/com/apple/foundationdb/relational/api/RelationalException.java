@@ -108,7 +108,8 @@ public class RelationalException extends RuntimeException {
          * Used to represent an error that we don't know more details about. This is a backup in case
          * the error handling system can't find a more accurate representation, and shouldn't be used in general.
          */
-        UNKNOWN("XXXXX");
+        UNKNOWN("XXXXX"),
+        UNKNOWN_SCHEME("08001");
 
         private final String errorCode;
 

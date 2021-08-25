@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.DatabaseLocator;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
@@ -47,6 +48,7 @@ public class RecordLayerEngine {
     /*Internal objects*/
     private final Catalog catalog;
     private final ConstantActionFactory constantActionFactory;
+    private final RecordLayerDriver driver;
 
     public RecordLayerEngine(DatabaseLocator databaseFinder,
                              MutableRecordMetaDataStore metaDataStore,
@@ -73,8 +75,14 @@ public class RecordLayerEngine {
                 .setBaseKeySpace(keySpace)
                 .setUserVersionChecker(userVersionChecker)
                 .build();
+        this.driver = new RecordLayerDriver(this);
 
     }
+
+    public void registerDriver() {
+        Relational.registerDriver(driver);
+    }
+
 
     public Catalog getCatalog() {
         return catalog;
@@ -82,5 +90,13 @@ public class RecordLayerEngine {
 
     public ConstantActionFactory getConstantActionFactory() {
         return constantActionFactory;
+    }
+
+    public String getScheme() {
+        return "embed";
+    }
+
+    public void deregisterDriver() {
+        Relational.deregisterDriver(driver);
     }
 }

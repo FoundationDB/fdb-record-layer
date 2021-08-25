@@ -25,12 +25,12 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
+import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
-import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
@@ -65,8 +65,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("//dbid"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed://dbid"), Options.create())){
             conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){
@@ -161,8 +160,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("//dbid"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed://dbid"), Options.create())){
             conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){
@@ -179,8 +177,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        RelationalDriver driver = new RecordLayerDriver(catalog);
-        try (DatabaseConnection conn = driver.connect(URI.create("//dbid"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed://dbid"), Options.create())){
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){

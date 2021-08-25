@@ -104,7 +104,8 @@ public class KeySpaceUtils {
     }
 
     public static String getPath(@Nonnull URI url) {
-        return url.toString().startsWith("//") ? "//" + url.getAuthority() + url.getPath() : url.getPath();
+        String authority = url.getAuthority();
+        return authority != null && authority.length() > 0 ? "//" + authority + url.getPath() : url.getPath();
     }
 
     /**
