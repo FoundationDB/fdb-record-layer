@@ -51,14 +51,17 @@ public abstract class BaseAggregateValue<S, T> implements AggregateValue<S> {
     @Nonnull
     private final S initial; // The initial value for the aggregation
     @Nonnull
+    private String name; // The name to use in the toString method
+    @Nonnull
     private final ObjectPlanHash baseHash;
     @Nonnull
     private final Function<Value, Value> withChildrenOp; // The function to call when need to construct a new instance with new children
 
-    protected BaseAggregateValue(@Nonnull final Value inner, @Nonnull final S initial, @Nonnull final String hashObjectName,
+    protected BaseAggregateValue(@Nonnull final Value inner, @Nonnull final S initial, @Nonnull final String name, @Nonnull final String hashObjectName,
                                  @Nonnull Function<Value, Value> withChildrenOp) {
         this.inner = inner;
         this.initial = initial;
+        this.name = name;
         this.baseHash = new ObjectPlanHash(hashObjectName);
         this.withChildrenOp = withChildrenOp;
     }
@@ -103,5 +106,11 @@ public abstract class BaseAggregateValue<S, T> implements AggregateValue<S> {
     @Override
     public Value withChildren(final Iterable<? extends Value> newChildren) {
         return withChildrenOp.apply(Iterables.getOnlyElement(newChildren));
+    }
+
+    @Nonnull
+    @Override
+    public String toString() {
+        return name + "(" + inner.toString() + ")";
     }
 }

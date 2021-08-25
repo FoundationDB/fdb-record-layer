@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -197,8 +198,7 @@ public class GroupAggregator<M extends Message> {
         } else if (rawValue instanceof String) {
             return SingularResultElement.of((String)rawValue);
         } else {
-            // TODO: Get correct exception
-            throw new RuntimeException("Unrecognized type in aggregation: " + rawValue.getClass().getSimpleName());
+            throw new RecordCoreException("Unrecognized type in aggregation: " + rawValue.getClass().getSimpleName());
         }
     }
 }
