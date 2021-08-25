@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -50,6 +51,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
@@ -91,8 +93,7 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
         this.inner = inner;
         this.groupByCriteria = groupByCriteria;
         this.aggregateValues = aggregateValues;
-        // todo: use Suppliers.memoize
-        this.resultValuesSupplier = (() -> ImmutableList.<Value>builder().addAll(this.groupByCriteria).addAll(this.aggregateValues).build());
+        this.resultValuesSupplier = Suppliers.memoize(this::createValuesList);
     }
 
     @Nonnull
@@ -217,11 +218,23 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @Override
     public PlannerGraph rewritePlannerGraph(@Nonnull List<? extends PlannerGraph> childGraphs) {
         return PlannerGraph.fromNodeAndChildGraphs(
-                // TODO
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.STREAMING_AGGREGATE_OPERATOR,
-                        ImmutableList.of("SUM(A) GROUP BY {B}"),
+                        asString(),
                         ImmutableMap.of()),
                 childGraphs);
+    }
+
+    private List<String> asString() {
+        StringBuilder builder = new StringBuilder();
+        aggregateValues.forEach(value -> builder.append(value.toString()).append(" "));
+        builder.append("GROUP BY ");
+        groupByCriteria.forEach(value -> builder.append(value.toString()).append(" "));
+
+        return Collections.singletonList(builder.toString());
+    }
+
+    private List<Value> createValuesList() {
+        return ImmutableList.<Value>builder().addAll(this.groupByCriteria).addAll(this.aggregateValues).build();
     }
 }

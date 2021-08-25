@@ -28,7 +28,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 
 /**
  * A value representing an aggregate: a value calculated (derived) from other values by applying an aggregation operator (e.g.
