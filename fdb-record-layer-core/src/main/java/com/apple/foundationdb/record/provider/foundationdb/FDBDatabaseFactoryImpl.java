@@ -46,6 +46,28 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
     @Nonnull
     private static final FDBDatabaseFactoryImpl INSTANCE = new FDBDatabaseFactoryImpl();
 
+    /**
+     * When set to true, static options have been set on the FDB instance.
+     * Made volatile because multiple  {@link FDBDatabaseFactory} instances can be created technically, and thus can be
+     * racy
+     * during init.
+     * <p>
+     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
+     * backwards compatibility, it'll be moved there permanently in the next major release.
+     */
+    protected static volatile boolean staticOptionsSet = false;
+
+    /**
+     * Made volatile because multiple {@link FDBDatabaseFactory} instances can be created technically, and thus can be
+     * racy during init.
+     * <p>
+     * Default is 1, which is basically disabled.
+     * <p>
+     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
+     * backwards compatibility, it'll be moved there permanently in the next major release.
+     */
+    protected static volatile int threadsPerClientVersion = 1;
+
     @Nonnull
     private FDBLocalityProvider localityProvider = FDBLocalityUtil.instance();
 
@@ -209,7 +231,14 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
      * @param threadsPerClientV the number of threads per client version. Cannot be less than 1.
      */
     public static void setThreadsPerClientVersion(int threadsPerClientV) {
-        FDBDatabaseFactory.setThreadsPerClientVersion(threadsPerClientV);
+        if (staticOptionsSet) {
+            throw new RecordCoreException("threads per client version cannot be changed as the version has already been initiated");
+        }
+        if (threadsPerClientV < 1) {
+            //if the thread count is too low, disable the setting
+            threadsPerClientV = 1;
+        }
+        threadsPerClientVersion = threadsPerClientV;
     }
 
     public static int getThreadsPerClientVersion() {

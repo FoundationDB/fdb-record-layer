@@ -45,28 +45,6 @@ import java.util.function.Supplier;
 public abstract class FDBDatabaseFactory {
 
     /**
-     * When set to true, static options have been set on the FDB instance.
-     * Made volatile because multiple  {@link FDBDatabaseFactory} instances can be created technically, and thus can be
-     * racy
-     * during init.
-     * <p>
-     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
-     * backwards compatibility, it'll be moved there permanently in the next major release.
-     */
-    protected static volatile boolean staticOptionsSet = false;
-
-    /**
-     * Made volatile because multiple {@link FDBDatabaseFactory} instances can be created technically, and thus can be
-     * racy during init.
-     * <p>
-     * Default is 1, which is basically disabled.
-     * <p>
-     * This option only applies (currently) to {@link FDBDatabaseFactoryImpl} and is present on the abstract class for
-     * backwards compatibility, it'll be moved there permanently in the next major release.
-     */
-    protected static volatile int threadsPerClientVersion = 1;
-
-    /**
      * The default number of entries that is to be cached, per database, from
      * {@link com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver} retrieval requests.
      */
@@ -567,14 +545,7 @@ public abstract class FDBDatabaseFactory {
      */
     @Deprecated
     public static void setThreadsPerClientVersion(int threadsPerClientV) {
-        if (staticOptionsSet) {
-            throw new RecordCoreException("threads per client version cannot be changed as the version has already been initiated");
-        }
-        if (threadsPerClientV < 1) {
-            //if the thread count is too low, disable the setting
-            threadsPerClientV = 1;
-        }
-        threadsPerClientVersion = threadsPerClientV;
+        FDBDatabaseFactoryImpl.setThreadsPerClientVersion(threadsPerClientV);
     }
 
     /**
@@ -586,7 +557,7 @@ public abstract class FDBDatabaseFactory {
      */
     @Deprecated
     public static int getThreadsPerClientVersion() {
-        return threadsPerClientVersion;
+        return FDBDatabaseFactoryImpl.getThreadsPerClientVersion();
     }
 
     @Nonnull
