@@ -230,6 +230,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
      *
      * @param threadsPerClientV the number of threads per client version. Cannot be less than 1.
      */
+    @SuppressWarnings("deprecation")
     public static void setThreadsPerClientVersion(int threadsPerClientV) {
         if (staticOptionsSet) {
             throw new RecordCoreException("threads per client version cannot be changed as the version has already been initiated");
@@ -241,6 +242,7 @@ public class FDBDatabaseFactoryImpl extends FDBDatabaseFactory {
         threadsPerClientVersion = threadsPerClientV;
     }
 
+    @SuppressWarnings("deprecation")
     public static int getThreadsPerClientVersion() {
         return threadsPerClientVersion;
     }
