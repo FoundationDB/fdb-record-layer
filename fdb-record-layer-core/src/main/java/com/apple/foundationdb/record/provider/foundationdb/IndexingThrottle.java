@@ -197,7 +197,7 @@ public class IndexingThrottle {
 
         AtomicInteger tries = new AtomicInteger(0);
         CompletableFuture<R> ret = new CompletableFuture<>();
-        AtomicLong toWait = new AtomicLong(FDBDatabaseFactory.instance().getInitialDelayMillis());
+        AtomicLong toWait = new AtomicLong(common.getRunner().getDatabase().getFactory().getInitialDelayMillis());
         AsyncUtil.whileTrue(() -> {
             loadConfig();
             final Index index = common.getIndex();
@@ -223,7 +223,8 @@ public class IndexingThrottle {
                             handleLessenWork.accept(fdbE, onlineIndexerLogMessageKeyValues);
                         }
                         long delay = (long)(Math.random() * toWait.get());
-                        toWait.set(Math.min(toWait.get() * 2, FDBDatabaseFactory.instance().getMaxDelayMillis()));
+                        toWait.set(Math.min(toWait.get() * 2,
+                                common.getRunner().getDatabase().getFactory().getMaxDelayMillis()));
                         if (LOGGER.isWarnEnabled()) {
                             final KeyValueLogMessage message = KeyValueLogMessage.build("Retrying Runner Exception",
                                     LogMessageKeys.INDEXER_CURR_RETRY, currTries,

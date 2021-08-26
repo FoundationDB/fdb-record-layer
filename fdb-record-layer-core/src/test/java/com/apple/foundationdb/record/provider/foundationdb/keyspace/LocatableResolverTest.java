@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactoryImpl;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -854,7 +855,7 @@ public abstract class LocatableResolverTest extends FDBTestBase {
         // version is cached for 30 seconds by default
         database.setResolverStateRefreshTimeMillis(100);
         // sets the timeout for all the db instances we create
-        final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactory();
+        final FDBDatabaseFactory parallelFactory = new FDBDatabaseFactoryImpl();
         parallelFactory.setStateRefreshTimeMillis(100);
         Supplier<FDBDatabase> databaseSupplier = () -> new FDBDatabase(parallelFactory, null);
         consistently("uninitialized version is 0", () -> {
