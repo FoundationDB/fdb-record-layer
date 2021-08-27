@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionP
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.CombineFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.DataAccessRule;
-import com.apple.foundationdb.record.query.plan.temp.rules.FlattenNestedAndPredicateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.FullUnorderedExpressionToScanPlanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementDistinctUnionRule;
@@ -43,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.InComparisonToExplode
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchIntermediateRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MatchLeafRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.MergeFetchIntoCoveringIndexRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.NormalizePredicatesRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.OrToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctThroughFetchRule;
@@ -78,7 +78,7 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class PlannerRuleSet {
     private static final List<PlannerRule<? extends RelationalExpression>> NORMALIZATION_RULES = ImmutableList.of(
-            new FlattenNestedAndPredicateRule()
+            new NormalizePredicatesRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> REWRITE_RULES = ImmutableList.of(
             new CombineFilterRule(),

@@ -73,6 +73,7 @@ import static com.apple.foundationdb.record.query.plan.ScanComparisons.range;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.only;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.PrimitiveMatchers.equalsObject;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.orPredicate;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QueryPredicateMatchers.valuePredicate;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.comparisonKey;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.coveringIndexPlan;
@@ -112,7 +113,6 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that an OR of compatibly-ordered (up to reversal) indexed fields can be implemented as a union.
      */
-    //@SuppressWarnings("rawtypes") // Bug with raw types and method references: https://bugs.openjdk.java.net/browse/JDK-8063054
     @DualPlannerTest
     @ParameterizedTest
     @BooleanSource
@@ -1480,14 +1480,8 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
 
     /**
      * Verify that queries with an OR of predicates with a common scan and different filters does not bother with a Union.
-     *
-     * TODO [Cascades Planner] We have a predicate of the form a ^ (x v y v z). That is CNFed into:
-     *      (a ^ x) v (a ^ y) v (a ^ z). As that is currently done per pre step before planning, we miss out on the
-     *      optimal plan later as the originally written DNF is not preserved but crucial for finding the single
-     *      index scan.
-     *      (https://github.com/FoundationDB/fdb-record-layer/issues/1301)
      */
-    @Test
+    @DualPlannerTest
     void testOrQueryNoIndex() throws Exception {
         RecordMetaDataHook hook = metadata -> metadata.removeIndex("MySimpleRecord$num_value_3_indexed");
         complexQuerySetup(hook);
@@ -1503,17 +1497,34 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
         // Index(MySimpleRecord$str_value_indexed [[even],[even]]) | Or([num_value_3_indexed EQUALS 1, num_value_3_indexed EQUALS 2, num_value_3_indexed EQUALS 4])
         RecordQueryPlan plan = planner.plan(query);
 
-        final BindingMatcher<? extends RecordQueryPlan> planMatcher =
-                filterPlan(
-                        indexPlan()
-                                .where(indexName("MySimpleRecord$str_value_indexed"))
-                                .and(scanComparisons(range("[[even],[even]]"))))
-                        .where(queryComponents(exactly(equalsObject(orComponent))));
-        assertMatchesExactly(plan, planMatcher);
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    filterPlan(
+                            indexPlan()
+                                    .where(indexName("MySimpleRecord$str_value_indexed"))
+                                    .and(scanComparisons(range("[[even],[even]]"))))
+                            .where(queryComponents(exactly(equalsObject(orComponent))));
+            assertMatchesExactly(plan, planMatcher);
 
-        assertEquals(-1553701984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-        assertEquals(1108620348, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-        assertEquals(1573180943, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+            assertEquals(-1553701984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1108620348, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1573180943, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    predicatesFilterPlan(
+                            indexPlan()
+                                    .where(indexName("MySimpleRecord$str_value_indexed"))
+                                    .and(scanComparisons(range("[[even],[even]]"))))
+                            .where(predicates(only(orPredicate(
+                                    exactly(valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 1)),
+                                            valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2)),
+                                            valuePredicate(fieldValue("num_value_3_indexed"), new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 4)))))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-1029166388, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1957223857, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1873182844, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
 
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -1711,14 +1722,9 @@ class FDBOrQueryToUnionTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
-     * TODO [Cascades Planner] We have a predicate of the form a ^ (x v y v z). That is CNFed into:
-     *      (a ^ x) v (a ^ y) v (a ^ z). As that is currently done per pre step before planning, we miss out on the
-     *      optimal plan later as the originally written DNF is not preserved but crucial for finding the single
-     *      index scan. (https://github.com/FoundationDB/fdb-record-layer/issues/1301)
-     *      We should then transform a ^ (x v y v z) to
-     *      - SELECT * FROM (SELECT * FROM T WHERE a) WHERE x v y v z
-     *      - SELECT * FROM (SELECT * FROM T WHERE x v y v z) WHERE a
-     *      - SELECT * FROM T WHERE x v y v z INTERSECT SELECT * FROM T WHERE a
+     * TODO [Cascades Planner] We have a UNION DISTINCT of identical arms all containing the same filter. If the filter
+     *      is pulled above the UNION the fetch can also be deferred until after the UNION which may be beneficial
+     *      (according to the current cost model which is probably correct).
      */
     @DualPlannerTest
     void testComplexOrQueryToDistinctUnion() throws Exception {

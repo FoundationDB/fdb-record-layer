@@ -79,7 +79,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
 
     @Nonnull
     @Override
-    public List<QueryPredicate> getPredicates() {
+    public List<? extends QueryPredicate> getPredicates() {
         return predicates;
     }
 
@@ -151,7 +151,7 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
             return false;
         }
         final RecordQueryPredicatesFilterPlan otherPlan = (RecordQueryPredicatesFilterPlan)otherExpression;
-        final List<QueryPredicate> otherPredicates = otherPlan.getPredicates();
+        final List<? extends QueryPredicate> otherPredicates = otherPlan.getPredicates();
         if (predicates.size() != otherPredicates.size()) {
             return false;
         }

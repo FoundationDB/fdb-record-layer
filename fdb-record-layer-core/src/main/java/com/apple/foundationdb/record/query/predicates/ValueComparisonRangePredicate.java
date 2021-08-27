@@ -40,7 +40,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -165,7 +164,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.objectsPlanHash(hashKind, super.planHash(), BASE_HASH);
+            return PlanHashable.objectsPlanHash(hashKind, BASE_HASH);
         }
 
         @Override
@@ -228,7 +227,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
 
         @Override
         public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.objectsPlanHash(hashKind, super.planHash(), BASE_HASH, comparisonRange.getRangeType());
+            return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, comparisonRange.getRangeType());
         }
 
         @Nonnull
@@ -267,10 +266,12 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         }
 
         private QueryPredicate reapplyPredicate() {
-            return AndPredicate.and(toResiduals());
+            return toResidualPredicate();
         }
 
-        public List<QueryPredicate> toResiduals() {
+        @Override
+        @Nonnull
+        public QueryPredicate toResidualPredicate() {
             Verify.verify(!comparisonRange.isEmpty());
 
             final ImmutableList.Builder<QueryPredicate> residuals = ImmutableList.builder();
@@ -282,7 +283,7 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                 }
             }
 
-            return residuals.build();
+            return AndPredicate.and(residuals.build());
         }
 
         @Override

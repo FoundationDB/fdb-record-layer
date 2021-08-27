@@ -90,7 +90,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
      * @param <Q> quantifier type
      * @param <B> builder type
      */
-    public static class Builder<Q extends Quantifier, B extends Builder<Q, B>> {
+    public abstract static class Builder<Q extends Quantifier, B extends Builder<Q, B>> {
         @Nullable
         protected CorrelationIdentifier alias;
 
@@ -106,9 +106,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             return (B)this;
         }
 
-        protected Builder() {
-            // silence PMD
-        }
+        @Nonnull
+        public abstract Quantifier build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver);
     }
 
     /**
@@ -124,6 +123,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
          */
         public static class ForEachBuilder extends Builder<ForEach, ForEachBuilder> {
             @Nonnull
+            @Override
             public ForEach build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
                 return new ForEach(alias == null ? CorrelationIdentifier.uniqueID() : alias,
                         rangesOver);
@@ -140,6 +140,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public ExpressionRef<? extends RelationalExpression> getRangesOver() {
             return rangesOver;
+        }
+
+        @Override
+        @Nonnull
+        public Builder<? extends Quantifier, ? extends Builder<?, ?>> toBuilder() {
+            return new ForEachBuilder()
+                    .from(this);
         }
 
         @Override
@@ -213,6 +220,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
          * Builder subclass for existential quantifiers.
          */
         public static class ExistentialBuilder extends Builder<Existential, ExistentialBuilder> {
+            @Override
             @Nonnull
             public Existential build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
                 return new Existential(alias == null ? CorrelationIdentifier.uniqueID() : alias,
@@ -230,6 +238,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public ExpressionRef<? extends RelationalExpression> getRangesOver() {
             return rangesOver;
+        }
+
+        @Override
+        @Nonnull
+        public Builder<? extends Quantifier, ? extends Builder<?, ?>> toBuilder() {
+            return new Existential.ExistentialBuilder()
+                    .from(this);
         }
 
         @Override
@@ -302,6 +317,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
          */
         public static class PhysicalBuilder extends Builder<Physical, PhysicalBuilder> {
             @Nonnull
+            @Override
             public Physical build(@Nonnull final ExpressionRef<? extends RelationalExpression> rangesOver) {
                 return new Physical(alias == null ? CorrelationIdentifier.uniqueID() : alias, rangesOver);
             }
@@ -340,6 +356,13 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         public String getShorthand() {
             return "𝓅";
+        }
+
+        @Override
+        @Nonnull
+        public Builder<? extends Quantifier, ? extends Builder<?, ?>> toBuilder() {
+            return new Physical.PhysicalBuilder()
+                    .from(this);
         }
 
         @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -419,6 +442,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         return alias;
     }
 
+    public abstract Quantifier.Builder<? extends Quantifier, ? extends Quantifier.Builder<?, ?>> toBuilder();
+
     /**
      * Return the reference that the quantifier ranges over.
      * @return {@link ExpressionRef} this quantifier ranges over
@@ -484,7 +509,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Override
     @Nonnull
     public String toString() {
-        return getShorthand() + " " + getRangesOver().toString();
+        return getShorthand() + " " + getRangesOver();
     }
 
     @Nonnull

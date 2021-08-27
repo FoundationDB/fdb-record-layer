@@ -169,7 +169,7 @@ public class PushFilterThroughFetchRule extends PlannerRule<RecordQueryPredicate
         final Quantifier.Physical quantifierOverFetch = bindings.get(quantifierOverFetchMatcher);
         final RecordQueryPlan innerPlan = bindings.get(innerPlanMatcher);
 
-        final List<QueryPredicate> queryPredicates = filterPlan.getPredicates();
+        final List<? extends QueryPredicate> queryPredicates = filterPlan.getPredicates();
 
         final ImmutableList.Builder<QueryPredicate> pushedPredicatesBuilder = ImmutableList.builder();
         final ImmutableList.Builder<QueryPredicate> residualPredicatesBuilder = ImmutableList.builder();

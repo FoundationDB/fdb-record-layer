@@ -149,6 +149,6 @@ public class NotComponent implements ComponentWithSingleChild, BooleanComponent 
     @Override
     public GraphExpansion expand(@Nonnull final CorrelationIdentifier base, @Nonnull final List<String> fieldNamePrefix) {
         final GraphExpansion childGraphExpansion = child.expand(base, fieldNamePrefix);
-        return childGraphExpansion.withPredicate(new NotPredicate(childGraphExpansion.asAndPredicate()));
+        return childGraphExpansion.withPredicate(NotPredicate.not(childGraphExpansion.asAndPredicate()));
     }
 }

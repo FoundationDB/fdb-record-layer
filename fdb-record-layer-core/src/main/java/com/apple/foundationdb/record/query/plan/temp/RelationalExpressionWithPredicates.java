@@ -36,7 +36,7 @@ import java.util.stream.StreamSupport;
  */
 public interface RelationalExpressionWithPredicates extends RelationalExpression {
     @Nonnull
-    List<QueryPredicate> getPredicates();
+    List<? extends QueryPredicate> getPredicates();
 
     @Nonnull
     default ImmutableSet<FieldValue> fieldValuesFromPredicates() {

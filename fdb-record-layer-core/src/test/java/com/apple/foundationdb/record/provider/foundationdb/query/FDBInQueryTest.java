@@ -321,49 +321,6 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    @DualPlannerTest
-    void testInQueryParameter3() throws Exception {
-        RecordMetaDataHook hook = metaData -> {
-            metaData.removeIndex("MySimpleRecord$num_value_3_indexed");
-            metaData.removeIndex("MySimpleRecord$num_value_unique");
-            metaData.addIndex("MySimpleRecord", new Index("multi_index", "num_value_3_indexed", "num_value_2"));
-        };
-
-        complexQuerySetup(hook);
-        RecordQuery query = RecordQuery.newBuilder()
-                .setRecordType("MySimpleRecord")
-                .setFilter(Query.field("num_value_3_indexed").in("valueThrees"))
-                .setSort(Key.Expressions.concat(Key.Expressions.field("num_value_3_indexed"), Key.Expressions.field("num_value_2")))
-                .build();
-
-        planner.setConfiguration(InAsOrUnionMode.AS_UNION.configure(planner.getConfiguration().asBuilder())
-                .build());
-
-        RecordQueryPlan plan = planner.plan(query);
-
-        if (planner instanceof RecordQueryPlanner) {
-            assertMatchesExactly(plan,
-                    inUnionPlan(
-                            indexPlan()
-                                    .where(indexName("multi_index"))
-                                    .and(scanComparisons(range("[EQUALS $p, EQUALS $__in_num_value_2__0]")))
-                    ).where(inUnionValuesSources(exactly(RecordQueryPlanMatchers.inUnionInParameter(equalsObject("valueThrees"))))));
-            assertEquals(1360223246, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(2045945193, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(2045945193, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        } else {
-            assertMatchesExactly(plan,
-                    fetchFromPartialRecordPlan(inUnionPlan(
-                            coveringIndexPlan().where(indexPlanOf(indexPlan()
-                                    .where(indexName("multi_index"))
-                                    .and(scanComparisons(equalities(exactly(anyParameterComparison(), anyParameterComparison()))))))
-                    ).where(RecordQueryPlanMatchers.inUnionValuesSources(exactly(inUnionInParameter(equalsObject("valueThrees")))))));
-            assertEquals(1947663752, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-            assertEquals(1788373323, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
-        }
-    }
-
     /**
      * Verify that an in with a bad parameter plans correctly but fails upon execution.
      */

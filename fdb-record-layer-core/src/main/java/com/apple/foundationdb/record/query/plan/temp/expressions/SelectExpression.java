@@ -82,11 +82,11 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     private final List<Quantifier> children;
     @Nonnull
-    private final List<QueryPredicate> predicates;
+    private final List<? extends QueryPredicate> predicates;
 
     public SelectExpression(@Nonnull List<? extends Value> resultValues,
                             @Nonnull List<? extends Quantifier> children,
-                            @Nonnull List<QueryPredicate> predicates) {
+                            @Nonnull List<? extends QueryPredicate> predicates) {
         this.resultValues = ImmutableList.copyOf(resultValues);
         this.children = ImmutableList.copyOf(children);
         this.predicates = predicates.isEmpty()
@@ -102,7 +102,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Nonnull
     @Override
-    public List<QueryPredicate> getPredicates() {
+    public List<? extends QueryPredicate> getPredicates() {
         return predicates;
     }
 
@@ -166,7 +166,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return false;
         }
 
-        final List<QueryPredicate> otherPredicates = ((SelectExpression)otherExpression).getPredicates();
+        final List<? extends QueryPredicate> otherPredicates = ((SelectExpression)otherExpression).getPredicates();
         return semanticEqualsForResults(otherExpression, aliasMap) &&
                predicates.size() == otherPredicates.size() &&
                Streams.zip(predicates.stream(),
@@ -396,8 +396,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "WHERE " + AndPredicate.and(getPredicates());
     }
 
-    @SuppressWarnings("UnstableApiUsage")
-    private static List<QueryPredicate> partitionPredicates(final List<QueryPredicate> predicates) {
+    private static List<? extends QueryPredicate> partitionPredicates(final List<? extends QueryPredicate> predicates) {
         final ImmutableList<QueryPredicate> flattenedAndPredicates =
                 predicates.stream()
                         .flatMap(predicate -> flattenAndPredicate(predicate).stream())
