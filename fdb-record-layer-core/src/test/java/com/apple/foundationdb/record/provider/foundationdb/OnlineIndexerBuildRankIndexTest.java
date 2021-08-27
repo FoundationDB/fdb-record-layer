@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.test.Tags;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -58,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Test building value indexes.
  */
+@Disabled
 public abstract class OnlineIndexerBuildRankIndexTest extends OnlineIndexerBuildIndexTest {
 
     private OnlineIndexerBuildRankIndexTest(boolean safeBuild) {

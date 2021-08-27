@@ -36,6 +36,7 @@ import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -577,6 +578,7 @@ public class FDBRecordContextTest extends FDBTestBase {
     }
 
     @Test
+    @Disabled
     public void timeoutTalkingToFakeCluster() throws IOException {
         final String fakeClusterFile = FDBTestBase.createFakeClusterFile("for_testing_timeouts");
         final FDBDatabase fakeFdb = FDBDatabaseFactory.instance().getDatabase(fakeClusterFile);

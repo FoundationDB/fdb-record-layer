@@ -42,6 +42,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.logging.log4j.ThreadContext;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
@@ -79,6 +80,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Tests for {@link OnlineIndexer} which does not need to use {@link OnlineIndexer#buildIndex()} (or similar APIs) to
  * build full indexes. ({@link #testConfigLoader()} does use a such API but it is not necessary.)
  */
+@Disabled
 public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
     @Test
     public void buildEndpointIdempotency() {

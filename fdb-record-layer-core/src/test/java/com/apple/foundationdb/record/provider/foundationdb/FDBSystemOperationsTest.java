@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -93,6 +94,7 @@ public class FDBSystemOperationsTest extends FDBTestBase {
     }
 
     @Test
+    @Disabled
     public void fakeClusterConnectionString() throws IOException {
         final String fakeClusterFilePath = FDBTestBase.createFakeClusterFile("readConnectionString");
         String fakeConnectionString;
