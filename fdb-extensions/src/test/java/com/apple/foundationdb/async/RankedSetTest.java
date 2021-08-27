@@ -33,6 +33,7 @@ import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -244,6 +245,7 @@ public class RankedSetTest extends FDBTestBase {
 
     @Test
     @Tag(Tags.Slow)
+    @Disabled
     public void randomFiveThreads() throws InterruptedException {
         List<Throwable> uncaught = Collections.synchronizedList(new ArrayList<>());
         Thread[] threads = new Thread[5];
@@ -264,6 +266,7 @@ public class RankedSetTest extends FDBTestBase {
 
     @Test
     @Tag(Tags.Slow)
+    @Disabled
     public void randomFiveThreadsWithDuplicates() throws InterruptedException {
         config = RankedSet.newConfigBuilder().setCountDuplicates(true).build();
         randomFiveThreads();
