@@ -81,6 +81,7 @@ import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+
 /**
  * Tests for Geophile indexes.
  */
