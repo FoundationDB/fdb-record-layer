@@ -46,6 +46,10 @@ Another, smaller change that has been made is that by default, new indexes added
 *OnlineIndexScrubberTest.testScrubberLimits - reduce number of records [(Issue #1363)](https://github.com/FoundationDB/fdb-record-layer/issues/1363)
 * OnlineIndexScrubber: clear ranges when exhausted [(Issue #1367)](https://github.com/FoundationDB/fdb-record-layer/issues/1367)
 * **Feature** Prototype non-index sorting [(Issue #1161)](https://github.com/FoundationDB/fdb-record-layer/issues/1161)
+### 3.0.209.37
+
+* **Bug fix** relax conditions enforced in ImplementInUnionRule [(Issue #1369)](https://github.com/FoundationDB/fdb-record-layer/issues/1369)
+*OnlineIndexScrubberTest.testScrubberLimits - reduce number of records [(Issue #1363)](https://github.com/FoundationDB/fdb-record-layer/issues/1363)
 
 ### 3.0.209.0
 
