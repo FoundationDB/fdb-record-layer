@@ -41,6 +41,7 @@ import com.apple.test.Tags;
 import com.google.common.collect.Lists;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -248,6 +249,7 @@ public class BunchedMapScanTest extends FDBTestBase {
     }
 
     @Test
+    @Disabled
     public void getKeysContinuation() throws InterruptedException, ExecutionException {
         clearAndPopulate();
         try (Transaction tr = db.createTransaction()) {

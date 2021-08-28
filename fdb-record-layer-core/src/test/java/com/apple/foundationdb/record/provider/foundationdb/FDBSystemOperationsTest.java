@@ -77,6 +77,7 @@ public class FDBSystemOperationsTest extends FDBTestBase {
     }
 
     @Test
+    @Disabled
     public void fakeClusterFilePath() throws IOException {
         String fakeClusterFilePath = FDBTestBase.createFakeClusterFile("readClusterFilePath");
         final FDBDatabase fakeDatabase = FDBDatabaseFactory.instance().getDatabase(fakeClusterFilePath);

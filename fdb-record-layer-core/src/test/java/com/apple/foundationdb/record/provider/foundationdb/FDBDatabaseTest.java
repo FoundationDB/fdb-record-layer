@@ -33,6 +33,7 @@ import com.apple.test.BooleanSource;
 import com.apple.test.Tags;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -466,6 +467,7 @@ public class FDBDatabaseTest extends FDBTestBase {
     }
 
     @Test
+    @Disabled
     public void performNoOpAgainstFakeCluster() throws IOException {
         final String clusterFile = FDBTestBase.createFakeClusterFile("perform_no_op_");
         final FDBDatabase database = FDBDatabaseFactory.instance().getDatabase(clusterFile);
