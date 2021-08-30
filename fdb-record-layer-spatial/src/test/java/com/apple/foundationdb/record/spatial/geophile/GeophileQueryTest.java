@@ -114,27 +114,31 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                 String line;
                 int count = 0;
                 while ((line = reader.readLine()) != null) {
-                    String[] split = line.split("\t");
-                    if (Integer.parseInt(split[14]) < minPopulation) {
-                        continue;
-                    }
-                    TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
-                            .setGeoNameId(Integer.parseInt(split[0]))
-                            .setName(split[1])
-                            .setNameAscii(split[2])
-                            .setCountry(split[8]);
-                    cityBuilder.getLocationBuilder()
-                            .setLatitude(Double.parseDouble(split[4]))
-                            .setLongitude(Double.parseDouble(split[5]));
-                    recordStore.saveRecord(cityBuilder.build());
-                    count++;
-                    if (count > 100) {
-                        commit(context);
-                        context.close();
-                        total += count;
-                        count = 0;
-                        context = openContext();
-                        recordStore = recordStore.asBuilder().setContext(context).open();
+                    try {
+                        String[] split = line.split("\t");
+                        if (Integer.parseInt(split[14]) < minPopulation) {
+                            continue;
+                        }
+                        TestRecordsGeoProto.City.Builder cityBuilder = TestRecordsGeoProto.City.newBuilder()
+                                .setGeoNameId(Integer.parseInt(split[0]))
+                                .setName(split[1])
+                                .setNameAscii(split[2])
+                                .setCountry(split[8]);
+                        cityBuilder.getLocationBuilder()
+                                .setLatitude(Double.parseDouble(split[4]))
+                                .setLongitude(Double.parseDouble(split[5]));
+                        recordStore.saveRecord(cityBuilder.build());
+                        count++;
+                        if (count > 100) {
+                            commit(context);
+                            context.close();
+                            total += count;
+                            count = 0;
+                            context = openContext();
+                            recordStore = recordStore.asBuilder().setContext(context).open();
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.error("loadCities(): Failed to parse line " + line, ex);
                     }
                 }
                 commit(context);
@@ -148,8 +152,7 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected void loadCountries(RecordMetaDataHook hook, int minPopulation) throws Exception {
         int total = 0;
-        try (FileInputStream file = new FileInputStream(".out/countryInfo.txt");
-                FDBRecordContext context = openContext()) {
+        try (FileInputStream file = new FileInputStream(".out/countryInfo.txt"); FDBRecordContext context = openContext()) {
             BufferedReader reader = new BufferedReader(new InputStreamReader(file, "UTF-8"));
             openRecordStore(context, hook);
             String line;
@@ -157,16 +160,20 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                 if (line.startsWith("#")) {
                     continue;
                 }
-                String[] split = line.split("\t");
-                if (Integer.parseInt(split[7]) < minPopulation) {
-                    continue;
+                try {
+                    String[] split = line.split("\t");
+                    if (Integer.parseInt(split[7]) < minPopulation) {
+                        continue;
+                    }
+                    TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
+                            .setGeoNameId(Integer.parseInt(split[16]))
+                            .setName(split[4])
+                            .setCode(split[0]);
+                    recordStore.saveRecord(countryBuilder.build());
+                    total++;
+                } catch (Exception ex) {
+                    LOGGER.error("loadCountries(): Failed to parse line " + line, ex);
                 }
-                TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
-                        .setGeoNameId(Integer.parseInt(split[16]))
-                        .setName(split[4])
-                        .setCode(split[0]);
-                recordStore.saveRecord(countryBuilder.build());
-                total++;
             }
             commit(context);
         }
@@ -182,23 +189,27 @@ public class GeophileQueryTest extends FDBRecordStoreQueryTestBase {
                 String line = reader.readLine();
                 int count = 0;
                 while ((line = reader.readLine()) != null) {
-                    String[] split = line.split("\t");
-                    FDBStoredRecord<Message> country = recordStore.loadRecord(Tuple.from(Integer.parseInt(split[0])));
-                    if (country == null) {
-                        LOGGER.warn(String.format("country not found: %s", split[0]));
-                        continue;
-                    }
-                    TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
-                            .mergeFrom(country.getRecord())
-                            .setShape(split[1]);
-                    recordStore.saveRecord(countryBuilder.build());
-                    count++;
-                    if (count > 100) {
-                        commit(context);
-                        context.close();
-                        context = openContext();
-                        recordStore = recordStore.asBuilder().setContext(context).open();
-                        count = 0;
+                    try {
+                        String[] split = line.split("\t");
+                        FDBStoredRecord<Message> country = recordStore.loadRecord(Tuple.from(Integer.parseInt(split[0])));
+                        if (country == null) {
+                            LOGGER.warn(String.format("country not found: %s", split[0]));
+                            continue;
+                        }
+                        TestRecordsGeoProto.Country.Builder countryBuilder = TestRecordsGeoProto.Country.newBuilder()
+                                .mergeFrom(country.getRecord())
+                                .setShape(split[1]);
+                        recordStore.saveRecord(countryBuilder.build());
+                        count++;
+                        if (count > 100) {
+                            commit(context);
+                            context.close();
+                            context = openContext();
+                            recordStore = recordStore.asBuilder().setContext(context).open();
+                            count = 0;
+                        }
+                    } catch (Exception ex) {
+                        LOGGER.error("loadCountryShapes(): Failed to parse line " + line, ex);
                     }
                 }
                 commit(context);
