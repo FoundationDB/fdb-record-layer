@@ -38,6 +38,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -61,7 +62,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
                         @Nonnull Collection<RecordType> recordTypes,
                         @Nonnull Function<OnlineIndexer.Config, OnlineIndexer.Config> configLoader,
                         @Nonnull OnlineIndexer.Config config,
-                        boolean syntheticIndex,
                         long leaseLengthMillis,
                         boolean trackProgress,
                         @Nonnull OnlineIndexScrubber.ScrubbingPolicy scrubbingPolicy) {
@@ -69,8 +69,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
         this.runner = runner;
         this.scrubbingPolicy = scrubbingPolicy;
         this.common = new IndexingCommon(runner, recordStoreBuilder,
-                index, recordTypes, configLoader, config,
-                syntheticIndex,
+                Collections.singletonList(index), recordTypes, configLoader, config,
                 trackProgress,
                 true, // always use synchronized session
                 leaseLengthMillis);
@@ -265,7 +264,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
         // Maybe the performance impact of this is low enough to be always enabled?
         private boolean trackProgress = true;
         private int increaseLimitAfter = OnlineIndexer.DO_NOT_RE_INCREASE_LIMIT;
-        protected boolean syntheticIndex = false;
         private long leaseLengthMillis = OnlineIndexer.DEFAULT_LEASE_LENGTH_MILLIS;
 
         protected Builder() {
@@ -882,7 +880,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 scrubbingPolicy = ScrubbingPolicy.DEFAULT;
             }
             return new OnlineIndexScrubber(runner, recordStoreBuilder, index, recordTypes,
-                    configLoader, conf, syntheticIndex,
+                    configLoader, conf,
                     leaseLengthMillis, trackProgress,
                     scrubbingPolicy);
         }
@@ -912,7 +910,6 @@ public class OnlineIndexScrubber implements AutoCloseable {
                 }
             }
             if (recordTypes.stream().anyMatch(RecordType::isSynthetic)) {
-                syntheticIndex = true;
                 // The (stored) types to scan, not the (synthetic) types that are indexed.
                 recordTypes = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null))
                         .storedRecordTypesForIndex(index, recordTypes);

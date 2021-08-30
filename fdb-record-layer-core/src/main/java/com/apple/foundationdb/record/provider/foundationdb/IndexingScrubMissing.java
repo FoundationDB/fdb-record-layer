@@ -174,7 +174,7 @@ public class IndexingScrubMissing extends IndexingBase {
             final long scanLimit = scrubbingPolicy.getEntriesScanLimit();
 
             return iterateRangeOnly(store, cursor, this::getRecordIfMissingIndex,
-                    lastResult, hasMore, recordsScanned)
+                    lastResult, hasMore, recordsScanned, true)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getPrimaryKey() :
                                           rangeEnd)
@@ -195,7 +195,7 @@ public class IndexingScrubMissing extends IndexingBase {
     private CompletableFuture<FDBStoredRecord<Message>> getRecordIfMissingIndex(FDBRecordStore store, final RecordCursorResult<FDBStoredRecord<Message>> currResult) {
         final FDBStoredRecord<Message> rec = currResult.get();
         // return true if an index is missing and updated
-        if (!common.recordTypes.contains(rec.getRecordType())) {
+        if (!common.getAllRecordTypes().contains(rec.getRecordType())) {
             return CompletableFuture.completedFuture(null);
         }
 

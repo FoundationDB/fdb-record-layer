@@ -114,7 +114,7 @@ public class IndexingThrottle {
                 if (LOGGER.isInfoEnabled()) {
                     LOGGER.info(
                             KeyValueLogMessage.build("Decreasing the limit to the new maxLimit.",
-                                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                                     LogMessageKeys.LIMIT, limit,
                                     LogMessageKeys.MAX_LIMIT, maxLimit).toString());
                 }
@@ -131,7 +131,7 @@ public class IndexingThrottle {
                     LogMessageKeys.ERROR, fdbException.getMessage(),
                     LogMessageKeys.ERROR_CODE, fdbException.getCode(),
                     LogMessageKeys.LIMIT, limit,
-                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                     LogMessageKeys.INDEXER_ID, common.getUuid()
                     );
             if (additionalLogMessageKeyValues != null) {
@@ -161,7 +161,7 @@ public class IndexingThrottle {
         limit = Math.min(maxLimit, Math.max(limit + 1, (4 * limit) / 3));
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(KeyValueLogMessage.of("Re-increasing limit of online index build",
-                    LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                    LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                     LogMessageKeys.INDEXER_ID, common.getUuid(),
                     LogMessageKeys.LIMIT, limit));
         }
@@ -189,7 +189,7 @@ public class IndexingThrottle {
                                                @Nullable final BiConsumer<FDBException, List<Object>> handleLessenWork,
                                                @Nullable final List<Object> additionalLogMessageKeyValues) {
         List<Object> onlineIndexerLogMessageKeyValues = new ArrayList<>(Arrays.asList(
-                LogMessageKeys.INDEX_NAME, common.getIndex().getName(),
+                LogMessageKeys.INDEX_NAME, common.getTargetIndexesNames(),
                 LogMessageKeys.INDEXER_ID, common.getUuid()));
         if (additionalLogMessageKeyValues != null) {
             onlineIndexerLogMessageKeyValues.addAll(additionalLogMessageKeyValues);
@@ -200,15 +200,16 @@ public class IndexingThrottle {
         AtomicLong toWait = new AtomicLong(common.getRunner().getDatabase().getFactory().getInitialDelayMillis());
         AsyncUtil.whileTrue(() -> {
             loadConfig();
-            final Index index = common.getIndex();
             return common.getRunner().runAsync(context -> common.getRecordStoreBuilder().copyBuilder().setContext(context).openAsync().thenCompose(store -> {
-                IndexState indexState = store.getIndexState(index);
-                if (indexState != expectedIndexState) {
-                    throw new RecordCoreStorageException("Unexpected index state",
-                            LogMessageKeys.INDEX_NAME, index.getName(),
-                            common.getRecordStoreBuilder().getSubspaceProvider().logKey(), common.getRecordStoreBuilder().getSubspaceProvider().toString(context),
-                            LogMessageKeys.INDEX_STATE, indexState,
-                            LogMessageKeys.INDEX_STATE_PRECONDITION, expectedIndexState);
+                for (Index index: common.getTargetIndexes()) {
+                    IndexState indexState = store.getIndexState(index);
+                    if (indexState != expectedIndexState) {
+                        throw new RecordCoreStorageException("Unexpected index state",
+                                LogMessageKeys.INDEX_NAME, index.getName(),
+                                common.getRecordStoreBuilder().getSubspaceProvider().logKey(), common.getRecordStoreBuilder().getSubspaceProvider().toString(context),
+                                LogMessageKeys.INDEX_STATE, indexState,
+                                LogMessageKeys.INDEX_STATE_PRECONDITION, expectedIndexState);
+                    }
                 }
                 return function.apply(store);
             }), handlePostTransaction, onlineIndexerLogMessageKeyValues).handle((value, e) -> {

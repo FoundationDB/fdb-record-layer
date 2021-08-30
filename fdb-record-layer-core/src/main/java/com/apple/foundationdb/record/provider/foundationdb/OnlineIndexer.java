@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataProvider;
-import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
@@ -41,7 +40,6 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.synchronizedsession.SynchronizedSessionRunner;
-import com.apple.foundationdb.record.query.plan.synthetic.SyntheticRecordPlanner;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.synchronizedsession.SynchronizedSession;
 import com.apple.foundationdb.tuple.Tuple;
@@ -53,7 +51,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -62,6 +63,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Index.decodeSubspaceKey;
 
@@ -144,27 +146,26 @@ public class OnlineIndexer implements AutoCloseable {
     @Nullable private IndexingBase indexer = null;
 
     @Nonnull private final FDBDatabaseRunner runner;
-    @Nonnull private final Index index;
+    @Nonnull private final Index index; // First target index is used for locks
     @Nonnull private IndexingPolicy indexingPolicy;
     private boolean fallbackToRecordsScan = false;
 
     @SuppressWarnings("squid:S00107")
     OnlineIndexer(@Nonnull FDBDatabaseRunner runner,
                   @Nonnull FDBRecordStore.Builder recordStoreBuilder,
-                  @Nonnull Index index, @Nonnull Collection<RecordType> recordTypes,
-                  @Nonnull Function<Config, Config> configLoader, @Nonnull Config config,
-                  boolean syntheticIndex,
+                  @Nonnull List<Index> targetIndexes,
+                  @Nullable Collection<RecordType> recordTypes,
+                  @Nullable Function<Config, Config> configLoader, @Nonnull Config config,
                   boolean useSynchronizedSession,
                   long leaseLengthMillis,
                   boolean trackProgress,
                   @Nonnull IndexingPolicy indexingPolicy) {
         this.runner = runner;
-        this.index = index;
+        this.index = targetIndexes.get(0);
         this.indexingPolicy = indexingPolicy;
 
         this.common = new IndexingCommon(runner, recordStoreBuilder,
-                index, recordTypes, configLoader, config,
-                syntheticIndex,
+                targetIndexes, recordTypes, configLoader, config,
                 trackProgress,
                 useSynchronizedSession,
                 leaseLengthMillis);
@@ -328,11 +329,22 @@ public class OnlineIndexer implements AutoCloseable {
     }
 
     @Nonnull
+    private IndexingMultiTargetByRecords getIndexerMultiTargetByRecords() {
+        if (! (indexer instanceof IndexingMultiTargetByRecords)) {
+            indexer = new IndexingMultiTargetByRecords(common, indexingPolicy);
+        }
+        return (IndexingMultiTargetByRecords)indexer;
+    }
+
+    @Nonnull
     private IndexingBase getIndexer() {
         if (fallbackToRecordsScan) {
             IndexingBase indexingBase = getIndexerByRecords();
             indexingBase.enforceStampOverwrite();
             return indexingBase;
+        }
+        if (common.isMultiTarget()) {
+            return getIndexerMultiTargetByRecords();
         }
         if (indexingPolicy.isByIndex()) {
             return getIndexerByIndex();
@@ -440,8 +452,10 @@ public class OnlineIndexer implements AutoCloseable {
         // test only(!)
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             Transaction transaction = store.getContext().ensureActive();
-            byte[] stampKey = indexBuildTypeSubspace(store, common.getIndex()).getKey();
-            transaction.clear(stampKey);
+            for (Index targetIndex: common.getTargetIndexes()) {
+                byte[] stampKey = indexBuildTypeSubspace(store, targetIndex).getKey();
+                transaction.clear(stampKey);
+            }
             return AsyncUtil.DONE;
         }));
     }
@@ -739,42 +753,25 @@ public class OnlineIndexer implements AutoCloseable {
 
     /**
      * Mark the index as readable if it is built.
-     * @return a future that will complete to <code>true</code> if the index is readable and <code>false</code>
-     *     otherwise
-     */
-    @API(API.Status.EXPERIMENTAL)
-    @Nonnull
-    public CompletableFuture<Boolean> markReadableIfBuilt() {
-        return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
-            if (store.isIndexReadable(index)) {
-                return AsyncUtil.READY_TRUE;
-            }
-            final RangeSet rangeSet = new RangeSet(store.indexRangeSubspace(index));
-            return rangeSet.missingRanges(store.ensureContextActive()).iterator().onHasNext()
-                    .thenCompose(hasNext -> {
-                        if (hasNext) {
-                            return AsyncUtil.READY_FALSE;
-                        } else {
-                            // Index is built because there is no missing range.
-                            return store.markIndexReadable(index)
-                                    // markIndexReadable will return false if the index was already readable
-                                    .thenApply(vignore2 -> true);
-                        }
-                    });
-        }), common.indexLogMessageKeyValues("OnlineIndexer::markReadableIfBuilt"));
-    }
-
-    /**
-     * Mark the index as readable.
-     * @return a future that will either complete exceptionally if the index can not
-     * be made readable or will contain <code>true</code> if the store was modified
+     * @return a future that will complete to <code>true</code> if all the target indexes are readable or marked readable
      * and <code>false</code> otherwise
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
+    public CompletableFuture<Boolean> markReadableIfBuilt() {
+        return getIndexer().markReadableIfBuilt();
+    }
+
+    /**
+     * Mark the index as readable.
+     * @return a future that will either complete exceptionally if any of the target indexes can not
+     * be made readable or will contain <code>true</code> if the store was modified and <code>false</code>
+     * otherwise
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
     public CompletableFuture<Boolean> markReadable() {
-        return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose(store -> store.markIndexReadable(index)), common.indexLogMessageKeyValues("OnlineIndexer::markReadable"));
+        return getIndexer().markReadable();
     }
 
     /**
@@ -1020,27 +1017,26 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.UNSTABLE)
     public static class Builder {
         @Nullable
-        protected FDBDatabaseRunner runner;
+        private FDBDatabaseRunner runner;
         @Nullable
-        protected FDBRecordStore.Builder recordStoreBuilder;
+        private FDBRecordStore.Builder recordStoreBuilder;
+        @Nonnull
+        private List<Index> targetIndexes = new ArrayList<>();
         @Nullable
-        protected Index index;
-        @Nullable
-        protected Collection<RecordType> recordTypes;
+        private Collection<RecordType> recordTypes;
 
         private IndexingPolicy indexingPolicy = null;
         private IndexingPolicy.Builder indexingPolicyBuilder = null;
-        @Nonnull
-        protected Function<Config, Config> configLoader = old -> old;
-        protected int limit = DEFAULT_LIMIT;
-        protected int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
-        protected int maxRetries = DEFAULT_MAX_RETRIES;
-        protected int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
+        @Nullable
+        private Function<Config, Config> configLoader = null;
+        private int limit = DEFAULT_LIMIT;
+        private int maxWriteLimitBytes = DEFAULT_WRITE_LIMIT_BYTES;
+        private int maxRetries = DEFAULT_MAX_RETRIES;
+        private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
         private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
         // Maybe the performance impact of this is low enough to be always enabled?
         private boolean trackProgress = true;
         private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
-        protected boolean syntheticIndex = false;
         private IndexStatePrecondition indexStatePrecondition = null;
         private boolean useSynchronizedSession = true;
         private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
@@ -1126,22 +1122,19 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Get the index to be built.
-         * @return the index to be built
-         */
-        @Nullable
-        public Index getIndex() {
-            return index;
-        }
-
-        /**
          * Set the index to be built.
          * @param index the index to be built
          * @return this builder
+         *
          */
         @Nonnull
         public Builder setIndex(@Nullable Index index) {
-            this.index = index;
+            if (!this.targetIndexes.isEmpty()) {
+                throw new IndexingBase.ValidationException("setIndex may not be used when other target indexes are already set");
+            }
+            if (index != null) {
+                addTargetIndex(index);
+            }
             return this;
         }
 
@@ -1149,11 +1142,34 @@ public class OnlineIndexer implements AutoCloseable {
          * Set the index to be built.
          * @param indexName the index to be built
          * @return this builder
+         *
          */
         @Nonnull
         public Builder setIndex(@Nonnull String indexName) {
-            this.index = getRecordMetaData().getIndex(indexName);
+            if (!this.targetIndexes.isEmpty()) {
+                throw new IndexingBase.ValidationException("setIndex may not be used when other target indexes are already set");
+            }
+            return addTargetIndex(indexName);
+        }
+
+        public Builder setTargetIndexes(@Nonnull List<Index> indexes) {
+            this.targetIndexes = new ArrayList<>(indexes);
             return this;
+        }
+
+        public Builder setTargetIndexesByName(@Nonnull List<String> indexes) {
+            final RecordMetaData metaData = getRecordMetaData();
+            return setTargetIndexes(indexes.stream().map(metaData::getIndex).collect(Collectors.toList()));
+        }
+
+        public Builder addTargetIndex(@Nonnull Index index) {
+            this.targetIndexes.add(index);
+            return this;
+        }
+
+        public Builder addTargetIndex(@Nonnull String indexName) {
+            final RecordMetaData metaData = getRecordMetaData();
+            return addTargetIndex(metaData.getIndex(indexName));
         }
 
         /**
@@ -1170,7 +1186,8 @@ public class OnlineIndexer implements AutoCloseable {
         /**
          * Set the explicit set of record types to be indexed.
          *
-         * Normally, record types are inferred from {@link #setIndex}.
+         * Normally, record types are inferred from {@link #addTargetIndex(Index)}. Setting the types
+         * explicitly is not allowed with multi targets indexing.
          * @param recordTypes the record types to be indexed or {@code null} to infer from the index
          * @return this builder
          */
@@ -1790,7 +1807,15 @@ public class OnlineIndexer implements AutoCloseable {
          * @return a new online indexer
          */
         public OnlineIndexer build() {
+            determineIndexingPolicy();
             validate();
+            Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
+            return new OnlineIndexer(runner, recordStoreBuilder, targetIndexes, recordTypes,
+                    configLoader, conf,
+                    useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
+        }
+
+        private void determineIndexingPolicy() {
             // Here: Supporting dual backward compatibilities:
             // 1. Allow the use of indexStatePrecondition
             // 2. Allow the use of an explicit index policy (instead of the index policy builder)
@@ -1813,42 +1838,41 @@ public class OnlineIndexer implements AutoCloseable {
             if (indexingPolicy == null) {
                 indexingPolicy = IndexingPolicy.DEFAULT;
             }
-            // Here: indexingPolicy is defined
-            Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
-            return new OnlineIndexer(runner, recordStoreBuilder, index, recordTypes,
-                    configLoader, conf, syntheticIndex,
-                    useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
         }
 
-        protected void validate() {
-            validateIndex();
+        private void validate() {
+            validateIndexesAndTypes();
             validateLimits();
         }
 
-        // Check pointer equality to make sure other objects really came from given metaData.
-        // Also resolve record types to use if not specified.
-        private void validateIndex() {
-            if (index == null) {
+        private void validateIndexesAndTypes() {
+            final RecordMetaData metaData = getRecordMetaData();
+            if (this.targetIndexes == null || this.targetIndexes.isEmpty()) {
                 throw new MetaDataException("index must be set");
             }
-            final RecordMetaData metaData = getRecordMetaData();
-            if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {
-                throw new MetaDataException("Index " + index.getName() + " not contained within specified metadata");
+            // Remove duplications (if any)
+            if (targetIndexes.size() > 1) {
+                if (indexingPolicy.isByIndex()) {
+                    // TODO: support multi target indexing by index
+                    throw new IndexingBase.ValidationException("Indexing multi targets by a source index is not supported (yet)");
+                }
+                Collection<Index> set = new HashSet<>(targetIndexes);
+                if (set.size() < targetIndexes.size()) {
+                    targetIndexes = new ArrayList<>(set);
+                }
             }
-            if (recordTypes == null) {
-                recordTypes = metaData.recordTypesForIndex(index);
-            } else {
+            targetIndexes.sort(Comparator.comparing(Index::getName));
+            for (Index index : targetIndexes) {
+                if (!metaData.hasIndex(index.getName()) || index != metaData.getIndex(index.getName())) {
+                    throw new MetaDataException("Index " + index.getName() + " not contained within specified metadata");
+                }
+            }
+            if (recordTypes != null) {
                 for (RecordType recordType : recordTypes) {
                     if (recordType != metaData.getIndexableRecordType(recordType.getName())) {
                         throw new MetaDataException("Record type " + recordType.getName() + " not contained within specified metadata");
                     }
                 }
-            }
-            if (recordTypes.stream().anyMatch(RecordType::isSynthetic)) {
-                syntheticIndex = true;
-                // The (stored) types to scan, not the (synthetic) types that are indexed.
-                recordTypes = new SyntheticRecordPlanner(metaData, new RecordStoreState(null, null))
-                    .storedRecordTypesForIndex(index, recordTypes);
             }
         }
 

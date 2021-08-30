@@ -931,6 +931,10 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             assertEquals(199, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_SIZE));
             assertEquals(1, timer.getCount(FDBStoreTimer.Counts.ONLINE_INDEX_BUILDER_RANGES_BY_COUNT)); // last item
 
+            context.commit();
+        }
+        try (FDBRecordContext context = openContext()) {
+            assertTrue(recordStore.isIndexReadable("newIndex"));
             recordStore.clearAndMarkIndexWriteOnly("newIndex").join();
             context.commit();
         }

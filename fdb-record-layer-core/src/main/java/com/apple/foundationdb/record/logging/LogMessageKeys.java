@@ -105,6 +105,8 @@ public enum LogMessageKeys {
     // index-related keys
     INDEX_NAME("index_name"),
     INDEX_STATE("index_state"),
+    TARGET_INDEX_NAME("target_index_name"),
+    TARGET_INDEX_STATE("target_index_state"),
     VALUE_KEY("value_key"),
     PRIMARY_KEY("primary_key"),
     VALUE("value"),
