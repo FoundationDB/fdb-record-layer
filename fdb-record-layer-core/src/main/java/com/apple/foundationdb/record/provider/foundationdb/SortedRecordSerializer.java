@@ -55,7 +55,7 @@ public class SortedRecordSerializer<M extends Message> {
     private final RecordMetaData recordMetaData;
     @Nullable
     private final StoreTimer timer;
-    
+
     public SortedRecordSerializer(@Nonnull final RecordSerializer<M> serializer, @Nonnull final RecordMetaData recordMetaData, @Nullable final StoreTimer timer) {
         this.serializer = serializer;
         this.recordMetaData = recordMetaData;
@@ -124,6 +124,18 @@ public class SortedRecordSerializer<M extends Message> {
         @Override
         public FDBStoredRecord<M> getStoredRecord() {
             return null;
+        }
+
+        @Nonnull
+        @Override
+        public Object getResultElement() {
+            return record;
+        }
+
+        @Nonnull
+        @Override
+        public Class<?> getResultElementType() {
+            return Message.class;
         }
     }
 
