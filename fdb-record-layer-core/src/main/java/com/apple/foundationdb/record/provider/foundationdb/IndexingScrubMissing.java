@@ -217,10 +217,10 @@ public class IndexingScrubMissing extends IndexingBase {
                     final byte[] keyBytes = maintainer.getIndexSubspace().pack(valueKey);
                     return maintainer.state.transaction.get(keyBytes).thenApply(indexVal -> indexVal == null ? valueKey : null);
                 })
-                .filter(Objects::nonNull)
                 .collect(Collectors.toList()))
-                .thenApply(missingIndexesKeys -> {
-                    if (missingIndexesKeys.isEmpty() || (missingIndexesKeys.size() == 1 && missingIndexesKeys.get(0) == null)) {
+                .thenApply(list -> {
+                    List<Tuple> missingIndexesKeys = list.stream().filter(Objects::nonNull).collect(Collectors.toList());
+                    if (missingIndexesKeys.isEmpty()) {
                         return null;
                     }
                     // Here: Oh, No! the index is missing!!
