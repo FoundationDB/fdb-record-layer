@@ -20,14 +20,13 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
-import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 
@@ -41,7 +40,7 @@ public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
     public final Scanner<KeyValue> openScan(@Nonnull Transaction t,
                                             @Nullable NestableTuple startKey,
                                             @Nullable NestableTuple endKey,
-                                            @Nonnull Options scanOptions) throws RelationalException {
+                                            @Nonnull QueryProperties scanProperties) throws RelationalException {
         //TODO(bfines) this will need to be rewired to support continuations
         TupleRange range;
         if (startKey == null) {
@@ -58,7 +57,7 @@ public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
 
         FDBRecordStore store = getSchema().loadStore();
         //TODO(bfines) get the type index for this
-        ScanProperties props = optionsToProperties(scanOptions);
+        ScanProperties props = QueryPropertiesUtils.getScanProperties(scanProperties);
         final RecordCursor<CURSOR_TYPE> cursor = openScan(store, range, props);
         return CursorScanner.create(cursor, keyValueTransform(), supportsMessageParsing());
     }
@@ -72,10 +71,4 @@ public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
     protected abstract Function<CURSOR_TYPE, KeyValue> keyValueTransform();
 
     protected abstract boolean supportsMessageParsing();
-
-    /* ****************************************************************************************************************/
-    /*private helper methods*/
-    protected ScanProperties optionsToProperties(Options scanOptions) {
-        return new ScanProperties(ExecuteProperties.newBuilder().build());
-    }
 }

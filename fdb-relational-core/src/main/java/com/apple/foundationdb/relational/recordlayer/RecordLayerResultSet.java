@@ -25,26 +25,30 @@ import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.google.protobuf.Message;
+
+import javax.annotation.Nullable;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     protected final NestableTuple startKey;
     protected final NestableTuple endKey;
     protected final RecordStoreConnection sourceConnection;
-    protected final Options scanOptions;
 
     protected final Scannable scannable;
     protected Continuation lastContinuation = null;
 
+    protected final QueryProperties scanProperties;
+
     public RecordLayerResultSet(Scannable scannable, NestableTuple start, NestableTuple end,
-                                RecordStoreConnection sourceConnection, Options scanOptions) {
+                                RecordStoreConnection sourceConnection, QueryProperties scanProperties) {
         this.scannable = scannable;
         this.startKey = start;
         this.endKey = end;
         this.sourceConnection = sourceConnection;
-        this.scanOptions = scanOptions;
         this.fieldNames = scannable.getFieldNames();
+        this.scanProperties = scanProperties;
     }
 
     private final String[] fieldNames;
@@ -58,7 +62,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     public boolean next() throws RelationalException {
         currentRow = null;
         if (currentCursor == null) {
-            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, scanOptions.withOption(OperationOption.continuation(lastContinuation)));
+            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, scanProperties);
         }
         if (!currentCursor.hasNext()) {
             return false;

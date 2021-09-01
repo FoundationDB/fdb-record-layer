@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.google.common.base.Preconditions;
 
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,10 +35,14 @@ public class TableScan {
     private final Map<String, Object> startKey;
     private final Map<String, Object> endKey;
 
-    public TableScan(String tableName, Map<String, Object> startKey, Map<String, Object> endKey) {
+    private final QueryProperties scanProperties;
+
+    public TableScan(String tableName, Map<String, Object> startKey, Map<String, Object> endKey,
+                     QueryProperties scanProperties) {
         this.tableName = tableName;
         this.startKey = startKey;
         this.endKey = endKey;
+        this.scanProperties = scanProperties;
     }
 
     public static Builder newBuilder() {
@@ -56,10 +61,15 @@ public class TableScan {
         return endKey;
     }
 
+    public QueryProperties getScanProperties() {
+        return scanProperties;
+    }
+
     public static class Builder {
         private String tableName;
         private Map<String, Object> startKey;
         private Map<String, Object> endKey;
+        private QueryProperties scanProperties = QueryProperties.DEFAULT;
 
         public Builder withTableName(String tableName) {
             this.tableName = tableName;
@@ -82,13 +92,18 @@ public class TableScan {
             return this;
         }
 
+        public Builder setScanProperties(QueryProperties scanProperties) {
+            this.scanProperties = scanProperties;
+            return this;
+        }
+
         public TableScan build() {
             Preconditions.checkNotNull(this.tableName, "Cannot create a scan without a table name");
 
             Map<String, Object> sk = startKey != null ? Collections.unmodifiableMap(startKey) : Collections.emptyMap();
             Map<String, Object> ek = endKey != null ? Collections.unmodifiableMap(endKey) : Collections.emptyMap();
 
-            return new TableScan(tableName, sk, ek);
+            return new TableScan(tableName, sk, ek, scanProperties);
         }
     }
 }

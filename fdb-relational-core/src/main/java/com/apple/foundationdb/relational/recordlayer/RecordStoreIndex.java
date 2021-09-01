@@ -33,13 +33,14 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
-import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -77,9 +78,9 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull Options scanOptions) throws RelationalException {
+    public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties queryProperties) throws RelationalException {
         FDBRecordStore store = getSchema().loadStore();
-        final ScanProperties scanProperties = optionsToProperties(scanOptions);
+        final ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(queryProperties);
         scanProperties.getExecuteProperties().setReturnedRowLimit(1);
         final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = store.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();
         IndexEntry entry;

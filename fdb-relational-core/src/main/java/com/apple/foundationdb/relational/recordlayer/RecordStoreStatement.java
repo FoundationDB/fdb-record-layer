@@ -39,13 +39,12 @@ public class RecordStoreStatement implements Statement {
     }
 
     @Override
-    public RelationalResultSet executeQuery(String query, Options options) throws RelationalException {
+    public RelationalResultSet executeQuery(String query, Options options, QueryProperties queryProperties) throws RelationalException {
         throw new UnsupportedOperationException("No language is currently supported");
     }
 
-
     @Override
-    public RelationalResultSet executeQuery(Queryable query, Options options) throws RelationalException {
+    public RelationalResultSet executeQuery(Queryable query, Options options, QueryProperties queryProperties) throws  RelationalException {
         throw new UnsupportedOperationException("Not Implemented in the Relational layer");
     }
 
@@ -64,12 +63,12 @@ public class RecordStoreStatement implements Statement {
         NestableTuple start = toNestableTuple(scan.getStartKey(), source.getKeyFieldNames());
         NestableTuple end = toNestableTuple(scan.getEndKey(), source.getKeyFieldNames());
 
-        return new RecordLayerResultSet(source, start, end, conn, options);
+        return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties());
     }
 
     @Override
     public @Nonnull
-    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options) throws RelationalException {
+    RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException {
         //check that the key is valid
         Preconditions.checkArgument(key.toMap().size() != 0, "Cannot perform a GET without specifying a key");
         ensureTransactionActive();
@@ -86,7 +85,7 @@ public class RecordStoreStatement implements Statement {
             throw new RelationalException("Insufficient columns to perform GET on table <" + table.getName() + ">", RelationalException.ErrorCode.INVALID_PARAMETER);
         }
 
-        final KeyValue keyValue = source.get(conn.transaction, tuple, options);
+        final KeyValue keyValue = source.get(conn.transaction, tuple, queryProperties);
         return new KeyValueResultSet(keyValue, table.getFieldNames(), true);
     }
 
