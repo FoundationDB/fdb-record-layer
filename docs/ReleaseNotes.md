@@ -16,7 +16,7 @@ Another, smaller change that has been made is that by default, new indexes added
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Protect against corrupt input in GeophileQueryTest [(Issue #1377)](https://github.com/FoundationDB/fdb-record-layer/issues/1377)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,10 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.213.0
+
+* **Bug fix** Protect against corrupt input in GeophileQueryTest [(Issue #1377)](https://github.com/FoundationDB/fdb-record-layer/issues/1377)
 
 ### 3.0.212.0
 
