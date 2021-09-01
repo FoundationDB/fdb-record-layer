@@ -217,16 +217,10 @@ public class IndexingScrubMissing extends IndexingBase {
                     final byte[] keyBytes = maintainer.getIndexSubspace().pack(valueKey);
                     return maintainer.state.transaction.get(keyBytes).thenApply(indexVal -> indexVal == null ? valueKey : null);
                 })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList()))
-                .thenApply(list -> {
-                    Tuple missingKey = null;
-                    for (Tuple item: list) {
-                        if (item != null) {
-                            missingKey = item;
-                        }
-                    }
-                    if (missingKey  == null) {
-                        // no null index(s) = no record to index
+                .thenApply(missingIndexesKeys -> {
+                    if (missingIndexesKeys.isEmpty() || (missingIndexesKeys.size() == 1 && missingIndexesKeys.get(0) == null)) {
                         return null;
                     }
                     // Here: Oh, No! the index is missing!!
@@ -235,7 +229,7 @@ public class IndexingScrubMissing extends IndexingBase {
                         logWarningCounter --;
                         LOGGER.warn(KeyValueLogMessage.build("Scrubber: missing index entry",
                                         LogMessageKeys.KEY, rec.getPrimaryKey().toString(),
-                                        LogMessageKeys.INDEX_KEY, missingKey.toString())
+                                        LogMessageKeys.INDEX_KEY, missingIndexesKeys.toString())
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
                                 .toString());
                     }
