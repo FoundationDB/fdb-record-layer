@@ -94,6 +94,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         }
     }
 
+    @Override
+    public void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException {
+       try(final Transaction txn = new RecordContextTransaction(fdbDatabase.openContext())){
+           engine.getConstantActionFactory().getDeleteDatabaseContantAction(dbUrl,Options.create()).execute(txn);
+           txn.commit();
+       }
+    }
+
     private KeySpace getKeySpaceForSetup() {
         KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
         KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);

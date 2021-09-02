@@ -77,6 +77,11 @@ public class RecordLayerCatalog implements Catalog {
                 formatVersion, serializerRegistry, dbPath, this);
     }
 
+    @Override
+    public void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException {
+        throw new UnsupportedOperationException("Unimplemented");
+    }
+
     public KeySpace extendKeySpaceForSchema(@Nonnull KeySpacePath dbPath, @Nonnull String schemaId) {
         return KeySpaceUtils.extendKeySpaceForSchema(keySpace, dbPath, schemaId);
     }

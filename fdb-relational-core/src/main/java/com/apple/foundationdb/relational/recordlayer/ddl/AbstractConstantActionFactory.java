@@ -48,4 +48,16 @@ public abstract class AbstractConstantActionFactory implements ConstantActionFac
     public ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
         return NoOpConstantActionFactory.INSTANCE.getCreateSchemaConstantAction(schemaUrl, templateId, constantActionOptions);
     }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDeleteDatabaseContantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+        return NoOpConstantActionFactory.INSTANCE.getDeleteDatabaseContantAction(dbUrl,options);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options) {
+        return NoOpConstantActionFactory.INSTANCE.getDropSchemaConstantAction(schemaUrl,options);
+    }
 }

@@ -32,12 +32,12 @@ import java.util.Map;
  */
 public class TableScan {
     private final String tableName;
-    private final Map<String, Object> startKey;
-    private final Map<String, Object> endKey;
+    private final KeySet startKey;
+    private final KeySet endKey;
 
     private final QueryProperties scanProperties;
 
-    public TableScan(String tableName, Map<String, Object> startKey, Map<String, Object> endKey,
+    public TableScan(String tableName, KeySet startKey, KeySet endKey,
                      QueryProperties scanProperties) {
         this.tableName = tableName;
         this.startKey = startKey;
@@ -54,11 +54,11 @@ public class TableScan {
     }
 
     public Map<String, Object> getStartKey() {
-        return startKey;
+        return startKey.toMap();
     }
 
     public Map<String, Object> getEndKey() {
-        return endKey;
+        return endKey.toMap();
     }
 
     public QueryProperties getScanProperties() {
@@ -67,8 +67,8 @@ public class TableScan {
 
     public static class Builder {
         private String tableName;
-        private Map<String, Object> startKey;
-        private Map<String, Object> endKey;
+        private KeySet startKey;
+        private KeySet endKey;
         private QueryProperties scanProperties = QueryProperties.DEFAULT;
 
         public Builder withTableName(String tableName) {
@@ -78,17 +78,17 @@ public class TableScan {
 
         public Builder setStartKey(String keyColumn, Object value) {
             if (this.startKey == null) {
-                this.startKey = new HashMap<>();
+                this.startKey = new KeySet();
             }
-            this.startKey.put(keyColumn, value);
+            this.startKey.setKeyColumn(keyColumn, value);
             return this;
         }
 
         public Builder setEndKey(String keyColumn, Object value) {
             if (this.endKey == null) {
-                this.endKey = new HashMap<>();
+                this.endKey = new KeySet();
             }
-            this.endKey.put(keyColumn, value);
+            this.endKey.setKeyColumn(keyColumn, value);
             return this;
         }
 
@@ -100,8 +100,8 @@ public class TableScan {
         public TableScan build() {
             Preconditions.checkNotNull(this.tableName, "Cannot create a scan without a table name");
 
-            Map<String, Object> sk = startKey != null ? Collections.unmodifiableMap(startKey) : Collections.emptyMap();
-            Map<String, Object> ek = endKey != null ? Collections.unmodifiableMap(endKey) : Collections.emptyMap();
+            KeySet sk = startKey==null? KeySet.EMPTY: startKey;
+            KeySet ek = endKey==null? KeySet.EMPTY: endKey;
 
             return new TableScan(tableName, sk, ek, scanProperties);
         }

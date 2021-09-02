@@ -72,6 +72,18 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
                 metaDataStore, serializerRegistry, userVersionChecker, formatVersion);
     }
 
+    @Nonnull
+    @Override
+    public ConstantAction getDeleteDatabaseContantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+        return new DropDatabaseConstantAction(dbUrl,baseKeySpace,options,this);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl,@Nonnull Options options) {
+        return new DropSchemaConstantAction(schemaUrl,baseKeySpace,metaDataStore,options);
+    }
+
     public static class Builder {
         private MutableRecordMetaDataStore metaDataStore;
         private SerializerRegistry serializerRegistry;

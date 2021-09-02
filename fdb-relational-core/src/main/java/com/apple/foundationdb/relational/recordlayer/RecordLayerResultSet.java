@@ -27,9 +27,11 @@ import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.RelationalException;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nullable;
+import java.util.List;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     protected final NestableTuple startKey;
@@ -41,6 +43,12 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     protected final QueryProperties scanProperties;
 
+    private final String[] fieldNames;
+
+    private Scanner<KeyValue> currentCursor;
+
+    private KeyValue currentRow;
+
     public RecordLayerResultSet(Scannable scannable, NestableTuple start, NestableTuple end,
                                 RecordStoreConnection sourceConnection, QueryProperties scanProperties) {
         this.scannable = scannable;
@@ -50,12 +58,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         this.fieldNames = scannable.getFieldNames();
         this.scanProperties = scanProperties;
     }
-
-    private final String[] fieldNames;
-
-    private Scanner<KeyValue> currentCursor;
-
-    private KeyValue currentRow;
 
 
     @Override
@@ -99,9 +101,19 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     protected int getPosition(String fieldName) {
-        for (int pos = 0; pos < fieldNames.length; pos++) {
-            if (fieldNames[pos].equalsIgnoreCase(fieldName)) {
-                return pos;
+        if (supportsMessageParsing()) {
+            Message m = parseMessage();
+            final List<Descriptors.FieldDescriptor> fields = m.getDescriptorForType().getFields();
+            for(Descriptors.FieldDescriptor field:fields){
+                if(field.getName().equalsIgnoreCase(fieldName)){
+                    return field.getIndex();
+                }
+            }
+        } else {
+            for (int pos = 0; pos < fieldNames.length; pos++) {
+                if (fieldNames[pos]!=null && fieldNames[pos].equalsIgnoreCase(fieldName)) {
+                    return pos;
+                }
             }
         }
         throw new RelationalException(fieldName, RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE);
@@ -109,7 +121,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public boolean supportsMessageParsing() {
-        return currentRow.keyColumnCount() == 0 && currentRow.value().getObject(0) instanceof Message;
+        return currentRow.value() instanceof MessageTuple;
     }
 
     @Override
@@ -117,6 +129,6 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if (!supportsMessageParsing()) {
             throw new UnsupportedOperationException("This ResultSet does not support Message Parsing");
         }
-        return (M) currentRow.value().getObject(0);
+        return ((MessageTuple)currentRow.value()).parseMessage();
     }
 }

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.OperationOption;
@@ -34,6 +35,7 @@ import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
+import com.google.common.base.Throwables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -130,7 +132,12 @@ public class RecordLayerDatabase implements RelationalDatabase {
                     .setContext(txn)
                     .createOrOpen(existenceCheck);
         } catch (RecordCoreException rce) {
-            throw new RelationalException("Schema <" + storeName + "> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA, rce.getCause());
+            Throwable cause = Throwables.getRootCause(rce);
+            if(cause instanceof RecordStoreDoesNotExistException){
+                throw new RelationalException("Schema does not exist. Schema: <"+storeName+">",RelationalException.ErrorCode.SCHEMA_NOT_FOUND,cause);
+            }else {
+                throw new RelationalException("Schema <" + storeName + "> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA, cause);
+            }
         }
     }
 

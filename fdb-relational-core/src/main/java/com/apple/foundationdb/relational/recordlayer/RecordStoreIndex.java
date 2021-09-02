@@ -26,6 +26,10 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
@@ -41,6 +45,9 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -72,12 +79,6 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
-    public String[] getKeyNames() {
-        final Descriptors.Descriptor descriptor = table.loadRecordType().getDescriptor();
-        return index.getRootExpression().validate(descriptor).stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
-    }
-
-    @Override
     public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties queryProperties) throws RelationalException {
         FDBRecordStore store = getSchema().loadStore();
         final ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(queryProperties);
@@ -100,14 +101,63 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     }
 
     @Override
+    public KeyBuilder getKeyBuilder() {
+        return new KeyBuilder(table.loadRecordType(), index.getRootExpression());
+    }
+
+    @Override
     public String[] getFieldNames() {
-        //TODO(bfines) this probably isn't quite right
-        return getKeyNames();
+        KeyExpression re = index.getRootExpression();
+        if (re instanceof KeyWithValueExpression) {
+            KeyWithValueExpression kve = (KeyWithValueExpression)re;
+            final List<KeyExpression> keyExpressions = kve.normalizeKeyForPositions();
+            String[] fields = new String[keyExpressions.size()];
+            int pos = 0;
+            for(KeyExpression ke: keyExpressions){
+                if(ke instanceof FieldKeyExpression){
+                    fields[pos] = ((FieldKeyExpression)ke).getFieldName();
+                }
+                pos++;
+            }
+            return fields;
+        }else{
+            return getKeyFieldNames();
+        }
     }
 
     @Override
     public String[] getKeyFieldNames() {
-        return getKeyNames();
+        KeyExpression rootExpression = index.getRootExpression();
+        return getFields(rootExpression);
+    }
+
+    private String[] getFields(KeyExpression expression){
+        Descriptors.Descriptor descriptor = table.loadRecordType().getDescriptor();
+        if(expression instanceof KeyWithValueExpression){
+            expression = ((KeyWithValueExpression)expression).getKeyExpression();
+        }
+
+        if(expression instanceof ThenKeyExpression) {
+            String[] fields = new String[expression.getColumnSize()];
+            //TODO(bfines) deal with more complicated KeyExpressions also
+            List<KeyExpression> children = ((ThenKeyExpression) expression).getChildren();
+            int pos = 0;
+            for (KeyExpression ke : children) {
+                List<Descriptors.FieldDescriptor> childDescriptors = ke.validate(descriptor);
+                if (childDescriptors.isEmpty()) {
+                    pos++;
+                    continue; //it doesn't actually have a field
+                }
+                for (Descriptors.FieldDescriptor childDescriptor : childDescriptors) {
+                    fields[pos] = childDescriptor.getName();
+                    pos++;
+                }
+            }
+            return fields;
+        }else{
+            final List<Descriptors.FieldDescriptor> indexedFields = expression.validate(descriptor);
+            return indexedFields.stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
+        }
     }
 
     @Override

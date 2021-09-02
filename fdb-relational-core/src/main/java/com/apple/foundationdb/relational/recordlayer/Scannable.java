@@ -29,6 +29,7 @@ import com.apple.foundationdb.relational.api.RelationalException;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Map;
 
 public interface Scannable {
 
@@ -60,4 +61,6 @@ public interface Scannable {
      * @return the field-name map that contains <em>only</em> keys.
      */
     String[] getKeyFieldNames();
+
+    KeyBuilder getKeyBuilder();
 }

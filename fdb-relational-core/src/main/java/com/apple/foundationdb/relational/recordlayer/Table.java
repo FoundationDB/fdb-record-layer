@@ -54,13 +54,5 @@ public interface Table extends Scannable, AutoCloseable {
     @Override
     void close() throws RelationalException;
 
-    /**
-     * Get the primary keys for the table, in order.
-     *
-     * @return the primary keys for the table, in order. The position in the array is the position in the key of
-     * the field, and the value in the array is the name of that field
-     */
-    String[] getPrimaryKeys();
-
     String getName();
 }

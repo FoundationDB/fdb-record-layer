@@ -39,4 +39,7 @@ public class MessageTuple extends AbstractTuple {
         return m.getField(m.getDescriptorForType().getFields().get(position));
     }
 
+    public <M extends Message> M parseMessage() {
+        return (M)m;
+    }
 }

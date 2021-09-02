@@ -74,6 +74,14 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     }
 
     @Override
+    public void removeSchemaMapping(@Nonnull URI schemaUrl) {
+        URI schemaKey = convertToUpperCase(schemaUrl);
+        //TODO(bfines) this isn't perfectly safe, but we're going to have lots of concurrency problems with
+        // this anyway, so not going to worry about it right now.
+        schemaToTemplateMap.remove(schemaKey);
+    }
+
+    @Override
     public RecordLayerTemplate loadTemplate(@Nonnull String templateId) {
         return templateMap.get(templateId);
     }

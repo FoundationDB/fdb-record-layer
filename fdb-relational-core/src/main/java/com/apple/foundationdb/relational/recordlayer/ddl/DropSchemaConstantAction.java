@@ -1,5 +1,5 @@
 /*
- * CreateSchemaConstantAction.java
+ * DropSchemaConstantAction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,60 +22,35 @@ package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
+import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
-import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 
 import java.net.URI;
 
-public class CreateSchemaConstantAction implements ConstantAction {
+public class DropSchemaConstantAction implements ConstantAction {
     private final URI schemaUrl;
-    private final String templateId;
+    private final MutableRecordMetaDataStore metaDataStore;
+    private final Options options;
     private final KeySpace keySpace;
 
-    private final MutableRecordMetaDataStore metaDataStore;
-    private final SerializerRegistry serializerRegistry;
-    private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-    private final int formatVersion;
-
-    public CreateSchemaConstantAction(URI schemaUrl,
-                                      String templateId,
-                                      KeySpace keySpace,
-                                      MutableRecordMetaDataStore metaDataStore,
-                                      SerializerRegistry serializerRegistry,
-                                      FDBRecordStoreBase.UserVersionChecker userVersionChecker,
-                                      int formatVersion) {
+    public DropSchemaConstantAction(URI schemaUrl, KeySpace keySpace,MutableRecordMetaDataStore metaDataStore, Options options) {
         this.schemaUrl = schemaUrl;
-        this.templateId = templateId;
-        this.keySpace = keySpace;
         this.metaDataStore = metaDataStore;
-        this.serializerRegistry = serializerRegistry;
-        this.userVersionChecker = userVersionChecker;
-        this.formatVersion = formatVersion;
+        this.options = options;
+        this.keySpace = keySpace;
     }
-
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        //TODO(bfines) error handling
         KeySpacePath schemaPath = KeySpaceUtils.getSchemaPath(schemaUrl, keySpace);
         FDBRecordContext ctx = txn.unwrap(FDBRecordContext.class);
 
-        //create the metadata
-        metaDataStore.assignSchemaToTemplate(schemaUrl, templateId);
-
-        FDBRecordStore.newBuilder()
-                .setKeySpacePath(schemaPath)
-                .setSerializer(serializerRegistry.loadSerializer(schemaPath))
-                .setMetaDataProvider(metaDataStore.loadMetaData(schemaUrl))
-                .setUserVersionChecker(userVersionChecker)
-                .setFormatVersion(formatVersion)
-                .setContext(ctx)
-                .createOrOpen(FDBRecordStoreBase.StoreExistenceCheck.ERROR_IF_EXISTS);
+        FDBRecordStore.deleteStore(ctx,schemaPath);
+        metaDataStore.removeSchemaMapping(schemaUrl);
     }
 }

@@ -92,6 +92,12 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
+    public KeyBuilder getKeyBuilder() {
+        final RecordType typeForKey = loadRecordType();
+        return new KeyBuilder(typeForKey,typeForKey.getPrimaryKey());
+    }
+
+    @Override
     public boolean deleteRecord(@Nonnull NestableTuple key) throws RelationalException {
         FDBRecordStore store = schema.loadStore();
         return store.deleteRecord(TupleUtils.toFDBTuple(key));
@@ -136,19 +142,14 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    public String[] getPrimaryKeys() {
-        RecordType type = loadRecordType();
-        return type.getPrimaryKey().validate(type.getDescriptor()).stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
-    }
-
-    @Override
     public String getName() {
         return tableName;
     }
 
     @Override
     protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range, ScanProperties props) {
-        return store.scanRecords(range, null, props);
+        RecordType type = loadRecordType();
+        return store.scanRecords(range, null, props).filter(record -> type.equals(record.getRecordType()));
     }
 
     @Override

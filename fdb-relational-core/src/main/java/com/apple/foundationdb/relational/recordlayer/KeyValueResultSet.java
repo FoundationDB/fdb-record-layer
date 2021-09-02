@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nullable;
 
@@ -88,5 +89,25 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
             position++;
         }
         return -1;
+    }
+
+    @Override
+    public boolean supportsMessageParsing() {
+        if (!nextCalled) {
+            throw new IllegalStateException("Iterator was not advanced");
+        }
+        if (keyValue == null) {
+            throw new RelationalException("empty result set", RelationalException.ErrorCode.UNKNOWN);
+        }
+        return keyValue.value() instanceof MessageTuple;
+    }
+
+    @Override
+    public <M extends Message> M parseMessage() throws RelationalException {
+        if (!supportsMessageParsing()) {
+            throw new UnsupportedOperationException("This ResultSet does not support Message Parsing");
+        }
+        assert keyValue != null: "Programmer error: supportsMessageParsing() should handle non-advanced pointers";
+        return ((MessageTuple)keyValue.value()).parseMessage();
     }
 }

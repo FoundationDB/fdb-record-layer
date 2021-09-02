@@ -53,4 +53,10 @@ public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
      */
     void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId);
 
+    /**
+     * Remove the schema mapping for the specified URL, if such a mapping exists.
+     *
+     * @param schemaUrl the url to remove the mapping for
+     */
+    void removeSchemaMapping(@Nonnull URI schemaUrl);
 }

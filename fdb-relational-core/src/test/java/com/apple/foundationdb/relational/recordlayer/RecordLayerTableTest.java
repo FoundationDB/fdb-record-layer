@@ -35,6 +35,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.google.common.collect.Iterators;
 import com.google.protobuf.Message;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +61,11 @@ public class RecordLayerTableTest {
                 DatabaseTemplate.newBuilder()
                         .withSchema("test","RestaurantRecord")
                         .build());
+    }
+
+    @AfterEach
+    public final void tearDown(){
+        catalog.deleteDatabase(URI.create("//record_layer_table_test"));
     }
 
     @Test

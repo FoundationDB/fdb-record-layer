@@ -132,7 +132,7 @@ public class RecordLayerSchema implements DatabaseSchema {
 
     private FDBRecordStoreBase.StoreExistenceCheck getExistenceCheckGivenOptions(@Nonnull Options options) {
         final OperationOption.SchemaExistenceCheck existenceCheck = options.getOption(OperationOption.SCHEMA_EXISTENCE_CHECK,
-                OperationOption.SchemaExistenceCheck.NONE);
+                OperationOption.SchemaExistenceCheck.ERROR_IF_NOT_EXISTS);
         switch (existenceCheck) {
             case NONE:
                 return FDBRecordStoreBase.StoreExistenceCheck.NONE;

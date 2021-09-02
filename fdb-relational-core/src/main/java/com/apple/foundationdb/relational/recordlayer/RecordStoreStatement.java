@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.*;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
@@ -28,7 +27,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 
 public class RecordStoreStatement implements Statement {
@@ -60,8 +58,9 @@ public class RecordStoreStatement implements Statement {
 
         Scannable source = getSourceScannable(options, table);
 
-        NestableTuple start = toNestableTuple(scan.getStartKey(), source.getKeyFieldNames());
-        NestableTuple end = toNestableTuple(scan.getEndKey(), source.getKeyFieldNames());
+        final KeyBuilder keyBuilder = source.getKeyBuilder();
+        NestableTuple start = keyBuilder.buildKey(scan.getStartKey(),true);
+        NestableTuple end = keyBuilder.buildKey(scan.getEndKey(),true);
 
         return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties());
     }
@@ -80,10 +79,7 @@ public class RecordStoreStatement implements Statement {
 
         Scannable source = getSourceScannable(options, table);
 
-        NestableTuple tuple = toNestableTuple(key.toMap(), source.getKeyFieldNames(), true);
-        if (tuple == null) {
-            throw new RelationalException("Insufficient columns to perform GET on table <" + table.getName() + ">", RelationalException.ErrorCode.INVALID_PARAMETER);
-        }
+        NestableTuple tuple = source.getKeyBuilder().buildKey(key.toMap(),true);
 
         final KeyValue keyValue = source.get(conn.transaction, tuple, queryProperties);
         return new KeyValueResultSet(keyValue, table.getFieldNames(), true);
@@ -146,7 +142,7 @@ public class RecordStoreStatement implements Statement {
         Table table = schema.loadTable(schemaAndTable[1], options);
 
         Scannable source = getSourceScannable(options, table);
-        NestableTuple toDelete = toNestableTuple(keys.next(), source.getKeyFieldNames(), true);
+        NestableTuple toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(),true);
         int count = 0;
         RelationalException err = null;
         try {
@@ -156,7 +152,7 @@ public class RecordStoreStatement implements Statement {
                 }
                 toDelete = null;
                 if (keys.hasNext()) {
-                    toDelete = toNestableTuple(keys.next(), source.getKeyFieldNames(), true);
+                    toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(),true);
                 }
             }
             if (conn.isAutoCommitEnabled()) {
@@ -217,41 +213,8 @@ public class RecordStoreStatement implements Statement {
         return new String[]{schema, tableN};
     }
 
-    private @Nullable
-    NestableTuple toNestableTuple(Map<String, Object> fieldMap, String[] fieldNames) {
-        return toNestableTuple(fieldMap, fieldNames, false);
-    }
 
-    private @Nullable
-    NestableTuple toNestableTuple(KeySet key, String[] fieldNames, boolean failOnMissingColumns) {
-        return toNestableTuple(key.toMap(), fieldNames, failOnMissingColumns);
-    }
-
-    private @Nullable
-    NestableTuple toNestableTuple(Map<String, Object> fieldMap, String[] fieldNames, boolean failOnMissingColumns) {
-        if (fieldMap.size() <= 0) {
-            return null;
-        }
-
-        Tuple t = new Tuple();
-        for (String fieldName : fieldNames) {
-            final Object o = fieldMap.get(fieldName);
-            if (o == null) {
-                if (failOnMissingColumns) {
-                    return null;
-                } else {
-                    break;
-                }
-            } else {
-                t = t.addObject(o);
-            }
-        }
-        return new FDBTuple(t);
-
-    }
-
-    private @Nonnull
-    Scannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) {
+    private @Nonnull Scannable getSourceScannable(@Nonnull Options options, @Nonnull Table table) {
         Scannable source;
         String indexName = options.getOption(OperationOption.INDEX_HINT_NAME, null);
         if (indexName != null) {

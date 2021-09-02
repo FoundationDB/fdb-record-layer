@@ -53,6 +53,18 @@ public class NoOpConstantActionFactory implements ConstantActionFactory {
         return NoOpConstantAction.INSTANCE;
     }
 
+    @Nonnull
+    @Override
+    public ConstantAction getDeleteDatabaseContantAction(@Nonnull URI dbUrl, @Nonnull Options options) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
     private static class NoOpConstantAction implements ConstantAction {
         private static final NoOpConstantAction INSTANCE = new NoOpConstantAction();
 

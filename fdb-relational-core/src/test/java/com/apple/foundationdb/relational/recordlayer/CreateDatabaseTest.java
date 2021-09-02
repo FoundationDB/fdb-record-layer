@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.relational.api.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -50,9 +51,13 @@ public class CreateDatabaseTest {
                 DatabaseTemplate.newBuilder()
                         .withSchema("test", "Restaurant")
                         .build());
+        try {
 
-        final RelationalDatabase database = catalog.getDatabase(URI.create("//test_table"));
-        Assertions.assertNotNull(database,"No database returned!");
+            final RelationalDatabase database = catalog.getDatabase(URI.create("//test_table"));
+            Assertions.assertNotNull(database, "No database returned!");
+        }finally{
+            catalog.deleteDatabase(URI.create("//test_table"));
+        }
     }
 
     @Test

@@ -50,4 +50,6 @@ public interface Catalog {
      */
     @Nonnull
     RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException;
+
+    void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException;
 }

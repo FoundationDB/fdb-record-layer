@@ -43,6 +43,7 @@ import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterators;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +69,11 @@ public class QueryPropertiesTest {
                 DatabaseTemplate.newBuilder()
                         .withSchema("test","RestaurantRecord")
                         .build());
+    }
+
+    @AfterEach
+    void tearDown() {
+        catalog.deleteDatabase(URI.create("//record_layer_table_test"));
     }
 
     @Test

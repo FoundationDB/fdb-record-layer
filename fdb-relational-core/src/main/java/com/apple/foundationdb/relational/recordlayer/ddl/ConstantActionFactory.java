@@ -31,9 +31,18 @@ import java.net.URI;
 @ThreadSafe
 public interface ConstantActionFactory {
 
-    @Nonnull ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);
+    @Nonnull
+    ConstantAction getCreateSchemaTemplateConstantAction(@Nonnull SchemaTemplate template, @Nonnull Options templateProperties);
 
-    @Nonnull ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions);
+    @Nonnull
+    ConstantAction getCreateDatabaseConstantAction(@Nonnull URI dbPath, @Nonnull DatabaseTemplate template, @Nonnull Options constantActionOptions);
 
-    @Nonnull ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions);
+    @Nonnull
+    ConstantAction getCreateSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions);
+
+    @Nonnull
+    ConstantAction getDeleteDatabaseContantAction(@Nonnull URI dbUrl, @Nonnull Options options);
+
+    @Nonnull
+    ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options);
 }

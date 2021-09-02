@@ -22,9 +22,22 @@ package com.apple.foundationdb.relational.api;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class KeySet {
+    public static final KeySet EMPTY = new KeySet(){
+        @Override
+        public Map<String, Object> toMap() {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public KeySet setKeyColumn(String columnName, Object value) {
+            throw new UnsupportedOperationException("The Empty Keyset cannot be modified");
+        }
+    };
+
     private Map<String, Object> keySet;
 
     public Map<String, Object> toMap() {
@@ -35,7 +48,8 @@ public class KeySet {
         if (keySet == null) {
             keySet = new HashMap<>();
         }
-        keySet.put(columnName, value);
+        //make sure that all keys are in UPPER case to make it easier to use
+        keySet.put(columnName.toUpperCase(Locale.ROOT), value);
         return this;
     }
 

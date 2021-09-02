@@ -93,7 +93,7 @@ public class KeySpaceUtils {
         if (indexOfLastSlash < 1) {
             throw new RelationalException("Invalid schemaUrl: <" + schemaUrl + ">", RelationalException.ErrorCode.INVALID_PATH);
         }
-        String schemaId = schemaPath.substring(indexOfLastSlash);
+        String schemaId = schemaPath.substring(indexOfLastSlash + 1);
         if (schemaId.isEmpty()) {
             throw new RelationalException("Invalid schemaUrl with empty schema: <" + schemaUrl + ">", RelationalException.ErrorCode.INVALID_PATH);
         }

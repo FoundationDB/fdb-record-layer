@@ -37,5 +37,4 @@ public interface Index extends Scannable, AutoCloseable {
     @Override
     void close() throws RelationalException;
 
-    String[] getKeyNames();
 }
