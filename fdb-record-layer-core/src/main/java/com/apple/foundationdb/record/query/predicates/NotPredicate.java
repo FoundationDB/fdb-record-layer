@@ -111,4 +111,9 @@ public class NotPredicate implements QueryPredicateWithChild {
     public NotPredicate withChild(@Nonnull final QueryPredicate newChild) {
         return new NotPredicate(newChild);
     }
+
+    @Nonnull
+    public static NotPredicate not(@Nonnull final QueryPredicate predicate) {
+        return new NotPredicate(predicate);
+    }
 }

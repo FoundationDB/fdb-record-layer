@@ -31,7 +31,9 @@ import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.apple.foundationdb.record.query.plan.temp.TreeLike;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -41,6 +43,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.StreamSupport;
 
 /**
  * Class to model the concept of a predicate. A predicate is a construct that can be evaluated using
@@ -141,10 +144,26 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     default Optional<PredicateMapping> impliesCandidatePredicate(@NonNull AliasMap aliasMap,
                                                                  @Nonnull final QueryPredicate candidatePredicate) {
         if (candidatePredicate.isTautology()) {
-            return Optional.of(new PredicateMapping(this, candidatePredicate, ((matchInfo, boundParameterPrefixMap) -> Optional.of(this))));
+            return Optional.of(new PredicateMapping(this, candidatePredicate, ((matchInfo, boundParameterPrefixMap) -> Optional.of(toResidualPredicate()))));
         }
         
         return Optional.empty();
+    }
+
+    /**
+     * Create a {@link QueryPredicate} that is equivalent to {@code this} but which is evaluated as a residual
+     * predicate (cannot function as an index search argument).
+     * @return a {@link QueryPredicate} (which may be {@code this}) that can be evaluated as a residual predicate.
+     */
+    @Nonnull
+    default QueryPredicate toResidualPredicate() {
+        if (Iterables.isEmpty(getChildren())) {
+            return this;
+        }
+        return withChildren(
+                StreamSupport.stream(getChildren().spliterator(), false)
+                        .map(QueryPredicate::toResidualPredicate)
+                        .collect(ImmutableList.toImmutableList()));
     }
 
     /**

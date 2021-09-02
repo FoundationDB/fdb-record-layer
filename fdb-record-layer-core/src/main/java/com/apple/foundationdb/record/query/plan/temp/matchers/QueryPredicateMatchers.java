@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.OrPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryComponentPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -109,5 +110,12 @@ public class QueryPredicateMatchers {
                                 typedWithDownstream(ValuePredicate.class,
                                         Extractor.of(ValuePredicate::getComparison, name -> "comparison(" + name + ")"),
                                         downstreamComparison))));
+    }
+
+    @Nonnull
+    public static <P extends QueryPredicate> BindingMatcher<OrPredicate> orPredicate(@Nonnull final CollectionMatcher<P> downstream) {
+        return typedWithDownstream(OrPredicate.class,
+                Extractor.of(OrPredicate::getChildren, name -> "children(" + name + ")"),
+                downstream);
     }
 }

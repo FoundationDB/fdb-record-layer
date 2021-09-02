@@ -93,7 +93,13 @@ public class AndPredicate extends AndOrPredicate {
         return new AndPredicate(ImmutableList.copyOf(newChildren));
     }
 
-    public static QueryPredicate and(@Nonnull Collection<QueryPredicate> conjuncts) {
+    public static QueryPredicate and(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
+                                     @Nonnull QueryPredicate... operands) {
+        return and(toList(first, second, operands));
+    }
+
+    @Nonnull
+    public static QueryPredicate and(@Nonnull Collection<? extends QueryPredicate> conjuncts) {
         if (conjuncts.isEmpty()) {
             return ConstantPredicate.TRUE;
         }
@@ -104,6 +110,7 @@ public class AndPredicate extends AndOrPredicate {
         return new AndPredicate(ImmutableList.copyOf(conjuncts));
     }
 
+    @Nonnull
     public static List<? extends QueryPredicate> conjuncts(@Nonnull final QueryPredicate queryPredicate) {
         if (queryPredicate.isTautology()) {
             return ImmutableList.of();

@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -67,5 +69,14 @@ public abstract class AndOrPredicate implements QueryPredicate {
     @Override
     public int semanticHashCode() {
         return Objects.hash(ImmutableSet.of(getChildren()));
+    }
+
+    protected static List<? extends QueryPredicate> toList(@Nonnull QueryPredicate first, @Nonnull QueryPredicate second,
+                                                           @Nonnull QueryPredicate... operands) {
+        List<QueryPredicate> children = new ArrayList<>(operands.length + 2);
+        children.add(first);
+        children.add(second);
+        Collections.addAll(children, operands);
+        return children;
     }
 }

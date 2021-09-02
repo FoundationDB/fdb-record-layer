@@ -81,7 +81,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public List<QueryPredicate> getPredicates() {
+    public List<? extends QueryPredicate> getPredicates() {
         return queryPredicates;
     }
 
@@ -136,7 +136,7 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
             return false;
         }
         final LogicalFilterExpression otherLogicalFilterExpression = (LogicalFilterExpression)otherExpression;
-        final List<QueryPredicate> otherQueryPredicates = otherLogicalFilterExpression.getPredicates();
+        final List<? extends QueryPredicate> otherQueryPredicates = otherLogicalFilterExpression.getPredicates();
         if (queryPredicates.size() != otherQueryPredicates.size()) {
             return false;
         }

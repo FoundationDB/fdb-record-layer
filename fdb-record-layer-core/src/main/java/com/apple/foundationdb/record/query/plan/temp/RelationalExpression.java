@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.apple.foundationdb.record.query.expressions.QueryComponent;
-import com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
@@ -100,7 +98,6 @@ import java.util.stream.StreamSupport;
 public interface RelationalExpression extends Correlated<RelationalExpression> {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
-                                                @Nonnull BooleanNormalizer booleanNormalizer,
                                                 @Nonnull RecordQuery query) {
         query.validate(context.getMetaData());
 
@@ -112,10 +109,8 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
 
         final SelectExpression selectExpression;
         if (query.getFilter() != null) {
-            final QueryComponent normalizedFilterQueryComponent = booleanNormalizer.normalize(query.getFilter());
-            Objects.requireNonNull(normalizedFilterQueryComponent);
             selectExpression =
-                    normalizedFilterQueryComponent
+                    query.getFilter()
                             .expand(quantifier.getAlias())
                             .buildSelectWithBase(quantifier);
         } else {
