@@ -213,13 +213,14 @@ public class IndexingScrubMissing extends IndexingBase {
                             index,
                             FDBRecordStoreBase.indexEntryKey(index, entry.getKey(), rec.getPrimaryKey()),
                             entry.getValue());
-                    final byte[] keyBytes = maintainer.getIndexSubspace().pack(indexEntry.getKey());
-                    return maintainer.state.transaction.get(keyBytes).thenApply(Objects::isNull);
+                    final Tuple valueKey = indexEntry.getKey();
+                    final byte[] keyBytes = maintainer.getIndexSubspace().pack(valueKey);
+                    return maintainer.state.transaction.get(keyBytes).thenApply(indexVal -> indexVal == null ? valueKey : null);
                 })
                 .collect(Collectors.toList()))
                 .thenApply(list -> {
-                    if (!list.contains(true)) {
-                        // no null index(s) = no record to index
+                    List<Tuple> missingIndexesKeys = list.stream().filter(Objects::nonNull).collect(Collectors.toList());
+                    if (missingIndexesKeys.isEmpty()) {
                         return null;
                     }
                     // Here: Oh, No! the index is missing!!
@@ -227,7 +228,8 @@ public class IndexingScrubMissing extends IndexingBase {
                     if (LOGGER.isWarnEnabled() && logWarningCounter > 0) {
                         logWarningCounter --;
                         LOGGER.warn(KeyValueLogMessage.build("Scrubber: missing index entry",
-                                LogMessageKeys.KEY, rec.getPrimaryKey().toString())
+                                        LogMessageKeys.KEY, rec.getPrimaryKey().toString(),
+                                        LogMessageKeys.INDEX_KEY, missingIndexesKeys.toString())
                                 .addKeysAndValues(common.indexLogMessageKeyValues())
                                 .toString());
                     }
