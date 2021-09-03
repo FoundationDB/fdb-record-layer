@@ -201,7 +201,7 @@ public class RecordType implements RecordTypeOrBuilder, RecordMetaDataProvider {
     @Nonnull
     public Tuple getRecordTypeKeyTuple() {
         if (recordTypeKeyTuple == null) {
-            recordTypeKeyTuple = Tuple.from(TupleTypeUtil.toTupleAppropriateValue(recordTypeKey));
+            recordTypeKeyTuple = Tuple.from(TupleTypeUtil.toTupleAppropriateValue(getRecordTypeKey()));
         }
         return recordTypeKeyTuple;
     }
