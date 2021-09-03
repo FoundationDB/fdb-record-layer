@@ -109,25 +109,28 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
     }
 
     @Nullable
-    protected static IndexWriterCommitCheckAsync getIndexWriterCommitCheckAsync(@Nonnull final IndexMaintainerState state) {
-        return state.context.getInSession(getWriterName(state), IndexWriterCommitCheckAsync.class);
+    protected static IndexWriterCommitCheckAsync getIndexWriterCommitCheckAsync(@Nonnull final IndexMaintainerState state, @Nullable final String groupingKey) {
+        return state.context.getInSession(getWriterName(state, groupingKey), IndexWriterCommitCheckAsync.class);
     }
 
     @Nonnull
-    protected static IndexWriter getOrCreateIndexWriter(@Nonnull final IndexMaintainerState state, @Nonnull Analyzer analyzer, @Nonnull Executor executor) throws IOException {
+    protected static IndexWriter getOrCreateIndexWriter(@Nonnull final IndexMaintainerState state, @Nonnull Analyzer analyzer, @Nonnull Executor executor, @Nullable final String groupingKey) throws IOException {
         synchronized (state.context) {
-            IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state);
+            IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
             if (writerCheck == null) {
                 writerCheck = new IndexWriterCommitCheckAsync(analyzer, getOrCreateDirectoryCommitCheckAsync(state), executor);
                 state.context.addCommitCheck(writerCheck);
-                state.context.putInSessionIfAbsent(getWriterName(state), writerCheck);
+                state.context.putInSessionIfAbsent(getWriterName(state, groupingKey), writerCheck);
             }
             return writerCheck.indexWriter;
         }
     }
 
     @Nonnull
-    private static String getWriterName(@Nonnull final IndexMaintainerState state) {
+    private static String getWriterName(@Nonnull final IndexMaintainerState state, @Nullable final String groupingKey) {
+        if (groupingKey != null) {
+            return "writer$" + state.index.getName() + "$" + groupingKey;
+        }
         return "writer$" + state.index.getName();
     }
 

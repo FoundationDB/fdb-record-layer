@@ -38,6 +38,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 
@@ -47,6 +48,7 @@ import static com.google.common.base.Verify.verify;
 public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     private KeyExpression sort;
     private Boolean duplicates = false;
+    private final ScanComparisons groupingComparisons;
 
     @Override
     public boolean equals(final Object o) {
@@ -80,13 +82,17 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         }
     }
 
-    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse) {
-        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null);
+    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull Comparisons.LuceneComparison comparison,
+                                final boolean reverse, final ScanComparisons groupingComparisons) {
+        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null, groupingComparisons);
     }
 
-    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType, @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse, @Nullable KeyExpression sort) {
+    public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType,
+                                @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse,
+                                @Nullable KeyExpression sort, final ScanComparisons groupingComparisons) {
         super(indexName, scanType, Objects.requireNonNull(ScanComparisons.from(comparison)), reverse);
         this.sort = sort;
+        this.groupingComparisons = groupingComparisons;
     }
 
     public boolean createsDuplicates() {
@@ -116,7 +122,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         if (plan1.scanType == IndexScanType.BY_LUCENE_FULL_TEXT || plan2.scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
             scanType = IndexScanType.BY_LUCENE_FULL_TEXT;
         }
-        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort);
+        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort, plan1.groupingComparisons.merge(plan2.groupingComparisons));
         if (plan1.createsDuplicates() || plan2.createsDuplicates()) {
             plan.setCreatesDuplicates();
         }
@@ -129,7 +135,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                                                                        @Nonnull final EvaluationContext context,
                                                                        @Nullable final byte[] continuation,
                                                                        @Nonnull final ExecuteProperties executeProperties) {
-        final TupleRange range = comparisons.toTupleRange(store, context);
+        ScanComparisons newComparison = comparisons.append(groupingComparisons);
+        final TupleRange range = newComparison.toTupleRange(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
         RecordCursor<IndexEntry> indexEntryRecordCursor = store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, executeProperties.asScanProperties(reverse));
         if (indexEntryRecordCursor instanceof LuceneRecordCursor && sort != null)  {

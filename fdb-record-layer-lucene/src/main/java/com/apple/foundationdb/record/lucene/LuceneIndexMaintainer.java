@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -68,6 +69,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.print.Doc;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -91,6 +93,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
+    private DocumentEntry groupingKey = null;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer analyzer) {
         super(state);
@@ -131,7 +134,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, analyzer);
             }
             Query query = parser.parse(range.getLow().getString(0));
-            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions());
+            String grouping = range.getLow().getString(1);
+            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions(), grouping);
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
                     "internalException", ioe);
@@ -170,12 +174,12 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     public <M extends Message> List<DocumentEntry> getFields(KeyExpression expression,
                                                                              FDBIndexableRecord<M> record, Message message) {
-        if (expression instanceof LuceneThenKeyExpression) {
+        if (expression instanceof ThenKeyExpression) {
             List<DocumentEntry> evaluatedList = Lists.newArrayList();
-            for (KeyExpression child : ((LuceneThenKeyExpression)expression).getChildren()) {
+            for (KeyExpression child : ((ThenKeyExpression)expression).getChildren()) {
                 evaluatedList.addAll(getFields(child, record, message));
             }
-            if (((LuceneThenKeyExpression)expression).getPrimaryKey() == null) {
+            if (!(expression instanceof LuceneThenKeyExpression) || ((LuceneThenKeyExpression)expression).getPrimaryKey() == null) {
                 return evaluatedList;
             }
             DocumentEntry primaryKey = evaluatedList.get(((LuceneThenKeyExpression)expression).getPrimaryKeyPosition());
@@ -203,7 +207,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             return result;
         }
         if (expression instanceof GroupingKeyExpression) {
-            return getFields(((GroupingKeyExpression)expression).getWholeKey(), record, message);
+            return getFields(((GroupingKeyExpression)expression).getGroupedSubKey(), record, message);
         }
         if (expression instanceof LuceneFieldKeyExpression) {
             List<DocumentEntry> evaluatedKeys = Lists.newArrayList();
@@ -240,6 +244,22 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
+    public <M extends Message> DocumentEntry extractGrouping(@Nullable FDBIndexableRecord<M> record){
+        KeyExpression expression = state.index.getRootExpression();
+        if (expression instanceof GroupingKeyExpression) {
+            final List<DocumentEntry> groupingExpression = getFields(((GroupingKeyExpression)expression).getGroupingSubKey(), record, record.getRecord());
+            if (groupingExpression.isEmpty()) {
+                return null;
+            }
+            if (groupingExpression.size() > 1 || !groupingExpression.get(0).expression.getType().equals(LuceneKeyExpression.FieldType.STRING)) {
+                throw new RecordCoreArgumentException("Too many entries for grouping expression, only one is supported or expression is not of type string. " +
+                                                      "This should have been caught in root expression validation");
+            }
+            return groupingExpression.get(0);
+        }
+        return null;
+    }
+
     @Nonnull
     @Override
     public <M extends Message> CompletableFuture<Void> update(@Nullable FDBIndexableRecord<M> oldRecord,
@@ -249,12 +269,16 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         List<DocumentEntry> oldRecordFields = Lists.newArrayList();
         KeyExpression root = state.index.getRootExpression();
         List<DocumentEntry> newRecordFields = Lists.newArrayList();
+        DocumentEntry newGrouping = null;
+        DocumentEntry oldGrouping = null;
 
         // evaluate fields from records provided
         if (newRecord != null) {
+            newGrouping = extractGrouping(newRecord);
             newRecordFields.addAll(getFields(root, newRecord, newRecord.getRecord()));
         }
         if (oldRecord != null) {
+            oldGrouping = extractGrouping(oldRecord);
             oldRecordFields.addAll(getFields(root, oldRecord, oldRecord.getRecord()));
         }
 
@@ -265,17 +289,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         try {
             // create writer and document
-            final IndexWriter writer = getOrCreateIndexWriter(state, analyzer, executor);
             Document document = new Document();
 
             // if old record has fields in the index and there are changes then delete old record
             if (!oldRecordFields.isEmpty()) {
+                final IndexWriter oldWriter = getOrCreateIndexWriter(state, analyzer, executor, oldGrouping.value == null ? null : oldGrouping.value.toString());
                 Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(oldRecord.getPrimaryKey().pack()));
-                writer.deleteDocuments(query);
+                oldWriter.deleteDocuments(query);
             }
 
             // if there are changes then update the index with the new document.
             if (!newRecordFields.isEmpty()) {
+                final IndexWriter newWriter = getOrCreateIndexWriter(state, analyzer, executor, newGrouping.value == null ? null : newGrouping.value.toString());
                 byte[] primaryKey = newRecord.getPrimaryKey().pack();
                 BytesRef ref = new BytesRef(primaryKey);
                 document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
@@ -283,7 +308,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 for (DocumentEntry entry : newRecordFields) {
                     insertField(entry, document);
                 }
-                writer.addDocument(document);
+                newWriter.addDocument(document);
             }
         } catch (IOException e) {
             throw new RecordCoreException("Issue updating index keys", "oldRecord", oldRecord, "newRecord", newRecord, e);

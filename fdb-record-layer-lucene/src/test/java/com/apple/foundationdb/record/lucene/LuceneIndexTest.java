@@ -193,10 +193,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             });
-            recordStore.saveRecord(createSimpleDocument(1623L, 2));
-            recordStore.saveRecord(createSimpleDocument(1632L, ENGINEER_JOKE, 2));
+            for (int i = 0; i < 1000; i++) {
+                recordStore.saveRecord(createSimpleDocument(1623L + i, 2));
+                recordStore.saveRecord(createSimpleDocument(1632L + i, ENGINEER_JOKE, 2));
+            }
             RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
-                    TupleRange.allOf(Tuple.from("*:* AND NOT text:[* TO *]")), null, ScanProperties.FORWARD_SCAN);
+                    TupleRange.allOf(Tuple.from("*:* AND NOT text:[* TO *] AND text:Vision")), null, ScanProperties.FORWARD_SCAN);
             List<IndexEntry> indexEntries = recordCursor.asList().join();
             assertEquals(1, indexEntries.size());
             assertEquals(1623L, indexEntries.get(0).getKeyValue(1));
