@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.TestUnionDefaultNameProto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.VersionKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.MetaDataProtoEditor;
+import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.BooleanSource;
 import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
@@ -97,6 +98,15 @@ public class RecordMetaDataBuilderTest {
         builder.addIndex("MySimpleRecord", "MySimpleRecord$PRIMARY", "rec_no");
         RecordMetaData metaData2 = builder.getRecordMetaData();
         assertNotSame(metaData1, metaData2);
+    }
+
+    @Test
+    public void testGetRecordTypeKeyTuple() {
+        RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecords1Proto.getDescriptor());
+        RecordMetaData metaData = metaDataBuilder.build(false);
+        Tuple t = metaData.getRecordType("MySimpleRecord").getRecordTypeKeyTuple();
+        assertEquals(1, t.size());
+        assertEquals(1, t.getLong(0));
     }
 
     @ParameterizedTest(name = "normalIndexDoesNotOverlapPrimaryKey [indexCounterBasedSubspaceKey = {0}]")
