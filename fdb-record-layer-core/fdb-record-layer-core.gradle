@@ -17,6 +17,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+plugins {
+    id 'antlr'
+}
+
+generateGrammarSource {
+    arguments += ["-visitor", "-long-messages"]
+    arguments += ['-package', 'com.apple.foundationdb.norse']
+    outputDirectory = new File("${project.buildDir}/generated-src/antlr/main/com/apple/foundationdb/norse".toString())
+}
 
 apply plugin: 'com.github.johnrengelman.shadow'
 apply from: rootProject.file('gradle/proto.gradle')
