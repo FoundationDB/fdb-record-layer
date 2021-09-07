@@ -21,12 +21,9 @@
 package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
-import com.apple.foundationdb.record.query.plan.plans.SingularResultElement;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -79,10 +76,10 @@ public class GroupAggregator<M extends Message> {
     private AggregateAccumulator accumulator;
     // The current group (evaluated). This will be used to decide if the next record is a group break
     @Nullable
-    private List<QueryResultElement> currentGroup;
+    private List<Object> currentGroup;
     // The previous completed group result - with both grouping criteria and accumulated values
     @Nullable
-    private List<QueryResultElement> previousGroupResult;
+    private List<Object> previousGroupResult;
 
     /**
      * Create a new group aggregator.
@@ -120,7 +117,7 @@ public class GroupAggregator<M extends Message> {
      * @return true IFF the next record provided constitutes a group break
      */
     public boolean apply(@Nonnull FDBQueriedRecord<M> record) {
-        List<QueryResultElement> nextGroup = eval(record, groupCriteria);
+        List<Object> nextGroup = eval(record, groupCriteria);
         boolean groupBreak = isGroupBreak(currentGroup, nextGroup);
         if (groupBreak) {
             finalizeGroup(nextGroup);
@@ -139,11 +136,11 @@ public class GroupAggregator<M extends Message> {
      * @return the last result aggregated. Null if no group was completed by this aggregator.
      */
     @Nullable
-    public List<QueryResultElement> getCompletedGroupResult() {
+    public List<Object> getCompletedGroupResult() {
         return previousGroupResult;
     }
 
-    private boolean isGroupBreak(final List<QueryResultElement> currentGroup, final List<QueryResultElement> nextGroup) {
+    private boolean isGroupBreak(final List<Object> currentGroup, final List<Object> nextGroup) {
         if ((currentGroup == null) || (currentGroup.isEmpty())) {
             return false;
         } else {
@@ -155,8 +152,8 @@ public class GroupAggregator<M extends Message> {
         finalizeGroup(null);
     }
 
-    private void finalizeGroup(List<QueryResultElement> nextGroup) {
-        previousGroupResult = ImmutableList.<QueryResultElement>builder()
+    private void finalizeGroup(List<Object> nextGroup) {
+        previousGroupResult = ImmutableList.builder()
                 .addAll(currentGroup != null ? currentGroup : Collections.emptyList())
                 .addAll(accumulator.finish())
                 .build();
@@ -172,33 +169,15 @@ public class GroupAggregator<M extends Message> {
     }
 
     @SuppressWarnings("unchecked")
-    private List<QueryResultElement> eval(final FDBQueriedRecord<M> record, List<Value> values) {
+    private List<Object> eval(final FDBQueriedRecord<M> record, List<Value> values) {
         final EvaluationContext nestedContext = context.withBinding(alias, record.getRecord());
         return values.stream()
                 .map(value -> value.eval(store, nestedContext, record, record.getRecord()))
-                .map(this::narrow)
                 .collect(Collectors.toList());
     }
 
     @Nonnull
     private AggregateAccumulator createAccumulator(final @Nonnull List<AggregateValue<?>> aggregateValues) {
         return new AccumulatorList(aggregateValues.stream().map(SimpleAccumulator::new).collect(Collectors.toList()));
-    }
-
-    // TODO: This needs to be moved into the Value.eval() method (that currently returns Object).
-    private QueryResultElement narrow(Object rawValue) {
-        if (rawValue instanceof Integer) {
-            return SingularResultElement.of((Integer)rawValue);
-        } else if (rawValue instanceof Long) {
-            return SingularResultElement.of((Long)rawValue);
-        } else if (rawValue instanceof Float) {
-            return SingularResultElement.of((Float)rawValue);
-        } else if (rawValue instanceof Double) {
-            return SingularResultElement.of((Double)rawValue);
-        } else if (rawValue instanceof String) {
-            return SingularResultElement.of((String)rawValue);
-        } else {
-            throw new RecordCoreException("Unrecognized type in aggregation: " + rawValue.getClass().getSimpleName());
-        }
     }
 }

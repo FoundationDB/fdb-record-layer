@@ -220,7 +220,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
     private void assertResult(final QueryResult actual, final List<?> expected) {
         Assertions.assertEquals(actual.size(), expected.size());
         for (int i = 0 ; i < actual.size() ; i++) {
-            Assertions.assertEquals(expected.get(i), actual.get(i).getResultElement());
+            Assertions.assertEquals(expected.get(i), actual.get(i));
         }
     }
 

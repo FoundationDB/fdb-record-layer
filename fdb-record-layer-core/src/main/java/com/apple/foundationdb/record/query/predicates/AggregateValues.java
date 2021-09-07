@@ -20,9 +20,6 @@
 
 package com.apple.foundationdb.record.query.predicates;
 
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
-import com.apple.foundationdb.record.query.plan.plans.SingularResultElement;
-
 import javax.annotation.Nonnull;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -39,7 +36,7 @@ public class AggregateValues {
      */
     public static class SumInteger extends PrimitiveAggregateBase<Integer> {
         public SumInteger(@Nonnull final Value inner) {
-            super(inner, 0, Math::addExact, SingularResultElement::of, "SUM", "Sum-Integer-Aggregate-Value", SumInteger::new);
+            super(inner, 0, Math::addExact, "SUM", "Sum-Integer-Aggregate-Value", SumInteger::new);
         }
     }
 
@@ -48,7 +45,7 @@ public class AggregateValues {
      */
     public static class SumLong extends PrimitiveAggregateBase<Long> {
         public SumLong(@Nonnull final Value inner) {
-            super(inner, 0L, Math::addExact, SingularResultElement::of, "SUM", "Sum-Long-Aggregate-Value", SumLong::new);
+            super(inner, 0L, Math::addExact, "SUM", "Sum-Long-Aggregate-Value", SumLong::new);
         }
     }
 
@@ -57,7 +54,7 @@ public class AggregateValues {
      */
     public static class SumFloat extends PrimitiveAggregateBase<Float> {
         public SumFloat(@Nonnull final Value inner) {
-            super(inner, 0.0F, Float::sum, SingularResultElement::of, "SUM", "Sum-Float-Aggregate-Value", SumFloat::new);
+            super(inner, 0.0F, Float::sum, "SUM", "Sum-Float-Aggregate-Value", SumFloat::new);
         }
     }
 
@@ -66,7 +63,7 @@ public class AggregateValues {
      */
     public static class SumDouble extends PrimitiveAggregateBase<Double> {
         public SumDouble(@Nonnull final Value inner) {
-            super(inner, 0.0D, Double::sum, SingularResultElement::of, "SUM", "Sum-Double-Aggregate-Value", SumDouble::new);
+            super(inner, 0.0D, Double::sum, "SUM", "Sum-Double-Aggregate-Value", SumDouble::new);
         }
     }
 
@@ -77,7 +74,7 @@ public class AggregateValues {
      */
     public static class MinInteger extends PrimitiveAggregateBase<Integer> {
         public MinInteger(@Nonnull final Value inner) {
-            super(inner, Integer.MAX_VALUE, Math::min, SingularResultElement::of, "MIN", "Min-Integer-Aggregate-Value", MinInteger::new);
+            super(inner, Integer.MAX_VALUE, Math::min, "MIN", "Min-Integer-Aggregate-Value", MinInteger::new);
         }
     }
 
@@ -86,7 +83,7 @@ public class AggregateValues {
      */
     public static class MinLong extends PrimitiveAggregateBase<Long> {
         public MinLong(@Nonnull final Value inner) {
-            super(inner, Long.MAX_VALUE, Math::min, SingularResultElement::of, "MIN", "Min-Long-Aggregate-Value", MinLong::new);
+            super(inner, Long.MAX_VALUE, Math::min, "MIN", "Min-Long-Aggregate-Value", MinLong::new);
         }
     }
 
@@ -95,7 +92,7 @@ public class AggregateValues {
      */
     public static class MinFloat extends PrimitiveAggregateBase<Float> {
         public MinFloat(@Nonnull final Value inner) {
-            super(inner, Float.MAX_VALUE, Math::min, SingularResultElement::of, "MIN", "Min-Float-Aggregate-Value", MinFloat::new);
+            super(inner, Float.MAX_VALUE, Math::min, "MIN", "Min-Float-Aggregate-Value", MinFloat::new);
         }
     }
 
@@ -104,7 +101,7 @@ public class AggregateValues {
      */
     public static class MinDouble extends PrimitiveAggregateBase<Double> {
         public MinDouble(@Nonnull final Value inner) {
-            super(inner, Double.MAX_VALUE, Math::min, SingularResultElement::of, "MIN", "Min-Double-Aggregate-Value", MinDouble::new);
+            super(inner, Double.MAX_VALUE, Math::min, "MIN", "Min-Double-Aggregate-Value", MinDouble::new);
         }
     }
 
@@ -115,7 +112,7 @@ public class AggregateValues {
      */
     public static class MaxInteger extends PrimitiveAggregateBase<Integer> {
         public MaxInteger(@Nonnull final Value inner) {
-            super(inner, Integer.MIN_VALUE, Math::max, SingularResultElement::of, "MAX", "Max-Integer-Aggregate-Value", MaxInteger::new);
+            super(inner, Integer.MIN_VALUE, Math::max, "MAX", "Max-Integer-Aggregate-Value", MaxInteger::new);
         }
     }
 
@@ -124,7 +121,7 @@ public class AggregateValues {
      */
     public static class MaxLong extends PrimitiveAggregateBase<Long> {
         public MaxLong(@Nonnull final Value inner) {
-            super(inner, Long.MIN_VALUE, Math::max, SingularResultElement::of, "MAX", "Max-Long-Aggregate-Value", MaxLong::new);
+            super(inner, Long.MIN_VALUE, Math::max, "MAX", "Max-Long-Aggregate-Value", MaxLong::new);
         }
     }
 
@@ -133,7 +130,7 @@ public class AggregateValues {
      */
     public static class MaxFloat extends PrimitiveAggregateBase<Float> {
         public MaxFloat(@Nonnull final Value inner) {
-            super(inner, Float.MIN_VALUE, Math::max, SingularResultElement::of, "MAX", "Max-Float-Aggregate-Value", MaxFloat::new);
+            super(inner, Float.MIN_VALUE, Math::max, "MAX", "Max-Float-Aggregate-Value", MaxFloat::new);
         }
     }
 
@@ -142,7 +139,7 @@ public class AggregateValues {
      */
     public static class MaxDouble extends PrimitiveAggregateBase<Double> {
         public MaxDouble(@Nonnull final Value inner) {
-            super(inner, Double.MIN_VALUE, Math::max, SingularResultElement::of, "MAX", "Max-Double-Aggregate-Value", MaxDouble::new);
+            super(inner, Double.MIN_VALUE, Math::max, "MAX", "Max-Double-Aggregate-Value", MaxDouble::new);
         }
     }
 
@@ -197,17 +194,13 @@ public class AggregateValues {
     private abstract static class PrimitiveAggregateBase<T> extends BaseAggregateValue<T, T> {
         @Nonnull
         private BiFunction<T, T, T> accumulateOp; // the function to apply in order to accumulate values
-        @Nonnull
-        private Function<T, QueryResultElement> narrowOp; // the function used to create the appropriate QueryResultElement
 
         public PrimitiveAggregateBase(@Nonnull final Value inner, final T initial,
                                       @Nonnull final BiFunction<T, T, T> accumulateOp,
-                                      @Nonnull final Function<T, QueryResultElement> narrowOp,
                                       @Nonnull final String name, @Nonnull final String hashObjectName,
                                       @Nonnull final Function<Value, Value> withChildrenOp) {
             super(inner, initial, name, hashObjectName, withChildrenOp);
             this.accumulateOp = accumulateOp;
-            this.narrowOp = narrowOp;
         }
 
         @Nonnull
@@ -218,13 +211,8 @@ public class AggregateValues {
 
         @Nonnull
         @Override
-        public QueryResultElement finish(final T currentState) {
-            return narrow(currentState);
-        }
-
-        @Nonnull
-        private QueryResultElement narrow(T rawValue) {
-            return narrowOp.apply(rawValue);
+        public Object finish(final T currentState) {
+            return currentState;
         }
     }
 
@@ -260,7 +248,7 @@ public class AggregateValues {
 
         @Nonnull
         @Override
-        public QueryResultElement finish(final AverageState<T> currentState) {
+        public Object finish(final AverageState<T> currentState) {
             return currentState.finish();
         }
     }
@@ -307,11 +295,11 @@ public class AggregateValues {
             return new AverageState<>(accumulateOp.apply(sum, nextValue), count + 1, initial, accumulateOp, finishOp);
         }
 
-        public QueryResultElement finish() {
+        public Object finish() {
             if (count == 0) {
-                return SingularResultElement.of(0.0);
+                return 0.0D;
             }
-            return SingularResultElement.of(finishOp.apply(sum, count));
+            return finishOp.apply(sum, count);
         }
     }
 }

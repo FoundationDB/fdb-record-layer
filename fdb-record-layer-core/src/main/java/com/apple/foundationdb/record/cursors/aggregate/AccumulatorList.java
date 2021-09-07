@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -51,7 +50,7 @@ public class AccumulatorList implements AggregateAccumulator {
     }
 
     @Override
-    public List<QueryResultElement> finish() {
+    public List<Object> finish() {
         return accumulators.stream().flatMap(accumulator -> accumulator.finish().stream()).collect(Collectors.toList());
     }
 }

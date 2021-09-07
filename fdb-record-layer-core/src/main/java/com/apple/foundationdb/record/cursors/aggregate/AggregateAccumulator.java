@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Message;
 
@@ -52,9 +51,9 @@ public interface AggregateAccumulator {
                                         @Nullable final FDBRecord<M> record, @Nonnull final M message);
 
     /**
-     * Calculate and return the {@link QueryResultElement} from the accumulated state.
+     * Calculate and return the result from the accumulated state.
      *
      * @return the calculated results accumulated.
      */
-    List<QueryResultElement> finish();
+    List<Object> finish();
 }

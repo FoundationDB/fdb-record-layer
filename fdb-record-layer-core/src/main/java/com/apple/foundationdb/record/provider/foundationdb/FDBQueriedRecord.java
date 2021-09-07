@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.protobuf.Message;
 
@@ -36,7 +35,7 @@ import javax.annotation.Nullable;
  * @param <M> type used to represent stored records
  */
 @API(API.Status.MAINTAINED)
-public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M>, QueryResultElement {
+public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M> {
     /**
      * Get the stored record, if any, that produced this query result record.
      * <code>null</code> if this query result record was assembled without loading the whole record,
@@ -128,18 +127,6 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         public IndexEntry getIndexEntry() {
             return indexed.getIndexEntry();
         }
-
-        @Nonnull
-        @Override
-        public Object getResultElement() {
-            return indexed;
-        }
-
-        @Nonnull
-        @Override
-        public Class<?> getResultElementType() {
-            return FDBIndexedRecord.class;
-        }
     }
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
@@ -195,18 +182,6 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Override
         public IndexEntry getIndexEntry() {
             return null;
-        }
-
-        @Nonnull
-        @Override
-        public Object getResultElement() {
-            return stored;
-        }
-
-        @Nonnull
-        @Override
-        public Class<?> getResultElementType() {
-            return FDBStoredRecord.class;
         }
     }
 
@@ -275,18 +250,6 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Override
         public FDBStoredRecord<M> getStoredRecord() {
             return null;
-        }
-
-        @Nonnull
-        @Override
-        public Object getResultElement() {
-            return record;
-        }
-
-        @Nonnull
-        @Override
-        public Class<?> getResultElementType() {
-            return Message.class;
         }
     }
 

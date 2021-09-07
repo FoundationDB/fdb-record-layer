@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -82,7 +81,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
-            List<QueryResultElement> groupResult = groupAggregator.getCompletedGroupResult();
+            List<Object> groupResult = groupAggregator.getCompletedGroupResult();
             QueryResult queryResult = QueryResult.of(groupResult);
             // Use the last valid result fo the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = previousValidResult.getContinuation();

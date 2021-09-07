@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -67,5 +66,5 @@ public interface AggregateValue<S> extends Value.CompileTimeValue {
      * @return the record that holds the final aggregated result
      */
     @Nonnull
-    QueryResultElement finish(S currentState);
+    Object finish(S currentState);
 }

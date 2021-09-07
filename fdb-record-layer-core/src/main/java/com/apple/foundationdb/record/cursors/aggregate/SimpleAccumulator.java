@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.google.protobuf.Message;
 
@@ -54,7 +53,7 @@ public class SimpleAccumulator<S> implements AggregateAccumulator {
     }
 
     @Override
-    public List<QueryResultElement> finish() {
+    public List<Object> finish() {
         return Collections.singletonList(value.finish(currentState));
     }
 }

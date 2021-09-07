@@ -139,7 +139,7 @@ public class AggregateValueTest {
     }
 
     private <S> void assertFinish(final SimpleAccumulator<S> accumulator, final Object value) {
-        Assertions.assertEquals(value, accumulator.finish().get(0).getResultElement());
+        Assertions.assertEquals(value, accumulator.finish().get(0));
     }
 
     private <S> void accumulate(final int count, final SimpleAccumulator<S> accumulator) {
