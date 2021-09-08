@@ -135,7 +135,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             Query query = parser.parse(range.getLow().getString(0));
             String groupingKey = null;
             for (int i = 1; i < range.getLow().getItems().size(); i++) {
-                String comparison = range.getLow().getString(i);
+                Object comparison = range.getLow().get(i);
                 if (comparison != null) {
                     groupingKey = groupingKey == null ? "$" + comparison : groupingKey.concat("$" + comparison);
                 }
@@ -257,12 +257,10 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 return null;
             }
             String indexPreface = "";
-            List<Key.Evaluated> evaluatedList = ((GroupingKeyExpression)expression).getGroupingSubKey().evaluateMessage(record, record.getRecord());
-            for (Key.Evaluated key : evaluatedList) {
-                Object value = key.values().get(0);
-                if (!key.containsNonUniqueNull()) {
-                    indexPreface = indexPreface.concat("$" + value.toString());
-                }
+            Key.Evaluated evaluatedKey = ((GroupingKeyExpression)expression).getGroupingSubKey().evaluateSingleton(record);
+            if (!evaluatedKey.containsNonUniqueNull()) {
+                Object value = evaluatedKey.values().get(0);
+                indexPreface = indexPreface.concat("$" + value);
             }
             return indexPreface;
         }
