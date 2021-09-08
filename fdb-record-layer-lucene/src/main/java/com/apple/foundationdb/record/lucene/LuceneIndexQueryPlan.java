@@ -38,7 +38,6 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 
