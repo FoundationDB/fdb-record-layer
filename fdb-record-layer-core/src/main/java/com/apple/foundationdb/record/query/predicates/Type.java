@@ -77,6 +77,13 @@ public interface Type {
         };
     }
 
+    @Nonnull
+    static List<Type> fromTyped(@Nonnull List<Typed> typed) {
+        return typed.stream()
+                .map(Typed::getResultType)
+                .collect(ImmutableList.toImmutableList());
+    }
+
     enum TypeCode {
         UNKNOWN(Void.class, true, false),
         ANY(Void.class, false, false),
@@ -129,6 +136,11 @@ public interface Type {
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.ANY;
+        }
+
+        @Override
+        public String toString() {
+            return getTypeCode().toString();
         }
     }
 

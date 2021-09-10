@@ -1,5 +1,5 @@
 /*
- * NorseTest.java
+ * EncapsulationFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,24 +20,11 @@
 
 package com.apple.foundationdb.record.query.norse;
 
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.junit.jupiter.api.Test;
+import com.apple.foundationdb.record.query.predicates.Typed;
 
-@SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-public class NorseTest {
+import javax.annotation.Nonnull;
+import java.util.List;
 
-    @Test
-    void testSimpleStatement() {
-        final ANTLRInputStream in = new ANTLRInputStream("'hello' | from('world')");
-        NorseLexer lexer = new NorseLexer(in);
-        CommonTokenStream tokens = new CommonTokenStream(lexer);
-        NorseParser parser = new NorseParser(tokens);
-        final ParseTree tree = parser.pipe();
-
-        final NorseParserVisitorImpl visitor = new NorseParserVisitorImpl();
-        Object o = visitor.visit(tree);
-        System.out.println(o);
-    }
+public interface EncapsulationFunction<T extends Typed> {
+    T encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<T> builtInFunction, List<Typed> arguments);
 }

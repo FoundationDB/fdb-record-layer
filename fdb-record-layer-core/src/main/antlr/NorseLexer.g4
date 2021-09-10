@@ -103,13 +103,15 @@ FLOAT_LITERAL:             (Digits '.' Digits? | '.' Digits) ExponentPart? [fF]?
              ;
 HEX_FLOAT_LITERAL:         '0' [xX] (HexDigits '.'? | HexDigits? '.' HexDigits) [pP] [+-]? Digits [fF]?;
 
-BOOL_LITERAL:       'true'
-            |       'false'
+BOOL_LITERAL:              'true'
+            |              'false'
             ;
 
-CHAR_LITERAL:       '\'' (~['\\\r\n] | EscapeSequence) '\'';
+CHAR_LITERAL:              '\'' (~['\\\r\n] | EscapeSequence) '\'';
 
-STRING_LITERAL:     '"' (~["\\\r\n] | EscapeSequence)* '"';
+STRING_LITERAL:            '"' (~["\\\r\n] | EscapeSequence)* '"'
+              |            '\'' (~['\\\r\n] | EscapeSequence)* '\''
+              ;
 
 NULL_LITERAL:       'null';
 

@@ -69,6 +69,12 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
     }
 
     @Nullable
+    @SuppressWarnings({"java:S2637", "ConstantConditions"})
+    default Object compileTimeEval(@Nonnull final EvaluationContext context) {
+        return eval(null, context, null, null);
+    }
+
+    @Nullable
     <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable FDBRecord<M> record, @Nullable M message);
 
     /**

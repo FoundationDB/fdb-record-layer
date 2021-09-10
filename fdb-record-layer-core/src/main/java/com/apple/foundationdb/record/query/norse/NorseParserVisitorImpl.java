@@ -20,22 +20,17 @@
 
 package com.apple.foundationdb.record.query.norse;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
-import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Type.TypeCode;
 import com.apple.foundationdb.record.query.predicates.Typed;
-import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayDeque;
-import java.util.Deque;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -43,28 +38,54 @@ import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
 public class NorseParserVisitorImpl extends NorseParserBaseVisitor<Typed> {
 
-    private final Deque<Scope> scopes;
+    private final ParserContext parserContext;
 
     public NorseParserVisitorImpl() {
-        this.scopes = new ArrayDeque<>();
-        scopes.push(new Scope(ImmutableSet.of(CorrelationIdentifier.of("constants")), ImmutableMap.of("x", new LiteralValue<>(primitiveType(TypeCode.INT), 3))));
+        this.parserContext = new ParserContext();
     }
 
     @Override
-    public Typed visitInequality(final NorseParser.InequalityContext ctx) {
-        final Optional<BuiltInFunction<? extends Typed>> functionOptional;
-        if (ctx.LT() != null) {
-            functionOptional = FunctionCatalog.resolveFunction("lt", 2);
-        } else if (ctx.LE() != null) {
-            functionOptional = FunctionCatalog.resolveFunction("lte", 2);
-        } else if (ctx.GT() != null) {
-            functionOptional = FunctionCatalog.resolveFunction("gt", 2);
-        } else if (ctx.GE() != null) {
-            functionOptional = FunctionCatalog.resolveFunction("gte", 2);
-        } else {
-            functionOptional = Optional.empty();
-        }
+    public Typed visitPipeMethodCall(final NorseParser.PipeMethodCallContext ctx) {
+        final NorseParser.PipeContext pipeContext = Objects.requireNonNull(ctx.pipe());
+        final ImmutableList.Builder<Typed> argumentsBuilder = ImmutableList.builder();
+        argumentsBuilder.add(pipeContext.accept(this));
+        final NorseParser.MethodCallContext methodCallContext = Objects.requireNonNull(ctx.methodCall());
+        final String functionName = Objects.requireNonNull(methodCallContext.IDENTIFIER()).getText();
+        argumentsBuilder.addAll(callArguments(methodCallContext));
+        final List<Typed> arguments = argumentsBuilder.build();
+        final Optional<BuiltInFunction<? extends Typed>> functionOptional = FunctionCatalog.resolveFunction(functionName, Type.fromTyped(arguments));
+        return functionOptional
+                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
+                .orElseThrow(() -> new IllegalArgumentException("unable to resolve function"));
+    }
 
+    @Override
+    public Typed visitExpressionFunctionCall(final NorseParser.ExpressionFunctionCallContext ctx) {
+        Objects.requireNonNull(ctx.functionCall());
+        final NorseParser.MethodCallContext methodCallContext = Objects.requireNonNull(ctx.functionCall().methodCall());
+        final String functionName = Objects.requireNonNull(methodCallContext.IDENTIFIER()).getText();
+        final List<Typed> arguments = callArguments(methodCallContext);
+        final Optional<BuiltInFunction<? extends Typed>> functionOptional = FunctionCatalog.resolveFunction(functionName, Type.fromTyped(arguments));
+        return functionOptional
+                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
+                .orElseThrow(() -> new IllegalArgumentException("unable to resolve function"));
+    }
+
+    private List<Typed> callArguments(final NorseParser.MethodCallContext ctx) {
+        if (ctx.expressionList() != null) {
+            final NorseParser.ExpressionListContext expressionListContext = ctx.expressionList();
+
+            return expressionListContext
+                    .expression()
+                    .stream()
+                    .map(argumentExpression -> argumentExpression.accept(this))
+                    .collect(ImmutableList.toImmutableList());
+        }
+        return ImmutableList.of();
+    }
+
+    @Override
+    public Typed visitExpressionInequality(final NorseParser.ExpressionInequalityContext ctx) {
         // visit the children expressions
         final ImmutableList<Typed> arguments =
                 ctx.expression()
@@ -72,8 +93,21 @@ public class NorseParserVisitorImpl extends NorseParserBaseVisitor<Typed> {
                         .map(expression -> expression.accept(this))
                         .collect(ImmutableList.toImmutableList());
 
+        final Optional<BuiltInFunction<? extends Typed>> functionOptional;
+        if (ctx.LT() != null) {
+            functionOptional = FunctionCatalog.resolveFunction("lt", Type.fromTyped(arguments));
+        } else if (ctx.LE() != null) {
+            functionOptional = FunctionCatalog.resolveFunction("lte", Type.fromTyped(arguments));
+        } else if (ctx.GT() != null) {
+            functionOptional = FunctionCatalog.resolveFunction("gt", Type.fromTyped(arguments));
+        } else if (ctx.GE() != null) {
+            functionOptional = FunctionCatalog.resolveFunction("gte", Type.fromTyped(arguments));
+        } else {
+            functionOptional = Optional.empty();
+        }
+
         return functionOptional
-                .map(builtInFunction -> builtInFunction.encapsulate(arguments))
+                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
                 .orElseThrow(() -> new IllegalArgumentException("unable to resolve comparators"));
     }
 
@@ -94,21 +128,12 @@ public class NorseParserVisitorImpl extends NorseParserBaseVisitor<Typed> {
 
     @Override
     public Typed visitPrimaryExpressionFromUnderbar(final NorseParser.PrimaryExpressionFromUnderbarContext ctx) {
-        return resolveIdentifier(ctx.UNDERBAR().getSymbol().getText());
+        return parserContext.resolveIdentifier(ctx.UNDERBAR().getSymbol().getText());
     }
 
     @Override
     public Typed visitPrimaryExpressionFromIdentifier(final NorseParser.PrimaryExpressionFromIdentifierContext ctx) {
-        return resolveIdentifier(ctx.IDENTIFIER().getSymbol().getText());
-    }
-
-    @Nonnull
-    private Value resolveIdentifier(@Nonnull final String identifier) {
-        return scopes.stream()
-                .filter(scope -> scope.getBoundIdentifiers().containsKey(identifier))
-                .map(scope -> Objects.requireNonNull(scope.getBoundIdentifiers().get(identifier)))
-                .findFirst()
-                .orElseThrow(() -> new RecordCoreArgumentException("unresolved identifier"));
+        return parserContext.resolveIdentifier(ctx.IDENTIFIER().getSymbol().getText());
     }
 
     @Override
@@ -135,7 +160,8 @@ public class NorseParserVisitorImpl extends NorseParserBaseVisitor<Typed> {
         }
         final TerminalNode stringLiteral = ctx.STRING_LITERAL();
         if (stringLiteral != null) {
-            return new LiteralValue<>(primitiveType(TypeCode.FLOAT), stringLiteral.getSymbol().getText());
+            final String literalWithQuotes = stringLiteral.getSymbol().getText();
+            return new LiteralValue<>(primitiveType(TypeCode.STRING), literalWithQuotes.substring(1, literalWithQuotes.length() - 1));
         }
         final TerminalNode booleanLiteral = ctx.BOOL_LITERAL();
         if (booleanLiteral != null) {

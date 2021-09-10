@@ -3,38 +3,43 @@ parser grammar NorseParser;
 options { tokenVocab=NorseLexer; }
 
 pipe
-    : expression                                                          # NormalExpression
-    | pipe BITOR methodCallExpression                                     # PipeCall;
+    : expression                                                          # PipeExpression
+    | pipe BITOR methodCall                                               # PipeMethodCall
+    ;
 
 expression
-    : primaryExpression                                                   # Primary
-    | expression DOT TUPLE_FIELD                                          # TupleField
-    | expression DOT IDENTIFIER                                           # Field
-    | methodCallExpression                                                # MethodCall
-    | prefix=(ADD|SUB) expression                                         # UnarySign
-    | prefix=(TILDE|BANG) expression                                      # UnaryTildeBang
-    | expression bop=(MUL | DIV | MOD) expression                         # Multiplicative
-    | expression bop=(ADD | SUB) expression                               # Additive
-    | expression bop=(LE | GE | GT | LT) expression                       # Inequality
-    | expression bop=(EQUAL | NOTEQUAL) expression                        # EqualityNonEquality
-    | expression bop=AND expression                                       # LogicalAnd
-    | expression bop=OR expression                                        # LogicalOr
-    | <assoc=right> expression bop=QUESTION expression COLON expression   # FunctionalIf
-    | <assoc=right> expression bop=COLONEQUALS expression                 # Assign
-    | lambdaExpression                                                    # Lambda
-    | comprehensionExpression                                             # Comprehension
+    : primaryExpression                                                   # ExpressionPrimaryExpression
+    | expression DOT TUPLE_FIELD                                          # ExpressionTupleField
+    | expression DOT IDENTIFIER                                           # ExpressionField
+    | functionCall                                                        # ExpressionFunctionCall
+    | prefix=(ADD|SUB) expression                                         # ExpressionUnarySign
+    | prefix=(TILDE|BANG) expression                                      # ExpressionUnaryTildeBang
+    | expression bop=(MUL | DIV | MOD) expression                         # ExpressionMultiplicative
+    | expression bop=(ADD | SUB) expression                               # ExpressionAdditive
+    | expression bop=(LE | GE | GT | LT) expression                       # ExpressionInequality
+    | expression bop=(EQUAL | NOTEQUAL) expression                        # ExpressionEqualityNonEquality
+    | expression bop=AND expression                                       # ExpressionLogicalAnd
+    | expression bop=OR expression                                        # ExpressionLogicalOr
+    | <assoc=right> expression bop=QUESTION expression COLON expression   # ExpressionFunctionalIf
+    | <assoc=right> expression bop=COLONEQUALS expression                 # ExpressionAssign
+    | lambda                                                              # ExpressionLambda
+    | comprehension                                                       # ExpressionComprehension
     ;
 
 expressionList
     : expression (COMMA expression)*
     ;
 
-methodCallExpression
+functionCall
+    : methodCall
+    ;
+
+methodCall
     : IDENTIFIER LPAREN expressionList? RPAREN
     | IDENTIFIER expression
     ;
 
-lambdaExpression
+lambda
     : lambdaParameters DOUBLE_ARROW expression
     ;
 
@@ -43,7 +48,7 @@ lambdaParameters
     | LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
     ;
 
-comprehensionExpression
+comprehension
     : LBRACK comprehensionBinding (SEMI comprehensionBinding)* RBRACK
     ;
 

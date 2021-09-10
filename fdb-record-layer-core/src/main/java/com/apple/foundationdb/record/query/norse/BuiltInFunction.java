@@ -22,10 +22,11 @@ package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Typed;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public abstract class BuiltInFunction<T extends Typed> {
@@ -35,12 +36,20 @@ public abstract class BuiltInFunction<T extends Typed> {
     @Nonnull
     final List<Type> parameterTypes;
 
-    @Nonnull
-    final BiFunction<BuiltInFunction<T>, List<Typed>, T> encapsulationFunction;
+    @Nullable
+    final Type variadicSuffixType;
 
-    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final BiFunction<BuiltInFunction<T>, List<Typed>, T> encapsulationFunction) {
+    @Nonnull
+    final EncapsulationFunction<T> encapsulationFunction;
+
+    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
+        this(functionName, parameterTypes, null, encapsulationFunction);
+    }
+
+    protected BuiltInFunction(@Nonnull final String functionName, @Nonnull final List<Type> parameterTypes, @Nullable final Type variadicSuffixType, @Nonnull final EncapsulationFunction<T> encapsulationFunction) {
         this.functionName = functionName;
-        this.parameterTypes = parameterTypes;
+        this.parameterTypes = ImmutableList.copyOf(parameterTypes);
+        this.variadicSuffixType = variadicSuffixType;
         this.encapsulationFunction = encapsulationFunction;
     }
 
@@ -54,14 +63,23 @@ public abstract class BuiltInFunction<T extends Typed> {
         return parameterTypes;
     }
 
+    @Nullable
+    public Type getVariadicSuffixType() {
+        return variadicSuffixType;
+    }
+
+    public boolean hasVariadicSuffix() {
+        return variadicSuffixType != null;
+    }
+
     @Nonnull
-    public BiFunction<BuiltInFunction<T>, List<Typed>, T> getEncapsulationFunction() {
+    public EncapsulationFunction<T> getEncapsulationFunction() {
         return encapsulationFunction;
     }
 
     @Nonnull
-    public Typed encapsulate(@Nonnull final List<Typed> arguments) {
-        return encapsulationFunction.apply(this, arguments);
+    public Typed encapsulate(@Nonnull final ParserContext parserContext, @Nonnull final List<Typed> arguments) {
+        return encapsulationFunction.encapsulate(parserContext, this, arguments);
     }
 
     @Nonnull

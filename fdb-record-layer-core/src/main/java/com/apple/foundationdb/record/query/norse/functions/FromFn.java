@@ -20,29 +20,48 @@
 
 package com.apple.foundationdb.record.query.norse.functions;
 
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
 /**
  * Function
- * filter(RELATION, FUNCTION) -> RELATION.
+ * filter(STRING...) -> RELATION.
  */
 @AutoService(BuiltInFunction.class)
-public class FilterFn extends BuiltInFunction<RelationalExpression> {
-    public FilterFn() {
-        super("filter",
-                ImmutableList.of(new Type.Relation(), new Type.Function()), FilterFn::encapsulate);
+public class FromFn extends BuiltInFunction<RelationalExpression> {
+    public FromFn() {
+        super("from",
+                ImmutableList.of(), Type.primitiveType(Type.TypeCode.STRING), FromFn::encapsulate);
     }
 
     private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
-        return null;
+        // force evaluation of the string-type arguments (for the record types)
+        final ImmutableSet<String> recordTypes = arguments
+                .stream()
+                .peek(argument -> Verify.verify(argument.getResultType().getTypeCode() == Type.TypeCode.STRING))
+                .map(argument -> {
+                    final Object result = ((Value)argument).compileTimeEval(EvaluationContext.EMPTY);
+                    if (result instanceof String) {
+                        return (String)result;
+                    } else {
+                        throw new IllegalArgumentException("arguments to from() must be strings (for record types)");
+                    }
+                })
+                .collect(ImmutableSet.toImmutableSet());
+        return new LogicalTypeFilterExpression(recordTypes, new FullUnorderedScanExpression(recordTypes));
     }
 }

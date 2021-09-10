@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
+import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
@@ -137,7 +138,7 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
     }
@@ -149,7 +150,7 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
     }
@@ -161,7 +162,7 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
     }
@@ -173,7 +174,7 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
     }
@@ -185,7 +186,7 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }
