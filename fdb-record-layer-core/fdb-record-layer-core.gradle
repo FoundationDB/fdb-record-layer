@@ -23,8 +23,8 @@ plugins {
 
 generateGrammarSource {
     arguments += ["-visitor", "-long-messages"]
-    arguments += ['-package', 'com.apple.foundationdb.norse']
-    outputDirectory = new File("${project.buildDir}/generated-src/antlr/main/com/apple/foundationdb/norse".toString())
+    arguments += ['-package', 'com.apple.foundationdb.record.query.norse']
+    outputDirectory = new File("${project.buildDir}/generated-src/antlr/main/com/apple/foundationdb/record/query/norse".toString())
 }
 
 apply plugin: 'com.github.johnrengelman.shadow'
@@ -43,6 +43,7 @@ configurations {
 dependencies {
     compile project(':fdb-extensions')
 
+    antlr "org.antlr:antlr4:4.5"
     compile "com.google.protobuf:protobuf-java:${protobufVersion}"
     compile "org.slf4j:slf4j-api:${slf4jVersion}"
     compile "org.apache.commons:commons-lang3:${commonsLang3Version}"

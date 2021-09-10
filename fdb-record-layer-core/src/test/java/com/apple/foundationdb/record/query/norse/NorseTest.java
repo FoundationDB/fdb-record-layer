@@ -1,9 +1,5 @@
 /*
-<<<<<<< Updated upstream:fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/query/plan/plans/QueryResultElement.java
- * QueryResultElement.java
-=======
  * NorseTest.java
->>>>>>> Stashed changes:fdb-record-layer-core/src/test/java/com/apple/foundationdb/NorseTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,17 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.query.norse;
 
-<<<<<<< Updated upstream:fdb-record-layer-core/src/main/java/com/apple/foundationdb/record/query/plan/plans/QueryResultElement.java
-/**
- * Marker interface for the elements that can be stored in a {@link QueryResult}.
- */
-public interface QueryResultElement {
-=======
-import com.apple.foundationdb.norse.NorseLexer;
-import com.apple.foundationdb.norse.NorseParser;
-import com.apple.foundationdb.norse.NorseParserBaseVisitor;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -41,20 +28,16 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 public class NorseTest {
 
-    public static class NorseParserVisitor extends NorseParserBaseVisitor<Void> {
-
-    }
-
     @Test
     void testSimpleStatement() {
-        final ANTLRInputStream in = new ANTLRInputStream("read(\"a\") | filter _ = 2");
+        final ANTLRInputStream in = new ANTLRInputStream("x < 5");
         NorseLexer lexer = new NorseLexer(in);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         NorseParser parser = new NorseParser(tokens);
         final ParseTree tree = parser.pipe();
 
-        final NorseParserVisitor visitor = new NorseParserVisitor();
-        visitor.visit(tree);
+        final NorseParserVisitorImpl visitor = new NorseParserVisitorImpl();
+        Object o = visitor.visit(tree);
+        System.out.println(o);
     }
->>>>>>> Stashed changes:fdb-record-layer-core/src/test/java/com/apple/foundationdb/NorseTest.java
 }

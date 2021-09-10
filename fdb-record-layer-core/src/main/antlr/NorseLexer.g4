@@ -84,16 +84,24 @@ WHILE:              'while';
 
 // Literals
 
-DECIMAL_LITERAL:    ('0' | [1-9] (Digits? | '_'+ Digits)) [lL]?;
-HEX_LITERAL:        '0' [xX] [0-9a-fA-F] ([0-9a-fA-F_]* [0-9a-fA-F])? [lL]?;
-OCT_LITERAL:        '0' '_'* [0-7] ([0-7_]* [0-7])? [lL]?;
-BINARY_LITERAL:     '0' [bB] [01] ([01_]* [01])? [lL]?;
+DECIMAL_LITERAL_LONG:      ('0' | [1-9] (Digits? | '_'+ Digits)) [lL];
+HEX_LITERAL_LONG:          '0' [xX] [0-9a-fA-F] ([0-9a-fA-F_]* [0-9a-fA-F])? [lL];
+OCT_LITERAL_LONG:          '0' '_'* [0-7] ([0-7_]* [0-7])? [lL];
+BINARY_LITERAL_LONG:       '0' [bB] [01] ([01_]* [01])? [lL];
 
-FLOAT_LITERAL:      (Digits '.' Digits? | '.' Digits) ExponentPart? [fFdD]?
-             |       Digits (ExponentPart [fFdD]? | [fFdD])
+DECIMAL_LITERAL:           '0' | [1-9] (Digits? | '_'+ Digits);
+HEX_LITERAL:               '0' [xX] [0-9a-fA-F] ([0-9a-fA-F_]* [0-9a-fA-F])?;
+OCT_LITERAL:               '0' '_'* [0-7] ([0-7_]* [0-7])?;
+BINARY_LITERAL:            '0' [bB] [01] ([01_]* [01])?;
+
+FLOAT_LITERAL_DOUBLE:      (Digits '.' Digits? | '.' Digits) ExponentPart? [dD]
+             |             Digits (ExponentPart [dD] | [dD])
              ;
-
-HEX_FLOAT_LITERAL:  '0' [xX] (HexDigits '.'? | HexDigits? '.' HexDigits) [pP] [+-]? Digits [fFdD]?;
+HEX_FLOAT_LITERAL_DOUBLE:  '0' [xX] (HexDigits '.'? | HexDigits? '.' HexDigits) [pP] [+-]? Digits [dD];
+FLOAT_LITERAL:             (Digits '.' Digits? | '.' Digits) ExponentPart? [fF]?
+             |             Digits (ExponentPart [fF]? | [fF])
+             ;
+HEX_FLOAT_LITERAL:         '0' [xX] (HexDigits '.'? | HexDigits? '.' HexDigits) [pP] [+-]? Digits [fF]?;
 
 BOOL_LITERAL:       'true'
             |       'false'
@@ -104,6 +112,8 @@ CHAR_LITERAL:       '\'' (~['\\\r\n] | EscapeSequence) '\'';
 STRING_LITERAL:     '"' (~["\\\r\n] | EscapeSequence)* '"';
 
 NULL_LITERAL:       'null';
+
+TUPLE_FIELD: UNDERBAR Digits;
 
 // Separators
 

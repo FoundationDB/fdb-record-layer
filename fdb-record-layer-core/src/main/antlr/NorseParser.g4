@@ -8,13 +8,14 @@ pipe
 
 expression
     : primaryExpression                                                   # Primary
+    | expression DOT TUPLE_FIELD                                          # TupleField
     | expression DOT IDENTIFIER                                           # Field
     | methodCallExpression                                                # MethodCall
     | prefix=(ADD|SUB) expression                                         # UnarySign
     | prefix=(TILDE|BANG) expression                                      # UnaryTildeBang
-    | expression bop=(MUL|DIV|MOD) expression                             # Multiplicative
-    | expression bop=(ADD|SUB) expression                                 # Additive
-    | expression bop=(LE | GE | GT | LT) expression                       # RelOps
+    | expression bop=(MUL | DIV | MOD) expression                         # Multiplicative
+    | expression bop=(ADD | SUB) expression                               # Additive
+    | expression bop=(LE | GE | GT | LT) expression                       # Inequality
     | expression bop=(EQUAL | NOTEQUAL) expression                        # EqualityNonEquality
     | expression bop=AND expression                                       # LogicalAnd
     | expression bop=OR expression                                        # LogicalOr
@@ -52,13 +53,11 @@ comprehensionBinding
     ;
 
 primaryExpression
-    : LPAREN pipe RPAREN
-    | recordConstructor
-    | arrayConstructor
-    | tupleConstructor
-    | literal
-    | UNDERBAR
-    | IDENTIFIER
+    : LPAREN pipe RPAREN   # PrimaryExpressionFromNestedPipe
+    | recordConstructor    # PrimaryExpressionFromRecordConstructor
+    | literal              # PrimaryExpressionFromLiteral
+    | UNDERBAR             # PrimaryExpressionFromUnderbar
+    | IDENTIFIER           # PrimaryExpressionFromIdentifier
     ;
 
 recordConstructor
@@ -70,22 +69,21 @@ keyValueMapping
     : IDENTIFIER ARROW pipe
     ;
 
-arrayConstructor
-    : LBRACK RBRACK
-    | LBRACK pipe (COMMA pipe)* RBRACK
-    ;
-
-tupleConstructor
-    : LPAREN pipe (COMMA pipe)+ RPAREN
-    ;
-
 literal
-    : integerLiteral
+    : integerLiteralLong
+    | integerLiteral
+    | floatLiteralDouble
     | floatLiteral
-    | CHAR_LITERAL
     | STRING_LITERAL
     | BOOL_LITERAL
     | NULL_LITERAL
+    ;
+
+integerLiteralLong
+    : DECIMAL_LITERAL_LONG
+    | HEX_LITERAL_LONG
+    | OCT_LITERAL_LONG
+    | BINARY_LITERAL_LONG
     ;
 
 integerLiteral
@@ -93,6 +91,11 @@ integerLiteral
     | HEX_LITERAL
     | OCT_LITERAL
     | BINARY_LITERAL
+    ;
+
+floatLiteralDouble
+    : FLOAT_LITERAL_DOUBLE
+    | HEX_FLOAT_LITERAL_DOUBLE
     ;
 
 floatLiteral

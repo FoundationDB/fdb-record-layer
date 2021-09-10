@@ -54,12 +54,18 @@ import java.util.stream.StreamSupport;
  * A scalar value type.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, KeyExpressionVisitor.Result {
+public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable, KeyExpressionVisitor.Result, Typed {
 
     @Nonnull
     @Override
     default Value getThis() {
         return this;
+    }
+
+    @Nonnull
+    @Override
+    default Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.UNKNOWN);
     }
 
     @Nullable

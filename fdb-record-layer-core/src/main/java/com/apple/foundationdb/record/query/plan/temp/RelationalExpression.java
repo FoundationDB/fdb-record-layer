@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.Type;
+import com.apple.foundationdb.record.query.predicates.Typed;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -95,7 +97,7 @@ import java.util.stream.StreamSupport;
  * implementations of each.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RelationalExpression extends Correlated<RelationalExpression> {
+public interface RelationalExpression extends Correlated<RelationalExpression>, Typed {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
                                                 @Nonnull RecordQuery query) {
@@ -142,6 +144,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
         }
 
         return quantifier.getRangesOver().get();
+    }
+
+    @Override
+    default Type getResultType() {
+        return new Type.Relation(getResultValues().stream().map(Value::getResultType).collect(ImmutableList.toImmutableList()));
     }
 
     @Nonnull

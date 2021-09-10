@@ -42,11 +42,25 @@ import java.util.Objects;
 public class LiteralValue<T> implements LeafValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Literal-Value");
 
+    @Nonnull
+    private final Type resultType;
+
     @Nullable
     private final T value;
 
     public LiteralValue(@Nullable final T value) {
+        this(Type.primitiveType(typeCodeFromLiteral(value)), value);
+    }
+
+    public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {
+        this.resultType = resultType;
         this.value = value;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
     }
 
     @Nullable
@@ -114,5 +128,10 @@ public class LiteralValue<T> implements LeafValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.emptyMap());
+    }
+
+    @Nonnull
+    public static Type.TypeCode typeCodeFromLiteral(@Nullable final Object o) {
+        return Type.getClassToTypeCodeMap().getOrDefault(o == null ? null : o.getClass(), Type.TypeCode.UNKNOWN);
     }
 }
