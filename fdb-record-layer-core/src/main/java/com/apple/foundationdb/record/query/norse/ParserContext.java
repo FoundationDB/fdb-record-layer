@@ -20,35 +20,57 @@
 
 package com.apple.foundationdb.record.query.norse;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.Objects;
-
-import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
+import javax.annotation.Nullable;
+import java.util.Map;
+import java.util.Set;
 
 public class ParserContext {
-    private final Deque<Scope> scopes;
+    @Nonnull
+    private final Scopes scopes;
+    @Nonnull
+    private final RecordMetaData recordMetaData;
+    @Nonnull
+    private final RecordStoreState recordStoreState;
 
-    public ParserContext() {
-        this.scopes = new ArrayDeque<>();
-        scopes.push(new Scope(ImmutableSet.of(CorrelationIdentifier.of("constants")), ImmutableMap.of("x", new LiteralValue<>(primitiveType(Type.TypeCode.INT), 3))));
+    public ParserContext(@Nonnull final Scopes scopes, @Nonnull final RecordMetaData recordMetaData, @Nonnull final RecordStoreState recordStoreState) {
+        this.scopes = scopes;
+        this.recordMetaData = recordMetaData;
+        this.recordStoreState = recordStoreState;
+    }
+
+    @Nonnull
+    public RecordMetaData getRecordMetaData() {
+        return recordMetaData;
+    }
+
+    @Nonnull
+    public RecordStoreState getRecordStoreState() {
+        return recordStoreState;
+    }
+
+    @Nullable
+    public Scopes.Scope getCurrentScope() {
+        return scopes.getCurrentScope();
+    }
+
+    public void pushScope(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
+                          @Nonnull final Map<String, Value> boundIdentifiers) {
+        scopes.push(visibleAliases, boundIdentifiers);
+    }
+
+    @Nonnull
+    public Scopes.Scope popScope() {
+        return scopes.pop();
     }
 
     @Nonnull
     public Value resolveIdentifier(@Nonnull final String identifier) {
-        return scopes.stream()
-                .filter(scope -> scope.getBoundIdentifiers().containsKey(identifier))
-                .map(scope -> Objects.requireNonNull(scope.getBoundIdentifiers().get(identifier)))
-                .findFirst()
-                .orElseThrow(() -> new RecordCoreArgumentException("unresolved identifier"));
+        return scopes.resolveIdentifier(identifier);
     }
 }

@@ -65,6 +65,12 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
 
     @Nonnull
     @Override
+    public Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.BOOLEAN);
+    }
+
+    @Nonnull
+    @Override
     public Iterable<? extends Value> getChildren() {
         return ImmutableList.of(leftChild, rightChild);
     }
@@ -76,7 +82,7 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
         return new RelOpValue(this.functionName,
                 this.comparisonType,
                 Iterables.get(newChildren, 0),
-                Iterables.get(newChildren, 0));
+                Iterables.get(newChildren, 1));
     }
 
     @Override
@@ -140,6 +146,18 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
+        }
+    }
+
+    @AutoService(BuiltInFunction.class)
+    public static class NotEqualsFn extends BuiltInFunction<Value> {
+        public NotEqualsFn() {
+            super("notEquals",
+                    ImmutableList.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
+        }
+
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
     }
 

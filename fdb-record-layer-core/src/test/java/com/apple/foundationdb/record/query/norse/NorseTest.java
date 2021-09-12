@@ -20,24 +20,79 @@
 
 package com.apple.foundationdb.record.query.norse;
 
+import com.apple.foundationdb.record.RecordMetaData;
+import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.google.common.collect.Iterables;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
-public class NorseTest {
+class NorseTest extends FDBRecordStoreQueryTestBase {
 
     @Test
-    void testSimpleStatement() {
-        final ANTLRInputStream in = new ANTLRInputStream("'hello' | from('world')");
+    void testSimpleStatement() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+
+            TestRecords4Proto.RestaurantReviewer.Builder reviewerBuilder = TestRecords4Proto.RestaurantReviewer.newBuilder();
+            reviewerBuilder.setId(1);
+            reviewerBuilder.setName("Lemuel");
+            recordStore.saveRecord(reviewerBuilder.build());
+
+            reviewerBuilder.setId(2);
+            reviewerBuilder.setName("Gulliver");
+            recordStore.saveRecord(reviewerBuilder.build());
+
+            TestRecords4Proto.RestaurantRecord.Builder recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
+            recBuilder.setRestNo(101);
+            recBuilder.setName("The Emperor's Three Tables");
+            TestRecords4Proto.RestaurantReview.Builder reviewBuilder = recBuilder.addReviewsBuilder();
+            reviewBuilder.setReviewer(1);
+            reviewBuilder.setRating(10);
+            reviewBuilder = recBuilder.addReviewsBuilder();
+            reviewBuilder.setReviewer(2);
+            reviewBuilder.setRating(3);
+            TestRecords4Proto.RestaurantTag.Builder tagBuilder = recBuilder.addTagsBuilder();
+            tagBuilder.setValue("Lilliput");
+            tagBuilder.setWeight(5);
+            recordStore.saveRecord(recBuilder.build());
+
+            recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
+            recBuilder.setRestNo(102);
+            recBuilder.setName("Small Fry's Fried Victuals");
+            reviewBuilder = recBuilder.addReviewsBuilder();
+            reviewBuilder.setReviewer(1);
+            reviewBuilder.setRating(5);
+            reviewBuilder = recBuilder.addReviewsBuilder();
+            reviewBuilder.setReviewer(2);
+            reviewBuilder.setRating(5);
+            tagBuilder = recBuilder.addTagsBuilder();
+            tagBuilder.setValue("Lilliput");
+            tagBuilder.setWeight(1);
+            recordStore.saveRecord(recBuilder.build());
+
+            commit(context);
+        }
+        final RecordMetaData recordMetaData = recordStore.getRecordMetaData();
+
+        System.out.println(recordMetaData.getRecordTypes());
+
+        final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord') | filter r => r.name = 'Heirloom Cafe' || r.rest_no < 5");
+        //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord')");
         NorseLexer lexer = new NorseLexer(in);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         NorseParser parser = new NorseParser(tokens);
         final ParseTree tree = parser.pipe();
 
-        final NorseParserVisitorImpl visitor = new NorseParserVisitorImpl();
+        final ParserWalker visitor = new ParserWalker(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
         Object o = visitor.visit(tree);
+        final RelationalExpression fuse = Iterables.getOnlyElement(Iterables.getOnlyElement(((RelationalExpression)o).getQuantifiers()).getRangesOver().getMembers());
+        System.out.println(fuse.getResultType());
         System.out.println(o);
     }
 }

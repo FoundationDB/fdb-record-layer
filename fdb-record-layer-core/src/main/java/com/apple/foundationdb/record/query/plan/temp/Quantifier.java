@@ -552,7 +552,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     protected List<? extends QuantifiedColumnValue> pullUpResultValues() {
         return Streams.mapWithIndex(resolveValuesRangedOver().stream(),
-                (columnValue, index) -> QuantifiedColumnValue.of(getAlias(), Math.toIntExact(index)))
+                (columnValue, index) -> QuantifiedColumnValue.of(getAlias(), Math.toIntExact(index), columnValue.getResultType()))
                 .collect(ImmutableList.toImmutableList());
     }
 

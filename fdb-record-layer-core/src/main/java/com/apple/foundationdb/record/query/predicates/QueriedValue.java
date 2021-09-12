@@ -39,6 +39,23 @@ public class QueriedValue implements LeafValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Queried-Value");
 
     @Nonnull
+    private final Type resultType;
+
+    public QueriedValue() {
+        this(Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    public QueriedValue(@Nonnull final Type resultType) {
+        this.resultType = resultType;
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
+    }
+
+    @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
         return ImmutableSet.of();

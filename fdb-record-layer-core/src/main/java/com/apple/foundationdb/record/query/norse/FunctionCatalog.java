@@ -62,9 +62,13 @@ public class FunctionCatalog {
         return catalogBuilder.build();
     }
 
+    public static Optional<BuiltInFunction<? extends Typed>> resolveAndValidate(@Nonnull final String functionName, List<Type> argumentTypes) {
+        return resolve(functionName, argumentTypes.size())
+                .flatMap(builtInFunction -> builtInFunction.validateCall(argumentTypes));
+    }
+
     @SuppressWarnings("java:S1066")
-    public static Optional<BuiltInFunction<? extends Typed>> resolveFunction(@Nonnull final String functionName, List<Type> argumentTypes) {
-        int numberOfArguments = argumentTypes.size();
+    public static Optional<BuiltInFunction<? extends Typed>> resolve(@Nonnull final String functionName, int numberOfArguments) {
         BuiltInFunction<? extends Typed> builtInFunction = getFunctionCatalog().get(new FunctionKey(functionName, numberOfArguments, false));
         if (builtInFunction == null) {
             // try again as a variadic function
@@ -74,33 +78,10 @@ public class FunctionCatalog {
                 if (builtInFunction.getParameterTypes().size() > numberOfArguments) {
                     return Optional.empty();
                 }
-
-                // This is variadic function
-                final Type variadicSuffixType = Objects.requireNonNull(builtInFunction.getVariadicSuffixType());
-                if (variadicSuffixType.getTypeCode() != Type.TypeCode.ANY) {
-                    for (int i = builtInFunction.getParameterTypes().size(); i < numberOfArguments; i++) {
-                        if (argumentTypes.get(i).getTypeCode() != variadicSuffixType.getTypeCode()) {
-                            return Optional.empty();
-                        }
-                    }
-                }
             }
         }
 
-        if (builtInFunction == null) {
-            return Optional.empty();
-        }
-
-        // check the type codes of the fixed parameters
-        final List<Type> parameterTypes = builtInFunction.getParameterTypes();
-        for (int i = 0; i < parameterTypes.size(); i ++) {
-            final Type typeI = parameterTypes.get(i);
-            if (typeI.getTypeCode() != Type.TypeCode.ANY && typeI.getTypeCode() != argumentTypes.get(i).getTypeCode()) {
-                return Optional.empty();
-            }
-        }
-
-        return Optional.of(builtInFunction);
+        return Optional.ofNullable(builtInFunction);
     }
 
     private static class FunctionKey {

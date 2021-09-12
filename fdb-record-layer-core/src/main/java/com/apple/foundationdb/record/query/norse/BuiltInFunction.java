@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public abstract class BuiltInFunction<T extends Typed> {
@@ -63,6 +65,27 @@ public abstract class BuiltInFunction<T extends Typed> {
         return parameterTypes;
     }
 
+    @Nonnull
+    public Type resolveParameterType(int index) {
+        if (index < parameterTypes.size()) {
+            return parameterTypes.get(index);
+        } else {
+            if (hasVariadicSuffix()) {
+                return Objects.requireNonNull(variadicSuffixType);
+            }
+            throw new IllegalArgumentException("cannot resolve declared parameter at index " + index);
+        }
+    }
+
+    @Nonnull
+    public List<Type> resolveParameterTypes(int numberOfArguments) {
+        final ImmutableList.Builder<Type> resultBuilder = ImmutableList.builder();
+        for (int i = 0; i < numberOfArguments; i ++) {
+            resultBuilder.add(resolveParameterType(i));
+        }
+        return resultBuilder.build();
+    }
+
     @Nullable
     public Type getVariadicSuffixType() {
         return variadicSuffixType;
@@ -70,6 +93,35 @@ public abstract class BuiltInFunction<T extends Typed> {
 
     public boolean hasVariadicSuffix() {
         return variadicSuffixType != null;
+    }
+
+    @Nonnull
+    public Optional<BuiltInFunction<? extends Typed>> validateCall(@Nonnull final List<Type> argumentTypes) {
+        int numberOfArguments = argumentTypes.size();
+
+        if (hasVariadicSuffix()) {
+            // This is variadic function
+            final Type variadicSuffixType = Objects.requireNonNull(getVariadicSuffixType());
+            if (variadicSuffixType.getTypeCode() != Type.TypeCode.ANY) {
+                for (int i = getParameterTypes().size(); i < numberOfArguments; i++) {
+                    if (argumentTypes.get(i).getTypeCode() != variadicSuffixType.getTypeCode()) {
+                        return Optional.empty();
+                    }
+                }
+            }
+            return Optional.of(this);
+        }
+
+        // check the type codes of the fixed parameters
+        final List<Type> parameterTypes = getParameterTypes();
+        for (int i = 0; i < parameterTypes.size(); i ++) {
+            final Type typeI = parameterTypes.get(i);
+            if (typeI.getTypeCode() != Type.TypeCode.ANY && typeI.getTypeCode() != argumentTypes.get(i).getTypeCode()) {
+                return Optional.empty();
+            }
+        }
+
+        return Optional.of(this);
     }
 
     @Nonnull

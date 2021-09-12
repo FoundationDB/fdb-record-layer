@@ -13,7 +13,7 @@ expression
     | expression DOT IDENTIFIER                                           # ExpressionField
     | functionCall                                                        # ExpressionFunctionCall
     | prefix=(ADD|SUB) expression                                         # ExpressionUnarySign
-    | prefix=(TILDE|BANG) expression                                      # ExpressionUnaryTildeBang
+    | prefix=BANG expression                                              # ExpressionUnaryBang
     | expression bop=(MUL | DIV | MOD) expression                         # ExpressionMultiplicative
     | expression bop=(ADD | SUB) expression                               # ExpressionAdditive
     | expression bop=(LE | GE | GT | LT) expression                       # ExpressionInequality
@@ -44,8 +44,13 @@ lambda
     ;
 
 lambdaParameters
+    : bindingIdentifier
+    | LPAREN bindingIdentifier (COMMA bindingIdentifier)* RPAREN
+    ;
+
+bindingIdentifier
     : IDENTIFIER
-    | LPAREN IDENTIFIER (COMMA IDENTIFIER)* RPAREN
+    | UNDERBAR
     ;
 
 comprehension

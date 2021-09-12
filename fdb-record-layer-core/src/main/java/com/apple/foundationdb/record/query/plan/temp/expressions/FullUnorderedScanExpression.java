@@ -35,17 +35,22 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * A planner expression representing a full, unordered scan of the records by primary key, which is the logical version
@@ -64,8 +69,19 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     private final Set<String> recordTypes;
 
+    @Nullable
+    private final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap;
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValueSupplier;
+
     public FullUnorderedScanExpression(final Set<String> recordTypes) {
+        this(recordTypes, null);
+    }
+
+    public FullUnorderedScanExpression(final Set<String> recordTypes, @Nullable final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
+        this.fieldDescriptorMap = fieldDescriptorMap == null ? null : ImmutableMap.copyOf(fieldDescriptorMap);
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValues);
     }
 
     @Nonnull
@@ -76,7 +92,18 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     @Override
     public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+        return resultValueSupplier.get();
+    }
+
+    @Nonnull
+    public List<? extends Value> computeResultValues() {
+        final Type resultType;
+        if (fieldDescriptorMap == null) {
+            resultType = Type.primitiveType(Type.TypeCode.UNKNOWN);
+        } else {
+            resultType = new Type.Record(fieldDescriptorMap);
+        }
+        return ImmutableList.of(new QueriedValue(resultType));
     }
 
     @Nonnull

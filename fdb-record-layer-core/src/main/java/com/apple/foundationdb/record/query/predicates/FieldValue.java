@@ -48,11 +48,18 @@ public class FieldValue implements ValueWithChild {
     private final QuantifiedColumnValue columnValue;
     @Nonnull
     private final List<String> fieldPath;
+    @Nonnull
+    private final Type resultType;
 
     public FieldValue(@Nonnull QuantifiedColumnValue columnValue, @Nonnull List<String> fieldPath) {
+        this(columnValue, fieldPath, Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    public FieldValue(@Nonnull QuantifiedColumnValue columnValue, @Nonnull List<String> fieldPath, @Nonnull Type resultType) {
         Preconditions.checkArgument(!fieldPath.isEmpty());
         this.columnValue = columnValue;
         this.fieldPath = ImmutableList.copyOf(fieldPath);
+        this.resultType = resultType;
     }
 
     @Nonnull
@@ -68,6 +75,12 @@ public class FieldValue implements ValueWithChild {
     @Nonnull
     public String getFieldName() {
         return fieldPath.get(fieldPath.size() - 1);
+    }
+
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return resultType;
     }
 
     @Nonnull

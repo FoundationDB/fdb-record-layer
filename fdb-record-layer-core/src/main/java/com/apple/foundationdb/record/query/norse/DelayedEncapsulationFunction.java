@@ -1,5 +1,5 @@
 /*
- * Scope.java
+ * EncapsulationFunction.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,30 +21,14 @@
 package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.predicates.Typed;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
-public class Scope {
-    @Nonnull
-    private final Set<CorrelationIdentifier> visibleAliases;
-    @Nonnull
-    private final Map<String, Value> boundIdentifiers;
-
-    public Scope(final Set<CorrelationIdentifier> visibleAliases, final Map<String, Value> boundIdentifiers) {
-        this.visibleAliases = ImmutableSet.copyOf(visibleAliases);
-        this.boundIdentifiers = ImmutableMap.copyOf(boundIdentifiers);
-    }
-
-    public Set<CorrelationIdentifier> getVisibleAliases() {
-        return visibleAliases;
-    }
-
-    public Map<String, Value> getBoundIdentifiers() {
-        return boundIdentifiers;
-    }
+public interface DelayedEncapsulationFunction<T extends Typed> {
+    T encapsulate(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
+                  @Nonnull final Map<String, Value> boundIdentifiers);
 }

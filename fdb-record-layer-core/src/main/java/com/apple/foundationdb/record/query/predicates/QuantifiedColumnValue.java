@@ -47,11 +47,15 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Nonnull
     private final CorrelationIdentifier alias;
     private final int ordinalPosition;
+    @Nonnull
+    private final Type resultType;
 
     private QuantifiedColumnValue(@Nonnull final CorrelationIdentifier alias,
-                                 final int ordinalPosition) {
+                                  final int ordinalPosition,
+                                  final Type resultType) {
         this.alias = alias;
         this.ordinalPosition = ordinalPosition;
+        this.resultType = resultType;
     }
 
     public int getOrdinalPosition() {
@@ -60,9 +64,15 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     @Override
+    public Type getResultType() {
+        return resultType;
+    }
+
+    @Nonnull
+    @Override
     public QuantifiedColumnValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
-            return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition);
+            return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition, resultType);
         }
         return this;
     }
@@ -130,6 +140,11 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal) {
-        return new QuantifiedColumnValue(alias, ordinal);
+        return of(alias, ordinal, Type.primitiveType(Type.TypeCode.UNKNOWN));
+    }
+
+    @Nonnull
+    public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal, @Nonnull final Type resultType) {
+        return new QuantifiedColumnValue(alias, ordinal, resultType);
     }
 }

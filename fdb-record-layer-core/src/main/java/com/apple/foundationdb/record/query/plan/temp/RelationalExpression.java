@@ -147,7 +147,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     @Override
-    default Type getResultType() {
+    default Type.Relation getResultType() {
         return new Type.Relation(getResultValues().stream().map(Value::getResultType).collect(ImmutableList.toImmutableList()));
     }
 

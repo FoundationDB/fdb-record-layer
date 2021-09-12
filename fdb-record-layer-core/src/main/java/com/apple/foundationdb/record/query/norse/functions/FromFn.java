@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.norse.functions;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -33,9 +34,12 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Function
@@ -50,7 +54,7 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
 
     private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
         // force evaluation of the string-type arguments (for the record types)
-        final ImmutableSet<String> recordTypes = arguments
+        final ImmutableSet<String> recordTypeNames = arguments
                 .stream()
                 .peek(argument -> Verify.verify(argument.getResultType().getTypeCode() == Type.TypeCode.STRING))
                 .map(argument -> {
@@ -62,6 +66,34 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
                     }
                 })
                 .collect(ImmutableSet.toImmutableSet());
-        return new LogicalTypeFilterExpression(recordTypes, new FullUnorderedScanExpression(recordTypes));
+
+        final RecordMetaData recordMetaData = parserContext.getRecordMetaData();
+
+        final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = recordTypeNames
+                .stream()
+                .flatMap(recordTypeName -> recordMetaData.getRecordType(recordTypeName).getDescriptor().getFields().stream())
+                .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
+                        Collectors.reducing(null,
+                                (fieldDescriptor, fieldDescriptor2) -> {
+                                    Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);
+                                    if (fieldDescriptor == null) {
+                                        return fieldDescriptor2;
+                                    }
+                                    if (fieldDescriptor2 == null) {
+                                        return fieldDescriptor;
+                                    }
+                                    // TODO improve
+                                    final Type.TypeCode typeCode = Type.TypeCode.fromProtobufType(fieldDescriptor.getType());
+                                    final Type.TypeCode typeCode2 = Type.TypeCode.fromProtobufType(fieldDescriptor2.getType());
+                                    if (typeCode.isPrimitive() &&
+                                            typeCode2.isPrimitive() &&
+                                            typeCode == typeCode2) {
+                                        return fieldDescriptor;
+                                    }
+
+                                    throw new IllegalArgumentException("cannot form union type of complex fields");
+                                })));
+
+        return new LogicalTypeFilterExpression(recordTypeNames, new FullUnorderedScanExpression(recordTypeNames, fieldDescriptorMap));
     }
 }
