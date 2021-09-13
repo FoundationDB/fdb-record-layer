@@ -153,7 +153,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
 
             return resultBuilder.build();
         } else if (ctx.expression() != null) {
-            return ImmutableList.of(ctx.expression().accept(this));
+            return ImmutableList.of(callArgument(ctx.expression(), declaredParameterTypes.get(0)));
         }
         throw new ParserSyncException(ctx, "unknown rule");
     }

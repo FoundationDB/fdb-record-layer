@@ -32,6 +32,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -97,8 +98,10 @@ public interface Type {
         INT(Integer.class, true, true),
         LONG(Long.class, true, true),
         STRING(String.class, true, false),
+        TUPLE(List.class, false, false),
         RECORD(Message.class, false, false),
-        RELATION(Void.class, false, false),
+        COLLECTION(Collection.class, false, false),
+        STREAM(Void.class, false, false),
         FUNCTION(Void.class, false, false);
 
         @Nonnull
@@ -209,11 +212,6 @@ public interface Type {
         }
 
         @Override
-        public boolean isPrimitive() {
-            return false;
-        }
-
-        @Override
         public boolean isNullable() {
             return false;
         }
@@ -240,6 +238,45 @@ public interface Type {
         }
     }
 
+    class Tuple implements Type {
+        @Nullable
+        private final List<Type> elementTypes;
+
+        public Tuple() {
+            this(null);
+        }
+
+        public Tuple(@Nullable final List<Type> elementTypes) {
+            this.elementTypes = elementTypes == null ? null : ImmutableList.copyOf(elementTypes);
+        }
+
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.TUPLE;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return true;
+        }
+
+        @Nullable
+        public List<Type> getElementTypes() {
+            return elementTypes;
+        }
+
+        boolean isErased() {
+            return getElementTypes() == null;
+        }
+
+        @Override
+        public String toString() {
+            return isErased()
+                   ? getTypeCode().toString()
+                   : getTypeCode() + "(" + Objects.requireNonNull(getElementTypes()).stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+        }
+    }
+
     class Record implements Type {
         @Nullable
         private final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap;
@@ -258,16 +295,6 @@ public interface Type {
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.RECORD;
-        }
-
-        @Override
-        public Class<?> getJavaClass() {
-            return Message.class;
-        }
-
-        @Override
-        public boolean isPrimitive() {
-            return false;
         }
 
         @Override
@@ -318,21 +345,21 @@ public interface Type {
         }
     }
 
-    class Relation implements Type {
+    class Stream implements Type {
         @Nullable
-        private final List<Type> columnTypes;
+        private final Type innerType;
 
-        public Relation() {
+        public Stream() {
             this(null);
         }
 
-        public Relation(@Nullable final List<Type> columnTypes) {
-            this.columnTypes = columnTypes == null ? null : ImmutableList.copyOf(columnTypes);
+        public Stream(@Nullable final Type innerType) {
+            this.innerType = innerType;
         }
 
         @Override
         public TypeCode getTypeCode() {
-            return TypeCode.RELATION;
+            return TypeCode.STREAM;
         }
 
         @Override
@@ -342,7 +369,7 @@ public interface Type {
 
         @Override
         public boolean isPrimitive() {
-            return false;
+            return getTypeCode().isPrimitive();
         }
 
         @Override
@@ -351,19 +378,19 @@ public interface Type {
         }
 
         @Nullable
-        public List<Type> getColumnTypes() {
-            return columnTypes;
+        public Type getInnerType() {
+            return innerType;
         }
 
         boolean isErased() {
-            return getColumnTypes() == null;
+            return getInnerType() == null;
         }
 
         @Override
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getColumnTypes()).stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+                   : getTypeCode() + "(" + Objects.requireNonNull(getInnerType()) + ")";
         }
     }
 }

@@ -49,7 +49,7 @@ import java.util.Optional;
 public class FilterFn extends BuiltInFunction<RelationalExpression> {
     public FilterFn() {
         super("filter",
-                ImmutableList.of(new Type.Relation(), new Type.Function()), FilterFn::encapsulate);
+                ImmutableList.of(new Type.Stream(), new Type.Function()), FilterFn::encapsulate);
     }
 
     private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
@@ -58,15 +58,17 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
         Verify.verify(arguments.get(1) instanceof Lambda);
 
         // get the typing information from the first argument
-        final RelationalExpression inRelation = (RelationalExpression)arguments.get(0);
-        final List<Type> columnTypes = Objects.requireNonNull(inRelation.getResultType().getColumnTypes(), "relation type must not be erased");
+        final RelationalExpression inStream = (RelationalExpression)arguments.get(0);
+        final Type streamedType = Objects.requireNonNull(inStream.getResultType().getInnerType(), "relation type must not be erased");
+        Verify.verify(streamedType.getTypeCode() == Type.TypeCode.TUPLE);
+        final List<Type> elementTypes = Objects.requireNonNull(((Type.Tuple)streamedType).getElementTypes());
 
         // provide a calling scope to the lambda
         final Lambda lambda = (Lambda)arguments.get(1);
 
-        final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inRelation));
+        final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inStream));
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
-        final Typed filterTyped = lambda.unify(columnTypes, argumentValues);
+        final Typed filterTyped = lambda.unify(elementTypes, argumentValues);
 
         if (filterTyped instanceof BooleanValue) {
             final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)filterTyped).toQueryPredicate(inQuantifier.getAlias());
