@@ -59,8 +59,7 @@ public interface RelationalDriver {
     /**
      * Determine if this driver can be used for the specified scheme string.
      *
-     * @param scheme the scheme to use, or {@code null} if no scheme is specified.
-     * @param url
+     * @param url the URL to check.
      * @return true if this driver can interpret this scheme, {@code false} otherwise.
      */
     boolean acceptsURL(URI url);
