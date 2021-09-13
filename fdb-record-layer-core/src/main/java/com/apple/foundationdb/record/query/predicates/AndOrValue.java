@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -34,6 +35,7 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A value merges the input messages given to it into an output message.
@@ -48,18 +50,12 @@ public abstract class AndOrValue implements BooleanValue, Value.CompileTimeValue
     @Nonnull
     protected final Value rightChild;
 
-    public AndOrValue(@Nonnull String functionName,
-                      @Nonnull Value leftChild,
-                      @Nonnull Value rightChild) {
+    protected AndOrValue(@Nonnull String functionName,
+                         @Nonnull Value leftChild,
+                         @Nonnull Value rightChild) {
         this.functionName = functionName;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
-    }
-
-    @Nonnull
-    @Override
-    public Type getResultType() {
-        return Type.primitiveType(Type.TypeCode.BOOLEAN);
     }
 
     @Nonnull
@@ -101,11 +97,18 @@ public abstract class AndOrValue implements BooleanValue, Value.CompileTimeValue
         }
 
         @Override
-        public QueryPredicate toQueryPredicate() {
+        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
-            return AndPredicate.and(((BooleanValue)leftChild).toQueryPredicate(),
-                    ((BooleanValue)rightChild).toQueryPredicate());
+            final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
+            if (leftPredicateOptional.isPresent()) {
+                final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
+                if (rightPredicateOptional.isPresent()) {
+                    return Optional.of(AndPredicate.and(leftPredicateOptional.get(),
+                            rightPredicateOptional.get()));
+                }
+            }
+            return Optional.empty();
         }
 
         @Nonnull
@@ -136,11 +139,18 @@ public abstract class AndOrValue implements BooleanValue, Value.CompileTimeValue
         }
 
         @Override
-        public QueryPredicate toQueryPredicate() {
+        public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
-            return OrPredicate.or(((BooleanValue)leftChild).toQueryPredicate(),
-                    ((BooleanValue)rightChild).toQueryPredicate());
+            final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
+            if (leftPredicateOptional.isPresent()) {
+                final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
+                if (rightPredicateOptional.isPresent()) {
+                    return Optional.of(OrPredicate.or(leftPredicateOptional.get(),
+                            rightPredicateOptional.get()));
+                }
+            }
+            return Optional.empty();
         }
 
         @Nonnull

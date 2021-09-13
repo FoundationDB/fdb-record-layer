@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -34,12 +35,13 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotValue implements Value, Value.CompileTimeValue {
+public class NotValue implements BooleanValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Value");
     @Nonnull
     private final Value child;
@@ -52,6 +54,13 @@ public class NotValue implements Value, Value.CompileTimeValue {
     @Override
     public Type getResultType() {
         return Type.primitiveType(Type.TypeCode.BOOLEAN);
+    }
+
+    @Override
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+        Verify.verify(child instanceof BooleanValue);
+        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias);
+        return predicateOptional.map(NotPredicate::not);
     }
 
     @Nonnull
@@ -93,7 +102,6 @@ public class NotValue implements Value, Value.CompileTimeValue {
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
     }
-
 
     @AutoService(BuiltInFunction.class)
     public static class NotFn extends BuiltInFunction<Value> {

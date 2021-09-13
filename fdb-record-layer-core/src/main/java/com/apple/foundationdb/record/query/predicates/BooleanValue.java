@@ -20,9 +20,20 @@
 
 package com.apple.foundationdb.record.query.predicates;
 
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+
+import javax.annotation.Nonnull;
+import java.util.Optional;
+
 /**
  * Shim class to translate objects of type {@link Value} to {@link QueryPredicate}.
  */
 public interface BooleanValue extends Value {
-    QueryPredicate toQueryPredicate();
+    @Nonnull
+    @Override
+    default Type getResultType() {
+        return Type.primitiveType(Type.TypeCode.BOOLEAN);
+    }
+
+    Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias);
 }

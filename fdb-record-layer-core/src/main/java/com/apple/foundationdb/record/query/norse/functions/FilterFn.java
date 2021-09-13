@@ -25,9 +25,11 @@ import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalFilterExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Typed;
 import com.google.auto.service.AutoService;
@@ -37,6 +39,7 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Function
@@ -65,6 +68,12 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
         final Typed filterTyped = lambda.unify(columnTypes, argumentValues);
 
-        return new LogicalFilterExpression(ImmutableList.of(), inQuantifier);
+        if (filterTyped instanceof BooleanValue) {
+            final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)filterTyped).toQueryPredicate(inQuantifier.getAlias());
+            if (queryPredicateOptional.isPresent()) {
+                return new SelectExpression(argumentValues, ImmutableList.of(inQuantifier), ImmutableList.of(queryPredicateOptional.get()));
+            }
+        }
+        throw new IllegalArgumentException("cannot express filter in terms of QueryPredicates");
     }
 }

@@ -22,26 +22,31 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RelOpValue implements Value, Value.CompileTimeValue {
+public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Rel-Op-Value");
 
     @Nonnull
@@ -65,12 +70,6 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
 
     @Nonnull
     @Override
-    public Type getResultType() {
-        return Type.primitiveType(Type.TypeCode.BOOLEAN);
-    }
-
-    @Nonnull
-    @Override
     public Iterable<? extends Value> getChildren() {
         return ImmutableList.of(leftChild, rightChild);
     }
@@ -83,6 +82,32 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
                 this.comparisonType,
                 Iterables.get(newChildren, 0),
                 Iterables.get(newChildren, 1));
+    }
+
+    @Override
+    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+        // one side of the relop has to be correlated to the innermost alias and only to that one; the other one
+        // can be correlated (or not) to anything except the innermostAlias
+        final ImmutableSet<CorrelationIdentifier> innermostAliasSet = ImmutableSet.of(innermostAlias);
+
+        final Set<CorrelationIdentifier> leftChildCorrelatedTo = leftChild.getCorrelatedTo();
+        final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
+        if (leftChildCorrelatedTo.equals(innermostAliasSet) &&
+                !rightChildCorrelatedTo.contains(innermostAlias)) {
+            final Object comparand = rightChild.compileTimeEval(EvaluationContext.EMPTY);
+            if (comparand == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
+        } else if (rightChildCorrelatedTo.equals(innermostAliasSet) &&
+                   !leftChildCorrelatedTo.contains(innermostAlias)) {
+            final Object comparand = leftChild.compileTimeEval(EvaluationContext.EMPTY);
+            if (comparand == null) {
+                return Optional.empty();
+            }
+            return Optional.of(new ValuePredicate(rightChild, new Comparisons.SimpleComparison(swap(comparisonType), comparand)));
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -110,6 +135,25 @@ public class RelOpValue implements Value, Value.CompileTimeValue {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
+    }
+
+    @Nonnull
+    private static Comparisons.Type swap(@Nonnull Comparisons.Type type) {
+        switch (type) {
+            case EQUALS:
+            case NOT_EQUALS:
+                return type;
+            case LESS_THAN:
+                return Comparisons.Type.GREATER_THAN;
+            case LESS_THAN_OR_EQUALS:
+                return Comparisons.Type.GREATER_THAN_OR_EQUALS;
+            case GREATER_THAN:
+                return Comparisons.Type.LESS_THAN;
+            case GREATER_THAN_OR_EQUALS:
+                return Comparisons.Type.LESS_THAN_OR_EQUALS;
+            default:
+                throw new IllegalArgumentException("cannot swap comarison " + type);
+        }
     }
 
     private static Value encapsulate(@Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Typed> arguments) {
