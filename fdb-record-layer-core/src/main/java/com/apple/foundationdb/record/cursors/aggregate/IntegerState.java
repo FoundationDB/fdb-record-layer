@@ -38,15 +38,17 @@ public class IntegerState implements AccumulatorState<Integer, Integer> {
     @Override
     public void accumulate(final Integer value) {
         switch (operation) {
-        case SUM:
-            currentState = Math.addExact(currentState, value);
-            break;
-        case MIN:
-            currentState = Math.min(currentState, value);
-            break;
-        case MAX:
-            currentState = Math.max(currentState, value);
-            break;
+            case SUM:
+                currentState = Math.addExact(currentState, value);
+                break;
+            case MIN:
+                currentState = Math.min(currentState, value);
+                break;
+            case MAX:
+                currentState = Math.max(currentState, value);
+                break;
+            default:
+                break;
         }
     }
 
@@ -59,15 +61,17 @@ public class IntegerState implements AccumulatorState<Integer, Integer> {
 
     private void resetState(final PrimitiveAccumulatorOperation operation) {
         switch (operation) {
-        case SUM:
-            currentState = 0;
-            break;
-        case MIN:
-            currentState = Integer.MAX_VALUE;
-            break;
-        case MAX:
-            currentState = Integer.MIN_VALUE;
-            break;
+            case SUM:
+                currentState = 0;
+                break;
+            case MIN:
+                currentState = Integer.MAX_VALUE;
+                break;
+            case MAX:
+                currentState = Integer.MIN_VALUE;
+                break;
+            default:
+                break;
         }
     }
 }

@@ -40,15 +40,17 @@ public class FloatState implements AccumulatorState<Float, Float> {
     @Override
     public void accumulate(@Nonnull final Float value) {
         switch (operation) {
-        case SUM:
-            currentState = currentState + value;
-            break;
-        case MIN:
-            currentState = Math.min(currentState, value);
-            break;
-        case MAX:
-            currentState = Math.max(currentState, value);
-            break;
+            case SUM:
+                currentState = currentState + value;
+                break;
+            case MIN:
+                currentState = Math.min(currentState, value);
+                break;
+            case MAX:
+                currentState = Math.max(currentState, value);
+                break;
+            default:
+                break;
         }
     }
 
@@ -61,15 +63,17 @@ public class FloatState implements AccumulatorState<Float, Float> {
 
     private void resetState(final PrimitiveAccumulatorOperation operation) {
         switch (operation) {
-        case SUM:
-            currentState = 0.0f;
-            break;
-        case MIN:
-            currentState = Float.MAX_VALUE;
-            break;
-        case MAX:
-            currentState = Float.MIN_VALUE;
-            break;
+            case SUM:
+                currentState = 0.0f;
+                break;
+            case MIN:
+                currentState = Float.MAX_VALUE;
+                break;
+            case MAX:
+                currentState = Float.MIN_VALUE;
+                break;
+            default:
+                break;
         }
     }
 }

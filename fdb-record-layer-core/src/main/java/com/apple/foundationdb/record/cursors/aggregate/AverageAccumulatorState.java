@@ -21,11 +21,14 @@
 package com.apple.foundationdb.record.cursors.aggregate;
 
 /**
- * Accumulator state for AVERAGE operations. Average is unique as the return value from the aggregation ({@link Double})
+ * Accumulator state for AVERAGE operations. Average is unique as the return value from the aggregation ({@link
+ * Double})
  * is different that the accumulated values (for example {@link Integer}).
- * {@link AverageAccumulatorState} holds an {@link AccumulatorState} (of SUM) to add up the values, and divides the total
+ * {@link AverageAccumulatorState} holds an {@link AccumulatorState} (of SUM) to add up the values, and divides the
+ * total
  * by the counts on {@link #finish}.
- * @param <T>
+ *
+ * @param <T> the type of values that are being accumulated by this state
  */
 public class AverageAccumulatorState<T extends Number> implements AccumulatorState<T, Double> {
     private AccumulatorState<T, T> total;
@@ -50,7 +53,6 @@ public class AverageAccumulatorState<T extends Number> implements AccumulatorSta
 
     /**
      * Private constructor (only to be used through the static initializers).
-     * @param total
      */
     private AverageAccumulatorState(AccumulatorState<T, T> total) {
         this.total = total;

@@ -21,8 +21,6 @@
 package com.apple.foundationdb.record.provider.foundationdb.query;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.cursors.aggregate.AggregateAccumulator;
-import com.apple.foundationdb.record.cursors.aggregate.AggregateAccumulators;
 import com.apple.foundationdb.record.cursors.aggregate.RecordValueAccumulator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;

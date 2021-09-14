@@ -23,8 +23,6 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.record.cursors.aggregate.AggregateAccumulators;
 
 import javax.annotation.Nonnull;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 
 /**
  * A utility class to offer specific instances of {@link AggregateValue}s.
@@ -35,6 +33,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Sum of Integers.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Integer, Integer> sumInt(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.SUM, AggregateAccumulators::sumInteger);
@@ -42,6 +44,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Sum of Longs.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Long, Long> sumLong(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.SUM, AggregateAccumulators::sumLong);
@@ -49,6 +55,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Sum of Floats.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Float, Float> sumFloat(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.SUM, AggregateAccumulators::sumFloat);
@@ -56,6 +66,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Sum of Doubles.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Double, Double> sumDouble(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.SUM, AggregateAccumulators::sumDouble);
@@ -65,6 +79,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Min of Integers.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Integer, Integer> minInt(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MIN, AggregateAccumulators::minInteger);
@@ -72,6 +90,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Min of Longs.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Long, Long> minLong(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MIN, AggregateAccumulators::minLong);
@@ -79,6 +101,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Min of Floats.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Float, Float> minFloat(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MIN, AggregateAccumulators::minFloat);
@@ -86,6 +112,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Min of Doubles.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Double, Double> minDouble(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MIN, AggregateAccumulators::minDouble);
@@ -95,6 +125,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Max of Integers.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Integer, Integer> maxInt(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MAX, AggregateAccumulators::maxInteger);
@@ -102,6 +136,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Max of Longs.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Long, Long> maxLong(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MAX, AggregateAccumulators::maxLong);
@@ -109,6 +147,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Max of Floats.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Float, Float> maxFloat(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MAX, AggregateAccumulators::maxFloat);
@@ -116,6 +158,10 @@ public class AggregateValues {
 
     /**
      * Aggregate value for Max of Doubles.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
      */
     public static AggregateValue<Double, Double> maxDouble(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.MAX, AggregateAccumulators::maxDouble);
@@ -123,18 +169,46 @@ public class AggregateValues {
 
     // ------------------ AVERAGE Aggregators ------------------------------
 
+    /**
+     * Aggregate value for Average of Integers.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
+     */
     public static AggregateValue<Integer, Double> averageInt(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.AVG, AggregateAccumulators::averageInt);
     }
 
+    /**
+     * Aggregate value for Average of Longs.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
+     */
     public static AggregateValue<Long, Double> averageLong(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.AVG, AggregateAccumulators::averageLong);
     }
 
+    /**
+     * Aggregate value for Average of FLoats.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
+     */
     public static AggregateValue<Float, Double> averageFloat(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.AVG, AggregateAccumulators::averageFloat);
     }
 
+    /**
+     * Aggregate value for Average of Double.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
+     */
     public static AggregateValue<Double, Double> averageDouble(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.AVG, AggregateAccumulators::averageDouble);
     }

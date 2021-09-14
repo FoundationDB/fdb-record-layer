@@ -40,15 +40,17 @@ public class DoubleState implements AccumulatorState<Double, Double> {
     @Override
     public void accumulate(@Nonnull final Double value) {
         switch (operation) {
-        case SUM:
-            currentState = currentState + value;
-            break;
-        case MIN:
-            currentState = Math.min(currentState, value);
-            break;
-        case MAX:
-            currentState = Math.max(currentState, value);
-            break;
+            case SUM:
+                currentState = currentState + value;
+                break;
+            case MIN:
+                currentState = Math.min(currentState, value);
+                break;
+            case MAX:
+                currentState = Math.max(currentState, value);
+                break;
+            default:
+                break;
         }
     }
 
@@ -59,15 +61,17 @@ public class DoubleState implements AccumulatorState<Double, Double> {
 
     private void resetState(final PrimitiveAccumulatorOperation operation) {
         switch (operation) {
-        case SUM:
-            currentState = 0.0d;
-            break;
-        case MIN:
-            currentState = Double.MAX_VALUE;
-            break;
-        case MAX:
-            currentState = Double.MIN_VALUE;
-            break;
+            case SUM:
+                currentState = 0.0d;
+                break;
+            case MIN:
+                currentState = Double.MAX_VALUE;
+                break;
+            case MAX:
+                currentState = Double.MIN_VALUE;
+                break;
+            default:
+                break;
         }
     }
 }

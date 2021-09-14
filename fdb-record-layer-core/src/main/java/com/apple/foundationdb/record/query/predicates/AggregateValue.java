@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.cursors.aggregate.AggregateAccumulators;
 import com.apple.foundationdb.record.cursors.aggregate.RecordValueAccumulator;
 
 import javax.annotation.Nonnull;
@@ -31,10 +30,11 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /**
- * A value representing an aggregate: a value calculated (derived) from other values by applying an aggregation operator (e.g.
- * SUM, MIN, AVG etc.).
- * This class (as all {@link Value}s) is stateless. It is used to evaluate and return runtime results based on the given
- * parameters.
+ * A value representing an aggregate: a value calculated (derived) from other values by applying an aggregation operator
+ * (e.g. SUM, MIN, AVG etc.).
+ * This class (as all {@link Value}s) is stateless. It is used to evaluate and return runtime results based on the
+ * given parameters.
+ *
  * @param <T> the type of value being accumulAted by this Value.
  * @param <R> the type of result returned when the accumulation is done
  */
@@ -53,6 +53,7 @@ public class AggregateValue<T, R> extends DerivedValue {
 
     /**
      * Package protected constructor for use only by {@link AggregateValues} static methods.
+     *
      * @param child the inner value that will be evaluated to produce the accumulated numbers
      * @param aggregateType the type of aggregation to perform (used for logging)
      * @param accumulatorFunction the factory function that creates a new accumulator when needed.
@@ -65,8 +66,10 @@ public class AggregateValue<T, R> extends DerivedValue {
 
     /**
      * Create a new accumulator from the Value. This accumulator will perform state management and accumulate evaluated
-     * values representing this value. Note that the accumulator contains the {@link #getChild} of this value, as this value
+     * values representing this value. Note that the accumulator contains the {@link #getChild} of this value, as this
+     * value
      * does not evaluate.
+     *
      * @return a new {@link RecordValueAccumulator} for aggregating values for this Value.
      */
     @Nonnull
@@ -76,6 +79,7 @@ public class AggregateValue<T, R> extends DerivedValue {
 
     /**
      * Return the single chile {@link Value} for this Value.
+     *
      * @return the child Value.
      */
     @Nonnull
