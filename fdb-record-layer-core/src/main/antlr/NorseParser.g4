@@ -26,17 +26,17 @@ expression
     | comprehension                                                       # ExpressionComprehension
     ;
 
-expressionList
-    : expression (COMMA expression)*
-    ;
-
 functionCall
     : methodCall
     ;
 
 methodCall
-    : IDENTIFIER LPAREN expressionList? RPAREN
-    | IDENTIFIER expression
+    : IDENTIFIER argumentLists
+    ;
+
+argumentLists
+    : expression                                               # ArgumentListsExpression
+    | LPAREN RPAREN                                            # ArgumentListsEmptyArguments
     ;
 
 lambda
@@ -63,11 +63,12 @@ comprehensionBinding
     ;
 
 primaryExpression
-    : LPAREN pipe RPAREN   # PrimaryExpressionFromNestedPipe
-    | recordConstructor    # PrimaryExpressionFromRecordConstructor
-    | literal              # PrimaryExpressionFromLiteral
-    | UNDERBAR             # PrimaryExpressionFromUnderbar
-    | IDENTIFIER           # PrimaryExpressionFromIdentifier
+    : LPAREN pipe RPAREN                           # PrimaryExpressionNestedPipe
+    | LPAREN pipe COMMA pipe (COMMA pipe)* RPAREN  # PrimaryExpressionTupleConstructor
+    | recordConstructor                            # PrimaryExpressionFromRecordConstructor
+    | literal                                      # PrimaryExpressionFromLiteral
+    | UNDERBAR                                     # PrimaryExpressionFromUnderbar
+    | IDENTIFIER                                   # PrimaryExpressionFromIdentifier
     ;
 
 recordConstructor
