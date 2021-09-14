@@ -71,9 +71,9 @@ public class GroupAggregator<M extends Message> {
     @Nonnull
     private final List<Value> groupCriteria;
     @Nonnull
-    private List<AggregateValue<?>> aggregateValues;
+    private final List<AggregateValue<?, ?>> aggregateValues;
     @Nonnull
-    private AggregateAccumulator accumulator;
+    private AccumulatorList accumulator;
     // The current group (evaluated). This will be used to decide if the next record is a group break
     @Nullable
     private List<Object> currentGroup;
@@ -92,7 +92,7 @@ public class GroupAggregator<M extends Message> {
      * @param context evaluation context containing parameter bindings
      * @param alias the quantifier alias for the value evaluation
      */
-    public GroupAggregator(@Nonnull final List<Value> groupCriteria, @Nonnull List<AggregateValue<?>> aggregateValues,
+    public GroupAggregator(@Nonnull final List<Value> groupCriteria, @Nonnull List<AggregateValue<?, ?>> aggregateValues,
                            @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull CorrelationIdentifier alias) {
         this.groupCriteria = groupCriteria;
         this.aggregateValues = aggregateValues;
@@ -177,7 +177,7 @@ public class GroupAggregator<M extends Message> {
     }
 
     @Nonnull
-    private AggregateAccumulator createAccumulator(final @Nonnull List<AggregateValue<?>> aggregateValues) {
-        return new AccumulatorList(aggregateValues.stream().map(SimpleAccumulator::new).collect(Collectors.toList()));
+    private AccumulatorList createAccumulator(final @Nonnull List<AggregateValue<?, ?>> aggregateValues) {
+        return new AccumulatorList(aggregateValues.stream().map(AggregateValue::createAccumulator).collect(Collectors.toList()));
     }
 }
