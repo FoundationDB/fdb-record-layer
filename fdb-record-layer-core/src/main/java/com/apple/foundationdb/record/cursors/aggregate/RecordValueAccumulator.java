@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.predicates.AggregateValue;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -32,28 +32,34 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * An {@link AggregateAccumulator} for a single {@link com.apple.foundationdb.record.query.predicates.AggregateValue AggregateValue}.
- * @param <S> the type of state carried through the accumulation
+ * An {@link AggregateAccumulator} for a single {@link Value}. This accumulator can evaluate a record (e.g. {@link com.apple.foundationdb.record.query.predicates.FieldValue}
+ * and accumulate the results.
+ * @param <T> the type of value the state accumulates holds
+ * @param <R> the type of the result that gets returned once the aggregator's {@link #finish} is called.
  */
-public class SimpleAccumulator<S> implements AggregateAccumulator {
+public class RecordValueAccumulator<T, R> {
     @Nonnull
-    private AggregateValue<S> value;
+    private Value value;
     @Nonnull
-    private S currentState;
+    private AccumulatorState<T, R> state;
 
-    public SimpleAccumulator(@Nonnull final AggregateValue<S> value) {
+    public RecordValueAccumulator(@Nonnull final Value value, AccumulatorState<T, R> state) {
         this.value = value;
-        currentState = value.initial();
+        this.state = state;
     }
 
-    @Override
     public <M extends Message> void accumulate(@Nonnull FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                @Nullable final FDBRecord<M> record, @Nonnull final M message) {
-        currentState = value.accumulate(currentState, store, context, record, message);
+        state.accumulate(narrow(value.eval(store, context, record, message)));
     }
 
-    @Override
-    public List<Object> finish() {
-        return Collections.singletonList(value.finish(currentState));
+    public R finish() {
+        return state.finish();
+    }
+
+    @SuppressWarnings("unchecked")
+    private T narrow(final Object rawValue) {
+        // This should not fail since the planner should be feeding the correct types to the states and values.
+        return (T)rawValue;
     }
 }

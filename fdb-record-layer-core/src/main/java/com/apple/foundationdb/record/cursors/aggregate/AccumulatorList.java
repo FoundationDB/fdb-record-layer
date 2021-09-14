@@ -33,24 +33,22 @@ import java.util.stream.Collectors;
 
 /**
  * A list of {@link AggregateAccumulator}s.
- * This class applies aggregation operations for all of its accumulators and return the combined result.
+ * This class applies aggregation operations to all of its accumulators and return the combined result.
  */
-public class AccumulatorList implements AggregateAccumulator {
+public class AccumulatorList {
     @Nonnull
-    private final List<AggregateAccumulator> accumulators;
+    private final List<RecordValueAccumulator<?, ?>> accumulators;
 
-    public AccumulatorList(@Nonnull final List<AggregateAccumulator> accumulators) {
+    public AccumulatorList(@Nonnull final List<RecordValueAccumulator<?, ?>> accumulators) {
         this.accumulators = new ArrayList<>(accumulators);
     }
 
-    @Override
     public <M extends Message> void accumulate(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context,
                                                @Nullable final FDBRecord<M> record, @Nonnull final M message) {
         accumulators.forEach(accumulator -> accumulator.accumulate(store, context, record, message));
     }
 
-    @Override
     public List<Object> finish() {
-        return accumulators.stream().flatMap(accumulator -> accumulator.finish().stream()).collect(Collectors.toList());
+        return accumulators.stream().map(RecordValueAccumulator::finish).collect(Collectors.toList());
     }
 }

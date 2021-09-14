@@ -230,7 +230,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
 
     private static class AggregatePlanBuilder {
         private final Quantifier.Physical quantifier;
-        private final List<AggregateValue<?>> aggregateValues;
+        private final List<AggregateValue<?, ?>> aggregateValues;
         private final List<Value> groupValues;
 
         public AggregatePlanBuilder() {
@@ -263,14 +263,14 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
             return Quantifier.physical(GroupExpressionRef.of(filterPlan));
         }
 
-        private AggregateValue<?> createAggregateValue(Value value, String aggregateType) {
+        private AggregateValue<?, ?> createAggregateValue(Value value, String aggregateType) {
             switch (aggregateType) {
                 case ("SumInteger"):
-                    return new AggregateValues.SumInteger(value);
+                    return AggregateValues.sumInt(value);
                 case ("MinInteger"):
-                    return new AggregateValues.MinInteger(value);
+                    return AggregateValues.minInt(value);
                 case ("AvgInteger"):
-                    return new AggregateValues.AvgInteger(value);
+                    return AggregateValues.averageInt(value);
                 default:
                     throw new IllegalArgumentException("Cannot parse function name " + aggregateType);
             }

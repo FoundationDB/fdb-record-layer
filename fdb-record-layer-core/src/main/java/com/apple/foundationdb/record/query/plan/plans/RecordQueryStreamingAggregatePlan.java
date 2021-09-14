@@ -78,7 +78,7 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @Nonnull
     private final Supplier<List<? extends Value>> resultValuesSupplier;
     @Nonnull
-    private final List<AggregateValue<?>> aggregateValues;
+    private final List<AggregateValue<?, ?>> aggregateValues;
     @Nonnull
     private final List<Value> groupByCriteria;
 
@@ -89,7 +89,7 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
      * @param groupByCriteria the list of {@link Value} to group by
      * @param aggregateValues the list of {@link AggregateValue} to aggregate by
      */
-    public RecordQueryStreamingAggregatePlan(@Nonnull final Quantifier.Physical inner, @Nonnull final List<Value> groupByCriteria, @Nonnull final List<AggregateValue<?>> aggregateValues) {
+    public RecordQueryStreamingAggregatePlan(@Nonnull final Quantifier.Physical inner, @Nonnull final List<Value> groupByCriteria, @Nonnull final List<AggregateValue<?, ?>> aggregateValues) {
         this.inner = inner;
         this.groupByCriteria = groupByCriteria;
         this.aggregateValues = aggregateValues;
