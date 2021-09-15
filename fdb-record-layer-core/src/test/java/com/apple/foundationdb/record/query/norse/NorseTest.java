@@ -83,7 +83,7 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         System.out.println(recordMetaData.getRecordTypes());
 
         //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord') | filter r => r.name = 'Heirloom Cafe' || r.rest_no < 5");
-        final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord') | filter _.name = 'Heirloom Cafe' || _.rest_no < 5");
+        final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord') | filter _.name = 'Heirloom Cafe' || _.rest_no < 5 | map (_.name, _.rest_no)");
         //final ANTLRInputStream in = new ANTLRInputStream("[(rating, restaurant): restaurant <- from('RestaurantRecord'), review <- restaurant.reviews, rating := review.rating] | group _.rating | agg (_, restaurants) -> count(restaurants)");
         //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord')");
         NorseLexer lexer = new NorseLexer(in);

@@ -26,12 +26,11 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -39,17 +38,16 @@ import com.google.common.collect.ImmutableList;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Function
- * filter(RELATION, FUNCTION) -> RELATION.
+ * map(RELATION, FUNCTION) -> RELATION.
  */
 @AutoService(BuiltInFunction.class)
-public class FilterFn extends BuiltInFunction<RelationalExpression> {
-    public FilterFn() {
-        super("filter",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), FilterFn::encapsulate);
+public class MapFn extends BuiltInFunction<RelationalExpression> {
+    public MapFn() {
+        super("map",
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), MapFn::encapsulate);
     }
 
     private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
@@ -68,13 +66,10 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
 
         final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inStream));
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
-        final Typed filterTyped = lambda.unify(elementTypes, argumentValues);
+        final Typed mapTyped = lambda.unify(elementTypes, argumentValues);
 
-        if (filterTyped instanceof BooleanValue) {
-            final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)filterTyped).toQueryPredicate(inQuantifier.getAlias());
-            if (queryPredicateOptional.isPresent()) {
-                return new SelectExpression(argumentValues, ImmutableList.of(inQuantifier), ImmutableList.of(queryPredicateOptional.get()));
-            }
+        if (mapTyped instanceof Value) {
+            return new SelectExpression(argumentValues, ImmutableList.of(inQuantifier), ImmutableList.of());
         }
         throw new IllegalArgumentException("cannot express filter in terms of QueryPredicates");
     }

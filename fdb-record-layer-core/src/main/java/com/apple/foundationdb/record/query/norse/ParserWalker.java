@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
@@ -64,24 +65,29 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         final NorseParser.PipeContext pipeContext = Objects.requireNonNull(ctx.pipe());
         final NorseParser.MethodCallContext methodCallContext = Objects.requireNonNull(ctx.methodCall());
         final String functionName = Objects.requireNonNull(methodCallContext.IDENTIFIER()).getText();
-        final NorseParser.ArgumentListsContext argumentListsContext = Objects.requireNonNull(methodCallContext.argumentLists());
+        final NorseParser.ArgumentListContext argumentListContext = Objects.requireNonNull(methodCallContext.argumentList());
 
         Optional<BuiltInFunction<? extends Typed>> functionOptional = Optional.empty();
         Optional<List<Typed>> argumentsOptional = Optional.empty();
 
+        final List<? extends ParserRuleContext> ambiguousArgumentContexts =
+                resolveAmbiguousArgumentContexts(argumentListContext);
+
         // first try to resolve the method call
         // s.foo(a, b, c)
         // where (a, b, c) is a tuple and foo is a method of signature foo:(S, TUPLE) -> something
-        if (argumentListsContext instanceof NorseParser.ArgumentListsExpressionContext) {
+        if (!ambiguousArgumentContexts.isEmpty()) {
             functionOptional = FunctionCatalog.resolve(functionName, 2);
             if (functionOptional.isPresent()) {
-                final TypeCode type1 = functionOptional.get().resolveParameterType(1).getTypeCode();
-                if (type1 == TypeCode.TUPLE) {
+                final Type type1 = functionOptional.get().resolveParameterType(1);
+                if (type1 instanceof Type.Function &&
+                        Objects.requireNonNull(((Type.Function)type1).getResultType()).getTypeCode() == TypeCode.STREAM) {
                     final BuiltInFunction<? extends Typed> function = functionOptional.get();
                     final List<Type> resolvedParameterTypes = function.resolveParameterTypes(2);
+
                     argumentsOptional =
                             Optional.of(ImmutableList.of(callArgument(pipeContext, resolvedParameterTypes.get(0)),
-                                    callArgument(((NorseParser.ArgumentListsExpressionContext)argumentListsContext).expression(), resolvedParameterTypes.get(1))));
+                                    callArgumentsAsTuple(ambiguousArgumentContexts)));
                 }
             }
         }
@@ -90,23 +96,21 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         // s.foo(a, b, c)
         // where (a, b, c) is a list of arguments foo is a method of signature foo:(S, A, B, C) -> something
         if (!functionOptional.isPresent() || !argumentsOptional.isPresent()) {
-            final Optional<List<ParserRuleContext>> parserRuleContextsOptional = resolveArgumentContexts(argumentListsContext);
-            if (parserRuleContextsOptional.isPresent()) {
-                final List<ParserRuleContext> parserRuleContexts = parserRuleContextsOptional.get();
-                final int numberOfArguments = parserRuleContexts.size() + 1;
-                functionOptional = FunctionCatalog.resolve(functionName, numberOfArguments);
-                if (!functionOptional.isPresent()) {
-                    throw new IllegalArgumentException("unable to resolve function in catalog");
-                }
+            final List<? extends ParserRuleContext> argumentContexts = resolveArgumentContexts(argumentListContext);
 
-                final List<Type> resolvedParameterTypes = functionOptional.get().resolveParameterTypes(numberOfArguments);
-                argumentsOptional =
-                        Optional.of(ImmutableList.<Typed>builder()
-                                .add(callArgument(pipeContext, resolvedParameterTypes.get(0)))
-                                .addAll(Streams.zip(parserRuleContexts.stream(),
-                                        resolvedParameterTypes.subList(1, resolvedParameterTypes.size()).stream(), this::callArgument).collect(ImmutableList.toImmutableList()))
-                                .build());
+            final int numberOfArguments = argumentContexts.size() + 1;
+            functionOptional = FunctionCatalog.resolve(functionName, numberOfArguments);
+            if (!functionOptional.isPresent()) {
+                throw new IllegalArgumentException("unable to resolve function in catalog");
             }
+
+            final List<Type> resolvedParameterTypes = functionOptional.get().resolveParameterTypes(numberOfArguments);
+            argumentsOptional =
+                    Optional.of(ImmutableList.<Typed>builder()
+                            .add(callArgument(pipeContext, resolvedParameterTypes.get(0)))
+                            .addAll(Streams.zip(argumentContexts.stream(),
+                                    resolvedParameterTypes.subList(1, resolvedParameterTypes.size()).stream(), this::callArgument).collect(ImmutableList.toImmutableList()))
+                            .build());
         }
 
         final List<Typed> arguments = argumentsOptional.orElseThrow(() -> new IllegalStateException("unable to resolve arguments"));
@@ -152,23 +156,25 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         Objects.requireNonNull(ctx.functionCall());
         final NorseParser.MethodCallContext methodCallContext = Objects.requireNonNull(ctx.functionCall().methodCall());
         final String functionName = Objects.requireNonNull(methodCallContext.IDENTIFIER()).getText();
-        final NorseParser.ArgumentListsContext argumentListsContext = Objects.requireNonNull(methodCallContext.argumentLists());
+        final NorseParser.ArgumentListContext argumentListContext = Objects.requireNonNull(methodCallContext.argumentList());
 
         Optional<BuiltInFunction<? extends Typed>> functionOptional = Optional.empty();
         Optional<List<Typed>> argumentsOptional = Optional.empty();
 
+        final List<? extends ParserRuleContext> ambiguousArgumentContexts =
+                resolveAmbiguousArgumentContexts(argumentListContext);
+
         // first try to resolve the function call
         // foo(a, b, c)
         // where (a, b, c) is a tuple and foo is a method of signature foo:(TUPLE) -> something
-        if (argumentListsContext instanceof NorseParser.ArgumentListsExpressionContext) {
+        if (!ambiguousArgumentContexts.isEmpty()) {
             functionOptional = FunctionCatalog.resolve(functionName, 1);
             if (functionOptional.isPresent()) {
-                final TypeCode type1 = functionOptional.get().resolveParameterType(0).getTypeCode();
-                if (type1 == TypeCode.TUPLE) {
-                    final BuiltInFunction<? extends Typed> function = functionOptional.get();
-                    final List<Type> resolvedParameterTypes = function.resolveParameterTypes(1);
+                final Type type0 = functionOptional.get().resolveParameterType(0);
+                if (type0 instanceof Type.Function &&
+                        Objects.requireNonNull(((Type.Function)type0).getResultType()).getTypeCode() == TypeCode.TUPLE) {
                     argumentsOptional =
-                            Optional.of(ImmutableList.of(callArgument(((NorseParser.ArgumentListsExpressionContext)argumentListsContext).expression(), resolvedParameterTypes.get(0))));
+                            Optional.of(ImmutableList.of(callArgumentsAsTuple(ambiguousArgumentContexts)));
                 }
             }
         }
@@ -177,19 +183,17 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         // foo(a, b, c)
         // where (a, b, c) is a list of arguments foo is a method of signature foo:(A, B, C) -> something
         if (!functionOptional.isPresent() || !argumentsOptional.isPresent()) {
-            final Optional<List<ParserRuleContext>> parserRuleContextsOptional = resolveArgumentContexts(argumentListsContext);
-            if (parserRuleContextsOptional.isPresent()) {
-                final List<ParserRuleContext> parserRuleContexts = parserRuleContextsOptional.get();
-                functionOptional = FunctionCatalog.resolve(functionName, parserRuleContexts.size());
-                if (!functionOptional.isPresent()) {
-                    throw new IllegalArgumentException("unable to resolve function in catalog");
-                }
-
-                final List<Type> resolvedParameterTypes = functionOptional.get().resolveParameterTypes(parserRuleContexts.size());
-                argumentsOptional = Optional.of(
-                        Streams.zip(parserRuleContexts.stream(), resolvedParameterTypes.stream(), this::callArgument)
-                                .collect(ImmutableList.toImmutableList()));
+            final List<? extends ParserRuleContext> argumentContexts = resolveArgumentContexts(argumentListContext);
+            functionOptional = FunctionCatalog.resolve(functionName, argumentContexts.size());
+            if (!functionOptional.isPresent()) {
+                throw new IllegalArgumentException("unable to resolve function in catalog");
             }
+
+            final List<Type> resolvedParameterTypes = functionOptional.get().resolveParameterTypes(argumentContexts.size());
+            argumentsOptional = Optional.of(
+                    Streams.zip(argumentContexts.stream(), resolvedParameterTypes.stream(), this::callArgument)
+                            .collect(ImmutableList.toImmutableList()));
+
         }
 
         final List<Typed> arguments = argumentsOptional.orElseThrow(() -> new IllegalStateException("unable to resolve arguments"));
@@ -199,32 +203,53 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
                 .orElseThrow(() -> new IllegalArgumentException("unable to compile in function"));
     }
 
-    @Nonnull
-    private Optional<List<ParserRuleContext>> resolveArgumentContexts(@Nonnull final NorseParser.ArgumentListsContext ctx) {
-        if (ctx instanceof NorseParser.ArgumentListsExpressionContext) {
-            final NorseParser.ExpressionContext expressionContext = Objects.requireNonNull(((NorseParser.ArgumentListsExpressionContext)ctx).expression());
-            if (expressionContext instanceof NorseParser.ExpressionPrimaryExpressionContext) {
-                final NorseParser.PrimaryExpressionContext primaryExpressionContext =
-                        Objects.requireNonNull((NorseParser.ExpressionPrimaryExpressionContext)expressionContext).primaryExpression();
-                if (primaryExpressionContext instanceof NorseParser.PrimaryExpressionNestedPipeContext) {
-                    return Optional.of(ImmutableList.of(Objects.requireNonNull((NorseParser.PrimaryExpressionNestedPipeContext)primaryExpressionContext).pipe()));
-                }
-                if (primaryExpressionContext instanceof NorseParser.PrimaryExpressionTupleConstructorContext) {
-                    return Optional.of(ImmutableList.copyOf(Objects.requireNonNull((NorseParser.PrimaryExpressionTupleConstructorContext)primaryExpressionContext).pipe()));
-                }
-            } else {
-                return Optional.of(ImmutableList.of(((NorseParser.ArgumentListsExpressionContext)ctx).expression()));
-            }
-        } else if (ctx instanceof NorseParser.ArgumentListsEmptyArgumentsContext) {
-            return Optional.of(ImmutableList.of());
+    private List<? extends ParserRuleContext> resolveAmbiguousArgumentContexts(@Nonnull final NorseParser.ArgumentListContext ctx) {
+        final List<? extends ParserRuleContext> ambiguousArgumentContexts;
+        if (ctx instanceof NorseParser.ArgumentListArgumentsOrTupleContext) {
+            ambiguousArgumentContexts = ((NorseParser.ArgumentListArgumentsOrTupleContext)ctx).pipe();
+        } else if (ctx instanceof NorseParser.ArgumentListExpressionContext) {
+            ambiguousArgumentContexts = ImmutableList.of();
+        } else {
+            throw new ParserSyncException(ctx, "unknown rule");
         }
-        return Optional.empty();
+
+        return ambiguousArgumentContexts;
+    }
+
+    private List<? extends ParserRuleContext> resolveArgumentContexts(@Nonnull final NorseParser.ArgumentListContext ctx) {
+        final List<? extends ParserRuleContext> argumentContexts;
+        if (ctx instanceof NorseParser.ArgumentListArgumentsOrTupleContext) {
+            argumentContexts = ((NorseParser.ArgumentListArgumentsOrTupleContext)ctx).pipe();
+        } else if (ctx instanceof NorseParser.ArgumentListExpressionContext) {
+            argumentContexts = ImmutableList.of(((NorseParser.ArgumentListExpressionContext)ctx).expression());
+        } else {
+            throw new ParserSyncException(ctx, "unknown rule");
+        }
+
+        return argumentContexts;
+    }
+
+    private Typed callArgumentsAsTuple(@Nonnull final List<? extends ParserRuleContext> tupleElementContexts) {
+        return fromLambdaBody(ImmutableList.of(),
+                parserWalker -> {
+                    final ImmutableList<Typed> tupleElements = tupleElementContexts
+                            .stream()
+                            .map(tupleElementContext -> (Value)tupleElementContext.accept(parserWalker))
+                            .collect(ImmutableList.toImmutableList());
+
+                    final Optional<BuiltInFunction<? extends Typed>> functionOptional =
+                            FunctionCatalog.resolveAndValidate("tuple", Type.fromTyped(tupleElements));
+
+                    return functionOptional
+                            .map(builtInFunction -> builtInFunction.encapsulate(parserContext, tupleElements))
+                            .orElseThrow(() -> new IllegalArgumentException("unable to resolve tuple constructor"));
+                });
     }
 
     private Typed callArgument(@Nonnull final ParserRuleContext expressionContext, @Nonnull final Type declaredParameterType) {
         if (declaredParameterType.getTypeCode() == TypeCode.FUNCTION &&
                 !(expressionContext instanceof NorseParser.ExpressionLambdaContext)) {
-            return fromLambdaBody(ImmutableList.of(), expressionContext);
+            return fromLambdaBody(ImmutableList.of(), expressionContext::accept);
         } else {
             return expressionContext.accept(this);
         }
@@ -344,9 +369,9 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
     public Typed visitExpressionLambda(final NorseParser.ExpressionLambdaContext ctx) {
         final NorseParser.LambdaContext lambdaContext = Objects.requireNonNull(ctx.lambda());
         final NorseParser.ExpressionContext expressionContext = Objects.requireNonNull(lambdaContext.expression());
-        final NorseParser.LambdaParametersContext lambdaParametersContext = Objects.requireNonNull(lambdaContext.lambdaParameters());
+        final NorseParser.ExtractorContext extractorsContext = Objects.requireNonNull(lambdaContext.extractor());
         final List<Optional<String>> declaredParameterNames =
-                Objects.requireNonNull(lambdaParametersContext.bindingIdentifier())
+                Objects.requireNonNull(extractorsContext.bindingIdentifier())
                         .stream()
                         .map(bindingIdentifier -> {
                             if (bindingIdentifier.IDENTIFIER() != null) {
@@ -356,12 +381,12 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
                         })
                         .collect(ImmutableList.toImmutableList());
 
-        return fromLambdaBody(declaredParameterNames, expressionContext);
+        return fromLambdaBody(declaredParameterNames, expressionContext::accept);
     }
 
     @Nonnull
     private Lambda fromLambdaBody(@Nonnull final List<Optional<String>> parameterNames,
-                                  @Nonnull final ParserRuleContext parserRuleContext) {
+                                  @Nonnull final Function<ParserWalker, Typed> walkerFunction) {
         // save the current scope -- this is for captures
         final Scopes.Scope definingScope = parserContext.getCurrentScope();
 
@@ -375,30 +400,13 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
             //      (optionally) declared type
 
             // resolve and encapsulate now that the arguments should be properly provided by the caller
-            return parserRuleContext.accept(nestedWalker);
+            return walkerFunction.apply(nestedWalker);
         });
     }
 
     @Override
     public Typed visitPrimaryExpressionNestedPipe(final NorseParser.PrimaryExpressionNestedPipeContext ctx) {
         return super.visitPrimaryExpressionNestedPipe(ctx);
-    }
-
-    @Override
-    public Typed visitPrimaryExpressionTupleConstructor(final NorseParser.PrimaryExpressionTupleConstructorContext ctx) {
-        // visit the children expressions
-        final ImmutableList<Typed> arguments =
-                ctx.pipe()
-                        .stream()
-                        .map(expression -> expression.accept(this))
-                        .collect(ImmutableList.toImmutableList());
-
-        final Optional<BuiltInFunction<? extends Typed>> functionOptional =
-                FunctionCatalog.resolveAndValidate("tuple", Type.fromTyped(arguments));
-
-        return functionOptional
-                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
-                .orElseThrow(() -> new IllegalArgumentException("unable to resolve tuple constructor"));
     }
 
     @Override

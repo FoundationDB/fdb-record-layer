@@ -58,6 +58,12 @@ public class TupleValue implements Value, Value.CompileTimeValue {
         return children;
     }
 
+    @Nonnull
+    @Override
+    public Type getResultType() {
+        return new Type.Tuple(children.stream().map(Value::getResultType).collect(ImmutableList.toImmutableList()));
+    }
+
     @Override
     public int semanticHashCode() {
         return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, functionName, children);

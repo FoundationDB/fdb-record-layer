@@ -31,19 +31,19 @@ functionCall
     ;
 
 methodCall
-    : IDENTIFIER argumentLists
+    : IDENTIFIER argumentList
     ;
 
-argumentLists
-    : expression                                               # ArgumentListsExpression
-    | LPAREN RPAREN                                            # ArgumentListsEmptyArguments
+argumentList
+    : LPAREN pipe (COMMA pipe)* RPAREN                         # ArgumentListArgumentsOrTuple
+    | expression                                               # ArgumentListExpression
     ;
 
 lambda
-    : lambdaParameters DOUBLE_ARROW expression
+    : extractor DOUBLE_ARROW expression
     ;
 
-lambdaParameters
+extractor
     : bindingIdentifier
     | LPAREN bindingIdentifier (COMMA bindingIdentifier)* RPAREN
     ;
@@ -58,13 +58,12 @@ comprehension
     ;
 
 comprehensionBinding
-    : IDENTIFIER BACK_ARROW pipe
-    | IDENTIFIER COLONEQUALS pipe
+    : extractor BACK_ARROW pipe                    # ComprehensionBindingIteration
+    | IDENTIFIER COLONEQUALS pipe                  # ComprehensionBindingAssign
     ;
 
 primaryExpression
     : LPAREN pipe RPAREN                           # PrimaryExpressionNestedPipe
-    | LPAREN pipe COMMA pipe (COMMA pipe)* RPAREN  # PrimaryExpressionTupleConstructor
     | recordConstructor                            # PrimaryExpressionFromRecordConstructor
     | literal                                      # PrimaryExpressionFromLiteral
     | UNDERBAR                                     # PrimaryExpressionFromUnderbar
