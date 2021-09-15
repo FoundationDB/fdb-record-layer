@@ -31,16 +31,16 @@ functionCall
     ;
 
 methodCall
-    : IDENTIFIER argumentList
+    : IDENTIFIER argumentsOrTuple
     ;
 
-argumentList
-    : LPAREN pipe (COMMA pipe)* RPAREN                         # ArgumentListArgumentsOrTuple
-    | expression                                               # ArgumentListExpression
+argumentsOrTuple
+    : LPAREN pipe (COMMA pipe)* RPAREN                         # ArgumentsOrTuplePipes
+    | expression                                               # ArgumentsOtTupleExpression
     ;
 
 lambda
-    : extractor DOUBLE_ARROW expression
+    : extractor DOUBLE_ARROW argumentsOrTuple
     ;
 
 extractor
