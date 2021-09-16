@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.record.query.norse.DelayedEncapsulationFunction;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -37,10 +38,10 @@ public class Lambda implements Typed {
     @Nonnull
     private final List<Optional<String>> parameterNameOptionals;
     @Nonnull
-    private final DelayedEncapsulationFunction<? extends Typed> delayedEncapsulationFunction;
+    private final DelayedEncapsulationFunction<GraphExpansion> delayedEncapsulationFunction;
 
     public Lambda(@Nonnull final List<Optional<String>> parameterNameOptionals,
-                  @Nonnull final DelayedEncapsulationFunction<? extends Typed> delayedEncapsulationFunction) {
+                  @Nonnull final DelayedEncapsulationFunction<GraphExpansion> delayedEncapsulationFunction) {
         this.parameterNameOptionals = ImmutableList.copyOf(parameterNameOptionals);
         this.delayedEncapsulationFunction = delayedEncapsulationFunction;
     }
@@ -56,13 +57,13 @@ public class Lambda implements Typed {
     }
 
     @Nonnull
-    public Typed encapsulate(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
+    public GraphExpansion encapsulate(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
                              @Nonnull final Map<String, Value> boundIdentifiers) {
         return delayedEncapsulationFunction.encapsulate(visibleAliases, boundIdentifiers);
     }
 
     @Nonnull
-    public Typed unify(@Nonnull List<Type> columnTypes, @Nonnull List<? extends Value> argumentValues) {
+    public GraphExpansion unifyBody(@Nonnull List<Type> columnTypes, @Nonnull List<? extends Value> argumentValues) {
         Verify.verify(!columnTypes.isEmpty());
 
         final Map<String, Value> boundIdentifiers;

@@ -312,4 +312,91 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                     placeholders);
         }
     }
+
+    public static class Builder {
+        /**
+         * A list of values representing the result of this expansion, if sealed and built.
+         */
+        @Nonnull
+        private final List<Value> resultValues;
+
+        /**
+         * A list of predicates that need to be applied when this expansion is built and sealed. The resulting filter
+         * will use the logical conjunct of all predicates to filter the flowed records.
+         */
+        @Nonnull
+        private final List<QueryPredicate> predicates;
+
+        /**
+         * A list of quantifiers that the result of this expansion will range over.
+         */
+        @Nonnull
+        private final List<Quantifier> quantifiers;
+
+        /**
+         * A list of all placeholders added during the expansion of the associated {@link MatchCandidate}.
+         */
+        @Nonnull
+        private final List<Placeholder> placeholders;
+
+        public Builder() {
+            resultValues = Lists.newArrayList();
+            predicates = Lists.newArrayList();
+            quantifiers = Lists.newArrayList();
+            placeholders = Lists.newArrayList();
+        }
+
+        @Nonnull
+        public Builder addResultValue(@Nonnull final Value value) {
+            resultValues.add(value);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addResultValues(@Nonnull final List<? extends Value> addValues) {
+            resultValues.addAll(addValues);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addPredicate(@Nonnull final QueryPredicate predicate) {
+            predicates.add(predicate);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addPredicates(@Nonnull final List<? extends QueryPredicate> addPredicates) {
+            predicates.addAll(addPredicates);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addQuantifier(@Nonnull final Quantifier quantifier) {
+            quantifiers.add(quantifier);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addQuantifiers(@Nonnull final List<? extends Quantifier> addQuantifiers) {
+            quantifiers.addAll(addQuantifiers);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addPlaceholder(@Nonnull final Placeholder placeholder) {
+            placeholders.add(placeholder);
+            return this;
+        }
+
+        @Nonnull
+        public Builder addPlaceholders(@Nonnull final List<? extends Placeholder> addPlaceholders) {
+            placeholders.addAll(addPlaceholders);
+            return this;
+        }
+
+        @Nonnull
+        public GraphExpansion build() {
+            return new GraphExpansion(resultValues, predicates, quantifiers, placeholders);
+        }
+    }
 }

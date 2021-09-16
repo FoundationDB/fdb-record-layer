@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
@@ -33,6 +34,8 @@ import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
@@ -43,7 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
@@ -52,11 +55,15 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
     private final ParserContext parserContext;
 
     public ParserWalker(@Nonnull RecordMetaData recordMetaData, @Nonnull RecordStoreState recordStoreState) {
-        this(new ParserContext(new Scopes(), recordMetaData, recordStoreState));
+        this(new ParserContext(new Scopes().push(ImmutableSet.of(), ImmutableMap.of()), recordMetaData, recordStoreState));
     }
 
     public ParserWalker(@Nonnull final ParserContext parserContext) {
         this.parserContext = parserContext;
+    }
+
+    public ParserContext getParserContext() {
+        return parserContext;
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -236,20 +243,17 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         Verify.verify(!tupleElementContexts.isEmpty());
         return lambdaBody(declaredParameterNames,
                 parserWalker -> {
+                    final ParserContext currentContext = parserWalker.getParserContext();
+                    final GraphExpansion.Builder graphExpansionBuilder = currentContext.getCurrentScope().getGraphExpansionBuilder();
                     if (tupleElementContexts.size() > 1) {
-                        final ImmutableList<Typed> tupleElements = tupleElementContexts
+                        final ImmutableList<Value> tupleElements = tupleElementContexts
                                 .stream()
                                 .map(tupleElementContext -> (Value)tupleElementContext.accept(parserWalker))
                                 .collect(ImmutableList.toImmutableList());
 
-                        final Optional<BuiltInFunction<? extends Typed>> functionOptional =
-                                FunctionCatalog.resolveAndValidate("tuple", Type.fromTyped(tupleElements));
-
-                        return functionOptional
-                                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, tupleElements))
-                                .orElseThrow(() -> new IllegalArgumentException("unable to resolve tuple constructor"));
+                        graphExpansionBuilder.addResultValues(tupleElements).build();
                     } else {
-                        return tupleElementContexts.get(0).accept(parserWalker);
+                        graphExpansionBuilder.addResultValue((Value)tupleElementContexts.get(0).accept(parserWalker));
                     }
                 });
     }
@@ -258,7 +262,12 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
     private Typed callArgument(@Nonnull final ParserRuleContext expressionContext, @Nonnull final Type declaredParameterType) {
         if (declaredParameterType.getTypeCode() == TypeCode.FUNCTION &&
                 !(expressionContext instanceof NorseParser.ExpressionLambdaContext)) {
-            return lambdaBody(ImmutableList.of(), expressionContext::accept);
+            return lambdaBody(ImmutableList.of(), parserWalker -> {
+                final ParserContext currentContext = parserWalker.getParserContext();
+                final GraphExpansion.Builder graphExpansionBuilder = currentContext.getCurrentScope().getGraphExpansionBuilder();
+                final Typed typed = expressionContext.accept(parserWalker);
+                graphExpansionBuilder.addResultValue((Value)typed);
+            });
         } else {
             return expressionContext.accept(this);
         }
@@ -397,7 +406,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
 
     @Nonnull
     private Lambda lambdaBody(@Nonnull final List<Optional<String>> parameterNames,
-                              @Nonnull final Function<ParserWalker, Typed> walkerFunction) {
+                              @Nonnull final Consumer<ParserWalker> walkerConsumer) {
         // save the current scope -- this is for captures
         final Scopes.Scope definingScope = parserContext.getCurrentScope();
 
@@ -411,7 +420,11 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
             //      (optionally) declared type
 
             // resolve and encapsulate now that the arguments should be properly provided by the caller
-            return walkerFunction.apply(nestedWalker);
+            walkerConsumer.accept(nestedWalker);
+
+            Verify.verify(nestedWalker.getParserContext().getCurrentScope() == callingScopes.getCurrentScope());
+
+            return Objects.requireNonNull(callingScopes.getCurrentScope()).getGraphExpansionBuilder().build();
         });
     }
 

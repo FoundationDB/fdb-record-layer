@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.norse.functions;
 
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -32,9 +33,11 @@ import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -68,12 +71,15 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
 
         final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inStream));
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
-        final Typed filterTyped = lambda.unify(elementTypes, argumentValues);
-
-        if (filterTyped instanceof BooleanValue) {
-            final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)filterTyped).toQueryPredicate(inQuantifier.getAlias());
+        final GraphExpansion graphExpansion = lambda.unifyBody(elementTypes, argumentValues);
+        Verify.verify(graphExpansion.getPredicates().isEmpty());
+        final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultValues());
+        if (resultValue instanceof BooleanValue) {
+            final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
             if (queryPredicateOptional.isPresent()) {
-                return new SelectExpression(argumentValues, ImmutableList.of(inQuantifier), ImmutableList.of(queryPredicateOptional.get()));
+                return new SelectExpression(argumentValues,
+                        ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
+                        ImmutableList.of(queryPredicateOptional.get()));
             }
         }
         throw new IllegalArgumentException("cannot express filter in terms of QueryPredicates");

@@ -26,8 +26,8 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.Value;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class ParserContext {
@@ -54,9 +54,9 @@ public class ParserContext {
         return recordStoreState;
     }
 
-    @Nullable
+    @Nonnull
     public Scopes.Scope getCurrentScope() {
-        return scopes.getCurrentScope();
+        return Objects.requireNonNull(scopes.getCurrentScope());
     }
 
     public void pushScope(@Nonnull final Set<CorrelationIdentifier> visibleAliases,

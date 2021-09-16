@@ -55,10 +55,10 @@ public class ExistsPredicate implements LeafQueryPredicate {
     @Nonnull
     private final CorrelationIdentifier existentialAlias;
 
-    @Nonnull
+    @Nullable
     private final QueryComponent alternativeComponent;
 
-    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias, @Nonnull final QueryComponent alternativeComponent) {
+    public ExistsPredicate(@Nonnull final CorrelationIdentifier existentialAlias, @Nullable final QueryComponent alternativeComponent) {
         this.existentialAlias = existentialAlias;
         this.alternativeComponent = alternativeComponent;
     }
@@ -71,6 +71,9 @@ public class ExistsPredicate implements LeafQueryPredicate {
 
     @Nonnull
     public QueryComponent getAlternativeComponent() {
+        if (alternativeComponent == null) {
+            throw new RecordCoreException("alternative component must not be null if requested");
+        }
         return alternativeComponent;
     }
 

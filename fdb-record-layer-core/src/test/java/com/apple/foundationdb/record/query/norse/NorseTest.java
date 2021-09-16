@@ -24,8 +24,6 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.google.common.collect.Iterables;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -83,7 +81,8 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         System.out.println(recordMetaData.getRecordTypes());
 
         //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord') | filter r => r.name = 'Heirloom Cafe' || r.rest_no < 5");
-        final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter _.name = 'Heirloom Cafe' || _.rest_no < 5 | map r => (r.name, r.rest_no)");
+        //final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter _.name = 'Heirloom Cafe' || _.rest_no < 5 | map r => (r.name, r.rest_no)");
+        final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter exists(from 'RestaurantReviewer' | filter _.id = 5)");
         //final ANTLRInputStream in = new ANTLRInputStream("[(rating, restaurant): restaurant <- from('RestaurantRecord'), review <- restaurant.reviews, rating := review.rating] | group _.rating | agg (_, restaurants) -> count(restaurants)");
         //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord')");
         NorseLexer lexer = new NorseLexer(in);
@@ -93,8 +92,6 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
 
         final ParserWalker visitor = new ParserWalker(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
         Object o = visitor.visit(tree);
-        final RelationalExpression fuse = Iterables.getOnlyElement(Iterables.getOnlyElement(((RelationalExpression)o).getQuantifiers()).getRangesOver().getMembers());
-        System.out.println(fuse.getResultType());
         System.out.println(o);
     }
 }

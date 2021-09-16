@@ -21,14 +21,13 @@
 package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.predicates.Typed;
 import com.apple.foundationdb.record.query.predicates.Value;
 
 import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.Set;
 
-public interface DelayedEncapsulationFunction<T extends Typed> {
+public interface DelayedEncapsulationFunction<T> {
     T encapsulate(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
                   @Nonnull final Map<String, Value> boundIdentifiers);
 }

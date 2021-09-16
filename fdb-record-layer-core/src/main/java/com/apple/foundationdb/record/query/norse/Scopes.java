@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,9 +30,11 @@ import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class Scopes {
+    @Nullable
     private Scope currentScope;
 
     public Scopes() {
@@ -42,13 +45,14 @@ public class Scopes {
         this.currentScope = currentScope;
     }
 
+    @Nullable
     public Scope getCurrentScope() {
         return currentScope;
     }
 
     public Scopes push(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
                        @Nonnull final Map<String, Value> boundIdentifiers) {
-        this.currentScope = new Scope(this.currentScope, visibleAliases, boundIdentifiers);
+        this.currentScope = new Scope(this.currentScope, visibleAliases, boundIdentifiers, new GraphExpansion.Builder());
         return this;
     }
 
@@ -56,7 +60,7 @@ public class Scopes {
         try {
             return currentScope;
         } finally {
-            currentScope = currentScope.getParentScope();
+            currentScope = Objects.requireNonNull(currentScope).getParentScope();
         }
     }
 
@@ -80,13 +84,17 @@ public class Scopes {
         private final Set<CorrelationIdentifier> visibleAliases;
         @Nonnull
         private final Map<String, Value> boundIdentifiers;
+        @Nonnull
+        private final GraphExpansion.Builder graphExpansionBuilder;
 
         public Scope(@Nullable Scope parentScope,
                      @Nonnull final Set<CorrelationIdentifier> visibleAliases,
-                     @Nonnull final Map<String, Value> boundIdentifiers) {
+                     @Nonnull final Map<String, Value> boundIdentifiers,
+                     @Nonnull final GraphExpansion.Builder graphExpansionBuilder) {
             this.parentScope = parentScope;
             this.visibleAliases = ImmutableSet.copyOf(visibleAliases);
             this.boundIdentifiers = ImmutableMap.copyOf(boundIdentifiers);
+            this.graphExpansionBuilder = graphExpansionBuilder;
         }
 
         @Nullable
@@ -100,6 +108,11 @@ public class Scopes {
 
         public Map<String, Value> getBoundIdentifiers() {
             return boundIdentifiers;
+        }
+
+        @Nonnull
+        public GraphExpansion.Builder getGraphExpansionBuilder() {
+            return graphExpansionBuilder;
         }
     }
 }
