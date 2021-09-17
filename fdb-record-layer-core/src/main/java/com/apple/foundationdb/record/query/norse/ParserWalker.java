@@ -23,6 +23,10 @@ package com.apple.foundationdb.record.query.norse;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
@@ -36,10 +40,12 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -50,6 +56,7 @@ import java.util.function.Consumer;
 
 import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
+@SuppressWarnings("UnstableApiUsage")
 public class ParserWalker extends NorseParserBaseVisitor<Typed> {
 
     private final ParserContext parserContext;
@@ -214,7 +221,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         final List<? extends ParserRuleContext> ambiguousArgumentContexts;
         if (ctx instanceof NorseParser.ArgumentsOrTuplePipesContext) {
             ambiguousArgumentContexts = ((NorseParser.ArgumentsOrTuplePipesContext)ctx).pipe();
-        } else if (ctx instanceof NorseParser.ArgumentsOtTupleExpressionContext) {
+        } else if (ctx instanceof NorseParser.ArgumentsOrTupleExpressionContext) {
             ambiguousArgumentContexts = ImmutableList.of();
         } else {
             throw new ParserSyncException(ctx, "unknown rule");
@@ -228,8 +235,8 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         final List<? extends ParserRuleContext> argumentContexts;
         if (ctx instanceof NorseParser.ArgumentsOrTuplePipesContext) {
             argumentContexts = ((NorseParser.ArgumentsOrTuplePipesContext)ctx).pipe();
-        } else if (ctx instanceof NorseParser.ArgumentsOtTupleExpressionContext) {
-            argumentContexts = ImmutableList.of(((NorseParser.ArgumentsOtTupleExpressionContext)ctx).expression());
+        } else if (ctx instanceof NorseParser.ArgumentsOrTupleExpressionContext) {
+            argumentContexts = ImmutableList.of(((NorseParser.ArgumentsOrTupleExpressionContext)ctx).expression());
         } else {
             throw new ParserSyncException(ctx, "unknown rule");
         }
@@ -238,22 +245,22 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
     }
 
     @Nonnull
-    private Typed lambdaBodyWithPossibleTuple(@Nonnull final List<Optional<String>> declaredParameterNames,
-                                              @Nonnull final List<? extends ParserRuleContext> tupleElementContexts) {
+    private Lambda lambdaBodyWithPossibleTuple(@Nonnull final List<Optional<String>> declaredParameterNames,
+                                               @Nonnull final List<? extends ParserRuleContext> tupleElementContexts) {
         Verify.verify(!tupleElementContexts.isEmpty());
         return lambdaBody(declaredParameterNames,
                 parserWalker -> {
                     final ParserContext currentContext = parserWalker.getParserContext();
                     final GraphExpansion.Builder graphExpansionBuilder = currentContext.getCurrentScope().getGraphExpansionBuilder();
                     if (tupleElementContexts.size() > 1) {
-                        final ImmutableList<Value> tupleElements = tupleElementContexts
+                        final ImmutableList<Typed> tupleElements = tupleElementContexts
                                 .stream()
-                                .map(tupleElementContext -> (Value)tupleElementContext.accept(parserWalker))
+                                .map(tupleElementContext -> tupleElementContext.accept(parserWalker))
                                 .collect(ImmutableList.toImmutableList());
 
-                        graphExpansionBuilder.addResultValues(tupleElements).build();
+                        graphExpansionBuilder.addAllTyped(tupleElements).build();
                     } else {
-                        graphExpansionBuilder.addResultValue((Value)tupleElementContexts.get(0).accept(parserWalker));
+                        graphExpansionBuilder.addTyped(tupleElementContexts.get(0).accept(parserWalker));
                     }
                 });
     }
@@ -266,7 +273,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
                 final ParserContext currentContext = parserWalker.getParserContext();
                 final GraphExpansion.Builder graphExpansionBuilder = currentContext.getCurrentScope().getGraphExpansionBuilder();
                 final Typed typed = expressionContext.accept(parserWalker);
-                graphExpansionBuilder.addResultValue((Value)typed);
+                graphExpansionBuilder.addTyped(typed);
             });
         } else {
             return expressionContext.accept(this);
@@ -390,18 +397,23 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         final NorseParser.ArgumentsOrTupleContext argumentsOrTupleContext = Objects.requireNonNull(lambdaContext.argumentsOrTuple());
 
         final NorseParser.ExtractorContext extractorsContext = Objects.requireNonNull(lambdaContext.extractor());
-        final List<Optional<String>> declaredParameterNames =
-                Objects.requireNonNull(extractorsContext.bindingIdentifier())
-                        .stream()
-                        .map(bindingIdentifier -> {
-                            if (bindingIdentifier.IDENTIFIER() != null) {
-                                return Optional.of(bindingIdentifier.IDENTIFIER().getText());
-                            }
-                            return Optional.<String>empty();
-                        })
-                        .collect(ImmutableList.toImmutableList());
+        final List<Optional<String>> declaredParameterNameOptionals =
+                declaredParameterNameOptionals(extractorsContext);
 
-        return lambdaBodyWithPossibleTuple(declaredParameterNames, resolveArgumentOrTupleContexts(argumentsOrTupleContext));
+        return lambdaBodyWithPossibleTuple(declaredParameterNameOptionals, resolveArgumentOrTupleContexts(argumentsOrTupleContext));
+    }
+
+    @Nonnull
+    private ImmutableList<Optional<String>> declaredParameterNameOptionals(final NorseParser.ExtractorContext extractorsContext) {
+        return Objects.requireNonNull(extractorsContext.bindingIdentifier())
+                .stream()
+                .map(bindingIdentifier -> {
+                    if (bindingIdentifier.IDENTIFIER() != null) {
+                        return Optional.of(bindingIdentifier.IDENTIFIER().getText());
+                    }
+                    return Optional.<String>empty();
+                })
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
@@ -426,6 +438,99 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
 
             return Objects.requireNonNull(callingScopes.getCurrentScope()).getGraphExpansionBuilder().build();
         });
+    }
+
+    @Override
+    public Typed visitComprehension(final NorseParser.ComprehensionContext ctx) {
+        final List<NorseParser.ComprehensionBindingContext> comprehensionBindingContexts = Objects.requireNonNull(ctx.comprehensionBindings()).comprehensionBinding();
+
+        final ImmutableList.Builder<Quantifier> quantifiersBuilder = ImmutableList.builder();
+        final ImmutableMap.Builder<String, Value> boundIdentifierToValueMapBuilder = ImmutableMap.builder();
+
+        for (final NorseParser.ComprehensionBindingContext comprehensionBindingContext : comprehensionBindingContexts) {
+            final ImmutableMap<String, Value> boundIdentifierToValueMap = boundIdentifierToValueMapBuilder.build();
+            final List<Optional<String>> boundVariables =
+                    boundVariables(boundIdentifierToValueMap);
+            final List<? extends Value> arguments =
+                    argementsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
+
+            if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingIterationContext) {
+                final NorseParser.ComprehensionBindingIterationContext bindingContext = (NorseParser.ComprehensionBindingIterationContext)comprehensionBindingContext;
+                final NorseParser.ExtractorContext extractorContext = bindingContext.extractor();
+                final List<? extends ParserRuleContext> parserRuleContexts = ImmutableList.of(bindingContext.expression());
+                final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, parserRuleContexts);
+                final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
+                quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
+
+                final RelationalExpression result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
+                final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
+                quantifiersBuilder.add(forEach);
+
+                final List<? extends QuantifiedColumnValue> flowedValues = forEach.getFlowedValues();
+
+                Verify.verify(!flowedValues.isEmpty());
+                final ImmutableList<Optional<String>> declaredParameterNameOptionals = declaredParameterNameOptionals(extractorContext);
+                Preconditions.checkArgument(declaredParameterNameOptionals.size() == flowedValues.size());
+
+                Streams.zip(declaredParameterNameOptionals.stream(), flowedValues.stream(), Pair::of)
+                        .filter(pair -> pair.getKey().isPresent()) // skip the columns that are not needed
+                        .forEach(pair -> {
+                            final String declaredParameterName = pair.getKey().get();
+                            Preconditions.checkArgument(!boundIdentifierToValueMap.containsKey(declaredParameterName), "duplicate binding for identifier " + declaredParameterName);
+                            boundIdentifierToValueMapBuilder.put(declaredParameterName, pair.getValue());
+                        });
+            } else if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingAssignContext) {
+                final NorseParser.ComprehensionBindingAssignContext bindingContext = (NorseParser.ComprehensionBindingAssignContext)comprehensionBindingContext;
+                final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, ImmutableList.of(bindingContext.expression()));
+                final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
+                quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
+                final RelationalExpression result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
+                final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
+                quantifiersBuilder.add(forEach);
+
+                // TODO we need to build a COLLECT() here but there is no such expression yet
+                final List<? extends QuantifiedColumnValue> flowedValues = forEach.getFlowedValues();
+                Verify.verify(flowedValues.size() == 1);
+                final String declaredParameterName = Objects.requireNonNull(bindingContext.IDENTIFIER()).getText();
+                Preconditions.checkArgument(!boundIdentifierToValueMap.containsKey(declaredParameterName), "duplicate binding for identifier " + declaredParameterName);
+                boundIdentifierToValueMapBuilder.put(declaredParameterName, flowedValues.get(0));
+            } else {
+                throw new ParserSyncException(comprehensionBindingContext, "unknown binding rule for comprehension");
+            }
+        }
+
+        final ImmutableMap<String, Value> boundIdentifierToValueMap = boundIdentifierToValueMapBuilder.build();
+        final List<Optional<String>> boundVariables =
+                boundVariables(boundIdentifierToValueMap);
+        final List<? extends Value> arguments =
+                argementsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
+
+        // process result
+        final NorseParser.ArgumentsOrTupleContext argumentsOrTupleContext = Objects.requireNonNull(ctx.argumentsOrTuple());
+        final List<? extends ParserRuleContext> parserRuleContexts = resolveArgumentOrTupleContexts(argumentsOrTupleContext);
+        final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, parserRuleContexts);
+        final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
+        Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
+        final List<? extends Value> resultValues = graphExpansion.getResultsAs(Value.class);
+        quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
+        return new SelectExpression(resultValues, quantifiersBuilder.build(), ImmutableList.of());
+    }
+
+
+    @Nonnull
+    private ImmutableList<Optional<String>> boundVariables(@Nonnull final ImmutableMap<String, Value> boundIdentifierToValueMap) {
+        return boundIdentifierToValueMap.keySet()
+                .stream()
+                .map(Optional::of)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    @Nonnull
+    private ImmutableList<Value> argementsFromBoundVariables(@Nonnull final List<Optional<String>> boundVariables, @Nonnull final ImmutableMap<String, Value> boundIdentifierToValueMap) {
+        return boundVariables.stream()
+                .map(boundVariable -> Objects.requireNonNull(
+                        boundIdentifierToValueMap.get(boundVariable.orElseThrow(() -> new IllegalStateException("impossible situation")))))
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Override

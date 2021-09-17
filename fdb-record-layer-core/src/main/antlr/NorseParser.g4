@@ -36,7 +36,7 @@ methodCall
 
 argumentsOrTuple
     : LPAREN pipe (COMMA pipe)* RPAREN                         # ArgumentsOrTuplePipes
-    | expression                                               # ArgumentsOtTupleExpression
+    | expression                                               # ArgumentsOrTupleExpression
     ;
 
 lambda
@@ -54,12 +54,16 @@ bindingIdentifier
     ;
 
 comprehension
-    : LBRACK comprehensionBinding (SEMI comprehensionBinding)* RBRACK
+    : LBRACK argumentsOrTuple COLON comprehensionBindings RBRACK
+    ;
+
+comprehensionBindings
+    : comprehensionBinding (SEMI comprehensionBinding)*
     ;
 
 comprehensionBinding
-    : extractor BACK_ARROW pipe                    # ComprehensionBindingIteration
-    | IDENTIFIER COLONEQUALS pipe                  # ComprehensionBindingAssign
+    : extractor BACK_ARROW expression              # ComprehensionBindingIteration
+    | IDENTIFIER COLONEQUALS expression            # ComprehensionBindingAssign
     ;
 
 primaryExpression

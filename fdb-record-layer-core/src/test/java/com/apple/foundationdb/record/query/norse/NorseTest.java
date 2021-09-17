@@ -82,9 +82,10 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
 
         //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord') | filter r => r.name = 'Heirloom Cafe' || r.rest_no < 5");
         //final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter _.name = 'Heirloom Cafe' || _.rest_no < 5 | map r => (r.name, r.rest_no)");
-        final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter exists(from 'RestaurantReviewer' | filter _.id = 5)");
+        //final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter exists(from 'RestaurantReviewer' | filter _.id = 5)");
         //final ANTLRInputStream in = new ANTLRInputStream("[(rating, restaurant): restaurant <- from('RestaurantRecord'), review <- restaurant.reviews, rating := review.rating] | group _.rating | agg (_, restaurants) -> count(restaurants)");
         //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord')");
+        final ANTLRInputStream in = new ANTLRInputStream("[(restaurant, reviewer): restaurant <- from('RestaurantRecord'); reviewer <- from 'RestaurantReviewer'] | filter (r, _) => r.name = 'Heirloom Cafe'");
         NorseLexer lexer = new NorseLexer(in);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         NorseParser parser = new NorseParser(tokens);

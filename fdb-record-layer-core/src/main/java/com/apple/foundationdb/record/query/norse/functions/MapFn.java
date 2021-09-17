@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -60,16 +61,15 @@ public class MapFn extends BuiltInFunction<RelationalExpression> {
         final RelationalExpression inStream = (RelationalExpression)arguments.get(0);
         final Type streamedType = Objects.requireNonNull(inStream.getResultType().getInnerType(), "relation type must not be erased");
         Verify.verify(streamedType.getTypeCode() == Type.TypeCode.TUPLE);
-        final List<Type> elementTypes = Objects.requireNonNull(((Type.Tuple)streamedType).getElementTypes());
 
         // provide a calling scope to the lambda
         final Lambda lambda = (Lambda)arguments.get(1);
 
         final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inStream));
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
-        final GraphExpansion graphExpansion = lambda.unifyBody(elementTypes, argumentValues);
+        final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
         Verify.verify(graphExpansion.getPredicates().isEmpty());
-        return new SelectExpression(graphExpansion.getResultValues(),
+        return new SelectExpression(graphExpansion.getResultsAs(Value.class),
                 ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                 ImmutableList.of());
     }

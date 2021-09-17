@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.query.predicates;
 import com.apple.foundationdb.record.query.norse.DelayedEncapsulationFunction;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -58,33 +57,31 @@ public class Lambda implements Typed {
 
     @Nonnull
     public GraphExpansion encapsulate(@Nonnull final Set<CorrelationIdentifier> visibleAliases,
-                             @Nonnull final Map<String, Value> boundIdentifiers) {
+                                      @Nonnull final Map<String, Value> boundIdentifiers) {
         return delayedEncapsulationFunction.encapsulate(visibleAliases, boundIdentifiers);
     }
 
     @Nonnull
-    public GraphExpansion unifyBody(@Nonnull List<Type> columnTypes, @Nonnull List<? extends Value> argumentValues) {
-        Verify.verify(!columnTypes.isEmpty());
-
+    public GraphExpansion unifyBody(@Nonnull List<? extends Value> argumentValues) {
         final Map<String, Value> boundIdentifiers;
-        if (parameterNameOptionals.isEmpty()) {
+        if (parameterNameOptionals.isEmpty() && !argumentValues.isEmpty()) {
             // implied lambda -- bind "_"/"_1", etc.
 
-            if (columnTypes.size() == 1) {
+            if (argumentValues.size() == 1) {
                 boundIdentifiers = ImmutableMap.of("_", argumentValues.get(0));
             } else {
                 final ImmutableMap.Builder<String, Value> boundIdentifiersBuilder = ImmutableMap.builder();
-                for (int i = 0; i < columnTypes.size(); i ++) {
+                for (int i = 0; i < argumentValues.size(); i ++) {
                     boundIdentifiersBuilder.put("_" + (i + 1), argumentValues.get(i));
                 }
                 boundIdentifiers = boundIdentifiersBuilder.build();
             }
         } else {
-            if (columnTypes.size() != parameterNameOptionals.size()) {
+            if (argumentValues.size() != parameterNameOptionals.size()) {
                 throw new IllegalArgumentException("number of provided parameters for lambda does not match number of elements in tuple");
             }
             final ImmutableMap.Builder<String, Value> boundIdentifiersBuilder = ImmutableMap.builder();
-            for (int i = 0; i < columnTypes.size(); i ++) {
+            for (int i = 0; i < argumentValues.size(); i ++) {
                 final Optional<String> parameterNameOptional = parameterNameOptionals.get(i);
                 if (parameterNameOptional.isPresent()) {
                     boundIdentifiersBuilder.put(parameterNameOptional.get(), argumentValues.get(i));

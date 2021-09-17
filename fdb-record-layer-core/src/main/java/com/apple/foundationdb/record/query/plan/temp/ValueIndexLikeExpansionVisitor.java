@@ -215,7 +215,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
         int currentOrdinal = state.getCurrentOrdinal();
         for (KeyExpression child : thenKeyExpression.getChildren()) {
             final GraphExpansion graphExpansion = pop(child.expand(push(state.withCurrentOrdinal(currentOrdinal))));
-            currentOrdinal += graphExpansion.getResultValues().size();
+            currentOrdinal += graphExpansion.getResultsAs(Value.class).size();
             expandedPredicatesBuilder.add(graphExpansion);
         }
         return GraphExpansion.ofOthers(expandedPredicatesBuilder.build());
