@@ -121,7 +121,13 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         if (plan1.scanType == IndexScanType.BY_LUCENE_FULL_TEXT || plan2.scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
             scanType = IndexScanType.BY_LUCENE_FULL_TEXT;
         }
-        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort, plan1.groupingComparisons.merge(plan2.groupingComparisons));
+        ScanComparisons newGrouping = plan1.groupingComparisons == null ? ScanComparisons.EMPTY : plan1.groupingComparisons;
+        if (newGrouping.isEmpty()) {
+            newGrouping = plan2.groupingComparisons;
+        } else if (plan2.groupingComparisons != null) {
+            newGrouping = newGrouping.merge(plan2.groupingComparisons);
+        }
+        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort, newGrouping);
         if (plan1.createsDuplicates() || plan2.createsDuplicates()) {
             plan.setCreatesDuplicates();
         }
@@ -134,8 +140,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                                                                        @Nonnull final EvaluationContext context,
                                                                        @Nullable final byte[] continuation,
                                                                        @Nonnull final ExecuteProperties executeProperties) {
-        ScanComparisons newComparison = comparisons.append(groupingComparisons);
-        final TupleRange range = newComparison.toTupleRange(store, context);
+        final TupleRange range = groupingComparisons == null ? comparisons.toTupleRange() : comparisons.append(groupingComparisons).toTupleRange(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
         RecordCursor<IndexEntry> indexEntryRecordCursor = store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, executeProperties.asScanProperties(reverse));
         if (indexEntryRecordCursor instanceof LuceneRecordCursor && sort != null)  {

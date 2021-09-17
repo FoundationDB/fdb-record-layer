@@ -66,7 +66,7 @@ public class LucenePlanner extends RecordQueryPlanner {
                                                                @Nullable FilterSatisfiedMask filterSatisfiedMask, final ScanComparisons groupingComparisons) {
         String completeFieldName = filter.getFieldName();
         Comparisons.Comparison comparison =  filter.getComparison();
-        if (groupingComparisons.getEqualityComparisons().contains(comparison)) {
+        if (groupingComparisons != null && groupingComparisons.getEqualityComparisons().contains(comparison)) {
             return null;
         }
         if (parentFieldName != null) {

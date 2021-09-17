@@ -51,6 +51,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -137,7 +138,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             for (int i = 1; i < range.getLow().getItems().size(); i++) {
                 Object comparison = range.getLow().get(i);
                 if (comparison != null) {
-                    groupingKey = groupingKey == null ? "$" + comparison : groupingKey.concat("$" + comparison);
+                    groupingKey = groupingKey == null ? "" + comparison : groupingKey.concat("$" + comparison);
                 }
             }
             return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions(), groupingKey);
@@ -249,22 +250,22 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    public <M extends Message> String extractGrouping(@Nullable FDBIndexableRecord<M> record) {
-        KeyExpression expression = state.index.getRootExpression();
-        if (expression instanceof GroupingKeyExpression) {
-            final List<DocumentEntry> groupingExpressions = getFields(((GroupingKeyExpression)expression).getGroupingSubKey(), record, record.getRecord());
-            if (groupingExpressions.isEmpty()) {
-                return null;
-            }
-            String indexPreface = "";
-            Key.Evaluated evaluatedKey = ((GroupingKeyExpression)expression).getGroupingSubKey().evaluateSingleton(record);
-            if (!evaluatedKey.containsNonUniqueNull()) {
-                Object value = evaluatedKey.values().get(0);
-                indexPreface = indexPreface.concat("$" + value);
-            }
-            return indexPreface;
+    private void writeDocument(@Nonnull List<DocumentEntry> keys, String indexPreface, byte[] primaryKey) throws IOException {
+        final IndexWriter newWriter = getOrCreateIndexWriter(state, analyzer, executor, indexPreface);
+        BytesRef ref = new BytesRef(primaryKey);
+        Document document = new Document();
+        document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
+        document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
+        for (DocumentEntry entry : keys ) {
+            insertField(entry, document);
         }
-        return null;
+        newWriter.addDocument(document);
+    }
+
+    private void deleteDocument(String indexPreface, byte[] primaryKey) throws IOException {
+        final IndexWriter oldWriter = getOrCreateIndexWriter(state, analyzer, executor, indexPreface);
+        Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
+        oldWriter.deleteDocuments(query);
     }
 
     @Nonnull
@@ -273,52 +274,92 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                                               @Nullable FDBIndexableRecord<M> newRecord) {
         LOG.trace("update oldRecord={}, newRecord{}", oldRecord, newRecord);
 
-        List<DocumentEntry> oldRecordFields = Lists.newArrayList();
         KeyExpression root = state.index.getRootExpression();
         List<DocumentEntry> newRecordFields = Lists.newArrayList();
-        String newGrouping = null;
-        String oldGrouping = null;
+        List<DocumentEntry> oldRecordFields = Lists.newArrayList();
 
-        // evaluate fields from records provided
-        if (newRecord != null) {
-            newGrouping = extractGrouping(newRecord);
-            newRecordFields.addAll(getFields(root, newRecord, newRecord.getRecord()));
-        }
-        if (oldRecord != null) {
-            oldGrouping = extractGrouping(oldRecord);
-            oldRecordFields.addAll(getFields(root, oldRecord, oldRecord.getRecord()));
-        }
+        // Grouping expression
+        if (root instanceof GroupingKeyExpression) {
 
-        // if no relevant fields are changed then nothing needs to be done.
-        if (newRecordFields.equals(oldRecordFields)) {
-            return AsyncUtil.DONE;
-        }
+            // Extract information for grouping from old and new records
+            List<Key.Evaluated> newGroupingRecord = Lists.newArrayList();
+            List<Key.Evaluated> oldGroupingRecord = Lists.newArrayList();
 
-        try {
-            // create writer and document
-            Document document = new Document();
+            // Extract information from groupedKeys for new and old records
+            if (oldRecord != null) {
+                oldGroupingRecord = ((GroupingKeyExpression)root).getGroupingSubKey().evaluate(oldRecord);
+                oldRecordFields = getFields(((GroupingKeyExpression)root).getGroupedSubKey(), oldRecord, oldRecord.getRecord());
+            }
+            if (newRecord != null){
+                newGroupingRecord = ((GroupingKeyExpression)root).getGroupingSubKey().evaluate(newRecord);
+                newRecordFields = getFields(((GroupingKeyExpression)root).getGroupedSubKey(), newRecord, newRecord.getRecord());
+            }
 
-            // if old record has fields in the index and there are changes then delete old record
+            // Evaluate Changes on the old record.
+            if (newRecordFields.equals(oldRecordFields) && oldGroupingRecord.equals(newGroupingRecord)) {
+                return AsyncUtil.DONE;
+            }
+
+            // if changed records
+            // delete old
             if (!oldRecordFields.isEmpty()) {
-                final IndexWriter oldWriter = getOrCreateIndexWriter(state, analyzer, executor, oldGrouping);
-                Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(oldRecord.getPrimaryKey().pack()));
-                oldWriter.deleteDocuments(query);
+                for (Key.Evaluated grouping : oldGroupingRecord) {
+                    Object value = grouping.values().get(0);
+                    if (grouping.containsNonUniqueNull()) {
+                        value = null;
+                    }
+                    try {
+                        deleteDocument(value == null ? "" : "" + value, oldRecord.getPrimaryKey().pack());
+                    } catch (IOException e) {
+                        throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
+                    }
+                }
             }
 
-            // if there are changes then update the index with the new document.
+            // update new
             if (!newRecordFields.isEmpty()) {
-                final IndexWriter newWriter = getOrCreateIndexWriter(state, analyzer, executor, newGrouping);
-                byte[] primaryKey = newRecord.getPrimaryKey().pack();
-                BytesRef ref = new BytesRef(primaryKey);
-                document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
-                document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-                for (DocumentEntry entry : newRecordFields) {
-                    insertField(entry, document);
+                for (Key.Evaluated grouping : newGroupingRecord) {
+//                    newRecordFields = getFields(((GroupingKeyExpression)root).getGroupedSubKey(), newRecord, newRecord.getRecord());
+                    Object value = grouping.values().get(0);
+                    if (grouping.containsNonUniqueNull()) {
+                        value = null;
+                    }
+                    try {
+                        // TODO: Only save fields relevant to this specific grouping key.
+                        writeDocument(newRecordFields, value == null ? "" : "$" + value, newRecord.getPrimaryKey().pack());
+                    } catch (IOException e) {
+                        throw new RecordCoreException("Issue updating new index keys", "newRecord", newRecord, e);
+                    }
                 }
-                newWriter.addDocument(document);
             }
-        } catch (IOException e) {
-            throw new RecordCoreException("Issue updating index keys", "oldRecord", oldRecord, "newRecord", newRecord, e);
+
+
+        } else {
+            if (newRecord != null) {
+                newRecordFields.addAll(getFields(root, newRecord, newRecord.getRecord()));
+            }
+            if (oldRecord != null) {
+                oldRecordFields.addAll(getFields(root, oldRecord, oldRecord.getRecord()));
+            }
+
+            // if no relevant fields are changed then nothing needs to be done.
+            if (newRecordFields.equals(oldRecordFields)) {
+                return AsyncUtil.DONE;
+            }
+
+            try {
+                // if old record has fields in the index and there are changes then delete old record
+                if (!oldRecordFields.isEmpty()) {
+                    deleteDocument(null, oldRecord.getPrimaryKey().pack());
+                }
+
+                // if there are changes then update the index with the new document.
+                if (!newRecordFields.isEmpty()) {
+                    writeDocument(newRecordFields, null, newRecord.getPrimaryKey().pack());
+                }
+            } catch (IOException e) {
+                throw new RecordCoreException("Issue updating index keys", "oldRecord", oldRecord, "newRecord", newRecord, e);
+            }
         }
         return AsyncUtil.DONE;
     }

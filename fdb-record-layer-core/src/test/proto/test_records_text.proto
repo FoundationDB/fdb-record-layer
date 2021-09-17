@@ -51,6 +51,8 @@ message MapDocument {
     message Entry {
         optional string key = 1;
         optional string value = 2;
+        optional string secondValue = 3;
+        optional string thirdValue = 4;
     }
     repeated Entry entry = 2;
     optional int64 group = 3;

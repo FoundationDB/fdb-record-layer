@@ -81,10 +81,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static final List<KeyExpression> keys = com.google.common.collect.Lists.newArrayList(
             new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
                     LuceneKeyExpression.FieldType.STRING_KEY_MAP, false, false),
-            new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false));
+            new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false),
+            new LuceneFieldKeyExpression("secondValue", LuceneKeyExpression.FieldType.STRING, false, false),
+            new LuceneFieldKeyExpression("thirdValue", LuceneKeyExpression.FieldType.STRING, false, false));
 
     private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value",new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
-            new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys)), 1), IndexTypes.LUCENE);
+            new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys)), 3), IndexTypes.LUCENE);
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                 "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
@@ -133,6 +135,19 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .setText(text)
                 .setText2(text2)
                 .setGroup(group)
+                .build();
+    }
+
+    private TestRecordsTextProto.MapDocument createComplexMapDocument(long docId, String text, String text2, int group) {
+        return TestRecordsTextProto.MapDocument.newBuilder()
+                .setDocId(docId)
+                .setGroup(group)
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder()
+                        .setKey(text2)
+                        .setValue(text)
+                        .setSecondValue("secondValue" + docId)
+                        .setThirdValue("thirdValue" + docId)
+                        .build())
                 .build();
     }
 
@@ -193,12 +208,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             });
-            for (int i = 0; i < 1000; i++) {
-                recordStore.saveRecord(createSimpleDocument(1623L + i, 2));
-                recordStore.saveRecord(createSimpleDocument(1632L + i, ENGINEER_JOKE, 2));
-            }
+            recordStore.saveRecord(createSimpleDocument(1623L, 2));
+            recordStore.saveRecord(createSimpleDocument(1632L, ENGINEER_JOKE, 2));
             RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
-                    TupleRange.allOf(Tuple.from("*:* AND NOT text:[* TO *] AND text:Vision")), null, ScanProperties.FORWARD_SCAN);
+                    TupleRange.allOf(Tuple.from("*:* AND NOT text:[* TO *]")), null, ScanProperties.FORWARD_SCAN);
             List<IndexEntry> indexEntries = recordCursor.asList().join();
             assertEquals(1, indexEntries.size());
             assertEquals(1623L, indexEntries.get(0).getKeyValue(1));
@@ -323,9 +336,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
             });
-            recordStore.saveRecord(createMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
-            recordStore.saveRecord(createMapDocument(1547L, WAYLON, "sampleTextPhrase",  1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("text_value:Vision")), null, ScanProperties.FORWARD_SCAN);
+            recordStore.saveRecord(createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
+            recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase",  1));
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("value:Vision", "sampleTextSong")), null, ScanProperties.FORWARD_SCAN);
             assertEquals(1, indexEntries.getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
         }
