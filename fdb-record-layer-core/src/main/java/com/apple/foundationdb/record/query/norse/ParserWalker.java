@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
@@ -131,7 +132,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         return functionOptional
                 .flatMap(builtInFunction -> builtInFunction.validateCall(Type.fromTyped(arguments)))
                 .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
-                .orElseThrow(() -> new IllegalArgumentException("unable to compile in function"));
+                .orElseThrow(() -> new IllegalArgumentException("unable to compile in function " + functionName));
     }
 
     @Override
@@ -214,7 +215,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         return functionOptional
                 .flatMap(builtInFunction -> builtInFunction.validateCall(Type.fromTyped(arguments)))
                 .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
-                .orElseThrow(() -> new IllegalArgumentException("unable to compile in function"));
+                .orElseThrow(() -> new IllegalArgumentException("unable to compile in function " + functionName));
     }
 
     private List<? extends ParserRuleContext> resolveAmbiguousArgumentOrTupleContexts(@Nonnull final NorseParser.ArgumentsOrTupleContext ctx) {
@@ -457,15 +458,24 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
             if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingIterationContext) {
                 final NorseParser.ComprehensionBindingIterationContext bindingContext = (NorseParser.ComprehensionBindingIterationContext)comprehensionBindingContext;
                 final NorseParser.ExtractorContext extractorContext = bindingContext.extractor();
-                final List<? extends ParserRuleContext> parserRuleContexts = ImmutableList.of(bindingContext.expression());
+                final List<? extends ParserRuleContext> parserRuleContexts = ImmutableList.of(bindingContext.pipe());
                 final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, parserRuleContexts);
                 final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
                 quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
 
-                final RelationalExpression result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
+                final List<Typed> results = graphExpansion.getResults();
+                final Typed resultTyped = Iterables.getOnlyElement(results);
+
+                final RelationalExpression result;
+                if (resultTyped.getResultType().getTypeCode() == TypeCode.STREAM) {
+                    result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
+                } else if (Iterables.getOnlyElement(results) instanceof Value) {
+                    result = new ExplodeExpression(Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class)));
+                } else {
+                    throw new IllegalStateException("shouldn't be in this state");
+                }
                 final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
                 quantifiersBuilder.add(forEach);
-
                 final List<? extends QuantifiedColumnValue> flowedValues = forEach.getFlowedValues();
 
                 Verify.verify(!flowedValues.isEmpty());
@@ -481,7 +491,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
                         });
             } else if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingAssignContext) {
                 final NorseParser.ComprehensionBindingAssignContext bindingContext = (NorseParser.ComprehensionBindingAssignContext)comprehensionBindingContext;
-                final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, ImmutableList.of(bindingContext.expression()));
+                final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, ImmutableList.of(bindingContext.pipe()));
                 final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
                 quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
                 final RelationalExpression result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));

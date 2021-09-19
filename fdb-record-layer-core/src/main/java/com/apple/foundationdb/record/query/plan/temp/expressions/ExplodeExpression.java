@@ -34,7 +34,9 @@ import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGrap
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -60,6 +62,13 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Override
     public List<? extends Value> getResultValues() {
         return ImmutableList.of(resultValue);
+    }
+
+    @Override
+    public Type.Stream getResultType() {
+        // TODO this should go into the constructor when there are no callers not setting the proper type
+        Verify.verify(resultValue.getResultType().getTypeCode() == Type.TypeCode.COLLECTION);
+        return new Type.Stream(((Type.Collection)resultValue.getResultType()).getInnerType());
     }
 
     @Nonnull

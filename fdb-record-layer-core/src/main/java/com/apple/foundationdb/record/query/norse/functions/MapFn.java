@@ -73,4 +73,16 @@ public class MapFn extends BuiltInFunction<RelationalExpression> {
                 ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                 ImmutableList.of());
     }
+
+    /**
+     * Function
+     * select(RELATION, FUNCTION) -> RELATION.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class SelectFn extends BuiltInFunction<RelationalExpression> {
+        public SelectFn() {
+            super("select",
+                    ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), MapFn::encapsulate);
+        }
+    }
 }

@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.temp.debug;
 
-import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner.Task;
 import com.apple.foundationdb.record.query.plan.temp.CascadesRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
@@ -115,7 +114,7 @@ public interface Debugger {
         withDebugger(Debugger::onSetup);
     }
 
-    static void query(final RecordQuery recordQuery, final PlanContext planContext) {
+    static void query(final String recordQuery, final PlanContext planContext) {
         withDebugger(debugger -> debugger.onQuery(recordQuery, planContext));
     }
 
@@ -162,7 +161,7 @@ public interface Debugger {
 
     void onSetup();
 
-    void onQuery(final RecordQuery recordQuery, final PlanContext planContext);
+    void onQuery(final String recordQuery, final PlanContext planContext);
 
     /**
      * Shorthands to identify a kind of event.

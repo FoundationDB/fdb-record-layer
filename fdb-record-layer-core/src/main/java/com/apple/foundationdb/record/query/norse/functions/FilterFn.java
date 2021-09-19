@@ -55,7 +55,7 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
                 ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), FilterFn::encapsulate);
     }
 
-    private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
+    public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
         // the call is already validated against the resolved function
         Verify.verify(arguments.get(0) instanceof RelationalExpression);
         Verify.verify(arguments.get(1) instanceof Lambda);
@@ -82,5 +82,17 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
             }
         }
         throw new IllegalArgumentException("cannot express filter in terms of QueryPredicates");
+    }
+
+    /**
+     * Function
+     * where(RELATION, FUNCTION) -> RELATION.
+     */
+    @AutoService(BuiltInFunction.class)
+    public static class WhereFn extends BuiltInFunction<RelationalExpression> {
+        public WhereFn() {
+            super("where",
+                    ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), FilterFn::encapsulate);
+        }
     }
 }

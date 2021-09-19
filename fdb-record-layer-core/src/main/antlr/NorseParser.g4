@@ -62,8 +62,8 @@ comprehensionBindings
     ;
 
 comprehensionBinding
-    : extractor BACK_ARROW expression              # ComprehensionBindingIteration
-    | IDENTIFIER COLONEQUALS expression            # ComprehensionBindingAssign
+    : extractor BACK_ARROW pipe              # ComprehensionBindingIteration
+    | IDENTIFIER COLONEQUALS pipe            # ComprehensionBindingAssign
     ;
 
 primaryExpression

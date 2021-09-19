@@ -32,7 +32,6 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -317,9 +316,11 @@ public interface Type {
                 final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
                 final TypeCode typeCode = TypeCode.fromProtobufType(fieldDescriptor.getType());
                 if (typeCode.isPrimitive()) {
-                    fieldTypeMapBuilder.put(entry.getKey(), primitiveType(typeCode));
+                    final Type primitiveType = primitiveType(typeCode);
+                    fieldTypeMapBuilder.put(entry.getKey(), fieldDescriptor.isRepeated() ? new Type.Collection(primitiveType) : primitiveType);
                 } else if (typeCode == TypeCode.RECORD) {
-                    fieldTypeMapBuilder.put(entry.getKey(), new Record(toFieldDescriptorMap(fieldDescriptor.getMessageType().getFields())));
+                    final Record recordType = new Record(toFieldDescriptorMap(fieldDescriptor.getMessageType().getFields()));
+                    fieldTypeMapBuilder.put(entry.getKey(), fieldDescriptor.isRepeated() ? new Type.Collection(recordType) : recordType);
                 }
             }
 
@@ -368,8 +369,47 @@ public interface Type {
         }
 
         @Override
-        public boolean isPrimitive() {
-            return getTypeCode().isPrimitive();
+        public boolean isNullable() {
+            return true;
+        }
+
+        @Nullable
+        public Type getInnerType() {
+            return innerType;
+        }
+
+        boolean isErased() {
+            return getInnerType() == null;
+        }
+
+        @Override
+        public String toString() {
+            return isErased()
+                   ? getTypeCode().toString()
+                   : getTypeCode() + "(" + Objects.requireNonNull(getInnerType()) + ")";
+        }
+    }
+
+    class Collection implements Type {
+        @Nullable
+        private final Type innerType;
+
+        public Collection() {
+            this(null);
+        }
+
+        public Collection(@Nullable final Type innerType) {
+            this.innerType = innerType;
+        }
+
+        @Override
+        public TypeCode getTypeCode() {
+            return TypeCode.COLLECTION;
+        }
+
+        @Override
+        public Class<?> getJavaClass() {
+            return java.util.Collection.class;
         }
 
         @Override

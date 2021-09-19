@@ -38,8 +38,13 @@ import javax.annotation.Nullable;
 public class ReplRunner {
     SummaryGeneratingListener listener = new SummaryGeneratingListener();
 
-    public void run(@Nonnull final String className, @Nonnull final String testMethodName, @Nullable final String paramTypes) {
-        Debugger.setDebugger(new PlannerRepl());
+    public void run(@Nonnull final String replClassName, @Nonnull final String className, @Nonnull final String testMethodName, @Nullable final String paramTypes) throws Exception {
+        final Class<?> aClass = Class.forName(replClassName);
+        final Object repl = aClass.getConstructor().newInstance();
+        if (!(repl instanceof Debugger)) {
+            throw new RuntimeException("replClass name is invalid. Class does not implement Debugger.");
+        }
+        Debugger.setDebugger((Debugger)repl);
         Debugger.setup();
 
         final MethodSelector methodSelector;
@@ -68,16 +73,16 @@ public class ReplRunner {
         }
     }
 
-    public static void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("usage: plannerRepl.sh fully.qualified.className testMethodName [parameter_type(,parameter_type)*]");
+    public static void main(String[] args) throws Exception {
+        if (args.length < 3) {
+            System.out.println("usage: plannerRepl.sh fully.qualified.replClassName fully.qualified.className testMethodName [parameter_type(,parameter_type)*]");
             System.exit(1);
         }
 
-        if (args.length == 2) {
-            new ReplRunner().run(args[0], args[1], null);
+        if (args.length == 3) {
+            new ReplRunner().run(args[0], args[1], args[2], null);
         } else {
-            new ReplRunner().run(args[0], args[1], args[2]);
+            new ReplRunner().run(args[0], args[1], args[2], args[3]);
         }
     }
 }

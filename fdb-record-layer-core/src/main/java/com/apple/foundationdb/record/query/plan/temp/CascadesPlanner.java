@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,6 +52,7 @@ import java.util.Deque;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
 import java.util.function.Supplier;
 
 /**
@@ -223,11 +225,37 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     @Override
     public RecordQueryPlan plan(@Nonnull RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        final PlanContext context = new MetaDataPlanContext(configuration, metaData, recordStoreState, query);
-        Debugger.query(query, context);
+        final PlanContext context = MetaDataPlanContext.forRecordQuery(configuration, metaData, recordStoreState, query);
+        Debugger.query(query.toString(), context);
         try {
             planPartial(context,
                     () -> RelationalExpression.fromRecordQuery(context, query));
+        } finally {
+            Debugger.withDebugger(Debugger::onDone);
+        }
+
+        final RelationalExpression singleRoot = currentRoot.getMembers().iterator().next();
+        if (singleRoot instanceof RecordQueryPlan) {
+            if (logger.isDebugEnabled()) {
+                logger.debug(KeyValueLogMessage.of("explain of plan",
+                        "explain", PlannerGraphProperty.explain(singleRoot)));
+            }
+
+            return (RecordQueryPlan)singleRoot;
+        } else {
+            throw new RecordCoreException("Cascades planner could not plan query")
+                    .addLogInfo("query", query)
+                    .addLogInfo("finalExpression", currentRoot.get());
+        }
+    }
+
+    @Nonnull
+    public RecordQueryPlan plan(@Nonnull final String query, @Nonnull final BiFunction<String, PlanContext, RelationalExpression> qgmFunction) {
+        final PlanContext context = MetaDataPlanContext.defaultContext(configuration, metaData, recordStoreState);
+        Debugger.query(query, context);
+        try {
+            planPartial(context,
+                    () -> qgmFunction.apply(query, context));
         } finally {
             Debugger.withDebugger(Debugger::onDone);
         }
@@ -257,6 +285,14 @@ public class CascadesPlanner implements QueryPlanner {
     }
 
     @Nonnull
+    public QueryPlanResult planQuery(@Nonnull final String query, @Nonnull BiFunction<String, PlanContext, RelationalExpression> qgmFunction) {
+        QueryPlanResult result = new QueryPlanResult(plan(query, qgmFunction));
+        result.getPlanInfo().put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount);
+        result.getPlanInfo().put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize);
+        return result;
+    }
+
+    @Nonnull
     @Override
     public RecordMetaData getRecordMetaData() {
         return metaData;
@@ -270,8 +306,12 @@ public class CascadesPlanner implements QueryPlanner {
 
     private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
+        // TODO hack
+        currentRoot.getRequirementsMap().pushProperty(OrderingAttribute.ORDERING, ImmutableSet.of(Ordering.preserveOrder()));
         aliasResolver = AliasResolver.withRoot(currentRoot);
-        Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
+        if (logger.isDebugEnabled()) {
+            Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
+        }
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         taskCount = 0;

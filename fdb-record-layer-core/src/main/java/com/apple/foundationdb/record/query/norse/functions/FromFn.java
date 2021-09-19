@@ -39,6 +39,7 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -94,6 +95,7 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
                                     throw new IllegalArgumentException("cannot form union type of complex fields");
                                 })));
 
-        return new LogicalTypeFilterExpression(recordTypeNames, new FullUnorderedScanExpression(recordTypeNames, fieldDescriptorMap));
+        final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
+        return new LogicalTypeFilterExpression(recordTypeNames, new FullUnorderedScanExpression(allAvailableRecordTypes, fieldDescriptorMap));
     }
 }

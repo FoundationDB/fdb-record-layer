@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.plan.debug;
 
-import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -99,7 +98,7 @@ public class PlannerRepl implements Debugger {
     private int currentInternalBreakPointIndex;
 
     @Nullable
-    private RecordQuery recordQuery;
+    private String recordQuery;
     @Nullable
     private PlanContext planContext;
 
@@ -162,7 +161,12 @@ public class PlannerRepl implements Debugger {
         } catch (final IOException ioException) {
             logger.warn("unable to initialize line reader:" + ioException.getMessage());
         }
-        println(banner);
+        println("cLeArScReEn");
+        println(getBanner());
+    }
+
+    public String getBanner() {
+        return banner;
     }
 
     @Override
@@ -175,7 +179,7 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public void onQuery(@Nonnull final RecordQuery recordQuery, @Nonnull final PlanContext planContext) {
+    public void onQuery(@Nonnull final String recordQuery, @Nonnull final PlanContext planContext) {
         this.stateStack.push(State.copyOf(getCurrentState()));
         this.recordQuery = recordQuery;
         this.planContext = planContext;
@@ -195,8 +199,15 @@ public class PlannerRepl implements Debugger {
         breakPoints.put(currentBreakPointIndex ++, breakPoint);
     }
 
-    void addInternalBreakPoint(final BreakPoint breakPoint) {
+    public void addInternalBreakPoint(final BreakPoint breakPoint) {
         breakPoints.put(currentInternalBreakPointIndex --, breakPoint);
+    }
+
+    public void removeInternalBreakPoints() {
+        for (int i = -1; i >= currentInternalBreakPointIndex; i --) {
+            removeBreakPoint(i);
+        }
+        currentInternalBreakPointIndex = -1;
     }
 
     BreakPoint removeBreakPoint(final int index) {
@@ -242,7 +253,7 @@ public class PlannerRepl implements Debugger {
             do {
                 String line;
                 try {
-                    line = lineReader.readLine(prompt);
+                    line = readLine(prompt);
                 } catch (UserInterruptException e) {
                     printlnError("user interrupt");
                     return;
@@ -429,8 +440,13 @@ public class PlannerRepl implements Debugger {
         this.recordQuery = null;
     }
 
+    @Nonnull
+    public String readLine(@Nonnull final String prompt) {
+        return Objects.requireNonNull(lineReader).readLine(prompt);
+    }
+
     void printlnQuery() {
-        getSilently("query.toString()", () -> Objects.requireNonNull(recordQuery).toString())
+        getSilently("query.toString()", () -> Objects.requireNonNull(recordQuery))
                 .ifPresent(queryAsString ->
                         printlnKeyValue("query", queryAsString));
     }
@@ -491,19 +507,19 @@ public class PlannerRepl implements Debugger {
         printlnKeyValue(prefix + "ranges over", nameForObjectOrNotInCache(rangesOver));
     }
 
-    void printlnHighlighted(final String string) {
+    public void printlnHighlighted(final String string) {
         printHighlighted(string);
         println();
     }
 
-    void printHighlighted(final String string) {
+    public void printHighlighted(final String string) {
         print(new AttributedStringBuilder()
                 .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.BLUE + AttributedStyle.BRIGHT).bold())
                 .append(string)
                 .toAnsi());
     }
 
-    void printlnError(final String string) {
+    public void printlnError(final String string) {
         print(new AttributedStringBuilder()
                 .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.RED + AttributedStyle.BRIGHT).bold())
                 .append(string)
@@ -511,12 +527,12 @@ public class PlannerRepl implements Debugger {
         println();
     }
 
-    void printlnKeyValue(final String key, final String value) {
+    public void printlnKeyValue(final String key, final String value) {
         printKeyValue(key, value);
         println();
     }
 
-    void printKeyValue(final String key, final String value) {
+    public void printKeyValue(final String key, final String value) {
         print(new AttributedStringBuilder()
                 .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.YELLOW + AttributedStyle.BRIGHT).bold())
                 .append(key)
@@ -525,15 +541,15 @@ public class PlannerRepl implements Debugger {
                 .append(value).toAnsi());
     }
 
-    void print(@Nonnull final String string) {
+    public void print(@Nonnull final String string) {
         Objects.requireNonNull(terminal).writer().print(string);
     }
 
-    void println(@Nonnull final String string) {
+    public void println(@Nonnull final String string) {
         Objects.requireNonNull(terminal).writer().println(string);
     }
 
-    void println() {
+    public void println() {
         println("");
     }
 
