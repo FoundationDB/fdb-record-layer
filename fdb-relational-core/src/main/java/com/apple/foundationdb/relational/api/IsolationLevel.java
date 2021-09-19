@@ -20,19 +20,23 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 public enum IsolationLevel {
     READ_COMMITTED,
     SNAPSHOT_ISOLATION,
     SERIALIZABLE;
 
-    public static IsolationLevel fromFdbLevel(com.apple.foundationdb.record.IsolationLevel isolationLevel) {
+    public static IsolationLevel fromFdbLevel(com.apple.foundationdb.record.IsolationLevel isolationLevel) throws RelationalException {
         switch (isolationLevel) {
             case SNAPSHOT:
                 return SNAPSHOT_ISOLATION;
             case SERIALIZABLE:
                 return SERIALIZABLE;
             default:
-                throw new IllegalStateException("Unknown FDB isolation level: " + isolationLevel);
+                IllegalArgumentException cause = new IllegalArgumentException("Unknown FDB isolation level: " + isolationLevel);
+                throw new InternalErrorException("Unknown FDB isolation level: " + isolationLevel, cause);
         }
     }
 }

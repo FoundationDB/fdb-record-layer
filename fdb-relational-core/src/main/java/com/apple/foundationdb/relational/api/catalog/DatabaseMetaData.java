@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.api.catalog;
 
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 import java.util.Set;
@@ -33,8 +33,8 @@ public interface DatabaseMetaData {
      * @param tableId the identifier of the table of interest
      * @return metadata about the specified table.
      * @throws RelationalException if something goes wrong. If no table is found, then the thrown exception
-     * will have an {@code ErrorCode} of {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#UNDEFINED_TABLE}.
-     * If no schema is found, the error code will be {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#UNKNOWN_SCHEMA}
+     * will have an {@code ErrorCode} of {@link RelationalException.ErrorCode#UNDEFINED_TABLE}.
+     * If no schema is found, the error code will be {@link RelationalException.ErrorCode#UNKNOWN_SCHEMA}
      */
     @Nonnull
     TableMetaData getTableMetaData(@Nonnull String schemaId,@Nonnull String tableId) throws RelationalException;

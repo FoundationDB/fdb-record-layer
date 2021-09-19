@@ -38,7 +38,7 @@ import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.google.common.collect.ImmutableList;

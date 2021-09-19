@@ -1,5 +1,5 @@
 /*
- * Scanner.java
+ * InternalErrorException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,14 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.api.exceptions;
 
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+public class InternalErrorException extends RelationalException{
+    public InternalErrorException(String message) {
+        super(message, ErrorCode.INTERNAL_ERROR);
+    }
 
-import java.util.Iterator;
-
-public interface Scanner<T> extends Iterator<T>, AutoCloseable {
-
-    @Override
-    void close() throws RelationalException;
-
-    Continuation continuation();
-
-    boolean supportsMessageParsing();
+    public InternalErrorException(String message, Throwable cause) {
+        super(message, ErrorCode.INTERNAL_ERROR, cause);
+    }
 }

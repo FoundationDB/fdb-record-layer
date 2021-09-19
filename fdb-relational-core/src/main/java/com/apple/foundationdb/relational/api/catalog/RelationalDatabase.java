@@ -23,7 +23,7 @@ package com.apple.foundationdb.relational.api.catalog;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 
@@ -43,7 +43,7 @@ public interface RelationalDatabase extends AutoCloseable {
      * @return a Schema for the specified id.
      * @throws RelationalException if something goes wrong during load, or if {@link OperationOption#forceVerifyDdl()}
      *                           is true and the Schema does not exist. If the schema does not exist and {@link OperationOption#forceVerifyDdl()}
-     *                           is present in the options, then an error is thrown with {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#UNKNOWN_SCHEMA}
+     *                           is present in the options, then an error is thrown with {@link RelationalException.ErrorCode#UNKNOWN_SCHEMA}
      */
     DatabaseSchema loadSchema(@Nonnull String schemaId, @Nonnull Options options) throws RelationalException;
 

@@ -20,10 +20,10 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Iterator;
 
 public interface Statement extends AutoCloseable {

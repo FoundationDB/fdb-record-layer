@@ -20,16 +20,15 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.relational.api.ConnectionScoped;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * This transaction object must be destroyed when it's creating connection is destroyed. Note that this is
@@ -72,7 +71,7 @@ public class RecordContextTransaction implements Transaction {
 
     @Nonnull
     @Override
-    public <T> T unwrap(@Nonnull Class<? extends T> type) throws ClassCastException {
+    public <T> T unwrap(@Nonnull Class<? extends T> type) throws InternalErrorException {
         if (FDBRecordContext.class.isAssignableFrom(type)) {
             return type.cast(context);
         }

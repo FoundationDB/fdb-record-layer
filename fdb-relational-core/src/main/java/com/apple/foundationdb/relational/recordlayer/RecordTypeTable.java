@@ -30,15 +30,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -171,7 +169,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
                 //make sure to clear our state if the transaction ends
                 this.conn.transaction.addTerminationListener(() -> currentTypeRef = null);
             } catch (MetaDataException mde) {
-                throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA);
+                throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA, mde);
             }
         }
         return currentTypeRef;

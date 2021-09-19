@@ -1,5 +1,5 @@
 /*
- * Scanner.java
+ * InvalidCursorStateException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.api.exceptions;
 
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-
-import java.util.Iterator;
-
-public interface Scanner<T> extends Iterator<T>, AutoCloseable {
-
-    @Override
-    void close() throws RelationalException;
-
-    Continuation continuation();
-
-    boolean supportsMessageParsing();
+public class InvalidCursorStateException extends RelationalException{
+    public InvalidCursorStateException(String message) {
+        super(message, ErrorCode.INVALID_CURSOR_STATE);
+    }
 }

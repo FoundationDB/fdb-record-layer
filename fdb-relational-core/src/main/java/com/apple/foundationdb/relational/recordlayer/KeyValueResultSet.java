@@ -21,8 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.RelationalException;
-import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nullable;
@@ -61,16 +63,16 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public Object getObject(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Object getObject(int position) throws RelationalException {
         if (!nextCalled) {
-            throw new IllegalStateException("Iterator was not advanced");
+            throw new InvalidCursorStateException("Iterator was not advanced");
         }
         if (keyValue == null) {
             throw new RelationalException("empty result set", RelationalException.ErrorCode.UNKNOWN);
         }
 
         if (position < 0 || position >= (keyValue.keyColumnCount() + keyValue.value().getNumFields())) {
-            throw new ArrayIndexOutOfBoundsException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         if (!allDataInValue && position < keyValue.keyColumnCount()) {
             return keyValue.key().getObject(position);
@@ -94,7 +96,7 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
     @Override
     public boolean supportsMessageParsing() {
         if (!nextCalled) {
-            throw new IllegalStateException("Iterator was not advanced");
+            throw new InvalidCursorStateException("Iterator was not advanced");
         }
         if (keyValue == null) {
             throw new RelationalException("empty result set", RelationalException.ErrorCode.UNKNOWN);
@@ -103,9 +105,9 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public <M extends Message> M parseMessage() throws RelationalException {
+    public <M extends Message> M parseMessage() throws OperationUnsupportedException {
         if (!supportsMessageParsing()) {
-            throw new UnsupportedOperationException("This ResultSet does not support Message Parsing");
+            throw new OperationUnsupportedException("This ResultSet does not support Message Parsing");
         }
         assert keyValue != null: "Programmer error: supportsMessageParsing() should handle non-advanced pointers";
         return ((MessageTuple)keyValue.value()).parseMessage();

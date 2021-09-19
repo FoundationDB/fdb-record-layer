@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.*;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 
@@ -38,12 +40,12 @@ public class RecordStoreStatement implements Statement {
 
     @Override
     public RelationalResultSet executeQuery(String query, Options options, QueryProperties queryProperties) throws RelationalException {
-        throw new UnsupportedOperationException("No language is currently supported");
+        throw new OperationUnsupportedException("No language is currently supported");
     }
 
     @Override
-    public RelationalResultSet executeQuery(Queryable query, Options options, QueryProperties queryProperties) throws  RelationalException {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+    public RelationalResultSet executeQuery(Queryable query, Options options, QueryProperties queryProperties) throws RelationalException {
+        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
     }
 
     @Override
@@ -177,7 +179,7 @@ public class RecordStoreStatement implements Statement {
 
     @Override
     public Continuation getContinuation() {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
     }
 
     @Override

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.net.URI;

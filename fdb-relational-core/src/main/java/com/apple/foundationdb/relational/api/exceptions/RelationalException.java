@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.api.exceptions;
 
 public class RelationalException extends RuntimeException {
     private final ErrorCode errorCode;
@@ -87,9 +87,11 @@ public class RelationalException extends RuntimeException {
          * Indicates a successful operation.
          */
         SUCCESS("00000"),
+        UNSUPPORTED_OPERATION("0A000"),
         CANNOT_CONVERT_TYPE("22000"),
         INVALID_PARAMETER("22023"),
         UNIQUE_CONSTRAINT_VIOLATION("23505"),
+        INVALID_CURSOR_STATE("24000"),
         TRANSACTION_INACTIVE("25F01"),
         SCHEMA_NOT_FOUND("4200Q"),
         UNDEFINED_TABLE("42F01"),
@@ -109,7 +111,11 @@ public class RelationalException extends RuntimeException {
          * the error handling system can't find a more accurate representation, and shouldn't be used in general.
          */
         UNKNOWN("XXXXX"),
-        UNKNOWN_SCHEME("08001");
+        UNKNOWN_SCHEME("08001"),
+        /**
+         * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream system
+         */
+        INTERNAL_ERROR("XX000");
 
         private final String errorCode;
 

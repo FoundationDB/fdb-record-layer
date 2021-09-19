@@ -1,5 +1,5 @@
 /*
- * Scanner.java
+ * InvalidTypeException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,19 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.api.exceptions;
 
-import com.apple.foundationdb.relational.api.Continuation;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+public class InvalidTypeException extends RelationalException {
 
-import java.util.Iterator;
+    public InvalidTypeException(String message) {
+        super(message, ErrorCode.CANNOT_CONVERT_TYPE);
+    }
 
-public interface Scanner<T> extends Iterator<T>, AutoCloseable {
+    public InvalidTypeException(String message, Throwable cause) {
+        super(message, ErrorCode.CANNOT_CONVERT_TYPE, cause);
+    }
 
-    @Override
-    void close() throws RelationalException;
-
-    Continuation continuation();
-
-    boolean supportsMessageParsing();
+    public InvalidTypeException(Throwable cause) {
+        super(ErrorCode.CANNOT_CONVERT_TYPE, cause);
+    }
 }

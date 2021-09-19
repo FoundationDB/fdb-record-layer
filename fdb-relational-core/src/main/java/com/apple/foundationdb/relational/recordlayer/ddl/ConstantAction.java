@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 public interface ConstantAction {
 

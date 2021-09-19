@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.NestableTuple;
 
 import java.util.stream.Collectors;
@@ -30,9 +31,9 @@ import java.util.stream.StreamSupport;
 public abstract class AbstractTuple implements NestableTuple {
 
     @Override
-    public long getLong(int position) throws InvalidTypeException, IllegalArgumentException {
+    public long getLong(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         Object o = getObject(position);
         if (!(o instanceof Number)) {
@@ -42,9 +43,9 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public float getFloat(int position) throws InvalidTypeException, IllegalArgumentException {
+    public float getFloat(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
 
         Object o = getObject(position);
@@ -55,9 +56,9 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public double getDouble(int position) throws InvalidTypeException, IllegalArgumentException {
+    public double getDouble(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
 
         Object o = getObject(position);
@@ -68,9 +69,9 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public String getString(int position) throws InvalidTypeException, IllegalArgumentException {
+    public String getString(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
 
         Object o = getObject(position);
@@ -81,9 +82,9 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public byte[] getBytes(int position) throws InvalidTypeException, IllegalArgumentException {
+    public byte[] getBytes(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
 
         Object o = getObject(position);
@@ -94,9 +95,9 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public NestableTuple getTuple(int position) throws InvalidTypeException, IllegalArgumentException {
+    public NestableTuple getTuple(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
 
         Object o = getObject(position);
@@ -110,9 +111,9 @@ public abstract class AbstractTuple implements NestableTuple {
     }
 
     @Override
-    public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, IllegalArgumentException {
+    public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= getNumFields()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
 
         Object o = getObject(position);

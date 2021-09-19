@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
@@ -34,7 +36,7 @@ public class KeySet {
 
         @Override
         public KeySet setKeyColumn(String columnName, Object value) {
-            throw new UnsupportedOperationException("The Empty Keyset cannot be modified");
+            throw new RelationalException("The Empty Keyset cannot be modified", RelationalException.ErrorCode.UNSUPPORTED_OPERATION);
         }
     };
 

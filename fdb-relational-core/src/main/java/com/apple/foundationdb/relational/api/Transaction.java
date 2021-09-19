@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.InternalErrorException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import javax.annotation.Nonnull;
 
 public interface Transaction extends AutoCloseable {
@@ -40,12 +43,12 @@ public interface Transaction extends AutoCloseable {
      * @return this instance, as an instanceof Type T
      */
     @Nonnull
-    default <T> T unwrap(@Nonnull Class<? extends T> type) throws ClassCastException {
+    default <T> T unwrap(@Nonnull Class<? extends T> type) throws InternalErrorException {
         Class<? extends Transaction> myClass = this.getClass();
         if (myClass.isAssignableFrom(type)) {
             return type.cast(this);
         } else {
-            throw new ClassCastException("Cannot unwrap instance of type <" + myClass.getCanonicalName() + "> as type <" + type.getCanonicalName() + ">");
+            throw new InternalErrorException("Cannot unwrap instance of type <" + myClass.getCanonicalName() + "> as type <" + type.getCanonicalName() + ">");
         }
     }
 }

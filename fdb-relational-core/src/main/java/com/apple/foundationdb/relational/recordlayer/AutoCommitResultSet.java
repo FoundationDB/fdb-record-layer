@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.IsolationLevel;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.google.protobuf.Message;
 
@@ -60,7 +61,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public boolean getBoolean(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public boolean getBoolean(int position) throws RelationalException {
         return delegate.getBoolean(position);
     }
 
@@ -70,7 +71,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public long getLong(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public long getLong(int position) throws RelationalException {
         return delegate.getLong(position);
     }
 
@@ -80,7 +81,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public float getFloat(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public float getFloat(int position) throws RelationalException {
         return delegate.getFloat(position);
     }
 
@@ -90,7 +91,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public double getDouble(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public double getDouble(int position) throws RelationalException {
         return delegate.getDouble(position);
     }
 
@@ -100,7 +101,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Object getObject(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Object getObject(int position) throws RelationalException {
         return delegate.getObject(position);
     }
 
@@ -110,7 +111,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public String getString(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public String getString(int position) throws RelationalException {
         return delegate.getString(position);
     }
 
@@ -120,7 +121,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Message getMessage(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Message getMessage(int position) throws RelationalException {
         return delegate.getMessage(position);
     }
 
@@ -130,7 +131,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public Iterable<?> getRepeated(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Iterable<?> getRepeated(int position) throws RelationalException {
         return delegate.getRepeated(position);
     }
 
@@ -145,7 +146,7 @@ public class AutoCommitResultSet implements RelationalResultSet {
     }
 
     @Override
-    public <M extends Message> M parseMessage() throws RelationalException{
+    public <M extends Message> M parseMessage() throws OperationUnsupportedException {
         return delegate.parseMessage();
     }
 

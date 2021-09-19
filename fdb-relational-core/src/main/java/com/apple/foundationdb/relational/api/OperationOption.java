@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 import java.util.function.Predicate;
 
 /**

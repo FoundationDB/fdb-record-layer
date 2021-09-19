@@ -23,14 +23,14 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
-import com.apple.foundationdb.relational.api.OperationOption;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.QueryProperties;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
@@ -83,12 +83,12 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public Object getObject(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Object getObject(int position) throws RelationalException {
         if (currentRow == null) {
-            throw new IllegalStateException("Iterator was not advanced or has terminated");
+            throw new InvalidCursorStateException("Iterator was not advanced or has terminated");
         }
         if (position < 0 || position >= (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
-            throw new ArrayIndexOutOfBoundsException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         Object o;
         if (position < currentRow.keyColumnCount()) {
@@ -116,7 +116,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
                 }
             }
         }
-        throw new RelationalException(fieldName, RelationalException.ErrorCode.INVALID_COLUMN_REFERENCE);
+        throw new InvalidColumnReferenceException(fieldName);
     }
 
     @Override
@@ -125,9 +125,9 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
-    public <M extends Message> M parseMessage() throws RelationalException {
+    public <M extends Message> M parseMessage() throws OperationUnsupportedException {
         if (!supportsMessageParsing()) {
-            throw new UnsupportedOperationException("This ResultSet does not support Message Parsing");
+            throw new OperationUnsupportedException("This ResultSet does not support Message Parsing");
         }
         return ((MessageTuple)currentRow.value()).parseMessage();
     }

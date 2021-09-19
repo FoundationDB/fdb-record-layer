@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Message;
 
 /**
@@ -52,27 +55,27 @@ public interface RelationalResultSet extends AutoCloseable {
      */
     IsolationLevel getRequestedIsolationLevel();
 
-    boolean getBoolean(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    boolean getBoolean(int position) throws RelationalException;
 
     boolean getBoolean(String fieldName) throws RelationalException;
 
-    long getLong(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    long getLong(int position) throws RelationalException;
 
     long getLong(String fieldName) throws RelationalException;
 
-    float getFloat(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    float getFloat(int position) throws RelationalException;
 
     float getFloat(String fieldName) throws RelationalException;
 
-    double getDouble(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    double getDouble(int position) throws RelationalException;
 
     double getDouble(String fieldName) throws RelationalException;
 
-    Object getObject(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    Object getObject(int position) throws RelationalException;
 
     Object getObject(String fieldName) throws RelationalException;
 
-    String getString(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    String getString(int position) throws RelationalException;
 
     String getString(String fieldName) throws RelationalException;
 
@@ -84,11 +87,11 @@ public interface RelationalResultSet extends AutoCloseable {
      * @throws RelationalException if something goes wrong
      * @throws ArrayIndexOutOfBoundsException if the specified position is invalid
      */
-    Message getMessage(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    Message getMessage(int position) throws RelationalException;
 
     Message getMessage(String fieldName) throws RelationalException;
 
-    Iterable<?> getRepeated(int position) throws RelationalException,ArrayIndexOutOfBoundsException;
+    Iterable<?> getRepeated(int position) throws RelationalException;
 
     Iterable<?> getRepeated(String fieldName) throws RelationalException;
 
@@ -104,9 +107,9 @@ public interface RelationalResultSet extends AutoCloseable {
      *
      * @param <M> the type of Message to parse.
      * @return the current row as a protobuf message object.
-     * @throws RelationalException if something goes wrong
+     * @throws OperationUnsupportedException if message parsing is not supported
      * @throws InvalidTypeException if the Row's data type is not {@code M}
      */
-    <M extends Message> M parseMessage() throws RelationalException, InvalidTypeException;
+    <M extends Message> M parseMessage() throws OperationUnsupportedException, InvalidTypeException;
 }
 

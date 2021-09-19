@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;

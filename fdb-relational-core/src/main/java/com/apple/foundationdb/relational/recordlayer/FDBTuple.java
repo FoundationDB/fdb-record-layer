@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.tuple.Tuple;
-import com.apple.foundationdb.relational.api.InvalidTypeException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidColumnReferenceException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.NestableTuple;
 
 import javax.annotation.Nonnull;
@@ -62,21 +63,21 @@ class FDBTuple extends AbstractTuple {
     }
 
     @Override
-    public NestableTuple getTuple(int position) throws InvalidTypeException, IllegalArgumentException {
+    public NestableTuple getTuple(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= t.size()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         try {
             return new FDBTuple(t.getNestedTuple(position));
         } catch (ClassCastException cce) {
-            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to a Tuple type");
+            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to a Tuple type", cce);
         }
     }
 
     @Override
-    public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, IllegalArgumentException {
+    public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException {
         if (position < 0 || position >= t.size()) {
-            throw new IllegalArgumentException();
+            throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         try {
             final List<Object> nestedList = t.getNestedList(position);
@@ -88,7 +89,7 @@ class FDBTuple extends AbstractTuple {
                 }
             }).collect(Collectors.toList());
         } catch (ClassCastException cce) {
-            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to an iterable type");
+            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to an iterable type", cce);
         }
     }
 

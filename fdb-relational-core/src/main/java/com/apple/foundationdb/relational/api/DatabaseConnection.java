@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.api;
 
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+
 /**
  * Represents a connection to a Relational database.
  * <p>
@@ -65,7 +67,7 @@ public interface DatabaseConnection extends AutoCloseable {
      * schema template).
      *
      * @param schema the schema to set.
-     * @throws RelationalException with error code {@link com.apple.foundationdb.relational.api.RelationalException.ErrorCode#SCHEMA_NOT_FOUND}
+     * @throws RelationalException with error code {@link RelationalException.ErrorCode#SCHEMA_NOT_FOUND}
      *                           if no schema of that name exists in the database, and no schema template exists to create one.
      * @throws RelationalException if something goes wrong during execution. This can be anything, so rely
      *                           on the error code to determine exactly what went wrong

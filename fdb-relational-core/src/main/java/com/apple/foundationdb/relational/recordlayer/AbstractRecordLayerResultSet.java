@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.IsolationLevel;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.google.protobuf.Message;
 
@@ -29,16 +30,16 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
 
     @Override
     public IsolationLevel getActualIsolationLevel() {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
     }
 
     @Override
     public IsolationLevel getRequestedIsolationLevel() {
-        throw new UnsupportedOperationException("Not Implemented in the Relational layer");
+        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
     }
 
     @Override
-    public boolean getBoolean(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public boolean getBoolean(int position) throws RelationalException {
         Object o = getObject(position);
         if (o == null) {
             return false; //TODO(bfines) return a default value here
@@ -57,7 +58,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
 
 
     @Override
-    public long getLong(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public long getLong(int position) throws RelationalException {
         Object o = getObject(position);
         if (o == null) {
             return 0L;
@@ -75,7 +76,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public float getFloat(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public float getFloat(int position) throws RelationalException {
         Object o = getObject(position);
         if (o == null) {
             return 0L;
@@ -93,7 +94,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public double getDouble(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public double getDouble(int position) throws RelationalException {
         Object o = getObject(position);
         if (o == null) {
             return 0L;
@@ -117,7 +118,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public String getString(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public String getString(int position) throws RelationalException {
         Object o = getObject(position);
         if (o == null) {
             return null;
@@ -135,7 +136,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public Message getMessage(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Message getMessage(int position) throws RelationalException {
         Object o = getObject(position);
         if (o == null) {
             return null;
@@ -153,7 +154,7 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public Iterable<?> getRepeated(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
+    public Iterable<?> getRepeated(int position) throws RelationalException {
         Object o = getObject(position);
         if (o == null) {
             return null;
@@ -176,8 +177,8 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
     }
 
     @Override
-    public <M extends Message> M parseMessage() throws RelationalException {
-        throw new UnsupportedOperationException("Does not support message parsing");
+    public <M extends Message> M parseMessage() throws OperationUnsupportedException {
+        throw new OperationUnsupportedException("Does not support message parsing");
     }
 
     /* ****************************************************************************************************************/

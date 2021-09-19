@@ -24,9 +24,9 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeyValue;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
-import java.util.NoSuchElementException;
 import java.util.function.Function;
 
 public class CursorScanner<T> implements Scanner<KeyValue> {
@@ -69,7 +69,7 @@ public class CursorScanner<T> implements Scanner<KeyValue> {
     @Override
     public KeyValue next() {
         if (!hasNext()) {
-            throw new NoSuchElementException();
+            throw new InvalidCursorStateException("No next element with the cursor");
         }
         return transform.apply(cursor.next());
     }

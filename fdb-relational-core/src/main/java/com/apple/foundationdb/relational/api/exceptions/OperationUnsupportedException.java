@@ -1,5 +1,5 @@
 /*
- * InvalidTypeException.java
+ * OperationUnsupportedException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api;
+package com.apple.foundationdb.relational.api.exceptions;
 
-public class InvalidTypeException extends RelationalException {
-
-    public InvalidTypeException(String message) {
-        super(message, ErrorCode.CANNOT_CONVERT_TYPE);
-    }
-
-    public InvalidTypeException(String message, Throwable cause) {
-        super(message, ErrorCode.CANNOT_CONVERT_TYPE, cause);
-    }
-
-    public InvalidTypeException(Throwable cause) {
-        super(ErrorCode.CANNOT_CONVERT_TYPE, cause);
+public class OperationUnsupportedException extends RelationalException{
+    public OperationUnsupportedException(String message) {
+        super(message, ErrorCode.UNSUPPORTED_OPERATION);
     }
 }

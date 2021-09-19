@@ -24,7 +24,8 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
@@ -79,7 +80,7 @@ public class RecordLayerCatalog implements Catalog {
 
     @Override
     public void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException {
-        throw new UnsupportedOperationException("Unimplemented");
+        throw new OperationUnsupportedException("Unimplemented");
     }
 
     public KeySpace extendKeySpaceForSchema(@Nonnull KeySpacePath dbPath, @Nonnull String schemaId) {
@@ -124,15 +125,15 @@ public class RecordLayerCatalog implements Catalog {
             return this;
         }
 
-        public RecordLayerCatalog build() {
+        public RecordLayerCatalog build() throws RelationalException {
             if (metadataProvider == null) {
-                throw new IllegalStateException("RecordLayerCatalog must have its metadataProvider");
+                throw new RelationalException("Metadata provider not supplied", RelationalException.ErrorCode.INVALID_PARAMETER);
             }
             if (serializerRegistry == null) {
-                throw new IllegalStateException("RecordLayerCatalog must have its serializerRegistry");
+                throw new RelationalException("Serializer registry not supplied", RelationalException.ErrorCode.INVALID_PARAMETER);
             }
             if (keySpace == null) {
-                throw new IllegalStateException("RecordLayerCatalog must have its keySpace");
+                throw new RelationalException("Key space not supplied", RelationalException.ErrorCode.INVALID_PARAMETER);
             }
             if (formatVersion <= 0) {
                 formatVersion = DEFAULT_FORMAT_VERSION;

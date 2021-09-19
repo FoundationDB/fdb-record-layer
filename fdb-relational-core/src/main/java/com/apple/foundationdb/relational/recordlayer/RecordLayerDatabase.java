@@ -31,7 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
-import com.apple.foundationdb.relational.api.RelationalException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore;
@@ -151,7 +151,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
         try{
             return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
         } catch(NoSuchDirectoryException nsde){
-            throw new RelationalException("Unknown schema <"+schemaId+">", RelationalException.ErrorCode.UNKNOWN_SCHEMA,nsde);
+            throw new RelationalException("Unknown schema <"+schemaId+">", RelationalException.ErrorCode.UNKNOWN_SCHEMA, nsde);
         } catch (MetaDataException mde) {
             throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA, mde);
         }
