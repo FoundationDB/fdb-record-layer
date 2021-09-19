@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -551,18 +551,19 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     protected List<? extends QuantifiedColumnValue> pullUpResultValues() {
-        return Streams.mapWithIndex(resolveValuesRangedOver().stream(),
-                (columnValue, index) -> QuantifiedColumnValue.of(getAlias(), Math.toIntExact(index), columnValue.getResultType()))
+        return Streams.mapWithIndex(resolveTypesRangedOver().stream(),
+                (columnType, index) -> QuantifiedColumnValue.of(getAlias(), Math.toIntExact(index), columnType))
                 .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
-    protected List<? extends Value> resolveValuesRangedOver() {
+    private List<? extends Type> resolveTypesRangedOver() {
         final ExpressionRef<? extends RelationalExpression> rangesOver = getRangesOver();
 
         return rangesOver.getMembers()
                 .stream()
-                .map(RelationalExpression::getResultValues)
+                .map(RelationalExpression::getResultType)
+                .map(resultType -> resultType.getInnerType().getElementTypes())
                 .reduce((left, right) -> {
                     Preconditions.checkArgument(!left.isEmpty() && !right.isEmpty());
 

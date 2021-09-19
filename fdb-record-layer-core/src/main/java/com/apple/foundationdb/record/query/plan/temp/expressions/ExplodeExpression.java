@@ -36,7 +36,6 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
@@ -44,7 +43,10 @@ import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+
+import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
 /**
  * A table function expression that "explodes" a repeated field into a stream of its values.
@@ -66,9 +68,12 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Override
     public Type.Stream getResultType() {
-        // TODO this should go into the constructor when there are no callers not setting the proper type
-        Verify.verify(resultValue.getResultType().getTypeCode() == Type.TypeCode.COLLECTION);
-        return new Type.Stream(((Type.Collection)resultValue.getResultType()).getInnerType());
+        if (resultValue.getResultType().getTypeCode() == Type.TypeCode.COLLECTION) {
+            final Type innerType = ((Type.Collection)resultValue.getResultType()).getInnerType();
+            return new Type.Stream(new Type.Tuple(ImmutableList.of(Objects.requireNonNull(innerType))));
+        } else {
+            return new Type.Stream(new Type.Tuple(ImmutableList.of(primitiveType(Type.TypeCode.UNKNOWN))));
+        }
     }
 
     @Nonnull

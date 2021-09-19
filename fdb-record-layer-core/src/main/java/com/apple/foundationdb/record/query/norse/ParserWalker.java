@@ -523,7 +523,12 @@ public class ParserWalker extends NorseParserBaseVisitor<Typed> {
         Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
         final List<? extends Value> resultValues = graphExpansion.getResultsAs(Value.class);
         quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
-        return new SelectExpression(resultValues, quantifiersBuilder.build(), ImmutableList.of());
+        final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
+        // optimization if there is only one quantifier and there are only trivial result values
+        if (quantifiers.size() == 1 && resultValues.stream().allMatch(resultValue -> resultValue instanceof QuantifiedColumnValue)) {
+            return Iterables.getOnlyElement(Iterables.getOnlyElement(quantifiers).getRangesOver().getMembers());
+        }
+        return new SelectExpression(resultValues, quantifiers, ImmutableList.of());
     }
 
 

@@ -90,7 +90,6 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
 
             final String[] words = command.split(" ", 2);
 
-
             try {
                 if (words.length == 2) {
                     if (words[0].equalsIgnoreCase("describe")) {
@@ -146,8 +145,7 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         final ParseTree tree = parser.pipe();
 
         final ParserWalker parserWalker = new ParserWalker(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-        final RelationalExpression relationalExpression = (RelationalExpression)parserWalker.visit(tree);
-        return relationalExpression;
+        return (RelationalExpression)parserWalker.visit(tree);
     }
 
     private void printStacktrace(@Nonnull final PlannerRepl repl, @Nonnull final Throwable t) {

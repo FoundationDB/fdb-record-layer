@@ -348,13 +348,13 @@ public interface Type {
 
     class Stream implements Type {
         @Nullable
-        private final Type innerType;
+        private final Tuple innerType;
 
         public Stream() {
             this(null);
         }
 
-        public Stream(@Nullable final Type innerType) {
+        public Stream(@Nullable final Tuple innerType) {
             this.innerType = innerType;
         }
 
@@ -374,7 +374,7 @@ public interface Type {
         }
 
         @Nullable
-        public Type getInnerType() {
+        public Tuple getInnerType() {
             return innerType;
         }
 
