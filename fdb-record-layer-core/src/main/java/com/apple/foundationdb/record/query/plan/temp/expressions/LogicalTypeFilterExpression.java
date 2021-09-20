@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * A relational planner expression that represents an unimplemented type filter on the records produced by its inner
@@ -89,6 +91,19 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     public Set<String> getRecordTypes() {
         return recordTypes;
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        if (getQuantifiers().size() == 1) {
+            final RelationalExpression innerExpression = Iterables.getOnlyElement(Iterables.getOnlyElement(getQuantifiers()).getRangesOver().getMembers());
+            if (innerExpression instanceof FullUnorderedScanExpression) {
+                return "from(" + getRecordTypes().stream().map(recordType -> "'" + recordType + "'").collect(Collectors.joining(", ")) + ")";
+            }
+        }
+
+        throw new IllegalStateException("unknown graph structure");
     }
 
     @Override

@@ -9,7 +9,7 @@ pipe
 
 expression
     : primaryExpression                                                   # ExpressionPrimaryExpression
-    | expression DOT TUPLE_FIELD                                          # ExpressionTupleField
+    | expression HASHTAG DECIMAL_LITERAL                                  # ExpressionTupleField
     | expression DOT IDENTIFIER                                           # ExpressionField
     | functionCall                                                        # ExpressionFunctionCall
     | prefix=(ADD|SUB) expression                                         # ExpressionUnarySign
@@ -54,7 +54,8 @@ bindingIdentifier
     ;
 
 comprehension
-    : LBRACK argumentsOrTuple COLON comprehensionBindings RBRACK
+    : LBRACK argumentsOrTuple COLON comprehensionBindings RBRACK   # ComprehensionWithBindings
+    | LBRACK pipe RBRACK                                           # ComprehensionSimple
     ;
 
 comprehensionBindings
@@ -64,6 +65,7 @@ comprehensionBindings
 comprehensionBinding
     : extractor BACK_ARROW pipe              # ComprehensionBindingIteration
     | IDENTIFIER COLONEQUALS pipe            # ComprehensionBindingAssign
+    | IF pipe                                # ComprehensionBindingIf
     ;
 
 primaryExpression

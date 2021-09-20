@@ -81,7 +81,10 @@ public class PlannerRepl implements Debugger {
             "88                                                      \n" +
             "dP                                                      \n";
 
-    private static final String prompt = "$ ";
+    private static final String prompt = new AttributedStringBuilder()
+            .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.WHITE + AttributedStyle.BRIGHT).bold())
+            .append("planner ")
+            .toAnsi();
 
     private static final SetMultimap<Class<? extends Event>, Processors.Processor<? extends Event>> processorsMap;
     private static final ImmutableMap<String, Commands.Command<Event>> commandsMap;

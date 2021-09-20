@@ -20,11 +20,11 @@
 
 package com.apple.foundationdb.record.query.norse;
 
-import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Atom;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 
-public interface EncapsulationFunction<T extends Typed> {
-    T encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<T> builtInFunction, List<Typed> arguments);
+public interface EncapsulationFunction<T extends Atom> {
+    T encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<T> builtInFunction, List<Atom> arguments);
 }

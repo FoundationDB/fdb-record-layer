@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-public class Lambda implements Typed {
+public class Lambda implements Atom {
     @Nonnull
     private final List<Optional<String>> parameterNameOptionals;
     @Nonnull
@@ -53,6 +53,12 @@ public class Lambda implements Typed {
     @Override
     public Type getResultType() {
         return new Type.Function();
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        throw new IllegalStateException("a lambda is unified and should not exist in a finished graph");
     }
 
     @Nonnull

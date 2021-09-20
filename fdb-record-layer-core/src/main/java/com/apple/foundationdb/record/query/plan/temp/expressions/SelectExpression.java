@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPre
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -70,6 +71,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -394,6 +396,38 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public String toString() {
         return "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "WHERE " + AndPredicate.and(getPredicates());
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        if (getQuantifiers().size() == 1 && predicates.isEmpty()) {
+            return Iterables.getOnlyElement(Iterables.getOnlyElement(getQuantifiers()).getRangesOver().getMembers()).explain(formatter);
+        }
+
+        getQuantifiers().forEach(formatter::registerForFormatting);
+
+        final String explainResultValues = resultValues.stream()
+                .map(resultValue -> resultValue.explain(formatter))
+                .collect(Collectors.joining(", "));
+
+        final String explainQuantifiers = getQuantifiers().stream()
+                .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                .map(quantifier -> {
+                    final String boundVariables =
+                            IntStream.range(0, quantifier.getFlowedValues().size())
+                                    .mapToObj(i -> formatter.getQuantifierColumnName(quantifier.getAlias(), i))
+                                    .collect(Collectors.joining(", "));
+                    final String explainQuantifier = Iterables.getOnlyElement(quantifier.getRangesOver().getMembers()).explain(formatter);
+                    return "(" + boundVariables + ") <- " + explainQuantifier;
+                })
+                .collect(Collectors.joining("; "));
+
+        final String explainPredicates = predicates.stream()
+                .map(predicate -> "if " + predicate.explain(formatter))
+                .collect(Collectors.joining("; "));
+
+        return "[(" + explainResultValues + "): " + explainQuantifiers + (predicates.isEmpty() ? "" : "; " + explainPredicates) + "]";
     }
 
     private static List<? extends QueryPredicate> partitionPredicates(final List<? extends QueryPredicate> predicates) {

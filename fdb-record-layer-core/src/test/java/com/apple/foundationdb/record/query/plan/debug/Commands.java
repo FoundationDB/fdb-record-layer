@@ -32,10 +32,12 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.EventWithSta
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.jline.reader.ParsedLine;
@@ -362,6 +364,67 @@ public class Commands {
         @Override
         public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
             plannerRepl.printlnKeyValue("events", "list history of events");
+        }
+    }
+
+    /**
+     * Explain an entity using its name:
+     * {@code explain <entityname>} where entity name is {@code exp<id>, ref<id>, or qun<id>}.
+     */
+    @AutoService(Command.class)
+    public static class ExplainCommand implements Command<Event> {
+        @Override
+        public boolean executeCommand(@Nonnull final PlannerRepl plannerRepl,
+                                      @Nonnull final Event event,
+                                      @Nonnull final ParsedLine parsedLine) {
+            final List<String> words = parsedLine.words();
+            if (words.size() < 2) {
+                plannerRepl.printlnError("usage show [(exp|ref|qun)id] | graph | matches | plans");
+                return false;
+            }
+
+            final String word1 = words.get(1).toUpperCase();
+            final boolean identifiersProcessed = plannerRepl.processIdentifiers(word1,
+                    expression -> expression.explain(new Formatter()),
+                    reference -> {
+                        if (reference instanceof GroupExpressionRef && reference.getMembers().size() == 1) {
+                            plannerRepl.println(Iterables.getOnlyElement(reference.getMembers()).explain(new Formatter()));
+                        } else {
+                            plannerRepl.println("show is not supported for non-group references or multi-variant references.");
+                        }
+                    },
+                    quantifier -> plannerRepl.printlnError("show is not supported for quantifiers."));
+            if (!identifiersProcessed) {
+                if (event instanceof EventWithState) {
+                    final EventWithState eventWithState = (EventWithState)event;
+                    final GroupExpressionRef<? extends RelationalExpression> rootReference = eventWithState.getRootReference();
+                    if ("GRAPH".equals(word1)) {
+                        if (rootReference.getMembers().size() == 1) {
+                            plannerRepl.println(Iterables.getOnlyElement(rootReference.getMembers()).explain(new Formatter()));
+                        } else {
+                            plannerRepl.println("show is not supported for multi-variant references.");
+                        }
+
+                        return false;
+                    }
+                }
+                plannerRepl.printlnError("not sure what to explain");
+                printUsage(plannerRepl);
+                return false;
+            }
+
+            return false;
+        }
+
+        @Nonnull
+        @Override
+        public String getCommandToken() {
+            return "EXPLAIN";
+        }
+
+        @Override
+        public void printUsage(@Nonnull final PlannerRepl plannerRepl) {
+            plannerRepl.printlnKeyValue("explain (<expId> | <refId> | <qunId>)", "explain the entity");
         }
     }
 

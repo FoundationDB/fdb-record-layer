@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.norse;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -74,7 +73,7 @@ public class Scopes {
             }
             scope = scope.getParentScope();
         }
-        throw new RecordCoreArgumentException("unresolved identifier");
+        throw new SemanticException("unresolved identifier " + identifier);
     }
 
     public static class Scope {

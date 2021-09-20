@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -55,7 +55,7 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
                 ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), FilterFn::encapsulate);
     }
 
-    public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
+    public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
         // the call is already validated against the resolved function
         Verify.verify(arguments.get(0) instanceof RelationalExpression);
         Verify.verify(arguments.get(1) instanceof Lambda);

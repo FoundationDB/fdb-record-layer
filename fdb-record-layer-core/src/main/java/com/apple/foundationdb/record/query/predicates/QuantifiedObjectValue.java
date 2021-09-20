@@ -72,6 +72,12 @@ public class QuantifiedObjectValue implements QuantifiedValue {
         return alias;
     }
 
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return formatter.getQuantifierName(alias);
+    }
+
     @Override
     public int semanticHashCode() {
         return PlanHashable.objectPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH);

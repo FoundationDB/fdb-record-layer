@@ -290,5 +290,11 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         public String toString() {
             return getValue() + " " + comparisonRange;
         }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return toResidualPredicate().explain(formatter);
+        }
     }
 }

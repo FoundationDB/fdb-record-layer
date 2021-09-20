@@ -1,5 +1,5 @@
 /*
- * Typed.java
+ * SemanticException.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,35 +18,24 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.predicates;
+package com.apple.foundationdb.record.query.norse;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
-public interface Typed {
-    Type getResultType();
+public class SemanticException extends RuntimeException {
+    private static final long serialVersionUID = 101714053557545076L;
 
-    class TypedLiteral implements Typed {
-        @Nonnull
-        private final Type resultType;
+    public SemanticException(final String message) {
+        super(message);
+    }
 
-        @Nullable
-        private final Object value;
+    public SemanticException(final String message, final Throwable cause) {
+        super(message, cause);
+    }
 
-        public TypedLiteral(@Nonnull final Type.TypeCode resultTypeCode, @Nullable final Object value) {
-            this.resultType = Type.primitiveType(resultTypeCode);
-            this.value = value;
-        }
-
-        @Nonnull
-        @Override
-        public Type getResultType() {
-            return resultType;
-        }
-
-        @Nullable
-        public Object getValue() {
-            return value;
+    public static void check(final boolean condition, @Nonnull final String message) {
+        if (!condition) {
+            throw new SemanticException(message);
         }
     }
 }

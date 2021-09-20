@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
@@ -127,5 +128,29 @@ public class ValuePredicate implements PredicateWithValue {
     @Override
     public String toString() {
         return value.toString() + " " + comparison.toString();
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "(" + value.explain(formatter) + " " + comparisonTypeToSymbol(comparison.getType()) + " " + comparison.getComparand() + ")";
+    }
+    
+    @Nonnull
+    private static String comparisonTypeToSymbol(@Nonnull final Comparisons.Type comparisonType) {
+        switch (comparisonType) {
+            case EQUALS:
+                return "=";
+            case LESS_THAN:
+                return "<";
+            case LESS_THAN_OR_EQUALS:
+                return "<=";
+            case GREATER_THAN:
+                return ">";
+            case GREATER_THAN_OR_EQUALS:
+                return ">=";
+            default:
+                throw new UnsupportedOperationException("comparison not supported yet");
+        }
     }
 }

@@ -175,7 +175,8 @@ DOUBLE_ARROW:       '=>';
 COLONCOLON:         '::';
 COLONEQUALS:        ':=';
 
-UNDERBAR   :        '_';
+UNDERBAR:           '_';
+HASHTAG:            '#';
 
 // Additional symbols not defined in the lexical specification
 

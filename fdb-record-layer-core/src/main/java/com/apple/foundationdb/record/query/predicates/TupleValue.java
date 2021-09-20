@@ -104,7 +104,7 @@ public class TupleValue implements Value, Value.CompileTimeValue {
                     ImmutableList.of(), new Type.Any(), TupleFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             final ImmutableList<Value> argumentValues = arguments.stream()
                     .peek(typed -> Preconditions.checkArgument(typed instanceof Value))
                     .map(typed -> ((Value)typed))

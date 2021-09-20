@@ -70,6 +70,12 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return formatter.getQuantifierColumnName(alias, ordinalPosition);
+    }
+
+    @Nonnull
+    @Override
     public QuantifiedColumnValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
             return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition, resultType);

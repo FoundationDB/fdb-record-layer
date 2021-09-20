@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -31,7 +31,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public abstract class BuiltInFunction<T extends Typed> {
+public abstract class BuiltInFunction<T extends Atom> {
     @Nonnull
     final String functionName;
 
@@ -96,7 +96,7 @@ public abstract class BuiltInFunction<T extends Typed> {
     }
 
     @Nonnull
-    public Optional<BuiltInFunction<? extends Typed>> validateCall(@Nonnull final List<Type> argumentTypes) {
+    public Optional<BuiltInFunction<? extends Atom>> validateCall(@Nonnull final List<Type> argumentTypes) {
         int numberOfArguments = argumentTypes.size();
 
         if (hasVariadicSuffix()) {
@@ -130,7 +130,7 @@ public abstract class BuiltInFunction<T extends Typed> {
     }
 
     @Nonnull
-    public Typed encapsulate(@Nonnull final ParserContext parserContext, @Nonnull final List<Typed> arguments) {
+    public Atom encapsulate(@Nonnull final ParserContext parserContext, @Nonnull final List<Atom> arguments) {
         return encapsulationFunction.encapsulate(parserContext, this, arguments);
     }
 

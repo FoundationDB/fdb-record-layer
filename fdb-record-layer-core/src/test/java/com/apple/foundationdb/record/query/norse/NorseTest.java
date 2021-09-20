@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
@@ -83,6 +84,10 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                     .append("norse ")
                     .toAnsi());
 
+            if (command.isEmpty()) {
+                continue;
+            }
+
             if (command.equalsIgnoreCase("clear")) {
                 repl.println("cLeArScReEn");
                 continue;
@@ -96,10 +101,22 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                         final RelationalExpression relationalExpression = parseQuery(words[1]);
                         repl.println(relationalExpression.getResultType().toString());
                         continue;
+                    } else if (words[0].equalsIgnoreCase("debug")) {
+                        planner.plan(words[1], (query, context) -> parseQuery(query));
+                        repl.printlnHighlighted("end of planner debugger");
+                        continue;
+                    } else if (words[0].equalsIgnoreCase("explain")) {
+                        final RecordQueryPlan recordQueryPlan = planner.plan(words[1], (query, context) -> {
+                            repl.removeInternalBreakPoints();
+                            return parseQuery(query);
+                        });
+                        repl.println(recordQueryPlan.explain(new Formatter()));
+                        continue;
                     }
                 }
             } catch (final Throwable t) {
-                printStacktrace(repl, t);
+                printError(repl, t);
+                repl.println();
                 continue;
             }
 
@@ -107,11 +124,12 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
             try {
                 recordQueryPlan = planner.plan(command, (query, context) -> {
                     // TODO remove this hack
-                    //repl.removeInternalBreakPoints();
-                    return parseQuery(command);
+                    repl.removeInternalBreakPoints();
+                    return parseQuery(query);
                 });
             } catch (final Throwable t) {
-                printStacktrace(repl, t);
+                printError(repl, t);
+                repl.println();
                 continue;
             }
 
@@ -131,7 +149,8 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                 repl.printlnHighlighted(numRecords + " record(s) selected.");
                 repl.println();
             } catch (final Throwable t) {
-                printStacktrace(repl, t);
+                printError(repl, t);
+                repl.println();
                 continue;
             }
         }
@@ -148,14 +167,18 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         return (RelationalExpression)parserWalker.visit(tree);
     }
 
-    private void printStacktrace(@Nonnull final PlannerRepl repl, @Nonnull final Throwable t) {
-        final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        final String utf8 = StandardCharsets.UTF_8.name();
-        try (PrintStream ps = new PrintStream(baos, true, utf8)) {
-            t.printStackTrace(ps);
-            repl.printlnError(baos.toString());
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
+    private void printError(@Nonnull final PlannerRepl repl, @Nonnull final Throwable t) {
+        if (t instanceof SemanticException || t instanceof ParserWalker.ParseException) {
+            repl.printlnError(t.getMessage());
+        } else {
+            final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            final String utf8 = StandardCharsets.UTF_8.name();
+            try (PrintStream ps = new PrintStream(baos, true, utf8)) {
+                t.printStackTrace(ps);
+                repl.printlnError(baos.toString());
+            } catch (UnsupportedEncodingException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 

@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -44,6 +45,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
@@ -59,6 +61,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
@@ -354,5 +357,33 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                         PlannerGraph.fromNodeAndChildGraphs(
                                 new PlannerGraph.DataNodeWithInfo(NodeInfo.INDEX_DATA, ImmutableList.copyOf(getUsedIndexes())),
                                 ImmutableList.of())));
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        final ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
+        for (final Comparisons.Comparison equalityComparison : comparisons.getEqualityComparisons()) {
+            argumentsBuilder.add("{ EQUALS -> " + equalityComparison.typelessString() + " }");
+        }
+
+        final Set<Comparisons.Comparison> inEqualityComparisons = comparisons.getInequalityComparisons();
+        final Map<Comparisons.Type, ImmutableSet<Comparisons.Comparison>> inEqualityGroups =
+                inEqualityComparisons.stream()
+                        .collect(Collectors.groupingBy(Comparisons.Comparison::getType, ImmutableSet.toImmutableSet()));
+
+        final ImmutableList.Builder<String> inEqualityArgumentsBuilder = ImmutableList.builder();
+        for (final Map.Entry<Comparisons.Type, ImmutableSet<Comparisons.Comparison>> entry : inEqualityGroups.entrySet()) {
+            inEqualityArgumentsBuilder.add(entry.getKey() + " -> array(" + entry.getValue().stream().map(Comparisons.Comparison::typelessString).collect(Collectors.joining(", ")) + ")");
+        }
+        final String inEqualityArgument = "{" + String.join(", ", inEqualityArgumentsBuilder.build()) + "}";
+        argumentsBuilder.add(inEqualityArgument);
+        final ImmutableList<String> arguments = argumentsBuilder.build();
+
+        if (arguments.isEmpty()) {
+            return "indexScan('" + indexName + "')";
+        } else {
+            return "indexScan('" + indexName + "', " + String.join(", ", arguments) + ")";
+        }
     }
 }

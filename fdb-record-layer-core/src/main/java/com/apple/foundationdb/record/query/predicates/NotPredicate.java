@@ -71,6 +71,12 @@ public class NotPredicate implements QueryPredicateWithChild {
         return child;
     }
 
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "!" + child.explain(formatter);
+    }
+
     @Override
     public String toString() {
         return "Not(" + getChild() + ")";

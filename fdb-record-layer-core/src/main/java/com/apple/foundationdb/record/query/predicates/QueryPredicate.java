@@ -218,6 +218,13 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     }
 
     @Nonnull
+    default String explain(@Nonnull final Formatter formatter) {
+        // TODO
+        return "<not done yet>";
+        // throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
+    }
+
+    @Nonnull
     default Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return ImmutableSet.of();
     }

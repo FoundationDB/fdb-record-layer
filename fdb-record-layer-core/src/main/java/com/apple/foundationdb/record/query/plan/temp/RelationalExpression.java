@@ -36,8 +36,9 @@ import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Typed;
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -97,7 +98,7 @@ import java.util.stream.StreamSupport;
  * implementations of each.
  */
 @API(API.Status.EXPERIMENTAL)
-public interface RelationalExpression extends Correlated<RelationalExpression>, Typed {
+public interface RelationalExpression extends Correlated<RelationalExpression>, Atom {
     @Nonnull
     static RelationalExpression fromRecordQuery(@Nonnull PlanContext context,
                                                 @Nonnull RecordQuery query) {
@@ -146,9 +147,18 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
         return quantifier.getRangesOver().get();
     }
 
+    @Nonnull
     @Override
     default Type.Stream getResultType() {
         return new Type.Stream(new Type.Tuple(getResultValues().stream().map(Value::getResultType).collect(ImmutableList.toImmutableList())));
+    }
+
+    @Nonnull
+    @Override
+    default String explain(@Nonnull final Formatter formatter) {
+        // TODO
+        return "<not done yet>";
+        // throw new UnsupportedOperationException("object of class " + this.getClass().getSimpleName() + " does not override explain");
     }
 
     @Nonnull

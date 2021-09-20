@@ -27,8 +27,8 @@ import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Typed;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -53,7 +53,7 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
                 ImmutableList.of(), Type.primitiveType(Type.TypeCode.STRING), FromFn::encapsulate);
     }
 
-    private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Typed> arguments) {
+    private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
         // force evaluation of the string-type arguments (for the record types)
         final ImmutableSet<String> recordTypeNames = arguments
                 .stream()

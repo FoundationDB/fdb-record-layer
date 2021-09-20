@@ -36,7 +36,10 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -67,7 +70,6 @@ public class ExistsPredicate implements LeafQueryPredicate {
     public CorrelationIdentifier getExistentialAlias() {
         return existentialAlias;
     }
-
 
     @Nonnull
     public QueryComponent getAlternativeComponent() {
@@ -167,6 +169,14 @@ public class ExistsPredicate implements LeafQueryPredicate {
 
     private QueryPredicate reapplyPredicate() {
         return new QueryComponentPredicate(getAlternativeComponent(), existentialAlias);
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        final Quantifier quantifier = formatter.getQuantifier(existentialAlias);
+        final RelationalExpression existentialExpression = Iterables.getOnlyElement(quantifier.getRangesOver().getMembers());
+        return "exists(" + existentialExpression.explain(formatter) + ")";
     }
 
     @Override

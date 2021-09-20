@@ -28,10 +28,10 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
+import com.apple.foundationdb.record.query.norse.SemanticException;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -156,29 +156,29 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
     }
 
-    private static Value encapsulate(@Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Typed> arguments) {
+    private static Value encapsulate(@Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Atom> arguments) {
         Verify.verify(arguments.size() == 2);
-        final Typed arg0 = arguments.get(0);
-        Preconditions.checkArgument(arg0.getResultType().isPrimitive(), "only primitives can be compared with (non)-equalities");
-        final Typed arg1 = arguments.get(1);
-        Preconditions.checkArgument(arg1.getResultType().isPrimitive());
+        final Atom arg0 = arguments.get(0);
+        final Type res0 = arg0.getResultType();
+        SemanticException.check(res0.isPrimitive(), "only primitives can be compared with (non)-equalities");
+        final Atom arg1 = arguments.get(1);
+        final Type res1 = arg1.getResultType();
+        SemanticException.check(res1.isPrimitive(), "only primitives can be compared with (non)-equalities");
+        SemanticException.check((res0.isNumeric() && res1.isNumeric()) || res0.getTypeCode() == res1.getTypeCode(), "comparands are not compatible");
         return new RelOpValue(functionName, comparisonType, (Value)arg0, (Value)arg1);
     }
 
-    private static Value encapsulateComparable(@Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Typed> arguments) {
+    private static Value encapsulateComparable(@Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Atom> arguments) {
         Verify.verify(arguments.size() == 2);
-        final Typed arg0 = arguments.get(0);
+        final Atom arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
-        final Typed arg1 = arguments.get(1);
+        final Atom arg1 = arguments.get(1);
         final Type res1 = arg1.getResultType();
 
-        if ((res0.isNumeric() && res1.isNumeric()) ||
-                ((res0.getTypeCode() == Type.TypeCode.STRING) &&
-                (res1.getTypeCode() == Type.TypeCode.STRING))) {
-            return new RelOpValue(functionName, comparisonType, (Value)arg0, (Value)arg1);
-        }
-
-        throw new IllegalArgumentException("unable to compare non-comparable operands");
+        SemanticException.check((res0.isNumeric() && res1.isNumeric()) ||
+                                ((res0.getTypeCode() == Type.TypeCode.STRING) &&
+                                 (res1.getTypeCode() == Type.TypeCode.STRING)), "comparands are not compatible");
+        return new RelOpValue(functionName, comparisonType, (Value)arg0, (Value)arg1);
     }
 
     @AutoService(BuiltInFunction.class)
@@ -188,7 +188,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), EqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
     }
@@ -200,7 +200,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), NotEqualsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
     }
@@ -212,7 +212,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), LtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
     }
@@ -224,7 +224,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), LteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
     }
@@ -236,7 +236,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), GtFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
     }
@@ -248,7 +248,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Any(), new Type.Any()), GteFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }

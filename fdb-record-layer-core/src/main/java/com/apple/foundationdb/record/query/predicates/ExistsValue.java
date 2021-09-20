@@ -119,9 +119,9 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(new Type.Stream()), ExistsFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             // the call is already validated against the resolved function
-            final Typed in = arguments.get(0);
+            final Atom in = arguments.get(0);
             Verify.verify(in instanceof RelationalExpression);
 
             final GraphExpansion.Builder graphExpansionBuilder = parserContext.getCurrentScope().getGraphExpansionBuilder();

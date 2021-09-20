@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * A {@link QueryPredicate} that is satisfied when all of its child components are.
@@ -65,6 +66,12 @@ public class AndPredicate extends AndOrPredicate {
             }
         }
         return defaultValue;
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "(" + getChildren().stream().map(child -> child.explain(formatter)).collect(Collectors.joining(" && ")) + ")";
     }
 
     @Override

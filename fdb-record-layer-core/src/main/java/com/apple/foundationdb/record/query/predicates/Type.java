@@ -81,9 +81,9 @@ public interface Type {
     }
 
     @Nonnull
-    static List<Type> fromTyped(@Nonnull List<Typed> typed) {
-        return typed.stream()
-                .map(Typed::getResultType)
+    static List<Type> fromTyped(@Nonnull List<Atom> atom) {
+        return atom.stream()
+                .map(Atom::getResultType)
                 .collect(ImmutableList.toImmutableList());
     }
 

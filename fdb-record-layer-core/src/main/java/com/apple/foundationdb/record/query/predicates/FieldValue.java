@@ -133,6 +133,12 @@ public class FieldValue implements ValueWithChild {
         return columnValue.toString() + "/" + String.join(".", fieldPath);
     }
 
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return columnValue.explain(formatter) + "." + String.join(".", fieldPath);
+    }
+
     @Override
     public int hashCode() {
         return semanticHashCode();

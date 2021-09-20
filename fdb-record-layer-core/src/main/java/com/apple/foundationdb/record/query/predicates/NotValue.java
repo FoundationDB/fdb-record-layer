@@ -110,7 +110,7 @@ public class NotValue implements BooleanValue, Value.CompileTimeValue {
                     ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN)), NotFn::encapsulate);
         }
 
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
             return new NotValue((Value)arguments.get(0));
         }
     }

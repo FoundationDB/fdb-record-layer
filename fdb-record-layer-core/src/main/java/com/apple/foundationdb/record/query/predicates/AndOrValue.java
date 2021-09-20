@@ -127,7 +127,7 @@ public abstract class AndOrValue implements BooleanValue, Value.CompileTimeValue
                         ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)), AndFn::encapsulate);
             }
 
-            private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
                 return new AndValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1));
             }
         }
@@ -169,7 +169,7 @@ public abstract class AndOrValue implements BooleanValue, Value.CompileTimeValue
                         ImmutableList.of(Type.primitiveType(Type.TypeCode.BOOLEAN), Type.primitiveType(Type.TypeCode.BOOLEAN)), OrFn::encapsulate);
             }
 
-            private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Typed> arguments) {
+            private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
                 return new OrValue(builtInFunction.getFunctionName(), (Value)arguments.get(0), (Value)arguments.get(1));
             }
         }

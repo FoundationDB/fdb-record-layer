@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGraphRewritable;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -66,6 +67,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         return ImmutableList.of(resultValue);
     }
 
+    @Nonnull
     @Override
     public Type.Stream getResultType() {
         if (resultValue.getResultType().getTypeCode() == Type.TypeCode.COLLECTION) {
@@ -74,6 +76,12 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
         } else {
             return new Type.Stream(new Type.Tuple(ImmutableList.of(primitiveType(Type.TypeCode.UNKNOWN))));
         }
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "[" + resultValue.explain(formatter) + "]";
     }
 
     @Nonnull

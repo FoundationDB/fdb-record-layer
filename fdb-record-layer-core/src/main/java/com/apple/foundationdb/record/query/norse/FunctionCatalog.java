@@ -20,8 +20,8 @@
 
 package com.apple.foundationdb.record.query.norse;
 
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Typed;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
@@ -41,35 +41,35 @@ public class FunctionCatalog {
         // prevent instantiation
     }
 
-    private static final Supplier<ImmutableMap<FunctionKey, BuiltInFunction<? extends Typed>>> catalogSupplier =
+    private static final Supplier<ImmutableMap<FunctionKey, BuiltInFunction<? extends Atom>>> catalogSupplier =
             Suppliers.memoize(FunctionCatalog::loadFunctions);
 
-    private static ImmutableMap<FunctionKey, BuiltInFunction<? extends Typed>> getFunctionCatalog() {
+    private static ImmutableMap<FunctionKey, BuiltInFunction<? extends Atom>> getFunctionCatalog() {
         return catalogSupplier.get();
     }
 
     @SuppressWarnings({"unchecked", "rawtypes", "java:S3457"})
-    private static ImmutableMap<FunctionKey, BuiltInFunction<? extends Typed>> loadFunctions() {
-        final ImmutableMap.Builder<FunctionKey, BuiltInFunction<? extends Typed>> catalogBuilder = ImmutableMap.builder();
+    private static ImmutableMap<FunctionKey, BuiltInFunction<? extends Atom>> loadFunctions() {
+        final ImmutableMap.Builder<FunctionKey, BuiltInFunction<? extends Atom>> catalogBuilder = ImmutableMap.builder();
         final ServiceLoader<BuiltInFunction> loader
                 = ServiceLoader.load(BuiltInFunction.class);
 
         loader.forEach(builtInFunction -> {
             catalogBuilder.put(new FunctionKey(builtInFunction.getFunctionName(), builtInFunction.getParameterTypes().size(), builtInFunction.hasVariadicSuffix()), builtInFunction);
-            logger.info("loaded function " + builtInFunction);
+            logger.debug("loaded function " + builtInFunction);
         });
 
         return catalogBuilder.build();
     }
 
-    public static Optional<BuiltInFunction<? extends Typed>> resolveAndValidate(@Nonnull final String functionName, List<Type> argumentTypes) {
+    public static Optional<BuiltInFunction<? extends Atom>> resolveAndValidate(@Nonnull final String functionName, List<Type> argumentTypes) {
         return resolve(functionName, argumentTypes.size())
                 .flatMap(builtInFunction -> builtInFunction.validateCall(argumentTypes));
     }
 
     @SuppressWarnings("java:S1066")
-    public static Optional<BuiltInFunction<? extends Typed>> resolve(@Nonnull final String functionName, int numberOfArguments) {
-        BuiltInFunction<? extends Typed> builtInFunction = getFunctionCatalog().get(new FunctionKey(functionName, numberOfArguments, false));
+    public static Optional<BuiltInFunction<? extends Atom>> resolve(@Nonnull final String functionName, int numberOfArguments) {
+        BuiltInFunction<? extends Atom> builtInFunction = getFunctionCatalog().get(new FunctionKey(functionName, numberOfArguments, false));
         if (builtInFunction == null) {
             // try again as a variadic function
             builtInFunction = getFunctionCatalog().get(new FunctionKey(functionName, numberOfArguments, true));
