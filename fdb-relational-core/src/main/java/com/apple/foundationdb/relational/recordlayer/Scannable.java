@@ -61,4 +61,10 @@ public interface Scannable {
     String[] getKeyFieldNames();
 
     KeyBuilder getKeyBuilder();
+
+    /**
+     * @return the table name if it is a table, or index name if it is an index
+     */
+    @Nonnull
+    String getName();
 }

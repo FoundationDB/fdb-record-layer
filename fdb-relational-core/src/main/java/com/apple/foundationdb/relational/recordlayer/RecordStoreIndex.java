@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.expressions.FieldKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
+import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -99,7 +100,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
 
     @Override
     public KeyBuilder getKeyBuilder() {
-        return new KeyBuilder(table.loadRecordType(), index.getRootExpression());
+        return new KeyBuilder(table.loadRecordType(), index.getRootExpression(), "index: <" + index.getName() + ">");
     }
 
     @Override
@@ -176,5 +177,10 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     @Override
     protected boolean supportsMessageParsing() {
         return false;
+    }
+
+    @Override
+    protected boolean hasConstantValueForPrimaryKey() {
+        return index.getRootExpression() instanceof RecordTypeKeyExpression;
     }
 }

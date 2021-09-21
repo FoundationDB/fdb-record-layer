@@ -31,8 +31,10 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.google.common.base.Joiner;
 
 import javax.annotation.Nonnull;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,21 +42,25 @@ import java.util.Map;
 public class KeyBuilder {
     private final RecordType typeForKey;
     private final KeyExpression key;
+    private final String scannableNameForMessage;
 
-    public KeyBuilder(RecordType typeForKey, KeyExpression key) {
+    public KeyBuilder(RecordType typeForKey, KeyExpression key, String scannableName) {
         this.key = key;
         this.typeForKey = typeForKey;
+        this.scannableNameForMessage = scannableName;
     }
 
     public @Nonnull
     NestableTuple buildKey(Map<String, Object> keyFields) throws RelationalException {
-        return buildKey(keyFields, true);
+        return buildKey(keyFields, true, true);
     }
 
     public @Nonnull
-    NestableTuple buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn) throws RelationalException {
+    NestableTuple buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
         Object[] flattenedFields = new Object[key.getColumnSize()];
-        buildKeyRecursive(key, keyFields, flattenedFields, 0);
+        Map<String, Object> keysNotPicked = new HashMap<>();
+        keysNotPicked.putAll(keyFields);
+        buildKeyRecursive(key, keyFields, flattenedFields, keysNotPicked, 0);
 
         if (failOnMissingColumn) {
             for (int i = 0; i < flattenedFields.length; i++) {
@@ -72,43 +78,52 @@ public class KeyBuilder {
                 }
             }
         }
+
+        if (failOnUnknownColumn && !keysNotPicked.isEmpty()) {
+            throw new RelationalException("Unknown keys for " + scannableNameForMessage + ", unknown keys: <" + Joiner.on(",").join(keysNotPicked.keySet()) + ">",
+                    RelationalException.ErrorCode.INVALID_PARAMETER);
+        }
         return new FDBTuple(Tuple.from(flattenedFields));
     }
 
-    private int buildKeyRecursive(KeyExpression expression, Map<String, Object> keyFields, Object[] dest, int position) throws RelationalException {
+    private int buildKeyRecursive(KeyExpression expression, Map<String, Object> keyFields, Object[] dest, Map<String, Object> keysNotPicked, int position) throws RelationalException {
         if (position >= dest.length) {
             return position;
         }
         if (expression instanceof FieldKeyExpression) {
             FieldKeyExpression fke = (FieldKeyExpression) expression;
             //TODO(bfines) type validation of parameters?
-            dest[position] = keyFields.get(fke.getFieldName().toUpperCase(Locale.ROOT));
+            String key = fke.getFieldName().toUpperCase(Locale.ROOT);
+            dest[position] = keyFields.get(key);
+            if (dest[position] != null) {
+                keysNotPicked.remove(key);
+            }
             return position + 1;
         } else if (expression instanceof ThenKeyExpression) {
             final List<KeyExpression> children = ((ThenKeyExpression) expression).getChildren();
             for (KeyExpression child : children) {
-                position = buildKeyRecursive(child, keyFields, dest, position);
+                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
             }
             return position + 1;
         } else if (expression instanceof KeyWithValueExpression) {
             KeyWithValueExpression kve = (KeyWithValueExpression) expression;
             List<KeyExpression> normalizedChildren = kve.normalizeKeyForPositions();
             for (KeyExpression child : normalizedChildren) {
-                position = buildKeyRecursive(child, keyFields, dest, position);
+                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
             }
             return position + 1;
         } else if (expression instanceof GroupingKeyExpression) {
             GroupingKeyExpression gke = (GroupingKeyExpression) expression;
             final List<KeyExpression> normalizedChildren = gke.normalizeKeyForPositions();
             for (KeyExpression child : normalizedChildren) {
-                position = buildKeyRecursive(child, keyFields, dest, position);
+                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
             }
             return position + 1;
         } else if (expression instanceof NestingKeyExpression) {
             NestingKeyExpression nke = (NestingKeyExpression) expression;
             final List<KeyExpression> normalizedChildren = nke.normalizeKeyForPositions();
             for (KeyExpression child : normalizedChildren) {
-                position = buildKeyRecursive(child, keyFields, dest, position);
+                position = buildKeyRecursive(child, keyFields, dest, keysNotPicked, position);
             }
             return position + 1;
         } else if (expression instanceof RecordTypeKeyExpression) {

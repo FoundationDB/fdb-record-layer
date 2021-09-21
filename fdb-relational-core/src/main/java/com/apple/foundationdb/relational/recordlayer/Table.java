@@ -51,6 +51,4 @@ public interface Table extends Scannable, AutoCloseable {
 
     @Override
     void close() throws RelationalException;
-
-    String getName();
 }

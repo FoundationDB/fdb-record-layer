@@ -28,9 +28,6 @@ import javax.annotation.Nonnull;
 @ConnectionScoped
 public interface Index extends Scannable, AutoCloseable {
 
-    @Nonnull
-    String getName();
-
     Table getTable();
 
 

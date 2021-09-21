@@ -61,8 +61,8 @@ public class RecordStoreStatement implements Statement {
         Scannable source = getSourceScannable(options, table);
 
         final KeyBuilder keyBuilder = source.getKeyBuilder();
-        NestableTuple start = keyBuilder.buildKey(scan.getStartKey(),true);
-        NestableTuple end = keyBuilder.buildKey(scan.getEndKey(),true);
+        NestableTuple start = keyBuilder.buildKey(scan.getStartKey(), true, true);
+        NestableTuple end = keyBuilder.buildKey(scan.getEndKey(), true, true);
 
         return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties());
     }
@@ -81,7 +81,7 @@ public class RecordStoreStatement implements Statement {
 
         Scannable source = getSourceScannable(options, table);
 
-        NestableTuple tuple = source.getKeyBuilder().buildKey(key.toMap(),true);
+        NestableTuple tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
 
         final KeyValue keyValue = source.get(conn.transaction, tuple, queryProperties);
         return new KeyValueResultSet(keyValue, table.getFieldNames(), true);
@@ -144,7 +144,7 @@ public class RecordStoreStatement implements Statement {
         Table table = schema.loadTable(schemaAndTable[1], options);
 
         Scannable source = getSourceScannable(options, table);
-        NestableTuple toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(),true);
+        NestableTuple toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
         int count = 0;
         RelationalException err = null;
         try {
@@ -154,7 +154,7 @@ public class RecordStoreStatement implements Statement {
                 }
                 toDelete = null;
                 if (keys.hasNext()) {
-                    toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(),true);
+                    toDelete = source.getKeyBuilder().buildKey(keys.next().toMap(), true, true);
                 }
             }
             if (conn.isAutoCommitEnabled()) {

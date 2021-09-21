@@ -51,6 +51,8 @@ public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
             }
         } else if (endKey == null) {
             range = TupleRange.between(TupleUtils.toFDBTuple(startKey), null);
+        } else if (hasConstantValueForPrimaryKey() && startKey.equals(endKey)) {
+            range = TupleRange.allOf(TupleUtils.toFDBTuple(startKey));
         } else {
             range = TupleRange.between(TupleUtils.toFDBTuple(startKey), TupleUtils.toFDBTuple(endKey));
         }
@@ -71,4 +73,6 @@ public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
     protected abstract Function<CURSOR_TYPE, KeyValue> keyValueTransform();
 
     protected abstract boolean supportsMessageParsing();
+
+    protected abstract boolean hasConstantValueForPrimaryKey();
 }

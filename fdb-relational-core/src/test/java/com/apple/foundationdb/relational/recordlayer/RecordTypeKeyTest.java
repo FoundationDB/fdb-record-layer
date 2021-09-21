@@ -32,9 +32,11 @@ import com.apple.foundationdb.relational.api.KeySet;
 import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Statement;
+import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -55,6 +57,7 @@ public class RecordTypeKeyTest {
         final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
         RecordTypeBuilder recordBuilder = builder.getRecordType("RestaurantRecord");
         recordBuilder.setRecordTypeKey(0);
+        recordBuilder.setPrimaryKey(Key.Expressions.recordType());
 
         builder.addIndex("RestaurantRecord",new Index("record_rt_covering_idx",
                 Key.Expressions.keyWithValue(
@@ -75,6 +78,61 @@ public class RecordTypeKeyTest {
     @AfterEach
     void tearDown() {
         catalog.deleteDatabase(URI.create("//type_key_db"));
+    }
+
+    @Test
+    void testPrimaryKeyWithOnlyRecordTypeKey() {
+        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
+            dbConn.setSchema("main");
+            dbConn.beginTransaction();
+            try (Statement s = dbConn.createStatement()) {
+                long id = System.currentTimeMillis();
+                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
+                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record),Options.create());
+                Assertions.assertEquals(1,count,"Incorrect returned insertion count");
+
+                Restaurant.RestaurantReviewer reviewer = Restaurant.RestaurantReviewer.newBuilder().setId(id + 1).setName("review").build();
+                count = s.executeInsert("RestaurantReviewer", Collections.singleton(reviewer), Options.create());
+                Assertions.assertEquals(1, count, "Incorrect returned insertion count");
+
+                // Only scan the "RestaurantRecord" table
+                TableScan scan = TableScan.newBuilder()
+                        .withTableName("RestaurantRecord")
+                        .build();
+                try (final RelationalResultSet resultSet = s.executeScan(scan, Options.create())) {
+                    // Only 1 RestaurantRecord is expected to be returned
+                    Assertions.assertNotNull(resultSet, "No result set returned!");
+                    Assertions.assertTrue(resultSet.next(), "No records returned from scanning");
+                    Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
+                    Message m = resultSet.parseMessage();
+                    Assertions.assertEquals(record, m, "Did not return the correct message!");
+                    Assertions.assertFalse(resultSet.next(), "More than 1 record returned from scanning, which is unexpected");
+                }
+            }
+        }
+    }
+
+    @Test
+    void testScanningWithUnknownKeys() {
+        try (DatabaseConnection dbConn = Relational.connect(dbUrl, Options.create())) {
+            dbConn.setSchema("main");
+            dbConn.beginTransaction();
+            try (Statement s = dbConn.createStatement()) {
+                long id = System.currentTimeMillis();
+                Restaurant.RestaurantRecord record = Restaurant.RestaurantRecord.newBuilder().setRestNo(id).setName("Awesome Burgers").addCustomer("Scott").build();
+                int count = s.executeInsert("RestaurantRecord", Collections.singleton(record),Options.create());
+                Assertions.assertEquals(1,count,"Incorrect returned insertion count");
+
+                TableScan scan = TableScan.newBuilder()
+                        .withTableName("RestaurantRecord")
+                        .setStartKey("rest_no", id)
+                        .setEndKey("rest_no", id + 1)
+                        .build();
+                // Scan is expected to rejected because it uses fields which are not included in primary key
+                RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> s.executeScan(scan, Options.create()));
+                Assertions.assertEquals("Unknown keys for primary key of <RestaurantRecord>, unknown keys: <REST_NO>", exception.getMessage());
+            }
+        }
     }
 
     @Test

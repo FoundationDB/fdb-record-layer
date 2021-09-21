@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
+import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
@@ -92,7 +93,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public KeyBuilder getKeyBuilder() {
         final RecordType typeForKey = loadRecordType();
-        return new KeyBuilder(typeForKey,typeForKey.getPrimaryKey());
+        return new KeyBuilder(typeForKey,typeForKey.getPrimaryKey(), "primary key of <" + tableName + ">");
     }
 
     @Override
@@ -158,6 +159,11 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     protected boolean supportsMessageParsing() {
         return true;
+    }
+
+    @Override
+    protected boolean hasConstantValueForPrimaryKey() {
+        return loadRecordType().getPrimaryKey() instanceof RecordTypeKeyExpression;
     }
 
     RecordType loadRecordType() {
