@@ -212,6 +212,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             return result;
         }
+        //This should not happen
         if (expression instanceof GroupingKeyExpression) {
             return getFields(((GroupingKeyExpression)expression).getGroupedSubKey(), record, message);
         }
@@ -318,6 +319,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
             // update new
             if (!newRecordFields.isEmpty()) {
+                int offset = 0;
+
                 for (Key.Evaluated grouping : newGroupingRecord) {
 //                    newRecordFields = getFields(((GroupingKeyExpression)root).getGroupedSubKey(), newRecord, newRecord.getRecord());
                     Object value = grouping.values().get(0);
@@ -326,7 +329,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     }
                     try {
                         // TODO: Only save fields relevant to this specific grouping key.
-                        writeDocument(newRecordFields, value == null ? "" : "$" + value, newRecord.getPrimaryKey().pack());
+                        writeDocument(newRecordFields.subList(offset, offset + ((GroupingKeyExpression)root).getGroupedCount()), value == null ? "" : "$" + value, newRecord.getPrimaryKey().pack());
+                        offset += ((GroupingKeyExpression)root).getGroupedCount();
                     } catch (IOException e) {
                         throw new RecordCoreException("Issue updating new index keys", "newRecord", newRecord, e);
                     }

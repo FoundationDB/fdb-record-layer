@@ -151,6 +151,23 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 .build();
     }
 
+    private TestRecordsTextProto.MapDocument createMultiEntryMapDoc(long docId, String text, String text2, String text3,
+                                                                    String text4, int group) {
+        return TestRecordsTextProto.MapDocument.newBuilder()
+                .setDocId(docId)
+                .setGroup(group)
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder()
+                    .setKey(text2)
+                    .setValue(text)
+                    .setSecondValue("firstEntrySecondValue")
+                    .setThirdValue("firstEntryThirdValue"))
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder()
+                        .setKey(text4)
+                        .setValue(text3)
+                        .setSecondValue("secondEntrySecondValue")
+                        .setThirdValue("secondEntryThirdValue"))
+                .build();
+    }
     private TestRecordsTextProto.MapDocument createMapDocument(long docId, String text, String text2, int group) {
         return TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(docId)
@@ -338,6 +355,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             recordStore.saveRecord(createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
             recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase",  1));
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("value:Vision", "sampleTextSong")), null, ScanProperties.FORWARD_SCAN);
+            assertEquals(1, indexEntries.getCount().join());
+            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
+        }
+    }
+
+    @Test
+    public void testGroupedRecordSearch() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
+            });
+            recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
             RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("value:Vision", "sampleTextSong")), null, ScanProperties.FORWARD_SCAN);
             assertEquals(1, indexEntries.getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
