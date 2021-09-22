@@ -51,7 +51,6 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -93,7 +92,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
-    private DocumentEntry groupingKey = null;
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer analyzer) {
         super(state);
@@ -134,14 +132,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, analyzer);
             }
             Query query = parser.parse(range.getLow().getString(0));
-            String groupingKey = null;
-            for (int i = 1; i < range.getLow().getItems().size(); i++) {
-                Object comparison = range.getLow().get(i);
-                if (comparison != null) {
-                    groupingKey = groupingKey == null ? "" + comparison : groupingKey.concat("$" + comparison);
-                }
-            }
-            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation, state.index.getRootExpression().normalizeKeyForPositions(), groupingKey);
+            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation,
+                    state.index.getRootExpression().normalizeKeyForPositions(), Tuple.fromStream(range.getLow().stream().skip(1)));
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
                     "internalException", ioe);
@@ -251,8 +243,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    private void writeDocument(@Nonnull List<DocumentEntry> keys, String indexPreface, byte[] primaryKey) throws IOException {
-        final IndexWriter newWriter = getOrCreateIndexWriter(state, analyzer, executor, indexPreface);
+    private void writeDocument(@Nonnull List<DocumentEntry> keys, Tuple groupingKey, byte[] primaryKey) throws IOException {
+        final IndexWriter newWriter = getOrCreateIndexWriter(state, analyzer, executor, groupingKey);
         BytesRef ref = new BytesRef(primaryKey);
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
@@ -263,8 +255,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         newWriter.addDocument(document);
     }
 
-    private void deleteDocument(String indexPreface, byte[] primaryKey) throws IOException {
-        final IndexWriter oldWriter = getOrCreateIndexWriter(state, analyzer, executor, indexPreface);
+    private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
+        final IndexWriter oldWriter = getOrCreateIndexWriter(state, analyzer, executor, groupingKey);
         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
         oldWriter.deleteDocuments(query);
     }
@@ -310,7 +302,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                         value = null;
                     }
                     try {
-                        deleteDocument(value == null ? "" : "" + value, oldRecord.getPrimaryKey().pack());
+                        //deleteDocument(value == null ? "" : "" + value, oldRecord.getPrimaryKey().pack());
+                        deleteDocument(?, oldRecord.getPrimaryKey().pack());
                     } catch (IOException e) {
                         throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
                     }
@@ -322,14 +315,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 int offset = 0;
 
                 for (Key.Evaluated grouping : newGroupingRecord) {
-//                    newRecordFields = getFields(((GroupingKeyExpression)root).getGroupedSubKey(), newRecord, newRecord.getRecord());
                     Object value = grouping.values().get(0);
                     if (grouping.containsNonUniqueNull()) {
                         value = null;
                     }
                     try {
                         // TODO: Only save fields relevant to this specific grouping key.
-                        writeDocument(newRecordFields.subList(offset, offset + ((GroupingKeyExpression)root).getGroupedCount()), value == null ? "" : "$" + value, newRecord.getPrimaryKey().pack());
+                        writeDocument(newRecordFields.subList(offset, offset + ((GroupingKeyExpression)root).getGroupedCount()), ?, newRecord.getPrimaryKey().pack());
                         offset += ((GroupingKeyExpression)root).getGroupedCount();
                     } catch (IOException e) {
                         throw new RecordCoreException("Issue updating new index keys", "newRecord", newRecord, e);
@@ -359,7 +351,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
                 // if there are changes then update the index with the new document.
                 if (!newRecordFields.isEmpty()) {
-                    writeDocument(newRecordFields, null, newRecord.getPrimaryKey().pack());
+                    writeDocument(newRecordFields, new Tuple(), newRecord.getPrimaryKey().pack());
                 }
             } catch (IOException e) {
                 throw new RecordCoreException("Issue updating index keys", "oldRecord", oldRecord, "newRecord", newRecord, e);
@@ -367,6 +359,20 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
         return AsyncUtil.DONE;
     }
+
+    /*
+
+    protected <M extends Message> CompletableFuture<Void> updateIndexKeys(@Nonnull final FDBIndexableRecord<M> savedRecord,
+                                                                          final boolean remove,
+                                                                          @Nonnull final List<IndexEntry> indexEntries) {
+
+        indexEntries.get(0).getIndex().ro
+
+        System.out.println("updateIndexKeys -> ");
+        return AsyncUtil.DONE;
+    }
+
+     */
 
     @Nonnull
     @Override

@@ -92,7 +92,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private ScoreDoc searchAfter = null;
     private boolean exhausted = false;
     @Nullable
-    private final String groupingKey;
+    private final Tuple groupingKey;
 
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
@@ -100,7 +100,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
                        byte[] continuation, List<KeyExpression> fields,
-                       @Nullable String groupingKey) {
+                       @Nullable Tuple groupingKey) {
         this.state = state;
         this.executor = executor;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
@@ -241,7 +241,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
     private synchronized IndexReader getIndexReader() throws IOException {
         IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
-        return writerCheck == null ? DirectoryReader.open(getOrCreateDirectoryCommitCheckAsync(state).getDirectory()) : DirectoryReader.open(writerCheck.indexWriter);
+        return writerCheck == null ? DirectoryReader.open(getOrCreateDirectoryCommitCheckAsync(state, groupingKey).getDirectory()) : DirectoryReader.open(writerCheck.indexWriter);
     }
 
     private void performScan() throws IOException {

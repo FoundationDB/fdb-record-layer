@@ -25,6 +25,8 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.subspace.Subspace;
+import com.apple.foundationdb.tuple.Tuple;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.codecs.lucene50.Lucene50StoredFieldsFormat;
 import org.apache.lucene.codecs.lucene70.Lucene70Codec;
@@ -109,29 +111,26 @@ public class IndexWriterCommitCheckAsync implements FDBRecordContext.CommitCheck
     }
 
     @Nullable
-    protected static IndexWriterCommitCheckAsync getIndexWriterCommitCheckAsync(@Nonnull final IndexMaintainerState state, @Nullable final String groupingKey) {
-        return state.context.getInSession(getWriterName(state, groupingKey), IndexWriterCommitCheckAsync.class);
+    protected static IndexWriterCommitCheckAsync getIndexWriterCommitCheckAsync(@Nonnull final IndexMaintainerState state, @Nullable final Tuple groupingKey) {
+        return state.context.getInSession(getWriterSubspace(state, groupingKey), IndexWriterCommitCheckAsync.class);
     }
 
     @Nonnull
-    protected static IndexWriter getOrCreateIndexWriter(@Nonnull final IndexMaintainerState state, @Nonnull Analyzer analyzer, @Nonnull Executor executor, @Nullable final String groupingKey) throws IOException {
+    protected static IndexWriter getOrCreateIndexWriter(@Nonnull final IndexMaintainerState state, @Nonnull Analyzer analyzer, @Nonnull Executor executor, @Nullable final Tuple groupingKey) throws IOException {
         synchronized (state.context) {
             IndexWriterCommitCheckAsync writerCheck = getIndexWriterCommitCheckAsync(state, groupingKey);
             if (writerCheck == null) {
-                writerCheck = new IndexWriterCommitCheckAsync(analyzer, getOrCreateDirectoryCommitCheckAsync(state), executor);
+                writerCheck = new IndexWriterCommitCheckAsync(analyzer, getOrCreateDirectoryCommitCheckAsync(state, groupingKey), executor);
                 state.context.addCommitCheck(writerCheck);
-                state.context.putInSessionIfAbsent(getWriterName(state, groupingKey), writerCheck);
+                state.context.putInSessionIfAbsent(getWriterSubspace(state, groupingKey), writerCheck);
             }
             return writerCheck.indexWriter;
         }
     }
 
     @Nonnull
-    private static String getWriterName(@Nonnull final IndexMaintainerState state, @Nullable final String groupingKey) {
-        if (groupingKey != null) {
-            return "writer$" + state.index.getName() + "$" + groupingKey;
-        }
-        return "writer$" + state.index.getName();
+    private static Subspace getWriterSubspace(@Nonnull final IndexMaintainerState state, @Nullable final Tuple groupingKey) {
+        return state.indexSubspace.subspace(groupingKey).subspace(Tuple.from("w"));
     }
 
 }
