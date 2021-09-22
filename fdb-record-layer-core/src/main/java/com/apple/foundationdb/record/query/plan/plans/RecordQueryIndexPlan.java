@@ -364,7 +364,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     public String explain(@Nonnull final Formatter formatter) {
         final ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
         for (final Comparisons.Comparison equalityComparison : comparisons.getEqualityComparisons()) {
-            argumentsBuilder.add("{ EQUALS -> " + equalityComparison.typelessString() + " }");
+            argumentsBuilder.add(equalityComparison.typelessString());
         }
 
         final Set<Comparisons.Comparison> inEqualityComparisons = comparisons.getInequalityComparisons();

@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -402,7 +403,12 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public String explain(@Nonnull final Formatter formatter) {
         if (getQuantifiers().size() == 1 && predicates.isEmpty()) {
-            return Iterables.getOnlyElement(Iterables.getOnlyElement(getQuantifiers()).getRangesOver().getMembers()).explain(formatter);
+            final Quantifier quantifier = Iterables.getOnlyElement(getQuantifiers());
+
+            final boolean allSimpleColumns = getResultValues().stream().allMatch(value -> value instanceof QuantifiedColumnValue && ((QuantifiedColumnValue)value).getAlias().equals(quantifier.getAlias()));
+            if (allSimpleColumns) {
+                return Iterables.getOnlyElement(Iterables.getOnlyElement(getQuantifiers()).getRangesOver().getMembers()).explain(formatter);
+            }
         }
 
         getQuantifiers().forEach(formatter::registerForFormatting);

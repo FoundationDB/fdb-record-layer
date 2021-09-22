@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 
 /**
  * Function
- * filter(STRING...) -> RELATION.
+ * from(STRING...) -> RELATION.
  */
 @AutoService(BuiltInFunction.class)
 public class FromFn extends BuiltInFunction<RelationalExpression> {
@@ -97,5 +97,13 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
 
         final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
         return new LogicalTypeFilterExpression(recordTypeNames, new FullUnorderedScanExpression(allAvailableRecordTypes, fieldDescriptorMap));
+    }
+
+    @AutoService(BuiltInFunction.class)
+    public static class ReadFn extends BuiltInFunction<RelationalExpression> {
+        public ReadFn() {
+            super("read",
+                    ImmutableList.of(), Type.primitiveType(Type.TypeCode.STRING), FromFn::encapsulate);
+        }
     }
 }

@@ -133,7 +133,30 @@ public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "(" + value.explain(formatter) + " " + comparisonTypeToSymbol(comparison.getType()) + " " + comparison.getComparand() + ")";
+        final String comparandString;
+        if (value.getResultType().isPrimitive()) {
+            switch (value.getResultType().getTypeCode()) {
+                case INT:
+                    comparandString = comparison.typelessString();
+                    break;
+                case LONG:
+                    comparandString = comparison.typelessString() + "l";
+                    break;
+                case FLOAT:
+                    comparandString = comparison.typelessString() + "f";
+                    break;
+                case DOUBLE:
+                    comparandString = comparison.typelessString() + "d";
+                    break;
+                case STRING:
+                default:
+                    comparandString = "'" + comparison.typelessString() + "'";
+            }
+        } else {
+            comparandString = comparison.typelessString();
+        }
+
+        return "(" + value.explain(formatter) + " " + comparisonTypeToSymbol(comparison.getType()) + " " + comparandString + ")";
     }
     
     @Nonnull

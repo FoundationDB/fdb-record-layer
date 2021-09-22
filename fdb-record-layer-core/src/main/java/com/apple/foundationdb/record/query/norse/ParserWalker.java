@@ -47,6 +47,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
+import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -56,6 +57,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
@@ -269,7 +271,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     @Nonnull
     private Atom callArgument(@Nonnull final ParserRuleContext expressionContext, @Nonnull final Type declaredParameterType) {
         if (declaredParameterType.getTypeCode() == TypeCode.FUNCTION &&
-                !(expressionContext instanceof NorseParser.ExpressionLambdaContext)) {
+                !(tunnel(expressionContext, currentContext -> currentContext instanceof NorseParser.ExpressionLambdaContext).isPresent())) {
             return lambdaBody(ImmutableList.of(), parserWalker -> {
                 final ParserContext currentContext = parserWalker.getParserContext();
                 final GraphExpansion.Builder graphExpansionBuilder = currentContext.getCurrentScope().getGraphExpansionBuilder();
@@ -721,6 +723,26 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             return tClass.cast(((Atom.AtomLiteral)t).getValue());
         }
         throw new IllegalStateException("literal of unexpected type");
+    }
+
+    @Nonnull
+    private static Optional<ParserRuleContext> tunnel(@Nonnull final ParserRuleContext startContext, @Nonnull Predicate<ParserRuleContext> contextPredicate) {
+        ParserRuleContext currentContext = startContext;
+        while (!contextPredicate.test(currentContext)) {
+            if (currentContext.children == null || currentContext.children.size() > 1) {
+                return Optional.empty();
+            }
+
+            final ParseTree child0 = currentContext.getChild(0);
+            if (child0 == null || child0 instanceof TerminalNode) {
+                return Optional.empty();
+            }
+
+            if (child0 instanceof ParserRuleContext) {
+                currentContext = (ParserRuleContext)child0;
+            }
+        }
+        return Optional.of(currentContext);
     }
 
     /**

@@ -35,7 +35,7 @@ methodCall
     ;
 
 argumentsOrTuple
-    : LPAREN pipe (COMMA pipe)* RPAREN                         # ArgumentsOrTuplePipes
+    : LPAREN (pipe (COMMA pipe)*)? RPAREN                      # ArgumentsOrTuplePipes
     | expression                                               # ArgumentsOrTupleExpression
     ;
 
