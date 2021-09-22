@@ -54,7 +54,6 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nullable;
@@ -140,6 +139,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final LuceneThenKeyExpression mainExpression = new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys);
 
+    // TODO: This is not a legal index: GroupingKeyExpression cannot be a child of a ThenKeyExpression.
     private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", new LuceneThenKeyExpression( null, Lists.newArrayList(new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(mainExpression), 1),
             new LuceneFieldKeyExpression("doc_id",KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL,
                                                              LuceneKeyExpression.FieldType.LONG, false, false))), IndexTypes.LUCENE);

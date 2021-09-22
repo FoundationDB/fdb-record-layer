@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.sun.tools.jdeprscan.scan.Scan;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -240,20 +239,17 @@ public class LucenePlanner extends RecordQueryPlanner {
 
 
         KeyExpression rootExp = index.getRootExpression();
-        KeyExpression groupedKey;
         ScanComparisons groupingComparisons;
 
         // Getting grouping information from the index key and query filter
         if (rootExp instanceof GroupingKeyExpression) {
             KeyExpression groupingKey = ((GroupingKeyExpression)rootExp).getGroupingSubKey();
-            groupedKey = ((GroupingKeyExpression)rootExp).getGroupedSubKey();
             QueryToKeyMatcher.Match groupingMatch = new QueryToKeyMatcher(filter).matchesCoveringKey(groupingKey, filterMask);
             if (!groupingMatch.getType().equals((QueryToKeyMatcher.MatchType.EQUALITY))) {
                 return null;
             }
             groupingComparisons = new ScanComparisons(groupingMatch.getEqualityComparisons(), Collections.emptySet());
         } else {
-            groupedKey = rootExp;
             groupingComparisons = null;
         }
 

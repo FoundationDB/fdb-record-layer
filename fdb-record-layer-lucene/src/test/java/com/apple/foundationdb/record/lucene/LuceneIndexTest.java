@@ -82,8 +82,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
                     LuceneKeyExpression.FieldType.STRING_KEY_MAP, false, false),
             new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false),
-            new LuceneFieldKeyExpression("secondValue", LuceneKeyExpression.FieldType.STRING, false, false),
-            new LuceneFieldKeyExpression("thirdValue", LuceneKeyExpression.FieldType.STRING, false, false));
+            new LuceneFieldKeyExpression("second_value", LuceneKeyExpression.FieldType.STRING, false, false),
+            new LuceneFieldKeyExpression("third_value", LuceneKeyExpression.FieldType.STRING, false, false));
 
     private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value",new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
             new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys)), 3), IndexTypes.LUCENE);
@@ -168,6 +168,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                         .setThirdValue("secondEntryThirdValue"))
                 .build();
     }
+
     private TestRecordsTextProto.MapDocument createMapDocument(long docId, String text, String text2, int group) {
         return TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(docId)
@@ -369,7 +370,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
             });
             recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("value:Vision", "sampleTextSong")), null, ScanProperties.FORWARD_SCAN);
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("value:Vision", "sampleTextPhrase")), null, ScanProperties.FORWARD_SCAN);
             assertEquals(1, indexEntries.getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
         }
