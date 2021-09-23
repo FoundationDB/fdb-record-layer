@@ -74,6 +74,13 @@ public interface Debugger {
         THREAD_LOCAL.set(debugger);
     }
 
+    /**
+     * Remove the debugger from the environment.
+     */
+    static void removeDebugger() {
+        THREAD_LOCAL.remove();
+    }
+
     @Nullable
     static Debugger getDebugger() {
         return THREAD_LOCAL.get();
@@ -146,7 +153,7 @@ public interface Debugger {
 
     void onEvent(Event event);
 
-    void onDone();
+    void onDone(final GroupExpressionRef<?> rootExpression);
 
     int onGetIndex(@Nonnull Class<?> clazz);
 

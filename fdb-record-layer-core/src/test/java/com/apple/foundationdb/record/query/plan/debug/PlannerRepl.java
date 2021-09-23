@@ -22,11 +22,15 @@ package com.apple.foundationdb.record.query.plan.debug;
 
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.debug.BasePlanDebugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.temp.debug.State;
+import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.google.common.cache.Cache;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -62,13 +66,12 @@ import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.IntUnaryOperator;
 import java.util.function.Predicate;
 
 /**
  * Implementation of a debugger as a repl.
  */
-public class PlannerRepl implements Debugger {
+public class PlannerRepl extends BasePlanDebugger {
     private static final Logger logger = LoggerFactory.getLogger(PlannerRepl.class);
 
     private static final String banner =
@@ -119,38 +122,14 @@ public class PlannerRepl implements Debugger {
     }
 
     @Nonnull
-    State getCurrentState() {
+    @Override
+    protected State getCurrentState() {
         return Objects.requireNonNull(stateStack.peek());
     }
 
     @Nullable
     public PlanContext getPlanContext() {
         return planContext;
-    }
-
-    @Override
-    public int onGetIndex(@Nonnull final Class<?> clazz) {
-        return getCurrentState().getIndex(clazz);
-    }
-
-    @Override
-    public int onUpdateIndex(@Nonnull final Class<?> clazz, @Nonnull final IntUnaryOperator updateFn) {
-        return getCurrentState().updateIndex(clazz, updateFn);
-    }
-
-    @Override
-    public void onRegisterExpression(@Nonnull final RelationalExpression expression) {
-        getCurrentState().registerExpression(expression);
-    }
-
-    @Override
-    public void onRegisterReference(@Nonnull final ExpressionRef<? extends RelationalExpression> reference) {
-        getCurrentState().registerReference(reference);
-    }
-
-    @Override
-    public void onRegisterQuantifier(@Nonnull final Quantifier quantifier) {
-        getCurrentState().registerQuantifier(quantifier);
     }
 
     @Override
@@ -365,23 +344,6 @@ public class PlannerRepl implements Debugger {
     }
 
 
-    @Nullable
-    public String nameForObject(@Nonnull final Object object) {
-        final State state = getCurrentState();
-        if (object instanceof RelationalExpression) {
-            @Nullable final Integer id = state.getInvertedExpressionsCache().getIfPresent(object);
-            return (id == null) ? null : "exp" + id;
-        } else if (object instanceof ExpressionRef) {
-            @Nullable final Integer id = state.getInvertedReferenceCache().getIfPresent(object);
-            return (id == null) ? null : "ref" + id;
-        }  else if (object instanceof Quantifier) {
-            @Nullable final Integer id = state.getInvertedQuantifierCache().getIfPresent(object);
-            return (id == null) ? null : "qun" + id;
-        }
-
-        return null;
-    }
-
     @SuppressWarnings("unchecked")
     <E extends Event> void withProcessors(final E event, final Consumer<Processors.Processor<E>> consumer) {
         final LinkedList<Class<? extends Event>> resolutionQueue = Lists.newLinkedList();
@@ -415,7 +377,9 @@ public class PlannerRepl implements Debugger {
     }
 
     @Override
-    public void onDone() {
+    public void onDone(final GroupExpressionRef<?> rootExpression) {
+        // Show browser window with the plan
+        Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, rootExpression));
         reset();
     }
 

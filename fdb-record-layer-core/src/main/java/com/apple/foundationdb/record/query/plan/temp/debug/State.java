@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,11 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.debug;
+package com.apple.foundationdb.record.query.plan.temp.debug;
 
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
@@ -35,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.IntUnaryOperator;
 
-class State {
+public class State {
     @Nonnull
     private final Map<Class<?>, Integer> classToIndexMap;
 

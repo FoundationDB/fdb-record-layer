@@ -253,7 +253,13 @@ public enum LogMessageKeys {
 
     // ranked set
     HASH_FUNCTION("hash_function"),
-    HASH("hash");
+    HASH("hash"),
+
+    // Planner Debugger
+    PLANNER_DEBUGGER_ACTION("action"),
+    PLANNER_DEBUGGER_NAME("name"),
+    PLANNER_DEBUGGER_LOCATION("location"),
+    PLANNER_DEBUGGER_INSTANCE_UUID("uuid");
 
     private final String logKey;
 

@@ -173,4 +173,14 @@ public class LogicalSortExpression implements RelationalExpressionWithChildren, 
                     childGraphs);
         }
     }
+
+    @Override
+    public String toString() {
+        StringBuilder str = new StringBuilder("Sort(");
+        str.append("[").append(Objects.toString(sort)).append("])");
+        if (reverse) {
+            str.append(" REVERSE");
+        }
+        return str.toString();
+    }
 }

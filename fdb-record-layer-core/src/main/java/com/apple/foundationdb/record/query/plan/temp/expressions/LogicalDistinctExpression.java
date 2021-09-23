@@ -140,4 +140,9 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
                         ImmutableMap.of()),
                 childGraphs);
     }
+
+    @Override
+    public String toString() {
+        return "DISTINCT";
+    }
 }

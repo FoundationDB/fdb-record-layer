@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Event;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.EventWithState;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger.Location;
 import com.apple.foundationdb.record.query.plan.temp.debug.RestartException;
+import com.apple.foundationdb.record.query.plan.temp.debug.State;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphProperty;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Enums;

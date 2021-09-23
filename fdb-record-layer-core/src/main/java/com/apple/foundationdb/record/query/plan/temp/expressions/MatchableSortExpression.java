@@ -355,4 +355,14 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
                         ImmutableMap.of("expression", Attribute.gml(sortParameterIds.toString()))),
                 childGraphs);
     }
+
+    @Override
+    public String toString() {
+        StringBuilder str = new StringBuilder("Sort(");
+        str.append("[").append(sortParameterIds.toString()).append("])");
+        if (isReverse) {
+            str.append(" REVERSE");
+        }
+        return str.toString();
+    }
 }

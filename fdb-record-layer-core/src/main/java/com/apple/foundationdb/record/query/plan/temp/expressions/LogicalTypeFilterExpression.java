@@ -155,4 +155,10 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
                         ImmutableMap.of("types", Attribute.gml(getRecordTypes().stream().map(Attribute::gml).collect(ImmutableList.toImmutableList())))),
                 childGraphs);
     }
+
+    @Override
+    public String toString() {
+        StringBuilder str = new StringBuilder("Filter([").append(String.join(", ", recordTypes)).append("]) ");
+        return str.toString();
+    }
 }

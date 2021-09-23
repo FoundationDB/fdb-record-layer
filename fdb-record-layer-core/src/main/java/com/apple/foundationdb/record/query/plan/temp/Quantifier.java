@@ -390,7 +390,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Override
         @Nonnull
         public String toString() {
-            return rangesOver.toString();
+            return Objects.toString(rangesOver);
         }
 
         @Override

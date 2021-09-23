@@ -172,4 +172,10 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
                         ImmutableMap.of("pred", Attribute.gml(AndPredicate.and(getPredicates()).toString()))),
                 childGraphs);
     }
+
+    @Override
+    public String toString() {
+        StringBuilder str = new StringBuilder("Filter([").append(queryPredicates.toString()).append("]) ");
+        return str.toString();
+    }
 }

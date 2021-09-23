@@ -229,7 +229,7 @@ public class CascadesPlanner implements QueryPlanner {
             planPartial(context,
                     () -> RelationalExpression.fromRecordQuery(context, query));
         } finally {
-            Debugger.withDebugger(Debugger::onDone);
+            Debugger.withDebugger(debugger -> debugger.onDone(currentRoot));
         }
 
         final RelationalExpression singleRoot = currentRoot.getMembers().iterator().next();
@@ -271,7 +271,6 @@ public class CascadesPlanner implements QueryPlanner {
     private void planPartial(@Nonnull PlanContext context, @Nonnull Supplier<RelationalExpression> expressionSupplier) {
         currentRoot = GroupExpressionRef.of(expressionSupplier.get());
         aliasResolver = AliasResolver.withRoot(currentRoot);
-        Debugger.withDebugger(debugger -> PlannerGraphProperty.show(true, currentRoot));
         taskStack = new ArrayDeque<>();
         taskStack.push(new OptimizeGroup(context, currentRoot));
         taskCount = 0;
