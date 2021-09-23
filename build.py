@@ -1,7 +1,4 @@
-#!/usr/bin/python
-#
-# build.py
-#
+#!/usr/bin/env python3
 # This source file is part of the FoundationDB open source project
 #
 # Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
@@ -18,8 +15,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+"""
+build.py
 
-import collections, datetime, os, sys, time, traceback, shutil, subprocess
+wrapper for running gradle to build this project
+"""
+
+import collections
+import datetime
+import os
+import shutil
+import subprocess
+import sys
+import time
 
 TEMP_ROOT = ".tmp"
 PUBLISH_ROOT = ".dist"
@@ -28,29 +36,53 @@ dir_path = os.path.abspath(os.path.dirname(__file__))
 
 
 def clear(path):
+    """
+
+    :param path:
+    :return:
+    """
     print_with_date("Clearing {0}".format(path))
     if os.path.exists(path):
         shutil.rmtree(path)
 
 
 def mkdirp(path):
+    """
+
+    :param path:
+    :return:
+    """
     if not os.path.exists(path):
         os.makedirs(path)
 
 
-# Produce a human-readable date string that includes a UNIX timestamp.
 def date_string():
+    """
+    Produce a human-readable date string that includes a UNIX timestamp.
+    :return:
+    """
     return "{0} ({1})".format(
         datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y"), str(time.time())
     )
 
 
 def print_with_date(text):
+    """
+
+    :param text:
+    :return:
+    """
     print("{0}   {1}".format(date_string(), text))
 
 
-# Constructs the gradle run path given the gradle args.
 def run_gradle(proto_version, *args):
+    """
+    Constructs the gradle run path given the gradle args.
+    :param proto_version:
+    :param args:
+    :return:
+    """
+    return_value = None
     env = dict(os.environ)
     full_args = [
         os.path.join(dir_path, "gradlew"),
@@ -69,13 +101,19 @@ def run_gradle(proto_version, *args):
 
     if proc.returncode != 0:
         print_with_date("Could not successfully run gradle build!")
-        return False
+        return_value = False
     else:
-        return True
+        return_value = True
+    return return_value
 
 
-# This looks in the gradle.properties file to find the version (for local builds).
 def parse_version():
+    """
+    This looks in the gradle.properties file to find
+    the version (for local builds).
+    :return:
+    """
+    return_value = None
     properties_path = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "gradle.properties")
     )
@@ -99,21 +137,27 @@ def parse_version():
                 print_with_date(
                     "Version found in properties file: {0}".format(prop_dict["version"])
                 )
-                return prop_dict["version"]
+                return_value = prop_dict["version"]
             else:
                 print_with_date("No version found in properties file.")
-                return None
-        except Exception as e:
+                return_value = None
+        except Exception as ex:
             print_with_date("Error occurred while parsing file.")
-            print(traceback.format_exc())
-            return None
+            print(ex)
+            return_value = None
     else:
         print("File not found.")
-        return None
+        return_value = None
+
+    return return_value
 
 
-# Look for a version number and possibly add things.
 def get_version(release=False):
+    """
+    Look for a version number and possibly add things.
+    :param release:
+    :return:
+    """
     if "CODE_VERSION" in os.environ:
         version_base = os.environ["CODE_VERSION"]
     else:
@@ -141,8 +185,17 @@ def get_version(release=False):
     return version
 
 
-# Move all of the publishable files to a temporary directory.
 def build(release=False, proto2=False, proto3=False, publish=False):
+    """
+    Move all of the publishable files to a temporary directory.
+
+    :param release:
+    :param proto2:
+    :param proto3:
+    :param publish:
+    :return:
+    """
+    return_value = True
     print_with_date("Running build script within directory: {0}".format(dir_path))
 
     print_with_date("Clearing temporary directory.")
@@ -151,7 +204,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
     # Get the correct version.
     version = get_version(release)
     if version is None:
-        return False
+        return_value = False
 
     # Clear before.
     clear(os.path.join(dir_path, TEMP_ROOT))
@@ -166,7 +219,7 @@ def build(release=False, proto2=False, proto3=False, publish=False):
             "-PreleaseBuild={0}".format("true" if release else "false"),
         )
         if not success:
-            return False
+            return_value = False
 
         if publish:
             success = run_gradle(
@@ -176,11 +229,11 @@ def build(release=False, proto2=False, proto3=False, publish=False):
                 "-PreleaseBuild={0}".format("true" if release else "false"),
             )
             if not success:
-                return False
+                return_value = False
 
         success = run_gradle(2, "fdb-record-layer-core:clean")
         if not success:
-            return False
+            return_value = False
 
     if proto3:
         # Make with protobuf 3.
@@ -193,12 +246,13 @@ def build(release=False, proto2=False, proto3=False, publish=False):
             "-PpublishBuild={0}".format("true" if publish else "false"),
         )
         if not success:
-            return False
+            return_value = False
 
         if publish:
-            # These are enumerated rather than just using the full project artifactoryPublish command to avoid uploading
-            # the fdb-extensions subproject twice. (Note that as overwrite is not supported, doing so would result
-            # in the build failing.)
+            # These are enumerated rather than just using the full project
+            # artifactoryPublish command to avoid uploading the fdb-extensions
+            # subproject twice. (Note that as overwrite is not supported, doing
+            # so would result in the build failing.)
             success = run_gradle(
                 3,
                 ":fdb-record-layer-core-pb3:artifactoryPublish",
@@ -211,12 +265,12 @@ def build(release=False, proto2=False, proto3=False, publish=False):
                 "-PpublishBuild=true",
             )
             if not success:
-                return False
+                return_value = False
 
-    return True
+    return return_value
 
 
-usage = """
+USAGE = """
 Usage: python build.py <release|snapshot> [--proto2] [--proto3] [--publish]
 Builds the packages for this project. You must specify release or snapshot
 The --proto2 flag indicates that the build should use protobuf 2.
@@ -226,6 +280,10 @@ The --publish flag indicates that the build should be published upon completion.
 
 
 def parse_args():
+    """
+
+    :return:
+    """
     ret = collections.namedtuple(
         "Arguments", ["release", "proto2", "proto3", "publish"]
     )
@@ -234,8 +292,8 @@ def parse_args():
     ret.publish = False
 
     if len(sys.argv) < 2:
-        print(usage)
-        quit(2)
+        print(USAGE)
+        sys.exit(2)
 
     ret.release = sys.argv[1] == "release"
 
@@ -250,7 +308,7 @@ def parse_args():
             ret.publish = True
         else:
             print("Unrecognized argument: {0}".format(arg))
-            quit(3)
+            sys.exit(3)
 
     # run both proto2 and proto3 by default
     if not ret.proto2 and not ret.proto3:
@@ -262,17 +320,17 @@ def parse_args():
 
 if __name__ == "__main__":
     print_with_date("Starting build")
-    success = True
-    args = parse_args()
-    success = success and build(
-        release=args.release,
-        proto2=args.proto2,
-        proto3=args.proto3,
-        publish=args.publish,
+    SUCCESS = True
+    Args = parse_args()
+    SUCCESS = SUCCESS and build(
+        release=Args.release,
+        proto2=Args.proto2,
+        proto3=Args.proto3,
+        publish=Args.publish,
     )
 
-    if not success:
+    if not SUCCESS:
         print_with_date("Build failed!")
-        quit(1)
+        sys.exit(1)
     else:
         print_with_date("Build finished successfully.")
