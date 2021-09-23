@@ -16,7 +16,7 @@ Another, smaller change that has been made is that by default, new indexes added
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Fix potential null recordTypeKey in RecordType.getRecordTypeKeyTuple() [(Issue #1395)](https://github.com/FoundationDB/fdb-record-layer/issues/1395)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -29,8 +29,8 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** integrate boolean normalization into planning process [(Issue #1301)](https://github.com/FoundationDB/fdb-record-layer/issues/1301)
-* Index Scrubber: missing index entry”: Add the (virtual) missing index’s key to the log message [(Issue #1392)](https://github.com/FoundationDB/fdb-record-layer/issues/1392)
+* **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,12 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.214.0
+
+* **Bug fix** Fix potential null recordTypeKey in RecordType.getRecordTypeKeyTuple() [(Issue #1395)](https://github.com/FoundationDB/fdb-record-layer/issues/1395)
+* **Feature** integrate boolean normalization into planning process [(Issue #1301)](https://github.com/FoundationDB/fdb-record-layer/issues/1301)
+* Index Scrubber: missing index entry”: Add the (virtual) missing index’s key to the log message [(Issue #1392)](https://github.com/FoundationDB/fdb-record-layer/issues/1392)
 
 ### 3.0.213.0
 
