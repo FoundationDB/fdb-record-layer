@@ -185,7 +185,7 @@ def parse_args():
     ret.publish = False
 
     if len(sys.argv) < 2:
-        print usage
+        print(usage)
         quit(2)
 
     ret.release = (sys.argv[1] == 'release')
