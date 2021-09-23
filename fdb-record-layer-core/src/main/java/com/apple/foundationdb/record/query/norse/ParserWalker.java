@@ -151,7 +151,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final Type.Record recordType = (Type.Record)atom.getResultType();
         final String fieldName = identifier.getText();
         final Map<String, Type> fieldTypeMap = Objects.requireNonNull(recordType.getFieldTypeMap());
-        Preconditions.checkArgument(fieldTypeMap.containsKey(fieldName), "attempting to query non existing field");
+        Preconditions.checkArgument(fieldTypeMap.containsKey(fieldName), "attempting to query non existing field " + fieldName);
         final Type fieldType = fieldTypeMap.get(fieldName);
 
         if (atom instanceof FieldValue) {

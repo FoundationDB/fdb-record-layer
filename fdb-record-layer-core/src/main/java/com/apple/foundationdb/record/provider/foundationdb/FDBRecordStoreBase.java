@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -1631,6 +1632,17 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Execute a query.
      * @param plan the plan to execute
+     * @return a cursor for query results
+     * @see RecordQueryPlan#execute
+     */
+    @Nonnull
+    default RecordCursor<QueryResult> executePlan(@Nonnull RecordQueryPlan plan) {
+        return plan.executePlan(this, EvaluationContext.EMPTY, null, ExecuteProperties.SERIAL_EXECUTE);
+    }
+
+    /**
+     * Execute a query.
+     * @param plan the plan to execute
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
      * @return a cursor for query results
@@ -1641,6 +1653,21 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                            @Nullable byte[] continuation,
                                                            @Nonnull ExecuteProperties executeProperties) {
         return plan.execute(this, EvaluationContext.EMPTY, continuation, executeProperties);
+    }
+
+    /**
+     * Execute a plan.
+     * @param plan the plan to execute
+     * @param continuation continuation from a previous execution of this same plan
+     * @param executeProperties limits on execution
+     * @return a cursor for query results
+     * @see RecordQueryPlan#execute
+     */
+    @Nonnull
+    default RecordCursor<QueryResult> executePlan(@Nonnull RecordQueryPlan plan,
+                                                  @Nullable byte[] continuation,
+                                                  @Nonnull ExecuteProperties executeProperties) {
+        return plan.executePlan(this, EvaluationContext.EMPTY, continuation, executeProperties);
     }
 
     /**

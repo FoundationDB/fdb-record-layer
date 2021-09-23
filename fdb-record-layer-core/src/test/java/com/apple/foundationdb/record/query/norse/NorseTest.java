@@ -27,12 +27,14 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.plan.debug.PlannerRepl;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.Formatter;
-import com.google.protobuf.Message;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.TextFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -137,10 +139,20 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                 long numRecords = 0;
                 try (FDBRecordContext context = openContext()) {
                     openNestedRecordStore(context);
-                    try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(recordQueryPlan).asIterator()) {
+                    try (RecordCursorIterator<QueryResult> cursor = recordStore.executePlan(recordQueryPlan).asIterator()) {
                         while (cursor.hasNext()) {
-                            FDBQueriedRecord<Message> rec = cursor.next();
-                            repl.println(TextFormat.shortDebugString(Objects.requireNonNull(rec).getRecord()));
+                            final QueryResult rec = Objects.requireNonNull(cursor.next());
+                            final ImmutableList.Builder<String> columnsToPrint = ImmutableList.builder();
+                            for (final QueryResultElement queryResultElement : Objects.requireNonNull(rec.getElements())) {
+                                if (queryResultElement instanceof FDBQueriedRecord) {
+                                    columnsToPrint.add(TextFormat.shortDebugString(((FDBQueriedRecord<?>)queryResultElement).getRecord()));
+                                } else if (queryResultElement instanceof QueryResultElement.Wrapped) {
+                                    final Object unwrap = ((QueryResultElement.Wrapped)queryResultElement).unwrap();
+                                    columnsToPrint.add(unwrap == null ? "null" : unwrap.toString());
+                                }
+                            }
+
+                            repl.println(String.join(", ", columnsToPrint.build()));
                             numRecords ++;
                         }
                     }

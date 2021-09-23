@@ -70,9 +70,9 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      */
     @Nonnull
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
-                                                                  @Nonnull EvaluationContext context,
-                                                                  @Nullable byte[] continuation,
-                                                                  @Nonnull ExecuteProperties executeProperties) {
+                                                                          @Nonnull EvaluationContext context,
+                                                                          @Nullable byte[] continuation,
+                                                                          @Nonnull ExecuteProperties executeProperties) {
         return executePlan(store, context, continuation, executeProperties)
                 .map(result -> result.getQueriedRecord(0));
     }
