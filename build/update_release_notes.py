@@ -1,8 +1,4 @@
-#!/bin/python
-
-#
-# update_release_notes.py
-#
+#!/usr/bin/env python3
 # This source file is part of the FoundationDB open source project
 #
 # Copyright 2015-2018 Apple Inc. and the FoundationDB project authors
@@ -20,26 +16,28 @@
 # limitations under the License.
 #
 
-#
-# Utility script for updating the release notes as part of a release.
-#
-# The release notes for the Record Layer should generally be updated as
-# features are added. However, as the build number is not known until the
-# actual release is cut, the release notes generally include only a reference
-# to the NEXT_RELEASE. This script should then be run as soon as the release
-# version is known. It updates the release notes file and replaces the
-# information for the "next release" with the actual release version and cleans
-# up some cruft that is included in the (not yet updated) release section.
-# It also adds a fresh version of the release notes template directly above
-# where the new release notes have been added in preparation for the following
-# release.
-#
+"""
+update_release_notes.py
+
+Utility script for updating the release notes as part of a release.
+
+The release notes for the Record Layer should generally be updated as
+features are added. However, as the build number is not known until the
+actual release is cut, the release notes generally include only a reference
+to the NEXT_RELEASE. This script should then be run as soon as the release
+version is known. It updates the release notes file and replaces the
+information for the "next release" with the actual release version and cleans
+up some cruft that is included in the (not yet updated) release section.
+It also adds a fresh version of the release notes template directly above
+where the new release notes have been added in preparation for the following
+release.
+"""
 
 import argparse
 import sys
 
 
-template = """### NEXT_RELEASE
+TEMPLATE = """### NEXT_RELEASE
 
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -67,7 +65,6 @@ template = """### NEXT_RELEASE
 def extract_endpoints(lines, name):
     """Find the beginning and ending line numbers of the section with the given name"""
     start = 0
-    template_lines = []
     i = 0
     while i < len(lines) and not lines[i].startswith("// begin " + name):
         i += 1
@@ -79,12 +76,18 @@ def extract_endpoints(lines, name):
 
 
 def get_next_release_endpoints(lines):
-    """Get the beginning and ending line numbers of the section corresponding to the next release."""
+    """
+    Get the beginning and ending line numbers of the section corresponding to
+    the next release.
+    """
     return extract_endpoints(lines, "next release")
 
 
 def update_next_release_lines(next_release_lines, new_version):
-    """Update the contents of the next release by filling in the version number and removing any placeholder lines."""
+    """
+    Update the contents of the next release by filling in the version number
+     and removing any placeholder lines.
+    """
     updated_lines = []
     for line in next_release_lines:
         new_line = line.replace("NEXT_RELEASE", new_version)
@@ -96,7 +99,10 @@ def update_next_release_lines(next_release_lines, new_version):
 
 
 def get_new_contents(filename, new_version):
-    """Given the name of the release notes file and the new version, generate the new contents of the file."""
+    """
+    Given the name of the release notes file and the new version,
+    generate the new contents of the file.
+    """
     with open(filename, "r") as fin:
         lines = fin.read().split("\n")
     next_release_start, next_release_end = get_next_release_endpoints(lines)
@@ -107,7 +113,7 @@ def get_new_contents(filename, new_version):
     return "\n".join(
         lines[: next_release_start - 2]
         + ["<!--", "// begin next release"]
-        + [template]
+        + [TEMPLATE]
         + ["// end next release", "-->", ""]
         + updated_next_release_notes
         + lines[next_release_end + 3 :]
@@ -115,7 +121,9 @@ def get_new_contents(filename, new_version):
 
 
 def main(argv):
-    """Replace placeholder release notes with the final release notes for a version."""
+    """
+    Replace placeholder release notes with the final release notes for a version.
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", help="Path to release notes document")
     parser.add_argument(
