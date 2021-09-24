@@ -653,6 +653,28 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
+        /** Total reads done within a single transaction */
+        TRANSACTION_READS("transaction reads", false),
+        /** Total writes done within a single transaction */
+        TRANSACTION_WRITES("transaction writes", false),
+        /** Total deletes (clears) done within a single transaction */
+        TRANSACTION_DELETES("transaction deletes", false),
+        /** Total bytes read within a single transaction */
+        TRANSACTION_BYTES_READ("transaction bytes read", true),
+        /** Total bytes written within a single transaction */
+        TRANSACTION_BYTES_WRITTEN("transaction bytes written", true),
+        /** Total lifetime of a transaction */
+        TRANSACTION_TIME_MICROS("transaction time micros", false),
+        /** Total mutations within a single transaction */
+        TRANSACTION_MUTATIONS("transaction mutations", false),
+        /** Count of commits that failed for any reason */
+        COMMITS_FAILED("commits failed", false),
+        /** Count failed due to conflict */
+        CONFLICTS("conflicts", false),
+        /** Count failed due to commit_unknown */
+        COMMIT_UNKNOWN("commit unknown", false),
+        /** Count failed due to transaction_too_large */
+        TRANSACTION_TOO_LARGE("transaction too large", false),
         ;
 
         private final String title;

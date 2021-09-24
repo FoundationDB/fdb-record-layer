@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Database;
+import com.apple.foundationdb.FDBError;
 import com.apple.foundationdb.FDBException;
 import com.apple.foundationdb.MutationType;
 import com.apple.foundationdb.Range;
@@ -72,6 +73,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public void set(byte[] key, byte[] value) {
         underlying.set(checkKey(key), checkValue(key, value));
+        transactionWrites.incrementAndGet();
         increment(FDBStoreTimer.Counts.WRITES);
         increment(FDBStoreTimer.Counts.BYTES_WRITTEN, key.length + value.length);
     }
@@ -79,12 +81,14 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public void clear(byte[] key) {
         underlying.clear(checkKey(key));
+        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void clear(byte[] keyBegin, byte[] keyEnd) {
         underlying.clear(checkKey(keyBegin), checkKey(keyEnd));
+        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
@@ -94,6 +98,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         checkKey(range.end);
 
         underlying.clear(range);
+        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
@@ -101,6 +106,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Deprecated
     public void clearRangeStartsWith(byte[] prefix) {
         underlying.clearRangeStartsWith(checkKey(prefix));
+        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
@@ -108,14 +114,44 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     public void mutate(MutationType opType, byte[] key, byte[] param) {
         underlying.mutate(opType, checkKey(key), param);
         /* Do we want to track each mutation type separately as well? */
+        transactionMutations.incrementAndGet();
         increment(FDBStoreTimer.Counts.MUTATIONS);
     }
 
     @Override
     public CompletableFuture<Void> commit() {
         long startTimeNanos = System.nanoTime();
-        return underlying.commit().whenComplete((v, ex) ->
-                recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos));
+        return underlying.commit().whenComplete((v, ex) -> {
+            trackCommitFailures(ex);
+            publishTransactionMetrics();
+            recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos);
+        });
+    }
+
+    private void trackCommitFailures(@Nullable Throwable ex) {
+        if (ex != null) {
+            increment(FDBStoreTimer.Counts.COMMITS_FAILED);
+        }
+
+        while (ex != null && !(ex instanceof FDBException)) {
+            ex = ex.getCause();
+        }
+        if (ex != null) {
+            FDBError error = FDBError.fromCode(((FDBException) ex).getCode());
+            switch (error) {
+                case NOT_COMMITTED:
+                    increment(FDBStoreTimer.Counts.CONFLICTS);
+                    break;
+                case COMMIT_UNKNOWN_RESULT:
+                    increment(FDBStoreTimer.Counts.COMMIT_UNKNOWN);
+                    break;
+                case TRANSACTION_TOO_LARGE:
+                    increment(FDBStoreTimer.Counts.TRANSACTION_TOO_LARGE);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     @Override
@@ -165,6 +201,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public void close() {
+        publishTransactionMetrics();
         underlying.close();
     }
 
