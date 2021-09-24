@@ -73,7 +73,7 @@ public class LuceneTypeConverter implements KeyExpressionVisitor {
     @Override
     public KeyExpression visitGroupingKey(final GroupingKeyExpression gke) {
         fanNext = false;
-        return new GroupingKeyExpression(visit(gke.getChild()), gke.getGroupedCount());
+        return new GroupingKeyExpression(visit(gke.getWholeKey()), gke.getGroupedCount());
     }
 
     @Override

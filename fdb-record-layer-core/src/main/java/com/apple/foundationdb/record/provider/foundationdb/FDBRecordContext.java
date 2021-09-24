@@ -158,7 +158,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private boolean dirtyMetaDataVersionStamp;
     private long trackOpenTimeNanos;
     @Nonnull
-    private final Map<String, Object> session = new LinkedHashMap<>();
+    private final Map<Object, Object> session = new LinkedHashMap<>();
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
@@ -1330,7 +1330,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      */
     @SuppressWarnings("unchecked")
     @API(API.Status.EXPERIMENTAL)
-    public synchronized <T> T getInSession(@Nonnull String key, @Nonnull Class<T> clazz) {
+    public synchronized <T> T getInSession(@Nonnull Object key, @Nonnull Class<T> clazz) {
         return (T) session.get(key);
     }
 
@@ -1342,7 +1342,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param value value
      */
     @API(API.Status.EXPERIMENTAL)
-    public synchronized <T extends Object> void putInSessionIfAbsent(@Nonnull String key, @Nonnull T value) {
+    public synchronized <T extends Object> void putInSessionIfAbsent(@Nonnull Object key, @Nonnull T value) {
         session.put(key, value);
     }
 

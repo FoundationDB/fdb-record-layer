@@ -51,9 +51,12 @@ message MapDocument {
     message Entry {
         optional string key = 1;
         optional string value = 2;
+        optional string second_value = 3;
+        optional string third_value = 4;
     }
     repeated Entry entry = 2;
     optional int64 group = 3;
+    optional string text2 = 4;
 }
 
 message MultiDocument {
