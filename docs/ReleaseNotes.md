@@ -40,6 +40,9 @@ Another, smaller change that has been made is that by default, new indexes added
 // end next release
 -->
 
+### 3.0.215.0
+
+
 ### 3.0.214.0
 
 * **Bug fix** Fix potential null recordTypeKey in RecordType.getRecordTypeKeyTuple() [(Issue #1395)](https://github.com/FoundationDB/fdb-record-layer/issues/1395)
