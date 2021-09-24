@@ -515,7 +515,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-
+    /*
     @ParameterizedTest
     @BooleanSource
     public void nestedLuceneAndQuery(boolean shouldDeferFetch) throws Exception {
@@ -524,7 +524,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             openRecordStore(context);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(MAP_DOC)
-                    .setFilter(new LuceneQueryComponent("a_value:king", Lists.newArrayList("key"), false))
+                    .setFilter(new AndComponent(Lists.newArrayList(new LuceneQueryComponent("value:king", Lists.newArrayList("value"), false),
+                            new NestedField("entry", new FieldWithComparison("key", new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, "a"))))))
                     .build();
             setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
             RecordQueryPlan plan = planner.plan(query);
