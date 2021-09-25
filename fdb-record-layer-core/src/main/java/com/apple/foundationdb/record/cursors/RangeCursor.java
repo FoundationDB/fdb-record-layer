@@ -34,7 +34,6 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * A cursor that returns a sequence from 0 to an (exclusive) limit.
@@ -46,8 +45,8 @@ public class RangeCursor implements RecordCursor<QueryResult> {
     private final int exclusiveLimit;
     private int nextPosition; // position of the next value to return
 
-    public RangeCursor(final int exclusiveLimit, byte []continuation) {
-        this(ForkJoinPool.commonPool(), exclusiveLimit, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
+    public RangeCursor(@Nonnull Executor executor, final int exclusiveLimit, byte []continuation) {
+        this(executor, exclusiveLimit, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
 
     public RangeCursor(@Nonnull Executor executor, final int exclusiveLimit, final int nextPosition) {

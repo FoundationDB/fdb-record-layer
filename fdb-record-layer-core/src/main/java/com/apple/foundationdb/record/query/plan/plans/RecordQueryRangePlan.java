@@ -84,7 +84,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        return new RangeCursor(exclusiveLimit, continuation);
+        return new RangeCursor(store.getExecutor(), exclusiveLimit, continuation);
     }
 
     @Override
