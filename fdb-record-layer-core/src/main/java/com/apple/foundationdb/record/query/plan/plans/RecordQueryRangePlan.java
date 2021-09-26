@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -85,6 +86,12 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         return new RangeCursor(store.getExecutor(), exclusiveLimit, continuation);
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "range(" + exclusiveLimit + ")";
     }
 
     @Override

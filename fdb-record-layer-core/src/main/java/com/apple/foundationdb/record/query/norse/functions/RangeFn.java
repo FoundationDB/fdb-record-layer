@@ -37,7 +37,7 @@ import java.util.List;
 
 /**
  * Function
- * fange(INT) -> RELATION.
+ * range(INT) -> RELATION.
  */
 @AutoService(BuiltInFunction.class)
 public class RangeFn extends BuiltInFunction<RelationalExpression> {

@@ -301,6 +301,54 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     }
 
     @Override
+    public Atom visitExpressionMultiplicative(final NorseParser.ExpressionMultiplicativeContext ctx) {
+        // visit the children expressions
+        final ImmutableList<Atom> arguments =
+                ctx.expression()
+                        .stream()
+                        .map(expression -> expression.accept(this))
+                        .collect(ImmutableList.toImmutableList());
+
+        final Optional<BuiltInFunction<? extends Atom>> functionOptional;
+        if (ctx.MUL() != null) {
+            functionOptional = FunctionCatalog.resolveAndValidate("mul", Type.fromTyped(arguments));
+        } else if (ctx.DIV() != null) {
+            functionOptional = FunctionCatalog.resolveAndValidate("div", Type.fromTyped(arguments));
+        } else if (ctx.MOD() != null) {
+            functionOptional = FunctionCatalog.resolveAndValidate("mod", Type.fromTyped(arguments));
+        } else {
+            functionOptional = Optional.empty();
+        }
+
+        return functionOptional
+                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
+                .orElseThrow(() -> new IllegalStateException("unable to resolve multiplicative"));
+    }
+
+    @Override
+    public Atom visitExpressionAdditive(final NorseParser.ExpressionAdditiveContext ctx) {
+        // visit the children expressions
+        final ImmutableList<Atom> arguments =
+                ctx.expression()
+                        .stream()
+                        .map(expression -> expression.accept(this))
+                        .collect(ImmutableList.toImmutableList());
+
+        final Optional<BuiltInFunction<? extends Atom>> functionOptional;
+        if (ctx.ADD() != null) {
+            functionOptional = FunctionCatalog.resolveAndValidate("add", Type.fromTyped(arguments));
+        } else if (ctx.SUB() != null) {
+            functionOptional = FunctionCatalog.resolveAndValidate("sub", Type.fromTyped(arguments));
+        } else {
+            functionOptional = Optional.empty();
+        }
+
+        return functionOptional
+                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
+                .orElseThrow(() -> new IllegalStateException("unable to resolve multiplicative"));
+    }
+
+    @Override
     public Atom visitExpressionInequality(final NorseParser.ExpressionInequalityContext ctx) {
         // visit the children expressions
         final ImmutableList<Atom> arguments =

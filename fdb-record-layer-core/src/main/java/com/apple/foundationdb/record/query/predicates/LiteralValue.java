@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.protobuf.Message;
 
@@ -67,6 +68,12 @@ public class LiteralValue<T> implements LeafValue {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         return value;
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return formatLiteral(resultType, Comparisons.toPrintable(value));
     }
 
     @Nullable
@@ -133,5 +140,32 @@ public class LiteralValue<T> implements LeafValue {
     @Nonnull
     public static Type.TypeCode typeCodeFromLiteral(@Nullable final Object o) {
         return Type.getClassToTypeCodeMap().getOrDefault(o == null ? null : o.getClass(), Type.TypeCode.UNKNOWN);
+    }
+
+    @Nonnull
+    public static String formatLiteral(@Nonnull final Type type, @Nonnull final String literal) {
+        final String comparandString;
+        if (type.isPrimitive()) {
+            switch (type.getTypeCode()) {
+                case INT:
+                    comparandString = literal;
+                    break;
+                case LONG:
+                    comparandString = literal + "l";
+                    break;
+                case FLOAT:
+                    comparandString = literal + "f";
+                    break;
+                case DOUBLE:
+                    comparandString = literal + "d";
+                    break;
+                case STRING:
+                default:
+                    comparandString = "'" + literal + "'";
+            }
+        } else {
+            comparandString = literal;
+        }
+        return comparandString;
     }
 }

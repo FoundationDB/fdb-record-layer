@@ -98,6 +98,8 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
             final String[] words = command.split(" ", 2);
 
             try {
+                repl.println();
+
                 if (words.length == 2) {
                     if (words[0].equalsIgnoreCase("describe")) {
                         final RelationalExpression relationalExpression = parseQuery(words[1]);

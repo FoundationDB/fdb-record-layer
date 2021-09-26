@@ -37,6 +37,8 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.query.predicates.LiteralValue.formatLiteral;
+
 /**
  * A predicate consisting of a {@link Value} and a {@link Comparison}.
  */
@@ -134,31 +136,13 @@ public class ValuePredicate implements PredicateWithValue {
     @Override
     public String explain(@Nonnull final Formatter formatter) {
         final String comparandString;
-        if (value.getResultType().isPrimitive()) {
-            switch (value.getResultType().getTypeCode()) {
-                case INT:
-                    comparandString = comparison.typelessString();
-                    break;
-                case LONG:
-                    comparandString = comparison.typelessString() + "l";
-                    break;
-                case FLOAT:
-                    comparandString = comparison.typelessString() + "f";
-                    break;
-                case DOUBLE:
-                    comparandString = comparison.typelessString() + "d";
-                    break;
-                case STRING:
-                default:
-                    comparandString = "'" + comparison.typelessString() + "'";
-            }
-        } else {
-            comparandString = comparison.typelessString();
-        }
+        comparandString = formatLiteral(value.getResultType(), comparison.typelessString());
 
         return "(" + value.explain(formatter) + " " + comparisonTypeToSymbol(comparison.getType()) + " " + comparandString + ")";
     }
-    
+
+
+
     @Nonnull
     private static String comparisonTypeToSymbol(@Nonnull final Comparisons.Type comparisonType) {
         switch (comparisonType) {

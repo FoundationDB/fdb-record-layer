@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +53,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * A query plan that reconstructs records from the entries in a covering index.
@@ -64,11 +66,6 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
     private final Quantifier.Physical inner;
     @Nonnull
     private final List<? extends Value> resultValues;
-
-    public RecordQueryMaterializeExpressionPlan(@Nonnull RecordQueryPlan innerPlan,
-                                                @Nonnull List<? extends Value> resultValues) {
-        this(Quantifier.physical(GroupExpressionRef.of(innerPlan)), resultValues);
-    }
 
     public RecordQueryMaterializeExpressionPlan(@Nonnull Quantifier.Physical inner,
                                                 @Nonnull List<? extends Value> resultValues) {
@@ -148,6 +145,25 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
         return "Mate(" + getChild() + "[" + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "])";
     }
 
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        final Set<CorrelationIdentifier> correlatedAliases =
+                resultValues.stream()
+                        .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
+                        .collect(ImmutableSet.toImmutableSet());
+
+        correlatedAliases.forEach(formatter::registerForFormatting);
+
+        final String boundVariables =
+                IntStream.range(0, inner.getFlowedValues().size())
+                        .mapToObj(i -> formatter.getQuantifierColumnName(inner.getAlias(), i))
+                        .collect(Collectors.joining(", "));
+        final String explainInner = Iterables.getOnlyElement(inner.getRangesOver().getMembers()).explain(formatter);
+
+        return "mate(" + explainInner + ", (" + boundVariables + ") => (" + resultValues.stream().map(resultValue -> resultValue.explain(formatter)).collect(Collectors.joining(", ")) + "))";
+    }
+
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap aliasMap) {
@@ -201,7 +217,7 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of();
+        return ImmutableList.of(inner);
     }
 
     @Nonnull
