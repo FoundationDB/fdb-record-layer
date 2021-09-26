@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -45,6 +46,10 @@ public class TupleValue implements Value, Value.CompileTimeValue {
     protected final String functionName;
     @Nonnull
     protected final List<? extends Value> children;
+
+    public TupleValue(@Nonnull List<? extends Value> children) {
+        this("tuple", children);
+    }
 
     protected TupleValue(@Nonnull String functionName,
                          @Nonnull List<? extends Value> children) {
@@ -95,6 +100,19 @@ public class TupleValue implements Value, Value.CompileTimeValue {
     @Override
     public TupleValue withChildren(final Iterable<? extends Value> newChildren) {
         return new TupleValue(this.functionName, ImmutableList.copyOf(newChildren));
+    }
+
+    public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
+        if (values.size() != 1) {
+            return values;
+        }
+
+        final Value onlyElement = Iterables.getOnlyElement(values);
+        if (!(onlyElement instanceof TupleValue)) {
+            return values;
+        }
+
+        return ImmutableList.copyOf(onlyElement.getChildren());
     }
 
     @AutoService(BuiltInFunction.class)

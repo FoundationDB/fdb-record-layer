@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.TupleValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Type.TypeCode;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -84,29 +85,25 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final NorseParser.PipeContext pipeContext = Objects.requireNonNull(ctx.pipe());
         final NorseParser.MethodCallContext methodCallContext = Objects.requireNonNull(ctx.methodCall());
         final String functionName = Objects.requireNonNull(methodCallContext.IDENTIFIER()).getText();
-        final NorseParser.ArgumentsOrTupleContext argumentsOrTupleContext = Objects.requireNonNull(methodCallContext.argumentsOrTuple());
+        final NorseParser.ArgumentsContext argumentsContext = Objects.requireNonNull(methodCallContext.arguments());
 
         Optional<BuiltInFunction<? extends Atom>> functionOptional = Optional.empty();
         Optional<List<Atom>> argumentsOptional = Optional.empty();
 
-        final List<? extends ParserRuleContext> ambiguousArgumentContexts =
-                resolveAmbiguousArgumentOrTupleContexts(argumentsOrTupleContext);
-
         // first try to resolve the method call
         // s.foo(a, b, c)
         // where (a, b, c) is a tuple and foo is a method of signature foo:(S, TUPLE) -> something
-        if (!ambiguousArgumentContexts.isEmpty()) {
+        if (isAmbiguousCall(argumentsContext)) {
             functionOptional = FunctionCatalog.resolve(functionName, 2);
             if (functionOptional.isPresent()) {
                 final Type type1 = functionOptional.get().resolveParameterType(1);
-                if (type1 instanceof Type.Function &&
-                        Objects.requireNonNull(((Type.Function)type1).getResultType()).getTypeCode() == TypeCode.STREAM) {
+                if (type1.getTypeCode() == TypeCode.TUPLE ||
+                        (type1.getTypeCode() == TypeCode.FUNCTION && Objects.requireNonNull(((Type.Function)type1).getResultType()).getTypeCode() == TypeCode.TUPLE)) {
                     final BuiltInFunction<? extends Atom> function = functionOptional.get();
                     final List<Type> resolvedParameterTypes = function.resolveParameterTypes(2);
 
                     argumentsOptional =
-                            Optional.of(ImmutableList.of(callArgument(pipeContext, resolvedParameterTypes.get(0)),
-                                    lambdaBodyWithPossibleTuple(ImmutableList.of(), ambiguousArgumentContexts)));
+                            Optional.of(ImmutableList.of(callArgument(pipeContext, resolvedParameterTypes.get(0)), callArgument(argumentsContext, resolvedParameterTypes.get(1))));
                 }
             }
         }
@@ -115,7 +112,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         // s.foo(a, b, c)
         // where (a, b, c) is a list of arguments foo is a method of signature foo:(S, A, B, C) -> something
         if (!functionOptional.isPresent() || !argumentsOptional.isPresent()) {
-            final List<? extends ParserRuleContext> argumentContexts = resolveArgumentOrTupleContexts(argumentsOrTupleContext);
+            final List<? extends ParserRuleContext> argumentContexts = resolveArgumentOrTupleContexts(argumentsContext);
 
             final int numberOfArguments = argumentContexts.size() + 1;
             functionOptional = FunctionCatalog.resolve(functionName, numberOfArguments);
@@ -173,25 +170,21 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         Objects.requireNonNull(ctx.functionCall());
         final NorseParser.MethodCallContext methodCallContext = Objects.requireNonNull(ctx.functionCall().methodCall());
         final String functionName = Objects.requireNonNull(methodCallContext.IDENTIFIER()).getText();
-        final NorseParser.ArgumentsOrTupleContext argumentsOrTupleContext = Objects.requireNonNull(methodCallContext.argumentsOrTuple());
+        final NorseParser.ArgumentsContext argumentsContext = Objects.requireNonNull(methodCallContext.arguments());
 
         Optional<BuiltInFunction<? extends Atom>> functionOptional = Optional.empty();
         Optional<List<Atom>> argumentsOptional = Optional.empty();
 
-        final List<? extends ParserRuleContext> ambiguousArgumentContexts =
-                resolveAmbiguousArgumentOrTupleContexts(argumentsOrTupleContext);
-
         // first try to resolve the function call
         // foo(a, b, c)
         // where (a, b, c) is a tuple and foo is a method of signature foo:(TUPLE) -> something
-        if (!ambiguousArgumentContexts.isEmpty()) {
+        if (!isAmbiguousCall(argumentsContext)) {
             functionOptional = FunctionCatalog.resolve(functionName, 1);
             if (functionOptional.isPresent()) {
                 final Type type0 = functionOptional.get().resolveParameterType(0);
-                if (type0 instanceof Type.Function &&
-                        Objects.requireNonNull(((Type.Function)type0).getResultType()).getTypeCode() == TypeCode.TUPLE) {
-                    argumentsOptional =
-                            Optional.of(ImmutableList.of(lambdaBodyWithPossibleTuple(ImmutableList.of(), ambiguousArgumentContexts)));
+                if (type0.getTypeCode() == TypeCode.TUPLE ||
+                        (type0.getTypeCode() == TypeCode.FUNCTION && Objects.requireNonNull(((Type.Function)type0).getResultType()).getTypeCode() == TypeCode.TUPLE)) {
+                    argumentsOptional = Optional.of(ImmutableList.of(callArgument(argumentsContext, type0)));
                 }
             }
         }
@@ -200,7 +193,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         // foo(a, b, c)
         // where (a, b, c) is a list of arguments foo is a method of signature foo:(A, B, C) -> something
         if (!functionOptional.isPresent() || !argumentsOptional.isPresent()) {
-            final List<? extends ParserRuleContext> argumentContexts = resolveArgumentOrTupleContexts(argumentsOrTupleContext);
+            final List<? extends ParserRuleContext> argumentContexts = resolveArgumentOrTupleContexts(argumentsContext);
             functionOptional = FunctionCatalog.resolve(functionName, argumentContexts.size());
             SemanticException.check(functionOptional.isPresent(), "unable to resolve function " + functionName + "in catalog");
 
@@ -218,53 +211,44 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 .orElseThrow(() -> new SemanticException("unable to compile in function " + functionName));
     }
 
-    private List<? extends ParserRuleContext> resolveAmbiguousArgumentOrTupleContexts(@Nonnull final NorseParser.ArgumentsOrTupleContext ctx) {
-        final List<? extends ParserRuleContext> ambiguousArgumentContexts;
-        if (ctx instanceof NorseParser.ArgumentsOrTuplePipesContext) {
-            ambiguousArgumentContexts = ((NorseParser.ArgumentsOrTuplePipesContext)ctx).pipe();
-        } else if (ctx instanceof NorseParser.ArgumentsOrTupleExpressionContext) {
-            ambiguousArgumentContexts = ImmutableList.of();
+    final boolean isAmbiguousCall(@Nonnull final NorseParser.ArgumentsContext argumentsContext) {
+        if (!(argumentsContext instanceof NorseParser.ArgumentsPipesContext)) {
+            return false;
+        }
+
+        final NorseParser.ArgumentsPipesContext argumentsPipesContext = (NorseParser.ArgumentsPipesContext)argumentsContext;
+        return argumentsPipesContext.tuple() instanceof NorseParser.TuplePipesContext;
+    }
+
+    @Nonnull
+    private List<? extends ParserRuleContext> resolveArgumentOrTupleContexts(@Nonnull final NorseParser.ArgumentsContext ctx) {
+        final List<? extends ParserRuleContext> argumentsContexts;
+        if (ctx instanceof NorseParser.ArgumentsPipesContext) {
+            final NorseParser.ArgumentsPipesContext argumentsPipesContext = (NorseParser.ArgumentsPipesContext)ctx;
+            Verify.verify(argumentsPipesContext.tuple() instanceof NorseParser.TuplePipesContext);
+            argumentsContexts = ((NorseParser.TuplePipesContext)(argumentsPipesContext.tuple())).pipe();
+        } else if (ctx instanceof NorseParser.ArgumentsExpressionContext) {
+            argumentsContexts = ImmutableList.of(((NorseParser.ArgumentsExpressionContext)ctx).expression());
+        } else if (ctx instanceof NorseParser.ArgumentsExmptyContext) {
+            argumentsContexts = ImmutableList.of();
         } else {
             throw new StaleRuleException(ctx, "unknown rule");
         }
 
-        return ambiguousArgumentContexts;
+        return argumentsContexts;
     }
 
     @Nonnull
-    private List<? extends ParserRuleContext> resolveArgumentOrTupleContexts(@Nonnull final NorseParser.ArgumentsOrTupleContext ctx) {
-        final List<? extends ParserRuleContext> argumentContexts;
-        if (ctx instanceof NorseParser.ArgumentsOrTuplePipesContext) {
-            argumentContexts = ((NorseParser.ArgumentsOrTuplePipesContext)ctx).pipe();
-        } else if (ctx instanceof NorseParser.ArgumentsOrTupleExpressionContext) {
-            argumentContexts = ImmutableList.of(((NorseParser.ArgumentsOrTupleExpressionContext)ctx).expression());
-        } else {
-            throw new StaleRuleException(ctx, "unknown rule");
-        }
-
-        return argumentContexts;
-    }
-
-    @Nonnull
-    private Lambda lambdaBodyWithPossibleTuple(@Nonnull final List<Optional<String>> declaredParameterNames,
-                                               @Nonnull final List<? extends ParserRuleContext> tupleElementContexts) {
-        Verify.verify(!tupleElementContexts.isEmpty());
+    private Lambda lambdaBodyWithResult(@Nonnull final List<Optional<String>> declaredParameterNames,
+                                        @Nonnull final ParserRuleContext lambdaBodyContext) {
         return lambdaBody(declaredParameterNames,
                 parserWalker -> {
                     final ParserContext currentContext = parserWalker.getParserContext();
                     final GraphExpansion.Builder graphExpansionBuilder = currentContext.getCurrentScope().getGraphExpansionBuilder();
-                    if (tupleElementContexts.size() > 1) {
-                        final ImmutableList<Atom> tupleElements = tupleElementContexts
-                                .stream()
-                                .map(tupleElementContext -> tupleElementContext.accept(parserWalker))
-                                .collect(ImmutableList.toImmutableList());
 
-                        graphExpansionBuilder.addAllAtoms(tupleElements).build();
-                    } else {
-                        final Atom accept = tupleElementContexts.get(0).accept(parserWalker);
-                        Objects.requireNonNull(accept);
-                        graphExpansionBuilder.addAtom(accept);
-                    }
+                    final Atom accept = lambdaBodyContext.accept(parserWalker);
+                    Objects.requireNonNull(accept);
+                    graphExpansionBuilder.addAtom(accept);
                 });
     }
 
@@ -281,6 +265,20 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         } else {
             return expressionContext.accept(this);
         }
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @Nonnull
+    @Override
+    public Atom visitTuplePipes(@Nonnull final NorseParser.TuplePipesContext ctx) {
+        final ImmutableList<? extends Value> elementAtoms = ctx.pipe()
+                .stream()
+                .map(pipe -> pipe.accept(this))
+                .peek(atom -> Verify.verify(atom.getResultType().getTypeCode() != TypeCode.STREAM && atom instanceof Value))
+                .map(atom -> (Value)atom)
+                .collect(ImmutableList.toImmutableList());
+
+        return new TupleValue(elementAtoms);
     }
 
     @Nonnull
@@ -397,13 +395,13 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     @Override
     public Atom visitExpressionLambda(final NorseParser.ExpressionLambdaContext ctx) {
         final NorseParser.LambdaContext lambdaContext = Objects.requireNonNull(ctx.lambda());
-        final NorseParser.ArgumentsOrTupleContext argumentsOrTupleContext = Objects.requireNonNull(lambdaContext.argumentsOrTuple());
+        final NorseParser.ExpressionContext expressionContext = Objects.requireNonNull(lambdaContext.expression());
 
         final NorseParser.ExtractorContext extractorsContext = Objects.requireNonNull(lambdaContext.extractor());
         final List<Optional<String>> declaredParameterNameOptionals =
                 declaredParameterNameOptionals(extractorsContext);
 
-        return lambdaBodyWithPossibleTuple(declaredParameterNameOptionals, resolveArgumentOrTupleContexts(argumentsOrTupleContext));
+        return lambdaBodyWithResult(declaredParameterNameOptionals, expressionContext);
     }
 
     @Nonnull
@@ -461,8 +459,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingIterationContext) {
                 final NorseParser.ComprehensionBindingIterationContext bindingContext = (NorseParser.ComprehensionBindingIterationContext)comprehensionBindingContext;
                 final NorseParser.ExtractorContext extractorContext = bindingContext.extractor();
-                final List<? extends ParserRuleContext> parserRuleContexts = ImmutableList.of(bindingContext.pipe());
-                final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, parserRuleContexts);
+                final Lambda lambda = lambdaBodyWithResult(boundVariables, bindingContext.pipe());
                 final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
                 quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
 
@@ -472,10 +469,13 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 final RelationalExpression result;
                 if (resultAtom.getResultType().getTypeCode() == TypeCode.STREAM) {
                     result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
-                } else if (Iterables.getOnlyElement(results) instanceof Value) {
-                    result = new ExplodeExpression(Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class)));
                 } else {
-                    throw new IllegalStateException("shouldn't be in this state");
+                    final List<? extends Value> values = TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
+                    if (values.size() == 1) {
+                        result = new ExplodeExpression(values.get(0));
+                    } else {
+                        throw new IllegalStateException("shouldn't be in this state");
+                    }
                 }
                 final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
                 quantifiersBuilder.add(forEach);
@@ -494,7 +494,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                         });
             } else if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingAssignContext) {
                 final NorseParser.ComprehensionBindingAssignContext bindingContext = (NorseParser.ComprehensionBindingAssignContext)comprehensionBindingContext;
-                final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, ImmutableList.of(bindingContext.pipe()));
+                final Lambda lambda = lambdaBodyWithResult(boundVariables, bindingContext.pipe());
                 final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
                 quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
                 final RelationalExpression result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
@@ -509,7 +509,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 boundIdentifierToValueMapBuilder.put(declaredParameterName, flowedValues.get(0));
             } else if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingIfContext) {
                 final NorseParser.ComprehensionBindingIfContext bindingContext = (NorseParser.ComprehensionBindingIfContext)comprehensionBindingContext;
-                final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, ImmutableList.of(bindingContext.pipe()));
+                final Lambda lambda = lambdaBodyWithResult(boundVariables, bindingContext.pipe());
                 final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
                 quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
                 final Value value = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
@@ -529,12 +529,11 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 argementsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
 
         // process result
-        final NorseParser.ArgumentsOrTupleContext argumentsOrTupleContext = Objects.requireNonNull(ctx.argumentsOrTuple());
-        final List<? extends ParserRuleContext> parserRuleContexts = resolveArgumentOrTupleContexts(argumentsOrTupleContext);
-        final Lambda lambda = lambdaBodyWithPossibleTuple(boundVariables, parserRuleContexts);
+        final NorseParser.TupleContext tupleContext = Objects.requireNonNull(ctx.tuple());
+        final Lambda lambda = lambdaBodyWithResult(boundVariables, tupleContext);
         final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
         Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
-        final List<? extends Value> resultValues = graphExpansion.getResultsAs(Value.class);
+        final List<? extends Value> resultValues = TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
         quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
         final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
         final ImmutableList<QueryPredicate> predicates = predicatesBuilder.build();
@@ -551,8 +550,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     public Atom visitComprehensionSimple(final NorseParser.ComprehensionSimpleContext ctx) {
         final ImmutableList.Builder<Quantifier> quantifiersBuilder = ImmutableList.builder();
 
-        final List<? extends ParserRuleContext> parserRuleContexts = ImmutableList.of(ctx.pipe());
-        final Lambda lambda = lambdaBodyWithPossibleTuple(ImmutableList.of(), parserRuleContexts);
+        final Lambda lambda = lambdaBodyWithResult(ImmutableList.of(), ctx.pipe());
         final GraphExpansion graphExpansion = lambda.unifyBody(ImmutableList.of());
         quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
 
@@ -562,10 +560,13 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final RelationalExpression result;
         if (resultAtom.getResultType().getTypeCode() == TypeCode.STREAM) {
             result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
-        } else if (Iterables.getOnlyElement(results) instanceof Value) {
-            result = new ExplodeExpression(Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class)));
         } else {
-            throw new IllegalStateException("shouldn't be in this state");
+            final List<? extends Value> values = TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
+            if (values.size() == 1) {
+                result = new ExplodeExpression(values.get(0));
+            } else {
+                throw new IllegalStateException("shouldn't be in this state");
+            }
         }
 
         final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));

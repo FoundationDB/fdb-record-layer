@@ -31,16 +31,21 @@ functionCall
     ;
 
 methodCall
-    : IDENTIFIER argumentsOrTuple
+    : IDENTIFIER arguments
     ;
 
-argumentsOrTuple
-    : LPAREN (pipe (COMMA pipe)*)? RPAREN                      # ArgumentsOrTuplePipes
-    | expression                                               # ArgumentsOrTupleExpression
+arguments
+    : tuple                      # ArgumentsPipes
+    | expression                 # ArgumentsExpression
+    | LPAREN RPAREN              # ArgumentsExmpty
+    ;
+
+tuple
+    : LPAREN pipe (COMMA pipe)* RPAREN                      # TuplePipes
     ;
 
 lambda
-    : extractor DOUBLE_ARROW argumentsOrTuple
+    : extractor DOUBLE_ARROW expression
     ;
 
 extractor
@@ -54,8 +59,8 @@ bindingIdentifier
     ;
 
 comprehension
-    : LBRACK argumentsOrTuple COLON comprehensionBindings RBRACK   # ComprehensionWithBindings
-    | LBRACK pipe RBRACK                                           # ComprehensionSimple
+    : LBRACK tuple COLON comprehensionBindings RBRACK   # ComprehensionWithBindings
+    | LBRACK pipe RBRACK                                # ComprehensionSimple
     ;
 
 comprehensionBindings
@@ -70,6 +75,7 @@ comprehensionBinding
 
 primaryExpression
     : LPAREN pipe RPAREN                           # PrimaryExpressionNestedPipe
+    | tuple                                        # PrimaryExpressionTuple
     | recordConstructor                            # PrimaryExpressionFromRecordConstructor
     | literal                                      # PrimaryExpressionFromLiteral
     | UNDERBAR                                     # PrimaryExpressionFromUnderbar

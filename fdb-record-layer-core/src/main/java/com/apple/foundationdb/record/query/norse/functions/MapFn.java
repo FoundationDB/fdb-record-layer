@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.TupleValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -49,7 +50,7 @@ import java.util.Objects;
 public class MapFn extends BuiltInFunction<RelationalExpression> {
     public MapFn() {
         super("map",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), MapFn::encapsulate);
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Tuple())), MapFn::encapsulate);
     }
 
     private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
@@ -69,7 +70,7 @@ public class MapFn extends BuiltInFunction<RelationalExpression> {
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
         final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
         Verify.verify(graphExpansion.getPredicates().isEmpty());
-        return new SelectExpression(graphExpansion.getResultsAs(Value.class),
+        return new SelectExpression(TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)),
                 ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                 ImmutableList.of());
     }
