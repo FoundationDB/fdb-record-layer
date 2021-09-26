@@ -142,7 +142,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     @Override
     public SelectExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        List<QueryPredicate> rebasedPredicates = predicates.stream().map(p -> p.rebase(translationMap)).collect(Collectors.toList());
+        final List<QueryPredicate> rebasedPredicates = predicates.stream().map(p -> p.rebase(translationMap)).collect(Collectors.toList());
         final ImmutableList<Value> rebasedResultValues = resultValues.stream().map(r -> r.rebase(translationMap)).collect(ImmutableList.toImmutableList());
         return new SelectExpression(rebasedResultValues, rebasedQuantifiers, rebasedPredicates);
     }
@@ -180,7 +180,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getPredicates());
+        return Objects.hash(getResultValues(), getPredicates());
     }
 
     @Nonnull

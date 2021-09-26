@@ -27,6 +27,8 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
+import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
@@ -83,10 +85,12 @@ public class QuantifiedColumnValue implements QuantifiedValue {
         return this;
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        return context.getBinding(alias);
+        final QueryResult binding = (QueryResult)context.getBinding(alias);
+        return ((QueryResultElement.Wrapped)binding.get(ordinalPosition)).unwrap();
     }
 
     @Nonnull
