@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import javax.annotation.Nullable;
+
 /**
  * Accumulator state for AVERAGE operations. Average is unique as the return value from the aggregation ({@link
  * Double})
@@ -59,12 +61,15 @@ public class AverageAccumulatorState<T extends Number> implements AccumulatorSta
     }
 
     @Override
-    public void accumulate(final T value) {
-        total.accumulate(value);
-        count++;
+    public void accumulate(@Nullable final T value) {
+        if (value != null) {
+            total.accumulate(value);
+            count++;
+        }
     }
 
     @Override
+    @Nullable
     public Double finish() {
         if (count == 0) {
             return null;

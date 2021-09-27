@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import javax.annotation.Nullable;
+
 /**
  * Accumulator state for Integer types.
  * The implementation of the state classes is using primitive types in order to minimize Boxing/Unboxing and object
@@ -28,6 +30,7 @@ package com.apple.foundationdb.record.cursors.aggregate;
  */
 public class IntegerState implements AccumulatorState<Integer, Integer> {
     private int currentState;
+    private boolean hasValue = false;
     private final PrimitiveAccumulatorOperation operation;
 
     public IntegerState(PrimitiveAccumulatorOperation operation) {
@@ -36,27 +39,33 @@ public class IntegerState implements AccumulatorState<Integer, Integer> {
     }
 
     @Override
-    public void accumulate(final Integer value) {
-        switch (operation) {
-            case SUM:
-                currentState = Math.addExact(currentState, value);
-                break;
-            case MIN:
-                currentState = Math.min(currentState, value);
-                break;
-            case MAX:
-                currentState = Math.max(currentState, value);
-                break;
-            default:
-                break;
+    public void accumulate(@Nullable final Integer value) {
+        if (value != null) {
+            switch (operation) {
+                case SUM:
+                    currentState = Math.addExact(currentState, value);
+                    break;
+                case MIN:
+                    currentState = Math.min(currentState, value);
+                    break;
+                case MAX:
+                    currentState = Math.max(currentState, value);
+                    break;
+                default:
+                    break;
+            }
+            hasValue = true;
         }
     }
 
     @Override
+    @Nullable
     public Integer finish() {
-        int finalState = currentState;
-        resetState(operation);
-        return finalState;
+        if (hasValue) {
+            return currentState;
+        } else {
+            return null;
+        }
     }
 
     private void resetState(final PrimitiveAccumulatorOperation operation) {

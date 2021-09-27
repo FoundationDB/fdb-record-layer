@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
-import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Accumulator state for Double types.
@@ -30,6 +30,7 @@ import javax.annotation.Nonnull;
  */
 public class DoubleState implements AccumulatorState<Double, Double> {
     private double currentState;
+    private boolean hasValue = false;
     private final PrimitiveAccumulatorOperation operation;
 
     public DoubleState(PrimitiveAccumulatorOperation operation) {
@@ -38,25 +39,33 @@ public class DoubleState implements AccumulatorState<Double, Double> {
     }
 
     @Override
-    public void accumulate(@Nonnull final Double value) {
-        switch (operation) {
-            case SUM:
-                currentState = currentState + value;
-                break;
-            case MIN:
-                currentState = Math.min(currentState, value);
-                break;
-            case MAX:
-                currentState = Math.max(currentState, value);
-                break;
-            default:
-                break;
+    public void accumulate(@Nullable final Double value) {
+        if (value != null) {
+            switch (operation) {
+                case SUM:
+                    currentState = currentState + value;
+                    break;
+                case MIN:
+                    currentState = Math.min(currentState, value);
+                    break;
+                case MAX:
+                    currentState = Math.max(currentState, value);
+                    break;
+                default:
+                    break;
+            }
+            hasValue = true;
         }
     }
 
     @Override
+    @Nullable
     public Double finish() {
-        return currentState;
+        if (hasValue) {
+            return currentState;
+        } else {
+            return null;
+        }
     }
 
     private void resetState(final PrimitiveAccumulatorOperation operation) {

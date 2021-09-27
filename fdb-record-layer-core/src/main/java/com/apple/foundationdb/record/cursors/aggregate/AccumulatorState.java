@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import javax.annotation.Nullable;
+
 /**
  * This interface presents a state af an accumulated value. The AccumulatorState holds on to an intermediate state throughout
  * the aggregation operation, allowing for {@link #accumulate} operation to add additional values throughout the aggregation process
@@ -33,7 +35,7 @@ public interface AccumulatorState<T, R> {
      * value will be applied to the existing state differently.
      * @param value the value to accumulate.
      */
-    void accumulate(T value);
+    void accumulate(@Nullable T value);
 
     /**
      * Finalize the accumulation operation and return the result. Depending on the type of aggregation being done, different
@@ -41,5 +43,6 @@ public interface AccumulatorState<T, R> {
      * Note that after calling {@link #finish}, continuing to {@link #accumulate} may produce unpredictable results.
      * @return the finalized accumulation result.
      */
+    @Nullable
     R finish();
 }

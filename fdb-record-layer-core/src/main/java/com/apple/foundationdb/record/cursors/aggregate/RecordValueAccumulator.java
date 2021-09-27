@@ -53,6 +53,7 @@ public class RecordValueAccumulator<T, R> {
         state.accumulate(narrow(value.eval(store, context, record, message)));
     }
 
+    @Nullable
     public R finish() {
         return state.finish();
     }
