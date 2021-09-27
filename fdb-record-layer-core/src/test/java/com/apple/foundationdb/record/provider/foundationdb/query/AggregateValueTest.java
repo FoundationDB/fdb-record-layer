@@ -41,10 +41,18 @@ import java.util.List;
  * Test the AggregateValues implementation through mock inner Value usage.
  */
 public class AggregateValueTest {
-    private MockValue<Integer> intValue, intValueWithNulls, intValueOnlyNull;
-    private MockValue<Long> longValue, longValueWithNulls, longValueOnlyNull;
-    private MockValue<Float> floatValue, floatValueWithNulls, floatValueOnlyNull;
-    private MockValue<Double> doubleValue, doubleValueWithNulls, doubleValueOnlyNull;
+    private MockValue<Integer> intValue;
+    private MockValue<Integer> intValueWithNulls;
+    private MockValue<Integer> intValueOnlyNull;
+    private MockValue<Long> longValue;
+    private MockValue<Long> longValueWithNulls;
+    private MockValue<Long> longValueOnlyNull;
+    private MockValue<Float> floatValue;
+    private MockValue<Float> floatValueWithNulls;
+    private MockValue<Float> floatValueOnlyNull;
+    private MockValue<Double> doubleValue;
+    private MockValue<Double> doubleValueWithNulls;
+    private MockValue<Double> doubleValueOnlyNull;
 
     @BeforeEach
     void setup() throws Exception {
