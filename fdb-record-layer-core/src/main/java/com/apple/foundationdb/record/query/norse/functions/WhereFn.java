@@ -1,5 +1,5 @@
 /*
- * MateFn.java
+ * WhereFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,56 +22,65 @@ package com.apple.foundationdb.record.query.norse.functions;
 
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryMaterializeExpressionPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.predicates.Atom;
+import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.TupleValue;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Function
- * mate(STREAM, TUPLE -> TUPLE) -> RELATION.
+ * filter(RELATION, FUNCTION) -> RELATION.
  */
 @AutoService(BuiltInFunction.class)
-public class MateFn extends BuiltInFunction<RelationalExpression> {
-    public MateFn() {
-        super("mate",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Tuple())), MateFn::encapsulate);
+public class WhereFn extends BuiltInFunction<RelationalExpression> {
+    public WhereFn() {
+        super("where",
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), WhereFn::encapsulate);
     }
 
     public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
         // the call is already validated against the resolved function
-        Verify.verify(arguments.get(0) instanceof RecordQueryPlan);
+        Verify.verify(arguments.get(0) instanceof RelationalExpression);
         Verify.verify(arguments.get(1) instanceof Lambda);
 
         // get the typing information from the first argument
-        final RecordQueryPlan inStream = (RecordQueryPlan)arguments.get(0);
+        final RelationalExpression inStream = (RelationalExpression)arguments.get(0);
         final Type streamedType = Objects.requireNonNull(inStream.getResultType().getInnerType(), "relation type must not be erased");
         Verify.verify(streamedType.getTypeCode() == Type.TypeCode.TUPLE);
 
         // provide a calling scope to the lambda
         final Lambda lambda = (Lambda)arguments.get(1);
 
-        final Quantifier.Physical inQuantifier = Quantifier.physical(GroupExpressionRef.of(inStream));
+        final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inStream));
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
         final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
-        Verify.verify(graphExpansion.getQuantifiers().isEmpty());
         Verify.verify(graphExpansion.getPredicates().isEmpty());
-
-        return new RecordQueryMaterializeExpressionPlan(inQuantifier, TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)));
+        final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
+        if (resultValue instanceof BooleanValue) {
+            final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
+            if (queryPredicateOptional.isPresent()) {
+                return new SelectExpression(argumentValues,
+                        ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
+                        ImmutableList.of(queryPredicateOptional.get()));
+            }
+        }
+        throw new IllegalArgumentException("cannot express filter in terms of QueryPredicates");
     }
 }

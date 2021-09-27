@@ -1,5 +1,5 @@
 /*
- * RecordQueryMaterializeExpressionPlan.java
+ * RecordQueryMapExpressionPlan.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -59,7 +59,7 @@ import java.util.stream.IntStream;
  * A query plan that reconstructs records from the entries in a covering index.
  */
 @API(API.Status.INTERNAL)
-public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWithChild, RelationalExpressionWithChildren {
+public class RecordQueryMapExpressionPlan implements RecordQueryPlanWithChild, RelationalExpressionWithChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Materialize-Expression-Plan");
 
     @Nonnull
@@ -67,8 +67,8 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
     @Nonnull
     private final List<? extends Value> resultValues;
 
-    public RecordQueryMaterializeExpressionPlan(@Nonnull Quantifier.Physical inner,
-                                                @Nonnull List<? extends Value> resultValues) {
+    public RecordQueryMapExpressionPlan(@Nonnull Quantifier.Physical inner,
+                                        @Nonnull List<? extends Value> resultValues) {
         this.inner = inner;
         this.resultValues = ImmutableList.copyOf(resultValues);
     }
@@ -99,7 +99,7 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryMaterializeExpressionPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), resultValues);
+        return new RecordQueryMapExpressionPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), resultValues);
     }
 
     @Nonnull
@@ -112,10 +112,10 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
 
     @Nonnull
     @Override
-    public RecordQueryMaterializeExpressionPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
+    public RecordQueryMapExpressionPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         Verify.verify(rebasedQuantifiers.size() == 1);
         final ImmutableList<? extends Value> rebasedResultValues = resultValues.stream().map(r -> r.rebase(translationMap)).collect(ImmutableList.toImmutableList());
-        return new RecordQueryMaterializeExpressionPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
+        return new RecordQueryMapExpressionPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
     }
 
     @Override
@@ -129,7 +129,7 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
     }
 
     @Override
-    public RecordQueryMaterializeExpressionPlan strictlySorted() {
+    public RecordQueryMapExpressionPlan strictlySorted() {
         return this;
     }
 
@@ -226,7 +226,7 @@ public class RecordQueryMaterializeExpressionPlan implements RecordQueryPlanWith
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
-                        ImmutableList.of("MATE {{expr}}"),
+                        ImmutableList.of("MAP {{expr}}"),
                         ImmutableMap.of("expr", Attribute.gml(getResultValues().stream().map(Object::toString).collect(Collectors.joining(", "))))),
                 childGraphs);
     }

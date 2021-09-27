@@ -1,5 +1,5 @@
 /*
- * FilterFn.java
+ * WhereFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -27,10 +27,9 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
-import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.TupleValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -42,20 +41,19 @@ import com.google.common.collect.Iterables;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Function
- * filter(RELATION, FUNCTION) -> RELATION.
+ * map(RELATION, FUNCTION) -> RELATION.
  */
 @AutoService(BuiltInFunction.class)
-public class FilterFn extends BuiltInFunction<RelationalExpression> {
-    public FilterFn() {
-        super("filter",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), FilterFn::encapsulate);
+public class SelectFn extends BuiltInFunction<RelationalExpression> {
+    public SelectFn() {
+        super("select",
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Tuple())), SelectFn::encapsulate);
     }
 
-    public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
+    private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
         // the call is already validated against the resolved function
         Verify.verify(arguments.get(0) instanceof RelationalExpression);
         Verify.verify(arguments.get(1) instanceof Lambda);
@@ -72,27 +70,8 @@ public class FilterFn extends BuiltInFunction<RelationalExpression> {
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
         final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
         Verify.verify(graphExpansion.getPredicates().isEmpty());
-        final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
-        if (resultValue instanceof BooleanValue) {
-            final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
-            if (queryPredicateOptional.isPresent()) {
-                return new SelectExpression(argumentValues,
-                        ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
-                        ImmutableList.of(queryPredicateOptional.get()));
-            }
-        }
-        throw new IllegalArgumentException("cannot express filter in terms of QueryPredicates");
-    }
-
-    /**
-     * Function
-     * where(RELATION, FUNCTION) -> RELATION.
-     */
-    @AutoService(BuiltInFunction.class)
-    public static class WhereFn extends BuiltInFunction<RelationalExpression> {
-        public WhereFn() {
-            super("where",
-                    ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), FilterFn::encapsulate);
-        }
+        return new SelectExpression(TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)),
+                ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
+                ImmutableList.of());
     }
 }
