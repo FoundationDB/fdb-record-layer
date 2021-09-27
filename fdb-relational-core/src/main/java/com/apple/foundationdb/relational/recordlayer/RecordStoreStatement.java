@@ -23,12 +23,17 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.relational.api.*;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.RecordQuery;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 public class RecordStoreStatement implements Statement {
@@ -43,9 +48,47 @@ public class RecordStoreStatement implements Statement {
         throw new OperationUnsupportedException("No language is currently supported");
     }
 
+
     @Override
-    public RelationalResultSet executeQuery(Queryable query, Options options, QueryProperties queryProperties) throws RelationalException {
-        throw new OperationUnsupportedException("Not Implemented in the Relational layer");
+    @Nonnull
+    public RelationalResultSet executeQuery(@Nonnull Queryable query, @Nonnull Options options) throws RelationalException {
+        ensureTransactionActive();
+
+        String schem = query.getSchema();
+        if (schem == null) {
+            schem = conn.getSchema();
+        }
+        String[] schemaAndTable = getSchemaAndTable(schem, query.getTable());
+        RecordLayerSchema schema = conn.frl.loadSchema(schemaAndTable[0], options);
+
+        Table table = schema.loadTable(schemaAndTable[1], options);
+        final String[] availableColumns = table.getFieldNames();
+        List<String> queryColumns = query.getColumns();
+        List<KeyExpression> queryCols = new ArrayList<>(queryColumns.size());
+        //validate columns
+        for (String queryColumn : queryColumns) {
+            boolean found = false;
+            for (String ac : availableColumns) {
+                if (queryColumn.equalsIgnoreCase(ac)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                throw new RelationalException("Invalid column for table. Table: <" + query.getTable() + ">,column: <" + queryColumn + ">", RelationalException.ErrorCode.INVALID_PARAMETER);
+            }
+            queryCols.add(Key.Expressions.field(queryColumn));
+        }
+        RecordQuery.Builder recQueryBuilder = RecordQuery.newBuilder().setRecordType(table.getName());
+        if (queryCols.size() > 0) {
+            recQueryBuilder.setRequiredResults(queryCols);
+        }
+        if (query.getWhereClause() != null) {
+            recQueryBuilder.setFilter(WhereClauseUtils.convertClause(query.getWhereClause()));
+        }
+
+        final QueryScannable scannable = new QueryScannable(conn, conn.frl.loadSchema(query.getSchema(), options), recQueryBuilder.build(), queryColumns.toArray(new String[0]), query.isExplain());
+        return new RecordLayerResultSet(scannable, null, null, conn, query.getQueryOptions());
     }
 
     @Override

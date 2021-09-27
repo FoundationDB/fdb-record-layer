@@ -1,5 +1,5 @@
 /*
- * EmptyTuple.java
+ * OrClause.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,18 +18,25 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.recordlayer.query;
 
-public class EmptyTuple extends AbstractTuple {
-    public static EmptyTuple INSTANCE = new EmptyTuple();
+import com.apple.foundationdb.relational.api.WhereClause;
 
-    @Override
-    public int getNumFields() {
-        return 0;
+import java.util.Arrays;
+import java.util.List;
+
+public class OrClause implements WhereClause {
+    private final List<WhereClause> childClauses;
+
+    public OrClause(List<WhereClause> childClauses) {
+        this.childClauses = childClauses;
     }
 
-    @Override
-    public Object getObject(int position) {
-        return null;
+    public OrClause(WhereClause... childClauses) {
+        this(Arrays.asList(childClauses));
+    }
+
+    public List<WhereClause> getChildClauses() {
+        return childClauses;
     }
 }

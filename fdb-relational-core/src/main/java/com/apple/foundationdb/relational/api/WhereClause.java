@@ -1,5 +1,5 @@
 /*
- * EmptyTuple.java
+ * WhereClause.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,18 +18,10 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer;
+package com.apple.foundationdb.relational.api;
 
-public class EmptyTuple extends AbstractTuple {
-    public static EmptyTuple INSTANCE = new EmptyTuple();
-
-    @Override
-    public int getNumFields() {
-        return 0;
-    }
-
-    @Override
-    public Object getObject(int position) {
-        return null;
-    }
+/**
+ * Represents the parsed results of a WhereClause within a Queryable data structure.
+ */
+public interface WhereClause {
 }
