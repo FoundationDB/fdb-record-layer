@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.query.norse.functions;
 
-import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
@@ -49,17 +48,7 @@ public class RangeFn extends BuiltInFunction<RelationalExpression> {
     public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
         // the call is already validated against the resolved function
         Verify.verify(arguments.get(0) instanceof Value);
-
         final Value exclusiveLimitValue = (Value)arguments.get(0);
-
-        final Object result = exclusiveLimitValue.compileTimeEval(EvaluationContext.EMPTY);
-        final int exclusiveLimit;
-        if (result instanceof Integer) {
-            exclusiveLimit = (int)result;
-        } else {
-            throw new IllegalArgumentException("arguments to range() must be an integer");
-        }
-
-        return new RecordQueryRangePlan(exclusiveLimit);
+        return new RecordQueryRangePlan(exclusiveLimitValue);
     }
 }

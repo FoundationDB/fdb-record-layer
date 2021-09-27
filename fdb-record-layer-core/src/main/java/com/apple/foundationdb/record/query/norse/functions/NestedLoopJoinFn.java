@@ -1,5 +1,5 @@
 /*
- * MapFn.java
+ * NestedLoopJoinFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,7 +22,7 @@ package com.apple.foundationdb.record.query.norse.functions;
 
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryNestedLoopJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
@@ -31,12 +31,11 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.TupleValue;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -44,13 +43,13 @@ import java.util.Objects;
 
 /**
  * Function
- * map(STREAM, TUPLE -> TUPLE) -> STREAM.
+ * nljn(STREAM, TUPLE -> TUPLE) -> STREAM.
  */
 @AutoService(BuiltInFunction.class)
-public class MapFn extends BuiltInFunction<RelationalExpression> {
-    public MapFn() {
-        super("map",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Tuple())), MapFn::encapsulate);
+public class NestedLoopJoinFn extends BuiltInFunction<RelationalExpression> {
+    public NestedLoopJoinFn() {
+        super("nljn",
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Tuple())), NestedLoopJoinFn::encapsulate);
     }
 
     public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
@@ -59,19 +58,25 @@ public class MapFn extends BuiltInFunction<RelationalExpression> {
         Verify.verify(arguments.get(1) instanceof Lambda);
 
         // get the typing information from the first argument
-        final RecordQueryPlan inStream = (RecordQueryPlan)arguments.get(0);
-        final Type streamedType = Objects.requireNonNull(inStream.getResultType().getInnerType(), "relation type must not be erased");
-        Verify.verify(streamedType.getTypeCode() == Type.TypeCode.TUPLE);
+        final RecordQueryPlan outerStream = (RecordQueryPlan)arguments.get(0);
+        final Type outerType = Objects.requireNonNull(outerStream.getResultType().getInnerType(), "stream type must not be erased");
+        Verify.verify(outerType.getTypeCode() == Type.TypeCode.TUPLE);
 
         // provide a calling scope to the lambda
         final Lambda lambda = (Lambda)arguments.get(1);
 
-        final Quantifier.Physical inQuantifier = Quantifier.physical(GroupExpressionRef.of(inStream));
+        final Quantifier.Physical inQuantifier = Quantifier.physical(GroupExpressionRef.of(outerStream));
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
         final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
+        Verify.verify(graphExpansion.getResults().size() == 1);
         Verify.verify(graphExpansion.getQuantifiers().isEmpty());
         Verify.verify(graphExpansion.getPredicates().isEmpty());
 
-        return new RecordQueryMapPlan(inQuantifier, TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)));
+        // get the typing information from the first argument
+        final RecordQueryPlan innerStream = Iterables.getOnlyElement(graphExpansion.getResultsAs(RecordQueryPlan.class));
+        final Type innerType = Objects.requireNonNull(innerStream.getResultType().getInnerType(), "stream type must not be erased");
+        Verify.verify(innerType.getTypeCode() == Type.TypeCode.TUPLE);
+
+        return new RecordQueryNestedLoopJoinPlan(inQuantifier, Quantifier.physical(GroupExpressionRef.of(innerStream)));
     }
 }

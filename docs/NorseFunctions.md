@@ -1,8 +1,6 @@
-#An Introduction to Norse
+#Function Catalog
 
 <br/>
-
-Norse is an operator language.
 
 ##`from`
 
