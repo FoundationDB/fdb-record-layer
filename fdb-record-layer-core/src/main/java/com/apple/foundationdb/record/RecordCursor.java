@@ -59,6 +59,8 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * An asynchronous iterator that supports continuations.
@@ -887,4 +889,28 @@ public interface RecordCursor<T> extends AutoCloseable {
             }
         }), getExecutor()).thenApply(vignore -> holder.get());
     }
+
+    /**
+     * Retrieve a sequential stream of type T that registers an on-close handler that will close this RecordCursor when the
+     * stream is closed.
+     * @return a new stream that filters out records for which {@code pred} returned a future that completed to {@code false}
+     */
+    @Nonnull
+    default Stream<T> asStream() {
+        return asStream(this::close);
+    }
+
+    /**
+     * Retrieve a sequential stream of type T that registers the supplied on-close handler that will execute when the
+     * stream is closed.
+     * @param closeHandler the function to run when closed
+     * @return a new stream that filters out records for which {@code pred} returned a future that completed to {@code false}
+     */
+    @Nonnull
+    default Stream<T> asStream(Runnable closeHandler) {
+        final Iterable<T> iterable = this::asIterator;
+        return StreamSupport.stream(iterable.spliterator(), false)
+                .onClose(closeHandler);
+    }
+
 }
