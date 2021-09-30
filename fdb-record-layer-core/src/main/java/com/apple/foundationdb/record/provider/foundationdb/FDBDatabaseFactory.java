@@ -26,6 +26,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCacheFactory;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.PassThroughRecordStoreStateCacheFactory;
 
@@ -36,6 +37,7 @@ import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -90,6 +92,8 @@ public abstract class FDBDatabaseFactory {
     private long stateRefreshTimeMillis = TimeUnit.SECONDS.toMillis(FDBDatabase.DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS);
     private long transactionTimeoutMillis = DEFAULT_TR_TIMEOUT_MILLIS;
     private long warnAndCloseOpenContextsAfterSeconds;
+    @Nullable
+    private BiConsumer<FDBDatabase, StoreTimer> transactionMetricListener;
 
     private Function<FDBLatencySource, Long> latencyInjector = DEFAULT_LATENCY_INJECTOR;
 
@@ -559,6 +563,28 @@ public abstract class FDBDatabaseFactory {
     @Nonnull
     public Supplier<BlockingInAsyncDetection> getBlockingInAsyncDetectionSupplier() {
         return this.blockingInAsyncDetectionSupplier;
+    }
+
+    /**
+     * Installs a listener that will be handed a collection of low-level I/O metrics that were gathered
+     * over the lifetime of a transaction. These metrics will be issued the listener as soon as a transaction
+     * is committed or closed. Because this listener is in the path of the completion of every transaction,
+     * implementations should take care to ensure that they are thread safe and efficiently process the provided
+     * metrics before returning.
+     *
+     * @param transactionMetricListener a consumer that accepts the database for which the transaction was
+     *   committed or closed as well as a {@code StoreTimer} containing the I/O metrics for the transaction
+     *
+     * @return this factory
+     */
+    public FDBDatabaseFactory setTransactionMetricListener(@Nullable final BiConsumer<FDBDatabase, StoreTimer> transactionMetricListener) {
+        this.transactionMetricListener = transactionMetricListener;
+        return this;
+    }
+
+    @Nullable
+    public BiConsumer<FDBDatabase, StoreTimer> getTransactionMetricListener() {
+        return transactionMetricListener;
     }
 
     public abstract void shutdown();

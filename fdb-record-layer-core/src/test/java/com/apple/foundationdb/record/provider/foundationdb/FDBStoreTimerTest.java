@@ -46,6 +46,8 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiConsumer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -316,6 +318,53 @@ public class FDBStoreTimerTest {
         assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), equalTo(1));
     }
 
+    @Test
+    void testTransactionMetricListener() {
+        try (FDBRecordContext context = fdb.openContext(null, null)) {
+            Transaction tr = context.ensureActive();
+            tr.clear(subspace.range());
+            tr.commit().join();
+        }
+
+        final AtomicInteger transactions = new AtomicInteger();
+        final AtomicInteger reads = new AtomicInteger();
+        final AtomicInteger writes = new AtomicInteger();
+
+        final BiConsumer<FDBDatabase, StoreTimer> listener = (database, timer) -> {
+            transactions.incrementAndGet();
+            final int tranReads = timer.getCount(FDBStoreTimer.Counts.READS);
+            final int tranWrites = timer.getCount(FDBStoreTimer.Counts.WRITES);
+            assertThat(tranReads, equalTo(2));
+            assertThat(tranWrites, equalTo(1));
+
+            reads.addAndGet(tranReads);
+            writes.addAndGet(tranWrites);
+        };
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try {
+            FDBDatabaseFactory.instance().setTransactionMetricListener(listener);
+            for (int i = 0; i < 3; i++) {
+                try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                    Transaction tr = context.ensureActive();
+                    tr.set(subspace.pack(Tuple.from(1L)), Tuple.from(1L).pack());
+                    tr.get(subspace.pack(Tuple.from(1L)));
+                    tr.get(subspace.pack(Tuple.from(1L)));
+
+                    // Make sure we get metrics even if there is no commit
+                    if (i != 1) {
+                        tr.commit().join();
+                    }
+                }
+            }
+            assertThat(transactions.get(), equalTo(3));
+            assertThat(reads.get(), equalTo(timer.getCount(FDBStoreTimer.Counts.READS)));
+            assertThat(writes.get(), equalTo(timer.getCount(FDBStoreTimer.Counts.WRITES)));
+        } finally {
+            FDBDatabaseFactory.instance().setTransactionMetricListener(null);
+        }
+    }
+
     private void setupBaseData() {
         subspace = fdb.run(context -> {
             KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit");
@@ -333,4 +382,6 @@ public class FDBStoreTimerTest {
             return null;
         });
     }
+
+
 }

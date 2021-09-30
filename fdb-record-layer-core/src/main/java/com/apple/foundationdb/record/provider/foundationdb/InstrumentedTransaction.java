@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
@@ -46,8 +47,22 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Nullable
     protected ReadTransaction snapshot; // lazily cached snapshot wrapper
 
-    public InstrumentedTransaction(@Nullable StoreTimer timer, @Nonnull Transaction underlying, boolean enableAssertions) {
+    protected final FDBDatabase database;
+    @Nullable
+    protected final BiConsumer<FDBDatabase, StoreTimer> listener;
+
+    private final long startNanos;
+    private boolean issuedToListener = false;
+
+    public InstrumentedTransaction(@Nullable StoreTimer timer,
+                                   @Nonnull FDBDatabase database,
+                                   @Nullable BiConsumer<FDBDatabase, StoreTimer> listener,
+                                   @Nonnull Transaction underlying,
+                                   boolean enableAssertions) {
         super(timer, underlying, enableAssertions);
+        this.startNanos = System.nanoTime();
+        this.database = database;
+        this.listener = listener;
     }
 
     @Override
@@ -73,7 +88,6 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public void set(byte[] key, byte[] value) {
         underlying.set(checkKey(key), checkValue(key, value));
-        transactionWrites.incrementAndGet();
         increment(FDBStoreTimer.Counts.WRITES);
         increment(FDBStoreTimer.Counts.BYTES_WRITTEN, key.length + value.length);
     }
@@ -81,14 +95,12 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public void clear(byte[] key) {
         underlying.clear(checkKey(key));
-        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
     @Override
     public void clear(byte[] keyBegin, byte[] keyEnd) {
         underlying.clear(checkKey(keyBegin), checkKey(keyEnd));
-        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
@@ -98,7 +110,6 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         checkKey(range.end);
 
         underlying.clear(range);
-        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
@@ -106,7 +117,6 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Deprecated
     public void clearRangeStartsWith(byte[] prefix) {
         underlying.clearRangeStartsWith(checkKey(prefix));
-        transactionDeletes.incrementAndGet();
         increment(FDBStoreTimer.Counts.DELETES);
     }
 
@@ -114,7 +124,6 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     public void mutate(MutationType opType, byte[] key, byte[] param) {
         underlying.mutate(opType, checkKey(key), param);
         /* Do we want to track each mutation type separately as well? */
-        transactionMutations.incrementAndGet();
         increment(FDBStoreTimer.Counts.MUTATIONS);
     }
 
@@ -123,7 +132,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         long startTimeNanos = System.nanoTime();
         return underlying.commit().whenComplete((v, ex) -> {
             trackCommitFailures(ex);
-            publishTransactionMetrics();
+            sendMetricsToListener();
             recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos);
         });
     }
@@ -201,7 +210,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public void close() {
-        publishTransactionMetrics();
+        sendMetricsToListener();
         underlying.close();
     }
 
@@ -226,6 +235,16 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public void setReadVersion(long l) {
         underlying.setReadVersion(l);
+    }
+
+    private synchronized void sendMetricsToListener() {
+        if (timer != null) {
+            timer.record(FDBStoreTimer.Events.TRANSACTION_TIME, System.nanoTime() - startNanos);
+            if (!issuedToListener && listener != null) {
+                issuedToListener = true;
+                listener.accept(database, timer);
+            }
+        }
     }
 
     private static class Snapshot extends InstrumentedReadTransaction<ReadTransaction> implements ReadTransaction {

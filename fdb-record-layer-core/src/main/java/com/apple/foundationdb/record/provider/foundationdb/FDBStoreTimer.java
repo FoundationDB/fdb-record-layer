@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.EventKeeper;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -37,7 +36,7 @@ import java.util.stream.Stream;
  * A {@link StoreTimer} associated with {@link FDBRecordStore} operations.
  */
 @API(API.Status.STABLE)
-public class FDBStoreTimer extends StoreTimer implements EventKeeper {
+public class FDBStoreTimer extends StoreTimer {
 
     /**
      * Ordinary top-level events which surround a single body of code.
@@ -214,6 +213,8 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         LUCENE_GET_FILE_REFERENCE("lucene get file references"),
         /** Number of documents returned from a single Lucene Index Scan. */
         LUCENE_INDEX_SCAN("lucene search returned documents"),
+        /** Total lifetime of a transaction */
+        TRANSACTION_TIME("transaction time")
         ;
 
         private final String title;
@@ -653,20 +654,6 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
-        /** Total reads done within a single transaction */
-        TRANSACTION_READS("transaction reads", false),
-        /** Total writes done within a single transaction */
-        TRANSACTION_WRITES("transaction writes", false),
-        /** Total deletes (clears) done within a single transaction */
-        TRANSACTION_DELETES("transaction deletes", false),
-        /** Total bytes read within a single transaction */
-        TRANSACTION_BYTES_READ("transaction bytes read", true),
-        /** Total bytes written within a single transaction */
-        TRANSACTION_BYTES_WRITTEN("transaction bytes written", true),
-        /** Total lifetime of a transaction */
-        TRANSACTION_TIME_MICROS("transaction time micros", false),
-        /** Total mutations within a single transaction */
-        TRANSACTION_MUTATIONS("transaction mutations", false),
         /** Count of commits that failed for any reason */
         COMMITS_FAILED("commits failed", false),
         /** Count failed due to conflict */
@@ -817,67 +804,5 @@ public class FDBStoreTimer extends StoreTimer implements EventKeeper {
         final long totalNanos = System.nanoTime() - startTime;
         getCounter(Events.TIMEOUTS, true).record(totalNanos);
         getTimeoutCounter(event, true).record(totalNanos);
-    }
-
-    @Override
-    public void count(final EventKeeper.Event event, final long amt) {
-        if (event instanceof EventKeeper.Events) {
-            EventKeeper.Events fdbEvent = (EventKeeper.Events)event;
-            switch (fdbEvent) {
-                case JNI_CALL:
-                    increment(Counts.JNI_CALLS, (int)amt);
-                    break;
-                case BYTES_FETCHED:
-                    increment(Counts.BYTES_FETCHED, (int)amt);
-                    break;
-                case RANGE_QUERY_FETCHES:
-                    increment(Counts.RANGE_FETCHES, (int)amt);
-                    break;
-                case RANGE_QUERY_RECORDS_FETCHED:
-                    increment(Counts.RANGE_KEYVALUES_FETCHED, (int)amt);
-                    break;
-                case RANGE_QUERY_CHUNK_FAILED:
-                    increment(Counts.CHUNK_READ_FAILURES, (int)amt);
-                    break;
-                case RANGE_QUERY_FETCH_TIME_NANOS:
-                    record(Events.FETCHES,(int)amt);
-                    break;
-                default:
-                    //do-nothing
-            }
-        }
-    }
-
-    @Override
-    public void timeNanos(final EventKeeper.Event event, final long nanos) {
-        count(event,nanos);
-    }
-
-    @Override
-    public long getCount(final EventKeeper.Event event) {
-        if (event instanceof EventKeeper.Events) {
-            EventKeeper.Events fdbEvent = (EventKeeper.Events)event;
-            switch (fdbEvent) {
-                case JNI_CALL:
-                    return getCount(Counts.JNI_CALLS);
-                case BYTES_FETCHED:
-                    return getCount(Counts.BYTES_FETCHED);
-                case RANGE_QUERY_FETCHES:
-                    return getCount(Counts.RANGE_FETCHES);
-                case RANGE_QUERY_RECORDS_FETCHED:
-                    return getCount(Counts.RANGE_KEYVALUES_FETCHED);
-                case RANGE_QUERY_CHUNK_FAILED:
-                    return getCount(Counts.CHUNK_READ_FAILURES);
-                default:
-                    //no-op
-            }
-        }
-        //by default, just return 0
-        return 0;
-    }
-
-    @Override
-    public long getTimeNanos(final EventKeeper.Event event) {
-        return getCount(event);
     }
 }
