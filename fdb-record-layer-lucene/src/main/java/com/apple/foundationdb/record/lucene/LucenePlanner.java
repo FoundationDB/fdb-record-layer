@@ -47,6 +47,7 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndexFieldNames;
 
@@ -57,8 +58,11 @@ import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndex
  */
 public class LucenePlanner extends RecordQueryPlanner {
 
-    public LucenePlanner(@Nonnull final RecordMetaData metaData, @Nonnull final RecordStoreState recordStoreState, final PlannableIndexTypes indexTypes, final FDBStoreTimer timer) {
+    private ExecutorService service;
+
+    public LucenePlanner(@Nonnull final RecordMetaData metaData, @Nonnull final RecordStoreState recordStoreState, final PlannableIndexTypes indexTypes, final FDBStoreTimer timer, @Nullable final ExecutorService service) {
         super(metaData, recordStoreState, indexTypes, timer);
+        this.service = service;
     }
 
     private LuceneIndexQueryPlan getScanForFieldWithComparison(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull FieldWithComparison filter,
@@ -107,7 +111,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterSatisfiedMask != null) {
             filterSatisfiedMask.setSatisfied(true);
         }
-        return new LuceneIndexQueryPlan(index.getName(), luceneComparison, false, groupingComparisons);
+        return new LuceneIndexQueryPlan(index.getName(), luceneComparison, false, groupingComparisons, this.service);
     }
 
     private LuceneIndexQueryPlan getScanForLuceneComponent(@Nonnull Index index, @Nonnull LuceneQueryComponent filter,
@@ -129,9 +133,9 @@ public class LucenePlanner extends RecordQueryPlanner {
             filterMask.setSatisfied(true);
         }
         if (filter.multiFieldSearch) {
-            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_FULL_TEXT, comparison, false, null, groupingComparisons);
+            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_FULL_TEXT, comparison, false, null, groupingComparisons, this.service);
         }
-        return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE, comparison, false, null, groupingComparisons);
+        return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE, comparison, false, null, groupingComparisons, this.service);
     }
 
     private LuceneIndexQueryPlan getScanForAndLucene(@Nonnull Index index, @Nullable String parentFieldName, @Nonnull AndComponent filter,

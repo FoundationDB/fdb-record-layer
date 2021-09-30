@@ -160,7 +160,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         Sets.newHashSet(IndexTypes.LUCENE)
                 );
             }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer(), null);
         }
     }
 
