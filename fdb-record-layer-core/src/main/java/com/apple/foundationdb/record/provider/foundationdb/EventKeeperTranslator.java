@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.EventKeeper;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 
 import javax.annotation.Nullable;
@@ -158,6 +159,7 @@ class EventKeeperTranslator implements EventKeeper {
         }
     }
 
+    @SpotBugsSuppressWarnings("EQ_DOESNT_OVERRIDE_EQUALS")
     private static class Count extends BaseEvent implements StoreTimer.Count {
         protected final boolean isSize;
 
