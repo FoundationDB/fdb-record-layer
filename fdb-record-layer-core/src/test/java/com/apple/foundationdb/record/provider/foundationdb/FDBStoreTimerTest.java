@@ -43,11 +43,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiConsumer;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -326,24 +325,12 @@ public class FDBStoreTimerTest {
             tr.commit().join();
         }
 
-        final AtomicInteger transactions = new AtomicInteger();
-        final AtomicInteger reads = new AtomicInteger();
-        final AtomicInteger writes = new AtomicInteger();
 
-        final BiConsumer<FDBDatabase, StoreTimer> listener = (database, timer) -> {
-            transactions.incrementAndGet();
-            final int tranReads = timer.getCount(FDBStoreTimer.Counts.READS);
-            final int tranWrites = timer.getCount(FDBStoreTimer.Counts.WRITES);
-            assertThat(tranReads, equalTo(2));
-            assertThat(tranWrites, equalTo(1));
-
-            reads.addAndGet(tranReads);
-            writes.addAndGet(tranWrites);
-        };
+        final TestTransactionListener listener = new TestTransactionListener();
 
         final FDBStoreTimer timer = new FDBStoreTimer();
         try {
-            FDBDatabaseFactory.instance().setTransactionMetricListener(listener);
+            FDBDatabaseFactory.instance().setTransactionListener(listener);
             for (int i = 0; i < 3; i++) {
                 try (FDBRecordContext context = fdb.openContext(null, timer)) {
                     Transaction tr = context.ensureActive();
@@ -357,11 +344,43 @@ public class FDBStoreTimerTest {
                     }
                 }
             }
-            assertThat(transactions.get(), equalTo(3));
-            assertThat(reads.get(), equalTo(timer.getCount(FDBStoreTimer.Counts.READS)));
-            assertThat(writes.get(), equalTo(timer.getCount(FDBStoreTimer.Counts.WRITES)));
+            assertThat(listener.transactions, equalTo(3));
+            assertThat(listener.reads, equalTo(timer.getCount(FDBStoreTimer.Counts.READS)));
+            assertThat(listener.writes, equalTo(timer.getCount(FDBStoreTimer.Counts.WRITES)));
+            assertThat(listener.commits, equalTo(2));
+            assertThat(listener.closes, equalTo(3));
         } finally {
-            FDBDatabaseFactory.instance().setTransactionMetricListener(null);
+            FDBDatabaseFactory.instance().setTransactionListener(null);
+        }
+    }
+
+    private static class TestTransactionListener implements TransactionListener {
+        int transactions;
+        int reads;
+        int writes;
+        int commits;
+        int closes;
+
+        @Override
+        public void create(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction) {
+            ++transactions;
+        }
+
+        @Override
+        public void commit(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction,
+                           @Nullable final StoreTimer storeTimer, @Nullable final Throwable exception) {
+            reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
+            writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
+            storeTimer.reset();
+            commits++;
+        }
+
+        @Override
+        public void close(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction, @Nullable final StoreTimer storeTimer) {
+            reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
+            writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
+            storeTimer.reset();
+            ++closes;
         }
     }
 

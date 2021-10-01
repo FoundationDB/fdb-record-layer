@@ -34,7 +34,6 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
@@ -49,20 +48,24 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     protected final FDBDatabase database;
     @Nullable
-    protected final BiConsumer<FDBDatabase, StoreTimer> listener;
+    protected final TransactionListener listener;
 
     private final long startNanos;
-    private boolean issuedToListener = false;
+    private boolean endTimeRecorded = false;
 
     public InstrumentedTransaction(@Nullable StoreTimer timer,
                                    @Nonnull FDBDatabase database,
-                                   @Nullable BiConsumer<FDBDatabase, StoreTimer> listener,
+                                   @Nullable TransactionListener listener,
                                    @Nonnull Transaction underlying,
                                    boolean enableAssertions) {
         super(timer, underlying, enableAssertions);
         this.startNanos = System.nanoTime();
         this.database = database;
         this.listener = listener;
+
+        if (listener != null) {
+            listener.create(database, this);
+        }
     }
 
     @Override
@@ -132,7 +135,12 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         long startTimeNanos = System.nanoTime();
         return underlying.commit().whenComplete((v, ex) -> {
             trackCommitFailures(ex);
-            sendMetricsToListener();
+
+            recordEndTime();
+            if (listener != null) {
+                listener.commit(database, this, timer, ex);
+            }
+
             recordSinceNanoTime(FDBStoreTimer.Events.COMMITS, startTimeNanos);
         });
     }
@@ -210,8 +218,11 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
 
     @Override
     public void close() {
-        sendMetricsToListener();
         underlying.close();
+        recordEndTime();
+        if (listener != null) {
+            listener.close(database, this, timer);
+        }
     }
 
     @Override
@@ -237,13 +248,10 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         underlying.setReadVersion(l);
     }
 
-    private synchronized void sendMetricsToListener() {
-        if (timer != null) {
+    private synchronized void recordEndTime() {
+        if (timer != null && !endTimeRecorded) {
+            endTimeRecorded = true;
             timer.record(FDBStoreTimer.Events.TRANSACTION_TIME, System.nanoTime() - startNanos);
-            if (!issuedToListener && listener != null) {
-                issuedToListener = true;
-                listener.accept(database, timer);
-            }
         }
     }
 

@@ -62,7 +62,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -740,7 +739,9 @@ public class FDBDatabase {
      * @return newly created transaction
      */
     private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nonnull Executor executor) {
-        final BiConsumer<FDBDatabase, StoreTimer> listener = factory.getTransactionMetricListener();
+        final TransactionListener listener = config.getTransactionListener() == null
+                                             ? factory.getTransactionListener()
+                                             : config.getTransactionListener();
 
         final StoreTimer timer = listener != null
                                  ? new StoreSubTimer(config.getTimer())
