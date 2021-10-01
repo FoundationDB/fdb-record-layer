@@ -1158,7 +1158,17 @@ public class RecordCursorTest {
         cursor = RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7));
         sum = cursor.reduce(0, Integer::sum, x -> x > 10);
         assertEquals(15, sum.get());
+    }
 
+    @Test
+    public void asStreamTest() throws Exception {
+        assertEquals(7, RecordCursor.fromList(Arrays.asList(1, 2, 3, 4, 5, 6, 7)).asStream().count());
+        assertEquals(2, RecordCursor.fromList(Arrays.asList(2, 3)).asStream().findFirst().get());
+        assertEquals(3, RecordCursor.fromList(Arrays.asList(2, 3)).map(x -> x + 1).asStream().findFirst().get());
+        assertThrows(RuntimeException.class, () -> RecordCursor.fromList(Arrays.asList(2, 3)).asStream(
+                        () -> {
+                            throw new RuntimeException("on close");
+                        }).close());
 
     }
 
