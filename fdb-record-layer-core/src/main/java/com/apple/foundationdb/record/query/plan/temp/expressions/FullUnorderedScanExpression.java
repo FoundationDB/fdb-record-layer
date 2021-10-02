@@ -101,7 +101,7 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
         if (fieldDescriptorMap == null) {
             resultType = Type.primitiveType(Type.TypeCode.UNKNOWN);
         } else {
-            resultType = new Type.Record(fieldDescriptorMap);
+            resultType = Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap);
         }
         return ImmutableList.of(new QueriedValue(resultType));
     }

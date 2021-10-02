@@ -27,6 +27,8 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos.DescriptorProto;
+import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -35,6 +37,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -57,11 +60,28 @@ public interface Type {
         return getTypeCode().isNumeric();
     }
 
+    @Nullable
+    DescriptorProto buildDescriptor(@Nonnull final String typeName);
+
+    void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
+                       final int fieldIndex,
+                       @Nonnull final String fieldName,
+                       @Nonnull final String typeName,
+                       @Nonnull final FieldDescriptorProto.Label label);
+
     @Nonnull
     Supplier<BiMap<Class<?>, TypeCode>> CLASS_TO_TYPE_CODE_SUPPLIER = Suppliers.memoize(TypeCode::computeClassToTypeCodeMap);
 
     static Map<Class<?>, TypeCode> getClassToTypeCodeMap() {
         return CLASS_TO_TYPE_CODE_SUPPLIER.get();
+    }
+
+    static String typeName(final Object fieldSuffix) {
+        return "__type__" + fieldSuffix;
+    }
+
+    static String fieldName(final Object fieldSuffix) {
+        return "__field__" + fieldSuffix;
     }
 
     @Nonnull
@@ -71,6 +91,27 @@ public interface Type {
             @Override
             public TypeCode getTypeCode() {
                 return typeCode;
+            }
+
+            @Nullable
+            @Override
+            public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+                return null;
+            }
+
+            @Override
+            public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                      final int fieldIndex,
+                                      @Nonnull final String fieldName,
+                                      @Nonnull final String typeName,
+                                      @Nonnull final FieldDescriptorProto.Label label) {
+                final FieldDescriptorProto.Type protoType = Objects.requireNonNull(getTypeCode().getProtoType());
+                descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                        .setNumber(fieldIndex)
+                        .setName(fieldName)
+                        .setType(protoType)
+                        .setLabel(label)
+                        .build());
             }
 
             @Override
@@ -88,35 +129,47 @@ public interface Type {
     }
 
     enum TypeCode {
-        UNKNOWN(Void.class, true, false),
-        ANY(Void.class, false, false),
-        BOOLEAN(Boolean.class, true, false),
-        BYTES(ByteString.class, true, false),
-        DOUBLE(Double.class, true, true),
-        FLOAT(Float.class, true, true),
-        INT(Integer.class, true, true),
-        LONG(Long.class, true, true),
-        STRING(String.class, true, false),
-        TUPLE(List.class, false, false),
-        RECORD(Message.class, false, false),
-        COLLECTION(Collection.class, false, false),
-        STREAM(Void.class, false, false),
-        FUNCTION(Void.class, false, false);
+        UNKNOWN(null, null, true, false),
+        ANY(Object.class, null, false, false),
+        BOOLEAN(Boolean.class, FieldDescriptorProto.Type.TYPE_BOOL, true, false),
+        BYTES(ByteString.class, FieldDescriptorProto.Type.TYPE_BYTES, true, false),
+        DOUBLE(Double.class, FieldDescriptorProto.Type.TYPE_DOUBLE, true, true),
+        FLOAT(Float.class, FieldDescriptorProto.Type.TYPE_FLOAT, true, true),
+        INT(Integer.class, FieldDescriptorProto.Type.TYPE_INT32, true, true),
+        LONG(Long.class, FieldDescriptorProto.Type.TYPE_INT64, true, true),
+        STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
+        TUPLE(List.class, null, false, false),
+        RECORD(Message.class, null, false, false),
+        COLLECTION(Collection.class, null, false, false),
+        STREAM(null, null, false, false),
+        FUNCTION(null, null, false, false);
 
-        @Nonnull
+        @Nullable
         private final Class<?> javaClass;
+        @Nullable
+        private final FieldDescriptorProto.Type protoType;
+
         private final boolean isPrimitive;
         private final boolean isNumeric;
 
-        TypeCode(@Nonnull final Class<?> javaClass, final boolean isPrimitive, final boolean isNumeric) {
+        TypeCode(@Nullable final Class<?> javaClass,
+                 @Nullable final FieldDescriptorProto.Type protoType,
+                 final boolean isPrimitive,
+                 final boolean isNumeric) {
             this.javaClass = javaClass;
+            this.protoType = protoType;
             this.isPrimitive = isPrimitive;
             this.isNumeric = isNumeric;
         }
 
-        @Nonnull
+        @Nullable
         public Class<?> getJavaClass() {
             return javaClass;
+        }
+
+        @Nullable
+        public FieldDescriptorProto.Type getProtoType() {
+            return protoType;
         }
 
         public boolean isPrimitive() {
@@ -131,7 +184,9 @@ public interface Type {
         private static BiMap<Class<?>, TypeCode> computeClassToTypeCodeMap() {
             ImmutableBiMap.Builder<Class<?>, TypeCode> builder = ImmutableBiMap.builder();
             for (final TypeCode typeCode : TypeCode.values()) {
-                builder.put(typeCode.getJavaClass(), typeCode);
+                if (typeCode.getJavaClass() != null) {
+                    builder.put(typeCode.getJavaClass(), typeCode);
+                }
             }
             return builder.build();
         }
@@ -176,6 +231,21 @@ public interface Type {
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.ANY;
+        }
+
+        @Nullable
+        @Override
+        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            throw new UnsupportedOperationException("type any cannot be represented in protobuf");
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldIndex,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final String typeName,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            throw new UnsupportedOperationException("type any cannot be represented in protobuf");
         }
 
         @Override
@@ -229,6 +299,21 @@ public interface Type {
             return getParameterTypes() == null;
         }
 
+        @Nullable
+        @Override
+        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            throw new UnsupportedOperationException("type function cannot be represented in protobuf");
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder,
+                                  final int fieldIndex,
+                                  @Nonnull final String fieldName,
+                                  @Nonnull final String typeName,
+                                  @Nonnull final FieldDescriptorProto.Label label) {
+            throw new UnsupportedOperationException("type function cannot be represented in protobuf");
+        }
+
         @Override
         public String toString() {
             return isErased()
@@ -268,6 +353,32 @@ public interface Type {
             return getElementTypes() == null;
         }
 
+        @Nullable
+        @Override
+        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            final DescriptorProto.Builder tupleMsgBuilder = DescriptorProto.newBuilder();
+
+            tupleMsgBuilder.setName(typeName);
+
+            for (int i = 0; i < Objects.requireNonNull(elementTypes).size(); i++) {
+                final Type elementType = elementTypes.get(i);
+                elementType.addProtoField(tupleMsgBuilder, i + 1, fieldName(i + 1), typeName(i + 1), FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            }
+
+            return tupleMsgBuilder.build();
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+            descriptorBuilder.addNestedType(buildDescriptor(typeName));
+            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                    .setName(fieldName)
+                    .setNumber(fieldIndex)
+                    .setTypeName(typeName)
+                    .setLabel(label)
+                    .build());
+        }
+
         @Override
         public String toString() {
             return isErased()
@@ -278,17 +389,14 @@ public interface Type {
 
     class Record implements Type {
         @Nullable
-        private final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap;
-        @Nonnull
-        private final Supplier<Map<String, Type>> fieldTypeMapSupplier;
+        private final Map<String, Type> fieldTypeMap;
 
         public Record() {
             this(null);
         }
 
-        public Record(@Nullable final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
-            this.fieldDescriptorMap = fieldDescriptorMap == null ? null : ImmutableMap.copyOf(fieldDescriptorMap);
-            this.fieldTypeMapSupplier = Suppliers.memoize(this::computeFieldTypeMap);
+        private Record(@Nullable final Map<String, Type> fieldTypeMap) {
+            this.fieldTypeMap = fieldTypeMap == null ? null : ImmutableMap.copyOf(fieldTypeMap);
         }
 
         @Override
@@ -303,14 +411,57 @@ public interface Type {
 
         @Nullable
         public Map<String, Type> getFieldTypeMap() {
-            return fieldTypeMapSupplier.get();
+            return fieldTypeMap;
+        }
+
+        boolean isErased() {
+            return fieldTypeMap == null;
         }
 
         @Nullable
-        private Map<String, Type> computeFieldTypeMap() {
-            if (isErased()) {
-                return null;
+        @Override
+        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            final DescriptorProto.Builder recordMsgBuilder = DescriptorProto.newBuilder();
+
+            recordMsgBuilder.setName(typeName);
+
+            int i = 0;
+            final Set<Map.Entry<String, Type>> fieldsAndTypes = Objects.requireNonNull(getFieldTypeMap()).entrySet();
+            for (final Map.Entry<String, Type> fieldTypeEntry : fieldsAndTypes) {
+                fieldTypeEntry.getValue().addProtoField(recordMsgBuilder, i + 1, fieldTypeEntry.getKey(), typeName(fieldTypeEntry.getKey()), FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                i++;
             }
+
+            return recordMsgBuilder.build();
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+            descriptorBuilder.addNestedType(buildDescriptor(typeName));
+            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                    .setName(fieldName)
+                    .setNumber(fieldIndex)
+                    .setTypeName(typeName)
+                    .setLabel(label)
+                    .build());
+        }
+
+        @Override
+        public String toString() {
+            return isErased()
+                   ? getTypeCode().toString()
+                   : getTypeCode() + "(" + Objects.requireNonNull(getFieldTypeMap()).entrySet().stream().map(entry -> entry.getKey() + "->" + entry.getValue()).collect(Collectors.joining(",")) + ")";
+        }
+
+        public static Record erased() {
+            return new Record(null);
+        }
+
+        public static Record fromTypeMap(@Nonnull final Map<String, Type> fieldTypeMap) {
+            return new Record(fieldTypeMap);
+        }
+
+        public static Record fromFieldDescriptorsMap(final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             final ImmutableMap.Builder<String, Type> fieldTypeMapBuilder = ImmutableMap.builder();
             for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
@@ -319,23 +470,12 @@ public interface Type {
                     final Type primitiveType = primitiveType(typeCode);
                     fieldTypeMapBuilder.put(entry.getKey(), fieldDescriptor.isRepeated() ? new Type.Collection(primitiveType) : primitiveType);
                 } else if (typeCode == TypeCode.RECORD) {
-                    final Record recordType = new Record(toFieldDescriptorMap(fieldDescriptor.getMessageType().getFields()));
+                    final Record recordType = fromFieldDescriptorsMap(toFieldDescriptorMap(fieldDescriptor.getMessageType().getFields()));
                     fieldTypeMapBuilder.put(entry.getKey(), fieldDescriptor.isRepeated() ? new Type.Collection(recordType) : recordType);
                 }
             }
 
-            return fieldTypeMapBuilder.build();
-        }
-
-        boolean isErased() {
-            return fieldDescriptorMap == null;
-        }
-
-        @Override
-        public String toString() {
-            return isErased()
-                   ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getFieldTypeMap()).entrySet().stream().map(entry -> entry.getKey() + "->" + entry.getValue()).collect(Collectors.joining(",")) + ")";
+            return new Record(fieldTypeMapBuilder.build());
         }
 
         @Nonnull
@@ -382,6 +522,17 @@ public interface Type {
             return getInnerType() == null;
         }
 
+        @Nullable
+        @Override
+        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            throw new IllegalStateException("this should not have been called");
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+            throw new IllegalStateException("this should not have been called");
+        }
+
         @Override
         public String toString() {
             return isErased()
@@ -424,6 +575,28 @@ public interface Type {
 
         boolean isErased() {
             return getInnerType() == null;
+        }
+
+        @Nullable
+        @Override
+        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            final DescriptorProto.Builder tupleMsgBuilder = DescriptorProto.newBuilder();
+            tupleMsgBuilder.setName(typeName);
+            Objects.requireNonNull(innerType).addProtoField(tupleMsgBuilder, 1, "elementType", "element", FieldDescriptorProto.Label.LABEL_REPEATED);
+            return tupleMsgBuilder.build();
+        }
+
+        @Override
+        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+
+
+            descriptorBuilder.addNestedType(buildDescriptor(typeName));
+            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                    .setName(fieldName)
+                    .setNumber(fieldIndex)
+                    .setTypeName(typeName)
+                    .setLabel(label)
+                    .build());
         }
 
         @Override

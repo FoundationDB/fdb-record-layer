@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
+import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.debug.PlannerRepl;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
@@ -34,7 +35,11 @@ import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.TextFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -49,6 +54,7 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 class NorseTest extends FDBRecordStoreQueryTestBase {
@@ -242,5 +248,63 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaData recordMetaData = recordStore.getRecordMetaData();
 
         System.out.println(recordMetaData.getRecordTypes());
+    }
+
+    @Test
+    void testDynamicRecords() throws Exception {
+        // Create dynamic schema
+        DynamicSchema.Builder schemaBuilder = DynamicSchema.newBuilder();
+        schemaBuilder.setName("__dynamic__.proto");
+
+//        MessageDefinition msgDef = MessageDefinition.newBuilder("Person") // message Person
+//                .addField("required", "int32", "id", 1)      // required int32 id = 1
+//                .addField("required", "string", "name", 2)   // required string name = 2
+//                .addField("optional", "string", "email", 3)  // optional string email = 3
+//                .build();
+//
+//        schemaBuilder.addMessageDefinition(msgDef);
+//        DynamicSchema schema = schemaBuilder.build();
+//
+
+
+        final Type.Record recordType =
+                Type.Record.fromTypeMap(ImmutableMap.of("field1", Type.primitiveType(Type.TypeCode.INT),
+                        "field2", Type.primitiveType(Type.TypeCode.STRING)));
+
+        schemaBuilder.addType("newType", recordType);
+
+        final Type.Record restaurantType =
+                Type.Record.fromFieldDescriptorsMap(TestRecords4Proto.RestaurantRecord.getDescriptor().getFields().stream().collect(Collectors.toMap(Descriptors.FieldDescriptor::getName, fd -> fd)));
+
+        schemaBuilder.addType("Restaurant", restaurantType);
+
+        final Type tupleType =
+                new Type.Tuple(ImmutableList.of(Type.primitiveType(Type.TypeCode.INT), Type.primitiveType(Type.TypeCode.STRING)));
+
+        schemaBuilder.addType("Tuple123", tupleType);
+
+        DynamicSchema schema = schemaBuilder.build();
+
+        // Create dynamic message from schema
+        DynamicMessage.Builder msgBuilder = schema.newMessageBuilder("newType");
+        Descriptors.Descriptor msgDesc = msgBuilder.getDescriptorForType();
+        DynamicMessage msg = msgBuilder
+                .setField(msgDesc.findFieldByName("field1"), 1)
+                .setField(msgDesc.findFieldByName("field2"), "Alan Turing")
+                .build();
+
+        System.out.println(msg);
+
+        // Create dynamic message from schema
+        msgBuilder = schema.newMessageBuilder("Tuple123");
+        msgDesc = msgBuilder.getDescriptorForType();
+        msg = msgBuilder
+                .setField(msgDesc.findFieldByName("__field__1"), 1)
+                .setField(msgDesc.findFieldByName("__field__2"), "Alan Turing")
+                .build();
+
+        System.out.println(msg);
+
+
     }
 }
