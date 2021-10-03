@@ -147,6 +147,8 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
+        formatter.registerForFormatting(inner.getAlias());
+
         final Set<CorrelationIdentifier> correlatedAliases =
                 resultValues.stream()
                         .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())

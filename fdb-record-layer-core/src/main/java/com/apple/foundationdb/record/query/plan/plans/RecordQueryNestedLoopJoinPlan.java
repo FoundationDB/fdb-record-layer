@@ -210,7 +210,7 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
-        return ImmutableList.of(outer);
+        return ImmutableList.of(outer, inner);
     }
 
     @Nonnull
@@ -219,7 +219,7 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
-                        ImmutableList.of("FLATMAP"),
+                        ImmutableList.of("NLJN"),
                         ImmutableMap.of()),
                 childGraphs);
     }

@@ -45,9 +45,19 @@ import java.util.TreeSet;
 /**
  * DynamicSchema.
  */
-public class DynamicSchema
-{
+public class DynamicSchema {
+    public static final DynamicSchema EMPTY_SCHEMA = empty();
+
     // --- public static ---
+
+    public static DynamicSchema empty() {
+        FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
+        try {
+            return new DynamicSchema(resultBuilder.build());
+        } catch (final DescriptorValidationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
 
     /**
      * Creates a new dynamic schema builder.
@@ -198,7 +208,6 @@ public class DynamicSchema
     }
 
     // --- private ---
-
     private DynamicSchema(FileDescriptorSet fileDescSet) throws DescriptorValidationException {
         this.fileDescSet = fileDescSet;
         Map<String,FileDescriptor> fileDescMap = init(fileDescSet);
@@ -309,8 +318,7 @@ public class DynamicSchema
     /**
      * DynamicSchema.Builder.
      */
-    public static class Builder
-    {
+    public static class Builder {
         // --- public ---
 
         public DynamicSchema build() throws DescriptorValidationException {

@@ -1,5 +1,5 @@
 /*
- * TupleValue.java
+ * TupleConstructorValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,8 +22,11 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -31,8 +34,10 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -40,19 +45,19 @@ import java.util.stream.Collectors;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TupleValue implements Value, Value.CompileTimeValue {
+public class TupleConstructorValue implements Value {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tuple-Value");
     @Nonnull
     protected final String functionName;
     @Nonnull
     protected final List<? extends Value> children;
 
-    public TupleValue(@Nonnull List<? extends Value> children) {
+    public TupleConstructorValue(@Nonnull List<? extends Value> children) {
         this("tuple", children);
     }
 
-    protected TupleValue(@Nonnull String functionName,
-                         @Nonnull List<? extends Value> children) {
+    protected TupleConstructorValue(@Nonnull String functionName,
+                                    @Nonnull List<? extends Value> children) {
         this.functionName = functionName;
         this.children = ImmutableList.copyOf(children);
     }
@@ -67,6 +72,14 @@ public class TupleValue implements Value, Value.CompileTimeValue {
     @Override
     public Type getResultType() {
         return new Type.Tuple(children.stream().map(Value::getResultType).collect(ImmutableList.toImmutableList()));
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        return children.stream()
+                .map(child -> child.eval(store, context, record, message))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -98,8 +111,8 @@ public class TupleValue implements Value, Value.CompileTimeValue {
 
     @Nonnull
     @Override
-    public TupleValue withChildren(final Iterable<? extends Value> newChildren) {
-        return new TupleValue(this.functionName, ImmutableList.copyOf(newChildren));
+    public TupleConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
+        return new TupleConstructorValue(this.functionName, ImmutableList.copyOf(newChildren));
     }
 
     public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
@@ -108,7 +121,7 @@ public class TupleValue implements Value, Value.CompileTimeValue {
         }
 
         final Value onlyElement = Iterables.getOnlyElement(values);
-        if (!(onlyElement instanceof TupleValue)) {
+        if (!(onlyElement instanceof TupleConstructorValue)) {
             return values;
         }
 
@@ -127,7 +140,7 @@ public class TupleValue implements Value, Value.CompileTimeValue {
                     .peek(typed -> Preconditions.checkArgument(typed instanceof Value))
                     .map(typed -> ((Value)typed))
                     .collect(ImmutableList.toImmutableList());
-            return new TupleValue(builtInFunction.getFunctionName(), argumentValues);
+            return new TupleConstructorValue(builtInFunction.getFunctionName(), argumentValues);
         }
     }
 }

@@ -29,7 +29,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.TupleValue;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -70,7 +70,7 @@ public class SelectFn extends BuiltInFunction<RelationalExpression> {
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
         final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
         Verify.verify(graphExpansion.getPredicates().isEmpty());
-        return new SelectExpression(TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)),
+        return new SelectExpression(TupleConstructorValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)),
                 ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                 ImmutableList.of());
     }

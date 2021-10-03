@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 
 import javax.annotation.Nonnull;
@@ -39,7 +40,10 @@ public class EvaluationContext {
     @Nonnull
     private final Bindings bindings;
 
-    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS);
+    @Nonnull
+    private final DynamicSchema dynamicSchema;
+
+    public static final EvaluationContext EMPTY = new EvaluationContext(Bindings.EMPTY_BINDINGS, DynamicSchema.EMPTY_SCHEMA);
 
     /**
      * Get an empty evaluation context.
@@ -50,8 +54,9 @@ public class EvaluationContext {
         return EMPTY;
     }
 
-    private EvaluationContext(@Nonnull Bindings bindings) {
+    private EvaluationContext(@Nonnull Bindings bindings, @Nonnull DynamicSchema dynamicSchema) {
         this.bindings = bindings;
+        this.dynamicSchema = dynamicSchema;
     }
 
     /**
@@ -62,7 +67,19 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBindings(@Nonnull Bindings bindings) {
-        return new EvaluationContext(bindings);
+        return new EvaluationContext(bindings, DynamicSchema.EMPTY_SCHEMA);
+    }
+
+    /**
+     * Create a new {@link EvaluationContext} around a given set of {@link Bindings} and a {@link DynamicSchema}.
+     * from parameter names to values.
+     * @param bindings a mapping from parameter name to values
+     * @param dynamicSchema a dynamic schema
+     * @return a new evaluation context with the bindings
+     */
+    @Nonnull
+    public static EvaluationContext forBindingsAndDynamicSchema(@Nonnull Bindings bindings, @Nonnull DynamicSchema dynamicSchema) {
+        return new EvaluationContext(bindings, dynamicSchema);
     }
 
     /**
@@ -74,7 +91,7 @@ public class EvaluationContext {
      */
     @Nonnull
     public static EvaluationContext forBinding(@Nonnull String bindingName, @Nullable Object value) {
-        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build());
+        return new EvaluationContext(Bindings.newBuilder().set(bindingName, value).build(), DynamicSchema.EMPTY_SCHEMA);
     }
 
     /**
@@ -108,6 +125,11 @@ public class EvaluationContext {
      */
     public Object getBinding(@Nonnull CorrelationIdentifier alias) {
         return bindings.get(Bindings.Internal.CORRELATION.bindingName(alias.getId()));
+    }
+
+    @Nonnull
+    public DynamicSchema getDynamicSchema() {
+        return dynamicSchema;
     }
 
     /**

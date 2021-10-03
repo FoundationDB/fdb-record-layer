@@ -1,5 +1,5 @@
 /*
- * FromFn.java
+ * ScanFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -24,11 +24,12 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.FullUnorderedScanExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -46,13 +47,13 @@ import java.util.stream.Collectors;
 
 /**
  * Function
- * from(STRING...) -> RELATION.
+ * scan(STRING...) -> STREAM.
  */
 @AutoService(BuiltInFunction.class)
-public class FromFn extends BuiltInFunction<RelationalExpression> {
-    public FromFn() {
-        super("from",
-                ImmutableList.of(), Type.primitiveType(Type.TypeCode.STRING), FromFn::encapsulate);
+public class ScanFn extends BuiltInFunction<RelationalExpression> {
+    public ScanFn() {
+        super("scan",
+                ImmutableList.of(), Type.primitiveType(Type.TypeCode.STRING), ScanFn::encapsulate);
     }
 
     private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
@@ -100,8 +101,10 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
                                 })));
 
         final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
-        return new LogicalTypeFilterExpression(recordTypeNames,
-                Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes))),
+
+        return new RecordQueryTypeFilterPlan(Quantifier.physical(GroupExpressionRef.of(
+                new RecordQueryScanPlan(allAvailableRecordTypes,
+                        ScanComparisons.EMPTY, false, false))), recordTypeNames,
                 ImmutableList.of(Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap)));
     }
 }

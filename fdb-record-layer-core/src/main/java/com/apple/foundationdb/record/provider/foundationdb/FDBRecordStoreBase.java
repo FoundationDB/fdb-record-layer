@@ -1643,6 +1643,19 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Execute a query.
      * @param plan the plan to execute
+     * @param evaluationContext an initial evaluation context
+     * @return a cursor for query results
+     * @see RecordQueryPlan#execute
+     */
+    @Nonnull
+    default RecordCursor<QueryResult> executePlan(@Nonnull RecordQueryPlan plan, @Nonnull EvaluationContext evaluationContext) {
+        return plan.executePlan(this, evaluationContext, null, ExecuteProperties.SERIAL_EXECUTE);
+    }
+
+
+    /**
+     * Execute a query.
+     * @param plan the plan to execute
      * @param continuation continuation from a previous execution of this same plan
      * @param executeProperties limits on execution
      * @return a cursor for query results

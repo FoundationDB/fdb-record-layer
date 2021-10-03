@@ -20,10 +20,14 @@
 
 package com.apple.foundationdb.record.query.norse;
 
+import com.apple.foundationdb.record.Bindings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
+import com.apple.foundationdb.record.TestRecords4Proto.RestaurantRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
@@ -36,10 +40,12 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.Type;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
+import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -53,31 +59,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
 class NorseTest extends FDBRecordStoreQueryTestBase {
-
-    @Test
-    void testSimpleStatement() throws Exception {
-        setupStore();
-
-        //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord') | filter r => r.name = 'Heirloom Cafe' || r.rest_no < 5");
-        //final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter _.name = 'Heirloom Cafe' || _.rest_no < 5 | map r => (r.name, r.rest_no)");
-        //final ANTLRInputStream in = new ANTLRInputStream("from 'RestaurantRecord' | filter exists(from 'RestaurantReviewer' | filter _.id = 5)");
-        //final ANTLRInputStream in = new ANTLRInputStream("[(rating, restaurant): restaurant <- from('RestaurantRecord'), review <- restaurant.reviews, rating := review.rating] | group _.rating | agg (_, restaurants) -> count(restaurants)");
-        //final ANTLRInputStream in = new ANTLRInputStream("from('RestaurantRecord')");
-        final ANTLRInputStream in = new ANTLRInputStream("[(restaurant, reviewer): restaurant <- from('RestaurantRecord'); reviewer <- from 'RestaurantReviewer'] | filter (r, _) => r.name = 'Heirloom Cafe'");
-        NorseLexer lexer = new NorseLexer(in);
-        CommonTokenStream tokens = new CommonTokenStream(lexer);
-        NorseParser parser = new NorseParser(tokens);
-        final ParseTree tree = parser.pipe();
-
-        final ParserWalker visitor = new ParserWalker(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-        Object o = visitor.visit(tree);
-        System.out.println(o);
-    }
 
     @Test
     void repl() throws Exception {
@@ -103,22 +90,24 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
 
             final String[] words = command.split(" ", 2);
 
+            final DynamicSchema.Builder dynamicSchemaBuilder = DynamicSchema.newBuilder();
+
             try {
                 repl.println();
 
                 if (words.length == 2) {
                     if (words[0].equalsIgnoreCase("describe")) {
-                        final RelationalExpression relationalExpression = parseQuery(words[1]);
+                        final RelationalExpression relationalExpression = parseQuery(words[1], dynamicSchemaBuilder);
                         repl.println(relationalExpression.getResultType().toString());
                         continue;
                     } else if (words[0].equalsIgnoreCase("debug")) {
-                        planner.plan(words[1], (query, context) -> parseQuery(query));
+                        planner.plan(words[1], (query, context) -> parseQuery(query, dynamicSchemaBuilder));
                         repl.printlnHighlighted("end of planner debugger");
                         continue;
                     } else if (words[0].equalsIgnoreCase("explain")) {
                         final RecordQueryPlan recordQueryPlan = planner.plan(words[1], (query, context) -> {
                             repl.removeInternalBreakPoints();
-                            return parseQuery(query);
+                            return parseQuery(query, dynamicSchemaBuilder);
                         });
                         repl.println(recordQueryPlan.explain(new Formatter()));
                         continue;
@@ -131,11 +120,12 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
             }
 
             final RecordQueryPlan recordQueryPlan;
+
             try {
                 recordQueryPlan = planner.plan(command, (query, context) -> {
                     // TODO remove this hack
                     repl.removeInternalBreakPoints();
-                    return parseQuery(query);
+                    return parseQuery(query, dynamicSchemaBuilder);
                 });
             } catch (final Throwable t) {
                 printError(repl, t);
@@ -147,20 +137,32 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                 long numRecords = 0;
                 try (FDBRecordContext context = openContext()) {
                     openNestedRecordStore(context);
-                    try (RecordCursorIterator<QueryResult> cursor = recordStore.executePlan(recordQueryPlan).asIterator()) {
+                    try (RecordCursorIterator<QueryResult> cursor = recordStore.executePlan(recordQueryPlan, EvaluationContext.forBindingsAndDynamicSchema(Bindings.EMPTY_BINDINGS, dynamicSchemaBuilder.build())).asIterator()) {
                         while (cursor.hasNext()) {
                             final QueryResult rec = Objects.requireNonNull(cursor.next());
-                            final ImmutableList.Builder<String> columnsToPrint = ImmutableList.builder();
-                            for (final QueryResultElement queryResultElement : Objects.requireNonNull(rec.getElements())) {
-                                if (queryResultElement instanceof FDBQueriedRecord) {
-                                    columnsToPrint.add(TextFormat.shortDebugString(((FDBQueriedRecord<?>)queryResultElement).getRecord()));
+                            final ImmutableList.Builder<String> columnsToPrintBuilder = ImmutableList.builder();
+                            final List<QueryResultElement> queryResultElements = Objects.requireNonNull(rec.getElements());
+                            for (final QueryResultElement queryResultElement : queryResultElements) {
+                                if (queryResultElement instanceof FDBRecord) {
+                                    columnsToPrintBuilder.add(TextFormat.shortDebugString(((FDBQueriedRecord<?>)queryResultElement).getRecord()));
                                 } else if (queryResultElement instanceof QueryResultElement.Wrapped) {
-                                    final Object unwrap = ((QueryResultElement.Wrapped)queryResultElement).unwrap();
-                                    columnsToPrint.add(unwrap == null ? "null" : unwrap.toString());
+                                    final Object unwrapped = ((QueryResultElement.Wrapped)queryResultElement).unwrap();
+                                    if (unwrapped instanceof Message) {
+                                        columnsToPrintBuilder.add(TextFormat.shortDebugString((Message)unwrapped));
+                                    } else {
+                                        columnsToPrintBuilder.add(unwrapped == null ? "null" : unwrapped.toString());
+                                    }
                                 }
                             }
 
-                            repl.println(String.join(", ", columnsToPrint.build()));
+                            final ImmutableList<String> columnsToPrint = columnsToPrintBuilder.build();
+                            if (columnsToPrint.size() == 1) {
+                                repl.print(columnsToPrint.get(0));
+                            } else {
+                                repl.println(columnsToPrint.stream()
+                                        .map(columnToPrint -> Strings.padEnd(columnToPrint.length() > 40 ? columnToPrint.substring(0, 40) : columnToPrint, 40, ' '))
+                                        .collect(Collectors.joining("    ")));
+                            }
                             numRecords ++;
                         }
                     }
@@ -176,15 +178,15 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    private RelationalExpression parseQuery(final String command) {
+    private RelationalExpression parseQuery(@Nonnull final String command, @Nonnull DynamicSchema.Builder dynamicSchemaBuilder) {
         final ANTLRInputStream in = new ANTLRInputStream(command);
         NorseLexer lexer = new NorseLexer(in);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         NorseParser parser = new NorseParser(tokens);
         final ParseTree tree = parser.pipe();
 
-        final ParserWalker parserWalker = new ParserWalker(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-        return (RelationalExpression)parserWalker.visit(tree);
+        final ParserWalker parserWalker = new ParserWalker(dynamicSchemaBuilder, recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
+        return parserWalker.toGraph(tree);
     }
 
     private void printError(@Nonnull final PlannerRepl repl, @Nonnull final Throwable t) {
@@ -215,7 +217,7 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
             reviewerBuilder.setName("Gulliver");
             recordStore.saveRecord(reviewerBuilder.build());
 
-            TestRecords4Proto.RestaurantRecord.Builder recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
+            RestaurantRecord.Builder recBuilder = RestaurantRecord.newBuilder();
             recBuilder.setRestNo(101);
             recBuilder.setName("The Emperor's Three Tables");
             TestRecords4Proto.RestaurantReview.Builder reviewBuilder = recBuilder.addReviewsBuilder();
@@ -229,7 +231,7 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
             tagBuilder.setWeight(5);
             recordStore.saveRecord(recBuilder.build());
 
-            recBuilder = TestRecords4Proto.RestaurantRecord.newBuilder();
+            recBuilder = RestaurantRecord.newBuilder();
             recBuilder.setRestNo(102);
             recBuilder.setName("Small Fry's Fried Victuals");
             reviewBuilder = recBuilder.addReviewsBuilder();
@@ -273,38 +275,30 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
 
         schemaBuilder.addType("newType", recordType);
 
-        final Type.Record restaurantType =
-                Type.Record.fromFieldDescriptorsMap(TestRecords4Proto.RestaurantRecord.getDescriptor().getFields().stream().collect(Collectors.toMap(Descriptors.FieldDescriptor::getName, fd -> fd)));
-
+        final Type.Record restaurantType = Type.Record.fromDescriptor(RestaurantRecord.getDescriptor());
+        System.out.println(restaurantType);
         schemaBuilder.addType("Restaurant", restaurantType);
 
         final Type tupleType =
-                new Type.Tuple(ImmutableList.of(Type.primitiveType(Type.TypeCode.INT), Type.primitiveType(Type.TypeCode.STRING)));
+                new Type.Tuple(ImmutableList.of(Type.primitiveType(Type.TypeCode.INT), restaurantType));
 
         schemaBuilder.addType("Tuple123", tupleType);
 
         DynamicSchema schema = schemaBuilder.build();
 
         // Create dynamic message from schema
-        DynamicMessage.Builder msgBuilder = schema.newMessageBuilder("newType");
-        Descriptors.Descriptor msgDesc = msgBuilder.getDescriptorForType();
-        DynamicMessage msg = msgBuilder
-                .setField(msgDesc.findFieldByName("field1"), 1)
-                .setField(msgDesc.findFieldByName("field2"), "Alan Turing")
+        final DynamicMessage.Builder tupleBuilder = DynamicMessage.newBuilder(tupleType.buildDescriptor("type"));
+        final Descriptors.Descriptor descriptor = tupleBuilder.getDescriptorForType();
+        final DynamicMessage tuple = tupleBuilder
+                .setField(descriptor.findFieldByName("__field__1"), 1)
+                .setField(descriptor.findFieldByName("__field__2"), RestaurantRecord.newBuilder().setName("Name of Restaurant").setRestNo(123L).build())
                 .build();
 
-        System.out.println(msg);
+        System.out.println(tuple);
 
-        // Create dynamic message from schema
-        msgBuilder = schema.newMessageBuilder("Tuple123");
-        msgDesc = msgBuilder.getDescriptorForType();
-        msg = msgBuilder
-                .setField(msgDesc.findFieldByName("__field__1"), 1)
-                .setField(msgDesc.findFieldByName("__field__2"), "Alan Turing")
-                .build();
+        final byte[] serialized = tuple.toByteArray();
 
-        System.out.println(msg);
-
-
+        final DynamicMessage tupleDeserialized = schema.newMessageBuilder("Tuple123").mergeFrom(serialized).build();
+        System.out.println(tupleDeserialized);
     }
 }

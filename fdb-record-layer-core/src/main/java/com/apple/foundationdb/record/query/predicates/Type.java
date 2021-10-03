@@ -115,6 +115,26 @@ public interface Type {
             }
 
             @Override
+            public int hashCode() {
+                return Objects.hash(getTypeCode().hashCode(), isNullable());
+            }
+
+            @Override
+            public boolean equals(final Object obj) {
+                if (obj == null) {
+                    return false;
+                }
+
+                if (getClass() != obj.getClass()) {
+                    return false;
+                }
+
+                final Type otherType = (Type)obj;
+
+                return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+            }
+
+            @Override
             public String toString() {
                 return getTypeCode().toString();
             }
@@ -249,6 +269,26 @@ public interface Type {
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable());
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final Type otherType = (Type)obj;
+
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+        }
+
+        @Override
         public String toString() {
             return getTypeCode().toString();
         }
@@ -315,10 +355,30 @@ public interface Type {
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable());
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final Type otherType = (Type)obj;
+
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable();
+        }
+
+        @Override
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + ":(" + Objects.requireNonNull(getParameterTypes()).stream().map(Object::toString).collect(Collectors.joining(",")) + ")->" + getResultType();
+                   : getTypeCode() + ":(" + Objects.requireNonNull(getParameterTypes()).stream().map(Object::toString).collect(Collectors.joining(", ")) + ") -> " + getResultType();
         }
     }
 
@@ -380,23 +440,47 @@ public interface Type {
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), elementTypes);
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final Tuple otherType = (Tuple)obj;
+
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
+                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementTypes).equals(otherType.elementTypes));
+        }
+
+        @Override
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getElementTypes()).stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+                   : getTypeCode() + "(" + Objects.requireNonNull(getElementTypes()).stream().map(Object::toString).collect(Collectors.joining(", ")) + ")";
         }
     }
 
     class Record implements Type {
         @Nullable
         private final Map<String, Type> fieldTypeMap;
+        @Nullable
+        private final Map<String, Integer> fieldIndexMap;
 
         public Record() {
-            this(null);
+            this(null, null);
         }
 
-        private Record(@Nullable final Map<String, Type> fieldTypeMap) {
+        private Record(@Nullable final Map<String, Type> fieldTypeMap, @Nullable final Map<String, Integer> fieldIndexMap) {
             this.fieldTypeMap = fieldTypeMap == null ? null : ImmutableMap.copyOf(fieldTypeMap);
+            this.fieldIndexMap = fieldIndexMap == null ? null : ImmutableMap.copyOf(fieldIndexMap);
         }
 
         @Override
@@ -415,20 +499,21 @@ public interface Type {
         }
 
         boolean isErased() {
-            return fieldTypeMap == null;
+            return fieldTypeMap == null || fieldIndexMap == null;
         }
 
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            Objects.requireNonNull(fieldTypeMap);
+            Objects.requireNonNull(fieldIndexMap);
             final DescriptorProto.Builder recordMsgBuilder = DescriptorProto.newBuilder();
-
             recordMsgBuilder.setName(typeName);
 
             int i = 0;
             final Set<Map.Entry<String, Type>> fieldsAndTypes = Objects.requireNonNull(getFieldTypeMap()).entrySet();
             for (final Map.Entry<String, Type> fieldTypeEntry : fieldsAndTypes) {
-                fieldTypeEntry.getValue().addProtoField(recordMsgBuilder, i + 1, fieldTypeEntry.getKey(), typeName(fieldTypeEntry.getKey()), FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                fieldTypeEntry.getValue().addProtoField(recordMsgBuilder, fieldIndexMap.getOrDefault(fieldTypeEntry.getKey(), i + 1), fieldTypeEntry.getKey(), typeName(fieldTypeEntry.getKey()), FieldDescriptorProto.Label.LABEL_OPTIONAL);
                 i++;
             }
 
@@ -447,25 +532,60 @@ public interface Type {
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), fieldTypeMap, fieldIndexMap);
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final Record otherType = (Record)obj;
+
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
+                   ((isErased() && otherType.isErased()) ||
+                    (Objects.requireNonNull(fieldTypeMap).equals(otherType.fieldTypeMap) &&
+                     Objects.requireNonNull(fieldIndexMap).equals(otherType.fieldIndexMap)));
+        }
+
+        @Override
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getFieldTypeMap()).entrySet().stream().map(entry -> entry.getKey() + "->" + entry.getValue()).collect(Collectors.joining(",")) + ")";
+                   : getTypeCode() + "(" + Objects.requireNonNull(getFieldTypeMap()).entrySet().stream().map(entry -> entry.getKey() + " -> " + entry.getValue()).collect(Collectors.joining(", ")) + ")";
         }
 
         public static Record erased() {
-            return new Record(null);
+            return new Record(null, null);
         }
 
         public static Record fromTypeMap(@Nonnull final Map<String, Type> fieldTypeMap) {
-            return new Record(fieldTypeMap);
+            return new Record(fieldTypeMap, computeDefaultFieldIndexMap(fieldTypeMap));
+        }
+
+        private static Map<String, Integer> computeDefaultFieldIndexMap(@Nonnull final Map<String, Type> fieldTypeMap) {
+            final ImmutableMap.Builder<String, Integer> resultBuilder = ImmutableMap.builder();
+            int i = 0;
+            for (Map.Entry<String, Type> entry : fieldTypeMap.entrySet()) {
+                resultBuilder.put(entry.getKey(), i + 1);
+                i ++;
+            }
+            return resultBuilder.build();
         }
 
         public static Record fromFieldDescriptorsMap(final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             final ImmutableMap.Builder<String, Type> fieldTypeMapBuilder = ImmutableMap.builder();
+            final ImmutableMap.Builder<String, Integer> fieldIndexMapBuilder = ImmutableMap.builder();
             for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
                 final TypeCode typeCode = TypeCode.fromProtobufType(fieldDescriptor.getType());
+                fieldIndexMapBuilder.put(entry.getKey(), fieldDescriptor.getNumber());
                 if (typeCode.isPrimitive()) {
                     final Type primitiveType = primitiveType(typeCode);
                     fieldTypeMapBuilder.put(entry.getKey(), fieldDescriptor.isRepeated() ? new Type.Collection(primitiveType) : primitiveType);
@@ -475,7 +595,11 @@ public interface Type {
                 }
             }
 
-            return new Record(fieldTypeMapBuilder.build());
+            return new Record(fieldTypeMapBuilder.build(), fieldIndexMapBuilder.build());
+        }
+
+        public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
+            return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
         }
 
         @Nonnull
@@ -534,6 +658,27 @@ public interface Type {
         }
 
         @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), innerType);
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final Stream otherType = (Stream)obj;
+
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
+                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
+        }
+
+        @Override
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
@@ -580,23 +725,33 @@ public interface Type {
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            final DescriptorProto.Builder tupleMsgBuilder = DescriptorProto.newBuilder();
-            tupleMsgBuilder.setName(typeName);
-            Objects.requireNonNull(innerType).addProtoField(tupleMsgBuilder, 1, "elementType", "element", FieldDescriptorProto.Label.LABEL_REPEATED);
-            return tupleMsgBuilder.build();
+            return null;
         }
 
         @Override
         public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+            Objects.requireNonNull(innerType).addProtoField(descriptorBuilder, fieldIndex, fieldName, typeName, FieldDescriptorProto.Label.LABEL_REPEATED);
+        }
 
+        @Override
+        public int hashCode() {
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), innerType);
+        }
 
-            descriptorBuilder.addNestedType(buildDescriptor(typeName));
-            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
-                    .setName(fieldName)
-                    .setNumber(fieldIndex)
-                    .setTypeName(typeName)
-                    .setLabel(label)
-                    .build());
+        @Override
+        public boolean equals(final Object obj) {
+            if (obj == null) {
+                return false;
+            }
+
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+
+            final Collection otherType = (Collection)obj;
+
+            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
+                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
         }
 
         @Override

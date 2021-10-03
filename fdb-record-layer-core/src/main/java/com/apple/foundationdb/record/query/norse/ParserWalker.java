@@ -22,6 +22,9 @@ package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryRangePlan;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
@@ -35,7 +38,8 @@ import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.TupleValue;
+import com.apple.foundationdb.record.query.predicates.RecordConstructorValue;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Type.TypeCode;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -67,8 +71,8 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
     private final ParserContext parserContext;
 
-    public ParserWalker(@Nonnull RecordMetaData recordMetaData, @Nonnull RecordStoreState recordStoreState) {
-        this(new ParserContext(new Scopes().push(ImmutableSet.of(), ImmutableMap.of()), recordMetaData, recordStoreState));
+    public ParserWalker(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder, @Nonnull RecordMetaData recordMetaData, @Nonnull RecordStoreState recordStoreState) {
+        this(new ParserContext(new Scopes().push(ImmutableSet.of(), ImmutableMap.of()), dynamicSchemaBuilder, recordMetaData, recordStoreState));
     }
 
     public ParserWalker(@Nonnull final ParserContext parserContext) {
@@ -77,6 +81,10 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
     public ParserContext getParserContext() {
         return parserContext;
+    }
+
+    public RelationalExpression toGraph(@Nonnull final ParseTree tree) {
+        return top(getParserContext(), visit(tree));
     }
 
     @SuppressWarnings("UnstableApiUsage")
@@ -271,14 +279,20 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     @Nonnull
     @Override
     public Atom visitTuplePipes(@Nonnull final NorseParser.TuplePipesContext ctx) {
-        final ImmutableList<? extends Value> elementAtoms = ctx.pipe()
+        final List<NorseParser.PipeContext> pipeContexts = ctx.pipe();
+
+        if (pipeContexts.size() == 1) {
+            return pipeContexts.get(0).accept(this);
+        }
+
+        final ImmutableList<? extends Value> elementAtoms = pipeContexts
                 .stream()
                 .map(pipe -> pipe.accept(this))
                 .peek(atom -> Verify.verify(atom.getResultType().getTypeCode() != TypeCode.STREAM && atom instanceof Value))
                 .map(atom -> (Value)atom)
                 .collect(ImmutableList.toImmutableList());
 
-        return new TupleValue(elementAtoms);
+        return new TupleConstructorValue(elementAtoms);
     }
 
     @Nonnull
@@ -489,6 +503,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         });
     }
 
+    @SuppressWarnings("ConstantConditions")
     @Override
     public Atom visitComprehensionWithBindings(final NorseParser.ComprehensionWithBindingsContext ctx) {
         final List<NorseParser.ComprehensionBindingContext> comprehensionBindingContexts = Objects.requireNonNull(ctx.comprehensionBindings()).comprehensionBinding();
@@ -518,7 +533,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 if (resultAtom.getResultType().getTypeCode() == TypeCode.STREAM) {
                     result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
                 } else {
-                    final List<? extends Value> values = TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
+                    final List<? extends Value> values = TupleConstructorValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
                     if (values.size() == 1) {
                         result = new ExplodeExpression(values.get(0));
                     } else {
@@ -581,7 +596,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final Lambda lambda = lambdaBodyWithResult(boundVariables, tupleContext);
         final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
         Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
-        final List<? extends Value> resultValues = TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
+        final List<? extends Value> resultValues = TupleConstructorValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
         quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
         final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
         final ImmutableList<QueryPredicate> predicates = predicatesBuilder.build();
@@ -609,7 +624,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         if (resultAtom.getResultType().getTypeCode() == TypeCode.STREAM) {
             result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
         } else {
-            final List<? extends Value> values = TupleValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
+            final List<? extends Value> values = TupleConstructorValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
             if (values.size() == 1) {
                 result = new ExplodeExpression(values.get(0));
             } else {
@@ -656,7 +671,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
     @Override
     public Atom visitPrimaryExpressionFromRecordConstructor(final NorseParser.PrimaryExpressionFromRecordConstructorContext ctx) {
-        throw new UnsupportedOperationException("unable to construct record");
+        return super.visitPrimaryExpressionFromRecordConstructor(ctx);
     }
 
     @Override
@@ -672,6 +687,21 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     @Override
     public Atom visitPrimaryExpressionFromIdentifier(final NorseParser.PrimaryExpressionFromIdentifierContext ctx) {
         return parserContext.resolveIdentifier(ctx.IDENTIFIER().getSymbol().getText());
+    }
+
+    @SuppressWarnings("ConstantConditions")
+    @Override
+    public Atom visitRecordConstructor(final NorseParser.RecordConstructorContext ctx) {
+
+        final ImmutableMap.Builder<String, Value> keyChildMapBuilder = ImmutableMap.builder();
+        for (final NorseParser.KeyValueMappingContext keyValueMappingContext : ctx.keyValueMapping()) {
+            final String key = keyValueMappingContext.IDENTIFIER().getText();
+            final Atom childAtom = keyValueMappingContext.pipe().accept(this);
+            Verify.verify(childAtom instanceof Value);
+            keyChildMapBuilder.put(key, (Value)childAtom);
+        }
+
+        return RecordConstructorValue.createAndRegister(parserContext.getDynamicSchemaBuilder(), keyChildMapBuilder.build());
     }
 
     @Override
@@ -764,7 +794,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     }
 
     private ParserWalker withScopes(@Nonnull Scopes scopes) {
-        return new ParserWalker(new ParserContext(scopes, parserContext.getRecordMetaData(), parserContext.getRecordStoreState()));
+        return new ParserWalker(new ParserContext(scopes, parserContext.getDynamicSchemaBuilder(), parserContext.getRecordMetaData(), parserContext.getRecordStoreState()));
     }
 
     private static <T> T unboxLiteral(@Nonnull Atom t, @Nonnull Class<? extends T> tClass) {
@@ -792,6 +822,24 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             }
         }
         return Optional.of(currentContext);
+    }
+
+    public static RelationalExpression top(@Nonnull final ParserContext parserContext, @Nonnull final Atom topAtom) {
+        final RelationalExpression topExpression;
+        if (topAtom instanceof Value) {
+            // TODO we can only do this with quantifiers present if we create a proper select expression here;
+            //      which is turn would need planner support
+            Verify.verify(parserContext.getCurrentScope().getGraphExpansionBuilder().build().getQuantifiers().isEmpty());
+
+            final RecordQueryRangePlan rangePlan = new RecordQueryRangePlan(new LiteralValue<>(primitiveType(TypeCode.INT), 1));
+
+            final Value topValue = (Value)topAtom;
+            final List<? extends Value> topValues = TupleConstructorValue.tryUnwrapIfTuple(ImmutableList.of(topValue));
+            topExpression = new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(rangePlan)), topValues);
+        } else {
+            topExpression = (RelationalExpression)topAtom;
+        }
+        return topExpression;
     }
 
     /**

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -35,12 +36,15 @@ import javax.annotation.Nullable;
 public class EvaluationContextBuilder {
     @Nonnull
     protected final Bindings.Builder bindings;
+    @Nonnull
+    protected final DynamicSchema dynamicSchema;
 
     /**
      * Create an empty builder.
      */
     protected EvaluationContextBuilder() {
         this.bindings = Bindings.newBuilder();
+        this.dynamicSchema = DynamicSchema.empty();
     }
 
     /**
@@ -52,6 +56,7 @@ public class EvaluationContextBuilder {
      */
     protected EvaluationContextBuilder(@Nonnull EvaluationContext original) {
         this.bindings = original.getBindings().childBuilder();
+        this.dynamicSchema = original.getDynamicSchema();
     }
 
     /**
@@ -96,6 +101,6 @@ public class EvaluationContextBuilder {
      */
     @Nonnull
     public EvaluationContext build() {
-        return EvaluationContext.forBindings(bindings.build());
+        return EvaluationContext.forBindingsAndDynamicSchema(bindings.build(), dynamicSchema);
     }
 }

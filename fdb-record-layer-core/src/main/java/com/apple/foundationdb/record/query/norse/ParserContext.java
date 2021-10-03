@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.norse;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
+import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.Value;
 
@@ -34,14 +35,26 @@ public class ParserContext {
     @Nonnull
     private final Scopes scopes;
     @Nonnull
+    private DynamicSchema.Builder dynamicSchemaBuilder;
+
+    @Nonnull
     private final RecordMetaData recordMetaData;
     @Nonnull
     private final RecordStoreState recordStoreState;
 
-    public ParserContext(@Nonnull final Scopes scopes, @Nonnull final RecordMetaData recordMetaData, @Nonnull final RecordStoreState recordStoreState) {
+    public ParserContext(@Nonnull final Scopes scopes,
+                         @Nonnull DynamicSchema.Builder dynamicSchemaBuilder,
+                         @Nonnull final RecordMetaData recordMetaData,
+                         @Nonnull final RecordStoreState recordStoreState) {
         this.scopes = scopes;
+        this.dynamicSchemaBuilder = dynamicSchemaBuilder;
         this.recordMetaData = recordMetaData;
         this.recordStoreState = recordStoreState;
+    }
+
+    @Nonnull
+    public DynamicSchema.Builder getDynamicSchemaBuilder() {
+        return dynamicSchemaBuilder;
     }
 
     @Nonnull
