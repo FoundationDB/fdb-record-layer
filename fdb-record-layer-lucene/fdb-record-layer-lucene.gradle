@@ -54,6 +54,10 @@ test {
         if (skipSlow) {
             excludeTags 'Slow'
         }
+        // Configure whether or not tests will validate that asyncToSync isn't being called in async
+        // context.  See BlockingInAsyncDetection class for details on values.
+        systemProperties = ["com.apple.foundationdb.record.blockingInAsyncDetection":
+                                    System.getenv('BLOCKING_DETECTION') ?: "IGNORE_COMPLETE_EXCEPTION_BLOCKING"]
     }
 }
 
