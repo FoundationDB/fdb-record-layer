@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync;
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
@@ -74,6 +75,8 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final int MAX_PAGE_SIZE = 200;
     @Nonnull
     private final Executor executor;
+    @Nullable
+    private ExecutorService executorService = null;
     @Nonnull
     private final CursorLimitManager limitManager;
     @Nullable
@@ -247,7 +250,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private void performScan() throws IOException {
         long startTime = System.nanoTime();
         indexReader = getIndexReader();
-        searcher = new IndexSearcher(indexReader);
+        searcher = new IndexSearcher(indexReader, executorService);
         int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
         TopDocs newTopDocs;
         if (searchAfter != null && sort != null) {
@@ -274,5 +277,9 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
 
     public void setSort(RecordMetaDataProto.KeyExpression sortKeyExpression) {
         sort = new Sort(new SortField(sortKeyExpression.getField().getFieldName(), SortField.Type.STRING));
+    }
+
+    public void setExecutor(ExecutorService service) {
+        this.executorService = service;
     }
 }

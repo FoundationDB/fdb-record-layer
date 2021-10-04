@@ -38,6 +38,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.base.Verify.verify;
 
@@ -48,6 +49,7 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     private KeyExpression sort;
     private Boolean duplicates = false;
     private final ScanComparisons groupingComparisons;
+    private final ExecutorService executorService;
 
     @Override
     public boolean equals(final Object o) {
@@ -82,16 +84,17 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
     }
 
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull Comparisons.LuceneComparison comparison,
-                                final boolean reverse, final ScanComparisons groupingComparisons) {
-        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null, groupingComparisons);
+                                final boolean reverse, final ScanComparisons groupingComparisons, @Nullable final ExecutorService service) {
+        this(indexName, IndexScanType.BY_LUCENE, comparison, reverse, null, groupingComparisons, service);
     }
 
     public LuceneIndexQueryPlan(@Nonnull final String indexName, @Nonnull final IndexScanType scanType,
                                 @Nonnull Comparisons.LuceneComparison comparison, final boolean reverse,
-                                @Nullable KeyExpression sort, final ScanComparisons groupingComparisons) {
+                                @Nullable KeyExpression sort, final ScanComparisons groupingComparisons, @Nullable final ExecutorService service) {
         super(indexName, scanType, Objects.requireNonNull(ScanComparisons.from(comparison)), reverse);
         this.sort = sort;
         this.groupingComparisons = groupingComparisons;
+        this.executorService = service;
     }
 
     public boolean createsDuplicates() {
@@ -127,7 +130,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         } else if (plan2.groupingComparisons != null) {
             newGrouping = newGrouping.merge(plan2.groupingComparisons);
         }
-        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort, newGrouping);
+        ExecutorService service = plan1.executorService == null ? plan2.executorService : plan1.executorService;
+        LuceneIndexQueryPlan plan =  new LuceneIndexQueryPlan(plan1.indexName, scanType, comparison, newReverse, newSort, newGrouping, service);
         if (plan1.createsDuplicates() || plan2.createsDuplicates()) {
             plan.setCreatesDuplicates();
         }
@@ -145,6 +149,9 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
         RecordCursor<IndexEntry> indexEntryRecordCursor = store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, executeProperties.asScanProperties(reverse));
         if (indexEntryRecordCursor instanceof LuceneRecordCursor && sort != null)  {
             ((LuceneRecordCursor) indexEntryRecordCursor).setSort(sort.toKeyExpression());
+        }
+        if (indexEntryRecordCursor instanceof LuceneRecordCursor && executorService != null) {
+            ((LuceneRecordCursor)indexEntryRecordCursor).setExecutor(executorService);
         }
         return indexEntryRecordCursor;
     }

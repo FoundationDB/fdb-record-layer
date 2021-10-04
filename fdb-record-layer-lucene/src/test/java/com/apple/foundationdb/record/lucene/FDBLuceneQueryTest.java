@@ -54,12 +54,15 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.Message;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -160,8 +163,20 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         Sets.newHashSet(IndexTypes.LUCENE)
                 );
             }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer(), null);
         }
+    }
+
+    public void plannerWithThreading(@Nullable PlannableIndexTypes indexTypes, @Nullable ExecutorService service) {
+        if (indexTypes == null) {
+            indexTypes = new PlannableIndexTypes(
+                    Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
+                    Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
+                    Sets.newHashSet(IndexTypes.TEXT),
+                    Sets.newHashSet(IndexTypes.LUCENE)
+            );
+        }
+        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer(), service);
     }
 
     protected void openRecordStore(FDBRecordContext context) {
@@ -515,6 +530,23 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    @Test
+    public void threadedLuceneScanDoesntBreakPlannerAndSearch() throws Exception {
+        initializeFlat();
+        ForkJoinPool service = new ForkJoinPool(10);
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            plannerWithThreading(null, service);
+            final QueryComponent filter1 = new LuceneQueryComponent("*:*", Lists.newArrayList("text"), false);
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter1)
+                    .build();
+            setDeferFetchAfterUnionAndIntersection(false);
+            RecordQueryPlan plan = planner.plan(query);
+            List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+        }
+    }
     /*
     @ParameterizedTest
     @BooleanSource
