@@ -250,11 +250,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private void performScan() throws IOException {
         long startTime = System.nanoTime();
         indexReader = getIndexReader();
-        if (executorService == null) {
-            searcher = new IndexSearcher(indexReader);
-        } else {
-            searcher = new IndexSearcher(indexReader, executorService);
-        }
+        searcher = new IndexSearcher(indexReader, executorService);
         int limit = Math.min(limitRemaining, MAX_PAGE_SIZE);
         TopDocs newTopDocs;
         if (searchAfter != null && sort != null) {
