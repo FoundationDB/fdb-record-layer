@@ -26,7 +26,7 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Create an implementation of the Planner Debugger that issues log messages [(Issue #1405)](https://github.com/FoundationDB/fdb-record-layer/issues/1405)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Publish per-transaction I/O metrics and commit failure metrics [(Issue #1402)](https://github.com/FoundationDB/fdb-record-layer/issues/1402)
