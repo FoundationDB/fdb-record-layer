@@ -49,6 +49,8 @@ public class FDBRecordContextConfig {
     private final boolean serverRequestTracing;
     private final boolean trackOpen;
     private final boolean saveOpenStackTrace;
+    @Nullable
+    private final TransactionListener listener;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -62,6 +64,7 @@ public class FDBRecordContextConfig {
         this.serverRequestTracing = builder.serverRequestTracing;
         this.trackOpen = builder.trackOpen;
         this.saveOpenStackTrace = builder.saveOpenStackTrace;
+        this.listener = builder.listener;
     }
 
     /**
@@ -183,6 +186,16 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Return the listener to be notified of transaction events.
+     *
+     * @return the listener to be notified of transaction events
+     */
+    @Nullable
+    public TransactionListener getTransactionListener() {
+        return listener;
+    }
+
+    /**
      * Convert the current configuration to a builder. This will set all options in the builder to their
      * current values in this configuration object.
      *
@@ -213,6 +226,7 @@ public class FDBRecordContextConfig {
         private boolean serverRequestTracing = false;
         private boolean trackOpen = false;
         private boolean saveOpenStackTrace = false;
+        private TransactionListener listener = null;
 
         private Builder() {
         }
@@ -229,6 +243,7 @@ public class FDBRecordContextConfig {
             this.serverRequestTracing = config.serverRequestTracing;
             this.trackOpen = config.trackOpen;
             this.saveOpenStackTrace = config.saveOpenStackTrace;
+            this.listener = config.listener;
         }
 
         private Builder(@Nonnull Builder config) {
@@ -243,6 +258,7 @@ public class FDBRecordContextConfig {
             this.serverRequestTracing = config.serverRequestTracing;
             this.trackOpen = config.trackOpen;
             this.saveOpenStackTrace = config.saveOpenStackTrace;
+            this.listener = config.listener;
         }
 
         /**
@@ -526,6 +542,23 @@ public class FDBRecordContextConfig {
         }
 
         /**
+         * Installs a listener to be notified of transaction events, such as creation, commit, and close.
+         * This listener is in the path of the completion of every transaction. Implementations should take
+         * care to ensure that they are thread safe and efficiently process the provided metrics before returning.
+         *
+         * @param listener the listener to install
+         * @return this builder
+         */
+        public Builder setListener(final TransactionListener listener) {
+            this.listener = listener;
+            return this;
+        }
+
+        public TransactionListener getListener() {
+            return listener;
+        }
+
+        /**
          * Create an {@link FDBRecordContextConfig} from this builder.
          *
          * @return an {@link FDBRecordContextConfig} with its values set based on this builder
@@ -542,5 +575,6 @@ public class FDBRecordContextConfig {
         public Builder copyBuilder() {
             return new Builder(this);
         }
+
     }
 }

@@ -90,6 +90,8 @@ public abstract class FDBDatabaseFactory {
     private long stateRefreshTimeMillis = TimeUnit.SECONDS.toMillis(FDBDatabase.DEFAULT_RESOLVER_STATE_CACHE_REFRESH_SECONDS);
     private long transactionTimeoutMillis = DEFAULT_TR_TIMEOUT_MILLIS;
     private long warnAndCloseOpenContextsAfterSeconds;
+    @Nullable
+    private TransactionListener transactionListener;
 
     private Function<FDBLatencySource, Long> latencyInjector = DEFAULT_LATENCY_INJECTOR;
 
@@ -559,6 +561,26 @@ public abstract class FDBDatabaseFactory {
     @Nonnull
     public Supplier<BlockingInAsyncDetection> getBlockingInAsyncDetectionSupplier() {
         return this.blockingInAsyncDetectionSupplier;
+    }
+
+    /**
+     * Installs a listener to be notified of transaction events, such as creation, commit, and close.
+     * This listener is in the path of the completion of every transaction. Implementations should take
+     * care to ensure that they are thread safe and efficiently process the provided metrics before returning.
+     *
+     * @param listener the listener to install
+     *
+     * @return this factory
+     */
+    @Nonnull
+    public FDBDatabaseFactory setTransactionListener(@Nullable final TransactionListener listener) {
+        this.transactionListener = listener;
+        return this;
+    }
+
+    @Nullable
+    public TransactionListener getTransactionListener() {
+        return transactionListener;
     }
 
     public abstract void shutdown();

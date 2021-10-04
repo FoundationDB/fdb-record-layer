@@ -58,6 +58,7 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
     @Nullable
     protected StoreTimer timer;
+
     @Nonnull
     protected T underlying;
 
@@ -219,7 +220,8 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
 
     @Nullable
     protected KeyValue recordRead(@Nonnull KeyValue keyValue) {
-        increment(FDBStoreTimer.Counts.BYTES_READ, keyValue.getKey().length + keyValue.getValue().length);
+        final int bytes = keyValue.getKey().length + keyValue.getValue().length;
+        increment(FDBStoreTimer.Counts.BYTES_READ, bytes);
         return keyValue;
     }
 

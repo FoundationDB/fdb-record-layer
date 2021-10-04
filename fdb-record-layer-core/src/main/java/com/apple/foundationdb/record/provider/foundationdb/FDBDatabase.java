@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCoreRetriableTransactionException;
 import com.apple.foundationdb.record.ResolverStateProto;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.provider.common.StoreSubTimer;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.LocatableResolver;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolverResult;
@@ -738,12 +739,19 @@ public class FDBDatabase {
      * @return newly created transaction
      */
     private Transaction createTransaction(@Nonnull FDBRecordContextConfig config, @Nonnull Executor executor) {
-        final FDBStoreTimer timer = config.getTimer();
+        final TransactionListener listener = config.getTransactionListener() == null
+                                             ? factory.getTransactionListener()
+                                             : config.getTransactionListener();
+
+        final StoreTimer timer = listener != null
+                                 ? new StoreSubTimer(config.getTimer())
+                                 : config.getTimer();
+
         boolean enableAssertions = config.areAssertionsEnabled();
         //noinspection ConstantConditions
-        Transaction transaction = database.createTransaction(executor, timer);
+        Transaction transaction = database.createTransaction(executor, new EventKeeperTranslator(timer));
         if (timer != null || enableAssertions) {
-            transaction = new InstrumentedTransaction(timer, transaction, enableAssertions);
+            transaction = new InstrumentedTransaction(timer, this, listener, transaction, enableAssertions);
         }
 
         return transaction;

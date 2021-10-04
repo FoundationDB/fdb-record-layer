@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -316,6 +317,73 @@ public class FDBStoreTimerTest {
         assertThat(timer.getCount(FDBStoreTimer.Events.COMMITS), equalTo(1));
     }
 
+    @Test
+    void testTransactionMetricListener() {
+        try (FDBRecordContext context = fdb.openContext(null, null)) {
+            Transaction tr = context.ensureActive();
+            tr.clear(subspace.range());
+            tr.commit().join();
+        }
+
+
+        final TestTransactionListener listener = new TestTransactionListener();
+
+        final FDBStoreTimer timer = new FDBStoreTimer();
+        try {
+            FDBDatabaseFactory.instance().setTransactionListener(listener);
+            for (int i = 0; i < 3; i++) {
+                try (FDBRecordContext context = fdb.openContext(null, timer)) {
+                    Transaction tr = context.ensureActive();
+                    tr.set(subspace.pack(Tuple.from(1L)), Tuple.from(1L).pack());
+                    tr.get(subspace.pack(Tuple.from(1L)));
+                    tr.get(subspace.pack(Tuple.from(1L)));
+
+                    // Make sure we get metrics even if there is no commit
+                    if (i != 1) {
+                        tr.commit().join();
+                    }
+                }
+            }
+            assertThat(listener.transactions, equalTo(3));
+            assertThat(listener.reads, equalTo(timer.getCount(FDBStoreTimer.Counts.READS)));
+            assertThat(listener.writes, equalTo(timer.getCount(FDBStoreTimer.Counts.WRITES)));
+            assertThat(listener.commits, equalTo(2));
+            assertThat(listener.closes, equalTo(3));
+        } finally {
+            FDBDatabaseFactory.instance().setTransactionListener(null);
+        }
+    }
+
+    private static class TestTransactionListener implements TransactionListener {
+        int transactions;
+        int reads;
+        int writes;
+        int commits;
+        int closes;
+
+        @Override
+        public void create(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction) {
+            ++transactions;
+        }
+
+        @Override
+        public void commit(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction,
+                           @Nullable final StoreTimer storeTimer, @Nullable final Throwable exception) {
+            reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
+            writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
+            storeTimer.reset();
+            commits++;
+        }
+
+        @Override
+        public void close(@Nonnull final FDBDatabase database, @Nonnull final Transaction transaction, @Nullable final StoreTimer storeTimer) {
+            reads += storeTimer.getCount(FDBStoreTimer.Counts.READS);
+            writes += storeTimer.getCount(FDBStoreTimer.Counts.WRITES);
+            storeTimer.reset();
+            ++closes;
+        }
+    }
+
     private void setupBaseData() {
         subspace = fdb.run(context -> {
             KeySpacePath path = TestKeySpace.getKeyspacePath("record-test", "unit");
@@ -333,4 +401,6 @@ public class FDBStoreTimerTest {
             return null;
         });
     }
+
+
 }
