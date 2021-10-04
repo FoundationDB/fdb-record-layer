@@ -155,6 +155,8 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     protected void compress(@Nonnull TransformState state, @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
 
+        increment(timer, Counts.RECORD_BYTES_BEFORE_COMPRESSION, state.length);
+
         byte[] compressed = new byte[state.length];
 
         // Write compression version number and uncompressed size as these
@@ -170,9 +172,11 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
         int compressedLength = compressor.deflate(compressed, 5, compressed.length - 5, Deflater.FULL_FLUSH);
         compressor.end();
         if (compressedLength == compressed.length - 5) {
+            increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, state.length);
             state.compressed = false;
         } else {
             state.compressed = true;
+            increment(timer, Counts.RECORD_BYTES_AFTER_COMPRESSION, compressedLength + 5);
             state.setDataArray(compressed, 0, compressedLength + 5);
         }
 
@@ -181,6 +185,12 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
             if (!state.compressed) {
                 timer.increment(Counts.ESCHEW_RECORD_COMPRESSION);
             }
+        }
+    }
+
+    private void increment(@Nullable StoreTimer timer, StoreTimer.Count counter, int amount) {
+        if (timer != null) {
+            timer.increment(counter, amount);
         }
     }
 

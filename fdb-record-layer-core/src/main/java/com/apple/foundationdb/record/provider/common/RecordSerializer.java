@@ -112,7 +112,8 @@ public interface RecordSerializer<M extends Message> {
         /** The amount of time spent encrypting serialized bytes. */
         ENCRYPT_SERIALIZED_RECORD("encrypt serialized record"),
         /** The amount of time spent decrypting serialized bytes. */
-        DECRYPT_SERIALIZED_RECORD("decrypt serialized record");
+        DECRYPT_SERIALIZED_RECORD("decrypt serialized record"),
+        ;
 
         private final String title;
         private final String logKey;
@@ -145,7 +146,12 @@ public interface RecordSerializer<M extends Message> {
     @API(API.Status.UNSTABLE)
     enum Counts implements StoreTimer.Count {
         /** The number of times that record compression was not effective and the record was kept uncompressed. */
-        ESCHEW_RECORD_COMPRESSION("eschew record compression");
+        ESCHEW_RECORD_COMPRESSION("eschew record compression"),
+        /** Total record bytes for which compression was attemped. */
+        RECORD_BYTES_BEFORE_COMPRESSION("record bytes before compression"),
+        /** Total record bytes after compression was attempted. */
+        RECORD_BYTES_AFTER_COMPRESSION("record bytes after compression"),
+        ;
 
         private final String title;
         private final boolean isSize;

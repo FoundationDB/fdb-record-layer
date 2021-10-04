@@ -48,6 +48,7 @@ import java.util.zip.Deflater;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -151,6 +152,9 @@ public class TransformedRecordSerializerTest {
         MySimpleRecord smallRecord = MySimpleRecord.newBuilder().setRecNo(1066L).build();
         RecordTypeUnion smallUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(smallRecord).build();
         byte[] serialized = serialize(serializer, smallRecord);
+        assertEquals(storeTimer.getCount(RecordSerializer.Counts.ESCHEW_RECORD_COMPRESSION), 1);
+        assertEquals(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
+                storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION));
         assertEquals(TransformedRecordSerializer.ENCODING_CLEAR, serialized[0]);
         assertArrayEquals(smallUnionRecord.toByteArray(), Arrays.copyOfRange(serialized, 1, serialized.length));
         Message deserialized = deserialize(serializer, Tuple.from(1066L), serialized);
@@ -162,6 +166,8 @@ public class TransformedRecordSerializerTest {
         MySimpleRecord largeRecord = MySimpleRecord.newBuilder().setRecNo(1066L).setStrValueIndexed(Strings.repeat("foo", 1000)).build();
         RecordTypeUnion largeUnionRecord = RecordTypeUnion.newBuilder().setMySimpleRecord(largeRecord).build();
         serialized = serialize(serializer, largeRecord);
+        assertThat(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_BEFORE_COMPRESSION),
+                greaterThan(storeTimer.getCount(RecordSerializer.Counts.RECORD_BYTES_AFTER_COMPRESSION)));
         assertEquals(TransformedRecordSerializer.ENCODING_COMPRESSED, serialized[0]);
         int rawLength = largeUnionRecord.toByteArray().length;
         assertEquals(rawLength, ByteBuffer.wrap(serialized, 2, 4).order(ByteOrder.BIG_ENDIAN).getInt());
