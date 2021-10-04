@@ -288,6 +288,12 @@ public class FDBDirectory extends Directory {
             if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
                 try {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
+                    // Attempt to cache the last block since we check it for checksum in all the
+                    // current Codecs
+                    int lastBlock = (int) (fileReference.getSize() / fileReference.getBlockSize());
+                    if (lastBlock != 0) {
+                        readBlock(name, CompletableFuture.completedFuture(fileReference), lastBlock);
+                    }
                 } catch (RecordCoreException e) {
                     LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
                 }
