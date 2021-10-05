@@ -63,7 +63,7 @@ public class InsertTest {
                         Key.Expressions.concat(Key.Expressions.recordType(),Key.Expressions.field("rest_no"),Key.Expressions.field("name")),2),IndexTypes.VALUE));
         catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
 
-        catalog.createDatabase(URI.create("//dbid"),
+        catalog.createDatabase(URI.create("/insert_test"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("main", "Restaurant")
                         .build());
@@ -71,7 +71,7 @@ public class InsertTest {
 
     @AfterEach
     void tearDown() {
-        catalog.deleteDatabase(URI.create("//dbid"));
+        catalog.deleteDatabase(URI.create("/insert_test"));
     }
 
     @Test
@@ -79,7 +79,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed://dbid"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())){
             conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){
@@ -174,7 +174,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed://dbid"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())){
             conn.setSchema("main");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){
@@ -191,7 +191,7 @@ public class InsertTest {
         /*
          * We want to make sure that we don't accidentally pick up data from different tables
          */
-        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed://dbid"), Options.create())){
+        try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())){
             conn.setSchema("doesNotExist");
             conn.beginTransaction();
             try(Statement s = conn.createStatement()){

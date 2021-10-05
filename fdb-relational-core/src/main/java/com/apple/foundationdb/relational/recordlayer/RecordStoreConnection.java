@@ -24,7 +24,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.RelationalDatabaseMetaData;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class RecordStoreConnection implements DatabaseConnection {
@@ -36,7 +38,8 @@ public class RecordStoreConnection implements DatabaseConnection {
     private boolean autoCommit = true;
     private boolean usingAnExistingTransaction;
 
-    public RecordStoreConnection(RecordLayerDatabase frl, @Nullable RecordContextTransaction existingTransaction) {
+    public RecordStoreConnection(RecordLayerDatabase frl,
+                                 @Nullable RecordContextTransaction existingTransaction) {
         this.fdbDb = frl.getFDBDatabase();
         this.frl = frl;
         this.transaction = existingTransaction;
@@ -118,6 +121,12 @@ public class RecordStoreConnection implements DatabaseConnection {
     @Override
     public void close() throws RelationalException {
         rollback();
+    }
+
+    @Override
+    @Nonnull
+    public RelationalDatabaseMetaData getMetaData() throws RelationalException {
+        return new RecordLayerMetaData(this, frl.getKeySpace());
     }
 
     @Override

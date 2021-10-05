@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.IsolationLevel;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 import com.google.protobuf.Message;
 
 public abstract class AbstractRecordLayerResultSet implements RelationalResultSet {
@@ -181,7 +182,15 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
         throw new OperationUnsupportedException("Does not support message parsing");
     }
 
+    @Override
+    public RelationalResultSetMetaData getMetaData() throws RelationalException {
+        return new RecordResultSetMetaData(getFieldNames());
+    }
+
+
     /* ****************************************************************************************************************/
     /* private helper methods*/
     protected abstract int getPosition(String fieldName);
+
+    protected abstract String[] getFieldNames();
 }

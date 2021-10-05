@@ -1,5 +1,5 @@
 /*
- * ValueTuple.java
+ * RecordResultSetMetaData.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,24 +20,17 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-public class ValueTuple extends AbstractTuple {
-    private Object obj;
+import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
 
-    public ValueTuple(Object obj) {
-        this.obj = obj;
-    }
+public class RecordResultSetMetaData implements RelationalResultSetMetaData {
+    private final String[] fieldNames;
 
-    void setObject(Object o) {
-        this.obj = o;
-    }
-
-    @Override
-    public int getNumFields() {
-        return 1;
+    public RecordResultSetMetaData(String[] fieldNames) {
+        this.fieldNames = fieldNames;
     }
 
     @Override
-    public Object getObject(int position) {
-        return obj;
+    public String[] getColumns() {
+        return fieldNames;
     }
 }

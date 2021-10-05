@@ -65,7 +65,7 @@ public class QueryPropertiesTest {
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
 
-        catalog.createDatabase(URI.create("//record_layer_table_test"),
+        catalog.createDatabase(URI.create("/query_properties_test"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("test","RestaurantRecord")
                         .build());
@@ -73,7 +73,7 @@ public class QueryPropertiesTest {
 
     @AfterEach
     void tearDown() {
-        catalog.deleteDatabase(URI.create("//record_layer_table_test"));
+        catalog.deleteDatabase(URI.create("/query_properties_test"));
     }
 
     @Test
@@ -158,7 +158,7 @@ public class QueryPropertiesTest {
     }
 
     List<Long> testScan(QueryProperties queryProperties, long firstRestNo) throws RelationalException {
-        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        final URI dbUrl = URI.create("rlsc:embed:/query_properties_test");
         try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");

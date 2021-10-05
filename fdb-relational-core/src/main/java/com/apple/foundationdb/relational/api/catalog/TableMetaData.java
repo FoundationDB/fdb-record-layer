@@ -21,8 +21,10 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import com.apple.foundationdb.relational.recordlayer.ddl.ColumnDescriptor;
+import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Set;
 
 public interface TableMetaData {
@@ -34,8 +36,7 @@ public interface TableMetaData {
      * Tuple(keys first, then value columns), and the value is the information for that Column at that position.
      * No entry is null.
      */
-    @Nonnull
-    ColumnDescriptor[] getColumns();
+    @Nonnull ColumnDescriptor[] getColumns();
 
     /**
      * Get a list of the key columns in this table.
@@ -43,14 +44,20 @@ public interface TableMetaData {
      * @return a listing of only key columns for this table. The position in the array is the position in the
      * underlying key tuple, and the value is the information for that column at that position. No entry is null.
      */
-    @Nonnull
-    ColumnDescriptor[] getKeyColumns();
+    @Nonnull ColumnDescriptor[] getKeyColumns();
 
     /**
      * Get a list of all the indexes in this table.
      *
      * @return Metadata about each index in the individual table.
      */
-    @Nonnull
-    Set<IndexMetaData> getIndexes();
+    @Nonnull Set<IndexMetaData> getIndexes();
+
+    /**
+     * Get the type descriptor for this table, if it exists, or null if it does not.
+     *
+     * @return the type descriptor for this table, if the table supports protobuf storage, or {@code null} if
+     * it does not.
+     */
+    @Nullable Descriptors.Descriptor getTableTypeDescriptor();
 }

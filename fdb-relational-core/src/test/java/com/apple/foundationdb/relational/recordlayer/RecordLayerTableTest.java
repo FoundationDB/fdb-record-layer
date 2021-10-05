@@ -57,7 +57,7 @@ public class RecordLayerTableTest {
         builder.getRecordType("RestaurantRecord").setPrimaryKey(Key.Expressions.field("rest_no"));
         catalog.createSchemaTemplate(new RecordLayerTemplate("RestaurantRecord", builder.build()));
 
-        catalog.createDatabase(URI.create("//record_layer_table_test"),
+        catalog.createDatabase(URI.create("/record_layer_table_test"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("test","RestaurantRecord")
                         .build());
@@ -65,12 +65,12 @@ public class RecordLayerTableTest {
 
     @AfterEach
     public final void tearDown(){
-        catalog.deleteDatabase(URI.create("//record_layer_table_test"));
+        catalog.deleteDatabase(URI.create("/record_layer_table_test"));
     }
 
     @Test
     void canInsertAndGetASingleRecord() {
-        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
         try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -102,7 +102,7 @@ public class RecordLayerTableTest {
 
     @Test
     void canDeleteASingleRecord() {
-        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
         try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();
             conn.setSchema("test");
@@ -143,7 +143,7 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndScanASingleRecordFromIndex() throws Exception {
-        URI uri = URI.create("rlsc:embed://record_layer_table_test");
+        URI uri = URI.create("rlsc:embed:/record_layer_table_test");
         try(DatabaseConnection conn = Relational.connect(uri, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
@@ -174,7 +174,7 @@ public class RecordLayerTableTest {
 
     @Test
     void canInsertAndScanASingleRecord() throws Exception {
-        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
         try(DatabaseConnection conn = Relational.connect(dbUrl, Options.create().withOption(OperationOption.forceVerifyDdl()))){
             conn.beginTransaction();
             conn.setSchema("test");
@@ -206,7 +206,7 @@ public class RecordLayerTableTest {
 
     @Test
     void demo() {
-        final URI dbUrl = URI.create("rlsc:embed://record_layer_table_test");
+        final URI dbUrl = URI.create("rlsc:embed:/record_layer_table_test");
 
         try (DatabaseConnection conn = Relational.connect(dbUrl, null,Options.create().withOption(OperationOption.forceVerifyDdl()))) {
             conn.beginTransaction();

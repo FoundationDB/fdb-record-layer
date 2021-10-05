@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.OperationOption;
@@ -39,6 +40,7 @@ import com.google.common.base.Throwables;
 
 import javax.annotation.Nonnull;
 import javax.annotation.concurrent.NotThreadSafe;
+import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -88,7 +90,6 @@ public class RecordLayerDatabase implements RelationalDatabase {
             schema = new RecordLayerSchema(schemaId, this, connection, options);
             putBack = true;
         }
-        catalog.extendKeySpaceForSchema(ksPath, schemaId);
         if (options.hasOption(OperationOption.FORCE_VERIFY_DDL)) {
             if (!this.connection.inActiveTransaction()) {
                 this.connection.beginTransaction();
@@ -145,6 +146,9 @@ public class RecordLayerDatabase implements RelationalDatabase {
         return fdbDb;
     }
 
+    KeySpace getKeySpace(){
+        return catalog.getKeySpace();
+    }
     /* ****************************************************************************************************************/
     /* private helper methods*/
     FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
@@ -159,5 +163,9 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     void clearDatabase(@Nonnull FDBRecordContext context) {
         FDBRecordStore.deleteStore(context, ksPath);
+    }
+
+    public URI getPath() {
+        return KeySpaceUtils.pathToURI(ksPath);
     }
 }

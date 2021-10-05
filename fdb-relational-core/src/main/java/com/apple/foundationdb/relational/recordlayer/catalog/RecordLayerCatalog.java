@@ -26,6 +26,10 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
@@ -65,6 +69,11 @@ public class RecordLayerCatalog implements Catalog {
         this.formatVersion = formatVersion;
     }
 
+    @Override
+    public RelationalResultSet listDatabases(@Nonnull Transaction txn) throws RelationalException {
+        return new SystemDatabaseResultSet(txn,new DirectoryScannable(keySpace), QueryProperties.DEFAULT,false);
+    }
+
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
         return metaDataStore.loadTemplate(templateId);
@@ -81,6 +90,10 @@ public class RecordLayerCatalog implements Catalog {
     @Override
     public void deleteDatabase(@Nonnull URI dbUrl) throws RelationalException {
         throw new OperationUnsupportedException("Unimplemented");
+    }
+
+    public KeySpace getKeySpace(){
+        return keySpace;
     }
 
     public KeySpace extendKeySpaceForSchema(@Nonnull KeySpacePath dbPath, @Nonnull String schemaId) {

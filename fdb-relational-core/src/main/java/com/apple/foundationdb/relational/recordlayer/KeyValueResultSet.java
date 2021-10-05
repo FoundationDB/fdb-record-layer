@@ -82,6 +82,17 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    public int getNumFields() {
+        if (!nextCalled) {
+            throw new InvalidCursorStateException("Iterator was not advanced");
+        }
+        if (keyValue == null) {
+            throw new RelationalException("empty result set", RelationalException.ErrorCode.UNKNOWN);
+        }
+        return keyValue.key().getNumFields()+keyValue.value().getNumFields();
+    }
+
+    @Override
     protected int getPosition(String fieldName) {
         int position = 0;
         for (String field : fieldNames) {
@@ -109,7 +120,12 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
         if (!supportsMessageParsing()) {
             throw new OperationUnsupportedException("This ResultSet does not support Message Parsing");
         }
-        assert keyValue != null: "Programmer error: supportsMessageParsing() should handle non-advanced pointers";
-        return ((MessageTuple)keyValue.value()).parseMessage();
+        assert keyValue != null : "Programmer error: supportsMessageParsing() should handle non-advanced pointers";
+        return ((MessageTuple) keyValue.value()).parseMessage();
+    }
+
+    @Override
+    protected String[] getFieldNames() {
+        return fieldNames;
     }
 }

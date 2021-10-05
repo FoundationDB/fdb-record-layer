@@ -50,7 +50,7 @@ import java.util.Collections;
 public class RecordTypeKeyTest {
     @RegisterExtension
     public final RecordLayerCatalogRule catalog = new RecordLayerCatalogRule();
-    final URI dbUrl = URI.create("rlsc:embed:////type_key_db");
+    final URI dbUrl = URI.create("rlsc:embed:///type_key_db");
 
     @BeforeEach
     public final void setupCatalog() {
@@ -68,7 +68,7 @@ public class RecordTypeKeyTest {
 
         catalog.createSchemaTemplate(new RecordLayerTemplate("Restaurant", builder.build()));
 
-        catalog.createDatabase(URI.create("//type_key_db"),
+        catalog.createDatabase(URI.create("/type_key_db"),
                 DatabaseTemplate.newBuilder()
                         .withSchema("main", "Restaurant")
                         .build());
@@ -77,7 +77,7 @@ public class RecordTypeKeyTest {
 
     @AfterEach
     void tearDown() {
-        catalog.deleteDatabase(URI.create("//type_key_db"));
+        catalog.deleteDatabase(URI.create("/type_key_db"));
     }
 
     @Test

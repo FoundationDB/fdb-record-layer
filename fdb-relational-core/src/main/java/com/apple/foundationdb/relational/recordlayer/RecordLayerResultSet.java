@@ -85,7 +85,11 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     @Override
     public Object getObject(int position) throws RelationalException {
         if (currentRow == null) {
-            throw new InvalidCursorStateException("Iterator was not advanced or has terminated");
+            throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
+        }
+        if(supportsMessageParsing()){
+            Message m = ((MessageTuple)currentRow.value()).parseMessage();
+            return m.getField(m.getDescriptorForType().findFieldByNumber(position+1));
         }
         if (position < 0 || position >= (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
@@ -120,15 +124,32 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     }
 
     @Override
+    protected String[] getFieldNames() {
+        return fieldNames;
+    }
+
+    @Override
     public boolean supportsMessageParsing() {
         return currentRow.value() instanceof MessageTuple;
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public <M extends Message> M parseMessage() throws OperationUnsupportedException {
         if (!supportsMessageParsing()) {
             throw new OperationUnsupportedException("This ResultSet does not support Message Parsing");
         }
         return ((MessageTuple)currentRow.value()).parseMessage();
+    }
+
+    @Override
+    public int getNumFields() {
+        if (currentRow == null) {
+            throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
+        }
+        if(supportsMessageParsing()){
+            return parseMessage().getDescriptorForType().getFields().size();
+        }
+        return currentRow.key().getNumFields()+currentRow.value().getNumFields();
     }
 }

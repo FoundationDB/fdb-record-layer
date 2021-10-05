@@ -34,6 +34,7 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.catalog.TableMetaData;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
@@ -143,6 +144,12 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     @Override
     public String getName() {
         return tableName;
+    }
+
+    @Nonnull
+    @Override
+    public TableMetaData getMetaData() {
+        return new RecordTypeMetaData(loadRecordType());
     }
 
     @Override

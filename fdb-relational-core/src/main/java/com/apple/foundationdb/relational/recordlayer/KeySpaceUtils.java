@@ -36,7 +36,10 @@ import java.util.UUID;
 
 public class KeySpaceUtils {
     public static @Nonnull URI pathToURI(@Nonnull KeySpacePath dbPath) {
-        KeySpacePath path = dbPath;
+         return URI.create("/"+toPathString(dbPath));
+    }
+
+    public static String toPathString(KeySpacePath path) {
         String uriPath = "";
         while (path != null) {
             switch (path.getDirectory().getKeyType()) {
@@ -52,8 +55,7 @@ public class KeySpaceUtils {
             }
             path = path.getParent();
         }
-
-        return URI.create("/"+uriPath);
+        return uriPath;
     }
 
     public static @Nonnull

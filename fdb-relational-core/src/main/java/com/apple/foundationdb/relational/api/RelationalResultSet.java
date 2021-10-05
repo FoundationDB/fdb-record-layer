@@ -111,5 +111,16 @@ public interface RelationalResultSet extends AutoCloseable {
      * @throws InvalidTypeException if the Row's data type is not {@code M}
      */
     <M extends Message> M parseMessage() throws OperationUnsupportedException, InvalidTypeException;
+
+    RelationalResultSetMetaData getMetaData() throws RelationalException;
+
+    /**
+     * Get the number of fields <em>at the current cursor position</em>. So if the number of fields
+     * may change on a row-by-row basis (i.e. scanning on the schema heap), then this number may change and should
+     * be requested after each call to {@link #next()}.
+     *
+     * @return the number of fields at the current cursor position.
+     */
+    int getNumFields();
 }
 

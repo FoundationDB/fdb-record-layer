@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import javax.annotation.Nonnull;
 
 /**
  * Represents a connection to a Relational database.
@@ -85,4 +86,7 @@ public interface DatabaseConnection extends AutoCloseable {
 
     @Override
     void close() throws RelationalException;
+
+    @Nonnull
+    RelationalDatabaseMetaData getMetaData() throws RelationalException;
 }

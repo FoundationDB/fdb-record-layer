@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDire
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
@@ -41,14 +42,23 @@ import java.net.URI;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCallback, Catalog {
+    private final Supplier<KeySpace> keySpaceSupplier;
     private FDBDatabase fdbDatabase;
 
     private RecordLayerEngine engine;
 
     private final List<RecordLayerDatabase> databases = new LinkedList<>();
 
+    public RecordLayerCatalogRule(){
+        this.keySpaceSupplier = this::getKeySpaceForSetup;
+    }
+
+    public RecordLayerCatalogRule(Supplier<KeySpace> keySpaceSupplier) {
+        this.keySpaceSupplier = keySpaceSupplier;
+    }
 
     @Override
     public void afterEach(ExtensionContext context) {
@@ -63,7 +73,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
 
     @Override
     public void beforeEach(ExtensionContext context) {
-        KeySpace keySpace = getKeySpaceForSetup();
+        KeySpace keySpace = keySpaceSupplier.get();
         fdbDatabase = FDBDatabaseFactory.instance().getDatabase();
 
         engine = new RecordLayerEngine(dbPath -> fdbDatabase,
@@ -102,11 +112,14 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
        }
     }
 
+    @Override
+    public RelationalResultSet listDatabases(@Nonnull Transaction transaction) throws RelationalException {
+        return engine.getCatalog().listDatabases(transaction);
+    }
+
     private KeySpace getKeySpaceForSetup() {
-        KeySpaceDirectory rootDirectory = new KeySpaceDirectory("/", KeySpaceDirectory.KeyType.NULL);
         KeySpaceDirectory dbDirectory = new KeySpaceDirectory("dbid", KeySpaceDirectory.KeyType.STRING);
-        rootDirectory = rootDirectory.addSubdirectory(dbDirectory);
-        return new KeySpace(rootDirectory);
+        return new KeySpace(dbDirectory);
     }
 
     public void createDatabase(URI dbUri, DatabaseTemplate dbTemplate) {
