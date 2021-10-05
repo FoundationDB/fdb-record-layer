@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -38,7 +37,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * GroupAggregator breaks streams of records into groups, based on grouping criteria.
+ * StreamGrouping breaks streams of records into groups, based on grouping criteria.
  * For each record (provided through {@link #apply}) the class would decide whether this record is part
  * of the current group or of the next group.
  * <p>Note: If there are no grouping criteria provided, (the 'zero case'), then all records are placed in one group.</p>
@@ -62,7 +61,7 @@ import java.util.stream.Collectors;
  *
  * @param <M> the type of content (message) that is in the store
  */
-public class GroupAggregator<M extends Message> {
+public class StreamGrouping<M extends Message> {
     @Nonnull
     private final FDBRecordStoreBase<M> store;
     @Nonnull
@@ -70,7 +69,7 @@ public class GroupAggregator<M extends Message> {
     @Nonnull
     private final CorrelationIdentifier alias;
     @Nonnull
-    private final List<Value> groupCriteria;
+    private final List<Value> groupingKeys;
     @Nonnull
     private final List<AggregateValue<?, ?>> aggregateValues;
     @Nonnull
@@ -93,9 +92,9 @@ public class GroupAggregator<M extends Message> {
      * @param context evaluation context containing parameter bindings
      * @param alias the quantifier alias for the value evaluation
      */
-    public GroupAggregator(@Nonnull final List<Value> groupCriteria, @Nonnull List<AggregateValue<?, ?>> aggregateValues,
-                           @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull CorrelationIdentifier alias) {
-        this.groupCriteria = groupCriteria;
+    public StreamGrouping(@Nonnull final List<Value> groupCriteria, @Nonnull List<AggregateValue<?, ?>> aggregateValues,
+                          @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull CorrelationIdentifier alias) {
+        this.groupingKeys = groupCriteria;
         this.aggregateValues = aggregateValues;
         this.accumulator = createAccumulator(aggregateValues);
         this.store = store;
@@ -118,7 +117,7 @@ public class GroupAggregator<M extends Message> {
      * @return true IFF the next record provided constitutes a group break
      */
     public boolean apply(@Nonnull FDBQueriedRecord<M> record) {
-        List<Object> nextGroup = eval(record, groupCriteria);
+        List<Object> nextGroup = eval(record, groupingKeys);
         boolean groupBreak = isGroupBreak(currentGroup, nextGroup);
         if (groupBreak) {
             finalizeGroup(nextGroup);

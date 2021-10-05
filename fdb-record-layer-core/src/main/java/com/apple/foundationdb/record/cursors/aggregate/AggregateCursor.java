@@ -48,7 +48,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     private final RecordCursor<QueryResult> inner;
     // group aggregator to break incoming records into groups
     @Nonnull
-    private final GroupAggregator<M> groupAggregator;
+    private final StreamGrouping<M> groupAggregator;
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
@@ -56,7 +56,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
 
-    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final GroupAggregator<M> groupAggregator) {
+    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final StreamGrouping<M> groupAggregator) {
         this.inner = inner;
         this.groupAggregator = groupAggregator;
     }
