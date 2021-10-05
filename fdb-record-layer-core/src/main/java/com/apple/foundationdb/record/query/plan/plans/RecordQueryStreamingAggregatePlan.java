@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +54,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -122,14 +124,15 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan().toString() + " | AGGREGATE BY " + aggregateValues + ", GROUP BY " + groupByCriteria;
+        return getInnerPlan() + " | AGGREGATE BY " + aggregateValues + ", GROUP BY " + groupByCriteria;
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        // TODO
-        return ImmutableSet.of();
+        return Streams.concat(groupByCriteria.stream().flatMap(value -> value.getCorrelatedTo().stream()),
+                        aggregateValues.stream().flatMap(value -> value.getCorrelatedTo().stream()))
+                .collect(ImmutableSet.toImmutableSet());
     }
 
     @Nonnull
@@ -166,7 +169,8 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        return (true);
+        // Results are combination of groupCriteria and aggregateValues
+        return semanticEqualsForResults(otherExpression, equivalencesMap);
     }
 
     @Override
@@ -176,7 +180,7 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
 
     @Override
     public int hashCodeWithoutChildren() {
-        return BASE_HASH.hashCode();
+        return Objects.hash(BASE_HASH, groupByCriteria, aggregateValues);
     }
 
     @Override
@@ -206,6 +210,19 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
         return 1 + getInnerPlan().getComplexity();
     }
 
+    private List<String> asString() {
+        StringBuilder builder = new StringBuilder();
+        aggregateValues.forEach(value -> builder.append(value.toString()).append(" "));
+        builder.append("GROUP BY ");
+        groupByCriteria.forEach(value -> builder.append(value.toString()).append(" "));
+
+        return Collections.singletonList(builder.toString());
+    }
+
+    private List<Value> createValuesList() {
+        return ImmutableList.<Value>builder().addAll(this.groupByCriteria).addAll(this.aggregateValues).build();
+    }
+
     /**
      * Rewrite the planner graph for better visualization of a query index plan.
      *
@@ -223,18 +240,5 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
                         asString(),
                         ImmutableMap.of()),
                 childGraphs);
-    }
-
-    private List<String> asString() {
-        StringBuilder builder = new StringBuilder();
-        aggregateValues.forEach(value -> builder.append(value.toString()).append(" "));
-        builder.append("GROUP BY ");
-        groupByCriteria.forEach(value -> builder.append(value.toString()).append(" "));
-
-        return Collections.singletonList(builder.toString());
-    }
-
-    private List<Value> createValuesList() {
-        return ImmutableList.<Value>builder().addAll(this.groupByCriteria).addAll(this.aggregateValues).build();
     }
 }

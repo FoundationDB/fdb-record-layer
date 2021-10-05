@@ -81,9 +81,13 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
+            if ((previousValidResult == null) && (!previousResult.hasNext())) {
+                // Edge case where there are no records at all
+                return previousResult;
+            }
             List<Object> groupResult = groupAggregator.getCompletedGroupResult();
             QueryResult queryResult = QueryResult.of(groupResult);
-            // Use the last valid result fo the continuation as we need non-terminal one here.
+            // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = previousValidResult.getContinuation();
             return RecordCursorResult.withNextValue(queryResult, continuation);
         });
@@ -107,5 +111,4 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         }
         return visitor.visitLeave(this);
     }
-
 }

@@ -30,9 +30,13 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * QueryResult is the general result that encapsulates the data that is flowing up from plan to consumer. The QueryResult
@@ -68,7 +72,7 @@ public class QueryResult {
      */
     @Nonnull
     public static QueryResult of(@Nonnull Object element) {
-        return new QueryResult(ImmutableList.of(element));
+        return new QueryResult(Collections.singletonList(element));
     }
 
     /**
@@ -78,7 +82,7 @@ public class QueryResult {
      */
     @Nonnull
     public static QueryResult of(@Nonnull Collection<Object> elements) {
-        return new QueryResult(ImmutableList.copyOf(elements));
+        return new QueryResult(Collections.unmodifiableList(new ArrayList<>(elements)));
     }
 
     /**
@@ -88,7 +92,7 @@ public class QueryResult {
      */
     @Nonnull
     public QueryResult with(@Nonnull Object addedElement) {
-        return new QueryResult(new ImmutableList.Builder<>().addAll(elements).add(addedElement).build());
+        return new QueryResult(Stream.concat(elements.stream(), Stream.of(addedElement)).collect(Collectors.toList()));
     }
 
     /**
@@ -98,7 +102,7 @@ public class QueryResult {
      */
     @Nonnull
     public QueryResult with(@Nonnull Object... addedElements) {
-        return new QueryResult(new ImmutableList.Builder<>().addAll(elements).add(addedElements).build());
+        return new QueryResult(Stream.concat(elements.stream(), Arrays.stream(addedElements)).collect(Collectors.toList()));
     }
 
     /**

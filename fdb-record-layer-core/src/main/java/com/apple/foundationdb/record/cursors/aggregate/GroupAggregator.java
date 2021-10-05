@@ -32,6 +32,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -153,10 +154,14 @@ public class GroupAggregator<M extends Message> {
     }
 
     private void finalizeGroup(List<Object> nextGroup) {
-        previousGroupResult = ImmutableList.builder()
-                .addAll(currentGroup != null ? currentGroup : Collections.emptyList())
-                .addAll(accumulator.finish())
-                .build();
+        // Cannot use ImmutableList since it does not support null elements.
+        List<Object> result = new ArrayList<>();
+        if (currentGroup != null) {
+            result.addAll(currentGroup);
+        }
+        result.addAll(accumulator.finish());
+        previousGroupResult = Collections.unmodifiableList(result);
+
         currentGroup = nextGroup;
         // "Reset" the accumulator by creating a fresh one.
         accumulator = createAccumulator(aggregateValues);
