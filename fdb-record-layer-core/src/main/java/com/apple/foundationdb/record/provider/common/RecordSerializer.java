@@ -147,7 +147,7 @@ public interface RecordSerializer<M extends Message> {
     enum Counts implements StoreTimer.Count {
         /** The number of times that record compression was not effective and the record was kept uncompressed. */
         ESCHEW_RECORD_COMPRESSION("eschew record compression"),
-        /** Total record bytes for which compression was attemped. */
+        /** Total record bytes for which compression was attempted. */
         RECORD_BYTES_BEFORE_COMPRESSION("record bytes before compression"),
         /** Total record bytes after compression was attempted. */
         RECORD_BYTES_AFTER_COMPRESSION("record bytes after compression"),
