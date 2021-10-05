@@ -182,6 +182,6 @@ public class StreamGrouping<M extends Message> {
 
     @Nonnull
     private AccumulatorList createAccumulator(final @Nonnull List<AggregateValue<?, ?>> aggregateValues) {
-        return new AccumulatorList(aggregateValues.stream().map(AggregateValue::createAccumulator).collect(Collectors.toList()));
+        return new AccumulatorList(aggregateValues.stream().map(AggregateValue::createAccumulator).collect(ImmutableList.toImmutableList()));
     }
 }
