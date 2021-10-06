@@ -84,9 +84,13 @@ public class RecordConstructorValue implements Value {
         final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
 
         keyChildrenMap.forEach((key, child) -> {
-            final Object childResult = child.eval(store, context, record, message);
+            Object childResult = child.eval(store, context, record, message);
             if (childResult != null) {
                 final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByName(key);
+                // craziness abounds as our own internal records are more than just of type Message
+                if (childResult instanceof FDBRecord) {
+                    childResult = ((FDBRecord<?>)childResult).getRecord();
+                }
                 resultMessageBuilder.setField(fieldDescriptor, childResult);
             }
         });

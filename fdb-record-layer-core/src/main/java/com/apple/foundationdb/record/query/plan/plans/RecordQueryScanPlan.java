@@ -40,6 +40,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -201,6 +202,12 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
         @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
         final String range = tupleRange == null ? comparisons.toString() : tupleRange.toString();
         return "Scan(" + range + ")";
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        return "scan()";
     }
 
     @Nonnull

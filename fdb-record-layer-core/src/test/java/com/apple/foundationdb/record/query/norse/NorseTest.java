@@ -150,14 +150,14 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                                     if (unwrapped instanceof Message) {
                                         columnsToPrintBuilder.add(TextFormat.shortDebugString((Message)unwrapped));
                                     } else {
-                                        columnsToPrintBuilder.add(unwrapped == null ? "null" : unwrapped.toString());
+                                        columnsToPrintBuilder.add(unwrapped == null ? "null" : unwrapped.toString().replace('\n', ' '));
                                     }
                                 }
                             }
 
                             final ImmutableList<String> columnsToPrint = columnsToPrintBuilder.build();
                             if (columnsToPrint.size() == 1) {
-                                repl.print(columnsToPrint.get(0));
+                                repl.println(columnsToPrint.get(0));
                             } else {
                                 repl.println(columnsToPrint.stream()
                                         .map(columnToPrint -> Strings.padEnd(columnToPrint.length() > 40 ? columnToPrint.substring(0, 40) : columnToPrint, 40, ' '))

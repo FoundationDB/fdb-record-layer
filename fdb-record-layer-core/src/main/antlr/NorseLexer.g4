@@ -107,8 +107,6 @@ BOOL_LITERAL:              'true'
             |              'false'
             ;
 
-CHAR_LITERAL:              '\'' (~['\\\r\n] | EscapeSequence) '\'';
-
 STRING_LITERAL:            '"' (~["\\\r\n] | EscapeSequence)* '"'
               |            '\'' (~['\\\r\n] | EscapeSequence)* '\''
               ;
