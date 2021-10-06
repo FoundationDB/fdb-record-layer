@@ -25,14 +25,17 @@ import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
-import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * QueryResult is the general result that encapsulates the data that is flowing up from plan to consumer. The QueryResult
@@ -44,11 +47,11 @@ import java.util.List;
 @API(API.Status.EXPERIMENTAL)
 public class QueryResult {
     @Nonnull
-    private final List<QueryResultElement> elements;
+    private final List<Object> elements;
 
     private static final QueryResult EMPTY = new QueryResult(Collections.emptyList());
 
-    private QueryResult(@Nonnull List<QueryResultElement> elements) {
+    private QueryResult(@Nonnull List<Object> elements) {
         this.elements = elements;
     }
 
@@ -67,8 +70,8 @@ public class QueryResult {
      * @return the newly created result
      */
     @Nonnull
-    public static QueryResult of(@Nonnull QueryResultElement element) {
-        return new QueryResult(ImmutableList.of(element));
+    public static QueryResult of(@Nonnull Object element) {
+        return new QueryResult(Collections.singletonList(element));
     }
 
     /**
@@ -77,8 +80,8 @@ public class QueryResult {
      * @return the newly created result
      */
     @Nonnull
-    public static QueryResult of(@Nonnull Collection<QueryResultElement> elements) {
-        return new QueryResult(ImmutableList.copyOf(elements));
+    public static QueryResult of(@Nonnull Collection<Object> elements) {
+        return new QueryResult(Collections.unmodifiableList(new ArrayList<>(elements)));
     }
 
     /**
@@ -87,8 +90,8 @@ public class QueryResult {
      * @return the newly created result that combines the existing elements with the new one
      */
     @Nonnull
-    public QueryResult with(@Nonnull QueryResultElement addedElement) {
-        return new QueryResult(new ImmutableList.Builder<QueryResultElement>().addAll(elements).add(addedElement).build());
+    public QueryResult with(@Nonnull Object addedElement) {
+        return new QueryResult(Stream.concat(elements.stream(), Stream.of(addedElement)).collect(Collectors.toList()));
     }
 
     /**
@@ -97,8 +100,16 @@ public class QueryResult {
      * @return the newly created result that combines the existing elements with the new ones
      */
     @Nonnull
-    public QueryResult with(@Nonnull QueryResultElement... addedElements) {
-        return new QueryResult(new ImmutableList.Builder<QueryResultElement>().addAll(elements).add(addedElements).build());
+    public QueryResult with(@Nonnull Object... addedElements) {
+        return new QueryResult(Stream.concat(elements.stream(), Arrays.stream(addedElements)).collect(Collectors.toList()));
+    }
+
+    /**
+     * return the size of the result = the number of elements.
+     * @return the size of the result = the number of elements.
+     */
+    public int size() {
+        return elements.size();
     }
 
     /**
@@ -108,7 +119,7 @@ public class QueryResult {
      * @throws IndexOutOfBoundsException if the index is out of range
      */
     @Nullable
-    public QueryResultElement get(int i) {
+    public Object get(int i) {
         return elements.get(i);
     }
 

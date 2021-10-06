@@ -164,6 +164,11 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "In Union",
             "A union of the application of a child to each element of an IN list.");
+    public static final NodeInfo STREAMING_AGGREGATE_OPERATOR = new NodeInfo(
+            "StreamingAggregateOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "Streaming Aggregate",
+            "A streaming aggregate operator accumulates values from its input and applies a function to produce new values (e.g. SUM, MAX). It also groups the inputs by its grouping parameters.");
 
     private final String id;
     private final String iconId;

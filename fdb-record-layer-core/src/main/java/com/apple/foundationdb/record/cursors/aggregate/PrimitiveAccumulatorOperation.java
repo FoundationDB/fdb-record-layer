@@ -1,5 +1,5 @@
 /*
- * QueryResultElement.java
+ * PrimitiveAccumulatorOperation.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,10 +18,13 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.plans;
+package com.apple.foundationdb.record.cursors.aggregate;
 
 /**
- * Marker interface for the elements that can be stored in a {@link QueryResult}.
+ * The types of accumulation operations allowed for a primitive accumulator.
  */
-public interface QueryResultElement {
+public enum PrimitiveAccumulatorOperation {
+    SUM,
+    MIN,
+    MAX
 }

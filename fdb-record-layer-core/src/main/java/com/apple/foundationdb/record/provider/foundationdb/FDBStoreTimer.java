@@ -177,6 +177,8 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_QUERY("plan query"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan} as part of executing a query. */
         QUERY_FILTER("filter records"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan} as part of executing a query. */
+        QUERY_AGGREGATE("aggregate records"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTypeFilterPlan} as part of executing a query. */
         QUERY_TYPE_FILTER("filter records by type"),
         /** The amount of time spent filtering by text contents in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryTextIndexPlan} as part of executing a query. */
@@ -524,6 +526,8 @@ public class FDBStoreTimer extends StoreTimer {
         PLAN_COVERING_INDEX("number of covering index plans", false),
         /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan}. */
         PLAN_FILTER("number of filter plans", false),
+        /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
+        PLAN_AGGREGATE("number of streaming aggregate plans", false),
         /** The number of query plans that include an index. */
         PLAN_INDEX("number of index plans", false),
         /** The number of query plans that include an {@code IN} with parameters. */
@@ -590,6 +594,10 @@ public class FDBStoreTimer extends StoreTimer {
         QUERY_UNION_PLAN_UNIQUES("number of unique records found by RecordQueryUnorderedDistinctPlan", false),
         /** The number of records filtered out as not matching or duplicate. */
         QUERY_DISCARDED("number of records loaded but filtered out", false),
+        /** The number of aggregate groups created by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
+        QUERY_AGGREGATE_GROUPS("number of aggregate groups", false),
+        /** The max size of aggregate group created by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
+        QUERY_AGGREGATE_GROUP_MAX_SIZE("max size of aggregate group", false),
         /** The number of times the read version was taken from the cache of the last seen version. */
         SET_READ_VERSION_TO_LAST_SEEN("set read version to last seen version", false),
         /** The number of records scanned by {@link OnlineIndexer}. */

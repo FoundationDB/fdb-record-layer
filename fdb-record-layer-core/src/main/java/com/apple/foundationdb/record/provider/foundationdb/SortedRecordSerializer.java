@@ -55,7 +55,7 @@ public class SortedRecordSerializer<M extends Message> {
     private final RecordMetaData recordMetaData;
     @Nullable
     private final StoreTimer timer;
-    
+
     public SortedRecordSerializer(@Nonnull final RecordSerializer<M> serializer, @Nonnull final RecordMetaData recordMetaData, @Nullable final StoreTimer timer) {
         this.serializer = serializer;
         this.recordMetaData = recordMetaData;
