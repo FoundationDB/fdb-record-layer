@@ -23,7 +23,7 @@ apply plugin: 'org.sonarqube'
 sonarqube {
     properties {
         property 'sonar.organization', 'foundationdb'
-        property 'sonar.projectKey', 'fdb-record-layer'
+        property 'sonar.projectKey', 'FoundationDB_fdb-record-layer'
         property 'sonar.projectName', 'fdb-record-layer'
         property 'sonar.host.url', 'https://sonarcloud.io'
         if (!project.hasProperty('sonar.login') && System.getenv('SONAR_KEY') != null) {
