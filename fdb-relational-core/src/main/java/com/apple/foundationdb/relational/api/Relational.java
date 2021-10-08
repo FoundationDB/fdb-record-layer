@@ -30,11 +30,15 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class Relational {
     private static final CopyOnWriteArrayList<RelationalDriver> registeredDrivers = new CopyOnWriteArrayList<>();
 
-    public static DatabaseConnection connect(@Nonnull URI url,@Nonnull Options connectionOptions){
+    public static DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) {
         return connect(url,null,connectionOptions);
     }
 
-    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions){
+    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) {
+        return connect(url, existingTransaction, TransactionConfig.DEFAULT, connectionOptions);
+    }
+
+    public static DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) {
         //all connection URLs should start with "rlsc" to represent "relational layer service connection",
         // so we strip that out from the URI and pass the remainder in
         String scheme = url.getScheme();
@@ -42,7 +46,7 @@ public class Relational {
             throw new RelationalException("Unable to connect to url <"+url+">: invalid scheme <"+scheme+">", RelationalException.ErrorCode.INVALID_PATH);
         }
         URI nonSchemeURI = URI.create(url.toString().substring(5));
-        return getDriver(nonSchemeURI).connect(nonSchemeURI,existingTransaction,connectionOptions);
+        return getDriver(nonSchemeURI).connect(nonSchemeURI, existingTransaction, transactionConfig, connectionOptions);
     }
 
     public static RelationalDriver getDriver(@Nonnull URI connectionUrl){

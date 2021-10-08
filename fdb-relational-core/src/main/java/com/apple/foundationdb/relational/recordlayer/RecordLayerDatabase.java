@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.RecordStoreDoesNotExistException;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.NoSuchDirectoryException;
 import com.apple.foundationdb.relational.api.OperationOption;
@@ -39,6 +40,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordMetaDataStore
 import com.google.common.base.Throwables;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 import java.net.URI;
 import java.util.HashMap;
@@ -60,12 +62,16 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     private final RecordLayerCatalog catalog;
 
+    @Nullable
+    private final FDBStoreTimer storeTimer;
+
     public RecordLayerDatabase(FDBDatabase fdbDb,
                                RecordMetaDataStore metaDataStore,
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                int formatVersion,
                                SerializerRegistry serializerRegistry,
                                KeySpacePath dbPathPrefix,
+                               @Nullable FDBStoreTimer storeTimer,
                                RecordLayerCatalog catalog) {
         this.fdbDb = fdbDb;
         this.metaDataStore = metaDataStore;
@@ -73,6 +79,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
         this.formatVersion = formatVersion;
         this.serializerRegistry = serializerRegistry;
         this.ksPath = dbPathPrefix;
+        this.storeTimer = storeTimer;
         this.catalog = catalog;
     }
 
@@ -167,5 +174,10 @@ public class RecordLayerDatabase implements RelationalDatabase {
 
     public URI getPath() {
         return KeySpaceUtils.pathToURI(ksPath);
+    }
+
+    @Nullable
+    FDBStoreTimer getStoreTimer() {
+        return storeTimer;
     }
 }

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
@@ -30,6 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
+import javax.annotation.Nullable;
 import java.net.URI;
 
 /**
@@ -44,6 +46,8 @@ public class RecordLayerEngine {
     private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
     private final SerializerRegistry serializerRegistry;
     private final KeySpace keySpace;
+    @Nullable
+    private final FDBStoreTimer storeTimer;
 
     /*Internal objects*/
     private final Catalog catalog;
@@ -54,12 +58,14 @@ public class RecordLayerEngine {
                              MutableRecordMetaDataStore metaDataStore,
                              FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                              SerializerRegistry serializerRegistry,
-                             KeySpace keySpace) {
+                             KeySpace keySpace,
+                             @Nullable FDBStoreTimer storeTimer) {
         this.databaseFinder = databaseFinder;
         this.metaDataStore = metaDataStore;
         this.userVersionChecker = userVersionChecker;
         this.serializerRegistry = serializerRegistry;
         this.keySpace = keySpace;
+        this.storeTimer = storeTimer;
 
         this.catalog = new RecordLayerCatalog.Builder()
                 .setDatabaseLocator(databaseFinder)
@@ -67,6 +73,7 @@ public class RecordLayerEngine {
                 .setMetadataProvider(metaDataStore)
                 .setSerializerRegistry(serializerRegistry)
                 .setUserVersionChecker(userVersionChecker)
+                .setStoreTimer(storeTimer)
                 .build();
 
         this.constantActionFactory = new RecordLayerConstantActionFactory.Builder()

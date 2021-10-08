@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
 import com.apple.foundationdb.relational.api.KeyValue;
@@ -91,7 +92,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         //TODO(bfines) pull the orphan behavior from the options
         final CompletableFuture<FDBIndexedRecord<Message>> indexRecord = store.loadIndexEntryRecord(entry, IndexOrphanBehavior.ERROR);
         //TODO(bfines): add in store timing
-        final FDBIndexedRecord<Message> storedRecord = t.unwrap(FDBRecordContext.class).asyncToSync(null, indexRecord);
+        final FDBIndexedRecord<Message> storedRecord = t.unwrap(FDBRecordContext.class).asyncToSync(FDBStoreTimer.Waits.WAIT_LOAD_RECORD, indexRecord);
         if (storedRecord == null) {
             return null;
         }

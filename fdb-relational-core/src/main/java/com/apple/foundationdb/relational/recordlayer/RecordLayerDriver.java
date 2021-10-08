@@ -24,6 +24,7 @@ import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.exceptions.InvalidTypeException;
 import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
+import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.RelationalDriver;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.catalog.RelationalDatabase;
@@ -41,12 +42,7 @@ public class RecordLayerDriver implements RelationalDriver {
     }
 
     @Override
-    public DatabaseConnection connect(@Nonnull URI url, @Nonnull Options connectionOptions) throws RelationalException {
-        return connect(url, null, connectionOptions);
-    }
-
-    @Override
-    public DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull Options connectionOptions) throws RelationalException {
+    public DatabaseConnection connect(@Nonnull URI url, @Nullable Transaction existingTransaction, @Nonnull TransactionConfig transactionConfig, @Nonnull Options connectionOptions) throws RelationalException {
         int formatVersion = parseFormatVersion(url, connectionOptions);
         /*
          * Basic Algorithm for Opening a connection:
@@ -58,7 +54,7 @@ public class RecordLayerDriver implements RelationalDriver {
         if (existingTransaction != null && !(existingTransaction instanceof RecordContextTransaction)) {
             throw new InvalidTypeException("Invalid Transaction type to use to connect to FDB");
         }
-        RecordStoreConnection conn = new RecordStoreConnection((RecordLayerDatabase) frl, (RecordContextTransaction) existingTransaction);
+        RecordStoreConnection conn = new RecordStoreConnection((RecordLayerDatabase) frl, transactionConfig, (RecordContextTransaction) existingTransaction);
         ((RecordLayerDatabase) frl).setConnection(conn);
         return conn;
     }

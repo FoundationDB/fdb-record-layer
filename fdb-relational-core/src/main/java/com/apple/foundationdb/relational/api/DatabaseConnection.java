@@ -22,6 +22,7 @@ package com.apple.foundationdb.relational.api;
 
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Represents a connection to a Relational database.
@@ -55,7 +56,14 @@ public interface DatabaseConnection extends AutoCloseable {
 
     boolean isAutoCommitEnabled();
 
-    void beginTransaction() throws RelationalException;
+    /**
+     * If no TransactionConfig passed in, a default config is used for the transaction
+     */
+    default void beginTransaction() throws RelationalException {
+        beginTransaction(null);
+    }
+
+    void beginTransaction(@Nullable TransactionConfig config) throws RelationalException;
 
     void commit() throws RelationalException;
 

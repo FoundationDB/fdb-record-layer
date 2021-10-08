@@ -22,13 +22,13 @@ package com.apple.foundationdb.relational.recordlayer.catalog;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.catalog.Catalog;
 import com.apple.foundationdb.relational.api.catalog.SchemaTemplate;
@@ -38,6 +38,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerDatabase;
 import com.apple.foundationdb.relational.recordlayer.SerializerRegistry;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.net.URI;
 
 public class RecordLayerCatalog implements Catalog {
@@ -52,6 +53,8 @@ public class RecordLayerCatalog implements Catalog {
      * The clients volunteers to have the directories for schemas included in this keySpace. Dynamically creation of new schemas is also supported.
      */
     private final KeySpace keySpace;
+    @Nullable
+    private final FDBStoreTimer storeTimer;
     private final int formatVersion;
 
 
@@ -60,12 +63,14 @@ public class RecordLayerCatalog implements Catalog {
                                FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                                SerializerRegistry serializerRegistry,
                                KeySpace keySpace,
+                               FDBStoreTimer storeTimer,
                                int formatVersion) {
         this.databaseFinder = locator;
         this.metaDataStore = metaDataStore;
         this.userVersionChecker = userVersionChecker;
         this.serializerRegistry = serializerRegistry;
         this.keySpace = keySpace;
+        this.storeTimer = storeTimer;
         this.formatVersion = formatVersion;
     }
 
@@ -84,7 +89,7 @@ public class RecordLayerCatalog implements Catalog {
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl, keySpace);
         final FDBDatabase fdbDatabase = databaseFinder.locateDatabase(dbPath);
         return new RecordLayerDatabase(fdbDatabase, metaDataStore, userVersionChecker,
-                formatVersion, serializerRegistry, dbPath, this);
+                formatVersion, serializerRegistry, dbPath, storeTimer, this);
     }
 
     @Override
@@ -106,6 +111,7 @@ public class RecordLayerCatalog implements Catalog {
         private FDBRecordStoreBase.UserVersionChecker userVersionChecker;
         private SerializerRegistry serializerRegistry;
         private KeySpace keySpace;
+        private FDBStoreTimer storeTimer;
         private int formatVersion;
 
         public Builder setMetadataProvider(@Nonnull MutableRecordMetaDataStore metadataProvider) {
@@ -138,6 +144,11 @@ public class RecordLayerCatalog implements Catalog {
             return this;
         }
 
+        public Builder setStoreTimer(@Nonnull FDBStoreTimer storeTimer) {
+            this.storeTimer = storeTimer;
+            return this;
+        }
+
         public RecordLayerCatalog build() throws RelationalException {
             if (metadataProvider == null) {
                 throw new RelationalException("Metadata provider not supplied", RelationalException.ErrorCode.INVALID_PARAMETER);
@@ -152,7 +163,7 @@ public class RecordLayerCatalog implements Catalog {
                 formatVersion = DEFAULT_FORMAT_VERSION;
             }
             return new RecordLayerCatalog(databaseFinder, metadataProvider, userVersionChecker,
-                    serializerRegistry, keySpace, formatVersion);
+                    serializerRegistry, keySpace, storeTimer, formatVersion);
         }
     }
 }

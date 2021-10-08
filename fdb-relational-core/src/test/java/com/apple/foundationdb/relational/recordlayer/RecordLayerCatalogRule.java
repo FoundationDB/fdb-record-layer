@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.relational.api.Options;
@@ -39,8 +41,10 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
@@ -51,6 +55,8 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
     private RecordLayerEngine engine;
 
     private final List<RecordLayerDatabase> databases = new LinkedList<>();
+
+    private final Map<String, Object> metrics = new HashMap<>();
 
     public RecordLayerCatalogRule(){
         this.keySpaceSupplier = this::getKeySpaceForSetup;
@@ -80,7 +86,7 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
                 new MapRecordMetaDataStore(),
                 (oldUserVersion, oldMetaDataVersion, metaData) -> CompletableFuture.completedFuture(oldUserVersion),
                 new TestSerializerRegistry(),
-                keySpace);
+                keySpace, new TestStoreTimer(metrics));
         engine.registerDriver();
     }
 
@@ -133,6 +139,24 @@ public class RecordLayerCatalogRule implements BeforeEachCallback, AfterEachCall
         try(final Transaction txn= new RecordContextTransaction(fdbDatabase.openContext())){
             engine.getConstantActionFactory().getCreateSchemaTemplateConstantAction(template, Options.create()).execute(txn);
             txn.commit();
+        }
+    }
+
+    public Map<String, Object> getMetrics() {
+        return metrics;
+    }
+
+    private static class TestStoreTimer extends FDBStoreTimer {
+        private final Map<String, Object> metrics;
+
+        TestStoreTimer(Map<String, Object> metrics) {
+            this.metrics = metrics;
+        }
+
+        @Override
+        public void record(StoreTimer.Event event, long timeDifference) {
+            super.record(event, timeDifference);
+            metrics.put(event.name(), timeDifference);
         }
     }
 }

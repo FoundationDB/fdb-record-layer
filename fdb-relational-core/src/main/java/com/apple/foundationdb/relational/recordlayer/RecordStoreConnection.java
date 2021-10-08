@@ -21,6 +21,10 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
+import com.apple.foundationdb.relational.api.TransactionConfig;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
@@ -37,12 +41,14 @@ public class RecordStoreConnection implements DatabaseConnection {
     private String currentSchemaLabel;
     private boolean autoCommit = true;
     private boolean usingAnExistingTransaction;
+    private TransactionConfig transactionConfig;
 
-    public RecordStoreConnection(RecordLayerDatabase frl,
+    public RecordStoreConnection(@Nonnull RecordLayerDatabase frl, @Nonnull TransactionConfig transactionConfig,
                                  @Nullable RecordContextTransaction existingTransaction) {
         this.fdbDb = frl.getFDBDatabase();
         this.frl = frl;
         this.transaction = existingTransaction;
+        this.transactionConfig = transactionConfig;
         this.usingAnExistingTransaction = existingTransaction != null;
     }
 
@@ -129,14 +135,52 @@ public class RecordStoreConnection implements DatabaseConnection {
         return new RecordLayerMetaData(this, frl.getKeySpace());
     }
 
-    @Override
-    public void beginTransaction() {
+    public void beginTransaction(@Nullable TransactionConfig config) {
         if (!inActiveTransaction()) {
-            transaction = new RecordContextTransaction(fdbDb.openContext());
+            transaction = new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(config == null ? this.transactionConfig : config, frl.getStoreTimer())));
         }
     }
 
     boolean inActiveTransaction() {
         return transaction != null;
+    }
+
+    private FDBRecordContextConfig getFDBRecordContextConfig(@Nullable TransactionConfig config, FDBStoreTimer storeTimer) {
+        if (config != null) {
+            TransactionConfig.WeakReadSemantics weakReadSemantics = config.getWeakReadSemantics();
+            return FDBRecordContextConfig.newBuilder()
+                    .setTransactionId(config.getTransactionId())
+                    .setMdcContext(config.getLoggingContext())
+                    .setPriority(getPriorityForFDB(config.getTransactionPriority()))
+                    .setWeakReadSemantics(weakReadSemantics == null ? null :
+                            new FDBDatabase.WeakReadSemantics(weakReadSemantics.getMinVersion(),
+                                    weakReadSemantics.getStalenessBoundMillis(), weakReadSemantics.isCausalReadRisky()))
+                    .setTransactionTimeoutMillis(config.getTransactionTimeoutMillis())
+                    .setEnableAssertions(config.isEnableAssertions())
+                    .setLogTransaction(config.isLogTransaction())
+                    .setTrackOpen(config.isTrackOpen())
+                    .setSaveOpenStackTrace(config.isSaveOpenStackTrace())
+                    .setTimer(storeTimer)
+                    .build();
+        } else {
+            return FDBRecordContextConfig.newBuilder()
+                    .setTimer(storeTimer)
+                    .setPriority(FDBTransactionPriority.DEFAULT)
+                    .build();
+        }
+    }
+
+    private FDBTransactionPriority getPriorityForFDB(TransactionConfig.Priority priority) {
+        switch (priority) {
+            case DEFAULT:
+                return FDBTransactionPriority.DEFAULT;
+            case BATCH:
+                return FDBTransactionPriority.BATCH;
+            case SYSTEM_IMMEDIATE:
+                return FDBTransactionPriority.SYSTEM_IMMEDIATE;
+            default:
+                throw new RelationalException("Invalid transaction priority in the config: <" + priority.name() + ">",
+                        RelationalException.ErrorCode.INVALID_PARAMETER);
+        }
     }
 }
