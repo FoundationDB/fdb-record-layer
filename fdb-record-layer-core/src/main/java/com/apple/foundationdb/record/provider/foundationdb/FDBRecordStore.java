@@ -2565,12 +2565,29 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             // updates cause spurious not_committed errors.
             byte[] indexKey = indexStateSubspace().pack(indexName);
             Transaction tr = context.ensureActive();
-            CompletableFuture<Boolean> future = tr.get(indexKey).thenApply(previous -> {
-                if (previous == null || !Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
+            CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
+                if (previous == null) {
+                    RangeSet indexRangeSet = new RangeSet(indexRangeSubspace(getRecordMetaData().getIndex(indexName)));
+                    return indexRangeSet.isEmpty(tr)
+                            .thenCompose(isEmpty -> {
+                                if (isEmpty) {
+                                    // For readable indexes, we have an optimization where the range set is cleared out
+                                    // after the index is build to avoid carrying extra meta-data about the index range
+                                    // set. However, when we mark an index as write-only, we want to preserve the record
+                                    // that the index was completely built (if the range set was empty, i.e., cleared)
+                                    return indexRangeSet.insertRange(tr, null, null);
+                                } else {
+                                    return AsyncUtil.READY_FALSE;
+                                }
+                            }).thenApply(ignore -> {
+                                updateIndexState(indexName, indexKey, indexState);
+                                return true;
+                            });
+                } else if (!Tuple.fromBytes(previous).get(0).equals(indexState.code())) {
                     updateIndexState(indexName, indexKey, indexState);
-                    return true;
+                    return AsyncUtil.READY_TRUE;
                 } else {
-                    return false;
+                    return AsyncUtil.READY_FALSE;
                 }
             }).whenComplete((b, t) -> endRecordStoreStateWrite());
             haveFuture = true;
@@ -3282,10 +3299,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     private boolean areAllRecordTypesSince(@Nullable Collection<RecordType> recordTypes, @Nullable Integer oldMetaDataVersion) {
-        return recordTypes != null && oldMetaDataVersion != null && recordTypes.stream().allMatch(recordType -> {
+        return oldMetaDataVersion != null && (oldMetaDataVersion == -1 || (recordTypes != null && recordTypes.stream().allMatch(recordType -> {
             Integer sinceVersion = recordType.getSinceVersion();
             return sinceVersion != null && sinceVersion > oldMetaDataVersion;
-        });
+        })));
     }
 
     protected CompletableFuture<Void> rebuildOrMarkIndex(@Nonnull Index index, @Nonnull IndexState indexState,
@@ -3371,14 +3388,22 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         long startTime = System.nanoTime();
         OnlineIndexer indexBuilder = OnlineIndexer.newBuilder().setRecordStore(this).setIndex(index).setRecordTypes(recordTypes).build();
         CompletableFuture<Void> future = indexBuilder.rebuildIndexAsync(this)
-                .thenCompose(vignore -> markIndexReadable(index)
-                        .handle((b, t) -> {
-                            // Only call method that builds in the current transaction, so never any pending work,
-                            // so it would work to close before returning future, which would look better to SonarQube.
-                            // But this is better if close ever does more.
-                            indexBuilder.close();
-                            return null;
-                        }));
+                .thenCompose(vignore -> markIndexReadable(index))
+                .handle((b, t) -> {
+                    if (t != null) {
+                        logExceptionAsWarn(KeyValueLogMessage.build("rebuilding index failed",
+                                LogMessageKeys.INDEX_NAME, index.getName(),
+                                LogMessageKeys.INDEX_VERSION, index.getLastModifiedVersion(),
+                                LogMessageKeys.REASON, reason.name(),
+                                subspaceProvider.logKey(), subspaceProvider.toString(context),
+                                LogMessageKeys.SUBSPACE_KEY, index.getSubspaceKey()), t);
+                    }
+                    // Only call method that builds in the current transaction, so never any pending work,
+                    // so it would work to close before returning future, which would look better to SonarQube.
+                    // But this is better if close ever does more.
+                    indexBuilder.close();
+                    return null;
+                });
 
         return context.instrument(FDBStoreTimer.Events.REBUILD_INDEX, future, startTime);
     }

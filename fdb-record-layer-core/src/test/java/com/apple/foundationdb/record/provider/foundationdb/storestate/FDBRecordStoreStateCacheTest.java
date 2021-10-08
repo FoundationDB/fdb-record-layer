@@ -628,6 +628,10 @@ public class FDBRecordStoreStateCacheTest extends FDBRecordStoreTestBase {
                 openSimpleRecordStore(context);
                 assertEquals(1, context.getTimer().getCount(FDBStoreTimer.Counts.STORE_STATE_CACHE_MISS));
                 assertTrue(context.hasDirtyStoreState());
+                // Save a record so that when the store header is deleted, it won't be an empty record store
+                recordStore.saveRecord(TestRecords1Proto.MySimpleRecord.newBuilder()
+                        .setRecNo(1066L)
+                        .build());
                 storeBuilder = recordStore.asBuilder();
                 commit(context);
             }

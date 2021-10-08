@@ -237,8 +237,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
             recordStore.deleteAllRecords();
-            recordStore.markIndexWriteOnly("value3sum").join();
-            recordStore.markIndexWriteOnly("value3max").join();
+            recordStore.clearAndMarkIndexWriteOnly("value3sum").join();
+            recordStore.clearAndMarkIndexWriteOnly("value3max").join();
 
             RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(sumIndex));
             rangeSet.insertRange(context.ensureActive(), Tuple.from(1000).pack(), Tuple.from(1500).pack(), true).get();

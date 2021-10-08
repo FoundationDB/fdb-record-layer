@@ -55,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -271,8 +272,9 @@ public abstract class IndexingBase {
                 return AsyncUtil.READY_FALSE; // do not index
             }
 
+            List<Index> indexesToClear = new ArrayList<>(targetIndexes.size());
             if (shouldClear) {
-                store.clearIndexData(primaryIndex);
+                indexesToClear.add(primaryIndex);
                 forceStampOverwrite = true; // The code can work without this line, but it'll save probing the missing ranges
             }
 
@@ -290,13 +292,15 @@ public abstract class IndexingBase {
                                 LogMessageKeys.TARGET_INDEX_STATE, state);
                     }
                     // just clear this one, the primary is disabled
-                    store.clearIndexData(targetIndex);
+                    indexesToClear.add(targetIndex);
                 } else if (shouldClear) {
-                    store.clearIndexData(targetIndex);
+                    indexesToClear.add(targetIndex);
                 }
             }
-            return markIndexesWriteOnly(continuedBuild, store)
-                    .thenCompose(ignore -> setIndexingTypeOrThrow(store, continuedBuild))
+
+            return AsyncUtil.whenAll(indexesToClear.stream().map(store::clearAndMarkIndexWriteOnly).collect(Collectors.toList()))
+                    .thenCompose(vignore -> markIndexesWriteOnly(continuedBuild, store))
+                    .thenCompose(vignore -> setIndexingTypeOrThrow(store, continuedBuild))
                     .thenApply(ignore -> true);
         }), common.indexLogMessageKeyValues("IndexingBase::handleIndexingState")
         ).thenCompose(doIndex ->
