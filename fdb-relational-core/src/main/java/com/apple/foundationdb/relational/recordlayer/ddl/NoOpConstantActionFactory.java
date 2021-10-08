@@ -65,6 +65,12 @@ public class NoOpConstantActionFactory implements ConstantActionFactory {
         return NoOpConstantAction.INSTANCE;
     }
 
+    @Nonnull
+    @Override
+    public ConstantAction getMapSchemaToTemplateConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
+        return NoOpConstantAction.INSTANCE;
+    }
+
     private static class NoOpConstantAction implements ConstantAction {
         private static final NoOpConstantAction INSTANCE = new NoOpConstantAction();
 

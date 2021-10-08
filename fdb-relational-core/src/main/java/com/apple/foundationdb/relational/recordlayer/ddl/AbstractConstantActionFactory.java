@@ -58,6 +58,12 @@ public abstract class AbstractConstantActionFactory implements ConstantActionFac
     @Nonnull
     @Override
     public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options) {
-        return NoOpConstantActionFactory.INSTANCE.getDropSchemaConstantAction(schemaUrl,options);
+        return NoOpConstantActionFactory.INSTANCE.getDropSchemaConstantAction(schemaUrl, options);
+    }
+
+    @Nonnull
+    @Override
+    public ConstantAction getMapSchemaToTemplateConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
+        return NoOpConstantActionFactory.INSTANCE.getCreateSchemaConstantAction(schemaUrl, templateId, constantActionOptions);
     }
 }

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
+import com.apple.foundationdb.relational.api.Relational;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 
 import javax.annotation.Nonnull;
@@ -50,8 +52,10 @@ public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
      *
      * @param schemaUrl the URI for the schema to assign.
      * @param templateId the unique id for the schema template to assign for this schema.
+     * @throws RelationalException if the schema mapping already exists, this should throw an error code
+     * of {@link RelationalException.ErrorCode#SCHEMA_MAPPING_ALREADY_EXISTS}
      */
-    void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId);
+    void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId) throws RelationalException;
 
     /**
      * Remove the schema mapping for the specified URL, if such a mapping exists.

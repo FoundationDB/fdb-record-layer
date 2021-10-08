@@ -100,6 +100,10 @@ public class RelationalException extends RuntimeException {
         UNKNOWN_INDEX("42F04"),
         UNKNOWN_SCHEMA_TEMPLATE("42P05"),
         /**
+         * Indicates that a schema with the given name is already mapped to a schema template.
+         */
+        SCHEMA_MAPPING_ALREADY_EXISTS("42F06"),
+        /**
          * Indicates that a query has timed out during execution.
          */
         INVALID_COLUMN_REFERENCE("42F10"), //no field of specified name in result set

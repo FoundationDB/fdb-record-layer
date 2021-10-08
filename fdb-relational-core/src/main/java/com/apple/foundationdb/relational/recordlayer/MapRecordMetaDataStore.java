@@ -29,6 +29,11 @@ import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * A wholly in-memory MetaDataStore. This is _not_ to be used in production instances, but serves as a
+ * quick and dirty reference implementation to help understand what need to happen to make the interface work.
+ *
+ */
 public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     private final ConcurrentMap<String, RecordLayerTemplate> templateMap = new ConcurrentHashMap<>();
     private final ConcurrentMap<URI, String> schemaToTemplateMap = new ConcurrentHashMap<>();
@@ -58,18 +63,12 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
                     RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }
         URI schemaKey = convertToUpperCase(schemaUrl);
-        if (schemaToTemplateMap.containsKey(schemaKey)) {
-            throw new RelationalException("One schema cannot be assigned with a template twice, schemaKey: <" + schemaKey
-                    + ">, existingTemplateId: <" + schemaToTemplateMap.get(schemaKey)
-                    + ">, new added templateId: <" + templateId + ">",
-                    RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
-        }
         String existingTemplateId = schemaToTemplateMap.putIfAbsent(schemaKey, templateId);
         if (existingTemplateId != null && !existingTemplateId.equals(templateId)) {
             throw new RelationalException("One schema cannot be assigned with a template twice, schemaKey: <" + schemaKey
                     + ">, existingTemplateId: <" + existingTemplateId
                     + ">, new added templateId: <" + templateId + ">",
-                    RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
+                    RelationalException.ErrorCode.SCHEMA_MAPPING_ALREADY_EXISTS);
         }
     }
 

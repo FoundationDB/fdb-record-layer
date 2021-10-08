@@ -23,6 +23,7 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.Restaurant;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Assertions;
@@ -45,5 +46,23 @@ public class MapRecordMetaDataStoreTest {
         List<String> recordTypes = metaDataStore.loadMetaData(URI.create("/db/testSchema"))
                 .getRecordMetaData().getRecordTypes().values().stream().map(r -> r.getName()).collect(Collectors.toList());
         Assertions.assertLinesMatch(ImmutableList.of("RestaurantReviewer", "RestaurantRecord"), recordTypes);
+    }
+
+    @Test
+    void cannotMapSchemaToTemplate() {
+        final RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(Restaurant.getDescriptor());
+        MutableRecordMetaDataStore metaDataStore = new MapRecordMetaDataStore();
+        RecordLayerTemplate template = new RecordLayerTemplate("testTemplate", builder.build());
+        RecordLayerTemplate template2 = new RecordLayerTemplate("anotherTemplate", builder.build());
+
+        metaDataStore.addSchemaTemplate(template);
+        metaDataStore.addSchemaTemplate(template2);
+        metaDataStore.assignSchemaToTemplate(URI.create("/db/testSchema"), "testTemplate");
+
+        //try to map it twice, you should get an error
+        RelationalException ve = Assertions.assertThrows(RelationalException.class, () -> metaDataStore.assignSchemaToTemplate(URI.create("/db/testSchema"), "anotherTemplate"));
+        Assertions.assertEquals(RelationalException.ErrorCode.SCHEMA_MAPPING_ALREADY_EXISTS, ve.getErrorCode(), "Invalid error code!");
+
+
     }
 }
