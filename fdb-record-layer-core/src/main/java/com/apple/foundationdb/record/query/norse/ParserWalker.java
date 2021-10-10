@@ -137,7 +137,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final List<Atom> arguments = argumentsOptional.orElseThrow(() -> new SemanticException("unable to compile arguments for call to " + functionName));
         return functionOptional
-                .flatMap(builtInFunction -> builtInFunction.validateCall(Type.fromTyped(arguments)))
+                .flatMap(builtInFunction -> builtInFunction.validateCall(Type.fromAtoms(arguments)))
                 .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
                 .orElseThrow(() -> new SemanticException("unable to compile in function " + functionName));
     }
@@ -214,7 +214,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final List<Atom> arguments = argumentsOptional.orElseThrow(() -> new SemanticException("unable to compile arguments for call to " + functionName));
         return functionOptional
-                .flatMap(builtInFunction -> builtInFunction.validateCall(Type.fromTyped(arguments)))
+                .flatMap(builtInFunction -> builtInFunction.validateCall(Type.fromAtoms(arguments)))
                 .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
                 .orElseThrow(() -> new SemanticException("unable to compile in function " + functionName));
     }
@@ -275,7 +275,6 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         }
     }
 
-    @SuppressWarnings("ConstantConditions")
     @Nonnull
     @Override
     public Atom visitTuplePipes(@Nonnull final NorseParser.TuplePipesContext ctx) {
@@ -285,14 +284,18 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             return pipeContexts.get(0).accept(this);
         }
 
-        final ImmutableList<? extends Value> elementAtoms = pipeContexts
+        final ImmutableList<Atom> arguments = pipeContexts
                 .stream()
                 .map(pipe -> pipe.accept(this))
                 .peek(atom -> Verify.verify(atom.getResultType().getTypeCode() != TypeCode.STREAM && atom instanceof Value))
-                .map(atom -> (Value)atom)
                 .collect(ImmutableList.toImmutableList());
 
-        return new TupleConstructorValue(elementAtoms);
+        final Optional<BuiltInFunction<? extends Atom>> functionOptional =
+                FunctionCatalog.resolveAndValidate("tuple", Type.fromAtoms(arguments));
+
+        return functionOptional
+                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
+                .orElseThrow(() -> new IllegalStateException("unable to encapsulate not()"));
     }
 
     @Nonnull
@@ -304,7 +307,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Optional<BuiltInFunction<? extends Atom>> functionOptional;
         if (ctx.BANG() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("not", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("not", Type.fromAtoms(arguments));
         } else {
             functionOptional = Optional.empty();
         }
@@ -325,11 +328,11 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Optional<BuiltInFunction<? extends Atom>> functionOptional;
         if (ctx.MUL() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("mul", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("mul", Type.fromAtoms(arguments));
         } else if (ctx.DIV() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("div", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("div", Type.fromAtoms(arguments));
         } else if (ctx.MOD() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("mod", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("mod", Type.fromAtoms(arguments));
         } else {
             functionOptional = Optional.empty();
         }
@@ -350,9 +353,9 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Optional<BuiltInFunction<? extends Atom>> functionOptional;
         if (ctx.ADD() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("add", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("add", Type.fromAtoms(arguments));
         } else if (ctx.SUB() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("sub", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("sub", Type.fromAtoms(arguments));
         } else {
             functionOptional = Optional.empty();
         }
@@ -373,13 +376,13 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Optional<BuiltInFunction<? extends Atom>> functionOptional;
         if (ctx.LT() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("lt", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("lt", Type.fromAtoms(arguments));
         } else if (ctx.LE() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("lte", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("lte", Type.fromAtoms(arguments));
         } else if (ctx.GT() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("gt", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("gt", Type.fromAtoms(arguments));
         } else if (ctx.GE() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("gte", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("gte", Type.fromAtoms(arguments));
         } else {
             functionOptional = Optional.empty();
         }
@@ -400,9 +403,9 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Optional<BuiltInFunction<? extends Atom>> functionOptional;
         if (ctx.EQUAL() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("equals", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("equals", Type.fromAtoms(arguments));
         } else if (ctx.NOTEQUAL() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("notEquals", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("notEquals", Type.fromAtoms(arguments));
         } else {
             functionOptional = Optional.empty();
         }
@@ -423,7 +426,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Optional<BuiltInFunction<? extends Atom>> functionOptional;
         if (ctx.AND() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("and", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("and", Type.fromAtoms(arguments));
         } else {
             functionOptional = Optional.empty();
         }
@@ -444,7 +447,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Optional<BuiltInFunction<? extends Atom>> functionOptional;
         if (ctx.OR() != null) {
-            functionOptional = FunctionCatalog.resolveAndValidate("or", Type.fromTyped(arguments));
+            functionOptional = FunctionCatalog.resolveAndValidate("or", Type.fromAtoms(arguments));
         } else {
             functionOptional = Optional.empty();
         }
@@ -709,34 +712,34 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final NorseParser.IntegerLiteralLongContext integerLiteralContextLong = ctx.integerLiteralLong();
         if (integerLiteralContextLong != null) {
             final Long result = unboxLiteral(visit(integerLiteralContextLong), Long.class);
-            return new LiteralValue<>(primitiveType(TypeCode.LONG), result);
+            return new LiteralValue<>(primitiveType(TypeCode.LONG, false), result);
         }
         final NorseParser.IntegerLiteralContext integerLiteralContext = ctx.integerLiteral();
         if (integerLiteralContext != null) {
             final Integer result = unboxLiteral(visit(integerLiteralContext), Integer.class);
-            return new LiteralValue<>(primitiveType(TypeCode.INT), result);
+            return new LiteralValue<>(primitiveType(TypeCode.INT, false), result);
         }
         final NorseParser.FloatLiteralDoubleContext floatLiteralDoubleContext = ctx.floatLiteralDouble();
         if (floatLiteralDoubleContext != null) {
             final Double result = unboxLiteral(visit(floatLiteralDoubleContext), Double.class);
-            return new LiteralValue<>(primitiveType(TypeCode.DOUBLE), result);
+            return new LiteralValue<>(primitiveType(TypeCode.DOUBLE, false), result);
         }
         final NorseParser.FloatLiteralContext floatLiteralContext = ctx.floatLiteral();
         if (floatLiteralContext != null) {
             final Float result = unboxLiteral(visit(floatLiteralContext), Float.class);
-            return new LiteralValue<>(primitiveType(TypeCode.FLOAT), result);
+            return new LiteralValue<>(primitiveType(TypeCode.FLOAT, false), result);
         }
         final TerminalNode stringLiteral = ctx.STRING_LITERAL();
         if (stringLiteral != null) {
             final String literalWithQuotes = stringLiteral.getSymbol().getText();
-            return new LiteralValue<>(primitiveType(TypeCode.STRING), literalWithQuotes.substring(1, literalWithQuotes.length() - 1));
+            return new LiteralValue<>(primitiveType(TypeCode.STRING, false), literalWithQuotes.substring(1, literalWithQuotes.length() - 1));
         }
         final TerminalNode booleanLiteral = ctx.BOOL_LITERAL();
         if (booleanLiteral != null) {
-            return new LiteralValue<>(primitiveType(TypeCode.BOOLEAN), Boolean.valueOf(booleanLiteral.getSymbol().getText()));
+            return new LiteralValue<>(primitiveType(TypeCode.BOOLEAN, false), Boolean.valueOf(booleanLiteral.getSymbol().getText()));
         }
         if (ctx.NULL_LITERAL() != null) {
-            return new LiteralValue<>(primitiveType(TypeCode.UNKNOWN), null);
+            return new LiteralValue<>(primitiveType(TypeCode.UNKNOWN, true), null);
         }
 
         throw new StaleRuleException(ctx, "unknown rule");
@@ -831,7 +834,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             //      which is turn would need planner support
             Verify.verify(parserContext.getCurrentScope().getGraphExpansionBuilder().build().getQuantifiers().isEmpty());
 
-            final RecordQueryRangePlan rangePlan = new RecordQueryRangePlan(new LiteralValue<>(primitiveType(TypeCode.INT), 1));
+            final RecordQueryRangePlan rangePlan = new RecordQueryRangePlan(new LiteralValue<>(primitiveType(TypeCode.INT, false), 1));
 
             final Value topValue = (Value)topAtom;
             final List<? extends Value> topValues = TupleConstructorValue.tryUnwrapIfTuple(ImmutableList.of(topValue));

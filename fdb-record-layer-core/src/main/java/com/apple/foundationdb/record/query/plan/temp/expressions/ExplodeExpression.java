@@ -70,8 +70,8 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Type.Stream getResultType() {
-        if (resultValue.getResultType().getTypeCode() == Type.TypeCode.COLLECTION) {
-            final Type innerType = ((Type.Collection)resultValue.getResultType()).getInnerType();
+        if (resultValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
+            final Type innerType = ((Type.Array)resultValue.getResultType()).getInnerType();
             return new Type.Stream(new Type.Tuple(ImmutableList.of(Objects.requireNonNull(innerType))));
         } else {
             return new Type.Stream(new Type.Tuple(ImmutableList.of(primitiveType(Type.TypeCode.UNKNOWN))));

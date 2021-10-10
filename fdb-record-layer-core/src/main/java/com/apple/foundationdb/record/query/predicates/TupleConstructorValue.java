@@ -29,11 +29,14 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
+import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -48,18 +51,27 @@ import java.util.stream.Collectors;
 public class TupleConstructorValue implements Value {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tuple-Value");
     @Nonnull
+    private final String protoTypeName;
+    @Nonnull
     protected final String functionName;
     @Nonnull
     protected final List<? extends Value> children;
 
-    public TupleConstructorValue(@Nonnull List<? extends Value> children) {
-        this("tuple", children);
+    public TupleConstructorValue(@Nonnull final String protoTypeName, @Nonnull List<? extends Value> children) {
+        this(protoTypeName, "tuple", children);
     }
 
-    protected TupleConstructorValue(@Nonnull String functionName,
-                                    @Nonnull List<? extends Value> children) {
+    private TupleConstructorValue(@Nonnull final String protoTypeName,
+                                  @Nonnull String functionName,
+                                  @Nonnull List<? extends Value> children) {
+        this.protoTypeName = protoTypeName;
         this.functionName = functionName;
         this.children = ImmutableList.copyOf(children);
+    }
+
+    @Nonnull
+    public String getProtoTypeName() {
+        return protoTypeName;
     }
 
     @Nonnull
@@ -77,9 +89,21 @@ public class TupleConstructorValue implements Value {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        return children.stream()
-                .map(child -> child.eval(store, context, record, message))
-                .collect(Collectors.toList());
+        final DynamicSchema dynamicSchema = context.getDynamicSchema();
+        final DynamicMessage.Builder resultMessageBuilder = dynamicSchema.newMessageBuilder(protoTypeName);
+        final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
+        final DynamicMessage.Builder tupleResult = DynamicMessage.newBuilder(descriptorForType);
+
+        int i = 0;
+        for (final Value child : getChildren()) {
+            final Object childResultElement = child.eval(store, context, record, message);
+            if (childResultElement != null) {
+                tupleResult.setField(descriptorForType.findFieldByNumber(i + 1), childResultElement);
+            }
+            i ++;
+        }
+
+        return tupleResult.build();
     }
 
     @Override
@@ -112,7 +136,7 @@ public class TupleConstructorValue implements Value {
     @Nonnull
     @Override
     public TupleConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
-        return new TupleConstructorValue(this.functionName, ImmutableList.copyOf(newChildren));
+        return new TupleConstructorValue(this.protoTypeName, this.functionName, ImmutableList.copyOf(newChildren));
     }
 
     public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
@@ -128,19 +152,27 @@ public class TupleConstructorValue implements Value {
         return ImmutableList.copyOf(onlyElement.getChildren());
     }
 
+    private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
+        final ImmutableList<Value> argumentValues = arguments.stream()
+                .peek(typed -> Preconditions.checkArgument(typed instanceof Value))
+                .map(typed -> ((Value)typed))
+                .collect(ImmutableList.toImmutableList());
+        return createAndRegister(parserContext.getDynamicSchemaBuilder(), builtInFunction.getFunctionName(), argumentValues);
+    }
+
+    private static TupleConstructorValue createAndRegister(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder,
+                                                           @Nonnull final String functionName,
+                                                           @Nonnull final List<? extends Value> arguments) {
+        final TupleConstructorValue tupleConstructorValue = new TupleConstructorValue(Type.uniqueCompliantTypeName(), functionName, arguments);
+        dynamicSchemaBuilder.addType(tupleConstructorValue.getProtoTypeName(), tupleConstructorValue.getResultType());
+        return tupleConstructorValue;
+    }
+
     @AutoService(BuiltInFunction.class)
     public static class TupleFn extends BuiltInFunction<Value> {
         public TupleFn() {
             super("tuple",
-                    ImmutableList.of(), new Type.Any(), TupleFn::encapsulate);
-        }
-
-        private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-            final ImmutableList<Value> argumentValues = arguments.stream()
-                    .peek(typed -> Preconditions.checkArgument(typed instanceof Value))
-                    .map(typed -> ((Value)typed))
-                    .collect(ImmutableList.toImmutableList());
-            return new TupleConstructorValue(builtInFunction.getFunctionName(), argumentValues);
+                    ImmutableList.of(), new Type.Any(), TupleConstructorValue::encapsulate);
         }
     }
 }

@@ -50,7 +50,7 @@ public class LiteralValue<T> implements LeafValue {
     private final T value;
 
     public LiteralValue(@Nullable final T value) {
-        this(Type.primitiveType(typeCodeFromLiteral(value)), value);
+        this(Type.primitiveType(typeCodeFromLiteral(value), false), value);
     }
 
     public LiteralValue(@Nonnull Type resultType, @Nullable final T value) {

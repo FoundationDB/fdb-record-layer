@@ -40,7 +40,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -77,7 +76,7 @@ public class RecordConstructorValue implements Value {
 
     @Nullable
     @Override
-    @SuppressWarnings("java:S6213")
+    @SuppressWarnings({"java:S6213", "unchecked"})
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         final DynamicSchema dynamicSchema = context.getDynamicSchema();
         final DynamicMessage.Builder resultMessageBuilder = dynamicSchema.newMessageBuilder(protoTypeName);
@@ -86,11 +85,29 @@ public class RecordConstructorValue implements Value {
         keyChildrenMap.forEach((key, child) -> {
             Object childResult = child.eval(store, context, record, message);
             if (childResult != null) {
-                final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByName(key);
                 // craziness abounds as our own internal records are more than just of type Message
                 if (childResult instanceof FDBRecord) {
                     childResult = ((FDBRecord<?>)childResult).getRecord();
                 }
+
+                final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByName(key);
+
+//                final Type childResultType = child.getResultType();
+//                if (childResultType.getTypeCode() == Type.TypeCode.ARRAY && childResultType.isNullable()) {
+//                    final Collection<Object> childResultCollection = (Collection<Object>)childResult;
+//                    final Descriptors.Descriptor helperDescriptor = fieldDescriptor.getMessageType();
+//
+//                    childResult =
+//                            childResultCollection
+//                                    .stream()
+//                                    .map(childResultElement -> {
+//                                        final DynamicMessage.Builder helperMessageBuilder = DynamicMessage.newBuilder(helperDescriptor);
+//                                        helperMessageBuilder.setField(helperDescriptor.findFieldByNumber(1), childResultElement);
+//                                        return helperMessageBuilder.build();
+//                                    })
+//                                    .collect(ImmutableList.toImmutableList());
+//                }
+
                 resultMessageBuilder.setField(fieldDescriptor, childResult);
             }
         });
@@ -172,14 +189,9 @@ public class RecordConstructorValue implements Value {
             keyTypeMapBuilder.put(entry.getKey(), entry.getValue().getResultType());
         }
         final ImmutableMap<String, Type> keyTypeMap = keyTypeMapBuilder.build();
-        final RecordConstructorValue recordConstructorValue = new RecordConstructorValue(uniqueCompliantTypeName(), keyChildrenMap, keyTypeMap);
+        final RecordConstructorValue recordConstructorValue = new RecordConstructorValue(Type.uniqueCompliantTypeName(), keyChildrenMap, keyTypeMap);
 
         dynamicSchemaBuilder.addType(recordConstructorValue.getProtoTypeName(), recordConstructorValue.getResultType());
         return recordConstructorValue;
-    }
-
-    private static String uniqueCompliantTypeName() {
-        final String safeUuid = UUID.randomUUID().toString().replace('-', '_');
-        return "__type__" + safeUuid;
     }
 }

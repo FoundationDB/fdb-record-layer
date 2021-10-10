@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.DescriptorProtos.DescriptorProto;
 import com.google.protobuf.DescriptorProtos.FieldDescriptorProto;
 import com.google.protobuf.Descriptors;
@@ -37,7 +38,9 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -52,9 +55,7 @@ public interface Type {
         return getTypeCode().isPrimitive();
     }
 
-    default boolean isNullable() {
-        return true;
-    }
+    boolean isNullable();
 
     default boolean isNumeric() {
         return getTypeCode().isNumeric();
@@ -86,11 +87,21 @@ public interface Type {
 
     @Nonnull
     static Type primitiveType(@Nonnull final TypeCode typeCode) {
+        return primitiveType(typeCode, true);
+    }
+
+    @Nonnull
+    static Type primitiveType(@Nonnull final TypeCode typeCode, final boolean isNullable) {
         Verify.verify(typeCode.isPrimitive());
         return new Type() {
             @Override
             public TypeCode getTypeCode() {
                 return typeCode;
+            }
+
+            @Override
+            public boolean isNullable() {
+                return isNullable;
             }
 
             @Nullable
@@ -142,10 +153,15 @@ public interface Type {
     }
 
     @Nonnull
-    static List<Type> fromTyped(@Nonnull List<Atom> atom) {
+    static List<Type> fromAtoms(@Nonnull List<? extends Atom> atom) {
         return atom.stream()
                 .map(Atom::getResultType)
                 .collect(ImmutableList.toImmutableList());
+    }
+
+    static String uniqueCompliantTypeName() {
+        final String safeUuid = UUID.randomUUID().toString().replace('-', '_');
+        return "__type__" + safeUuid;
     }
 
     enum TypeCode {
@@ -160,7 +176,7 @@ public interface Type {
         STRING(String.class, FieldDescriptorProto.Type.TYPE_STRING, true, false),
         TUPLE(List.class, null, false, false),
         RECORD(Message.class, null, false, false),
-        COLLECTION(Collection.class, null, false, false),
+        ARRAY(Array.class, null, false, false),
         STREAM(null, null, false, false),
         FUNCTION(null, null, false, false);
 
@@ -251,6 +267,11 @@ public interface Type {
         @Override
         public TypeCode getTypeCode() {
             return TypeCode.ANY;
+        }
+
+        @Override
+        public boolean isNullable() {
+            return true;
         }
 
         @Nullable
@@ -383,6 +404,8 @@ public interface Type {
     }
 
     class Tuple implements Type {
+        final boolean isNullable;
+
         @Nullable
         private final List<Type> elementTypes;
 
@@ -391,6 +414,11 @@ public interface Type {
         }
 
         public Tuple(@Nullable final List<Type> elementTypes) {
+            this(true, elementTypes);
+        }
+
+        public Tuple(final boolean isNullable, @Nullable final List<Type> elementTypes) {
+            this.isNullable = isNullable;
             this.elementTypes = elementTypes == null ? null : ImmutableList.copyOf(elementTypes);
         }
 
@@ -401,7 +429,7 @@ public interface Type {
 
         @Override
         public boolean isNullable() {
-            return true;
+            return isNullable;
         }
 
         @Nullable
@@ -469,16 +497,21 @@ public interface Type {
     }
 
     class Record implements Type {
+        private final boolean isNullable;
+
         @Nullable
         private final Map<String, Type> fieldTypeMap;
         @Nullable
         private final Map<String, Integer> fieldIndexMap;
 
         public Record() {
-            this(null, null);
+            this(true, null, null);
         }
 
-        private Record(@Nullable final Map<String, Type> fieldTypeMap, @Nullable final Map<String, Integer> fieldIndexMap) {
+        public Record(final boolean isNullable,
+                      @Nullable final Map<String, Type> fieldTypeMap,
+                      @Nullable final Map<String, Integer> fieldIndexMap) {
+            this.isNullable = isNullable;
             this.fieldTypeMap = fieldTypeMap == null ? null : ImmutableMap.copyOf(fieldTypeMap);
             this.fieldIndexMap = fieldIndexMap == null ? null : ImmutableMap.copyOf(fieldIndexMap);
         }
@@ -490,7 +523,7 @@ public interface Type {
 
         @Override
         public boolean isNullable() {
-            return true;
+            return isNullable;
         }
 
         @Nullable
@@ -562,11 +595,15 @@ public interface Type {
         }
 
         public static Record erased() {
-            return new Record(null, null);
+            return new Record(true, null, null);
         }
 
         public static Record fromTypeMap(@Nonnull final Map<String, Type> fieldTypeMap) {
-            return new Record(fieldTypeMap, computeDefaultFieldIndexMap(fieldTypeMap));
+            return fromTypeMap(true, fieldTypeMap);
+        }
+
+        public static Record fromTypeMap(final boolean isNullable, @Nonnull final Map<String, Type> fieldTypeMap) {
+            return new Record(isNullable, fieldTypeMap, computeDefaultFieldIndexMap(fieldTypeMap));
         }
 
         private static Map<String, Integer> computeDefaultFieldIndexMap(@Nonnull final Map<String, Type> fieldTypeMap) {
@@ -580,26 +617,79 @@ public interface Type {
         }
 
         public static Record fromFieldDescriptorsMap(final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
+            return fromFieldDescriptorsMap(true, fieldDescriptorMap);
+        }
+
+        public static Record fromFieldDescriptorsMap(final boolean isNullable, final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
             final ImmutableMap.Builder<String, Type> fieldTypeMapBuilder = ImmutableMap.builder();
             final ImmutableMap.Builder<String, Integer> fieldIndexMapBuilder = ImmutableMap.builder();
             for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
-                final TypeCode typeCode = TypeCode.fromProtobufType(fieldDescriptor.getType());
+                //final TypeCode typeCode = TypeCode.fromProtobufType(fieldDescriptor.getType());
                 fieldIndexMapBuilder.put(entry.getKey(), fieldDescriptor.getNumber());
+                fieldTypeMapBuilder.put(entry.getKey(),
+                        fromProtoType(getMessageTypeIfMessage(fieldDescriptor), fieldDescriptor.getType(), fieldDescriptor.toProto().getLabel(), true));
+            }
+
+            return new Record(isNullable, fieldTypeMapBuilder.build(), fieldIndexMapBuilder.build());
+        }
+
+        @Nullable
+        private static Descriptors.Descriptor getMessageTypeIfMessage(@Nonnull final Descriptors.FieldDescriptor fieldDescriptor) {
+            return fieldDescriptor.getType() == Descriptors.FieldDescriptor.Type.MESSAGE ? fieldDescriptor.getMessageType() : null;
+        }
+
+        private static Type fromProtoType(@Nullable Descriptors.Descriptor descriptor,
+                                          @Nonnull Descriptors.FieldDescriptor.Type protoType,
+                                          @Nonnull DescriptorProtos.FieldDescriptorProto.Label protoLabel,
+                                          boolean isNullable) {
+            final TypeCode typeCode = TypeCode.fromProtobufType(protoType);
+            if (protoLabel == FieldDescriptorProto.Label.LABEL_REPEATED) {
+                // collection type
+                // case 1: primitive types -- assumed to be non-nullable array of that type
                 if (typeCode.isPrimitive()) {
-                    final Type primitiveType = primitiveType(typeCode);
-                    fieldTypeMapBuilder.put(entry.getKey(), fieldDescriptor.isRepeated() ? new Type.Collection(primitiveType) : primitiveType);
+                    final Type primitiveType = primitiveType(typeCode, false);
+                    return new Array(primitiveType);
+                } else {
+                    Objects.requireNonNull(descriptor);
+                    // case 2: helper type to model null-ed out array elements
+                    final Optional<Descriptors.FieldDescriptor> elementFieldDescriptorMaybe =
+                            arrayElementFieldDescriptorMaybe(descriptor);
+
+                    if (elementFieldDescriptorMaybe.isPresent()) {
+                        final Descriptors.FieldDescriptor elementFieldDescriptor = elementFieldDescriptorMaybe.get();
+                        return new Array(fromProtoType(getMessageTypeIfMessage(elementFieldDescriptor), elementFieldDescriptor.getType(), FieldDescriptorProto.Label.LABEL_OPTIONAL, true));
+                    } else {
+                        // case 3: any arbitrary sub message we don't understand
+                        return new Array(fromProtoType(descriptor, protoType, FieldDescriptorProto.Label.LABEL_OPTIONAL, false));
+                    }
+                }
+            } else {
+                if (typeCode.isPrimitive()) {
+                    return primitiveType(typeCode, isNullable);
                 } else if (typeCode == TypeCode.RECORD) {
-                    final Record recordType = fromFieldDescriptorsMap(toFieldDescriptorMap(fieldDescriptor.getMessageType().getFields()));
-                    fieldTypeMapBuilder.put(entry.getKey(), fieldDescriptor.isRepeated() ? new Type.Collection(recordType) : recordType);
+                    Objects.requireNonNull(descriptor);
+                    return fromFieldDescriptorsMap(isNullable, toFieldDescriptorMap(descriptor.getFields()));
                 }
             }
 
-            return new Record(fieldTypeMapBuilder.build(), fieldIndexMapBuilder.build());
+            throw new IllegalStateException("unable to translate protobuf descriptor to type");
         }
 
         public static Record fromDescriptor(final Descriptors.Descriptor descriptor) {
             return fromFieldDescriptorsMap(toFieldDescriptorMap(descriptor.getFields()));
+        }
+
+        @Nonnull
+        private static Optional<Descriptors.FieldDescriptor> arrayElementFieldDescriptorMaybe(final Descriptors.Descriptor descriptor) {
+            final List<Descriptors.FieldDescriptor> fields = descriptor.getFields();
+            if (fields.size() == 1) {
+                final Descriptors.FieldDescriptor field0 = fields.get(0);
+                if (field0.isOptional() && !field0.isRepeated() && field0.getNumber() == 1 && "values".equals(field0.getName())) {
+                    return Optional.of(field0);
+                }
+            }
+            return Optional.empty();
         }
 
         @Nonnull
@@ -634,7 +724,7 @@ public interface Type {
 
         @Override
         public boolean isNullable() {
-            return true;
+            return false;
         }
 
         @Nullable
@@ -686,21 +776,28 @@ public interface Type {
         }
     }
 
-    class Collection implements Type {
+    class Array implements Type {
+        private final boolean isNullable;
+
         @Nullable
         private final Type innerType;
 
-        public Collection() {
-            this(null);
+        public Array() {
+            this( null);
         }
 
-        public Collection(@Nullable final Type innerType) {
+        public Array(@Nullable final Type innerType) {
+            this(true, innerType);
+        }
+
+        public Array(final boolean isNullable, @Nullable final Type innerType) {
+            this.isNullable = isNullable;
             this.innerType = innerType;
         }
 
         @Override
         public TypeCode getTypeCode() {
-            return TypeCode.COLLECTION;
+            return TypeCode.ARRAY;
         }
 
         @Override
@@ -710,7 +807,7 @@ public interface Type {
 
         @Override
         public boolean isNullable() {
-            return true;
+            return isNullable;
         }
 
         @Nullable
@@ -725,12 +822,33 @@ public interface Type {
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            return null;
+            final DescriptorProto.Builder helperDescriptorBuilder = DescriptorProto.newBuilder();
+            helperDescriptorBuilder.setName(typeName);
+            innerType.addProtoField(helperDescriptorBuilder, 1, "value", typeName, FieldDescriptorProto.Label.LABEL_OPTIONAL);
+
+            return helperDescriptorBuilder.build();
         }
 
         @Override
         public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
-            Objects.requireNonNull(innerType).addProtoField(descriptorBuilder, fieldIndex, fieldName, typeName, FieldDescriptorProto.Label.LABEL_REPEATED);
+            //
+            // If the inner type is nullable, we need to create a nested helper message to keep track of
+            // nulls.
+            //
+            if (Objects.requireNonNull(innerType).isNullable()) {
+                final DescriptorProto helperDescriptor = buildDescriptor(typeName);
+
+                descriptorBuilder.addNestedType(helperDescriptor);
+                descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
+                        .setName(fieldName)
+                        .setNumber(fieldIndex)
+                        .setTypeName(typeName)
+                        .setLabel(FieldDescriptorProto.Label.LABEL_REPEATED)
+                        .build());
+            } else {
+                // if inner type is not nullable we can just put is straight into its parent
+                innerType.addProtoField(descriptorBuilder, fieldIndex, fieldName, typeName, FieldDescriptorProto.Label.LABEL_REPEATED);
+            }
         }
 
         @Override
@@ -748,7 +866,7 @@ public interface Type {
                 return false;
             }
 
-            final Collection otherType = (Collection)obj;
+            final Array otherType = (Array)obj;
 
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));

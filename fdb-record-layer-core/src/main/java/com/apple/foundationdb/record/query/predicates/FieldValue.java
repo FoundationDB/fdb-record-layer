@@ -31,11 +31,14 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.MessageValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
@@ -95,8 +98,11 @@ public class FieldValue implements ValueWithChild {
         return new FieldValue((QuantifiedColumnValue)child, fieldPath);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        // TODO make field value implementation based on the flavor of the field access, i.e. arrays get a different
+        //      implementation.
         Object childResult = columnValue.eval(store, context, record, message);
         if (childResult instanceof FDBRecord) {
             childResult = ((FDBRecord<?>)childResult).getRecord();
@@ -105,7 +111,22 @@ public class FieldValue implements ValueWithChild {
         if (!(childResult instanceof Message)) {
             return null;
         }
-        return MessageValue.getFieldValue((Message)childResult, fieldPath);
+        final Object fieldValue = MessageValue.getFieldValue((Message)childResult, fieldPath);
+
+        if (resultType.getTypeCode() == Type.TypeCode.ARRAY && fieldValue instanceof Collection &&
+                Objects.requireNonNull(((Type.Array)resultType).getInnerType()).isNullable()) {
+            // this should probably be done on a lower layer
+            final Collection<Object> collection = (Collection<Object>)fieldValue;
+            return collection
+                    .stream()
+                    .map(object -> {
+                        final Message nestedMessage = (Message)object;
+                        final Descriptors.FieldDescriptor valueField = nestedMessage.getDescriptorForType().findFieldByNumber(1);
+                        return nestedMessage.getField(valueField);
+                    })
+                    .collect(ImmutableList.toImmutableList());
+        }
+        return fieldValue;
     }
 
     @Override
