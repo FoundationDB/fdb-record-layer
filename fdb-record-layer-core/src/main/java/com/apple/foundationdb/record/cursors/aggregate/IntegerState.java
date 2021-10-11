@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
 public class IntegerState implements AccumulatorState<Integer, Integer> {
     private int currentState;
     private boolean hasValue = false;
-    private final PrimitiveAccumulatorOperation operation;
+    private final NumericAccumulatorOperation operation;
 
-    public IntegerState(PrimitiveAccumulatorOperation operation) {
+    public IntegerState(NumericAccumulatorOperation operation) {
         this.operation = operation;
         resetState(operation);
     }
@@ -68,7 +68,7 @@ public class IntegerState implements AccumulatorState<Integer, Integer> {
         }
     }
 
-    private void resetState(final PrimitiveAccumulatorOperation operation) {
+    private void resetState(final NumericAccumulatorOperation operation) {
         switch (operation) {
             case SUM:
                 currentState = 0;

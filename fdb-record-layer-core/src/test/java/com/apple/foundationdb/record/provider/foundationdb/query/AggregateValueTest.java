@@ -166,6 +166,30 @@ public class AggregateValueTest {
         accumulateAndAssert(AggregateValues.averageDouble(doubleValueOnlyNull), 1, null);
     }
 
+    @Test
+    void testCount() throws Exception {
+        accumulateAndAssert(AggregateValues.count(intValue), 6, 6L);
+        accumulateAndAssert(AggregateValues.count(longValue), 6, 6L);
+        accumulateAndAssert(AggregateValues.countNonNull(intValue), 6, 6L);
+        accumulateAndAssert(AggregateValues.countNonNull(longValue), 6, 6L);
+    }
+
+    @Test
+    void testCountWithNulls() throws Exception {
+        accumulateAndAssert(AggregateValues.count(intValueWithNulls), 6, 6L);
+        accumulateAndAssert(AggregateValues.count(longValueWithNulls), 6, 6L);
+        accumulateAndAssert(AggregateValues.countNonNull(floatValueWithNulls), 6, 5L);
+        accumulateAndAssert(AggregateValues.countNonNull(doubleValueWithNulls), 6, 5L);
+    }
+
+    @Test
+    void testCountOnlyNulls() throws Exception {
+        accumulateAndAssert(AggregateValues.count(intValueOnlyNull), 1, 1L);
+        accumulateAndAssert(AggregateValues.count(longValueOnlyNull), 1, 1L);
+        accumulateAndAssert(AggregateValues.countNonNull(intValueOnlyNull), 1, 0L);
+        accumulateAndAssert(AggregateValues.countNonNull(longValueOnlyNull), 1, 0L);
+    }
+
     private <S> void accumulateAndAssert(final AggregateValue<?, ?> aggregateValue, final int accumulateCount, final Object value) {
         RecordValueAccumulator<?, ?> accumulator = aggregateValue.createAccumulator();
         accumulate(accumulateCount, accumulator);

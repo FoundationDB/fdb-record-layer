@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.async.AsyncUtil;
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
@@ -48,7 +49,7 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     private final RecordCursor<QueryResult> inner;
     // group aggregator to break incoming records into groups
     @Nonnull
-    private final StreamGrouping<M> groupAggregator;
+    private final StreamGrouping<M> streamGrouping;
     // Previous record processed by this cursor
     @Nullable
     private RecordCursorResult<QueryResult> previousResult;
@@ -56,9 +57,9 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     @Nullable
     private RecordCursorResult<QueryResult> previousValidResult;
 
-    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final StreamGrouping<M> groupAggregator) {
+    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final StreamGrouping<M> streamGrouping) {
         this.inner = inner;
-        this.groupAggregator = groupAggregator;
+        this.streamGrouping = streamGrouping;
     }
 
     @Nonnull
@@ -72,25 +73,38 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
         return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
             previousResult = innerResult;
             if (!innerResult.hasNext()) {
-                groupAggregator.finalizeGroup();
+                streamGrouping.finalizeGroup();
                 return false;
             } else {
                 previousValidResult = innerResult;
                 FDBQueriedRecord<M> record = innerResult.get().getQueriedRecord(0);
-                boolean groupBreak = groupAggregator.apply(record);
+                boolean groupBreak = streamGrouping.apply(record);
                 return (!groupBreak);
             }
         }), getExecutor()).thenApply(vignore -> {
-            if ((previousValidResult == null) && (!previousResult.hasNext())) {
-                // Edge case where there are no records at all
+            // Done streaming inner cursor
+            if ((previousValidResult == null) && (!previousResult.hasNext()) && (streamGrouping.hasGroupingCriteria())) {
+                // "No records Case #1": When there are some grouping criteria, return an empty set
                 return previousResult;
             }
-            List<Object> groupResult = groupAggregator.getCompletedGroupResult();
+            // Have more records, return group and continue
+            // Also "No records case #2": When there are NO grouping criteria, return a single result (e.g. with count of 0)
+            List<Object> groupResult = streamGrouping.getCompletedGroupResult();
             QueryResult queryResult = QueryResult.of(groupResult);
-            // Use the last valid result for the continuation as we need non-terminal one here.
-            RecordCursorContinuation continuation = previousValidResult.getContinuation();
+            RecordCursorContinuation continuation = calcContinuation();
             return RecordCursorResult.withNextValue(queryResult, continuation);
         });
+    }
+
+    @Nonnull
+    private RecordCursorContinuation calcContinuation() {
+        if (previousValidResult == null) {
+            // We have no previous result, and need a non-terminal one, use empty.
+            return ByteArrayContinuation.fromNullable(new byte[0]);
+        } else {
+            // Use the last valid result for the continuation as we need non-terminal one here.
+            return previousValidResult.getContinuation();
+        }
     }
 
     @Override

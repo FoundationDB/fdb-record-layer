@@ -76,6 +76,10 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
      * ----------------------------------------------------------
      * |     5 |         5 |                2 |             "1" |
      * ----------------------------------------------------------
+     * |     6 |      null |                2 |             "1" |
+     * ----------------------------------------------------------
+     * |     7 |      null |                2 |             "2" |
+     * ----------------------------------------------------------
      *
      * MyOtherRecord: Empty.
      *
@@ -115,6 +119,38 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
+    public void countOneGroupByOne() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            AggregatePlanBuilder builder = new AggregatePlanBuilder("MySimpleRecord");
+            RecordQueryPlan plan = builder
+                    .withAggregateValue("num_value_2", "Count")
+                    .withGroupCriterion("num_value_3_indexed")
+                    .build();
+
+            List<QueryResult> result = executePlan(plan);
+            assertResults(result, resultOf(0, 2L), resultOf(1, 2L), resultOf(2, 4L));
+        }
+    }
+
+    @Test
+    public void countNonNullOneGroupByOne() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            AggregatePlanBuilder builder = new AggregatePlanBuilder("MySimpleRecord");
+            RecordQueryPlan plan = builder
+                    .withAggregateValue("num_value_2", "CountNonNull")
+                    .withGroupCriterion("num_value_3_indexed")
+                    .build();
+
+            List<QueryResult> result = executePlan(plan);
+            assertResults(result, resultOf(0, 2L), resultOf(1, 2L), resultOf(2, 2L));
+        }
+    }
+
+    @Test
     public void aggregateOneGroupByNone() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
@@ -125,6 +161,34 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
 
             List<QueryResult> result = executePlan(plan);
             assertResults(result, resultOf(15));
+        }
+    }
+
+    @Test
+    public void countOneGroupByNone() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            RecordQueryPlan plan = new AggregatePlanBuilder("MySimpleRecord")
+                    .withAggregateValue("num_value_2", "Count")
+                    .build();
+
+            List<QueryResult> result = executePlan(plan);
+            assertResults(result, resultOf(8L));
+        }
+    }
+
+    @Test
+    public void countNonNullOneGroupByNone() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            RecordQueryPlan plan = new AggregatePlanBuilder("MySimpleRecord")
+                    .withAggregateValue("num_value_2", "CountNonNull")
+                    .build();
+
+            List<QueryResult> result = executePlan(plan);
+            assertResults(result, resultOf(6L));
         }
     }
 
@@ -154,7 +218,39 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9));
+            assertResults(result, resultOf(0, "0", 1), resultOf(1, "0", 2), resultOf(1, "1", 3), resultOf(2, "1", 9), resultOf(2, "2", null));
+        }
+    }
+
+    @Test
+    public void countGroupByTwo() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            RecordQueryPlan plan = new AggregatePlanBuilder("MySimpleRecord")
+                    .withAggregateValue("num_value_2", "Count")
+                    .withGroupCriterion("num_value_3_indexed")
+                    .withGroupCriterion("str_value_indexed")
+                    .build();
+
+            List<QueryResult> result = executePlan(plan);
+            assertResults(result, resultOf(0, "0", 2L), resultOf(1, "0", 1L), resultOf(1, "1", 1L), resultOf(2, "1", 3L), resultOf(2, "2", 1L));
+        }
+    }
+
+    @Test
+    public void countNonNullGroupByTwo() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, NO_HOOK);
+
+            RecordQueryPlan plan = new AggregatePlanBuilder("MySimpleRecord")
+                    .withAggregateValue("num_value_2", "CountNonNull")
+                    .withGroupCriterion("num_value_3_indexed")
+                    .withGroupCriterion("str_value_indexed")
+                    .build();
+
+            List<QueryResult> result = executePlan(plan);
+            assertResults(result, resultOf(0, "0", 2L), resultOf(1, "0", 1L), resultOf(1, "1", 1L), resultOf(2, "1", 2L), resultOf(2, "2", 0L));
         }
     }
 
@@ -171,7 +267,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0, "0", 1, 0), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 9, 4));
+            assertResults(result, resultOf(0, "0", 1, 0), resultOf(1, "0", 2, 2), resultOf(1, "1", 3, 3), resultOf(2, "1", 9, 4), resultOf(2, "2", null, null));
         }
     }
 
@@ -189,12 +285,12 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             List<QueryResult> result = executePlan(plan);
-            assertResults(result, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0), resultOf(1, "1", 3, 3, 3.0), resultOf(2, "1", 9, 4, 4.5));
+            assertResults(result, resultOf(0, "0", 1, 0, 0.5), resultOf(1, "0", 2, 2, 2.0), resultOf(1, "1", 3, 3, 3.0), resultOf(2, "1", 9, 4, 4.5), resultOf(2, "2", null, null, null));
         }
     }
 
     @Test
-    public void aggregateNoRecords() throws Exception {
+    public void aggregateNoRecordsWithGroupsWithAggregate() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -202,6 +298,8 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                     .withAggregateValue("num_value_2", "SumInteger")
                     .withAggregateValue("num_value_2", "MinInteger")
                     .withAggregateValue("num_value_2", "AvgInteger")
+                    .withAggregateValue("num_value_2", "Count")
+                    .withAggregateValue("num_value_2", "CountNonNull")
                     .withGroupCriterion("num_value_3_indexed")
                     .withGroupCriterion("str_value_indexed")
                     .build();
@@ -212,7 +310,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    public void aggregateNoRecordsNoGroup() throws Exception {
+    public void aggregateNoRecordsNoGroupsWithAggregate() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -220,15 +318,17 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                     .withAggregateValue("num_value_2", "SumInteger")
                     .withAggregateValue("num_value_2", "MinInteger")
                     .withAggregateValue("num_value_2", "AvgInteger")
+                    .withAggregateValue("num_value_2", "Count")
+                    .withAggregateValue("num_value_2", "CountNonNull")
                     .build();
 
             List<QueryResult> result = executePlan(plan);
-            Assertions.assertTrue(result.isEmpty());
+            assertResults(result, resultOf(null, null, null, 0L, 0L));
         }
     }
 
     @Test
-    public void aggregateNoRecordsNoAggregate() throws Exception {
+    public void aggregateNoRecordsWithGroupsNoAggregate() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -243,7 +343,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
     }
 
     @Test
-    public void aggregateNoRecordsNoGroupNoAggregate() throws Exception {
+    public void aggregateNoRecordsNoGroupsNoAggregate() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, NO_HOOK);
 
@@ -251,7 +351,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                     .build();
 
             List<QueryResult> result = executePlan(plan);
-            Assertions.assertTrue(result.isEmpty());
+            assertResults(result, resultOf());
         }
     }
 
@@ -268,6 +368,19 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                 recBuilder.setStrValueIndexed(Integer.toString(i / 3)); // some field that changes every 3rd record
                 recordStore.saveRecord(recBuilder.build());
             }
+
+            recBuilder.setRecNo(numRecords + 1);
+            recBuilder.clearNumValue2();
+            recBuilder.setNumValue3Indexed(2);
+            recBuilder.setStrValueIndexed("1");
+            recordStore.saveRecord(recBuilder.build());
+
+            recBuilder.setRecNo(numRecords + 2);
+            recBuilder.clearNumValue2();
+            recBuilder.setNumValue3Indexed(2); // some field that changes every 2nd record
+            recBuilder.setStrValueIndexed("2"); // some field that changes every 3rd record
+            recordStore.saveRecord(recBuilder.build());
+
             commit(context);
         }
     }
@@ -341,6 +454,10 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
                     return AggregateValues.minInt(value);
                 case ("AvgInteger"):
                     return AggregateValues.averageInt(value);
+                case ("Count"):
+                    return AggregateValues.count(value);
+                case ("CountNonNull"):
+                    return AggregateValues.countNonNull(value);
                 default:
                     throw new IllegalArgumentException("Cannot parse function name " + aggregateType);
             }

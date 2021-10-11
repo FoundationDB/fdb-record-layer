@@ -32,55 +32,55 @@ public class AggregateAccumulators {
     // ------------------ SUM Aggregators ------------------------------
 
     public static RecordValueAccumulator<Integer, Integer> sumInteger(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new IntegerState(PrimitiveAccumulatorOperation.SUM));
+        return new RecordValueAccumulator<>(value, new IntegerState(NumericAccumulatorOperation.SUM));
     }
 
     public static RecordValueAccumulator<Long, Long> sumLong(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new LongState(PrimitiveAccumulatorOperation.SUM));
+        return new RecordValueAccumulator<>(value, new LongState(NumericAccumulatorOperation.SUM));
     }
 
     public static RecordValueAccumulator<Float, Float> sumFloat(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new FloatState(PrimitiveAccumulatorOperation.SUM));
+        return new RecordValueAccumulator<>(value, new FloatState(NumericAccumulatorOperation.SUM));
     }
 
     public static RecordValueAccumulator<Double, Double> sumDouble(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new DoubleState(PrimitiveAccumulatorOperation.SUM));
+        return new RecordValueAccumulator<>(value, new DoubleState(NumericAccumulatorOperation.SUM));
     }
 
     // ------------------ MIN Aggregators ------------------------------
 
     public static RecordValueAccumulator<Integer, Integer> minInteger(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new IntegerState(PrimitiveAccumulatorOperation.MIN));
+        return new RecordValueAccumulator<>(value, new IntegerState(NumericAccumulatorOperation.MIN));
     }
 
     public static RecordValueAccumulator<Long, Long> minLong(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new LongState(PrimitiveAccumulatorOperation.MIN));
+        return new RecordValueAccumulator<>(value, new LongState(NumericAccumulatorOperation.MIN));
     }
 
     public static RecordValueAccumulator<Float, Float> minFloat(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new FloatState(PrimitiveAccumulatorOperation.MIN));
+        return new RecordValueAccumulator<>(value, new FloatState(NumericAccumulatorOperation.MIN));
     }
 
     public static RecordValueAccumulator<Double, Double> minDouble(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new DoubleState(PrimitiveAccumulatorOperation.MIN));
+        return new RecordValueAccumulator<>(value, new DoubleState(NumericAccumulatorOperation.MIN));
     }
 
     // ------------------ MAX Aggregators ------------------------------
 
     public static RecordValueAccumulator<Integer, Integer> maxInteger(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new IntegerState(PrimitiveAccumulatorOperation.MAX));
+        return new RecordValueAccumulator<>(value, new IntegerState(NumericAccumulatorOperation.MAX));
     }
 
     public static RecordValueAccumulator<Long, Long> maxLong(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new LongState(PrimitiveAccumulatorOperation.MAX));
+        return new RecordValueAccumulator<>(value, new LongState(NumericAccumulatorOperation.MAX));
     }
 
     public static RecordValueAccumulator<Float, Float> maxFloat(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new FloatState(PrimitiveAccumulatorOperation.MAX));
+        return new RecordValueAccumulator<>(value, new FloatState(NumericAccumulatorOperation.MAX));
     }
 
     public static RecordValueAccumulator<Double, Double> maxDouble(@Nonnull final Value value) {
-        return new RecordValueAccumulator<>(value, new DoubleState(PrimitiveAccumulatorOperation.MAX));
+        return new RecordValueAccumulator<>(value, new DoubleState(NumericAccumulatorOperation.MAX));
     }
 
     // ------------------ AVERAGE Aggregators ------------------------------
@@ -99,6 +99,16 @@ public class AggregateAccumulators {
 
     public static RecordValueAccumulator<Double, Double> averageDouble(@Nonnull final Value value) {
         return new RecordValueAccumulator<>(value, AverageAccumulatorState.doubleAverageState());
+    }
+
+    // ------------------ COUNT Aggregators ------------------------------
+
+    public static RecordValueAccumulator<Object, Long> count(@Nonnull final Value value) {
+        return new RecordValueAccumulator<>(value, new CountAccumulatorState(CountAccumulatorState.CountType.INCLUDE_NULL));
+    }
+
+    public static RecordValueAccumulator<Object, Long> countNonNull(@Nonnull final Value value) {
+        return new RecordValueAccumulator<>(value, new CountAccumulatorState(CountAccumulatorState.CountType.EXCLUDE_NULL));
     }
 
 

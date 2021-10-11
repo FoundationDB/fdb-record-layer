@@ -31,9 +31,9 @@ import javax.annotation.Nullable;
 public class FloatState implements AccumulatorState<Float, Float> {
     private float currentState;
     private boolean hasValue = false;
-    private final PrimitiveAccumulatorOperation operation;
+    private final NumericAccumulatorOperation operation;
 
-    public FloatState(PrimitiveAccumulatorOperation operation) {
+    public FloatState(NumericAccumulatorOperation operation) {
         this.operation = operation;
         resetState(operation);
     }
@@ -68,7 +68,7 @@ public class FloatState implements AccumulatorState<Float, Float> {
         }
     }
 
-    private void resetState(final PrimitiveAccumulatorOperation operation) {
+    private void resetState(final NumericAccumulatorOperation operation) {
         switch (operation) {
             case SUM:
                 currentState = 0.0f;

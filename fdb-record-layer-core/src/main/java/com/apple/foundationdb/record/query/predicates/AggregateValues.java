@@ -212,4 +212,29 @@ public class AggregateValues {
     public static AggregateValue<Double, Double> averageDouble(@Nonnull Value child) {
         return new AggregateValue<>(child, AggregateValue.AggregateType.AVG, AggregateAccumulators::averageDouble);
     }
+
+    // ------------------ COUNT Aggregators ------------------------------
+
+    /**
+     * Aggregate value for count of values, including nulls in the count.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
+     */
+    public static AggregateValue<Object, Long> count(@Nonnull Value child) {
+        return new AggregateValue<>(child, AggregateValue.AggregateType.COUNT, AggregateAccumulators::count);
+    }
+
+    /**
+     * Aggregate value for count of values, excluding nulls in the count.
+     *
+     * @param child the inner value to use to evaluate records with.
+     *
+     * @return an AggregateValue for the operation and inner
+     */
+    public static AggregateValue<Object, Long> countNonNull(@Nonnull Value child) {
+        return new AggregateValue<>(child, AggregateValue.AggregateType.COUNT_NON_NULL, AggregateAccumulators::countNonNull);
+    }
+
 }
