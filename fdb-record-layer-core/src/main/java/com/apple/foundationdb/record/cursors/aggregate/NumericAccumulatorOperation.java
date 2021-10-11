@@ -21,9 +21,9 @@
 package com.apple.foundationdb.record.cursors.aggregate;
 
 /**
- * The types of accumulation operations allowed for a primitive accumulator.
+ * The types of accumulation operations allowed for a primitive numeric accumulator.
  */
-public enum PrimitiveAccumulatorOperation {
+public enum NumericAccumulatorOperation {
     SUM,
     MIN,
     MAX

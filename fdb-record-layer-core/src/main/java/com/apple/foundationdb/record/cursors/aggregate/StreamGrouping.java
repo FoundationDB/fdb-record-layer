@@ -85,7 +85,7 @@ public class StreamGrouping<M extends Message> {
     /**
      * Create a new group aggregator.
      *
-     * @param groupCriteria the list of grouping criteria. The list is ordered, so that the first criteria is the
+     * @param groupingKeys the list of grouping criteria. The list is ordered, so that the first criteria is the
      * "coarse" group and the last criteria is the "fine" group.
      * @param aggregateValues the list of aggregate values that will accumulate the fields. The list is ordered such
      * that the result will have the aggregates in the same order as specified by the list
@@ -93,9 +93,9 @@ public class StreamGrouping<M extends Message> {
      * @param context evaluation context containing parameter bindings
      * @param alias the quantifier alias for the value evaluation
      */
-    public StreamGrouping(@Nonnull final List<Value> groupCriteria, @Nonnull List<AggregateValue<?, ?>> aggregateValues,
+    public StreamGrouping(@Nonnull final List<Value> groupingKeys, @Nonnull List<AggregateValue<?, ?>> aggregateValues,
                           @Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nonnull CorrelationIdentifier alias) {
-        this.groupingKeys = groupCriteria;
+        this.groupingKeys = groupingKeys;
         this.aggregateValues = aggregateValues;
         this.accumulator = createAccumulator(aggregateValues);
         this.store = store;
@@ -121,7 +121,7 @@ public class StreamGrouping<M extends Message> {
         List<Object> nextGroup = eval(record, groupingKeys);
         boolean groupBreak = isGroupBreak(currentGroup, nextGroup);
         if (groupBreak) {
-            finalizeGroup(nextGroup);
+            finalizeGroupInternal(nextGroup);
         } else {
             // for the case where we have no current group. In most cases, this changes nothing
             currentGroup = nextGroup;
@@ -141,6 +141,22 @@ public class StreamGrouping<M extends Message> {
         return previousGroupResult;
     }
 
+    /**
+     * An indication that the streaming is done and the last group needs to be finalized.
+     */
+    public void finalizeGroup() {
+        finalizeGroupInternal(null);
+    }
+
+    /**
+     * Whether theer are grouing criteria (keys) in this streamGrouping.
+     * @return TRUE if there are any grouping keys in this streamGrouping, FALSE otherwise.
+     */
+    public boolean hasGroupingCriteria() {
+        return !groupingKeys.isEmpty();
+    }
+
+
     private boolean isGroupBreak(final List<Object> currentGroup, final List<Object> nextGroup) {
         if ((currentGroup == null) || (currentGroup.isEmpty())) {
             return false;
@@ -149,11 +165,7 @@ public class StreamGrouping<M extends Message> {
         }
     }
 
-    public void finalizeGroup() {
-        finalizeGroup(null);
-    }
-
-    private void finalizeGroup(List<Object> nextGroup) {
+    private void finalizeGroupInternal(List<Object> nextGroup) {
         // Cannot use ImmutableList since it does not support null elements.
         List<Object> result = new ArrayList<>();
         if (currentGroup != null) {

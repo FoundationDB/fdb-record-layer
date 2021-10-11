@@ -49,7 +49,7 @@ public class AggregateValue<T, R> extends DerivedValue {
     @Nonnull
     private final Function<Value, RecordValueAccumulator<T, R>> accumulatorFunction;
 
-    public enum AggregateType { SUM, MIN, MAX, AVG }
+    public enum AggregateType { SUM, MIN, MAX, AVG, COUNT, COUNT_NON_NULL }
 
     /**
      * Package protected constructor for use only by {@link AggregateValues} static methods.
@@ -67,8 +67,7 @@ public class AggregateValue<T, R> extends DerivedValue {
     /**
      * Create a new accumulator from the Value. This accumulator will perform state management and accumulate evaluated
      * values representing this value. Note that the accumulator contains the {@link #getChild} of this value, as this
-     * value
-     * does not evaluate.
+     * value does not evaluate.
      *
      * @return a new {@link RecordValueAccumulator} for aggregating values for this Value.
      */

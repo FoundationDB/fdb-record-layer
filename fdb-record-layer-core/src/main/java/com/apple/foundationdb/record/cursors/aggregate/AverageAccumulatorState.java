@@ -38,19 +38,19 @@ public class AverageAccumulatorState<T extends Number> implements AccumulatorSta
 
     // Static method to create and return properly wired accumulators.
     public static AverageAccumulatorState<Integer> intAverageState() {
-        return new AverageAccumulatorState<>(new IntegerState(PrimitiveAccumulatorOperation.SUM));
+        return new AverageAccumulatorState<>(new IntegerState(NumericAccumulatorOperation.SUM));
     }
 
     public static AverageAccumulatorState<Long> longAverageState() {
-        return new AverageAccumulatorState<>(new LongState(PrimitiveAccumulatorOperation.SUM));
+        return new AverageAccumulatorState<>(new LongState(NumericAccumulatorOperation.SUM));
     }
 
     public static AverageAccumulatorState<Float> floatAverageState() {
-        return new AverageAccumulatorState<>(new FloatState(PrimitiveAccumulatorOperation.SUM));
+        return new AverageAccumulatorState<>(new FloatState(NumericAccumulatorOperation.SUM));
     }
 
     public static AverageAccumulatorState<Double> doubleAverageState() {
-        return new AverageAccumulatorState<>(new DoubleState(PrimitiveAccumulatorOperation.SUM));
+        return new AverageAccumulatorState<>(new DoubleState(NumericAccumulatorOperation.SUM));
     }
 
     /**
