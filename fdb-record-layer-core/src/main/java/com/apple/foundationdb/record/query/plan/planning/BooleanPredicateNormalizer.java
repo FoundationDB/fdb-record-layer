@@ -67,8 +67,7 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.INTERNAL)
 public class BooleanPredicateNormalizer {
-    // See here: https://github.com/spotbugs/spotbugs/issues/740
-    @SpotBugsSuppressWarnings(justification="This will not be serialized", value="SE_BAD_FIELD")
+    @SpotBugsSuppressWarnings(justification = "https://github.com/spotbugs/spotbugs/issues/740", value = "SE_BAD_FIELD")
     public enum Mode {
         DNF(OrPredicate.class, OrPredicate::or, AndPredicate.class, AndPredicate::and),
         CNF(AndPredicate.class, AndPredicate::and, OrPredicate.class, OrPredicate::or);
