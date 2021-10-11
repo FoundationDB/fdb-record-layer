@@ -130,7 +130,7 @@ public class RecordTypeKeyTest {
                         .build();
                 // Scan is expected to rejected because it uses fields which are not included in primary key
                 RelationalException exception = Assertions.assertThrows(RelationalException.class, () -> s.executeScan(scan, Options.create()));
-                Assertions.assertEquals("Unknown keys for primary key of <RestaurantRecord>, unknown keys: <REST_NO>", exception.getMessage());
+                Assertions.assertEquals("[22023] Unknown keys for primary key of <RestaurantRecord>, unknown keys: <REST_NO>", exception.getMessage());
             }
         }
     }
