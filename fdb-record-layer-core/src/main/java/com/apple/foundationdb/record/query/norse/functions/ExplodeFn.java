@@ -1,5 +1,5 @@
 /*
- * ScanFn.java
+ * ExplodeFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -20,37 +20,35 @@
 
 package com.apple.foundationdb.record.query.norse.functions;
 
-import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryExplodePlan;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Type;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Function
- * scan(STRING...) -> STREAM.
+ * explode(ARRAY) -> STREAM.
  */
 @AutoService(BuiltInFunction.class)
-public class ScanFn extends BuiltInFunction<RelationalExpression> {
-    public ScanFn() {
-        super("scan",
-                ImmutableList.of(), new Type.Any(), ScanFn::encapsulate);
+public class ExplodeFn extends BuiltInFunction<RelationalExpression> {
+    public ExplodeFn() {
+        super("explode",
+                ImmutableList.of(new Type.Array()), ExplodeFn::encapsulate);
     }
 
-    private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
-        final RecordMetaData recordMetaData = parserContext.getRecordMetaData();
-        final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
+    public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
+        // the call is already validated against the resolved function
+        Verify.verify(arguments.get(0) instanceof Value);
 
-        return new RecordQueryScanPlan(allAvailableRecordTypes,
-                ScanComparisons.EMPTY, false, false);
+        return new RecordQueryExplodePlan((Value)arguments.get(0));
     }
 }

@@ -100,9 +100,9 @@ public abstract class AndOrValue implements BooleanValue, Value.CompileTimeValue
         public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
-            final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
+            final Optional<? extends QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
             if (leftPredicateOptional.isPresent()) {
-                final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
+                final Optional<? extends QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
                 if (rightPredicateOptional.isPresent()) {
                     return Optional.of(AndPredicate.and(leftPredicateOptional.get(),
                             rightPredicateOptional.get()));
@@ -142,9 +142,9 @@ public abstract class AndOrValue implements BooleanValue, Value.CompileTimeValue
         public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
             Verify.verify(leftChild instanceof BooleanValue);
             Verify.verify(rightChild instanceof BooleanValue);
-            final Optional<QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
+            final Optional<? extends QueryPredicate> leftPredicateOptional = ((BooleanValue)leftChild).toQueryPredicate(innermostAlias);
             if (leftPredicateOptional.isPresent()) {
-                final Optional<QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
+                final Optional<? extends QueryPredicate> rightPredicateOptional = ((BooleanValue)rightChild).toQueryPredicate(innermostAlias);
                 if (rightPredicateOptional.isPresent()) {
                     return Optional.of(OrPredicate.or(leftPredicateOptional.get(),
                             rightPredicateOptional.get()));

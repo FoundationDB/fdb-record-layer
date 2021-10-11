@@ -47,7 +47,11 @@ public class ListCursor<T> implements RecordCursor<T> {
     private int nextPosition; // position of the next value to return
 
     public ListCursor(@Nonnull List<T> list, byte []continuation) {
-        this(ForkJoinPool.commonPool(), list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
+        this(ForkJoinPool.commonPool(), list, continuation);
+    }
+
+    public ListCursor(@Nonnull Executor executor, @Nonnull List<T> list, byte []continuation) {
+        this(executor, list, continuation != null ? ByteBuffer.wrap(continuation).getInt() : 0);
     }
 
     public ListCursor(@Nonnull Executor executor, @Nonnull List<T> list, int nextPosition) {

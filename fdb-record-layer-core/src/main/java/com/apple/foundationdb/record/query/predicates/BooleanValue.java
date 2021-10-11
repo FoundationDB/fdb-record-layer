@@ -35,5 +35,5 @@ public interface BooleanValue extends Value {
         return Type.primitiveType(Type.TypeCode.BOOLEAN);
     }
 
-    Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias);
+    Optional<? extends QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias);
 }

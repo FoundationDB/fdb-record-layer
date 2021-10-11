@@ -124,7 +124,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
             final int numberOfArguments = argumentContexts.size() + 1;
             functionOptional = FunctionCatalog.resolve(functionName, numberOfArguments);
-            SemanticException.check(functionOptional.isPresent(), "unable to resolve function " + functionName + "in catalog");
+            SemanticException.check(functionOptional.isPresent(), "unable to resolve function " + functionName + " in catalog");
 
             final List<Type> resolvedParameterTypes = functionOptional.get().resolveParameterTypes(numberOfArguments);
             argumentsOptional =
@@ -203,7 +203,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         if (!functionOptional.isPresent() || !argumentsOptional.isPresent()) {
             final List<? extends ParserRuleContext> argumentContexts = resolveArgumentOrTupleContexts(argumentsContext);
             functionOptional = FunctionCatalog.resolve(functionName, argumentContexts.size());
-            SemanticException.check(functionOptional.isPresent(), "unable to resolve function " + functionName + "in catalog");
+            SemanticException.check(functionOptional.isPresent(), "unable to resolve function " + functionName + " in catalog");
 
             final List<Type> resolvedParameterTypes = functionOptional.get().resolveParameterTypes(argumentContexts.size());
             argumentsOptional = Optional.of(

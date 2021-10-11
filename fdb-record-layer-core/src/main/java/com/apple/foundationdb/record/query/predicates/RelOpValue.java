@@ -85,7 +85,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
     }
 
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<ValuePredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         // one side of the relop has to be correlated to the innermost alias and only to that one; the other one
         // can be correlated (or not) to anything except the innermostAlias
         final ImmutableSet<CorrelationIdentifier> innermostAliasSet = ImmutableSet.of(innermostAlias);

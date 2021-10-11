@@ -46,6 +46,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+import static com.apple.foundationdb.record.query.predicates.Type.Array.needsNestedProto;
+
 /**
  * A value merges the input messages given to it into an output message.
  */
@@ -130,7 +132,7 @@ public abstract class AbstractArrayConstructorValue implements Value {
     private static AbstractArrayConstructorValue createAndRegister(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder, @Nonnull final List<? extends Value> arguments) {
         final Type elementType = resolveElementType(arguments);
 
-        if (elementType.isNullable()) {
+        if (needsNestedProto(elementType)) {
             final ArrayConstructorValue arrayConstructorValue = new ArrayConstructorValue(Type.uniqueCompliantTypeName(), arguments, elementType);
 
             dynamicSchemaBuilder.addType(arrayConstructorValue.getProtoTypeName(), arrayConstructorValue.getResultType());

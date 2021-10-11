@@ -780,19 +780,19 @@ public interface Type {
         private final boolean isNullable;
 
         @Nullable
-        private final Type innerType;
+        private final Type elementType;
 
         public Array() {
             this( null);
         }
 
-        public Array(@Nullable final Type innerType) {
-            this(true, innerType);
+        public Array(@Nullable final Type elementType) {
+            this(true, elementType);
         }
 
-        public Array(final boolean isNullable, @Nullable final Type innerType) {
+        public Array(final boolean isNullable, @Nullable final Type elementType) {
             this.isNullable = isNullable;
-            this.innerType = innerType;
+            this.elementType = elementType;
         }
 
         @Override
@@ -810,13 +810,17 @@ public interface Type {
             return isNullable;
         }
 
+        public boolean needsNestedProto() {
+            return needsNestedProto(elementType);
+        }
+
         @Nullable
-        public Type getInnerType() {
-            return innerType;
+        public Type getElementType() {
+            return elementType;
         }
 
         boolean isErased() {
-            return getInnerType() == null;
+            return getElementType() == null;
         }
 
         @Nullable
@@ -824,7 +828,7 @@ public interface Type {
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
             final DescriptorProto.Builder helperDescriptorBuilder = DescriptorProto.newBuilder();
             helperDescriptorBuilder.setName(typeName);
-            innerType.addProtoField(helperDescriptorBuilder, 1, "value", typeName, FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            elementType.addProtoField(helperDescriptorBuilder, 1, "value", typeName, FieldDescriptorProto.Label.LABEL_OPTIONAL);
 
             return helperDescriptorBuilder.build();
         }
@@ -835,7 +839,7 @@ public interface Type {
             // If the inner type is nullable, we need to create a nested helper message to keep track of
             // nulls.
             //
-            if (Objects.requireNonNull(innerType).isNullable()) {
+            if (needsNestedProto()) {
                 final DescriptorProto helperDescriptor = buildDescriptor(typeName);
 
                 descriptorBuilder.addNestedType(helperDescriptor);
@@ -847,13 +851,13 @@ public interface Type {
                         .build());
             } else {
                 // if inner type is not nullable we can just put is straight into its parent
-                innerType.addProtoField(descriptorBuilder, fieldIndex, fieldName, typeName, FieldDescriptorProto.Label.LABEL_REPEATED);
+                elementType.addProtoField(descriptorBuilder, fieldIndex, fieldName, typeName, FieldDescriptorProto.Label.LABEL_REPEATED);
             }
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), innerType);
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), elementType);
         }
 
         @Override
@@ -869,14 +873,18 @@ public interface Type {
             final Array otherType = (Array)obj;
 
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(innerType).equals(otherType.innerType));
+                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementType).equals(otherType.elementType));
         }
 
         @Override
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getInnerType()) + ")";
+                   : getTypeCode() + "(" + Objects.requireNonNull(getElementType()) + ")";
+        }
+
+        public static boolean needsNestedProto(final Type elementType) {
+            return Objects.requireNonNull(elementType).isNullable() || elementType.getTypeCode() == TypeCode.ARRAY;
         }
     }
 }

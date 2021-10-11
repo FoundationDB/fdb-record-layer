@@ -74,7 +74,7 @@ public class WhereFn extends BuiltInFunction<RelationalExpression> {
         Verify.verify(graphExpansion.getPredicates().isEmpty());
         final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
         if (resultValue instanceof BooleanValue) {
-            final Optional<QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
+            final Optional<? extends QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
             if (queryPredicateOptional.isPresent()) {
                 return new SelectExpression(argumentValues,
                         ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),

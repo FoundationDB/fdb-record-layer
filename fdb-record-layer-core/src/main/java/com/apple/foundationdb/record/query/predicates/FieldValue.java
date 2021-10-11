@@ -31,14 +31,11 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.MessageValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * A value representing the contents of a (non-repeated, arbitrarily-nested) field of a quantifier.
@@ -113,19 +110,20 @@ public class FieldValue implements ValueWithChild {
         }
         final Object fieldValue = MessageValue.getFieldValue((Message)childResult, fieldPath);
 
-        if (resultType.getTypeCode() == Type.TypeCode.ARRAY && fieldValue instanceof Collection &&
-                Objects.requireNonNull(((Type.Array)resultType).getInnerType()).isNullable()) {
-            // this should probably be done on a lower layer
-            final Collection<Object> collection = (Collection<Object>)fieldValue;
-            return collection
-                    .stream()
-                    .map(object -> {
-                        final Message nestedMessage = (Message)object;
-                        final Descriptors.FieldDescriptor valueField = nestedMessage.getDescriptorForType().findFieldByNumber(1);
-                        return nestedMessage.getField(valueField);
-                    })
-                    .collect(ImmutableList.toImmutableList());
-        }
+//        if (resultType.getTypeCode() == Type.TypeCode.ARRAY && fieldValue instanceof Collection &&
+//                Objects.requireNonNull(((Type.Array)resultType).getElementType()).isNullable()) {
+//            // this should probably be done on a lower layer
+//            final Collection<Object> collection = (Collection<Object>)fieldValue;
+//            return collection
+//                    .stream()
+//                    .map(object -> {
+//                        final Message nestedMessage = (Message)object;
+//                        final Descriptors.FieldDescriptor valueField = nestedMessage.getDescriptorForType().findFieldByNumber(1);
+//                        return nestedMessage.getField(valueField);
+//                    })
+//                    .collect(ImmutableList.toImmutableList());
+//        }
+
         return fieldValue;
     }
 

@@ -61,7 +61,7 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
     }
 
     @Override
-    public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
+    public Optional<ExistsPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         // TODO the alternative component should not be null
         return Optional.of(new ExistsPredicate(child.getAlias(), null));
     }

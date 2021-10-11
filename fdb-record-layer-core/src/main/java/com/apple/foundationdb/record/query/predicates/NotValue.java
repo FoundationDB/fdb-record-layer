@@ -59,7 +59,7 @@ public class NotValue implements BooleanValue, Value.CompileTimeValue {
     @Override
     public Optional<QueryPredicate> toQueryPredicate(@Nonnull final CorrelationIdentifier innermostAlias) {
         Verify.verify(child instanceof BooleanValue);
-        final Optional<QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias);
+        final Optional<? extends QueryPredicate> predicateOptional = ((BooleanValue)child).toQueryPredicate(innermostAlias);
         return predicateOptional.map(NotPredicate::not);
     }
 
