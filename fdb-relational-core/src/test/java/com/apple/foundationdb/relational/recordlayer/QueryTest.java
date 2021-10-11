@@ -33,6 +33,7 @@ import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.RelationalResultSet;
 import com.apple.foundationdb.relational.api.WhereClause;
 import com.apple.foundationdb.relational.api.catalog.DatabaseTemplate;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.query.AndClause;
 import com.apple.foundationdb.relational.recordlayer.query.OrClause;
 import com.apple.foundationdb.relational.recordlayer.query.RelationalQuery;
@@ -103,6 +104,10 @@ public class QueryTest {
                 Assertions.assertTrue(resultSet.next(), "Did not return a record!");
                 Assertions.assertTrue(resultSet.supportsMessageParsing(), "Does not support message parsing!");
                 Assertions.assertEquals(rec, resultSet.parseMessage(), "Incorrect returned record!");
+
+                //now check the specific fields
+                Assertions.assertEquals(rec.getRestNo(), resultSet.getLong("rest_no"), "Incorrect rest_no");
+                Assertions.assertEquals(rec.getLocation(), resultSet.getMessage("location"), "Incorrect location");
             }
         }
     }
