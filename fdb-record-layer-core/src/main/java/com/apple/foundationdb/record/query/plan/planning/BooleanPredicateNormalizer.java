@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.planning;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlannerConfiguration;
@@ -66,7 +67,7 @@ import java.util.stream.StreamSupport;
  */
 @API(API.Status.INTERNAL)
 public class BooleanPredicateNormalizer {
-
+    @SpotBugsSuppressWarnings(justification = "https://github.com/spotbugs/spotbugs/issues/740", value = "SE_BAD_FIELD")
     public enum Mode {
         DNF(OrPredicate.class, OrPredicate::or, AndPredicate.class, AndPredicate::and),
         CNF(AndPredicate.class, AndPredicate::and, OrPredicate.class, OrPredicate::or);
