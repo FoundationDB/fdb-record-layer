@@ -51,7 +51,9 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +61,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -152,6 +155,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
     private final Map<String, CommitCheckAsync> commitChecks = new LinkedHashMap<>();
+    @Nonnull
+    private final Collection<CommitCheckAsync> uniquenessCommitChecks = new ConcurrentLinkedDeque<>();
     @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
@@ -661,6 +666,21 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
          */
         @Nonnull
         CompletableFuture<Void> checkAsync();
+
+        static CommitCheckAsync fromFuture(@Nonnull CompletableFuture<Void> check) {
+            return new CommitCheckAsync() {
+                @Override
+                public boolean isReady() {
+                    return check.isDone();
+                }
+
+                @Nonnull
+                @Override
+                public CompletableFuture<Void> checkAsync() {
+                    return check;
+                }
+            };
+        }
     }
 
     /**
@@ -690,6 +710,27 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         void check();
     }
 
+    @API(API.Status.INTERNAL)
+    public synchronized void addIndexUniquenessCommitCheck(@Nonnull CommitCheckAsync check) {
+        addCommitCheck(check);
+        uniquenessCommitChecks.add(check);
+    }
+
+    @API(API.Status.INTERNAL)
+    public synchronized CompletableFuture<Void> waitForIndexUniquenessChecks() {
+        List<CompletableFuture<Void>> toWait = new ArrayList<>(uniquenessCommitChecks.size());
+        for (CommitCheckAsync checkAsync : uniquenessCommitChecks) {
+            if (!checkAsync.isReady()) {
+                toWait.add(checkAsync.checkAsync());
+            }
+        }
+        if (toWait.isEmpty()) {
+            return AsyncUtil.DONE;
+        } else {
+            return AsyncUtil.whenAll(toWait);
+        }
+    }
+
     /**
      * Add a check to be completed before {@link #commit} finishes.
      *
@@ -699,18 +740,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
      * @param check the check to be performed
      */
     public synchronized void addCommitCheck(@Nonnull CompletableFuture<Void> check) {
-        addCommitCheck(new CommitCheckAsync() {
-            @Override
-            public boolean isReady() {
-                return check.isDone();
-            }
-
-            @Nonnull
-            @Override
-            public CompletableFuture<Void> checkAsync() {
-                return check;
-            }
-        });
+        addCommitCheck(CommitCheckAsync.fromFuture(check));
     }
 
     /**

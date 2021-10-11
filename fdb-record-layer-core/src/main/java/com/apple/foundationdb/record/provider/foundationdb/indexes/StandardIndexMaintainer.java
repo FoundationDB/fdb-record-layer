@@ -52,6 +52,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
@@ -373,7 +374,8 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                     }
                 }, getExecutor()));
         // Add a pre-commit check to prevent accidentally committing and getting into an invalid state.
-        state.store.getRecordContext().addCommitCheck(checker);
+        FDBRecordContext.CommitCheckAsync commitCheck = FDBRecordContext.CommitCheckAsync.fromFuture(checker);
+        state.store.getRecordContext().addIndexUniquenessCommitCheck(commitCheck);
     }
 
     /**
