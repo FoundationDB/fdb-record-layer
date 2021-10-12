@@ -1841,13 +1841,14 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         private void validate() {
-            validateIndexesAndTypes();
+            final RecordMetaData metaData = getRecordMetaData();
+            validateIndexes(metaData);
+            validateTypes(metaData);
             validateLimits();
         }
 
-        private void validateIndexesAndTypes() {
-            final RecordMetaData metaData = getRecordMetaData();
-            if (this.targetIndexes == null || this.targetIndexes.isEmpty()) {
+        private void validateIndexes(RecordMetaData metaData) {
+            if (this.targetIndexes.isEmpty()) {
                 throw new MetaDataException("index must be set");
             }
             // Remove duplications (if any)
@@ -1867,6 +1868,9 @@ public class OnlineIndexer implements AutoCloseable {
                     throw new MetaDataException("Index " + index.getName() + " not contained within specified metadata");
                 }
             }
+        }
+
+        private void validateTypes(RecordMetaData metaData) {
             if (recordTypes != null) {
                 for (RecordType recordType : recordTypes) {
                     if (recordType != metaData.getIndexableRecordType(recordType.getName())) {

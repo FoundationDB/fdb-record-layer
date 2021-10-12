@@ -389,26 +389,7 @@ public abstract class IndexingBase {
                                               IndexBuildProto.IndexBuildIndexingStamp.Method.BY_RECORDS) {
                             // backward compatibility - maybe continuing an old BY_RECORD session
                             return isWriteOnlyButNoRecordScanned(store, index)
-                                    .thenCompose(noRecordScanned -> {
-                                        if (noRecordScanned) {
-                                            // an empty type stamp, and nothing was indexed - it is safe to write stamp
-                                            if (LOGGER.isInfoEnabled()) {
-                                                LOGGER.info(KeyValueLogMessage.build("no scanned ranges - continue indexing")
-                                                        .addKeysAndValues(common.indexLogMessageKeyValues())
-                                                        .toString());
-                                            }
-                                            transaction.set(stampKey, indexingTypeStamp.toByteArray());
-                                            return AsyncUtil.DONE;
-                                        }
-                                        // Here: there is no type stamp, but indexing is ongoing. For backward compatibility reasons, we'll consider it a BY_RECORDS stamp
-                                        if (LOGGER.isInfoEnabled()) {
-                                            LOGGER.info(KeyValueLogMessage.build("continuation with null type stamp, assuming previous by-records scan")
-                                                    .addKeysAndValues(common.indexLogMessageKeyValues())
-                                                    .toString());
-                                        }
-                                        final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingByRecords.compileIndexingTypeStamp();
-                                        throw newPartlyBuildException(true, fakeSavedStamp, indexingTypeStamp, index);
-                                    });
+                                    .thenCompose(noRecordScanned -> throwAsByRecordsUnlessNoRecordWasScanned(noRecordScanned, transaction, index, stampKey, indexingTypeStamp));
                         }
                         // Here: either not a continuedBuild (new session), or a BY_RECORD session (allowed to overwrite the null stamp)
                         transaction.set(stampKey, indexingTypeStamp.toByteArray());
@@ -430,19 +411,54 @@ public abstract class IndexingBase {
                     if (forceStampOverwrite) {  // and a continued Build
                         // check if partly built
                         return isWriteOnlyButNoRecordScanned(store, index)
-                                .thenCompose(noRecordScanned -> {
-                                    if (noRecordScanned) {
-                                        // we can safely overwrite the previous type stamp
-                                        transaction.set(stampKey, indexingTypeStamp.toByteArray());
-                                        return AsyncUtil.DONE;
-                                    }
-                                    // A force overwrite cannot be allowed when partly built
-                                    throw newPartlyBuildException(continuedBuild, savedStamp, indexingTypeStamp, index);
-                                });
+                                .thenCompose(noRecordScanned ->
+                                throwUnlessNoRecordWasScanned(noRecordScanned, transaction, index, stampKey, indexingTypeStamp,
+                                        savedStamp, continuedBuild));
                     }
                     // fall down to exception
                     throw newPartlyBuildException(continuedBuild, savedStamp, indexingTypeStamp, index);
                 });
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> throwAsByRecordsUnlessNoRecordWasScanned(boolean noRecordScanned, Transaction transaction,
+                                                                             Index index, byte[] stampKey,
+                                                                             IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp) {
+        // A complicated way to reduce complexity.
+        if (noRecordScanned) {
+            // an empty type stamp, and nothing was indexed - it is safe to write stamp
+            if (LOGGER.isInfoEnabled()) {
+                LOGGER.info(KeyValueLogMessage.build("no scanned ranges - continue indexing")
+                        .addKeysAndValues(common.indexLogMessageKeyValues())
+                        .toString());
+            }
+            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+            return AsyncUtil.DONE;
+        }
+        // Here: there is no type stamp, but indexing is ongoing. For backward compatibility reasons, we'll consider it a BY_RECORDS stamp
+        if (LOGGER.isInfoEnabled()) {
+            LOGGER.info(KeyValueLogMessage.build("continuation with null type stamp, assuming previous by-records scan")
+                    .addKeysAndValues(common.indexLogMessageKeyValues())
+                    .toString());
+        }
+        final IndexBuildProto.IndexBuildIndexingStamp fakeSavedStamp = IndexingByRecords.compileIndexingTypeStamp();
+        throw newPartlyBuildException(true, fakeSavedStamp, indexingTypeStamp, index);
+    }
+
+    @Nonnull
+    private CompletableFuture<Void> throwUnlessNoRecordWasScanned(boolean noRecordScanned, Transaction transaction,
+                                                                  Index index, byte[] stampKey,
+                                                                  IndexBuildProto.IndexBuildIndexingStamp indexingTypeStamp,
+                                                                  IndexBuildProto.IndexBuildIndexingStamp savedStamp,
+                                                                  boolean continuedBuild) {
+        // Ditto (a complicated way to reduce complexity)
+        if (noRecordScanned) {
+            // we can safely overwrite the previous type stamp
+            transaction.set(stampKey, indexingTypeStamp.toByteArray());
+            return AsyncUtil.DONE;
+        }
+        // A force overwrite cannot be allowed when partly built
+        throw newPartlyBuildException(continuedBuild, savedStamp, indexingTypeStamp, index);
     }
 
     @Nonnull
