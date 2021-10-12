@@ -104,13 +104,13 @@ public class IndexingCommon {
 
         this.totalRecordsScanned = new AtomicLong(0);
         this.targetIndexContexts = new ArrayList<>(targetIndexes.size());
+        this.allRecordTypes = new HashSet<>();
 
         fillTargetIndexers(targetIndexes, allRecordTypes);
     }
 
     private void fillTargetIndexers(@Nonnull List<Index> targetIndexes, @Nullable Collection<RecordType> recordTypes) {
         boolean presetTypes = false;
-        this.allRecordTypes = new HashSet<>();
         if (recordTypes != null) {
             if (targetIndexes.size() > 1) {
                 throw new IndexingBase.ValidationException("Can't use preset record types with multi target indexing");
