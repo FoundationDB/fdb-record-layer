@@ -20,6 +20,11 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -27,7 +32,10 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nonnull;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 
 public class KeySpacePathParsingTest {
     private final KeySpace testSpace = getKeySpaceForTesting();
@@ -146,6 +154,27 @@ public class KeySpacePathParsingTest {
         Assertions.assertEquals(expectedDatabase,parsedDatabase,"Incorrectly parsed the second store path");
     }
 
+    @Test
+    void testDirectoryLayer() {
+        final URI expected = URI.create("/prod/testApp/12345");
+        final KeySpacePath path = KeySpaceUtils.uriToPath(expected, getKeySpaceWithDirectoryLayerForTesting());
+        final URI uri = KeySpaceUtils.pathToURI(path);
+        Assertions.assertEquals(expected, uri, "Invalid parsing of URI or KeySpacePaths");
+
+        // Assert all values for the keySpacePath are Long
+        FDBRecordContext context = FDBDatabaseFactory.instance().getDatabase().openContext();
+        List<Object> numbers1 = getResolvedValuesForKeySpacePath(path, context);
+        numbers1.stream().forEach(n -> Assertions.assertTrue(n instanceof Long, "Unexpected value type"));
+
+        // Read the resolved values again, and assert again
+        context = FDBDatabaseFactory.instance().getDatabase().openContext();
+        List<Object> numbers2 = getResolvedValuesForKeySpacePath(path, context);
+        numbers2.stream().forEach(n -> Assertions.assertTrue(n instanceof Long, "Unexpected value type"));
+
+        // The values read from different transactions are consistent
+        Assertions.assertArrayEquals(numbers1.toArray(), numbers2.toArray(), "Inconsistent resolved values");
+    }
+
     private KeySpace getKeySpaceForTesting() {
         final KeySpaceDirectory env = new KeySpaceDirectory("Environment", KeySpaceDirectory.KeyType.STRING);
         final KeySpaceDirectory app = new KeySpaceDirectory("App", KeySpaceDirectory.KeyType.STRING);
@@ -153,6 +182,13 @@ public class KeySpacePathParsingTest {
         env.addSubdirectory(app);
         app.addSubdirectory(user);
         return new KeySpace(env);
+    }
+
+    private KeySpace getKeySpaceWithDirectoryLayerForTesting() {
+        return new KeySpace(
+                new DirectoryLayerDirectory("Environment")
+                        .addSubdirectory(new DirectoryLayerDirectory("App")
+                                .addSubdirectory(new KeySpaceDirectory("User", KeySpaceDirectory.KeyType.LONG))));
     }
 
     private KeySpace sampleKeySpace(){
@@ -173,5 +209,16 @@ public class KeySpacePathParsingTest {
         final KeySpaceDirectory base = new KeySpaceDirectory("testRoot", KeySpaceDirectory.KeyType.STRING,"testRoot");
         base.addSubdirectory(ds1);
         return new KeySpace(base);
+    }
+
+    private List<Object> getResolvedValuesForKeySpacePath(@Nonnull KeySpacePath path, @Nonnull FDBRecordContext context) {
+        List<Object> values = new ArrayList<>();
+        KeySpacePath currentPath = path;
+        values.add(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)).getResolvedValue());
+        while (currentPath.getParent() != null) {
+            currentPath = currentPath.getParent();
+            values.add(context.asyncToSync(FDBStoreTimer.Waits.WAIT_KEYSPACE_PATH_RESOLVE, currentPath.resolveAsync(context)).getResolvedValue());
+        }
+        return values;
     }
 }

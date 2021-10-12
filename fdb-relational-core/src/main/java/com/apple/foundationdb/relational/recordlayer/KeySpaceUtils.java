@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.record.provider.foundationdb.keyspace.DirectoryLayerDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpaceDirectory;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -173,16 +174,23 @@ public class KeySpaceUtils {
                 }
                 break;
             case LONG:
-                try {
-                    long l = Long.parseLong(pathElem);
-                    pathValue = l;
-                    if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
-                        break;
-                    } else if (!Objects.equals(dirVal, l)) {
+                if (directory instanceof DirectoryLayerDirectory) {
+                    pathValue = pathElem;
+                } else {
+                    try {
+                        long l = Long.parseLong(pathElem);
+                        pathValue = l;
+                        if (Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE)) {
+                            break;
+                        } else if (!Objects.equals(dirVal, l)) {
+                            return null;
+                        }
+                    } catch (NumberFormatException nfe) {
+                        //the field isn't a long, so can't match this directory
                         return null;
                     }
-                } catch (NumberFormatException nfe) {
-                    //the field isn't a long, so can't match this directory
+                }
+                if (!Objects.equals(dirVal, KeySpaceDirectory.ANY_VALUE) && !Objects.equals(dirVal, pathValue)) {
                     return null;
                 }
                 break;
