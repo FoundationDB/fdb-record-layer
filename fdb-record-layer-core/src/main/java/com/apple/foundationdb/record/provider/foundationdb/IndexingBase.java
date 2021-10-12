@@ -69,7 +69,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * A base class for different types of online indexing scanners.
+ * A base class for different types of online indexing process.
  */
 @API(API.Status.INTERNAL)
 public abstract class IndexingBase {
