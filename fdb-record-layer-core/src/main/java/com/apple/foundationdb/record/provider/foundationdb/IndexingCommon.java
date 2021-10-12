@@ -66,6 +66,10 @@ public class IndexingCommon {
 
     @Nonnull private Collection<RecordType> allRecordTypes;
     @Nonnull private final List<IndexContext> targetIndexContexts;
+    /**
+     * Constant indicating that there should be no limit to some usually limited operation.
+     */
+    public static final int UNLIMITED = Integer.MAX_VALUE;
 
     public static class IndexContext {
         @Nonnull public final Index index;
@@ -80,11 +84,6 @@ public class IndexingCommon {
             this.isSynthetic = isSynthetic;
         }
     }
-
-    /**
-     * Constant indicating that there should be no limit to some usually limited operation.
-     */
-    public static final int UNLIMITED = Integer.MAX_VALUE;
 
     IndexingCommon(@Nonnull FDBDatabaseRunner runner,
                    @Nonnull FDBRecordStore.Builder recordStoreBuilder,
