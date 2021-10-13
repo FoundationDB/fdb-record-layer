@@ -1152,21 +1152,41 @@ public class OnlineIndexer implements AutoCloseable {
             return addTargetIndex(indexName);
         }
 
+        /**
+         * Replace any previous target indexes list with this new one.
+         * @param indexes list of target indexes
+         * @return this builder
+         */
         public Builder setTargetIndexes(@Nonnull List<Index> indexes) {
             this.targetIndexes = new ArrayList<>(indexes);
             return this;
         }
 
+        /**
+         * Replace any previous target indexes list with this new one.
+         * @param indexes list of target index names
+         * @return this builder
+         */
         public Builder setTargetIndexesByName(@Nonnull List<String> indexes) {
             final RecordMetaData metaData = getRecordMetaData();
             return setTargetIndexes(indexes.stream().map(metaData::getIndex).collect(Collectors.toList()));
         }
 
+        /**
+         * Add one target index to the target indexes list.
+         * @param index an index to add
+         * @return this builder
+         */
         public Builder addTargetIndex(@Nonnull Index index) {
             this.targetIndexes.add(index);
             return this;
         }
 
+        /**
+         * Add one target index to the target indexes list.
+         * @param indexName an index's name to add
+         * @return this builder
+         */
         public Builder addTargetIndex(@Nonnull String indexName) {
             final RecordMetaData metaData = getRecordMetaData();
             return addTargetIndex(metaData.getIndex(indexName));

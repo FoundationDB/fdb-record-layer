@@ -37,8 +37,8 @@ message IndexBuildIndexingStamp {
   optional Method method = 1;
   optional bytes source_index_subspace_key = 2; // relevant only with BY_INDEX method
   optional int32 source_index_last_modified_version = 3; // only with BY_INDEX method
-  repeated string targetIndex = 4; //only with *_MULTI_TARGET: comma deliminator list of target indexes,
-                                     // the first item is the main index, the following ones are sorted alphabetically
+  repeated string targetIndex = 4; //only with *_MULTI_TARGET: list of target indexes sorted alphabetically
+                                   // the first item is used as the primary index
  }
 
 

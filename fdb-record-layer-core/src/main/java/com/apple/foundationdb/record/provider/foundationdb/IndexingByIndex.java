@@ -184,9 +184,10 @@ public class IndexingByIndex extends IndexingBase {
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
 
+            final boolean isIdempotent = true ; // Note that currently indexing by index is online implemented for idempotent indexes
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
-                    lastResult, hasMore, recordsScanned, true)
+                    lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)
@@ -246,9 +247,10 @@ public class IndexingByIndex extends IndexingBase {
         final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
         final AtomicBoolean hasMore = new AtomicBoolean(true);
 
+        final boolean isIdempotent = true ; // Note that currently indexing by index is online implemented for idempotent indexes
         return iterateRangeOnly(store, cursor,
                 this::getRecordIfTypeMatch,
-                lastResult, hasMore, recordsScanned, true
+                lastResult, hasMore, recordsScanned, isIdempotent
         ).thenApply(vignore -> hasMore.get() ?
                                lastResult.get().get().getIndexEntry().getKey() :
                                null );

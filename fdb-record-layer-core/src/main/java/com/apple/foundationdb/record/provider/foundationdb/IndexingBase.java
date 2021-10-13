@@ -236,7 +236,7 @@ public abstract class IndexingBase {
 
     @Nonnull
     private CompletableFuture<Void> handleStateAndDoBuildIndexAsync(boolean markReadable, KeyValueLogMessage message) {
-        /**
+        /*
          * Multi target:
          * The primary and follower indexes must the same state.
          * If the primary is disabled, a follower is write_only/readable, and the policy for write_only/readable is
@@ -245,7 +245,7 @@ public abstract class IndexingBase {
          * If the primary is write_only, and the followers' stamps/ranges do not match, it would be caught during indexing.
          */
         final List<Index> targetIndexes = common.getTargetIndexes();
-        final Index primaryIndex = targetIndexes.remove(0);
+        final Index primaryIndex = targetIndexes.get(0);
         return getRunner().runAsync(context -> openRecordStore(context).thenCompose(store -> {
             IndexState indexState = store.getIndexState(primaryIndex);
             if (isScrubber) {
@@ -277,7 +277,7 @@ public abstract class IndexingBase {
             }
 
             boolean continuedBuild = !shouldClear && indexState == IndexState.WRITE_ONLY;
-            for (Index targetIndex : targetIndexes) {
+            for (Index targetIndex : targetIndexes.subList(1, targetIndexes.size())) {
                 // Must follow the primary index' status
                 IndexState state = store.getIndexState(targetIndex);
                 if (state != indexState) {
@@ -303,23 +303,14 @@ public abstract class IndexingBase {
                 doIndex ?
                 buildIndexInternalAsync().thenApply(ignore -> markReadable) :
                 AsyncUtil.READY_FALSE
-        ).thenCompose(this::markIndexReadable);
+        ).thenCompose(this::markIndexReadable).thenApply(ignore -> null);
     }
 
     private CompletableFuture<Void> markIndexesWriteOnly(boolean continueBuild, FDBRecordStore store) {
         if (continueBuild) {
-            return CompletableFuture.completedFuture(null);
+            return AsyncUtil.DONE;
         }
         return forEachTargetIndex(store::markIndexWriteOnly);
-    }
-
-    private CompletableFuture<Void> markIndexReadable(boolean markReadablePlease) {
-        if (!markReadablePlease) {
-            return AsyncUtil.DONE; // they didn't say please..
-        }
-        return getRunner().runAsync(context -> openRecordStore(context)
-                .thenCompose(store -> forEachTargetIndex(store::markIndexReadable))
-                .thenApply(ignore -> null), common.indexLogMessageKeyValues("IndexingBase::markIndexReadable"));
     }
 
     @Nonnull
@@ -347,7 +338,10 @@ public abstract class IndexingBase {
     }
 
     @Nonnull
-    public CompletableFuture<Boolean> markReadable() {
+    public CompletableFuture<Boolean> markIndexReadable(boolean markReadablePlease) {
+        if (!markReadablePlease) {
+            return AsyncUtil.READY_FALSE; // they didn't say please..
+        }
         AtomicBoolean allReadable = new AtomicBoolean(true);
         return getRunner().runAsync(context -> openRecordStore(context)
                 .thenCompose(store -> forEachTargetIndex(index ->

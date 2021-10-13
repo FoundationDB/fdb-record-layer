@@ -173,8 +173,9 @@ public class IndexingScrubMissing extends IndexingBase {
             final AtomicReference<RecordCursorResult<FDBStoredRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final long scanLimit = scrubbingPolicy.getEntriesScanLimit();
 
+            final boolean isIdempotent = true ; // Note that currently we only scrub idempotent indexes
             return iterateRangeOnly(store, cursor, this::getRecordIfMissingIndex,
-                    lastResult, hasMore, recordsScanned, true)
+                    lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getPrimaryKey() :
                                           rangeEnd)
