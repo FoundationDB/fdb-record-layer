@@ -179,7 +179,7 @@ public class IndexingScrubDangling extends IndexingBase {
 
             return iterateRangeOnly(store, cursor,
                     this::deleteIndexIfDangling,
-                    lastResult, hasMore, recordsScanned)
+                    lastResult, hasMore, recordsScanned, true)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)

@@ -32,13 +32,11 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.RecordMetaDataProvider;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
@@ -122,12 +120,11 @@ public class IndexingByIndex extends IndexingBase {
                     final Index srcIndex = getSourceIndex(metaData);
                     final Collection<RecordType> srcRecordTypes = metaData.recordTypesForIndex(srcIndex);
 
-                    validateOrThrowEx(!common.isSyntheticIndex(), "target index is synthetic");
-                    validateOrThrowEx(common.recordTypes.size() == 1, "target index has multiple types");
+                    validateOrThrowEx(common.getAllRecordTypes().size() == 1, "target index has multiple types");
                     validateOrThrowEx(srcRecordTypes.size() == 1, "source index has multiple types");
                     validateOrThrowEx(!srcIndex.getRootExpression().createsDuplicates(), "source index creates duplicates");
                     validateOrThrowEx(srcIndex.getType().equals(IndexTypes.VALUE), "source index is not a VALUE index");
-                    validateOrThrowEx(common.recordTypes.equals(srcRecordTypes), "source index's type is not equal to target index's");
+                    validateOrThrowEx(common.getAllRecordTypes().containsAll(srcRecordTypes), "source index's type is not equal to target index's");
 
                     // all valid; back to the future. Note that for practical reasons, readability and idempotency will be validated later
                     return context.getReadVersionAsync()
@@ -153,12 +150,9 @@ public class IndexingByIndex extends IndexingBase {
     @Nonnull
     private CompletableFuture<Boolean> buildRangeOnly(@Nonnull FDBRecordStore store, byte[] startBytes, byte[] endBytes, @Nonnull AtomicLong recordsScanned) {
         // return false when done
-        Index index = common.getIndex();
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
-        if ( recordMetaDataProvider == null || !metaData.equals(recordMetaDataProvider.getRecordMetaData())) {
-            throw new MetaDataException("Store does not have the same metadata");
-        }
+
+        validateSameMetadataOrThrow(store);
+        final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
 
         // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
@@ -172,7 +166,7 @@ public class IndexingByIndex extends IndexingBase {
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
                 .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit() + 1); // always respectLimit in this path; +1 allows a continuation item
+                .setReturnedRowLimit(getLimit() + 1); // respect limit in this path; +1 allows a continuation item
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
 
         return ranges.onHasNext().thenCompose(hasNext -> {
@@ -190,9 +184,10 @@ public class IndexingByIndex extends IndexingBase {
             final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
             final AtomicBoolean hasMore = new AtomicBoolean(true);
 
+            final boolean isIdempotent = true ; // Note that currently indexing by index is online implemented for idempotent indexes
             return iterateRangeOnly(store, cursor,
                     this::getRecordIfTypeMatch,
-                    lastResult, hasMore, recordsScanned)
+                    lastResult, hasMore, recordsScanned, isIdempotent)
                     .thenApply(vignore -> hasMore.get() ?
                                           lastResult.get().get().getIndexEntry().getKey() :
                                           rangeEnd)
@@ -207,7 +202,7 @@ public class IndexingByIndex extends IndexingBase {
     private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBIndexedRecord<Message>> cursorResult) {
         FDBIndexedRecord<Message> indexResult = cursorResult.get();
         FDBStoredRecord<Message> rec =  indexResult == null ? null : indexResult.getStoredRecord();
-        return CompletableFuture.completedFuture( rec != null && common.recordTypes.contains(rec.getRecordType()) ? rec : null);
+        return recordIfInIndexedTypes(rec);
     }
 
     // support rebuildIndexAsync
@@ -229,25 +224,20 @@ public class IndexingByIndex extends IndexingBase {
     @Nonnull
     private CompletableFuture<Tuple> rebuildRangeOnly(@Nonnull FDBRecordStore store, Tuple cont, @Nonnull AtomicLong recordsScanned) {
 
-        Index index = common.getIndex();
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final RecordMetaDataProvider recordMetaDataProvider = common.getRecordStoreBuilder().getMetaDataProvider();
-        if ( recordMetaDataProvider == null || !metaData.equals(recordMetaDataProvider.getRecordMetaData())) {
-            throw new MetaDataException("Store does not have the same metadata");
-        }
-        final Index srcIndex = getSourceIndex(metaData);
-
+        validateSameMetadataOrThrow(store);
+        final Index index = common.getIndex();
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
 
         // idempotence - We could have verified it at the first iteration only, but the repeating checks seem harmless
         validateOrThrowEx(maintainer.isIdempotent(), "target index is not idempotent");
 
         // readability - This method shouldn't block if one has already opened the record store (as we did)
+        final Index srcIndex = getSourceIndex(store.getRecordMetaData());
         validateOrThrowEx(store.isIndexReadable(srcIndex), "source index is not readable");
 
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
-                .setIsolationLevel(IsolationLevel.SNAPSHOT)
-                .setReturnedRowLimit(getLimit()); // always respectLimit in this path
+                .setIsolationLevel(IsolationLevel.SNAPSHOT);
+
         final ScanProperties scanProperties = new ScanProperties(executeProperties.build());
         final TupleRange tupleRange = TupleRange.between(cont, null);
 
@@ -257,9 +247,10 @@ public class IndexingByIndex extends IndexingBase {
         final AtomicReference<RecordCursorResult<FDBIndexedRecord<Message>>> lastResult = new AtomicReference<>(RecordCursorResult.exhausted());
         final AtomicBoolean hasMore = new AtomicBoolean(true);
 
+        final boolean isIdempotent = true ; // Note that currently indexing by index is online implemented for idempotent indexes
         return iterateRangeOnly(store, cursor,
                 this::getRecordIfTypeMatch,
-                lastResult, hasMore, recordsScanned
+                lastResult, hasMore, recordsScanned, isIdempotent
         ).thenApply(vignore -> hasMore.get() ?
                                lastResult.get().get().getIndexEntry().getKey() :
                                null );

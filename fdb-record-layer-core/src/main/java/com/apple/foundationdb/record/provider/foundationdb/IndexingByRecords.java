@@ -39,7 +39,6 @@ import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.MetaDataException;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -118,7 +117,7 @@ public class IndexingByRecords extends IndexingBase {
     private TupleRange computeRecordsRange() {
         Tuple low = null;
         Tuple high = null;
-        for (RecordType recordType : common.recordTypes) {
+        for (RecordType recordType : common.getAllRecordTypes()) {
             if (!recordType.primaryKeyHasRecordTypePrefix() || recordType.isSynthetic()) {
                 // If any of the types to build for does not have a prefix, give up.
                 return TupleRange.ALL;
@@ -523,11 +522,9 @@ public class IndexingByRecords extends IndexingBase {
     @Nonnull
     private CompletableFuture<Tuple> buildRangeOnly(@Nonnull FDBRecordStore store, @Nonnull TupleRange range,
                                                     boolean respectLimit, @Nullable AtomicLong recordsScanned) {
+        validateSameMetadataOrThrow(store);
         Index index = common.getIndex();
         int limit = getLimit();
-        if (store.getRecordMetaData() != common.getRecordStoreBuilder().getMetaDataProvider().getRecordMetaData()) {
-            throw new MetaDataException("Store does not have the same metadata");
-        }
         final IndexMaintainer maintainer = store.getIndexMaintainer(index);
         final boolean isIdempotent = maintainer.isIdempotent();
         final ExecuteProperties.Builder executeProperties = ExecuteProperties.newBuilder()
@@ -550,7 +547,7 @@ public class IndexingByRecords extends IndexingBase {
         return iterateRangeOnly(store, cursor,
                 this::getRecordIfTypeMatch,
                 lastResult,
-                hasMore, recordsScanned)
+                hasMore, recordsScanned, isIdempotent)
                 .thenApply(vignore -> hasMore.get() ?
                                       lastResult.get().get().getPrimaryKey() :
                                       range.getHigh());
@@ -559,8 +556,9 @@ public class IndexingByRecords extends IndexingBase {
     @Nullable
     @SuppressWarnings("unused")
     private  CompletableFuture<FDBStoredRecord<Message>> getRecordIfTypeMatch(FDBRecordStore store, @Nonnull RecordCursorResult<FDBStoredRecord<Message>> cursorResult) {
+        // No need to "translate" rec, so store is unused
         FDBStoredRecord<Message> rec = cursorResult.get() ;
-        return CompletableFuture.completedFuture( rec != null && common.recordTypes.contains(rec.getRecordType()) ? rec : null);
+        return recordIfInIndexedTypes(rec);
     }
 
     // support rebuildIndexAsync

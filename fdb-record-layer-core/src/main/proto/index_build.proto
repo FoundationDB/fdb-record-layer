@@ -32,10 +32,13 @@ message IndexBuildIndexingStamp {
     BY_RECORDS   = 1;  // indexing by records - scanning all records in a record store
     BY_INDEX     = 2;  // indexing by a source index. When source index points to all possible records of the target index.
     SCRUB_REPAIR = 3;  // while readable, verify index validity. Repair if needed.
+    MULTI_TARGET_BY_RECORDS = 4; // scan records, build multiple target indexes
   };
   optional Method method = 1;
   optional bytes source_index_subspace_key = 2; // relevant only with BY_INDEX method
   optional int32 source_index_last_modified_version = 3; // only with BY_INDEX method
+  repeated string targetIndex = 4; //only with *_MULTI_TARGET: list of target indexes sorted alphabetically
+                                   // the first item is used as the primary index
  }
 
 
