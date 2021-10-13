@@ -396,7 +396,7 @@ public class FDBRecordStoreReplaceIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, metaDataHook);
             assertTrue(recordStore.isIndexDisabled(origIndex), "index with replacements should begin disabled");
-            recordStore.rebuildAllIndexes();
+            recordStore.rebuildAllIndexes().join();
             assertTrue(recordStore.isIndexDisabled(origIndex), "index with replacements should not be built with all indexes");
             commit(context);
         }
