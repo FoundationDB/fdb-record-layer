@@ -51,9 +51,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.nio.charset.Charset;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,7 +59,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ExecutionException;
@@ -70,6 +67,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -155,8 +153,6 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private Consumer<FDBStoreTimer.Wait> hookForAsyncToSync = null;
     @Nonnull
     private final Map<String, CommitCheckAsync> commitChecks = new LinkedHashMap<>();
-    @Nonnull
-    private final Collection<CommitCheckAsync> uniquenessCommitChecks = new ConcurrentLinkedDeque<>();
     @Nonnull
     private final Map<String, PostCommit> postCommits = new LinkedHashMap<>();
     private boolean dirtyStoreState;
@@ -667,6 +663,15 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         @Nonnull
         CompletableFuture<Void> checkAsync();
 
+        /**
+         * Create a commit check based on the given future. This will create a {@link CommitCheckAsync} that will
+         * be ready when the given future is ready. Note that as the future has already been created, this means
+         * that work for the commit check may begin prior to the pre-commit hooks being executed during
+         * {@link FDBRecordContext#commit()}.
+         *
+         * @param check the future to base the commit check on
+         * @return a commit check wrapping the given future
+         */
         static CommitCheckAsync fromFuture(@Nonnull CompletableFuture<Void> check) {
             return new CommitCheckAsync() {
                 @Override
@@ -710,25 +715,18 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         void check();
     }
 
+    /**
+     * Get all commit checks that have been added to the transaction that conform to the given predicate.
+     * This method is {@linkplain API.Status#INTERNAL internal}.
+     *
+     * @param filter predicate to apply to all commit checks that have been added to the transaction
+     * @return all commit checks that pass the given filter
+     */
     @API(API.Status.INTERNAL)
-    public synchronized void addIndexUniquenessCommitCheck(@Nonnull CommitCheckAsync check) {
-        addCommitCheck(check);
-        uniquenessCommitChecks.add(check);
-    }
-
-    @API(API.Status.INTERNAL)
-    public synchronized CompletableFuture<Void> waitForIndexUniquenessChecks() {
-        List<CompletableFuture<Void>> toWait = new ArrayList<>(uniquenessCommitChecks.size());
-        for (CommitCheckAsync checkAsync : uniquenessCommitChecks) {
-            if (!checkAsync.isReady()) {
-                toWait.add(checkAsync.checkAsync());
-            }
-        }
-        if (toWait.isEmpty()) {
-            return AsyncUtil.DONE;
-        } else {
-            return AsyncUtil.whenAll(toWait);
-        }
+    public synchronized List<CommitCheckAsync> getCommitChecks(@Nonnull Predicate<CommitCheckAsync> filter) {
+        return commitChecks.values().stream()
+                .filter(filter)
+                .collect(Collectors.toList());
     }
 
     /**

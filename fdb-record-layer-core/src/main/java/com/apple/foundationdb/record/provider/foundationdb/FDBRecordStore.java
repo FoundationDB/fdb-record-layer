@@ -1240,6 +1240,36 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         }, getPipelineSize(PipelineOperation.RESOLVE_UNIQUENESS));
     }
 
+    @API(API.Status.INTERNAL)
+    public void addIndexUniquenessCommitCheck(@Nonnull Index index, @Nonnull CompletableFuture<Void> check) {
+        IndexUniquenessCommitCheck commitCheck = new IndexUniquenessCommitCheck(index, check);
+        getRecordContext().addCommitCheck(commitCheck);
+    }
+
+    /**
+     * Return a future that is ready when all uniqueness commit checks for the given index have completed.
+     * This is needed because the uniqueness checks happen in the background, and if we rebuild an index in a
+     * single transaction, we need to make sure that those checks have completed prior to trying to mark the
+     * index as readable.
+     *
+     * @param index the index to collect commit checks for
+     * @return a future that will complete when all outstanding uniqueness checks for the index have completed
+     */
+    @Nonnull
+    @VisibleForTesting
+    CompletableFuture<Void> whenAllIndexUniquenessCommitChecks(@Nonnull Index index) {
+        List<FDBRecordContext.CommitCheckAsync> indexUniquenessChecks = getRecordContext().getCommitChecks(commitCheck -> {
+            if (commitCheck instanceof IndexUniquenessCommitCheck) {
+                return ((IndexUniquenessCommitCheck)commitCheck).getIndex().equals(index);
+            } else {
+                return false;
+            }
+        });
+        return AsyncUtil.whenAll(indexUniquenessChecks.stream()
+                .map(FDBRecordContext.CommitCheckAsync::checkAsync)
+                .collect(Collectors.toList()));
+    }
+
     @Override
     @Nonnull
     public CompletableFuture<Boolean> deleteRecordAsync(@Nonnull final Tuple primaryKey) {
@@ -2751,7 +2781,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
             CompletableFuture<Boolean> future = tr.get(indexKey).thenCompose(previous -> {
                 if (previous != null) {
                     CompletableFuture<Optional<Range>> builtFuture = firstUnbuiltRange(index);
-                    CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = context.waitForIndexUniquenessChecks()
+                    CompletableFuture<Optional<RecordIndexUniquenessViolation>> uniquenessFuture = whenAllIndexUniquenessCommitChecks(index)
                             .thenCompose(vignore -> scanUniquenessViolations(index, 1).first());
                     return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
                         Optional<Range> firstUnbuilt = context.join(builtFuture);

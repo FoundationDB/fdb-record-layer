@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.async.MoreAsyncUtil;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordIndexUniquenessViolation;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.TestRecordsBytesProto;
@@ -36,6 +38,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
@@ -44,6 +49,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -162,6 +168,38 @@ public class FDBRecordStoreUniqueIndexTest extends FDBRecordStoreTestBase {
             }
 
             commit(context);
+        }
+    }
+
+    @Test
+    public void uniquenessChecks() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            Index index1 = recordStore.getRecordMetaData().getIndex("MySimpleRecord$str_value_indexed");
+            Index index2 = recordStore.getRecordMetaData().getIndex("MySimpleRecord$num_value_unique");
+
+            AtomicBoolean check1Run = new AtomicBoolean(false);
+            CompletableFuture<Void> check1 = MoreAsyncUtil.delayedFuture(1L, TimeUnit.MILLISECONDS)
+                    .thenRun(() -> check1Run.set(true));
+            recordStore.addIndexUniquenessCommitCheck(index1, check1);
+
+            CompletableFuture<Void> check2 = new CompletableFuture<>();
+            RecordCoreException err = new RecordCoreException("unable to run check");
+            check2.completeExceptionally(err);
+            recordStore.addIndexUniquenessCommitCheck(index2, check2);
+
+            // Checks For index 1 should complete successfully and mark the "check1Run" boolean as completed. It
+            // should not throw an error from check 2 completing exceptionally.
+            recordStore.whenAllIndexUniquenessCommitChecks(index1).get();
+            assertTrue(check1Run.get(), "check1 should have marked check1Run as having completed");
+
+            // For index 2, the error should be caught when the uniqueness checks are waited on
+            ExecutionException thrownExecutionException = assertThrows(ExecutionException.class, () -> recordStore.whenAllIndexUniquenessCommitChecks(index2).get());
+            assertSame(err, thrownExecutionException.getCause());
+
+            // The error from the "uniqueness check" should block the transaction from committing
+            RecordCoreException thrownRecordCoreException = assertThrows(RecordCoreException.class, context::commit);
+            assertSame(err, thrownRecordCoreException);
         }
     }
 }
