@@ -771,7 +771,7 @@ public class OnlineIndexer implements AutoCloseable {
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
     public CompletableFuture<Boolean> markReadable() {
-        return getIndexer().markReadable();
+        return getIndexer().markIndexReadable(true);
     }
 
     /**
