@@ -2756,12 +2756,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     return CompletableFuture.allOf(builtFuture, uniquenessFuture).thenApply(vignore -> {
                         Optional<Range> firstUnbuilt = context.join(builtFuture);
                         Optional<RecordIndexUniquenessViolation> uniquenessViolation = context.join(uniquenessFuture);
-                        if (index.getName().equals("unique_num_value_2_index")) {
-                            LOGGER.debug(KeyValueLogMessage.of("checking if index can be made readable",
-                                    LogMessageKeys.INDEX_NAME, index.getName(),
-                                    "first_unbuilt", firstUnbuilt,
-                                    "uniqueness_violation", uniquenessViolation));
-                        }
 
                         if (firstUnbuilt.isPresent()) {
                             throw new IndexNotBuiltException("Attempted to make unbuilt index readable" , firstUnbuilt.get(),

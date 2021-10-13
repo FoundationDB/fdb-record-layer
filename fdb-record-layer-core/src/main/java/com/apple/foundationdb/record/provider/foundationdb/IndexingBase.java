@@ -769,7 +769,7 @@ public abstract class IndexingBase {
                 getRunner().getExecutor());
     }
 
-    // rebuildIndexAsyc - builds the whole index inline (without commiting)
+    // rebuildIndexAsync - builds the whole index inline (without committing)
     @Nonnull
     public CompletableFuture<Void> rebuildIndexAsync(@Nonnull FDBRecordStore store) {
         return forEachTargetIndex(index -> store.clearAndMarkIndexWriteOnly(index).thenCompose(bignore -> {
