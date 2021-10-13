@@ -1173,7 +1173,9 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Add one target index to the target indexes list.
+         * Add one target index to the target indexes list. The online indexer will attempt building
+         * all the target indexes within a single records scan. Hence, at least one target index should
+         * be defined.
          * @param index an index to add
          * @return this builder
          */
@@ -1183,7 +1185,9 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Add one target index to the target indexes list.
+         * Add one target index to the target indexes list. The online indexer will attempt building
+         * all the target indexes within a single records scan. Hence, at least one target index should
+         * be defined.
          * @param indexName an index's name to add
          * @return this builder
          */
