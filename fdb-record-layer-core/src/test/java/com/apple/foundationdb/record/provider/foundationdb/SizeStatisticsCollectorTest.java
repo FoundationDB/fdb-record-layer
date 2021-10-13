@@ -33,6 +33,7 @@ import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
 import com.google.common.base.Strings;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -224,7 +225,9 @@ public class SizeStatisticsCollectorTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             // Somewhat leaky, but should get transaction_too_old.
             // One can set knob_max_read_transaction_life_versions up to max_versions_in_flight, which is 100000000.
-            context.setReadVersion(commitVersion - 101_000_000);
+            long staleReadVersion = commitVersion - 101_000_000;
+            Assumptions.assumeTrue(staleReadVersion > 0, "read versions must always be positive");
+            context.setReadVersion(staleReadVersion);
             assertThat(statisticsCollector.collect(context, ExecuteProperties.SERIAL_EXECUTE), is(false));
             assertThrows(FDBExceptions.FDBStoreTransactionIsTooOldException.class, context::commit);
         }
