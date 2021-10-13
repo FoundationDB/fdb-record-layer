@@ -38,6 +38,7 @@ import com.apple.foundationdb.record.provider.common.text.TextTokenizerRegistryI
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -702,6 +703,46 @@ public class Comparisons {
         default Comparison withParameterRelationshipMap(@Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
             return this;
         }
+
+        @Nonnull
+        default String explain(@Nonnull final Formatter formatter) {
+            return "<NOT DONE YET";
+        }
+
+        @Nonnull
+        default String explainWithComparand(@Nonnull final Formatter formatter,  @Nullable final String stringComparand) {
+            switch (getType()) {
+                case EQUALS:
+                case NOT_EQUALS:
+                case LESS_THAN:
+                case LESS_THAN_OR_EQUALS:
+                case GREATER_THAN:
+                case GREATER_THAN_OR_EQUALS:
+                    return "(_ " + Comparison.typeToSymbol(getType()) + " " + stringComparand + ")";
+                case IS_NULL:
+                    return "is_null(_)";
+                default:
+                    throw new UnsupportedOperationException("comparison not supported yet");
+            }
+        }
+
+        @Nonnull
+        static String typeToSymbol(@Nonnull final Type comparisonType) {
+            switch (comparisonType) {
+                case EQUALS:
+                    return "=";
+                case LESS_THAN:
+                    return "<";
+                case LESS_THAN_OR_EQUALS:
+                    return "<=";
+                case GREATER_THAN:
+                    return ">";
+                case GREATER_THAN_OR_EQUALS:
+                    return ">=";
+                default:
+                    throw new UnsupportedOperationException("comparison not supported yet");
+            }
+        }
     }
 
     public static String toPrintable(@Nullable Object value) {
@@ -794,6 +835,12 @@ public class Comparisons {
         @Override
         public Boolean eval(@Nonnull FDBRecordStoreBase<?> store, @Nonnull EvaluationContext context, @Nullable Object value) {
             return evalComparison(type, value, getComparand(store, context));
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return explainWithComparand(formatter, typelessString());
         }
 
         @Nonnull
@@ -1023,6 +1070,12 @@ public class Comparisons {
         public Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ParameterComparison(type, parameter, internal, parameterRelationshipGraph);
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return explainWithComparand(formatter, parameter);
         }
 
         @Nonnull

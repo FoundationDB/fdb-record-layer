@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -165,6 +166,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                         new RecordQueryIndexPlan(index.getName(),
                                 IndexScanType.BY_VALUE,
                                 toScanComparisons(comparisonRanges),
+                                new Type.Any(),
                                 isReverse,
                                 false,
                                 (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()));
@@ -206,6 +208,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 new RecordQueryIndexPlan(index.getName(),
                         IndexScanType.BY_VALUE,
                         toScanComparisons(comparisonRanges),
+                        new Type.Any(),
                         isReverse,
                         false,
                         (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate());

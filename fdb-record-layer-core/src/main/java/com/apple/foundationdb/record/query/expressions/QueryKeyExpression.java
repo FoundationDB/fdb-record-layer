@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.metadata.expressions.QueryableKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
+import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.google.common.base.Verify;
 
@@ -417,6 +418,12 @@ public class QueryKeyExpression {
         public Comparisons.Comparison withParameterRelationshipMap(@Nonnull final ParameterRelationshipGraph parameterRelationshipGraph) {
             Verify.verify(this.parameterRelationshipGraph.isUnbound());
             return new ConversionParameterComparison(getType(), parameter, parameterRelationshipGraph, conversion);
+        }
+
+        @Nonnull
+        @Override
+        public String explain(@Nonnull final Formatter formatter) {
+            return "<NOT DONE YET";
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * ScanFn.java
+ * PrimaryScanFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,9 +21,7 @@
 package com.apple.foundationdb.record.query.norse.functions;
 
 import com.apple.foundationdb.record.EvaluationContext;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -31,7 +29,7 @@ import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.norse.SemanticException;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -47,25 +45,23 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Function
  * indexScan(STRING, ...) -> STREAM.
  */
 @AutoService(BuiltInFunction.class)
-public class ValueIndexScanFn extends BuiltInFunction<RelationalExpression> {
-    public ValueIndexScanFn() {
-        super("valueIndexScan",
-                ImmutableList.of(Type.primitiveType(Type.TypeCode.STRING)), new Type.Function(), ValueIndexScanFn::encapsulate);
+public class PrimaryScanFn extends BuiltInFunction<RelationalExpression> {
+    public PrimaryScanFn() {
+        super("primaryScan",
+                ImmutableList.of(Type.primitiveType(Type.TypeCode.STRING)), new Type.Function(), PrimaryScanFn::encapsulate);
     }
 
     @SuppressWarnings("java:S3655")
@@ -80,26 +76,13 @@ public class ValueIndexScanFn extends BuiltInFunction<RelationalExpression> {
         final Value argument0 = (Value)atom0;
         Object result = argument0.compileTimeEval(EvaluationContext.EMPTY);
         Verify.verify(result instanceof String);
-        final String indexName = (String)result;
+        final String recordTypeName = (String)result;
 
-        // get the index definition from metadata
-        final Index index = recordMetaData.getIndex(indexName);
-        final RecordType recordType = findRecordTypeForIndex(recordMetaData, indexName);
-        final Descriptors.Descriptor recordTypeDescriptor = Objects.requireNonNull(recordType).getDescriptor();
-
-        // unfortunately we must copy as the returned list is not guaranteed to be mutable which is needed for the
-        // trimPrimaryKey() function as it is causing a side-effect
-        final List<KeyExpression> trimmedPrimaryKeys = Lists.newArrayList(recordType.getPrimaryKey().normalizeKeyForPositions());
-        index.trimPrimaryKey(trimmedPrimaryKeys);
-        final ImmutableList<Descriptors.FieldDescriptor> extraPrimaryKeyFieldDescriptors = trimmedPrimaryKeys.stream()
-                .flatMap(keyPart -> keyPart.validate(recordTypeDescriptor).stream())
-                .collect(ImmutableList.toImmutableList());
-
-        final List<Descriptors.FieldDescriptor> fieldDescriptors = ImmutableList.copyOf(Iterables.concat(index.validate(recordTypeDescriptor), extraPrimaryKeyFieldDescriptors));
-
+        // get the index definition from
+        final RecordType recordType = recordMetaData.getRecordType(recordTypeName);
+        final KeyExpression primaryKey = recordType.getPrimaryKey();
+        final List<Descriptors.FieldDescriptor> fieldDescriptors = primaryKey.validate(Objects.requireNonNull(recordType).getDescriptor());
         final List<Atom> comparisonAtoms = atoms.subList(1, atoms.size());
-        SemanticException.check(fieldDescriptors.size() >= comparisonAtoms.size(),
-                "index has fewer key parts(" + fieldDescriptors.size() + ") than comparisons provided(" + comparisonAtoms.size() + ")");
 
         final ImmutableList.Builder<Comparisons.Comparison> equalityComparisonsBuilder = ImmutableList.builder();
         final ImmutableSet.Builder<Comparisons.Comparison> inequalityComparisonsBuilder = ImmutableSet.builder();
@@ -156,18 +139,8 @@ public class ValueIndexScanFn extends BuiltInFunction<RelationalExpression> {
 
         final ScanComparisons scanComparisons = new ScanComparisons(equalityComparisonsBuilder.build(), inequalityComparisonsBuilder.build());
 
-        return new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE, scanComparisons, Type.Record.fromDescriptor(recordType.getDescriptor()), false);
-    }
+        final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
 
-    @Nullable
-    private static RecordType findRecordTypeForIndex(@Nonnull final RecordMetaData recordMetaData, @Nonnull final String indexName) {
-        for (final RecordType recordType : recordMetaData.getRecordTypes().values()) {
-            for (final Index index : recordType.getIndexes()) {
-                if (indexName.equals(index.getName())) {
-                    return recordType;
-                }
-            }
-        }
-        return null;
+        return new RecordQueryScanPlan(allAvailableRecordTypes, scanComparisons, false, false);
     }
 }

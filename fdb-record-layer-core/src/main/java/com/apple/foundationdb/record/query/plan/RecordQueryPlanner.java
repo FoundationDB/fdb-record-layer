@@ -83,6 +83,7 @@ import com.apple.foundationdb.record.query.plan.temp.properties.FieldWithCompari
 import com.apple.foundationdb.record.query.plan.visitor.FilterVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.RecordQueryPlannerSubstitutionVisitor;
 import com.apple.foundationdb.record.query.plan.visitor.UnorderedPrimaryKeyDistinctVisitor;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -1412,7 +1413,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (scanType == null) {
                 scanType = IndexScanType.BY_VALUE;
             }
-            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, candidateScan.reverse, strictlySorted);
+            plan = new RecordQueryIndexPlan(candidateScan.index.getName(), scanType, scanComparisons, new Type.Any(), candidateScan.reverse, strictlySorted);
             possibleTypes = getPossibleTypes(candidateScan.index);
         }
         // Add a type filter if the query plan might return records of more types than the query specified

@@ -47,6 +47,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -61,7 +62,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A query plan that outputs records pointed to by entries in a secondary index within some range.
@@ -77,41 +77,52 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     protected final IndexScanType scanType;
     @Nonnull
     protected final ScanComparisons comparisons;
+    @Nonnull
+    protected final Type resultType;
+
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
     private final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
-        this(indexName, scanType, comparisons, reverse, false);
+        this(indexName, scanType, comparisons, new Type.Any(), reverse);
+    }
+
+    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, @Nonnull final Type resultType, final boolean reverse) {
+        this(indexName, scanType, comparisons, resultType, reverse, false);
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nonnull final IndexScanType scanType,
                                 @Nonnull final ScanComparisons comparisons,
+                                @Nonnull final Type resultType,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
-        this(indexName, scanType, comparisons, reverse, strictlySorted, Optional.empty());
+        this(indexName, scanType, comparisons, resultType, reverse, strictlySorted, Optional.empty());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nonnull final IndexScanType scanType,
                                 @Nonnull final ScanComparisons comparisons,
+                                @Nonnull final Type resultType,
                                 final boolean reverse,
                                 final boolean strictlySorted,
                                 @Nonnull final ValueIndexScanMatchCandidate matchCandidate) {
-        this(indexName, scanType, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
+        this(indexName, scanType, comparisons, resultType, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
     private RecordQueryIndexPlan(@Nonnull final String indexName,
                                  @Nonnull IndexScanType scanType,
                                  @Nonnull final ScanComparisons comparisons,
+                                 @Nonnull final Type resultType,
                                  final boolean reverse,
                                  final boolean strictlySorted,
                                  @Nonnull final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional) {
         this.indexName = indexName;
         this.scanType = scanType;
         this.comparisons = comparisons;
+        this.resultType = resultType;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
@@ -193,7 +204,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse, true);
+        return new RecordQueryIndexPlan(indexName, scanType, comparisons, resultType , reverse, true, matchCandidateOptional);
     }
 
     @Override
@@ -213,6 +224,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return new RecordQueryIndexPlan(getIndexName(),
                 getScanType(),
                 getComparisons(),
+                resultType,
                 isReverse(),
                 isStrictlySorted(),
                 matchCandidateOptional);
@@ -227,7 +239,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     @Override
     public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue());
+        return ImmutableList.of(new QueriedValue(resultType));
     }
 
     @Override
@@ -364,26 +376,23 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     public String explain(@Nonnull final Formatter formatter) {
         final ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
         for (final Comparisons.Comparison equalityComparison : comparisons.getEqualityComparisons()) {
-            argumentsBuilder.add(equalityComparison.typelessString());
+            argumentsBuilder.add(equalityComparison.explain(formatter));
         }
 
         final Set<Comparisons.Comparison> inEqualityComparisons = comparisons.getInequalityComparisons();
-        final Map<Comparisons.Type, ImmutableSet<Comparisons.Comparison>> inEqualityGroups =
-                inEqualityComparisons.stream()
-                        .collect(Collectors.groupingBy(Comparisons.Comparison::getType, ImmutableSet.toImmutableSet()));
 
         final ImmutableList.Builder<String> inEqualityArgumentsBuilder = ImmutableList.builder();
-        for (final Map.Entry<Comparisons.Type, ImmutableSet<Comparisons.Comparison>> entry : inEqualityGroups.entrySet()) {
-            inEqualityArgumentsBuilder.add(entry.getKey() + " -> array(" + entry.getValue().stream().map(Comparisons.Comparison::typelessString).collect(Collectors.joining(", ")) + ")");
+        for (final Comparisons.Comparison inEqualityComparison : inEqualityComparisons) {
+            inEqualityArgumentsBuilder.add(inEqualityComparison.explain(formatter));
         }
-        final String inEqualityArgument = "{" + String.join(", ", inEqualityArgumentsBuilder.build()) + "}";
+        final String inEqualityArgument = String.join(" && ", inEqualityArgumentsBuilder.build());
         argumentsBuilder.add(inEqualityArgument);
         final ImmutableList<String> arguments = argumentsBuilder.build();
 
         if (arguments.isEmpty()) {
-            return "indexScan('" + indexName + "')";
+            return "valueIndexScan('" + indexName + "')";
         } else {
-            return "indexScan('" + indexName + "', " + String.join(", ", arguments) + ")";
+            return "valueIndexScan('" + indexName + "', " + String.join(", ", arguments) + ")";
         }
     }
 }

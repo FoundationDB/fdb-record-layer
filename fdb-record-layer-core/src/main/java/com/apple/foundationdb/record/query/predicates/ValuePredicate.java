@@ -26,15 +26,17 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static com.apple.foundationdb.record.query.predicates.LiteralValue.formatLiteral;
@@ -138,26 +140,26 @@ public class ValuePredicate implements PredicateWithValue {
         final String comparandString;
         comparandString = formatLiteral(value.getResultType(), comparison.typelessString());
 
-        return "(" + value.explain(formatter) + " " + comparisonTypeToSymbol(comparison.getType()) + " " + comparandString + ")";
+        return "(" + value.explain(formatter) + " " + Comparison.typeToSymbol(comparison.getType()) + " " + comparandString + ")";
     }
-
-
 
     @Nonnull
-    private static String comparisonTypeToSymbol(@Nonnull final Comparisons.Type comparisonType) {
-        switch (comparisonType) {
-            case EQUALS:
-                return "=";
-            case LESS_THAN:
-                return "<";
-            case LESS_THAN_OR_EQUALS:
-                return "<=";
-            case GREATER_THAN:
-                return ">";
-            case GREATER_THAN_OR_EQUALS:
-                return ">=";
-            default:
-                throw new UnsupportedOperationException("comparison not supported yet");
+    public static Optional<List<Comparison>> collectConjunctedComparisons(@Nonnull final QueryPredicate queryPredicate) {
+        if (queryPredicate instanceof ValuePredicate) {
+            return Optional.of(ImmutableList.of(((ValuePredicate)queryPredicate).getComparison()));
+        } else if (queryPredicate instanceof AndPredicate) {
+            final AndPredicate andPredicate = (AndPredicate)queryPredicate;
+            final ImmutableList.Builder<Comparison> comparisonsBuilder = ImmutableList.builder();
+            for (final QueryPredicate factor : andPredicate.getChildren()) {
+                final Optional<List<Comparison>> nestedComparisonsMaybe = collectConjunctedComparisons(factor);
+                if (!nestedComparisonsMaybe.isPresent()) {
+                    return Optional.empty();
+                }
+                comparisonsBuilder.addAll(nestedComparisonsMaybe.get());
+            }
+            return Optional.of(comparisonsBuilder.build());
         }
+        return Optional.empty();
     }
+
 }
