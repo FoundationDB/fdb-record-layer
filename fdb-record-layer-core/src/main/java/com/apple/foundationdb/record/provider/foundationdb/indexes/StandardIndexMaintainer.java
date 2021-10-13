@@ -373,7 +373,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
                     }
                 }, getExecutor()));
         // Add a pre-commit check to prevent accidentally committing and getting into an invalid state.
-        state.store.getRecordContext().addCommitCheck(checker);
+        state.store.addIndexUniquenessCommitCheck(state.index, checker);
     }
 
     /**

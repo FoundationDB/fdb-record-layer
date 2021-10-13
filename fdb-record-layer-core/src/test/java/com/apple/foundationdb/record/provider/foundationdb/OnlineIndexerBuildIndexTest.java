@@ -129,7 +129,7 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
             // care of by OnlineIndexer.
             if (!safeBuild) {
                 LOGGER.info(KeyValueLogMessage.of("marking write-only", TestLogMessageKeys.INDEX, index));
-                recordStore.markIndexWriteOnly(index).join();
+                recordStore.clearAndMarkIndexWriteOnly(index).join();
             }
             isAlwaysReadable = safeBuild && recordStore.isIndexReadable(index);
             context.commit();
@@ -298,7 +298,9 @@ abstract class OnlineIndexerBuildIndexTest extends OnlineIndexerTest {
         try (FDBRecordContext context = openContext()) {
             RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(metaData.getIndex(index.getName())));
             System.out.println("Range set for " + records.size() + " records:\n" + rangeSet.rep(context.ensureActive()).join());
-            assertEquals(Collections.emptyList(), rangeSet.missingRanges(context.ensureActive()).asList().join());
+            if (!isAlwaysReadable) {
+                assertEquals(Collections.emptyList(), rangeSet.missingRanges(context.ensureActive()).asList().join());
+            }
             context.commit();
         }
 

@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.Range;
+import com.apple.foundationdb.async.RangeSet;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -493,7 +494,28 @@ public class FDBRecordStoreOpeningTest extends FDBRecordStoreTestBase {
             commit(context);
         }
 
-        // Should be able to recover from an empty record store
+        // Should be able to recover from a completely empty record store
+        try (FDBRecordContext context = openContext()) {
+            storeBuilder.setContext(context);
+            FDBRecordStore store = storeBuilder.createOrOpen();
+
+            // put a range subspace in for an index so that a future store opening can see it
+            store.ensureContextActive().clear(getStoreInfoKey(store));
+            Index foundIndex = metaData.getAllIndexes()
+                    .stream()
+                    .findAny()
+                    .orElseGet(() -> fail("no indexes defined in meta-data"));
+            new RangeSet(store.indexRangeSubspace(foundIndex))
+                    .insertRange(context.ensureActive(), null, null)
+                    .get();
+
+            // re-delete the header
+            store.ensureContextActive().clear(getStoreInfoKey(store));
+
+            commit(context);
+        }
+        // Should fail if it finds just the range subspace with default store existence checks, but it
+        // should be recoverable using ERROR_IF_NO_INFO_AND_HAS_RECORDS_OR_INDEXES
         try (FDBRecordContext context = openContext()) {
             storeBuilder.setContext(context);
             assertThrows(RecordStoreNoInfoAndNotEmptyException.class, storeBuilder::createOrOpen);

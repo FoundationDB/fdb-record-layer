@@ -1197,7 +1197,7 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             uncheckedOpenSimpleRecordStore(context);
             assertThat(recordStore.isIndexWriteOnly(indexName), is(false));
-            recordStore.markIndexWriteOnly(indexName).get();
+            recordStore.clearAndMarkIndexWriteOnly(indexName).get();
             assertThat(recordStore.isIndexWriteOnly(indexName), is(true));
             context.commit();
         }

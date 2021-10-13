@@ -126,9 +126,11 @@ public class RangeSetTest extends FDBTestBase {
             tr.set(rsSubspace.pack(new byte[]{(byte)0xde, (byte)0xad}), new byte[]{(byte)0xc0, (byte)0xde});
             return null;
         });
-        assertTrue(db.readAsync(tr -> tr.getRange(rsSubspace.range()).asList()).join().size() == 1, "Key does not appear to be added");
+        assertEquals(1, db.readAsync(tr -> tr.getRange(rsSubspace.range()).asList()).join().size(), "Key does not appear to be added");
+        assertFalse(rs.isEmpty(db).join());
         rs.clear(db).join();
         assertTrue(db.readAsync(tr -> tr.getRange(rsSubspace.range()).asList()).join().isEmpty(), "Clear did not remove key");
+        assertTrue(rs.isEmpty(db).join());
     }
 
     @Test

@@ -55,6 +55,8 @@ public class RangeSet {
     @Nonnull private static final byte[] FIRST_KEY = new byte[]{(byte)0x00};
     @Nonnull private static final byte[] FINAL_KEY = new byte[]{(byte)0xff};
 
+    private static final Range COMPLETE_RANGE = new Range(FIRST_KEY, FINAL_KEY);
+
     /**
      * Value indicating that there should be no limit. This should
      * be passed to {@link RangeSet#missingRanges(ReadTransaction, byte[], byte[], int) missingRanges}
@@ -452,6 +454,39 @@ public class RangeSet {
                 return AsyncUtil.collect(this);
             }
         };
+    }
+
+    /**
+     * Determine whether this range set is empty. If given a {@link com.apple.foundationdb.Database}, this will create
+     * a transaction and use it to read from the database. If given a {@link ReadTransaction}, it will use the provided
+     * transaction. See {@link #isEmpty(ReadTransaction)} for more details on the semantics of this function.
+     *
+     * @param rtc transaction or database object that will be used to read from the database
+     * @return a future that will contain {@code true} if there are no ranges in this set or {@code false} otherwise
+     * @see #isEmpty(ReadTransaction)
+     */
+    public CompletableFuture<Boolean> isEmpty(@Nonnull ReadTransactionContext rtc) {
+        return rtc.readAsync(this::isEmpty);
+    }
+
+    /**
+     * Determine whether this range set is empty. This will scan the given range set and return {@code true} if no
+     * ranges have been inserted into the data structure. Otherwise, it will return {@code false}.
+     *
+     * @param rtr transaction that will be used to read from the database
+     * @return a future that will contain {@code true} if there are no ranges in this set or {@code false} otherwise
+     */
+    public CompletableFuture<Boolean> isEmpty(@Nonnull ReadTransaction rtr) {
+        final AsyncIterator<Range> missing = missingRanges(rtr, null, null, 1).iterator();
+        return missing.onHasNext().thenApply(doesHaveNext -> {
+            if (doesHaveNext) {
+                Range firstMissing = missing.next();
+                return firstMissing.equals(COMPLETE_RANGE);
+            } else {
+                // No missing ranges, so the set isn't empty
+                return false;
+            }
+        });
     }
 
     // Iterator that computes the missing ranges. It will go through and find gaps within the
