@@ -632,12 +632,16 @@ public class FDBStoreTimer extends StoreTimer {
         BYTES_READ("bytes read", true),
         /** The number of bytes written, not including deletes. */
         BYTES_WRITTEN("bytes written", true),
-        /** Total number of delete (clear) operations. */
+        /** Total number of read (get) operations. */
         READS("reads", false),
+        /** Total number of range read (get) operations. */
+        RANGE_READS("range reads", false),
         /** Total number of write operations. */
         WRITES("writes", false),
         /** Total number of delete (clear) operations. */
         DELETES("deletes", false),
+        /** Total number of range delete (clear) operations. */
+        RANGE_DELETES("range deletes", false),
         /** Total number of mutation operations. */
         MUTATIONS("mutations", false),
         /** JNI Calls.*/

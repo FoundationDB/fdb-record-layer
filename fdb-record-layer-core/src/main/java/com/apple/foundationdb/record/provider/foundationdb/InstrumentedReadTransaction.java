@@ -111,72 +111,84 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end) {
         /* Should this could as one read? */
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit, boolean reverse) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(KeySelector begin, KeySelector end, int limit, boolean reverse, StreamingMode streamingMode) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit, boolean reverse) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(byte[] begin, byte[] end, int limit, boolean reverse, StreamingMode streamingMode) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(begin), checkKey(end), limit, reverse, streamingMode));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range)));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range), limit));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit, boolean reverse) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range), limit, reverse));
     }
 
     @Override
     public AsyncIterable<KeyValue> getRange(Range range, int limit, boolean reverse, StreamingMode streamingMode) {
         increment(FDBStoreTimer.Counts.READS);
+        increment(FDBStoreTimer.Counts.RANGE_READS);
         return new ByteCountingAsyncIterable(underlying.getRange(checkKey(range), limit, reverse, streamingMode));
     }
 
