@@ -19,15 +19,15 @@ Another, smaller change that has been made is that by default, new indexes added
 * **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Bug fix** Uniqueness violations encountered in new indexes built during store opening times now fail the index build [(Issue #1371)](https://github.com/FoundationDB/fdb-record-layer/issues/1371)
+* **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Streaming aggregate operator implementation [(Issue #1376)](https://github.com/FoundationDB/fdb-record-layer/issues/1376)
-* **Feature** Online Indexer: support multi target indexing [(Issue #1398)](https://github.com/FoundationDB/fdb-record-layer/issues/1398)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -39,6 +39,12 @@ Another, smaller change that has been made is that by default, new indexes added
 
 // end next release
 -->
+
+### 3.0.219.0
+
+* **Bug fix** Uniqueness violations encountered in new indexes built during store opening times now fail the index build [(Issue #1371)](https://github.com/FoundationDB/fdb-record-layer/issues/1371)
+* **Feature** Streaming aggregate operator implementation [(Issue #1376)](https://github.com/FoundationDB/fdb-record-layer/issues/1376)
+* **Feature** Online Indexer: support multi target indexing [(Issue #1398)](https://github.com/FoundationDB/fdb-record-layer/issues/1398)
 
 ### 3.0.218.0
 
