@@ -104,7 +104,7 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
     @Override
     public void clear(byte[] keyBegin, byte[] keyEnd) {
         underlying.clear(checkKey(keyBegin), checkKey(keyEnd));
-        increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.RANGE_DELETES);
     }
 
     @Override
@@ -113,14 +113,14 @@ public class InstrumentedTransaction extends InstrumentedReadTransaction<Transac
         checkKey(range.end);
 
         underlying.clear(range);
-        increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.RANGE_DELETES);
     }
 
     @Override
     @Deprecated
     public void clearRangeStartsWith(byte[] prefix) {
         underlying.clearRangeStartsWith(checkKey(prefix));
-        increment(FDBStoreTimer.Counts.DELETES);
+        increment(FDBStoreTimer.Counts.RANGE_DELETES);
     }
 
     @Override
