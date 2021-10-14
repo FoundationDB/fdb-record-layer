@@ -45,6 +45,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -82,11 +83,11 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
         return new MapCursor<>(getChild().executePlan(store, context, continuation, executeProperties),
                 queryResult -> {
                     final EvaluationContext nestedContext = context.withBinding(inner.getAlias(), queryResult);
-                    final ImmutableList.Builder<QueryResultElement> resultBuilder = ImmutableList.builder();
+                    final List<Object> result = Lists.newArrayList();
                     for (final Value resultValue : resultValues) {
-                        resultBuilder.add(QueryResultElement.Wrapped.of(resultValue.eval(store, nestedContext, null, null)));
+                        result.add(resultValue.eval(store, nestedContext, null, null));
                     }
-                    return QueryResult.of(resultBuilder.build());
+                    return QueryResult.of(result);
                 });
     }
 

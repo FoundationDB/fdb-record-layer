@@ -88,7 +88,7 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
 
                     return new MapCursor<>(inner.getRangesOverPlan().executePlan(store, nestedContext, continuation, executeProperties),
                             innerResult -> {
-                                final ImmutableList.Builder<QueryResultElement> resultBuilder = ImmutableList.builder();
+                                final ImmutableList.Builder<Object> resultBuilder = ImmutableList.builder();
                                 resultBuilder.addAll(outerResult.getElements());
                                 resultBuilder.addAll(innerResult.getElements());
                                 return QueryResult.of(resultBuilder.build());

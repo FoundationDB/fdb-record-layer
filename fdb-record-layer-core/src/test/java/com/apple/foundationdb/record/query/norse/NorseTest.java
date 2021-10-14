@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.debug.PlannerRepl;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
@@ -141,17 +140,14 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                         while (cursor.hasNext()) {
                             final QueryResult rec = Objects.requireNonNull(cursor.next());
                             final ImmutableList.Builder<String> columnsToPrintBuilder = ImmutableList.builder();
-                            final List<QueryResultElement> queryResultElements = Objects.requireNonNull(rec.getElements());
-                            for (final QueryResultElement queryResultElement : queryResultElements) {
+                            final List<Object> queryResultElements = rec.getElements();
+                            for (final Object queryResultElement : queryResultElements) {
                                 if (queryResultElement instanceof FDBRecord) {
                                     columnsToPrintBuilder.add(TextFormat.shortDebugString(((FDBQueriedRecord<?>)queryResultElement).getRecord()));
-                                } else if (queryResultElement instanceof QueryResultElement.Wrapped) {
-                                    final Object unwrapped = ((QueryResultElement.Wrapped)queryResultElement).unwrap();
-                                    if (unwrapped instanceof Message) {
-                                        columnsToPrintBuilder.add(TextFormat.shortDebugString((Message)unwrapped));
-                                    } else {
-                                        columnsToPrintBuilder.add(unwrapped == null ? "null" : unwrapped.toString().replace('\n', ' '));
-                                    }
+                                } else if (queryResultElement instanceof Message) {
+                                    columnsToPrintBuilder.add(TextFormat.shortDebugString((Message)queryResultElement));
+                                } else {
+                                    columnsToPrintBuilder.add(queryResultElement == null ? "null" : queryResultElement.toString().replace('\n', ' '));
                                 }
                             }
 

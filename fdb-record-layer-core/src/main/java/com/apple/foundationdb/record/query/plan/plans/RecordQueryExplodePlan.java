@@ -106,11 +106,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                         normalizedElement = element;
                     }
 
-                    if (normalizedElement instanceof QueryResultElement) {
-                        return QueryResult.of((QueryResultElement)normalizedElement);
-                    } else {
-                        return QueryResult.of(QueryResultElement.Wrapped.of(normalizedElement));
-                    }
+                    return QueryResult.of(normalizedElement);
                 });
     }
 

@@ -29,9 +29,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -70,18 +68,18 @@ public class QueryResult {
      * @return the newly created result
      */
     @Nonnull
-    public static QueryResult of(@Nonnull Object element) {
+    public static QueryResult of(@Nullable Object element) {
         return new QueryResult(Collections.singletonList(element));
     }
 
     /**
      * Create a new result with the given elements.
-     * @param elements the collection of elements to populate in the result
+     * @param elements the list of elements to populate in the result
      * @return the newly created result
      */
     @Nonnull
-    public static QueryResult of(@Nonnull Collection<Object> elements) {
-        return new QueryResult(Collections.unmodifiableList(new ArrayList<>(elements)));
+    public static QueryResult of(@Nonnull List<Object> elements) {
+        return new QueryResult(Collections.unmodifiableList(elements));
     }
 
     /**
@@ -176,9 +174,8 @@ public class QueryResult {
         return (record == null) ? null : record.getIndexEntry();
     }
 
-
     @Nonnull
-    public List<QueryResultElement> getElements() {
+    public List<Object> getElements() {
         return elements;
     }
 }

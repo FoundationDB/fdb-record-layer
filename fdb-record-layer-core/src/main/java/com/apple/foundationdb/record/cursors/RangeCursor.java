@@ -26,7 +26,6 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement.Wrapped;
 import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
@@ -66,7 +65,7 @@ public class RangeCursor implements RecordCursor<QueryResult> {
     public RecordCursorResult<QueryResult> getNext() {
         RecordCursorResult<QueryResult> nextResult;
         if (nextPosition < exclusiveLimit) {
-            nextResult = RecordCursorResult.withNextValue(QueryResult.of(ImmutableList.of(Wrapped.of(nextPosition))), new Continuation(nextPosition + 1, exclusiveLimit));
+            nextResult = RecordCursorResult.withNextValue(QueryResult.of(ImmutableList.of(nextPosition)), new Continuation(nextPosition + 1, exclusiveLimit));
             nextPosition++;
         } else {
             nextResult = RecordCursorResult.exhausted();

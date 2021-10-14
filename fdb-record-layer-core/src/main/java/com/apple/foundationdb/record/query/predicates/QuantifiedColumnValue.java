@@ -25,11 +25,9 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.apple.foundationdb.record.query.plan.plans.QueryResultElement;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
@@ -91,14 +89,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         final QueryResult binding = (QueryResult)context.getBinding(alias);
-        final QueryResultElement queryResultElement = binding.get(ordinalPosition);
-        if (queryResultElement instanceof QueryResultElement.Wrapped) {
-            return ((QueryResultElement.Wrapped)queryResultElement).unwrap();
-        } else if (queryResultElement instanceof FDBRecord) {
-            return queryResultElement;
-        }
-
-        throw new RecordCoreException("should not be in this state");
+        return binding.get(ordinalPosition);
     }
 
     @Nonnull
