@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
+import com.apple.foundationdb.record.cursors.aggregate.AggregateCursorContinuation;
 import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -104,10 +105,16 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
                                                                      @Nonnull EvaluationContext context,
                                                                      @Nullable byte[] continuation,
                                                                      @Nonnull ExecuteProperties executeProperties) {
-        final RecordCursor<QueryResult> innerCursor = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
+        AggregateCursorContinuation cursorContinuation = new AggregateCursorContinuation(continuation);
+
+        final RecordCursor<QueryResult> innerCursor = getInnerPlan().executePlan(store, context,
+                cursorContinuation.getInnerContinuationAsBytes(),
+                executeProperties);
+
+
         @SuppressWarnings("unchecked")
         StreamGrouping<Message> streamGrouping = new StreamGrouping<>(groupingKeys, aggregateValues, (FDBRecordStoreBase<Message>)store, context, inner.getAlias());
-        return new AggregateCursor<>(innerCursor, streamGrouping);
+        return new AggregateCursor<>(innerCursor, streamGrouping, cursorContinuation);
     }
 
     @Override

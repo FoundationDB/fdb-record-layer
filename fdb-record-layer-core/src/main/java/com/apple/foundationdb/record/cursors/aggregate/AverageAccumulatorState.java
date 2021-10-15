@@ -20,23 +20,23 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
  * Accumulator state for AVERAGE operations. Average is unique as the return value from the aggregation ({@link
- * Double})
- * is different that the accumulated values (for example {@link Integer}).
+ * Double}) is different that the accumulated values (for example {@link Integer}).
  * {@link AverageAccumulatorState} holds an {@link AccumulatorState} (of SUM) to add up the values, and divides the
- * total
- * by the counts on {@link #finish}.
+ * total by the counts on {@link #finish}.
  *
  * @param <T> the type of values that are being accumulated by this state
  */
 public class AverageAccumulatorState<T extends Number> implements AccumulatorState<T, Double> {
-    private AccumulatorState<T, T> total;
+    @Nonnull
+    private final AccumulatorState<T, T> total;
     private long count;
 
-    // Static method to create and return properly wired accumulators.
+    // Static methods to create and return properly wired accumulators.
     public static AverageAccumulatorState<Integer> intAverageState() {
         return new AverageAccumulatorState<>(new IntegerState(NumericAccumulatorOperation.SUM));
     }
@@ -56,8 +56,9 @@ public class AverageAccumulatorState<T extends Number> implements AccumulatorSta
     /**
      * Private constructor (only to be used through the static initializers).
      */
-    private AverageAccumulatorState(AccumulatorState<T, T> total) {
+    private AverageAccumulatorState(@Nonnull AccumulatorState<T, T> total) {
         this.total = total;
+        this.count = 0L;
     }
 
     @Override
@@ -76,5 +77,20 @@ public class AverageAccumulatorState<T extends Number> implements AccumulatorSta
         }
 
         return total.finish().doubleValue() / count;
+    }
+
+    @Nonnull
+    @Override
+    public AggregateCursorContinuation.ContinuationAccumulatorState getContinuationState() {
+        return total.getContinuationState().withCount(count);
+    }
+
+    @Override
+    public void setContinuationState(final @Nonnull AggregateCursorContinuation.ContinuationAccumulatorState state) {
+        total.setContinuationState(state);
+        Long newCount = state.getCount();
+        if (newCount != null) {
+            count = newCount;
+        }
     }
 }

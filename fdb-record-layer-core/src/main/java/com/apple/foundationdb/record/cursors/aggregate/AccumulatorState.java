@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -45,4 +46,17 @@ public interface AccumulatorState<T, R> {
      */
     @Nullable
     R finish();
+
+    /**
+     * Get the continuation-based state for the accumulator.
+     * @return the {@link AggregateCursorContinuation.ContinuationAccumulatorState} that represents the state of this accumulator.
+     */
+    @Nonnull
+    AggregateCursorContinuation.ContinuationAccumulatorState getContinuationState();
+
+    /**
+     * Set the state from the given continuation state.
+     * @param value the {@link AggregateCursorContinuation.ContinuationAccumulatorState} to be set in this accumulator.
+     */
+    void setContinuationState(@Nonnull AggregateCursorContinuation.ContinuationAccumulatorState value);
 }

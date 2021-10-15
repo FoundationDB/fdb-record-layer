@@ -30,20 +30,20 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * An {@link AggregateAccumulator} for a single {@link Value}. This accumulator can evaluate a record (e.g. {@link
+ * An accumulator for a single {@link Value}. This accumulator can evaluate a record (e.g. {@link
  * com.apple.foundationdb.record.query.predicates.FieldValue}
- * and accumulate the results.
+ * and accumulate the results in its state.
  *
  * @param <T> the type of value the state accumulates holds
  * @param <R> the type of the result that gets returned once the aggregator's {@link #finish} is called.
  */
 public class RecordValueAccumulator<T, R> {
     @Nonnull
-    private Value value;
+    private final Value value;
     @Nonnull
-    private AccumulatorState<T, R> state;
+    private final AccumulatorState<T, R> state;
 
-    public RecordValueAccumulator(@Nonnull final Value value, AccumulatorState<T, R> state) {
+    public RecordValueAccumulator(@Nonnull final Value value, @Nonnull AccumulatorState<T, R> state) {
         this.value = value;
         this.state = state;
     }
@@ -62,5 +62,14 @@ public class RecordValueAccumulator<T, R> {
     private T narrow(final Object rawValue) {
         // This should not fail since the planner should be feeding the correct types to the states and values.
         return (T)rawValue;
+    }
+
+    public void setContinuationState(final @Nonnull AggregateCursorContinuation.ContinuationAccumulatorState accumulatorState) {
+        state.setContinuationState(accumulatorState);
+    }
+
+    @Nonnull
+    public AggregateCursorContinuation.ContinuationAccumulatorState getContinuationState() {
+        return state.getContinuationState();
     }
 }

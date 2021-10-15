@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import com.apple.foundationdb.record.RecordCoreException;
+
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +53,25 @@ public class CountAccumulatorState implements AccumulatorState<Object, Long> {
     @Nullable
     public Long finish() {
         return currentState;
+    }
+
+    @Nonnull
+    @Override
+    public AggregateCursorContinuation.ContinuationAccumulatorState getContinuationState() {
+        return new AggregateCursorContinuation.ContinuationAccumulatorState(currentState, null);
+    }
+
+    @Override
+    public void setContinuationState(final @Nonnull AggregateCursorContinuation.ContinuationAccumulatorState state) {
+        Object newState = state.getValue();
+        if (newState != null) {
+            if (!(newState instanceof Long)) {
+                throw new RecordCoreException("Failed to initialize from continuation: type of state values does not match")
+                        .addLogInfo("expected", "Long")
+                        .addLogInfo("actual", newState.getClass().getSimpleName());
+            }
+            currentState = (Long)newState;
+        }
     }
 
     private void resetState() {

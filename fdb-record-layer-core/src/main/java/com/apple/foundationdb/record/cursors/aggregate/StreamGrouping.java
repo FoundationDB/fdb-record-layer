@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -104,11 +105,45 @@ public class StreamGrouping<M extends Message> {
     }
 
     /**
+     * Initialize the state for the class by applying the given state to the accumulators and grouping keys. The given values
+     * are restored from continuations and are to set the state to the state that was stored in a continuation previously.
+     * @param groupingStates the Grouping Keys state to use
+     * @param accumulatorStates the accumulator values to use
+     */
+    public void setContinuationState(@Nullable List<AggregateCursorContinuation.ContinuationGroupingKeyState> groupingStates, @Nullable List<AggregateCursorContinuation.ContinuationAccumulatorState> accumulatorStates) {
+        if ((groupingStates != null) && !groupingStates.isEmpty()) {
+            if (groupingStates.size() != groupingKeys.size()) {
+                throw new RecordCoreException("Failed to initialize from continuation: size of grouping keys does not match")
+                        .addLogInfo("size", groupingKeys.size())
+                        .addLogInfo("givenSize", groupingStates.size());
+            }
+            currentGroup = groupingStates.stream().map(AggregateCursorContinuation.ContinuationGroupingKeyState::getStateValue).collect(Collectors.toList());
+        }
+        if ((accumulatorStates != null) && !accumulatorStates.isEmpty()) {
+            if (accumulatorStates.size() != aggregateValues.size()) {
+                throw new RecordCoreException("Failed to initialize from continuation: size of aggregator values does not match")
+                        .addLogInfo("size", aggregateValues.size())
+                        .addLogInfo("givenSize", accumulatorStates.size());
+            }
+            accumulator.setContinuationState(accumulatorStates);
+        }
+    }
+
+    @Nonnull
+    public List<AggregateCursorContinuation.ContinuationGroupingKeyState> getGroupingKeyStates() {
+        return (currentGroup != null) ? currentGroup.stream().map(this::toGroupingKeyState).collect(Collectors.toList()) : Collections.emptyList();
+    }
+
+    @Nonnull
+    public List<AggregateCursorContinuation.ContinuationAccumulatorState> getAccumulatorStates() {
+        return accumulator.getContinuationState();
+    }
+
+    /**
      * Accept the next record, decide whether this next record constitutes a group break.
      * Following these rules:
      * <UL>
-     * <LI>The last item (record that has {@link RecordCursorResult#hasNext()} return false), is <b>always</b> a group
-     * break</LI>
+     * <LI>The last item (record that has {@link RecordCursorResult#hasNext()} return false), is <b>always</b> a groupbreak</LI>
      * <LI>The first record is <b>never</b> a group break, unless it is last</LI>
      * <LI>When of a record's grouping criteria changes from the previous record, this is a group break</LI>
      * </UL>
@@ -123,7 +158,7 @@ public class StreamGrouping<M extends Message> {
         if (groupBreak) {
             finalizeGroupInternal(nextGroup);
         } else {
-            // for the case where we have no current group. In most cases, this changes nothing
+            // for the case where we have no current group (first group encountered)
             currentGroup = nextGroup;
         }
         accumulate(record);
@@ -134,10 +169,13 @@ public class StreamGrouping<M extends Message> {
      * Get the last completed group result. This will return the group that was completed last (prior to the last group
      * break).
      *
-     * @return the last result aggregated. Null if no group was completed by this aggregator.
+     * @return the last result aggregated.
      */
-    @Nullable
+    @Nonnull
     public List<Object> getCompletedGroupResult() {
+        if (previousGroupResult == null) {
+            throw new RecordCoreException("Attempt to get a completedGroupResult without a group ever being finalized");
+        }
         return previousGroupResult;
     }
 
@@ -179,13 +217,11 @@ public class StreamGrouping<M extends Message> {
         accumulator = createAccumulator(aggregateValues);
     }
 
-    @SuppressWarnings("unchecked")
     private void accumulate(final @Nonnull FDBQueriedRecord<M> record) {
         EvaluationContext nestedContext = context.withBinding(alias, record.getRecord());
         accumulator.accumulate(store, nestedContext, record, record.getRecord());
     }
 
-    @SuppressWarnings("unchecked")
     private List<Object> eval(final FDBQueriedRecord<M> record, List<Value> values) {
         final EvaluationContext nestedContext = context.withBinding(alias, record.getRecord());
         return values.stream()
@@ -196,5 +232,22 @@ public class StreamGrouping<M extends Message> {
     @Nonnull
     private AccumulatorList createAccumulator(final @Nonnull List<AggregateValue<?, ?>> aggregateValues) {
         return new AccumulatorList(aggregateValues.stream().map(AggregateValue::createAccumulator).collect(ImmutableList.toImmutableList()));
+    }
+
+    private AggregateCursorContinuation.ContinuationGroupingKeyState toGroupingKeyState(final @Nonnull Object o) {
+        if (o instanceof Integer) {
+            return new AggregateCursorContinuation.ContinuationGroupingKeyState((Integer)o);
+        } else if (o instanceof Long) {
+            return new AggregateCursorContinuation.ContinuationGroupingKeyState((Long)o);
+        } else if (o instanceof Float) {
+            return new AggregateCursorContinuation.ContinuationGroupingKeyState((Float)o);
+        } else if (o instanceof Double) {
+            return new AggregateCursorContinuation.ContinuationGroupingKeyState((Double)o);
+        } else if (o instanceof String) {
+            return new AggregateCursorContinuation.ContinuationGroupingKeyState((String)o);
+        } else {
+            throw new RecordCoreException("Cannot create GroupingKeyState: Unsupported type")
+                    .addLogInfo("type", o.getClass().getSimpleName());
+        }
     }
 }

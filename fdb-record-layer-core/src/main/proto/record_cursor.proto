@@ -108,3 +108,27 @@ message LuceneIndexContinuation {
     required float score = 2;
     optional uint64 shard = 3;
 }
+
+message StreamingAggregateContinuation {
+    message GroupingKeyState {
+        // Value of the current group key
+        optional int32 intValue = 1;
+        optional int64 longValue = 2;
+        optional float floatValue = 3;
+        optional double doubleValue = 4;
+        optional string stringValue = 5;
+    }
+    message AccumulatorState {
+        // Value of the current numeric aggregator state
+        optional int32 intValue = 1;
+        optional int64 longValue = 2;
+        optional float floatValue = 3;
+        optional double doubleValue = 4;
+        // This is an optional count for average states
+        optional int64 count = 5;
+    }
+    optional bool seenRecords = 1;
+    repeated GroupingKeyState groupingKeyStates = 2;
+    repeated AccumulatorState accumulatorStates = 3;
+    optional bytes innerContinuation = 4;
+}

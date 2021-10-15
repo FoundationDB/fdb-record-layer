@@ -20,6 +20,9 @@
 
 package com.apple.foundationdb.record.cursors.aggregate;
 
+import com.apple.foundationdb.record.RecordCoreException;
+
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -30,7 +33,7 @@ import javax.annotation.Nullable;
  */
 public class LongState implements AccumulatorState<Long, Long> {
     private long currentState;
-    private boolean hasValue = false;
+    private boolean hasValue;
     private final NumericAccumulatorOperation operation;
 
     public LongState(NumericAccumulatorOperation operation) {
@@ -68,7 +71,32 @@ public class LongState implements AccumulatorState<Long, Long> {
         }
     }
 
+    @Nonnull
+    @Override
+    public AggregateCursorContinuation.ContinuationAccumulatorState getContinuationState() {
+        if (hasValue) {
+            return new AggregateCursorContinuation.ContinuationAccumulatorState(currentState, null);
+        } else {
+            return AggregateCursorContinuation.ContinuationAccumulatorState.EMPTY;
+        }
+    }
+
+    @Override
+    public void setContinuationState(final @Nonnull AggregateCursorContinuation.ContinuationAccumulatorState value) {
+        Object newState = value.getValue();
+        if (newState != null) {
+            if (!(newState instanceof Long)) {
+                throw new RecordCoreException("Failed to initialize from continuation: type of state values does not match")
+                        .addLogInfo("expected",  "Long")
+                        .addLogInfo("actual", newState.getClass().getSimpleName());
+            }
+            currentState = (Long)newState;
+            hasValue = true;
+        }
+    }
+
     private void resetState(final NumericAccumulatorOperation operation) {
+        hasValue = false;
         switch (operation) {
             case SUM:
                 currentState = 0;
