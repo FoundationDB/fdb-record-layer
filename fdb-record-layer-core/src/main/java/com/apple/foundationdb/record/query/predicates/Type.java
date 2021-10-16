@@ -402,23 +402,23 @@ public interface Type {
         }
     }
 
-    class Tuple implements Type {
-        final boolean isNullable;
+    class Record implements Type {
+        private final boolean isNullable;
 
         @Nullable
-        private final List<Type> elementTypes;
+        private final List<Field> fields;
+        @Nullable
+        private final Map<String, Type> fieldTypeMap;
+        @Nonnull
+        private final Supplier<List<Type>> elementTypesSupplier;
 
-        public Tuple() {
-            this(null);
-        }
-
-        public Tuple(@Nullable final List<Type> elementTypes) {
-            this(true, elementTypes);
-        }
-
-        public Tuple(final boolean isNullable, @Nullable final List<Type> elementTypes) {
+        private Record(final boolean isNullable,
+                       @Nullable final List<Field> fields,
+                       @Nullable final Map<String, Type> fieldTypeMap) {
             this.isNullable = isNullable;
-            this.elementTypes = elementTypes == null ? null : ImmutableList.copyOf(elementTypes);
+            this.fields = fields == null ? null : ImmutableList.copyOf(fields);
+            this.fieldTypeMap = fieldTypeMap == null ? null : ImmutableMap.copyOf(fieldTypeMap);
+            this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
         }
 
         @Override
@@ -432,98 +432,20 @@ public interface Type {
         }
 
         @Nullable
-        public List<Type> getElementTypes() {
-            return elementTypes;
-        }
-
-        boolean isErased() {
-            return getElementTypes() == null;
-        }
-
-        @Nullable
-        @Override
-        public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            final DescriptorProto.Builder tupleDescriptorBuilder = DescriptorProto.newBuilder();
-
-            tupleDescriptorBuilder.setName(typeName);
-
-            for (int i = 0; i < Objects.requireNonNull(elementTypes).size(); i++) {
-                final Type elementType = elementTypes.get(i);
-                elementType.addProtoField(tupleDescriptorBuilder, i + 1, fieldName(i + 1), typeName(i + 1), FieldDescriptorProto.Label.LABEL_OPTIONAL);
-            }
-
-            return tupleDescriptorBuilder.build();
-        }
-
-        @Override
-        public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
-            descriptorBuilder.addNestedType(buildDescriptor(typeName));
-            descriptorBuilder.addField(FieldDescriptorProto.newBuilder()
-                    .setName(fieldName)
-                    .setNumber(fieldIndex)
-                    .setTypeName(typeName)
-                    .setLabel(label)
-                    .build());
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), elementTypes);
-        }
-
-        @Override
-        public boolean equals(final Object obj) {
-            if (obj == null) {
-                return false;
-            }
-
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-
-            final Tuple otherType = (Tuple)obj;
-
-            return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
-                   ((isErased() && otherType.isErased()) || Objects.requireNonNull(elementTypes).equals(otherType.elementTypes));
-        }
-
-        @Override
-        public String toString() {
-            return isErased()
-                   ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getElementTypes()).stream().map(Object::toString).collect(Collectors.joining(", ")) + ")";
-        }
-    }
-
-    class Record implements Type {
-        private final boolean isNullable;
-
-        @Nullable
-        private final List<Field> fields;
-        @Nullable
-        private final Map<String, Type> fieldTypeMap;
-
-        private Record(final boolean isNullable,
-                       @Nullable final List<Field> fields,
-                       @Nullable final Map<String, Type> fieldTypeMap) {
-            this.isNullable = isNullable;
-            this.fields = fields == null ? null : ImmutableList.copyOf(fields);
-            this.fieldTypeMap = fieldTypeMap == null ? null : ImmutableMap.copyOf(fieldTypeMap);
-        }
-
-        @Override
-        public TypeCode getTypeCode() {
-            return TypeCode.RECORD;
-        }
-
-        @Override
-        public boolean isNullable() {
-            return isNullable;
-        }
-
-        @Nullable
         public List<Field> getFields() {
             return fields;
+        }
+
+        @Nullable
+        public List<Type> getElementType() {
+            return elementTypesSupplier.get();
+        }
+
+        private List<Type> computeElementTypes() {
+            return Objects.requireNonNull(fields)
+                    .stream()
+                    .map(Field::getFieldType)
+                    .collect(ImmutableList.toImmutableList());
         }
 
         @Nullable
@@ -714,7 +636,7 @@ public interface Type {
             @Nonnull
             private final Optional<Integer> fieldIndexOptional;
 
-            public Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
+            private Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
                 this.fieldType = fieldType;
                 this.fieldNameOptional = fieldNameOptional;
                 this.fieldIndexOptional = fieldIndexOptional;
@@ -734,18 +656,26 @@ public interface Type {
             public Optional<Integer> getFieldIndexOptional() {
                 return fieldIndexOptional;
             }
+
+            public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
+                return new Field(fieldType, fieldNameOptional, fieldIndexOptional);
+            }
+
+            public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional) {
+                return new Field(fieldType, fieldNameOptional, Optional.empty());
+            }
         }
     }
 
     class Stream implements Type {
         @Nullable
-        private final Tuple innerType;
+        private final Record innerType;
 
         public Stream() {
             this(null);
         }
 
-        public Stream(@Nullable final Tuple innerType) {
+        public Stream(@Nullable final Record innerType) {
             this.innerType = innerType;
         }
 
@@ -765,7 +695,7 @@ public interface Type {
         }
 
         @Nullable
-        public Tuple getInnerType() {
+        public Record getInnerType() {
             return innerType;
         }
 

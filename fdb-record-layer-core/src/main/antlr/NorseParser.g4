@@ -41,7 +41,12 @@ arguments
     ;
 
 tuple
-    : LPAREN pipe (COMMA pipe)* RPAREN                      # TuplePipes
+    : LPAREN tupleElement (COMMA tupleElement)* RPAREN      # TuplePipes
+    ;
+
+tupleElement
+    : pipe                                                  # TupleElementUnnamed
+    | pipe AS IDENTIFIER                                    # TupleElementNamed
     ;
 
 lambda

@@ -22,10 +22,54 @@ package com.apple.foundationdb.record.query.predicates;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Optional;
 
 public interface Atom {
     @Nonnull
     Type getResultType();
+
+    default Optional<String> getName() {
+        return Optional.empty();
+    }
+
+    default <T extends Atom> Optional<T> narrow(@Nonnull final Class<T> clazz) {
+        if (clazz.isInstance(this)) {
+            return Optional.of(clazz.cast(this));
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    default Atom withName(@Nonnull final String name) {
+        return new Atom() {
+            @Nonnull
+            @Override
+            public Type getResultType() {
+                return Atom.this.getResultType();
+            }
+
+            @Override
+            public Optional<String> getName() {
+                return Optional.of(name);
+            }
+
+            @Override
+            public <T extends Atom> Optional<T> narrow(@Nonnull final Class<T> clazz) {
+                return Atom.this.narrow(clazz);
+            }
+
+            @Nonnull
+            @Override
+            public String explain(@Nonnull final Formatter formatter) {
+                return Atom.this.explain(formatter);
+            }
+
+            @Override
+            public Atom withName(@Nonnull final String name) {
+                return Atom.this.withName(name);
+            }
+        };
+    }
 
     @Nonnull
     String explain(@Nonnull final Formatter formatter);

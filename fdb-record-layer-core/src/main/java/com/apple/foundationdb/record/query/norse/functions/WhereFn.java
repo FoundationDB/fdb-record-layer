@@ -52,7 +52,7 @@ import java.util.Optional;
 public class WhereFn extends BuiltInFunction<RelationalExpression> {
     public WhereFn() {
         super("where",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Tuple()), new Type.Stream())), WhereFn::encapsulate);
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(Type.Record.erased()), new Type.Stream())), WhereFn::encapsulate);
     }
 
     public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {

@@ -234,7 +234,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         if (ctx instanceof NorseParser.ArgumentsPipesContext) {
             final NorseParser.ArgumentsPipesContext argumentsPipesContext = (NorseParser.ArgumentsPipesContext)ctx;
             Verify.verify(argumentsPipesContext.tuple() instanceof NorseParser.TuplePipesContext);
-            argumentsContexts = ((NorseParser.TuplePipesContext)(argumentsPipesContext.tuple())).pipe();
+            argumentsContexts = ((NorseParser.TuplePipesContext)(argumentsPipesContext.tuple())).tupleElement();
         } else if (ctx instanceof NorseParser.ArgumentsExpressionContext) {
             argumentsContexts = ImmutableList.of(((NorseParser.ArgumentsExpressionContext)ctx).expression());
         } else if (ctx instanceof NorseParser.ArgumentsExmptyContext) {
@@ -278,15 +278,15 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     @Nonnull
     @Override
     public Atom visitTuplePipes(@Nonnull final NorseParser.TuplePipesContext ctx) {
-        final List<NorseParser.PipeContext> pipeContexts = ctx.pipe();
+        final List<NorseParser.TupleElementContext> tupleElementContexts = ctx.tupleElement();
 
-        if (pipeContexts.size() == 1) {
-            return pipeContexts.get(0).accept(this);
+        if (tupleElementContexts.size() == 1) {
+            return tupleElementContexts.get(0).accept(this);
         }
 
-        final ImmutableList<Atom> arguments = pipeContexts
+        final ImmutableList<Atom> arguments = tupleElementContexts
                 .stream()
-                .map(pipe -> pipe.accept(this))
+                .map(tupleElementContext -> tupleElementContext.accept(this))
                 .peek(atom -> Verify.verify(atom.getResultType().getTypeCode() != TypeCode.STREAM && atom instanceof Value))
                 .collect(ImmutableList.toImmutableList());
 
@@ -296,6 +296,16 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         return functionOptional
                 .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
                 .orElseThrow(() -> new IllegalStateException("unable to encapsulate not()"));
+    }
+
+    @Override
+    public Atom visitTupleElementUnnamed(final NorseParser.TupleElementUnnamedContext ctx) {
+        return ctx.pipe().accept(this);
+    }
+
+    @Override
+    public Atom visitTupleElementNamed(final NorseParser.TupleElementNamedContext ctx) {
+        return ctx.pipe().accept(this).withName(ctx.IDENTIFIER().getText());
     }
 
     @Nonnull

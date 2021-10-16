@@ -32,6 +32,7 @@ lexer grammar NorseLexer;
 // Keywords
 
 ABSTRACT:           'abstract';
+AS:                 'as';
 ASSERT:             'assert';
 BOOLEAN:            'boolean';
 BREAK:              'break';

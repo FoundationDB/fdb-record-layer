@@ -32,17 +32,23 @@ import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 /**
  * A value merges the input messages given to it into an output message.
@@ -55,18 +61,21 @@ public class TupleConstructorValue implements Value {
     @Nonnull
     protected final String functionName;
     @Nonnull
-    protected final List<? extends Value> children;
+    protected final List<Pair<? extends Value, Optional<String>>> childrenAndNames;
+    @Nonnull
+    private final Supplier<List<? extends Value>> childrenSupplier;
+    @Nonnull
+    private final Supplier<Type.Record> resultTypeSupplier;
 
-    public TupleConstructorValue(@Nonnull final String protoTypeName, @Nonnull List<? extends Value> children) {
-        this(protoTypeName, "tuple", children);
-    }
 
     private TupleConstructorValue(@Nonnull final String protoTypeName,
                                   @Nonnull String functionName,
-                                  @Nonnull List<? extends Value> children) {
+                                  @Nonnull List<Pair<? extends Value, Optional<String>>> childrenAndNames) {
         this.protoTypeName = protoTypeName;
         this.functionName = functionName;
-        this.children = ImmutableList.copyOf(children);
+        this.childrenAndNames = ImmutableList.copyOf(childrenAndNames);
+        this.childrenSupplier = Suppliers.memoize(this::computeChildren);
+        this.resultTypeSupplier = Suppliers.memoize(this::computeResultType);
     }
 
     @Nonnull
@@ -77,13 +86,29 @@ public class TupleConstructorValue implements Value {
     @Nonnull
     @Override
     public Iterable<? extends Value> getChildren() {
-        return children;
+        return childrenSupplier.get();
+    }
+
+    private List<? extends Value> computeChildren() {
+        return childrenAndNames
+                .stream()
+                .map(Pair::getKey)
+                .collect(ImmutableList.toImmutableList());
     }
 
     @Nonnull
     @Override
-    public Type getResultType() {
-        return new Type.Tuple(children.stream().map(Value::getResultType).collect(ImmutableList.toImmutableList()));
+    public Type.Record getResultType() {
+        return resultTypeSupplier.get();
+    }
+
+    @Nonnull
+    public Type.Record computeResultType() {
+        final ImmutableList<Type.Record.Field> fields = childrenAndNames
+                .stream()
+                .map(childAndName -> Type.Record.Field.of(childAndName.getKey().getResultType(), childAndName.getValue()))
+                .collect(ImmutableList.toImmutableList());
+        return Type.Record.fromFields(fields);
     }
 
     @Nullable
@@ -108,17 +133,25 @@ public class TupleConstructorValue implements Value {
 
     @Override
     public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, functionName, children);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, functionName, childrenAndNames);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, functionName, children);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, functionName, childrenAndNames);
     }
 
     @Override
     public String toString() {
-        return functionName + "(" + children.stream().map(Object::toString).collect(Collectors.joining(",")) + ")";
+        return functionName + "(" +
+               childrenAndNames.stream()
+                       .map(childAndName -> {
+                           if (childAndName.getValue().isPresent()) {
+                               return childAndName.getKey() + " as " + childAndName.getValue().get();
+                           }
+                           return childAndName.getKey().toString();
+                       })
+                       .collect(Collectors.joining(",")) + ")";
     }
 
     @Override
@@ -136,7 +169,15 @@ public class TupleConstructorValue implements Value {
     @Nonnull
     @Override
     public TupleConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
-        return new TupleConstructorValue(this.protoTypeName, this.functionName, ImmutableList.copyOf(newChildren));
+        Verify.verify(childrenAndNames.size() == Iterables.size(newChildren));
+        //noinspection UnstableApiUsage
+        final ImmutableList<Pair<? extends Value, Optional<String>>> newChildrenAndNames =
+                Streams.zip(StreamSupport.stream(newChildren.spliterator(), false),
+                        this.childrenAndNames.stream(),
+                        (newChild, childAndName) -> Pair.of(newChild, childAndName.getValue()))
+                        .collect(ImmutableList.toImmutableList());
+
+        return new TupleConstructorValue(this.protoTypeName, this.functionName, newChildrenAndNames);
     }
 
     public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
@@ -153,17 +194,19 @@ public class TupleConstructorValue implements Value {
     }
 
     private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-        final ImmutableList<Value> argumentValues = arguments.stream()
-                .peek(typed -> Preconditions.checkArgument(typed instanceof Value))
-                .map(typed -> ((Value)typed))
-                .collect(ImmutableList.toImmutableList());
-        return createAndRegister(parserContext.getDynamicSchemaBuilder(), builtInFunction.getFunctionName(), argumentValues);
+        final ImmutableList<Pair<? extends Value, Optional<String>>> namedArguments =
+                arguments.stream()
+                        .map(atom -> Pair.of(atom.narrow(Value.class), atom.getName()))
+                        .peek(pair -> Verify.verify(pair.getKey().isPresent()))
+                        .map(pair -> Pair.of(pair.getKey().get(), pair.getValue()))
+                        .collect(ImmutableList.toImmutableList());
+        return createAndRegister(parserContext.getDynamicSchemaBuilder(), builtInFunction.getFunctionName(), namedArguments);
     }
 
     private static TupleConstructorValue createAndRegister(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder,
                                                            @Nonnull final String functionName,
-                                                           @Nonnull final List<? extends Value> arguments) {
-        final TupleConstructorValue tupleConstructorValue = new TupleConstructorValue(Type.uniqueCompliantTypeName(), functionName, arguments);
+                                                           @Nonnull final List<Pair<? extends Value, Optional<String>>> namedArguments) {
+        final TupleConstructorValue tupleConstructorValue = new TupleConstructorValue(Type.uniqueCompliantTypeName(), functionName, namedArguments);
         dynamicSchemaBuilder.addType(tupleConstructorValue.getProtoTypeName(), tupleConstructorValue.getResultType());
         return tupleConstructorValue;
     }

@@ -50,6 +50,7 @@ public class Lambda implements Atom {
         return parameterNameOptionals;
     }
 
+    @Nonnull
     @Override
     public Type getResultType() {
         return new Type.Function();
