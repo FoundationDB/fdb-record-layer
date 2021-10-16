@@ -88,28 +88,32 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
                 groupBreak = false;
                 return false;
             }
-        }), getExecutor()).thenApply(vignore -> {
-            if (sourceExhausted(previousResult)) {
-                if ((!seenRecords) && streamGrouping.hasGroupingCriteria()) {
-                    // "No records Case #1": When there are some grouping criteria, return an empty set
-                    return RecordCursorResult.exhausted();
-                } else {
-                    // Have seen records, return the current group
-                    // Also "No records case #2": When there are NO grouping criteria, return a single result (e.g. with count of 0)
-                    List<Object> groupResult = streamGrouping.getCompletedGroupResult();
-                    QueryResult queryResult = QueryResult.of(groupResult);
-                    return RecordCursorResult.withNextValue(queryResult, calcContinuation());
-                }
-            }
-            if (groupBreak) {
-                // Finalized a group - return with the result and a continuation for it
+        }), getExecutor()).thenApply(vignore -> calculateCursorResult(previousResult, groupBreak, seenRecords));
+    }
+
+
+    @Nonnull
+    private RecordCursorResult<QueryResult> calculateCursorResult(final RecordCursorResult<QueryResult> innerResult, final boolean groupBreak, final boolean seenRecords) {
+        if (sourceExhausted(innerResult)) {
+            if ((!seenRecords) && streamGrouping.hasGroupingCriteria()) {
+                // "No records Case #1": When there are some grouping criteria, return an empty set
+                return RecordCursorResult.exhausted();
+            } else {
+                // Have seen records, return the current group
+                // Also "No records case #2": When there are NO grouping criteria, return a single result (e.g. with count of 0)
                 List<Object> groupResult = streamGrouping.getCompletedGroupResult();
                 QueryResult queryResult = QueryResult.of(groupResult);
-                return RecordCursorResult.withNextValue(queryResult, calcContinuation());
+                return RecordCursorResult.withNextValue(queryResult, calcContinuation(innerResult, seenRecords));
             }
-            // Inner cursor done but not exhausted, no group break: Have more records, return continuation only
-            return RecordCursorResult.withoutNextValue(calcContinuation(), previousResult.getNoNextReason());
-        });
+        }
+        if (groupBreak) {
+            // Finalized a group - return with the result and a continuation for it
+            List<Object> groupResult = streamGrouping.getCompletedGroupResult();
+            QueryResult queryResult = QueryResult.of(groupResult);
+            return RecordCursorResult.withNextValue(queryResult, calcContinuation(innerResult, seenRecords));
+        }
+        // Inner cursor done but not exhausted, no group break: Have more records, return continuation only
+        return RecordCursorResult.withoutNextValue(calcContinuation(innerResult, seenRecords), innerResult.getNoNextReason());
     }
 
     private boolean sourceExhausted(final RecordCursorResult<QueryResult> result) {
@@ -117,10 +121,10 @@ public class AggregateCursor<M extends Message> implements RecordCursor<QueryRes
     }
 
     @Nonnull
-    private RecordCursorContinuation calcContinuation() {
+    private RecordCursorContinuation calcContinuation(final RecordCursorResult<QueryResult> innerResult, final boolean seenRecords) {
         List<AggregateCursorContinuation.ContinuationGroupingKeyState> groupingKeyStates = streamGrouping.getGroupingKeyStates();
         List<AggregateCursorContinuation.ContinuationAccumulatorState> accumulatorStates = streamGrouping.getAccumulatorStates();
-        return new AggregateCursorContinuation(seenRecords, groupingKeyStates, accumulatorStates, previousResult.getContinuation().toBytes());
+        return new AggregateCursorContinuation(seenRecords, groupingKeyStates, accumulatorStates, innerResult.getContinuation().toBytes());
     }
 
     @Override
