@@ -93,7 +93,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
         return new MapCursor<>(listCursor,
                 element -> {
                     final Object normalizedElement;
-                    if (valueResultType.needsNestedProto()) {
+                    if (valueResultType.definesNestedProto()) {
                         final Message message = (Message)element;
                         final Descriptors.Descriptor elementDescriptor = message.getDescriptorForType();
                         final Descriptors.FieldDescriptor valueFieldDescriptor = elementDescriptor.findFieldByNumber(1);

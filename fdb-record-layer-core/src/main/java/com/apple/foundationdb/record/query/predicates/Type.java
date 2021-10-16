@@ -39,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -444,16 +443,16 @@ public interface Type {
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            final DescriptorProto.Builder tupleMsgBuilder = DescriptorProto.newBuilder();
+            final DescriptorProto.Builder tupleDescriptorBuilder = DescriptorProto.newBuilder();
 
-            tupleMsgBuilder.setName(typeName);
+            tupleDescriptorBuilder.setName(typeName);
 
             for (int i = 0; i < Objects.requireNonNull(elementTypes).size(); i++) {
                 final Type elementType = elementTypes.get(i);
-                elementType.addProtoField(tupleMsgBuilder, i + 1, fieldName(i + 1), typeName(i + 1), FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                elementType.addProtoField(tupleDescriptorBuilder, i + 1, fieldName(i + 1), typeName(i + 1), FieldDescriptorProto.Label.LABEL_OPTIONAL);
             }
 
-            return tupleMsgBuilder.build();
+            return tupleDescriptorBuilder.build();
         }
 
         @Override
@@ -500,20 +499,16 @@ public interface Type {
         private final boolean isNullable;
 
         @Nullable
-        private final Map<String, Type> fieldTypeMap;
+        private final List<Field> fields;
         @Nullable
-        private final Map<String, Integer> fieldIndexMap;
+        private final Map<String, Type> fieldTypeMap;
 
-        public Record() {
-            this(true, null, null);
-        }
-
-        public Record(final boolean isNullable,
-                      @Nullable final Map<String, Type> fieldTypeMap,
-                      @Nullable final Map<String, Integer> fieldIndexMap) {
+        private Record(final boolean isNullable,
+                       @Nullable final List<Field> fields,
+                       @Nullable final Map<String, Type> fieldTypeMap) {
             this.isNullable = isNullable;
+            this.fields = fields == null ? null : ImmutableList.copyOf(fields);
             this.fieldTypeMap = fieldTypeMap == null ? null : ImmutableMap.copyOf(fieldTypeMap);
-            this.fieldIndexMap = fieldIndexMap == null ? null : ImmutableMap.copyOf(fieldIndexMap);
         }
 
         @Override
@@ -527,26 +522,37 @@ public interface Type {
         }
 
         @Nullable
+        public List<Field> getFields() {
+            return fields;
+        }
+
+        @Nullable
         public Map<String, Type> getFieldTypeMap() {
             return fieldTypeMap;
         }
 
         boolean isErased() {
-            return fieldTypeMap == null || fieldIndexMap == null;
+            return fields == null || fieldTypeMap == null;
         }
 
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
-            Objects.requireNonNull(fieldTypeMap);
-            Objects.requireNonNull(fieldIndexMap);
+            Objects.requireNonNull(fields);
             final DescriptorProto.Builder recordMsgBuilder = DescriptorProto.newBuilder();
             recordMsgBuilder.setName(typeName);
 
             int i = 0;
-            final Set<Map.Entry<String, Type>> fieldsAndTypes = Objects.requireNonNull(getFieldTypeMap()).entrySet();
-            for (final Map.Entry<String, Type> fieldTypeEntry : fieldsAndTypes) {
-                fieldTypeEntry.getValue().addProtoField(recordMsgBuilder, fieldIndexMap.getOrDefault(fieldTypeEntry.getKey(), i + 1), fieldTypeEntry.getKey(), typeName(fieldTypeEntry.getKey()), FieldDescriptorProto.Label.LABEL_OPTIONAL);
+            for (final Field field : fields) {
+                final Type fieldType = field.getFieldType();
+                final Optional<String> fieldNameOptional = field.getFieldNameOptional();
+                if (fieldNameOptional.isPresent()) {
+                    final String fieldName = fieldNameOptional.get();
+                    fieldType.addProtoField(recordMsgBuilder, field.getFieldIndexOptional().orElse(i + 1), fieldName, typeName(fieldName), FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                } else {
+                    // anonymous field
+                    fieldType.addProtoField(recordMsgBuilder, field.getFieldIndexOptional().orElse(i + 1), fieldName(i + 1), typeName(i + 1), FieldDescriptorProto.Label.LABEL_OPTIONAL);
+                }
                 i++;
             }
 
@@ -566,7 +572,7 @@ public interface Type {
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), fieldTypeMap, fieldIndexMap);
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), fields, fieldTypeMap);
         }
 
         @Override
@@ -583,8 +589,8 @@ public interface Type {
 
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) ||
-                    (Objects.requireNonNull(fieldTypeMap).equals(otherType.fieldTypeMap) &&
-                     Objects.requireNonNull(fieldIndexMap).equals(otherType.fieldIndexMap)));
+                    (Objects.requireNonNull(fields).equals(otherType.fields) &&
+                     Objects.requireNonNull(fieldTypeMap).equals(otherType.fieldTypeMap)));
         }
 
         @Override
@@ -598,22 +604,19 @@ public interface Type {
             return new Record(true, null, null);
         }
 
-        public static Record fromTypeMap(@Nonnull final Map<String, Type> fieldTypeMap) {
-            return fromTypeMap(true, fieldTypeMap);
+        public static Record fromFields(@Nonnull final List<Field> fields) {
+            return fromFields(true, fields);
         }
 
-        public static Record fromTypeMap(final boolean isNullable, @Nonnull final Map<String, Type> fieldTypeMap) {
-            return new Record(isNullable, fieldTypeMap, computeDefaultFieldIndexMap(fieldTypeMap));
+        public static Record fromFields(final boolean isNullable, @Nonnull final List<Field> fields) {
+            return new Record(isNullable, fields, computeFieldTypeMap(fields));
         }
 
-        private static Map<String, Integer> computeDefaultFieldIndexMap(@Nonnull final Map<String, Type> fieldTypeMap) {
-            final ImmutableMap.Builder<String, Integer> resultBuilder = ImmutableMap.builder();
-            int i = 0;
-            for (Map.Entry<String, Type> entry : fieldTypeMap.entrySet()) {
-                resultBuilder.put(entry.getKey(), i + 1);
-                i ++;
-            }
-            return resultBuilder.build();
+        @SuppressWarnings("OptionalGetWithoutIsPresent")
+        private static Map<String, Type> computeFieldTypeMap(@Nonnull final List<Field> fields) {
+            return fields.stream()
+                    .filter(field -> field.getFieldNameOptional().isPresent())
+                    .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Field::getFieldType));
         }
 
         public static Record fromFieldDescriptorsMap(final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
@@ -621,17 +624,20 @@ public interface Type {
         }
 
         public static Record fromFieldDescriptorsMap(final boolean isNullable, final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
-            final ImmutableMap.Builder<String, Type> fieldTypeMapBuilder = ImmutableMap.builder();
-            final ImmutableMap.Builder<String, Integer> fieldIndexMapBuilder = ImmutableMap.builder();
+            final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
             for (final Map.Entry<String, Descriptors.FieldDescriptor> entry : Objects.requireNonNull(fieldDescriptorMap).entrySet()) {
                 final Descriptors.FieldDescriptor fieldDescriptor = entry.getValue();
                 //final TypeCode typeCode = TypeCode.fromProtobufType(fieldDescriptor.getType());
-                fieldIndexMapBuilder.put(entry.getKey(), fieldDescriptor.getNumber());
-                fieldTypeMapBuilder.put(entry.getKey(),
-                        fromProtoType(getMessageTypeIfMessage(fieldDescriptor), fieldDescriptor.getType(), fieldDescriptor.toProto().getLabel(), true));
+                fieldsBuilder.add(
+                        new Field(fromProtoType(getMessageTypeIfMessage(fieldDescriptor),
+                                fieldDescriptor.getType(),
+                                fieldDescriptor.toProto().getLabel(),
+                                true),
+                                Optional.of(entry.getKey()),
+                                Optional.of(fieldDescriptor.getNumber())));
             }
 
-            return new Record(isNullable, fieldTypeMapBuilder.build(), fieldIndexMapBuilder.build());
+            return fromFields(isNullable, fieldsBuilder.build());
         }
 
         @Nullable
@@ -697,6 +703,37 @@ public interface Type {
             return fieldDescriptors
                     .stream()
                     .collect(ImmutableMap.toImmutableMap(Descriptors.FieldDescriptor::getName, fieldDescriptor -> fieldDescriptor));
+        }
+
+        @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+        public static class Field {
+            @Nonnull
+            private final Type fieldType;
+            @Nonnull
+            private final Optional<String> fieldNameOptional;
+            @Nonnull
+            private final Optional<Integer> fieldIndexOptional;
+
+            public Field(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
+                this.fieldType = fieldType;
+                this.fieldNameOptional = fieldNameOptional;
+                this.fieldIndexOptional = fieldIndexOptional;
+            }
+
+            @Nonnull
+            public Type getFieldType() {
+                return fieldType;
+            }
+
+            @Nonnull
+            public Optional<String> getFieldNameOptional() {
+                return fieldNameOptional;
+            }
+
+            @Nonnull
+            public Optional<Integer> getFieldIndexOptional() {
+                return fieldIndexOptional;
+            }
         }
     }
 
@@ -810,7 +847,7 @@ public interface Type {
             return isNullable;
         }
 
-        public boolean needsNestedProto() {
+        public boolean definesNestedProto() {
             return needsNestedProto(elementType);
         }
 
@@ -826,6 +863,7 @@ public interface Type {
         @Nullable
         @Override
         public DescriptorProto buildDescriptor(@Nonnull final String typeName) {
+            Objects.requireNonNull(elementType);
             final DescriptorProto.Builder helperDescriptorBuilder = DescriptorProto.newBuilder();
             helperDescriptorBuilder.setName(typeName);
             elementType.addProtoField(helperDescriptorBuilder, 1, "value", typeName, FieldDescriptorProto.Label.LABEL_OPTIONAL);
@@ -835,11 +873,12 @@ public interface Type {
 
         @Override
         public void addProtoField(@Nonnull final DescriptorProto.Builder descriptorBuilder, final int fieldIndex, @Nonnull final String fieldName, @Nonnull final String typeName, @Nonnull final FieldDescriptorProto.Label label) {
+            Objects.requireNonNull(elementType);
             //
             // If the inner type is nullable, we need to create a nested helper message to keep track of
             // nulls.
             //
-            if (needsNestedProto()) {
+            if (definesNestedProto()) {
                 final DescriptorProto helperDescriptor = buildDescriptor(typeName);
 
                 descriptorBuilder.addNestedType(helperDescriptor);

@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
@@ -60,6 +59,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -254,20 +254,9 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         DynamicSchema.Builder schemaBuilder = DynamicSchema.newBuilder();
         schemaBuilder.setName("__dynamic__.proto");
 
-//        MessageDefinition msgDef = MessageDefinition.newBuilder("Person") // message Person
-//                .addField("required", "int32", "id", 1)      // required int32 id = 1
-//                .addField("required", "string", "name", 2)   // required string name = 2
-//                .addField("optional", "string", "email", 3)  // optional string email = 3
-//                .build();
-//
-//        schemaBuilder.addMessageDefinition(msgDef);
-//        DynamicSchema schema = schemaBuilder.build();
-//
-
-
         final Type.Record recordType =
-                Type.Record.fromTypeMap(ImmutableMap.of("field1", Type.primitiveType(Type.TypeCode.INT),
-                        "field2", Type.primitiveType(Type.TypeCode.STRING)));
+                Type.Record.fromFields(ImmutableList.of(new Type.Record.Field(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1"), Optional.empty()),
+                        new Type.Record.Field(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2"), Optional.empty())));
 
         schemaBuilder.addType("newType", recordType);
 

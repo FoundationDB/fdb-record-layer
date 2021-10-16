@@ -29,8 +29,9 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.google.common.base.Suppliers;
+import com.apple.foundationdb.record.query.predicates.Type.Record.Field;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -40,7 +41,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.function.Supplier;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -57,16 +58,12 @@ public class RecordConstructorValue implements Value {
     private final Map<String, ? extends Value> keyChildrenMap;
 
     @Nonnull
-    private final Map<String, Type> keyTypeMap;
+    private final Type.Record resultType;
 
-    @Nonnull
-    private final Supplier<Type> resultTypeSupplier;
-
-    private RecordConstructorValue(@Nonnull String protoTypeName, @Nonnull final Map<String, ? extends Value> keyChildrenMap, @Nonnull final Map<String, Type> keyTypeMap) {
+    private RecordConstructorValue(@Nonnull String protoTypeName, @Nonnull final Map<String, ? extends Value> keyChildrenMap, @Nonnull Type.Record resultType) {
         this.protoTypeName = protoTypeName;
         this.keyChildrenMap = ImmutableMap.copyOf(keyChildrenMap);
-        this.keyTypeMap = ImmutableMap.copyOf(keyTypeMap);
-        this.resultTypeSupplier = Suppliers.memoize(() -> Type.Record.fromTypeMap(keyTypeMap));
+        this.resultType = resultType;
     }
 
     @Nonnull
@@ -76,7 +73,7 @@ public class RecordConstructorValue implements Value {
 
     @Nullable
     @Override
-    @SuppressWarnings({"java:S6213", "unchecked"})
+    @SuppressWarnings("java:S6213")
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         final DynamicSchema dynamicSchema = context.getDynamicSchema();
         final DynamicMessage.Builder resultMessageBuilder = dynamicSchema.newMessageBuilder(protoTypeName);
@@ -91,22 +88,6 @@ public class RecordConstructorValue implements Value {
                 }
 
                 final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByName(key);
-
-//                final Type childResultType = child.getResultType();
-//                if (childResultType.getTypeCode() == Type.TypeCode.ARRAY && childResultType.isNullable()) {
-//                    final Collection<Object> childResultCollection = (Collection<Object>)childResult;
-//                    final Descriptors.Descriptor helperDescriptor = fieldDescriptor.getMessageType();
-//
-//                    childResult =
-//                            childResultCollection
-//                                    .stream()
-//                                    .map(childResultElement -> {
-//                                        final DynamicMessage.Builder helperMessageBuilder = DynamicMessage.newBuilder(helperDescriptor);
-//                                        helperMessageBuilder.setField(helperDescriptor.findFieldByNumber(1), childResultElement);
-//                                        return helperMessageBuilder.build();
-//                                    })
-//                                    .collect(ImmutableList.toImmutableList());
-//                }
 
                 resultMessageBuilder.setField(fieldDescriptor, childResult);
             }
@@ -127,7 +108,7 @@ public class RecordConstructorValue implements Value {
     @Nonnull
     @Override
     public Type getResultType() {
-        return resultTypeSupplier.get();
+        return resultType;
     }
 
     @Nonnull
@@ -150,7 +131,7 @@ public class RecordConstructorValue implements Value {
         }
         Verify.verify(!entryIterator.hasNext());
 
-        return new RecordConstructorValue(protoTypeName, newKeyChildrenMapBuilder.build(), keyTypeMap);
+        return new RecordConstructorValue(protoTypeName, newKeyChildrenMapBuilder.build(), resultType);
     }
 
     @Override
@@ -184,12 +165,15 @@ public class RecordConstructorValue implements Value {
     }
 
     public static RecordConstructorValue createAndRegister(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder, @Nonnull final Map<String, ? extends Value> keyChildrenMap) {
-        final ImmutableMap.Builder<String, Type> keyTypeMapBuilder = ImmutableMap.builder();
+        final ImmutableList.Builder<Field> fieldsBuilder = ImmutableList.builder();
         for (final Map.Entry<String, ? extends Value> entry : keyChildrenMap.entrySet()) {
-            keyTypeMapBuilder.put(entry.getKey(), entry.getValue().getResultType());
+            fieldsBuilder.add(new Field(entry.getValue().getResultType(), Optional.of(entry.getKey()), Optional.empty()));
         }
-        final ImmutableMap<String, Type> keyTypeMap = keyTypeMapBuilder.build();
-        final RecordConstructorValue recordConstructorValue = new RecordConstructorValue(Type.uniqueCompliantTypeName(), keyChildrenMap, keyTypeMap);
+
+        final RecordConstructorValue recordConstructorValue =
+                new RecordConstructorValue(Type.uniqueCompliantTypeName(),
+                        keyChildrenMap,
+                        Type.Record.fromFields(fieldsBuilder.build()));
 
         dynamicSchemaBuilder.addType(recordConstructorValue.getProtoTypeName(), recordConstructorValue.getResultType());
         return recordConstructorValue;
