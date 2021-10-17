@@ -102,6 +102,6 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
         final Set<String> allAvailableRecordTypes = recordMetaData.getRecordTypes().keySet();
         return new LogicalTypeFilterExpression(recordTypeNames,
                 Quantifier.forEach(GroupExpressionRef.of(new FullUnorderedScanExpression(allAvailableRecordTypes))),
-                ImmutableList.of(Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap)));
+                Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap));
     }
 }

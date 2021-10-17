@@ -97,18 +97,18 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
     @Override
     public LogicalProjectionExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        final ImmutableList<? extends Value> rebasedQueryPredicates =
+        final ImmutableList<? extends Value> rebasedValues =
                 requiredValues.stream()
-                        .map(queryPredicate -> queryPredicate.rebase(translationMap))
+                        .map(requiredValue -> requiredValue.rebase(translationMap))
                         .collect(ImmutableList.toImmutableList());
 
-        return new LogicalProjectionExpression(rebasedQueryPredicates,
+        return new LogicalProjectionExpression(rebasedValues,
                 Iterables.getOnlyElement(rebasedQuantifiers));
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
+    public List<? extends Value> getResultValue() {
         return requiredValues;
     }
 
@@ -123,7 +123,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
             return false;
         }
         final LogicalProjectionExpression otherLogicalProjectionExpression = (LogicalProjectionExpression)otherExpression;
-        final List<? extends Value> otherValues = otherLogicalProjectionExpression.getResultValues();
+        final List<? extends Value> otherValues = otherLogicalProjectionExpression.getResultValue();
         if (requiredValues.size() != otherValues.size()) {
             return false;
         }
@@ -145,7 +145,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValues());
+        return Objects.hash(getResultValue());
     }
 
     @Override
@@ -157,7 +157,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
                         ImmutableList.of("COMPUTE {{values}}"),
                         ImmutableMap.of("values",
-                                Attribute.gml(getResultValues().stream().map(Object::toString).collect(Collectors.joining(", "))))),
+                                Attribute.gml(getResultValue().stream().map(Object::toString).collect(Collectors.joining(", "))))),
                 childGraphs);
     }
 }

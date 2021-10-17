@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGrap
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -68,15 +69,14 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
     @Nonnull
     private final KeyExpression comparisonKey;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private LogicalIntersectionExpression(@Nonnull List<Quantifier.ForEach> quantifiers,
                                           @Nonnull KeyExpression comparisonKey) {
         this.quantifiers = ImmutableList.copyOf(quantifiers);
         this.comparisonKey = comparisonKey;
-
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValueSupplier = Suppliers.memoize(() -> TupleConstructorValue.ofUnnamed(MergeValue.pivotAndMergeValues(quantifiers)));
     }
 
     @Nonnull
@@ -113,8 +113,8 @@ public class LogicalIntersectionExpression implements RelationalExpressionWithCh
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Override

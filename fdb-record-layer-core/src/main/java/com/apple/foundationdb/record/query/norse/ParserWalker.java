@@ -37,8 +37,8 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.RecordConstructorValue;
 import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Type.TypeCode;
@@ -63,6 +63,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
@@ -609,17 +610,24 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final Lambda lambda = lambdaBodyWithResult(boundVariables, tupleContext);
         final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
         Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
-        final List<? extends Value> resultValues = TupleConstructorValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class));
+        final Value resultValue = TupleConstructorValue.wrapIfNotTuple(Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class)));
         quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
         final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
         final ImmutableList<QueryPredicate> predicates = predicatesBuilder.build();
         // optimization if there is only one quantifier and there are only trivial result values
         if (quantifiers.size() == 1 &&
                 predicates.isEmpty() &&
-                resultValues.stream().allMatch(resultValue -> resultValue instanceof QuantifiedColumnValue)) {
+                simpleSelectPossible(resultValue)) {
             return Iterables.getOnlyElement(Iterables.getOnlyElement(quantifiers).getRangesOver().getMembers());
         }
-        return new SelectExpression(resultValues, quantifiers, predicates);
+        return new SelectExpression(resultValue, quantifiers, predicates);
+    }
+
+    private static boolean simpleSelectPossible(@Nonnull final Value resultValue) {
+        if (resultValue instanceof TupleConstructorValue) {
+            return StreamSupport.stream(resultValue.getChildren().spliterator(), false).allMatch(value -> value instanceof QuantifiedColumnValue);
+        }
+        return false;
     }
 
     @Override
@@ -647,17 +655,15 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
         quantifiersBuilder.add(forEach);
-        final List<? extends QuantifiedColumnValue> flowedValues = forEach.getFlowedValues();
-
-        Verify.verify(!flowedValues.isEmpty());
+        final QuantifiedTupleValue flowedValue = forEach.getFlowedTupleValue();
 
         // process result
         final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
         // optimization if there is only one quantifier and there are only trivial result values
-        if (quantifiers.size() == 1) {
+        if (quantifiers.size() == 1 && simpleSelectPossible(flowedValue)) {
             return Iterables.getOnlyElement(Iterables.getOnlyElement(quantifiers).getRangesOver().getMembers());
         } else {
-            return new SelectExpression(flowedValues, quantifiers, ImmutableList.of());
+            return new SelectExpression(flowedValue, quantifiers, ImmutableList.of());
         }
     }
 
@@ -700,21 +706,6 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     @Override
     public Atom visitPrimaryExpressionFromIdentifier(final NorseParser.PrimaryExpressionFromIdentifierContext ctx) {
         return parserContext.resolveIdentifier(ctx.IDENTIFIER().getSymbol().getText());
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    @Override
-    public Atom visitRecordConstructor(final NorseParser.RecordConstructorContext ctx) {
-
-        final ImmutableMap.Builder<String, Value> keyChildMapBuilder = ImmutableMap.builder();
-        for (final NorseParser.KeyValueMappingContext keyValueMappingContext : ctx.keyValueMapping()) {
-            final String key = keyValueMappingContext.IDENTIFIER().getText();
-            final Atom childAtom = keyValueMappingContext.pipe().accept(this);
-            Verify.verify(childAtom instanceof Value);
-            keyChildMapBuilder.put(key, (Value)childAtom);
-        }
-
-        return RecordConstructorValue.createAndRegister(parserContext.getDynamicSchemaBuilder(), keyChildMapBuilder.build());
     }
 
     @Override
@@ -847,8 +838,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             final RecordQueryRangePlan rangePlan = new RecordQueryRangePlan(new LiteralValue<>(primitiveType(TypeCode.INT, false), 1));
 
             final Value topValue = (Value)topAtom;
-            final List<? extends Value> topValues = TupleConstructorValue.tryUnwrapIfTuple(ImmutableList.of(topValue));
-            topExpression = new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(rangePlan)), topValues);
+            topExpression = new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(rangePlan)), TupleConstructorValue.wrapIfNotTuple(topValue));
         } else {
             topExpression = (RelationalExpression)topAtom;
         }

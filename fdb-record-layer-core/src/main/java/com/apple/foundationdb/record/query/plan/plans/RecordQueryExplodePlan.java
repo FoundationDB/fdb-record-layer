@@ -40,9 +40,10 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -55,6 +56,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
+
 /**
  * A query plan that reconstructs records from the entries in a covering index.
  */
@@ -63,10 +66,10 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-Map-Plan");
 
     @Nonnull
-    private final Value resultValue;
+    private final Value collectionValue;
 
-    public RecordQueryExplodePlan(@Nonnull Value resultValue) {
-        this.resultValue = resultValue;
+    public RecordQueryExplodePlan(@Nonnull Value collectionValue) {
+        this.collectionValue = collectionValue;
     }
 
     @Nonnull
@@ -76,9 +79,9 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final Type.Array valueResultType = (Type.Array)resultValue.getResultType();
+        final Type.Array valueResultType = (Type.Array)collectionValue.getResultType();
 
-        List<Object> arrayAsList = (List<Object>)resultValue.eval(store, context, null, null);
+        List<Object> arrayAsList = (List<Object>)collectionValue.eval(store, context, null, null);
 
         if (arrayAsList == null || arrayAsList.isEmpty()) {
             return new EmptyCursor<>(store.getExecutor());
@@ -145,13 +148,13 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return resultValue.getCorrelatedTo();
+        return collectionValue.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public RecordQueryExplodePlan rebase(@Nonnull final AliasMap translationMap) {
-        return new RecordQueryExplodePlan(resultValue.rebase(translationMap));
+        return new RecordQueryExplodePlan(collectionValue.rebase(translationMap));
     }
 
     @Override
@@ -171,30 +174,26 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(resultValue);
-    }
-
-    @Nonnull
-    @Override
-    public Type.Stream getResultType() {
-        Verify.verify(resultValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY,
-                "cannot perform explode on type " + resultValue.getResultType());
-
-        final Type innerType = ((Type.Array)resultValue.getResultType()).getElementType();
-        return new Type.Stream(new Type.Tuple(ImmutableList.of(Objects.requireNonNull(innerType))));
+    public Value getResultValue() {
+        if (collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
+            final Type innerType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
+            return TupleConstructorValue.ofUnnamed(new QueriedValue(innerType));
+        } else {
+            // TODO currently needed for index candidate compilation
+            return TupleConstructorValue.ofUnnamed(new QueriedValue(primitiveType(Type.TypeCode.UNKNOWN)));
+        }
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return "explode(" + resultValue + ")";
+        return "explode(" + collectionValue + ")";
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "explode(" + resultValue.explain(formatter) + ")";
+        return "explode(" + collectionValue.explain(formatter) + ")";
     }
 
     @Override
@@ -222,7 +221,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValues());
+        return Objects.hash(getResultValue());
     }
 
     @Override
@@ -241,7 +240,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getResultValues());
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getResultValue());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -260,7 +259,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
                         ImmutableList.of("EXPLODE {{expr}}"),
-                        ImmutableMap.of("expr", Attribute.gml(resultValue))),
+                        ImmutableMap.of("expr", Attribute.gml(collectionValue))),
                 childGraphs);
     }
 }

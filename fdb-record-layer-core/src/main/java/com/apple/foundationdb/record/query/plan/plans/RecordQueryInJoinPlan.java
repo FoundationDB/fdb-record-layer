@@ -35,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.tuple.Tuple;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
@@ -45,7 +44,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Supplier;
 
 /**
  * A query plan that executes a child plan once for each of the elements of some {@code IN} list.
@@ -59,8 +57,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Nonnull
     protected final Quantifier.Physical inner;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
-    @Nonnull
     protected final String bindingName;
     protected final boolean sortValuesNeeded;
     protected final boolean sortReverse;
@@ -73,7 +69,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
         this.bindingName = bindingName;
         this.sortValuesNeeded = sortValuesNeeded;
         this.sortReverse = sortReverse;
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -131,8 +126,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedTupleValue();
     }
 
     @Override

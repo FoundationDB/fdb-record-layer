@@ -121,8 +121,8 @@ public class LogicalFilterExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedTupleValue();
     }
 
     @SuppressWarnings("UnstableApiUsage")

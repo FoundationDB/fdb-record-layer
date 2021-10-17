@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.view;
 
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -30,7 +30,7 @@ import javax.annotation.Nonnull;
 
 /**
  * A Hamcrest matcher that checks whether an {@link com.apple.foundationdb.record.query.predicates.Value} is a
- * {@link QuantifiedObjectValue}.
+ * {@link QuantifiedTupleValue}.
  */
 public class ObjectValueMatcher extends ValueMatcher {
     @Nonnull
@@ -42,7 +42,7 @@ public class ObjectValueMatcher extends ValueMatcher {
 
     @Override
     protected boolean matchesSafely(Value value) {
-        return value instanceof QuantifiedObjectValue;
+        return value instanceof QuantifiedTupleValue;
     }
 
     @Override

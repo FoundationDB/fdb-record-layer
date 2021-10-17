@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
@@ -66,12 +65,12 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
-    private final List<? extends Value> resultValues;
+    private final Value resultValue;
 
     public RecordQueryMapPlan(@Nonnull Quantifier.Physical inner,
-                              @Nonnull List<? extends Value> resultValues) {
+                              @Nonnull Value resultValue) {
         this.inner = inner;
-        this.resultValues = ImmutableList.copyOf(resultValues);
+        this.resultValue = resultValue;
     }
 
     @Nonnull
@@ -83,11 +82,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
         return new MapCursor<>(getChild().executePlan(store, context, continuation, executeProperties),
                 queryResult -> {
                     final EvaluationContext nestedContext = context.withBinding(inner.getAlias(), queryResult);
-                    final List<Object> result = Lists.newArrayList();
-                    for (final Value resultValue : resultValues) {
-                        result.add(resultValue.eval(store, nestedContext, null, null));
-                    }
-                    return QueryResult.of(result);
+                    return QueryResult.of(Lists.newArrayList(resultValue.eval(store, nestedContext, null, null)));
                 });
     }
 
@@ -99,22 +94,20 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), resultValues);
+        return new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), resultValue);
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return resultValues.stream()
-                .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
-                .collect(ImmutableSet.toImmutableSet());
+        return resultValue.getCorrelatedTo();
     }
 
     @Nonnull
     @Override
     public RecordQueryMapPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         Verify.verify(rebasedQuantifiers.size() == 1);
-        final ImmutableList<? extends Value> rebasedResultValues = resultValues.stream().map(r -> r.rebase(translationMap)).collect(ImmutableList.toImmutableList());
+        final Value rebasedResultValues = resultValue.rebase(translationMap);
         return new RecordQueryMapPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), rebasedResultValues);
     }
 
@@ -135,14 +128,14 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValues;
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return "map(" + getChild() + "[" + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "])";
+        return "map(" + getChild() + "[" + resultValue + "])";
     }
 
     @Nonnull
@@ -151,9 +144,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
         formatter.registerForFormatting(inner.getAlias());
 
         final Set<CorrelationIdentifier> correlatedAliases =
-                resultValues.stream()
-                        .flatMap(resultValue -> resultValue.getCorrelatedTo().stream())
-                        .collect(ImmutableSet.toImmutableSet());
+                resultValue.getCorrelatedTo();
 
         correlatedAliases.forEach(formatter::registerForFormatting);
 
@@ -163,7 +154,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                         .collect(Collectors.joining(", "));
         final String explainInner = Iterables.getOnlyElement(inner.getRangesOver().getMembers()).explain(formatter);
 
-        return "map(" + explainInner + ", (" + boundVariables + ") => (" + resultValues.stream().map(resultValue -> resultValue.explain(formatter)).collect(Collectors.joining(", ")) + "))";
+        return "map(" + explainInner + ", (" + boundVariables + ") => (" + resultValue.explain(formatter) + "))";
     }
 
     @Override
@@ -191,7 +182,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValues());
+        return Objects.hash(getResultValue());
     }
 
     @Override
@@ -210,7 +201,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), getResultValues());
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChild(), getResultValue());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -229,7 +220,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
                         ImmutableList.of("MAP {{expr}}"),
-                        ImmutableMap.of("expr", Attribute.gml(getResultValues().stream().map(Object::toString).collect(Collectors.joining(", "))))),
+                        ImmutableMap.of("expr", Attribute.gml(getResultValue().toString()))),
                 childGraphs);
     }
 }

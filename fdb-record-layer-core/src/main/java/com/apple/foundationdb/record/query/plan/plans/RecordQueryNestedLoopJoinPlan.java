@@ -135,7 +135,7 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
+    public List<? extends Value> getResultValue() {
         return resultValuesSupplier.get();
     }
 
@@ -182,7 +182,7 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValues());
+        return Objects.hash(getResultValue());
     }
 
     @Override
@@ -201,7 +201,7 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
             case LEGACY:
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, outer.getRangesOverPlan(), inner.getRangesOverPlan(), getResultValues());
+                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, outer.getRangesOverPlan(), inner.getRangesOverPlan(), getResultValue());
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }

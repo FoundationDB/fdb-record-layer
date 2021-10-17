@@ -76,7 +76,7 @@ public class WhereFn extends BuiltInFunction<RelationalExpression> {
         if (resultValue instanceof BooleanValue) {
             final Optional<? extends QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
             if (queryPredicateOptional.isPresent()) {
-                return new SelectExpression(argumentValues,
+                return new SelectExpression(inQuantifier.getFlowedTupleValue(),
                         ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                         ImmutableList.of(queryPredicateOptional.get()));
             }

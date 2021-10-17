@@ -70,7 +70,9 @@ public class SelectFn extends BuiltInFunction<RelationalExpression> {
         final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
         final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
         Verify.verify(graphExpansion.getPredicates().isEmpty());
-        return new SelectExpression(TupleConstructorValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)),
+        final List<? extends Value> resultsAsValues = graphExpansion.getResultsAs(Value.class);
+        final Value resultValue = Iterables.getOnlyElement(resultsAsValues);
+        return new SelectExpression(TupleConstructorValue.wrapIfNotTuple(resultValue),
                 ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                 ImmutableList.of());
     }

@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -89,7 +90,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
     private final boolean reverse;
 
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
     private RecordQueryIntersectionPlan(@Nonnull List<Quantifier.Physical> quantifiers,
@@ -100,7 +101,7 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
         this.comparisonKey = comparisonKey;
         this.reverse = reverse;
 
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValueSupplier = Suppliers.memoize(() -> TupleConstructorValue.ofUnnamed(MergeValue.pivotAndMergeValues(quantifiers)));
     }
 
     @Nonnull
@@ -175,8 +176,8 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Override

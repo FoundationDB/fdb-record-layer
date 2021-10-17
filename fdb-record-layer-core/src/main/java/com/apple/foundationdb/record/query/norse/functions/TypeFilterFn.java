@@ -102,6 +102,6 @@ public class TypeFilterFn extends BuiltInFunction<RelationalExpression> {
                                 })));
 
         return new RecordQueryTypeFilterPlan(Quantifier.physical(GroupExpressionRef.of((RelationalExpression)arguments.get(0))), recordTypeNames,
-                ImmutableList.of(Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap)));
+                Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap));
     }
 }

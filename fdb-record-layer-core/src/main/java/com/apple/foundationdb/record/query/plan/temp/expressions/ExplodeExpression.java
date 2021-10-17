@@ -35,6 +35,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QueriedValue;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
@@ -55,34 +57,28 @@ import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 @API(API.Status.EXPERIMENTAL)
 public class ExplodeExpression implements RelationalExpression, InternalPlannerGraphRewritable {
     @Nonnull
-    private final Value resultValue;
+    private final Value collectionValue;
 
-    public ExplodeExpression(@Nonnull final Value resultValue) {
-        this.resultValue = resultValue;
+    public ExplodeExpression(@Nonnull final Value collectionValue) {
+        this.collectionValue = collectionValue;
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(resultValue);
-    }
-
-    @Nonnull
-    @Override
-    public Type.Stream getResultType() {
-        if (resultValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
-            final Type innerType = ((Type.Array)resultValue.getResultType()).getElementType();
-            return new Type.Stream(new Type.Tuple(ImmutableList.of(Objects.requireNonNull(innerType))));
+    public Value getResultValue() {
+        if (collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
+            final Type innerType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
+            return TupleConstructorValue.ofUnnamed(new QueriedValue(innerType));
         } else {
             // TODO currently needed for index candidate compilation
-            return new Type.Stream(new Type.Tuple(ImmutableList.of(primitiveType(Type.TypeCode.UNKNOWN))));
+            return TupleConstructorValue.ofUnnamed(new QueriedValue(primitiveType(Type.TypeCode.UNKNOWN)));
         }
     }
 
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return "[" + resultValue.explain(formatter) + "]";
+        return "[" + collectionValue.explain(formatter) + "]";
     }
 
     @Nonnull
@@ -94,7 +90,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedTo() {
-        return resultValue.getCorrelatedTo();
+        return collectionValue.getCorrelatedTo();
     }
 
     @Override
@@ -115,8 +111,8 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     @Nonnull
     @Override
     public ExplodeExpression rebase(@Nonnull final AliasMap translationMap) {
-        final Value rebasedResultValue = resultValue.rebase(translationMap);
-        if (rebasedResultValue == this.resultValue) {
+        final Value rebasedResultValue = collectionValue.rebase(translationMap);
+        if (rebasedResultValue == this.collectionValue) {
             return this;
         } else {
             return new ExplodeExpression(rebasedResultValue);
@@ -149,7 +145,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
 
     @Override
     public String toString() {
-        return resultValue.toString();
+        return collectionValue.toString();
     }
 
     public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,

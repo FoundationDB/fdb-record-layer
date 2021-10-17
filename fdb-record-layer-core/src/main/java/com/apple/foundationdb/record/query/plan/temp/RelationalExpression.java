@@ -35,10 +35,9 @@ import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.rules.AdjustMatchRule;
-import com.apple.foundationdb.record.query.predicates.FieldValue;
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -46,7 +45,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -150,7 +148,7 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     @Override
     default Type.Stream getResultType() {
-        return new Type.Stream(new Type.Tuple(getResultValues().stream().map(Value::getResultType).collect(ImmutableList.toImmutableList())));
+        return new Type.Stream(getResultValue().getResultType());
     }
 
     @Nonnull
@@ -162,32 +160,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     }
 
     @Nonnull
-    List<? extends Value> getResultValues();
+    Value getResultValue();
 
-    /**
-     * Return all {@link FieldValue}s contained in the result values of this expression.
-     * @return a set of {@link FieldValue}s
-     */
-    default ImmutableSet<FieldValue> getFieldValuesFromResultValues() {
-        return getResultValues()
-                .stream()
-                .flatMap(resultValue ->
-                        StreamSupport.stream(resultValue
-                                .filter(v -> v instanceof FieldValue).spliterator(), false))
-                .map(value -> (FieldValue)value)
-                .collect(ImmutableSet.toImmutableSet());
-    }
-
-    @SuppressWarnings({"java:S3655", "UnstableApiUsage"})
+    @SuppressWarnings("java:S3655")
     default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
-        final List<? extends Value> resultValues = getResultValues();
-        final List<? extends Value> otherResultValues = otherExpression.getResultValues();
-        if (resultValues.size() != otherResultValues.size()) {
-            return false;
-        }
-        return Streams.zip(resultValues.stream(), otherResultValues.stream(),
-                (resultValue, otherResultValue) -> resultValue.semanticEquals(otherResultValue, aliasMap))
-                .allMatch(isEquals -> isEquals);
+        return getResultValue().semanticEquals(otherExpression.getResultValue(), aliasMap);
     }
 
     /**

@@ -57,7 +57,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A relational planner expression that represents an unimplemented sort on the records produced by its inner
@@ -151,9 +150,6 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Nonnull
     private final Quantifier inner;
 
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
-
     /**
      * Overloaded constructor. Creates a new {@link MatchableSortExpression}
      * @param sortParameterIds a list of parameter ids defining the order
@@ -180,7 +176,6 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
         this.sortParameterIds = ImmutableList.copyOf(sortParameterIds);
         this.isReverse = isReverse;
         this.inner = inner;
-        this.resultValuesSupplier = inner::getFlowedValues;
     }
 
     @Nonnull
@@ -309,8 +304,8 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return inner.getFlowedTupleValue();
     }
 
     @Override

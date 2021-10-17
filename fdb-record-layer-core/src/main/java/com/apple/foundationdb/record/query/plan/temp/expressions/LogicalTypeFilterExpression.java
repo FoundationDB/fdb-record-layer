@@ -37,7 +37,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
 import com.apple.foundationdb.record.query.predicates.Formatter;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
@@ -66,9 +66,9 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
     @Nonnull
     private final Quantifier inner;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
     @Nullable
-    private final List<? extends Type> resultTypes;
+    private final Type.Record resultType;
 
     public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull RelationalExpression inner) {
         this(recordTypes, Quantifier.forEach(GroupExpressionRef.of(inner)));
@@ -78,33 +78,26 @@ public class LogicalTypeFilterExpression implements TypeFilterExpression, Planne
         this(recordTypes, inner, null);
     }
 
-    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner, @Nullable final List<? extends Type> resultTypes) {
+    public LogicalTypeFilterExpression(@Nonnull Set<String> recordTypes, @Nonnull Quantifier inner, @Nullable Type.Record resultType) {
         this.recordTypes = recordTypes;
         this.inner = inner;
-        this.resultTypes = resultTypes == null ? null : ImmutableList.copyOf(resultTypes);
-        this.resultValuesSupplier = this::computeResultValues;
+        this.resultType = resultType;
+        this.resultValueSupplier = this::computeResultValue;
     }
 
     @Nonnull
-    public List<? extends Value> computeResultValues() {
-        if (resultTypes == null) {
-            return inner.getFlowedValues();
+    public Value computeResultValue() {
+        if (resultType == null) {
+            return inner.getFlowedTupleValue();
         }
 
-        final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
-        int i = 0;
-        for (final QuantifiedColumnValue value : inner.getFlowedValues()) {
-            resultBuilder.add(QuantifiedColumnValue.of(value.getAlias(), value.getOrdinalPosition(), resultTypes.get(i)));
-            i ++;
-        }
-
-        return resultBuilder.build();
+        return QuantifiedTupleValue.of(inner.getAlias(), resultType);
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Override

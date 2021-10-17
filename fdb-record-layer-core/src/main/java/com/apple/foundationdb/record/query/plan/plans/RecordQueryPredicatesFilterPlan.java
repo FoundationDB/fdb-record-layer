@@ -38,8 +38,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -53,7 +51,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
 
 /**
  * A query plan that filters out records from a child plan that do not satisfy a {@link QueryPredicate}.
@@ -66,15 +63,12 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     private final List<QueryPredicate> predicates;
     @Nonnull
     private final QueryPredicate conjunctedPredicate;
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public RecordQueryPredicatesFilterPlan(@Nonnull Quantifier.Physical inner,
                                            @Nonnull Iterable<? extends QueryPredicate> predicates) {
         super(inner);
         this.predicates = ImmutableList.copyOf(predicates);
         this.conjunctedPredicate = AndPredicate.and(this.predicates);
-        this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
     }
 
     @Nonnull
@@ -132,12 +126,6 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
         return new RecordQueryPredicatesFilterPlan(Quantifier.physical(GroupExpressionRef.of(child)), getPredicates());
-    }
-
-    @Nonnull
-    @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
     }
 
     @SuppressWarnings("UnstableApiUsage")

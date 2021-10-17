@@ -81,16 +81,16 @@ import java.util.stream.Stream;
 @API(API.Status.EXPERIMENTAL)
 public class SelectExpression implements RelationalExpressionWithChildren, RelationalExpressionWithPredicates, InternalPlannerGraphRewritable {
     @Nonnull
-    private final List<? extends Value> resultValues;
+    private final Value resultValue;
     @Nonnull
     private final List<Quantifier> children;
     @Nonnull
     private final List<? extends QueryPredicate> predicates;
 
-    public SelectExpression(@Nonnull List<? extends Value> resultValues,
+    public SelectExpression(@Nonnull Value resultValue,
                             @Nonnull List<? extends Quantifier> children,
                             @Nonnull List<? extends QueryPredicate> predicates) {
-        this.resultValues = ImmutableList.copyOf(resultValues);
+        this.resultValue = resultValue;
         this.children = ImmutableList.copyOf(children);
         this.predicates = predicates.isEmpty()
                           ? ImmutableList.of()
@@ -99,8 +99,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValues;
+    public Value getResultValue() {
+        return resultValue;
     }
 
     @Nonnull
@@ -129,7 +129,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
         return Streams.concat(predicates.stream().flatMap(queryPredicate -> queryPredicate.getCorrelatedTo().stream()),
-                resultValues.stream().flatMap(resultValue -> resultValue.getCorrelatedTo().stream()))
+                resultValue.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
     }
 
@@ -143,8 +143,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Override
     public SelectExpression rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         final List<QueryPredicate> rebasedPredicates = predicates.stream().map(p -> p.rebase(translationMap)).collect(Collectors.toList());
-        final ImmutableList<Value> rebasedResultValues = resultValues.stream().map(r -> r.rebase(translationMap)).collect(ImmutableList.toImmutableList());
-        return new SelectExpression(rebasedResultValues, rebasedQuantifiers, rebasedPredicates);
+        final Value rebasedResultValue = resultValue.rebase(translationMap);
+        return new SelectExpression(rebasedResultValue, rebasedQuantifiers, rebasedPredicates);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -180,7 +180,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getResultValues(), getPredicates());
+        return Objects.hash(getResultValue(), getPredicates());
     }
 
     @Nonnull
@@ -230,9 +230,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             }
         }
 
-        for (final Value resultValue : getResultValues()) {
-            matchedCorrelatedToBuilder.addAll(resultValue.getCorrelatedTo());
-        }
+        matchedCorrelatedToBuilder.addAll(resultValue.getCorrelatedTo());
 
         final ImmutableSet<CorrelationIdentifier> matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
 
@@ -389,14 +387,14 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.LogicalOperatorNode(this,
                         "Select",
-                        ImmutableList.of("SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) +  " WHERE " + AndPredicate.and(getPredicates())),
+                        ImmutableList.of("SELECT " + resultValue +  " WHERE " + AndPredicate.and(getPredicates())),
                         ImmutableMap.of()),
                 childGraphs);
     }
 
     @Override
     public String toString() {
-        return "SELECT " + resultValues.stream().map(Object::toString).collect(Collectors.joining(", ")) + "WHERE " + AndPredicate.and(getPredicates());
+        return "SELECT " + resultValue + " WHERE " + AndPredicate.and(getPredicates());
     }
 
     @Nonnull
@@ -405,7 +403,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         if (getQuantifiers().size() == 1 && predicates.isEmpty()) {
             final Quantifier quantifier = Iterables.getOnlyElement(getQuantifiers());
 
-            final boolean allSimpleColumns = getResultValues().stream().allMatch(value -> value instanceof QuantifiedColumnValue && ((QuantifiedColumnValue)value).getAlias().equals(quantifier.getAlias()));
+            final boolean allSimpleColumns = resultValue instanceof QuantifiedColumnValue && ((QuantifiedColumnValue)resultValue).getAlias().equals(quantifier.getAlias());
             if (allSimpleColumns) {
                 return Iterables.getOnlyElement(Iterables.getOnlyElement(getQuantifiers()).getRangesOver().getMembers()).explain(formatter);
             }
@@ -413,9 +411,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         getQuantifiers().forEach(formatter::registerForFormatting);
 
-        final String explainResultValues = resultValues.stream()
-                .map(resultValue -> resultValue.explain(formatter))
-                .collect(Collectors.joining(", "));
+        final String explainResultValues = resultValue.explain(formatter);
 
         final String explainQuantifiers = getQuantifiers().stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)

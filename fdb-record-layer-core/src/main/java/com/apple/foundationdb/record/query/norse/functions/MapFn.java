@@ -37,6 +37,7 @@ import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -72,6 +73,9 @@ public class MapFn extends BuiltInFunction<RelationalExpression> {
         Verify.verify(graphExpansion.getQuantifiers().isEmpty());
         Verify.verify(graphExpansion.getPredicates().isEmpty());
 
-        return new RecordQueryMapPlan(inQuantifier, TupleConstructorValue.tryUnwrapIfTuple(graphExpansion.getResultsAs(Value.class)));
+        final List<? extends Value> resultsAsValues = graphExpansion.getResultsAs(Value.class);
+        final Value resultValue = Iterables.getOnlyElement(resultsAsValues);
+
+        return new RecordQueryMapPlan(inQuantifier, TupleConstructorValue.wrapIfNotTuple(resultValue));
     }
 }

@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
@@ -289,7 +290,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                             .addAll(getResultsAs(Value.class))
                             .build();
 
-            return new SelectExpression(allResultValues, quantifiers, getPredicates());
+            return new SelectExpression(TupleConstructorValue.ofUnnamed(allResultValues), quantifiers, getPredicates());
         }
 
         @Nonnull

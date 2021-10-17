@@ -48,9 +48,9 @@ import java.util.Optional;
 public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Value");
     @Nonnull
-    private final QuantifiedObjectValue child;
+    private final QuantifiedTupleValue child;
 
-    public ExistsValue(@Nonnull QuantifiedObjectValue child) {
+    public ExistsValue(@Nonnull QuantifiedTupleValue child) {
         this.child = child;
     }
 
@@ -77,8 +77,8 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
     public ExistsValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 1);
         final Value newChild = Iterables.getOnlyElement(newChildren);
-        Verify.verify(newChild instanceof QuantifiedObjectValue);
-        return new ExistsValue((QuantifiedObjectValue)newChild);
+        Verify.verify(newChild instanceof QuantifiedTupleValue);
+        return new ExistsValue((QuantifiedTupleValue)newChild);
     }
 
     @Override
@@ -130,7 +130,7 @@ public class ExistsValue implements BooleanValue, Value.CompileTimeValue {
             final Quantifier.Existential existsQuantifier = Quantifier.existential(GroupExpressionRef.of((RelationalExpression)in));
             graphExpansionBuilder.addQuantifier(existsQuantifier);
 
-            return new ExistsValue(new QuantifiedObjectValue(existsQuantifier.getAlias()));
+            return new ExistsValue(QuantifiedTupleValue.of(existsQuantifier.getAlias()));
         }
     }
 }

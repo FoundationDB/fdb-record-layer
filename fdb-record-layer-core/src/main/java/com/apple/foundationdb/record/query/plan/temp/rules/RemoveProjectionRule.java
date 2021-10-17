@@ -66,7 +66,7 @@ public class RemoveProjectionRule extends PlannerRule<LogicalProjectionExpressio
             // if the fetch is able to push all values we can eliminate the fetch as well
             final RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan)innerPlan;
             final CorrelationIdentifier newInnerAlias = CorrelationIdentifier.uniqueID();
-            final List<? extends Value> resultValues = projectionExpression.getResultValues();
+            final List<? extends Value> resultValues = projectionExpression.getResultValue();
             final boolean allPushable = resultValues
                     .stream()
                     .allMatch(value -> fetchPlan.pushValue(value, newInnerAlias).isPresent());

@@ -21,15 +21,20 @@
 package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.record.query.norse.DelayedEncapsulationFunction;
+import com.apple.foundationdb.record.query.norse.SemanticException;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.Var;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -69,21 +74,24 @@ public class Lambda implements Atom {
     }
 
     @Nonnull
-    public GraphExpansion unifyBody(@Nonnull List<? extends Value> argumentValues) {
-        final Map<String, Value> boundIdentifiers;
-        if (parameterNameOptionals.isEmpty() && !argumentValues.isEmpty()) {
-            // implied lambda -- bind "_"/"_1", etc.
+    public GraphExpansion unifyBody(@Nullable Value argumentValue) {
+        Map<String, Value> boundIdentifiers = ImmutableMap.of();
+        if (parameterNameOptionals.isEmpty()) {
+            // implied lambda -- bind "_"
 
-            if (argumentValues.size() == 1) {
-                boundIdentifiers = ImmutableMap.of("_", argumentValues.get(0));
-            } else {
-                final ImmutableMap.Builder<String, Value> boundIdentifiersBuilder = ImmutableMap.builder();
-                for (int i = 0; i < argumentValues.size(); i ++) {
-                    boundIdentifiersBuilder.put("_" + (i + 1), argumentValues.get(i));
-                }
-                boundIdentifiers = boundIdentifiersBuilder.build();
+            if (argumentValue != null) {
+                boundIdentifiers = ImmutableMap.of("_", argumentValue);
             }
         } else {
+            Objects.requireNonNull(argumentValue);
+            if (argumentValue.getResultType().getTypeCode() == Type.TypeCode.TUPLE) {
+                (Type.Record)argumentValue;
+            } else {
+                SemanticException.check(parameterNameOptionals.size() == 1, "cannot match non-tuple type with more than one parameter");
+                if (parameterNameOptionals.get(0).isPresent()) {
+                    boundIdentifiers = ImmutableMap.of(parameterNameOptionals.get(0).get(), argumentValue);
+                }
+            }
             if (argumentValues.size() != parameterNameOptionals.size()) {
                 throw new IllegalArgumentException("number of provided parameters for lambda does not match number of elements in tuple");
             }

@@ -32,7 +32,7 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.ExistsPredicate;
-import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
@@ -108,7 +108,7 @@ public class OneOfThemWithComparison extends BaseRepeatedField implements Compon
                 .build();
         final Quantifier childBase = Quantifier.forEach(GroupExpressionRef.of(ExplodeExpression.explodeField(baseAlias, 0, fieldNames)));
         final SelectExpression selectExpression =
-                GraphExpansion.ofPredicate(new QuantifiedObjectValue(childBase.getAlias()).withComparison(comparison)).buildSelectWithBase(childBase);
+                GraphExpansion.ofPredicate(QuantifiedTupleValue.of(childBase.getAlias()).withComparison(comparison)).buildSelectWithBase(childBase);
         final Quantifier.Existential childQuantifier = Quantifier.existential(GroupExpressionRef.of(selectExpression));
 
         // create a query component that creates a path to this prefix and then applies this to it

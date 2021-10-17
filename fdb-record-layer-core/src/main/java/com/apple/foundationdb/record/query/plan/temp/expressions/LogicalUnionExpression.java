@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.MergeValue;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableSet;
@@ -44,11 +45,11 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren 
     @Nonnull
     private final List<? extends Quantifier> quantifiers;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
 
     public LogicalUnionExpression(@Nonnull List<? extends Quantifier> quantifiers) {
         this.quantifiers = quantifiers;
-        this.resultValuesSupplier = Suppliers.memoize(() -> MergeValue.pivotAndMergeValues(quantifiers));
+        this.resultValueSupplier = Suppliers.memoize(() -> TupleConstructorValue.ofUnnamed(MergeValue.pivotAndMergeValues(quantifiers)));
     }
 
     @Override
@@ -84,8 +85,8 @@ public class LogicalUnionExpression implements RelationalExpressionWithChildren 
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Override

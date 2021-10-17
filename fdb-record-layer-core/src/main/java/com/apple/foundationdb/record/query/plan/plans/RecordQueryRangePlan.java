@@ -69,14 +69,8 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public Type.Stream getResultType() {
-        return new Type.Stream(new Type.Tuple(ImmutableList.of(Type.primitiveType(Type.TypeCode.INT))));
-    }
-
-    @Nonnull
-    @Override
-    public List<? extends Value> getResultValues() {
-        return ImmutableList.of(new QueriedValue(Type.primitiveType(Type.TypeCode.INT)));
+    public Value getResultValue() {
+        return new QueriedValue(Type.primitiveType(Type.TypeCode.INT));
     }
 
     @Nonnull

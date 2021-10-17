@@ -60,6 +60,14 @@ public interface Type {
         return getTypeCode().isNumeric();
     }
 
+    default <T extends Type> Optional<T> narrow(@Nonnull final Class<T> clazz) {
+        if (clazz.isInstance(this)) {
+            return Optional.of(clazz.cast(this));
+        } else {
+            return Optional.empty();
+        }
+    }
+
     @Nullable
     DescriptorProto buildDescriptor(@Nonnull final String typeName);
 
@@ -407,17 +415,16 @@ public interface Type {
 
         @Nullable
         private final List<Field> fields;
-        @Nullable
-        private final Map<String, Type> fieldTypeMap;
+        @Nonnull
+        private final Supplier<Map<String, Type>> fieldTypeMapSupplier;
         @Nonnull
         private final Supplier<List<Type>> elementTypesSupplier;
 
         private Record(final boolean isNullable,
-                       @Nullable final List<Field> fields,
-                       @Nullable final Map<String, Type> fieldTypeMap) {
+                       @Nullable final List<Field> fields) {
             this.isNullable = isNullable;
             this.fields = fields == null ? null : ImmutableList.copyOf(fields);
-            this.fieldTypeMap = fieldTypeMap == null ? null : ImmutableMap.copyOf(fieldTypeMap);
+            this.fieldTypeMapSupplier = Suppliers.memoize(this::computeFieldTypeMap);
             this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
         }
 
@@ -437,7 +444,7 @@ public interface Type {
         }
 
         @Nullable
-        public List<Type> getElementType() {
+        public List<Type> getElementTypes() {
             return elementTypesSupplier.get();
         }
 
@@ -450,11 +457,18 @@ public interface Type {
 
         @Nullable
         public Map<String, Type> getFieldTypeMap() {
-            return fieldTypeMap;
+            return fieldTypeMapSupplier.get();
+        }
+
+        @SuppressWarnings("OptionalGetWithoutIsPresent")
+        private Map<String, Type> computeFieldTypeMap() {
+            return Objects.requireNonNull(fields).stream()
+                    .filter(field -> field.getFieldNameOptional().isPresent())
+                    .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Field::getFieldType));
         }
 
         boolean isErased() {
-            return fields == null || fieldTypeMap == null;
+            return fields == null;
         }
 
         @Nullable
@@ -494,7 +508,7 @@ public interface Type {
 
         @Override
         public int hashCode() {
-            return Objects.hash(getTypeCode().hashCode(), isNullable(), fields, fieldTypeMap);
+            return Objects.hash(getTypeCode().hashCode(), isNullable(), fields);
         }
 
         @Override
@@ -511,8 +525,7 @@ public interface Type {
 
             return getTypeCode() == otherType.getTypeCode() && isNullable() == otherType.isNullable() &&
                    ((isErased() && otherType.isErased()) ||
-                    (Objects.requireNonNull(fields).equals(otherType.fields) &&
-                     Objects.requireNonNull(fieldTypeMap).equals(otherType.fieldTypeMap)));
+                    (Objects.requireNonNull(fields).equals(otherType.fields)));
         }
 
         @Override
@@ -523,7 +536,7 @@ public interface Type {
         }
 
         public static Record erased() {
-            return new Record(true, null, null);
+            return new Record(true,  null);
         }
 
         public static Record fromFields(@Nonnull final List<Field> fields) {
@@ -531,14 +544,7 @@ public interface Type {
         }
 
         public static Record fromFields(final boolean isNullable, @Nonnull final List<Field> fields) {
-            return new Record(isNullable, fields, computeFieldTypeMap(fields));
-        }
-
-        @SuppressWarnings("OptionalGetWithoutIsPresent")
-        private static Map<String, Type> computeFieldTypeMap(@Nonnull final List<Field> fields) {
-            return fields.stream()
-                    .filter(field -> field.getFieldNameOptional().isPresent())
-                    .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Field::getFieldType));
+            return new Record(isNullable, fields);
         }
 
         public static Record fromFieldDescriptorsMap(final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap) {
@@ -657,6 +663,25 @@ public interface Type {
                 return fieldIndexOptional;
             }
 
+            @Override
+            public boolean equals(final Object o) {
+                if (this == o) {
+                    return true;
+                }
+                if (!(o instanceof Field)) {
+                    return false;
+                }
+                final Field field = (Field)o;
+                return getFieldType().equals(field.getFieldType()) &&
+                       getFieldNameOptional().equals(field.getFieldNameOptional()) &&
+                       getFieldIndexOptional().equals(field.getFieldIndexOptional());
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(getFieldType(), getFieldNameOptional(), getFieldIndexOptional());
+            }
+
             public static Field of(@Nonnull final Type fieldType, @Nonnull final Optional<String> fieldNameOptional, @Nonnull Optional<Integer> fieldIndexOptional) {
                 return new Field(fieldType, fieldNameOptional, fieldIndexOptional);
             }
@@ -669,13 +694,13 @@ public interface Type {
 
     class Stream implements Type {
         @Nullable
-        private final Record innerType;
+        private final Type innerType;
 
         public Stream() {
             this(null);
         }
 
-        public Stream(@Nullable final Record innerType) {
+        public Stream(@Nullable final Type innerType) {
             this.innerType = innerType;
         }
 
@@ -695,7 +720,7 @@ public interface Type {
         }
 
         @Nullable
-        public Record getInnerType() {
+        public Type getInnerType() {
             return innerType;
         }
 

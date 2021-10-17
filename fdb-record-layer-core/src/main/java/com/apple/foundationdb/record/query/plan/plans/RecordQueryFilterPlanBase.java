@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
@@ -110,6 +111,12 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
+    }
+
+    @Nonnull
+    @Override
+    public Value getResultValue() {
+        return getInner().getFlowedTupleValue();
     }
 
     @Override

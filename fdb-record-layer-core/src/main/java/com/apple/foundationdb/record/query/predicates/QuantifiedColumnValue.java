@@ -136,8 +136,8 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedObjectValue) {
-            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
+        if (otherValue instanceof QuantifiedTupleValue) {
+            return getAlias().equals(((QuantifiedTupleValue)otherValue).getAlias());
         }
         if (otherValue instanceof QuantifiedColumnValue) {
             final QuantifiedColumnValue otherQuantifierColumnValue = (QuantifiedColumnValue)otherValue;

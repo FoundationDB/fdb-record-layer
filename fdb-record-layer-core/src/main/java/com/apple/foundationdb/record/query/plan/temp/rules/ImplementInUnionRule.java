@@ -111,7 +111,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         if (!selectExpression.getPredicates().isEmpty()) {
             return;
         }
-        final List<? extends Value> resultValues = selectExpression.getResultValues();
+        final List<? extends Value> resultValues = selectExpression.getResultValue();
         final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
         if (resultValues.size() != 1) {
             return;
@@ -123,7 +123,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         }
 
         final ExplodeExpression explodeExpression = bindings.get(explodeExpressionMatcher);
-        final List<? extends Value> explodeResultValues = explodeExpression.getResultValues();
+        final List<? extends Value> explodeResultValues = explodeExpression.getResultValue();
         if (explodeResultValues.size() != 1) {
             return;
         }

@@ -108,23 +108,7 @@ public class FieldValue implements ValueWithChild {
         if (!(childResult instanceof Message)) {
             return null;
         }
-        final Object fieldValue = MessageValue.getFieldValue((Message)childResult, fieldPath);
-
-//        if (resultType.getTypeCode() == Type.TypeCode.ARRAY && fieldValue instanceof Collection &&
-//                Objects.requireNonNull(((Type.Array)resultType).getElementType()).isNullable()) {
-//            // this should probably be done on a lower layer
-//            final Collection<Object> collection = (Collection<Object>)fieldValue;
-//            return collection
-//                    .stream()
-//                    .map(object -> {
-//                        final Message nestedMessage = (Message)object;
-//                        final Descriptors.FieldDescriptor valueField = nestedMessage.getDescriptorForType().findFieldByNumber(1);
-//                        return nestedMessage.getField(valueField);
-//                    })
-//                    .collect(ImmutableList.toImmutableList());
-//        }
-
-        return fieldValue;
+        return MessageValue.getFieldValue((Message)childResult, fieldPath);
     }
 
     @Override

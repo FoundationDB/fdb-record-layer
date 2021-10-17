@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.apple.foundationdb.record.query.predicates.Formatter;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -73,9 +73,9 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     private final Collection<String> recordTypes;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
     @Nullable
-    private final List<? extends Type> resultTypes;
+    private final Type.Record resultType;
     @Nonnull
     private static final Set<StoreTimer.Count> inCounts = ImmutableSet.of(FDBStoreTimer.Counts.QUERY_FILTER_GIVEN, FDBStoreTimer.Counts.QUERY_TYPE_FILTER_PLAN_GIVEN);
     @Nonnull
@@ -93,11 +93,11 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
         this(inner, recordTypes, null);
     }
 
-    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes, @Nullable List<? extends Type> resultTypes) {
+    public RecordQueryTypeFilterPlan(@Nonnull Quantifier.Physical inner, @Nonnull Collection<String> recordTypes, @Nullable Type.Record resultType) {
         this.inner = inner;
         this.recordTypes = recordTypes;
-        this.resultValuesSupplier = Suppliers.memoize(this::computeResultValues);
-        this.resultTypes = resultTypes == null ? null : ImmutableList.copyOf(resultTypes);
+        this.resultType = resultType;
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @Nonnull
@@ -159,25 +159,18 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     }
 
     @Nonnull
-    public List<? extends Value> computeResultValues() {
-        if (resultTypes == null) {
-            return inner.getFlowedValues();
+    public Value computeResultValue() {
+        if (resultType == null) {
+            return inner.getFlowedTupleValue();
         }
 
-        final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
-        int i = 0;
-        for (final QuantifiedColumnValue value : inner.getFlowedValues()) {
-            resultBuilder.add(QuantifiedColumnValue.of(value.getAlias(), value.getOrdinalPosition(), resultTypes.get(i)));
-            i ++;
-        }
-
-        return resultBuilder.build();
+        return QuantifiedTupleValue.of(inner.getAlias(), resultType);
     }
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")

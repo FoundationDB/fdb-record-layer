@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewrita
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -48,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
 
 /**
  * A planner expression representing a full, unordered scan of the records by primary key, which is the logical version
@@ -67,12 +65,8 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
     @Nonnull
     private final Set<String> recordTypes;
 
-    @Nonnull
-    private final Supplier<List<? extends Value>> resultValueSupplier;
-
     public FullUnorderedScanExpression(final Set<String> recordTypes) {
         this.recordTypes = ImmutableSet.copyOf(recordTypes);
-        this.resultValueSupplier = Suppliers.memoize(this::computeResultValues);
     }
 
     @Nonnull
@@ -82,13 +76,8 @@ public class FullUnorderedScanExpression implements RelationalExpression, Planne
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValues() {
-        return resultValueSupplier.get();
-    }
-
-    @Nonnull
-    public List<? extends Value> computeResultValues() {
-        return ImmutableList.of(new QueriedValue(new Type.Any()));
+    public Value getResultValue() {
+        return new QueriedValue(new Type.Any());
     }
 
     @Nonnull
