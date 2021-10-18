@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
@@ -119,7 +119,7 @@ public class ValueIndexScanFn extends BuiltInFunction<RelationalExpression> {
             Verify.verify(typeCode.isPrimitive()); // TODO what to do for messages that encode nullabilities
 
             final GraphExpansion graphExpansion =
-                    lambda.unifyBody(ImmutableList.of(QuantifiedColumnValue.of(CorrelationIdentifier.UNGROUNDED, 0, Type.primitiveType(typeCode))));
+                    lambda.unifyBody(QuantifiedObjectValue.of(CorrelationIdentifier.UNGROUNDED, Type.primitiveType(typeCode)));
 
             Verify.verify(graphExpansion.getQuantifiers().isEmpty());
             Verify.verify(graphExpansion.getPredicates().isEmpty());

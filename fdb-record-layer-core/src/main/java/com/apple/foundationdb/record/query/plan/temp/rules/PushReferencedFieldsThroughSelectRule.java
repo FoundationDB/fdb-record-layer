@@ -75,7 +75,7 @@ public class PushReferencedFieldsThroughSelectRule extends PlannerRule<SelectExp
                 RelationalExpressionWithPredicates.fieldValuesFromPredicates(predicates);
 
         final Set<FieldValue> fieldValuesFromResultValues =
-                selectExpression.getFieldValuesFromResultValues();
+                getFieldValuesFromResultValues(selectExpression);
 
         final ExpressionRef<? extends RelationalExpression> lowerRef = bindings.get(lowerRefMatcher);
         final ImmutableSet<FieldValue> allReferencedValues = ImmutableSet.<FieldValue>builder()
@@ -95,12 +95,10 @@ public class PushReferencedFieldsThroughSelectRule extends PlannerRule<SelectExp
      * @return a set of {@link FieldValue}s
      */
     private ImmutableSet<FieldValue> getFieldValuesFromResultValues(@Nonnull final SelectExpression selectExpression) {
-        return selectExpression
-                .getResultValues()
-                .stream()
-                .flatMap(resultValue ->
-                        StreamSupport.stream(resultValue
-                                .filter(v -> v instanceof FieldValue).spliterator(), false))
+        return StreamSupport.stream(selectExpression
+                .getResultValue()
+                .filter(value -> value instanceof FieldValue)
+                .spliterator(), false)
                 .map(value -> (FieldValue)value)
                 .collect(ImmutableSet.toImmutableSet());
     }

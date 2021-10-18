@@ -23,9 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.Atom;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
@@ -38,6 +36,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -99,12 +98,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
     public <T extends Atom> List<? extends T> getResultsAs(@Nonnull final Class<T> narrowedClass) {
         return resultAtoms
                 .stream()
-                .map(t -> {
-                    if (narrowedClass.isInstance(t)) {
-                        return narrowedClass.cast(t);
-                    }
-                    throw new IllegalArgumentException("some results are not of type " + narrowedClass.getSimpleName());
-                })
+                .map(t -> t.narrow(narrowedClass).orElseThrow(() -> new IllegalArgumentException("some results are not of type " + narrowedClass.getSimpleName())))
                 .collect(ImmutableList.toImmutableList());
     }
 
@@ -277,12 +271,13 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
 
         @Nonnull
         private SelectExpression buildSelectWithQuantifiers(final List<Quantifier> quantifiers) {
-            final ImmutableList<? extends QuantifiedColumnValue> pulledUpResultValues =
-                    quantifiers
-                            .stream()
-                            .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
-                            .flatMap(quantifier -> quantifier.getFlowedValues().stream())
-                            .collect(ImmutableList.toImmutableList());
+            Verify.verify(!quantifiers.isEmpty());
+
+            final ImmutableList<? extends Value> pulledUpResultValues = quantifiers
+                    .stream()
+                    .filter(quantifier -> !(quantifier instanceof Quantifier.Existential))
+                    .map(Quantifier::getFlowedObjectValue)
+                    .collect(ImmutableList.toImmutableList());
 
             final ImmutableList<Value> allResultValues =
                     ImmutableList.<Value>builder()
@@ -290,7 +285,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                             .addAll(getResultsAs(Value.class))
                             .build();
 
-            return new SelectExpression(TupleConstructorValue.ofUnnamed(allResultValues), quantifiers, getPredicates());
+            return new SelectExpression(Quantifiers.flatten(allResultValues), quantifiers, getPredicates());
         }
 
         @Nonnull
@@ -367,14 +362,16 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
         }
 
         @Nonnull
-        public Builder addAtom(@Nonnull final Atom value) {
-            resultAtoms.add(value);
+        public Builder addAtom(@Nonnull final Atom atom) {
+            Objects.requireNonNull(atom);
+            resultAtoms.add(atom);
             return this;
         }
 
         @Nonnull
-        public Builder addAllAtoms(@Nonnull final List<? extends Atom> addValues) {
-            resultAtoms.addAll(addValues);
+        public Builder addAllAtoms(@Nonnull final List<? extends Atom> atoms) {
+            atoms.forEach(Objects::requireNonNull);
+            resultAtoms.addAll(atoms);
             return this;
         }
 

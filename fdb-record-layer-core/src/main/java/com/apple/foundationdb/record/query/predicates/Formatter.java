@@ -58,11 +58,6 @@ public class Formatter {
     }
 
     @Nonnull
-    public String getQuantifierColumnName(@Nullable final CorrelationIdentifier alias, int ordinalPosition) {
-        return getQuantifierName(alias) + "c" + (ordinalPosition + 1);
-    }
-
-    @Nonnull
     public Quantifier getQuantifier(@Nullable final CorrelationIdentifier alias) {
         return Objects.requireNonNull(aliasToQuantifierMap.get(alias));
     }

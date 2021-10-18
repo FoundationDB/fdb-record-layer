@@ -1,5 +1,5 @@
 /*
- * QuantifiedTupleValue.java
+ * QuantifiedObjectValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -41,14 +41,14 @@ import javax.annotation.Nullable;
  * For example, this is used to represent non-nested repeated fields.
  */
 @API(API.Status.EXPERIMENTAL)
-public class QuantifiedTupleValue implements QuantifiedValue {
+public class QuantifiedObjectValue implements QuantifiedValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Quantified-Object-Value");
     @Nonnull
     private final CorrelationIdentifier alias;
     @Nonnull
     private final Type resultType;
 
-    private QuantifiedTupleValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
+    private QuantifiedObjectValue(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
         this.alias = alias;
         this.resultType = resultType;
     }
@@ -61,9 +61,9 @@ public class QuantifiedTupleValue implements QuantifiedValue {
 
     @Nonnull
     @Override
-    public QuantifiedTupleValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
+    public QuantifiedObjectValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
-            return QuantifiedTupleValue.of(translationMap.getTargetOrThrow(alias));
+            return QuantifiedObjectValue.of(translationMap.getTargetOrThrow(alias));
         }
         return this;
     }
@@ -115,19 +115,19 @@ public class QuantifiedTupleValue implements QuantifiedValue {
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedTupleValue) {
-            return getAlias().equals(((QuantifiedTupleValue)otherValue).getAlias());
+        if (otherValue instanceof QuantifiedObjectValue) {
+            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
         }
         return false;
     }
 
     @Nonnull
-    public static QuantifiedTupleValue of(@Nonnull final CorrelationIdentifier alias) {
-        return new QuantifiedTupleValue(alias, Type.primitiveType(Type.TypeCode.UNKNOWN));
+    public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias) {
+        return new QuantifiedObjectValue(alias, Type.primitiveType(Type.TypeCode.UNKNOWN));
     }
 
     @Nonnull
-    public static QuantifiedTupleValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
-        return new QuantifiedTupleValue(alias, resultType);
+    public static QuantifiedObjectValue of(@Nonnull final CorrelationIdentifier alias, @Nonnull final Type resultType) {
+        return new QuantifiedObjectValue(alias, resultType);
     }
 }

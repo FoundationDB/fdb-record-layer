@@ -44,7 +44,8 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
@@ -111,23 +112,17 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         if (!selectExpression.getPredicates().isEmpty()) {
             return;
         }
-        final List<? extends Value> resultValues = selectExpression.getResultValue();
-        final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
-        if (resultValues.size() != 1) {
+        final Value resultValue = selectExpression.getResultValue();
+        if (!(resultValue instanceof QuantifiedObjectValue)) {
             return;
         }
-        final Value onlyResultValue = Iterables.getOnlyElement(resultValues);
-        if (!(onlyResultValue instanceof QuantifiedColumnValue) ||
-                !((QuantifiedColumnValue)onlyResultValue).getAlias().equals(innerQuantifier.getAlias())) {
+        final Quantifier.ForEach innerQuantifier = bindings.get(innerQuantifierMatcher);
+        if (!((QuantifiedObjectValue)resultValue).getAlias().equals(innerQuantifier.getAlias())) {
             return;
         }
 
         final ExplodeExpression explodeExpression = bindings.get(explodeExpressionMatcher);
-        final List<? extends Value> explodeResultValues = explodeExpression.getResultValue();
-        if (explodeResultValues.size() != 1) {
-            return;
-        }
-        final Value explodeValue = Iterables.getOnlyElement(explodeResultValues);
+        final Value explodeValue = explodeExpression.getResultValue();
 
         final Quantifier.ForEach explodeQuantifier = bindings.get(explodeQuantifierMatcher);
         final Collection<? extends RecordQueryPlan> recordQueryPlans = bindings.get(innerPlansMatcher);
@@ -158,8 +153,8 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
             } else {
                 return;
             }
-        } else if (explodeValue instanceof QuantifiedColumnValue) {
-            inValuesSource = new RecordQueryInUnionPlan.InParameter(explodeQuantifier.getAlias().getId(), ((QuantifiedColumnValue)explodeValue).getAlias().getId());
+        } else if (explodeValue instanceof QuantifiedValue) {
+            inValuesSource = new RecordQueryInUnionPlan.InParameter(explodeQuantifier.getAlias().getId(), ((QuantifiedValue)explodeValue).getAlias().getId());
         } else {
             return;
         }

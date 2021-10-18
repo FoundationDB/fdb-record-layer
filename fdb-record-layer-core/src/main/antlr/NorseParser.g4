@@ -9,7 +9,7 @@ pipe
 
 expression
     : primaryExpression                                                   # ExpressionPrimaryExpression
-    | expression HASHTAG DECIMAL_LITERAL                                  # ExpressionTupleField
+    | expression HASHTAG integerLiteral                                   # ExpressionOrdinalField
     | expression DOT IDENTIFIER                                           # ExpressionField
     | functionCall                                                        # ExpressionFunctionCall
     | prefix=(ADD|SUB) expression                                         # ExpressionUnarySign
@@ -64,7 +64,7 @@ bindingIdentifier
     ;
 
 comprehension
-    : LBRACK tuple COLON comprehensionBindings RBRACK   # ComprehensionWithBindings
+    : LBRACK pipe COLON comprehensionBindings RBRACK    # ComprehensionWithBindings
     | LBRACK pipe RBRACK                                # ComprehensionSimple
     ;
 
@@ -81,19 +81,9 @@ comprehensionBinding
 primaryExpression
     : LPAREN pipe RPAREN                           # PrimaryExpressionNestedPipe
     | tuple                                        # PrimaryExpressionTuple
-    | recordConstructor                            # PrimaryExpressionFromRecordConstructor
     | literal                                      # PrimaryExpressionFromLiteral
     | UNDERBAR                                     # PrimaryExpressionFromUnderbar
     | IDENTIFIER                                   # PrimaryExpressionFromIdentifier
-    ;
-
-recordConstructor
-    : LBRACE RBRACE
-    | LBRACE keyValueMapping (COMMA keyValueMapping)* RBRACE
-    ;
-
-keyValueMapping
-    : IDENTIFIER ARROW pipe
     ;
 
 literal

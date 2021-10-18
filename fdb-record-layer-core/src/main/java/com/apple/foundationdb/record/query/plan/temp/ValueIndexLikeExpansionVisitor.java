@@ -32,8 +32,7 @@ import com.apple.foundationdb.record.query.plan.temp.ValueIndexLikeExpansionVisi
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.EmptyValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
 import com.google.common.collect.ImmutableList;
@@ -126,7 +125,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
             case FanOut:
                 // explode this field and prefixes of this field
                 final Quantifier childBase = fieldKeyExpression.explodeField(baseAlias, fieldNamePrefix);
-                value = state.registerValue(QuantifiedTupleValue.of(childBase.getAlias()));
+                value = state.registerValue(QuantifiedObjectValue.of(childBase.getAlias()));
                 final GraphExpansion childExpansion;
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
@@ -143,7 +142,7 @@ public abstract class ValueIndexLikeExpansionVisitor implements ExpansionVisitor
                 return sealedChildExpansion
                         .derivedWithQuantifier(childQuantifier);
             case None:
-                value = state.registerValue(new FieldValue(QuantifiedColumnValue.of(baseAlias, 0), fieldNames));
+                value = state.registerValue(new FieldValue(QuantifiedObjectValue.of(baseAlias), fieldNames));
                 if (state.isKey()) {
                     predicate = value.asPlaceholder(newParameterAlias());
                     return GraphExpansion.ofPlaceholder(value, predicate);

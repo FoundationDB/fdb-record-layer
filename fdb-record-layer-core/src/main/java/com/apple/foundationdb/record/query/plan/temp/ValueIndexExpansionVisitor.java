@@ -27,7 +27,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.expressions.MatchableSortExpression;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Preconditions;
@@ -67,7 +67,7 @@ public class ValueIndexExpansionVisitor extends ValueIndexLikeExpansionVisitor {
         final ImmutableList.Builder<GraphExpansion> allExpansionsBuilder = ImmutableList.builder();
 
         // add the value for the flow of records
-        final QuantifiedColumnValue recordValue = QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0);
+        final QuantifiedObjectValue recordValue = QuantifiedObjectValue.of(baseQuantifier.getAlias());
         allExpansionsBuilder.add(GraphExpansion.ofResultValueAndQuantifier(recordValue, baseQuantifier));
 
         KeyExpression rootExpression = index.getRootExpression();

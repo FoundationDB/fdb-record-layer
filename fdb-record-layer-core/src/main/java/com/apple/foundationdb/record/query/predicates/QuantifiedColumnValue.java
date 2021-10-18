@@ -72,7 +72,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return formatter.getQuantifierColumnName(alias, ordinalPosition);
+        return formatter.getQuantifierName(alias) + "#" + ordinalPosition;
     }
 
     @Nonnull
@@ -136,8 +136,8 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Override
     public boolean isFunctionallyDependentOn(@Nonnull final Value otherValue) {
-        if (otherValue instanceof QuantifiedTupleValue) {
-            return getAlias().equals(((QuantifiedTupleValue)otherValue).getAlias());
+        if (otherValue instanceof QuantifiedObjectValue) {
+            return getAlias().equals(((QuantifiedObjectValue)otherValue).getAlias());
         }
         if (otherValue instanceof QuantifiedColumnValue) {
             final QuantifiedColumnValue otherQuantifierColumnValue = (QuantifiedColumnValue)otherValue;

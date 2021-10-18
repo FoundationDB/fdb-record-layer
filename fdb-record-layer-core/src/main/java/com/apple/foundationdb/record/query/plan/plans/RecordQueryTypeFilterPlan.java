@@ -38,7 +38,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.TypeFilterExpression;
 import com.apple.foundationdb.record.query.predicates.Formatter;
-import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -161,10 +161,10 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
     @Nonnull
     public Value computeResultValue() {
         if (resultType == null) {
-            return inner.getFlowedTupleValue();
+            return inner.getFlowedObjectValue();
         }
 
-        return QuantifiedTupleValue.of(inner.getAlias(), resultType);
+        return QuantifiedObjectValue.of(inner.getAlias(), resultType);
     }
 
     @Nonnull

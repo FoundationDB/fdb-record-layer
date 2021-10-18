@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
-import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
@@ -177,10 +176,10 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     public Value getResultValue() {
         if (collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
             final Type innerType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
-            return TupleConstructorValue.ofUnnamed(new QueriedValue(innerType));
+            return new QueriedValue(innerType);
         } else {
             // TODO currently needed for index candidate compilation
-            return TupleConstructorValue.ofUnnamed(new QueriedValue(primitiveType(Type.TypeCode.UNKNOWN)));
+            return new QueriedValue(primitiveType(Type.TypeCode.UNKNOWN));
         }
     }
 

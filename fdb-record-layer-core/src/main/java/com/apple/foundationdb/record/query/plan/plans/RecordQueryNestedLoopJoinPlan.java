@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -43,7 +44,6 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -65,13 +65,13 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
     @Nonnull
     private final Quantifier.Physical inner;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    private final Supplier<Value> resultValueSupplier;
 
     public RecordQueryNestedLoopJoinPlan(@Nonnull Quantifier.Physical outer,
                                          @Nonnull Quantifier.Physical inner) {
         this.outer = outer;
         this.inner = inner;
-        this.resultValuesSupplier = Suppliers.memoize(this::computeResultValues);
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @Nonnull
@@ -135,19 +135,19 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValue() {
-        return resultValuesSupplier.get();
+    public Value getResultValue() {
+        return resultValueSupplier.get();
     }
 
     @Nonnull
-    private List<? extends Value> computeResultValues() {
-        return ImmutableList.copyOf(Iterables.concat(outer.getFlowedValues(), inner.getFlowedValues()));
+    private Value computeResultValue() {
+        return Quantifiers.pullUpAndFlatten(ImmutableList.of(outer, inner));
     }
 
     @Nonnull
     @Override
     public String toString() {
-        return "flatmap(" + outer.getRangesOverPlan() + ", " + inner.getRangesOverPlan() + ")";
+        return "nljn(" + outer.getRangesOverPlan() + ", " + inner.getRangesOverPlan() + ")";
     }
 
     @Nonnull

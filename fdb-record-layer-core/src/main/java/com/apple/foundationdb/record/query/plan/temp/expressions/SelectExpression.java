@@ -42,7 +42,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AndPredicate;
 import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
@@ -72,7 +72,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
@@ -400,13 +399,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        if (getQuantifiers().size() == 1 && predicates.isEmpty()) {
-            final Quantifier quantifier = Iterables.getOnlyElement(getQuantifiers());
-
-            final boolean allSimpleColumns = resultValue instanceof QuantifiedColumnValue && ((QuantifiedColumnValue)resultValue).getAlias().equals(quantifier.getAlias());
-            if (allSimpleColumns) {
-                return Iterables.getOnlyElement(Iterables.getOnlyElement(getQuantifiers()).getRangesOver().getMembers()).explain(formatter);
-            }
+        if (isSimpleSelect(getQuantifiers(), getPredicates(), resultValue)) {
+            return Iterables.getOnlyElement(Iterables.getOnlyElement(getQuantifiers()).getRangesOver().getMembers()).explain(formatter);
         }
 
         getQuantifiers().forEach(formatter::registerForFormatting);
@@ -416,12 +410,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         final String explainQuantifiers = getQuantifiers().stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                 .map(quantifier -> {
-                    final String boundVariables =
-                            IntStream.range(0, quantifier.getFlowedValues().size())
-                                    .mapToObj(i -> formatter.getQuantifierColumnName(quantifier.getAlias(), i))
-                                    .collect(Collectors.joining(", "));
                     final String explainQuantifier = Iterables.getOnlyElement(quantifier.getRangesOver().getMembers()).explain(formatter);
-                    return "(" + boundVariables + ") <- " + explainQuantifier;
+                    return "(" + formatter.getQuantifierName(quantifier.getAlias()) + ") <- " + explainQuantifier;
                 })
                 .collect(Collectors.joining("; "));
 
@@ -429,7 +419,24 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 .map(predicate -> "if " + predicate.explain(formatter))
                 .collect(Collectors.joining("; "));
 
-        return "[(" + explainResultValues + "): " + explainQuantifiers + (predicates.isEmpty() ? "" : "; " + explainPredicates) + "]";
+        return "[" + explainResultValues + ": " + explainQuantifiers + (predicates.isEmpty() ? "" : "; " + explainPredicates) + "]";
+    }
+
+    public static boolean isSimpleSelect(@Nonnull final List<? extends Quantifier> quantifiers,
+                                         @Nonnull final List<? extends QueryPredicate> predicates,
+                                         @Nonnull final Value resultValue) {
+        if (quantifiers.size() != 1 ||
+                !predicates.isEmpty()) {
+            return false;
+        }
+
+        final Quantifier quantifier = quantifiers.get(0);
+
+        if (resultValue instanceof QuantifiedObjectValue) {
+            return ((QuantifiedObjectValue)resultValue).getAlias().equals(quantifier.getAlias());
+        }
+
+        return false;
     }
 
     private static List<? extends QueryPredicate> partitionPredicates(final List<? extends QueryPredicate> predicates) {

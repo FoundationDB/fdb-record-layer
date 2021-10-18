@@ -36,8 +36,10 @@ import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
+import com.apple.foundationdb.record.query.predicates.OrdinalFieldValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
@@ -63,7 +65,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.predicates.Type.primitiveType;
 
@@ -144,12 +145,40 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     }
 
     @Override
+    public Atom visitExpressionOrdinalField(final NorseParser.ExpressionOrdinalFieldContext ctx) {
+        final NorseParser.ExpressionContext expressionContext = Objects.requireNonNull(ctx.expression());
+
+        final Atom atom = expressionContext.accept(this);
+        SemanticException.check(atom.getResultType().getTypeCode() == TypeCode.TUPLE,
+                "context to a field accessor has to be of type record");
+
+        Verify.verify(atom instanceof Value);
+        Verify.verify(atom.getResultType() instanceof Type.Record);
+        final Type.Record recordType = (Type.Record)atom.getResultType();
+
+        final NorseParser.IntegerLiteralContext integerLiteralContext = ctx.integerLiteral();
+        final int ordinal = unboxLiteral(visit(integerLiteralContext), Integer.class);
+
+        SemanticException.check(ordinal >= 0 && ordinal < recordType.getFields().size(), "given ordinal is out of bounds");
+
+        if (atom instanceof QuantifiedObjectValue) {
+            final Type.Record.Field field = Objects.requireNonNull(recordType.getFields()).get(ordinal);
+
+            return QuantifiedColumnValue.of(((QuantifiedValue)atom).getAlias(),
+                    ordinal,
+                    field.getFieldType());
+        } else {
+            return OrdinalFieldValue.of((Value)atom, ordinal);
+        }
+    }
+
+    @Override
     public Atom visitExpressionField(final NorseParser.ExpressionFieldContext ctx) {
         final NorseParser.ExpressionContext expressionContext = Objects.requireNonNull(ctx.expression());
         final TerminalNode identifier = ctx.IDENTIFIER();
 
         final Atom atom = expressionContext.accept(this);
-        SemanticException.check(atom.getResultType().getTypeCode() == TypeCode.RECORD,
+        SemanticException.check(atom.getResultType().getTypeCode() == TypeCode.TUPLE,
                 "context to a field accessor has to be of type record");
 
         Verify.verify(atom instanceof Value);
@@ -165,8 +194,8 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             fieldPathBuilder.addAll(((FieldValue)atom).getFieldPath());
             fieldPathBuilder.add(fieldName);
             return new FieldValue(((FieldValue)atom).getChild(), fieldPathBuilder.build(), fieldType);
-        } else if (atom instanceof QuantifiedColumnValue) {
-            return new FieldValue((QuantifiedColumnValue)atom, ImmutableList.of(fieldName), fieldType);
+        } else if (atom instanceof QuantifiedObjectValue) {
+            return new FieldValue((QuantifiedObjectValue)atom, ImmutableList.of(fieldName), fieldType);
         }
 
         // TODO
@@ -278,25 +307,35 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
     @Nonnull
     @Override
+    @SuppressWarnings("java:S3655")
     public Atom visitTuplePipes(@Nonnull final NorseParser.TuplePipesContext ctx) {
         final List<NorseParser.TupleElementContext> tupleElementContexts = ctx.tupleElement();
 
-        if (tupleElementContexts.size() == 1) {
+        if (tupleElementContexts.size() == 1 && tupleElementContexts.get(0) instanceof NorseParser.TupleElementUnnamedContext) {
             return tupleElementContexts.get(0).accept(this);
         }
 
-        final ImmutableList<Atom> arguments = tupleElementContexts
-                .stream()
-                .map(tupleElementContext -> tupleElementContext.accept(this))
-                .peek(atom -> Verify.verify(atom.getResultType().getTypeCode() != TypeCode.STREAM && atom instanceof Value))
-                .collect(ImmutableList.toImmutableList());
+        final ImmutableList.Builder<Pair<? extends Value, Optional<String>>> childrenAndNamesBuilder = ImmutableList.builder();
 
-        final Optional<BuiltInFunction<? extends Atom>> functionOptional =
-                FunctionCatalog.resolveAndValidate("tuple", Type.fromAtoms(arguments));
+        for (final NorseParser.TupleElementContext elementContext : tupleElementContexts) {
+            final Atom elementAtom = elementContext.accept(this);
+            Verify.verify(elementAtom.getResultType().getTypeCode() != TypeCode.STREAM && elementAtom.narrow(Value.class).isPresent());
+            final Value elementValue = elementAtom.narrow(Value.class).get();
+            if (elementContext instanceof NorseParser.TupleElementUnnamedContext) {
+                final Optional<FieldValue> fieldValueOptional = elementAtom.narrow(FieldValue.class);
+                if (fieldValueOptional.isPresent()) {
+                    final FieldValue fieldValue = fieldValueOptional.get();
+                    childrenAndNamesBuilder.add(Pair.of(elementValue, Optional.of(fieldValue.getFieldName())));
+                } else {
+                    childrenAndNamesBuilder.add(Pair.of(elementValue, Optional.empty()));
+                }
+            } else if (elementContext instanceof NorseParser.TupleElementNamedContext) {
+                final NorseParser.TupleElementNamedContext elementNamedContext = (NorseParser.TupleElementNamedContext)elementContext;
+                childrenAndNamesBuilder.add(Pair.of(elementValue, Optional.of(elementNamedContext.IDENTIFIER().getText())));
+            }
+        }
 
-        return functionOptional
-                .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
-                .orElseThrow(() -> new IllegalStateException("unable to encapsulate not()"));
+        return TupleConstructorValue.of(childrenAndNamesBuilder.build());
     }
 
     @Override
@@ -306,7 +345,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
     @Override
     public Atom visitTupleElementNamed(final NorseParser.TupleElementNamedContext ctx) {
-        return ctx.pipe().accept(this).withName(ctx.IDENTIFIER().getText());
+        return ctx.pipe().accept(this);
     }
 
     @Nonnull
@@ -517,7 +556,6 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         });
     }
 
-    @SuppressWarnings("ConstantConditions")
     @Override
     public Atom visitComprehensionWithBindings(final NorseParser.ComprehensionWithBindingsContext ctx) {
         final List<NorseParser.ComprehensionBindingContext> comprehensionBindingContexts = Objects.requireNonNull(ctx.comprehensionBindings()).comprehensionBinding();
@@ -531,7 +569,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             final List<Optional<String>> boundVariables =
                     boundVariables(boundIdentifierToValueMap);
             final List<? extends Value> arguments =
-                    argementsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
+                    argumentsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
 
             if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingIterationContext) {
                 final NorseParser.ComprehensionBindingIterationContext bindingContext = (NorseParser.ComprehensionBindingIterationContext)comprehensionBindingContext;
@@ -559,16 +597,21 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 final List<? extends QuantifiedColumnValue> flowedValues = forEach.getFlowedValues();
 
                 Verify.verify(!flowedValues.isEmpty());
-                final ImmutableList<Optional<String>> declaredParameterNameOptionals = declaredParameterNameOptionals(extractorContext);
-                Preconditions.checkArgument(declaredParameterNameOptionals.size() == flowedValues.size());
+                final ImmutableList<Optional<String>> declaredBindingNameOptionals = declaredParameterNameOptionals(extractorContext);
+                if (declaredBindingNameOptionals.size() > 1) {
+                    Preconditions.checkArgument(declaredBindingNameOptionals.size() == flowedValues.size());
 
-                Streams.zip(declaredParameterNameOptionals.stream(), flowedValues.stream(), Pair::of)
-                        .filter(pair -> pair.getKey().isPresent()) // skip the columns that are not needed
-                        .forEach(pair -> {
-                            final String declaredParameterName = pair.getKey().get();
-                            SemanticException.check(!boundIdentifierToValueMap.containsKey(declaredParameterName), "duplicate binding for identifier " + declaredParameterName);
-                            boundIdentifierToValueMapBuilder.put(declaredParameterName, pair.getValue());
-                        });
+                    Streams.zip(declaredBindingNameOptionals.stream(), flowedValues.stream(), Pair::of)
+                            .filter(pair -> pair.getKey().isPresent()) // skip the columns that are not needed
+                            .forEach(pair -> {
+                                final String declaredParameterName = pair.getKey().get();
+                                SemanticException.check(!boundIdentifierToValueMap.containsKey(declaredParameterName), "duplicate binding for identifier " + declaredParameterName);
+                                boundIdentifierToValueMapBuilder.put(declaredParameterName, pair.getValue());
+                            });
+                } else {
+                    final Optional<String> declaredBindingNameOptional = declaredBindingNameOptionals.get(0);
+                    declaredBindingNameOptional.ifPresent(s -> boundIdentifierToValueMapBuilder.put(s, forEach.getFlowedObjectValue()));
+                }
             } else if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingAssignContext) {
                 final NorseParser.ComprehensionBindingAssignContext bindingContext = (NorseParser.ComprehensionBindingAssignContext)comprehensionBindingContext;
                 final Lambda lambda = lambdaBodyWithResult(boundVariables, bindingContext.pipe());
@@ -603,31 +646,22 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final List<Optional<String>> boundVariables =
                 boundVariables(boundIdentifierToValueMap);
         final List<? extends Value> arguments =
-                argementsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
+                argumentsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
 
         // process result
-        final NorseParser.TupleContext tupleContext = Objects.requireNonNull(ctx.tuple());
-        final Lambda lambda = lambdaBodyWithResult(boundVariables, tupleContext);
+        final NorseParser.PipeContext yieldContext = Objects.requireNonNull(ctx.pipe());
+        final Lambda lambda = lambdaBodyWithResult(boundVariables, yieldContext);
         final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
         Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
-        final Value resultValue = TupleConstructorValue.wrapIfNotTuple(Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class)));
+        final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
         quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
         final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
         final ImmutableList<QueryPredicate> predicates = predicatesBuilder.build();
         // optimization if there is only one quantifier and there are only trivial result values
-        if (quantifiers.size() == 1 &&
-                predicates.isEmpty() &&
-                simpleSelectPossible(resultValue)) {
+        if (SelectExpression.isSimpleSelect(quantifiers, predicates, resultValue)) {
             return Iterables.getOnlyElement(Iterables.getOnlyElement(quantifiers).getRangesOver().getMembers());
         }
         return new SelectExpression(resultValue, quantifiers, predicates);
-    }
-
-    private static boolean simpleSelectPossible(@Nonnull final Value resultValue) {
-        if (resultValue instanceof TupleConstructorValue) {
-            return StreamSupport.stream(resultValue.getChildren().spliterator(), false).allMatch(value -> value instanceof QuantifiedColumnValue);
-        }
-        return false;
     }
 
     @Override
@@ -655,12 +689,12 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
         quantifiersBuilder.add(forEach);
-        final QuantifiedTupleValue flowedValue = forEach.getFlowedTupleValue();
+        final QuantifiedObjectValue flowedValue = forEach.getFlowedObjectValue();
 
         // process result
         final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
         // optimization if there is only one quantifier and there are only trivial result values
-        if (quantifiers.size() == 1 && simpleSelectPossible(flowedValue)) {
+        if (SelectExpression.isSimpleSelect(quantifiers, ImmutableList.of(), flowedValue)) {
             return Iterables.getOnlyElement(Iterables.getOnlyElement(quantifiers).getRangesOver().getMembers());
         } else {
             return new SelectExpression(flowedValue, quantifiers, ImmutableList.of());
@@ -676,7 +710,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     }
 
     @Nonnull
-    private ImmutableList<Value> argementsFromBoundVariables(@Nonnull final List<Optional<String>> boundVariables, @Nonnull final ImmutableMap<String, Value> boundIdentifierToValueMap) {
+    private ImmutableList<Value> argumentsFromBoundVariables(@Nonnull final List<Optional<String>> boundVariables, @Nonnull final ImmutableMap<String, Value> boundIdentifierToValueMap) {
         return boundVariables.stream()
                 .map(boundVariable -> Objects.requireNonNull(
                         boundIdentifierToValueMap.get(boundVariable.orElseThrow(() -> new IllegalStateException("impossible situation")))))
@@ -687,12 +721,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
     public Atom visitPrimaryExpressionNestedPipe(final NorseParser.PrimaryExpressionNestedPipeContext ctx) {
         return ctx.pipe().accept(this);
     }
-
-    @Override
-    public Atom visitPrimaryExpressionFromRecordConstructor(final NorseParser.PrimaryExpressionFromRecordConstructorContext ctx) {
-        return super.visitPrimaryExpressionFromRecordConstructor(ctx);
-    }
-
+    
     @Override
     public Atom visitPrimaryExpressionFromLiteral(final NorseParser.PrimaryExpressionFromLiteralContext ctx) {
         return super.visitPrimaryExpressionFromLiteral(ctx);

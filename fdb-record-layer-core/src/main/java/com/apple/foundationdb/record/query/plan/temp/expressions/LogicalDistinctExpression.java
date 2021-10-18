@@ -98,7 +98,7 @@ public class LogicalDistinctExpression implements RelationalExpressionWithChildr
     @Nonnull
     @Override
     public Value getResultValue() {
-        return inner.getFlowedTupleValue();
+        return inner.getFlowedObjectValue();
     }
 
     @Override

@@ -127,7 +127,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
     @Nonnull
     @Override
     public Value getResultValue() {
-        return inner.getFlowedTupleValue();
+        return inner.getFlowedObjectValue();
     }
 
     @Override

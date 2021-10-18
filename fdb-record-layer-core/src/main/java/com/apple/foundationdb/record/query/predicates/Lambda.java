@@ -24,11 +24,9 @@ import com.apple.foundationdb.record.query.norse.DelayedEncapsulationFunction;
 import com.apple.foundationdb.record.query.norse.SemanticException;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.annotations.Var;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -84,28 +82,47 @@ public class Lambda implements Atom {
             }
         } else {
             Objects.requireNonNull(argumentValue);
-            if (argumentValue.getResultType().getTypeCode() == Type.TypeCode.TUPLE) {
-                (Type.Record)argumentValue;
+            if (argumentValue.getResultType().getTypeCode() == Type.TypeCode.TUPLE && parameterNameOptionals.size() > 1) {
+                final Type.Record tupleArgumentType = (Type.Record)argumentValue.getResultType();
+                if (Objects.requireNonNull(tupleArgumentType.getFields()).size() != parameterNameOptionals.size()) {
+                    throw new IllegalArgumentException("number of provided parameters for lambda does not match number of elements in tuple");
+                }
+                final List<? extends Value> elementValues = Type.Record.deconstructTuple(argumentValue);
+                final ImmutableMap.Builder<String, Value> boundIdentifiersBuilder = ImmutableMap.builder();
+                for (int i = 0; i < elementValues.size(); i ++) {
+                    final Optional<String> parameterNameOptional = parameterNameOptionals.get(i);
+                    if (parameterNameOptional.isPresent()) {
+                        boundIdentifiersBuilder.put(parameterNameOptional.get(), elementValues.get(i));
+                    }
+                }
+                boundIdentifiers = boundIdentifiersBuilder.build();
             } else {
                 SemanticException.check(parameterNameOptionals.size() == 1, "cannot match non-tuple type with more than one parameter");
-                if (parameterNameOptionals.get(0).isPresent()) {
-                    boundIdentifiers = ImmutableMap.of(parameterNameOptionals.get(0).get(), argumentValue);
+                final Optional<String> parameterOptional0 = parameterNameOptionals.get(0);
+                if (parameterOptional0.isPresent()) {
+                    boundIdentifiers = ImmutableMap.of(parameterOptional0.get(), argumentValue);
                 }
             }
-            if (argumentValues.size() != parameterNameOptionals.size()) {
-                throw new IllegalArgumentException("number of provided parameters for lambda does not match number of elements in tuple");
-            }
-            final ImmutableMap.Builder<String, Value> boundIdentifiersBuilder = ImmutableMap.builder();
-            for (int i = 0; i < argumentValues.size(); i ++) {
-                final Optional<String> parameterNameOptional = parameterNameOptionals.get(i);
-                if (parameterNameOptional.isPresent()) {
-                    boundIdentifiersBuilder.put(parameterNameOptional.get(), argumentValues.get(i));
-                }
-            }
-            boundIdentifiers = boundIdentifiersBuilder.build();
         }
 
         return encapsulate(ImmutableSet.of(), boundIdentifiers);
+    }
+
+
+    @Nonnull
+    public GraphExpansion unifyBody(@Nonnull List<? extends Value> argumentValues) {
+        if (argumentValues.size() != parameterNameOptionals.size()) {
+            throw new IllegalArgumentException("number of provided parameters for lambda does not match number of elements in tuple");
+        }
+        final ImmutableMap.Builder<String, Value> boundIdentifiersBuilder = ImmutableMap.builder();
+        for (int i = 0; i < argumentValues.size(); i ++) {
+            final Optional<String> parameterNameOptional = parameterNameOptionals.get(i);
+            if (parameterNameOptional.isPresent()) {
+                boundIdentifiersBuilder.put(parameterNameOptional.get(), argumentValues.get(i));
+            }
+        }
+
+        return encapsulate(ImmutableSet.of(), boundIdentifiersBuilder.build());
     }
 
     @Override

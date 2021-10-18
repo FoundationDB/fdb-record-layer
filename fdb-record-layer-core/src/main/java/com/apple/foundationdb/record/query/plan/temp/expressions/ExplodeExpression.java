@@ -34,9 +34,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.InternalPlannerGrap
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.Formatter;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueriedValue;
-import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
@@ -68,10 +67,10 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     public Value getResultValue() {
         if (collectionValue.getResultType().getTypeCode() == Type.TypeCode.ARRAY) {
             final Type innerType = Objects.requireNonNull(((Type.Array)collectionValue.getResultType()).getElementType());
-            return TupleConstructorValue.ofUnnamed(new QueriedValue(innerType));
+            return new QueriedValue(innerType);
         } else {
             // TODO currently needed for index candidate compilation
-            return TupleConstructorValue.ofUnnamed(new QueriedValue(primitiveType(Type.TypeCode.UNKNOWN)));
+            return new QueriedValue(primitiveType(Type.TypeCode.UNKNOWN));
         }
     }
 
@@ -149,8 +148,7 @@ public class ExplodeExpression implements RelationalExpression, InternalPlannerG
     }
 
     public static ExplodeExpression explodeField(@Nonnull final CorrelationIdentifier correlationIdentifier,
-                                                 final int index,
                                                  @Nonnull final List<String> fieldNames) {
-        return new ExplodeExpression(new FieldValue(QuantifiedColumnValue.of(correlationIdentifier, index), fieldNames));
+        return new ExplodeExpression(new FieldValue(QuantifiedObjectValue.of(correlationIdentifier), fieldNames));
     }
 }

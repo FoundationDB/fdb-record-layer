@@ -27,12 +27,12 @@ import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
@@ -69,14 +69,14 @@ public class WhereFn extends BuiltInFunction<RelationalExpression> {
         final Lambda lambda = (Lambda)arguments.get(1);
 
         final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inStream));
-        final List<? extends QuantifiedColumnValue> argumentValues = inQuantifier.getFlowedValues();
-        final GraphExpansion graphExpansion = lambda.unifyBody(argumentValues);
+        final QuantifiedObjectValue argumentValue = inQuantifier.getFlowedObjectValue();
+        final GraphExpansion graphExpansion = lambda.unifyBody(argumentValue);
         Verify.verify(graphExpansion.getPredicates().isEmpty());
         final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
         if (resultValue instanceof BooleanValue) {
             final Optional<? extends QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
             if (queryPredicateOptional.isPresent()) {
-                return new SelectExpression(inQuantifier.getFlowedTupleValue(),
+                return new SelectExpression(inQuantifier.getFlowedObjectValue(),
                         ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                         ImmutableList.of(queryPredicateOptional.get()));
             }

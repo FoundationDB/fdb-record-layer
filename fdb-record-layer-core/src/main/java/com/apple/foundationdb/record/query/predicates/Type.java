@@ -261,7 +261,7 @@ public interface Type {
                 case ENUM:
                     throw new IllegalArgumentException("protobuf type " + protobufType + " is not supported");
                 case MESSAGE:
-                    return TypeCode.RECORD;
+                    return TypeCode.TUPLE;
                 case BYTES:
                     return TypeCode.BYTES;
                 default:
@@ -532,7 +532,12 @@ public interface Type {
         public String toString() {
             return isErased()
                    ? getTypeCode().toString()
-                   : getTypeCode() + "(" + Objects.requireNonNull(getFieldTypeMap()).entrySet().stream().map(entry -> entry.getKey() + " -> " + entry.getValue()).collect(Collectors.joining(", ")) + ")";
+                   : getTypeCode() + "(" +
+                     Objects.requireNonNull(getFields()).stream().map(field -> {
+                         final Optional<String> fieldNameOptional = field.getFieldNameOptional();
+                         return fieldNameOptional.map(s -> field.getFieldType() + " as " + s)
+                                 .orElseGet(() -> field.getFieldType().toString());
+                     }).collect(Collectors.joining(", ")) + ")";
         }
 
         public static Record erased() {
@@ -601,7 +606,7 @@ public interface Type {
             } else {
                 if (typeCode.isPrimitive()) {
                     return primitiveType(typeCode, isNullable);
-                } else if (typeCode == TypeCode.RECORD) {
+                } else if (typeCode == TypeCode.TUPLE) {
                     Objects.requireNonNull(descriptor);
                     return fromFieldDescriptorsMap(isNullable, toFieldDescriptorMap(descriptor.getFields()));
                 }
@@ -631,6 +636,20 @@ public interface Type {
             return fieldDescriptors
                     .stream()
                     .collect(ImmutableMap.toImmutableMap(Descriptors.FieldDescriptor::getName, fieldDescriptor -> fieldDescriptor));
+        }
+
+        @Nonnull
+        public static List<? extends Value> deconstructTuple(@Nonnull Value tupleValue) {
+            Verify.verify(tupleValue.getResultType().getTypeCode() == Type.TypeCode.TUPLE);
+            Verify.verify(tupleValue.getResultType() instanceof Type.Record);
+            final Type.Record resultType = (Type.Record)tupleValue.getResultType();
+
+            final List<Type.Record.Field> fields = Objects.requireNonNull(resultType.getFields());
+            final ImmutableList.Builder<Value> resultBuilder = ImmutableList.builder();
+            for (int i = 0; i < fields.size(); i++) {
+                resultBuilder.add(OrdinalFieldValue.of(tupleValue, i));
+            }
+            return resultBuilder.build();
         }
 
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

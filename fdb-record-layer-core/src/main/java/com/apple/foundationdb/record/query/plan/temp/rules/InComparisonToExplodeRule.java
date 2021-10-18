@@ -35,7 +35,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.ValueMatchers;
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.base.Verify;
@@ -152,7 +152,7 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
                 if (comparison instanceof Comparisons.ListComparison) {
                     explodeExpression = new ExplodeExpression(new LiteralValue<>(comparison.getComparand()));
                 } else if (comparison instanceof Comparisons.ParameterComparison) {
-                    explodeExpression = new ExplodeExpression(QuantifiedColumnValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter()), 0));
+                    explodeExpression = new ExplodeExpression(QuantifiedObjectValue.of(CorrelationIdentifier.of(((Comparisons.ParameterComparison)comparison).getParameter())));
                 } else {
                     throw new RecordCoreException("unknown in comparison " + comparison.getClass().getSimpleName());
                 }

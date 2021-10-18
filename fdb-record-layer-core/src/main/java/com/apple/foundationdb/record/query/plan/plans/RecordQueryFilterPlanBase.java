@@ -116,7 +116,7 @@ abstract class RecordQueryFilterPlanBase implements RecordQueryPlanWithChild {
     @Nonnull
     @Override
     public Value getResultValue() {
-        return getInner().getFlowedTupleValue();
+        return getInner().getFlowedObjectValue();
     }
 
     @Override

@@ -24,7 +24,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.plan.temp.expressions.MatchableSortExpression;
-import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -70,7 +70,7 @@ public class PrimaryAccessExpansionVisitor extends ValueIndexLikeExpansionVisito
                         0))));
 
         final GraphExpansion allExpansions =
-                GraphExpansion.ofOthers(ImmutableList.of(GraphExpansion.ofResultValueAndQuantifier(QuantifiedColumnValue.of(baseQuantifier.getAlias(), 0), baseQuantifier),
+                GraphExpansion.ofOthers(ImmutableList.of(GraphExpansion.ofResultValueAndQuantifier(QuantifiedObjectValue.of(baseQuantifier.getAlias()), baseQuantifier),
                         graphExpansion));
 
         final List<CorrelationIdentifier> parameters = allExpansions.getPlaceholderAliases();

@@ -45,17 +45,17 @@ public class FieldValue implements ValueWithChild {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Field-Value");
 
     @Nonnull
-    private final QuantifiedColumnValue columnValue;
+    private final QuantifiedValue columnValue;
     @Nonnull
     private final List<String> fieldPath;
     @Nonnull
     private final Type resultType;
 
-    public FieldValue(@Nonnull QuantifiedColumnValue columnValue, @Nonnull List<String> fieldPath) {
+    public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath) {
         this(columnValue, fieldPath, Type.primitiveType(Type.TypeCode.UNKNOWN));
     }
 
-    public FieldValue(@Nonnull QuantifiedColumnValue columnValue, @Nonnull List<String> fieldPath, @Nonnull Type resultType) {
+    public FieldValue(@Nonnull QuantifiedValue columnValue, @Nonnull List<String> fieldPath, @Nonnull Type resultType) {
         Preconditions.checkArgument(!fieldPath.isEmpty());
         this.columnValue = columnValue;
         this.fieldPath = ImmutableList.copyOf(fieldPath);
@@ -85,17 +85,16 @@ public class FieldValue implements ValueWithChild {
 
     @Nonnull
     @Override
-    public QuantifiedColumnValue getChild() {
+    public QuantifiedValue getChild() {
         return columnValue;
     }
 
     @Nonnull
     @Override
     public FieldValue withNewChild(@Nonnull final Value child) {
-        return new FieldValue((QuantifiedColumnValue)child, fieldPath);
+        return new FieldValue((QuantifiedValue)child, fieldPath);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         // TODO make field value implementation based on the flavor of the field access, i.e. arrays get a different
@@ -134,7 +133,7 @@ public class FieldValue implements ValueWithChild {
 
     @Override
     public String toString() {
-        return columnValue.toString() + "/" + String.join(".", fieldPath);
+        return columnValue + "." + String.join(".", fieldPath);
     }
 
     @Nonnull

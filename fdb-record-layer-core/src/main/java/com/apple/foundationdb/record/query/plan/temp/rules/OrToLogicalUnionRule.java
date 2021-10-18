@@ -101,12 +101,12 @@ public class OrToLogicalUnionRule extends PlannerRule<SelectExpression> {
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlannerBindings bindings = call.getBindings();
         final SelectExpression selectExpression = bindings.get(root);
-        final Value resultValues = selectExpression.getResultValue();
+        final Value resultValue = selectExpression.getResultValue();
         final List<? extends Quantifier> quantifiers = bindings.getAll(qunMatcher);
         final List<? extends QueryPredicate> orTermPredicates = bindings.getAll(orTermPredicateMatcher);
         final List<ExpressionRef<RelationalExpression>> relationalExpressionRefs = new ArrayList<>(orTermPredicates.size());
         for (final QueryPredicate orTermPredicate : orTermPredicates) {
-            relationalExpressionRefs.add(call.ref(new SelectExpression(resultValues, quantifiers, ImmutableList.of(orTermPredicate))));
+            relationalExpressionRefs.add(call.ref(new SelectExpression(resultValue, quantifiers, ImmutableList.of(orTermPredicate))));
         }
         call.yield(GroupExpressionRef.of(new LogicalUnionExpression(Quantifiers.forEachQuantifiers(relationalExpressionRefs))));
     }

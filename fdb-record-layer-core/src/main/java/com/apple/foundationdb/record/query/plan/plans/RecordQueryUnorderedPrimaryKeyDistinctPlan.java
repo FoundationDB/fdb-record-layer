@@ -142,7 +142,7 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
     @Nonnull
     @Override
     public Value getResultValue() {
-        return inner.getFlowedTupleValue();
+        return inner.getFlowedObjectValue();
     }
 
     @Override

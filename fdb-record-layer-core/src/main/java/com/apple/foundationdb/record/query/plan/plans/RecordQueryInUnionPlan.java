@@ -179,7 +179,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     @Nonnull
     @Override
     public Value getResultValue() {
-        return inner.getFlowedTupleValue();
+        return inner.getFlowedObjectValue();
     }
 
     @Nonnull

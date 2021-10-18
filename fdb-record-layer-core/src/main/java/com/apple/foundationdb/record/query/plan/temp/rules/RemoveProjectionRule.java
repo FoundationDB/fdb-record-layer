@@ -32,7 +32,6 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.predicates.Value;
 
 import javax.annotation.Nonnull;
-import java.util.List;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
@@ -66,11 +65,8 @@ public class RemoveProjectionRule extends PlannerRule<LogicalProjectionExpressio
             // if the fetch is able to push all values we can eliminate the fetch as well
             final RecordQueryFetchFromPartialRecordPlan fetchPlan = (RecordQueryFetchFromPartialRecordPlan)innerPlan;
             final CorrelationIdentifier newInnerAlias = CorrelationIdentifier.uniqueID();
-            final List<? extends Value> resultValues = projectionExpression.getResultValue();
-            final boolean allPushable = resultValues
-                    .stream()
-                    .allMatch(value -> fetchPlan.pushValue(value, newInnerAlias).isPresent());
-            if (allPushable) {
+            final Value resultValue = projectionExpression.getResultValue();
+            if (fetchPlan.pushValue(resultValue, newInnerAlias).isPresent()) {
                 // all fields in the projection are already available underneath the fetch
                 // we don't need the projection nor the fetch
                 call.yield(call.ref(fetchPlan.getChild()));

@@ -52,8 +52,6 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 /**
  * A query plan that reconstructs records from the entries in a covering index.
@@ -148,10 +146,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
         correlatedAliases.forEach(formatter::registerForFormatting);
 
-        final String boundVariables =
-                IntStream.range(0, inner.getFlowedValues().size())
-                        .mapToObj(i -> formatter.getQuantifierColumnName(inner.getAlias(), i))
-                        .collect(Collectors.joining(", "));
+        final String boundVariables = formatter.getQuantifierName(inner.getAlias());
         final String explainInner = Iterables.getOnlyElement(inner.getRangesOver().getMembers()).explain(formatter);
 
         return "map(" + explainInner + ", (" + boundVariables + ") => (" + resultValue.explain(formatter) + "))";

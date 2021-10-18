@@ -29,19 +29,18 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraphRewritable;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * A relational planner expression that represents an unimplemented filter on the records produced by its inner
@@ -52,6 +51,7 @@ import java.util.stream.Collectors;
 public class LogicalProjectionExpression implements RelationalExpressionWithChildren, PlannerGraphRewritable {
     @Nonnull
     private final List<Value> requiredValues;
+
     @Nonnull
     private final Quantifier inner;
 
@@ -108,11 +108,10 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
 
     @Nonnull
     @Override
-    public List<? extends Value> getResultValue() {
-        return requiredValues;
+    public Value getResultValue() {
+        return TupleConstructorValue.ofUnnamed(requiredValues);
     }
 
-    @SuppressWarnings("UnstableApiUsage")
     @Override
     public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
                                          @Nonnull final AliasMap equivalencesMap) {
@@ -123,13 +122,8 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
             return false;
         }
         final LogicalProjectionExpression otherLogicalProjectionExpression = (LogicalProjectionExpression)otherExpression;
-        final List<? extends Value> otherValues = otherLogicalProjectionExpression.getResultValue();
-        if (requiredValues.size() != otherValues.size()) {
-            return false;
-        }
-        return Streams.zip(requiredValues.stream(), otherValues.stream(),
-                (value, otherValue) -> value.semanticEquals(otherValue, equivalencesMap))
-                .allMatch(isSame -> isSame);
+        final Value otherValue = otherLogicalProjectionExpression.getResultValue();
+        return getResultValue().semanticEquals(otherValue, equivalencesMap);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -157,7 +151,7 @@ public class LogicalProjectionExpression implements RelationalExpressionWithChil
                         NodeInfo.VALUE_COMPUTATION_OPERATOR,
                         ImmutableList.of("COMPUTE {{values}}"),
                         ImmutableMap.of("values",
-                                Attribute.gml(getResultValue().stream().map(Object::toString).collect(Collectors.joining(", "))))),
+                                Attribute.gml(getResultValue().toString()))),
                 childGraphs);
     }
 }

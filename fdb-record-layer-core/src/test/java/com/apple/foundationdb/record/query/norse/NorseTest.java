@@ -38,11 +38,8 @@ import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.Formatter;
-import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Descriptors;
-import com.google.protobuf.DynamicMessage;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
@@ -59,7 +56,6 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -246,44 +242,5 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         final RecordMetaData recordMetaData = recordStore.getRecordMetaData();
 
         System.out.println(recordMetaData.getRecordTypes());
-    }
-
-    @Test
-    void testDynamicRecords() throws Exception {
-        // Create dynamic schema
-        DynamicSchema.Builder schemaBuilder = DynamicSchema.newBuilder();
-        schemaBuilder.setName("__dynamic__.proto");
-
-        final Type.Record recordType =
-                Type.Record.fromFields(ImmutableList.of(new Type.Record.Field(Type.primitiveType(Type.TypeCode.INT), Optional.of("field1"), Optional.empty()),
-                        new Type.Record.Field(Type.primitiveType(Type.TypeCode.STRING), Optional.of("field2"), Optional.empty())));
-
-        schemaBuilder.addType("newType", recordType);
-
-        final Type.Record restaurantType = Type.Record.fromDescriptor(RestaurantRecord.getDescriptor());
-        System.out.println(restaurantType);
-        schemaBuilder.addType("Restaurant", restaurantType);
-
-        final Type tupleType =
-                new Type.Tuple(ImmutableList.of(Type.primitiveType(Type.TypeCode.INT), restaurantType));
-
-        schemaBuilder.addType("Tuple123", tupleType);
-
-        DynamicSchema schema = schemaBuilder.build();
-
-        // Create dynamic message from schema
-        final DynamicMessage.Builder tupleBuilder = DynamicMessage.newBuilder(tupleType.buildDescriptor("type"));
-        final Descriptors.Descriptor descriptor = tupleBuilder.getDescriptorForType();
-        final DynamicMessage tuple = tupleBuilder
-                .setField(descriptor.findFieldByName("__field__1"), 1)
-                .setField(descriptor.findFieldByName("__field__2"), RestaurantRecord.newBuilder().setName("Name of Restaurant").setRestNo(123L).build())
-                .build();
-
-        System.out.println(tuple);
-
-        final byte[] serialized = tuple.toByteArray();
-
-        final DynamicMessage tupleDeserialized = schema.newMessageBuilder("Tuple123").mergeFrom(serialized).build();
-        System.out.println(tupleDeserialized);
     }
 }

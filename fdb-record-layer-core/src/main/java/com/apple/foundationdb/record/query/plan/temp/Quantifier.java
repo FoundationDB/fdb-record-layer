@@ -26,7 +26,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
-import com.apple.foundationdb.record.query.predicates.QuantifiedTupleValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
@@ -265,7 +265,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         @Nonnull
         @Override
         public List<? extends QuantifiedColumnValue> computeFlowedValues() {
-            return ImmutableList.of(QuantifiedColumnValue.of(getAlias(), 0));
+            throw new IllegalStateException("should not be called");
         }
     }
 
@@ -557,7 +557,7 @@ public abstract class Quantifier implements Correlated<Quantifier> {
         if (type instanceof Type.Record) {
             elementTypes = Objects.requireNonNull(((Type.Record)type).getElementTypes());
         } else {
-            elementTypes = ImmutableList.of(type);
+            throw new IllegalStateException("quantifier does not flow records");
         }
 
         return Streams.mapWithIndex(elementTypes.stream(),
@@ -565,8 +565,8 @@ public abstract class Quantifier implements Correlated<Quantifier> {
                 .collect(ImmutableList.toImmutableList());
     }
 
-    public QuantifiedTupleValue getFlowedTupleValue() {
-        return QuantifiedTupleValue.of(getAlias(), typeRangedOver());
+    public QuantifiedObjectValue getFlowedObjectValue() {
+        return QuantifiedObjectValue.of(getAlias(), typeRangedOver());
     }
 
     @Nonnull

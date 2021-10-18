@@ -60,8 +60,6 @@ public class TupleConstructorValue implements Value {
     @Nonnull
     private final String protoTypeName;
     @Nonnull
-    protected final String functionName;
-    @Nonnull
     protected final List<Pair<? extends Value, Optional<String>>> childrenAndNames;
     @Nonnull
     private final Supplier<List<? extends Value>> childrenSupplier;
@@ -69,10 +67,8 @@ public class TupleConstructorValue implements Value {
     private final Supplier<Type.Record> resultTypeSupplier;
 
     private TupleConstructorValue(@Nonnull final String protoTypeName,
-                                  @Nonnull String functionName,
                                   @Nonnull List<Pair<? extends Value, Optional<String>>> childrenAndNames) {
         this.protoTypeName = protoTypeName;
-        this.functionName = functionName;
         this.childrenAndNames = ImmutableList.copyOf(childrenAndNames);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.resultTypeSupplier = Suppliers.memoize(this::computeResultType);
@@ -133,12 +129,12 @@ public class TupleConstructorValue implements Value {
 
     @Override
     public int semanticHashCode() {
-        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, functionName, childrenAndNames);
+        return PlanHashable.objectsPlanHash(PlanHashKind.FOR_CONTINUATION, BASE_HASH, childrenAndNames);
     }
     
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, functionName, childrenAndNames);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, childrenAndNames);
     }
 
     @Override
@@ -149,20 +145,20 @@ public class TupleConstructorValue implements Value {
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        return functionName + "(" +
+        return "(" +
                childrenAndNames.stream()
                        .map(childAndName -> {
                            if (childAndName.getValue().isPresent()) {
                                return childAndName.getKey().explain(formatter) + " as " + childAndName.getValue().get();
                            }
-                           return childAndName.getKey().explain(formatter).toString();
+                           return childAndName.getKey().explain(formatter);
                        })
-                       .collect(Collectors.joining(",")) + ")";
+                       .collect(Collectors.joining(", ")) + ")";
     }
 
     @Override
     public String toString() {
-        return functionName + "(" +
+        return "(" +
                childrenAndNames.stream()
                        .map(childAndName -> {
                            if (childAndName.getValue().isPresent()) {
@@ -170,7 +166,7 @@ public class TupleConstructorValue implements Value {
                            }
                            return childAndName.getKey().toString();
                        })
-                       .collect(Collectors.joining(",")) + ")";
+                       .collect(Collectors.joining(", ")) + ")";
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -204,7 +200,7 @@ public class TupleConstructorValue implements Value {
                         (newChild, childAndName) -> Pair.of(newChild, childAndName.getValue()))
                         .collect(ImmutableList.toImmutableList());
 
-        return new TupleConstructorValue(this.protoTypeName, this.functionName, newChildrenAndNames);
+        return new TupleConstructorValue(this.protoTypeName, newChildrenAndNames);
     }
 
     public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
@@ -231,36 +227,34 @@ public class TupleConstructorValue implements Value {
     private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
         final ImmutableList<Pair<? extends Value, Optional<String>>> namedArguments =
                 arguments.stream()
-                        .map(atom -> Pair.of(atom.narrow(Value.class), atom.getName()))
+                        .map(atom -> Pair.of(atom.narrow(Value.class), Optional.<String>empty()))
                         .peek(pair -> Verify.verify(pair.getKey().isPresent()))
                         .map(pair -> Pair.of(pair.getKey().get(), pair.getValue()))
                         .collect(ImmutableList.toImmutableList());
-        return createAndRegister(parserContext.getDynamicSchemaBuilder(), builtInFunction.getFunctionName(), namedArguments);
+        return createAndRegister(parserContext.getDynamicSchemaBuilder(), namedArguments);
     }
 
     private static TupleConstructorValue createAndRegister(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder,
-                                                           @Nonnull final String functionName,
                                                            @Nonnull final List<Pair<? extends Value, Optional<String>>> namedArguments) {
-        final TupleConstructorValue tupleConstructorValue = new TupleConstructorValue(Type.uniqueCompliantTypeName(), functionName, namedArguments);
+        final TupleConstructorValue tupleConstructorValue = new TupleConstructorValue(Type.uniqueCompliantTypeName(), namedArguments);
         dynamicSchemaBuilder.addType(tupleConstructorValue.getProtoTypeName(), tupleConstructorValue.getResultType());
         return tupleConstructorValue;
     }
 
     public static TupleConstructorValue of(@Nonnull final List<Pair<? extends Value, Optional<String>>> namedArguments) {
-        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), "tuple", namedArguments);
+        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), namedArguments);
     }
 
     public static TupleConstructorValue of(@Nonnull final Pair<? extends Value, Optional<String>> namedArgument) {
-        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), "tuple", ImmutableList.of(namedArgument));
+        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), ImmutableList.of(namedArgument));
     }
 
     public static TupleConstructorValue ofUnnamed(@Nonnull final Value argument) {
-        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), "tuple", ImmutableList.of(Pair.of(argument, Optional.empty())));
+        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), ImmutableList.of(Pair.of(argument, Optional.empty())));
     }
 
     public static TupleConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
         return new TupleConstructorValue(Type.uniqueCompliantTypeName(),
-                "tuple",
                 arguments.stream()
                         .map(argument -> Pair.of(argument, Optional.<String>empty()))
                         .collect(ImmutableList.toImmutableList()));
