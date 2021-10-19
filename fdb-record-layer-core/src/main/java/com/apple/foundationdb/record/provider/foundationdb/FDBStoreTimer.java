@@ -209,6 +209,8 @@ public class FDBStoreTimer extends StoreTimer {
         FETCHES("fetches"),
         /** Time to read a block from Lucene's FDBDirectory.*/
         LUCENE_READ_BLOCK("lucene block reads"),
+        /** Time to read a lucene block from FBB loader. */
+        LUCENE_FDB_READ_BLOCK("lucene read from fdb"),
         /** Time to list all files from Lucene's FDBDirectory.*/
         LUCENE_LIST_ALL("lucene list all"),
         /** Number of getFileReference calls in the FDBDirectory.*/
