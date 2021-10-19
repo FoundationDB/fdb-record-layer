@@ -239,7 +239,7 @@ public class FDBDirectory extends Directory {
 
             long start = System.nanoTime();
             return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
-                    () -> context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
+                    () -> context.instrument(FDBStoreTimer.Events.LUCENE_FDB_READ_BLOCK, context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block))))
             ), start);
         } catch (ExecutionException e) {
             throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
