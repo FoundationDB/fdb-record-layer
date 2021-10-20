@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.norse.SemanticException;
+import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.auto.service.AutoService;
@@ -41,6 +42,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * A value merges the input messages given to it into an output message.
@@ -57,15 +59,19 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
     private final Value leftChild;
     @Nonnull
     private final Value rightChild;
+    @Nonnull
+    private final Function<Value, Object> compileTimeEvalFn;
 
-    public RelOpValue(@Nonnull String functionName,
-                      @Nonnull Comparisons.Type comparisonType,
-                      @Nonnull Value leftChild,
-                      @Nonnull Value rightChild) {
+    private RelOpValue(@Nonnull final String functionName,
+                       @Nonnull final Comparisons.Type comparisonType,
+                       @Nonnull final Value leftChild,
+                       @Nonnull final Value rightChild,
+                       @Nonnull final Function<Value, Object> compileTimeEvalFn) {
         this.functionName = functionName;
         this.comparisonType = comparisonType;
         this.leftChild = leftChild;
         this.rightChild = rightChild;
+        this.compileTimeEvalFn = compileTimeEvalFn;
     }
 
     @Nonnull
@@ -81,7 +87,8 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         return new RelOpValue(this.functionName,
                 this.comparisonType,
                 Iterables.get(newChildren, 0),
-                Iterables.get(newChildren, 1));
+                Iterables.get(newChildren, 1),
+                compileTimeEvalFn);
     }
 
     @Override
@@ -94,14 +101,14 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         final Set<CorrelationIdentifier> rightChildCorrelatedTo = rightChild.getCorrelatedTo();
         if (leftChildCorrelatedTo.equals(innermostAliasSet) &&
                 !rightChildCorrelatedTo.contains(innermostAlias)) {
-            final Object comparand = rightChild.compileTimeEval(EvaluationContext.EMPTY);
+            final Object comparand = compileTimeEvalFn.apply(rightChild);
             if (comparand == null) {
                 return Optional.empty();
             }
             return Optional.of(new ValuePredicate(leftChild, new Comparisons.SimpleComparison(comparisonType, comparand)));
         } else if (rightChildCorrelatedTo.equals(innermostAliasSet) &&
                    !leftChildCorrelatedTo.contains(innermostAlias)) {
-            final Object comparand = leftChild.compileTimeEval(EvaluationContext.EMPTY);
+            final Object comparand = compileTimeEvalFn.apply(leftChild);
             if (comparand == null) {
                 return Optional.empty();
             }
@@ -156,7 +163,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
     }
 
-    private static Value encapsulate(@Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Atom> arguments) {
+    private static Value encapsulate(@Nonnull DynamicSchema dynamicSchema, @Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Atom> arguments) {
         Verify.verify(arguments.size() == 2);
         final Atom arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
@@ -165,10 +172,14 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         final Type res1 = arg1.getResultType();
         SemanticException.check(res1.isPrimitive(), "only primitives can be compared with (non)-equalities");
         SemanticException.check((res0.isNumeric() && res1.isNumeric()) || res0.getTypeCode() == res1.getTypeCode(), "comparands are not compatible");
-        return new RelOpValue(functionName, comparisonType, (Value)arg0, (Value)arg1);
+        return new RelOpValue(functionName,
+                comparisonType,
+                (Value)arg0,
+                (Value)arg1,
+                value -> value.compileTimeEval(EvaluationContext.forDynamicSchema(dynamicSchema)));
     }
 
-    private static Value encapsulateComparable(@Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Atom> arguments) {
+    private static Value encapsulateComparable(@Nonnull DynamicSchema dynamicSchema, @Nonnull final String functionName, @Nonnull Comparisons.Type comparisonType, @Nonnull final List<Atom> arguments) {
         Verify.verify(arguments.size() == 2);
         final Atom arg0 = arguments.get(0);
         final Type res0 = arg0.getResultType();
@@ -178,7 +189,11 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         SemanticException.check((res0.isNumeric() && res1.isNumeric()) ||
                                 ((res0.getTypeCode() == Type.TypeCode.STRING) &&
                                  (res1.getTypeCode() == Type.TypeCode.STRING)), "comparands are not compatible");
-        return new RelOpValue(functionName, comparisonType, (Value)arg0, (Value)arg1);
+        return new RelOpValue(functionName,
+                comparisonType,
+                (Value)arg0,
+                (Value)arg1,
+                value -> value.compileTimeEval(EvaluationContext.forDynamicSchema(dynamicSchema)));
     }
 
     @AutoService(BuiltInFunction.class)
@@ -189,7 +204,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
+            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.EQUALS, arguments);
         }
     }
 
@@ -201,7 +216,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-            return RelOpValue.encapsulate(builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
+            return RelOpValue.encapsulate(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.NOT_EQUALS, arguments);
         }
     }
 
@@ -213,7 +228,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-            return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
+            return RelOpValue.encapsulateComparable(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN, arguments);
         }
     }
 
@@ -225,7 +240,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-            return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
+            return RelOpValue.encapsulateComparable(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.LESS_THAN_OR_EQUALS, arguments);
         }
     }
 
@@ -237,7 +252,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-            return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
+            return RelOpValue.encapsulateComparable(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN, arguments);
         }
     }
 
@@ -249,7 +264,7 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
         }
 
         private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-            return RelOpValue.encapsulateComparable(builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
+            return RelOpValue.encapsulateComparable(parserContext.getDynamicSchemaBuilder().build(), builtInFunction.getFunctionName(), Comparisons.Type.GREATER_THAN_OR_EQUALS, arguments);
         }
     }
 }

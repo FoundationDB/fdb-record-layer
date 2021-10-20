@@ -78,7 +78,7 @@ public class ValueIndexScanFn extends BuiltInFunction<RelationalExpression> {
         SemanticException.check(atom0 instanceof Value, "index name must be a value");
 
         final Value argument0 = (Value)atom0;
-        Object result = argument0.compileTimeEval(EvaluationContext.EMPTY);
+        Object result = argument0.compileTimeEval(EvaluationContext.forDynamicSchema(parserContext.getDynamicSchemaBuilder().build()));
         Verify.verify(result instanceof String);
         final String indexName = (String)result;
 

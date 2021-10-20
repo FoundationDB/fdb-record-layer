@@ -82,6 +82,11 @@ public class EvaluationContext {
         return new EvaluationContext(bindings, dynamicSchema);
     }
 
+    @Nonnull
+    public static EvaluationContext forDynamicSchema(@Nonnull DynamicSchema dynamicSchema) {
+        return new EvaluationContext(Bindings.EMPTY_BINDINGS, dynamicSchema);
+    }
+
     /**
      * Create a new <code>EvaluationContext</code> with a single binding.
      *

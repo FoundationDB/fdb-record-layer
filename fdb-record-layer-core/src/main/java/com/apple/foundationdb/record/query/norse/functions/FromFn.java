@@ -61,7 +61,7 @@ public class FromFn extends BuiltInFunction<RelationalExpression> {
                 .stream()
                 .peek(argument -> Verify.verify(argument.getResultType().getTypeCode() == Type.TypeCode.STRING))
                 .map(argument -> {
-                    final Object result = ((Value)argument).compileTimeEval(EvaluationContext.EMPTY);
+                    final Object result = ((Value)argument).compileTimeEval(EvaluationContext.forDynamicSchema(parserContext.getDynamicSchemaBuilder().build()));
                     if (result instanceof String) {
                         return (String)result;
                     } else {

@@ -321,11 +321,15 @@ public class DynamicSchema {
     public static class Builder {
         // --- public ---
 
-        public DynamicSchema build() throws DescriptorValidationException {
+        public DynamicSchema build() {
             FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
             resultBuilder.addFile(fileDescProtoBuilder.build());
             resultBuilder.mergeFrom(this.fileDescSetBuilder.build());
-            return new DynamicSchema(resultBuilder.build());
+            try {
+                return new DynamicSchema(resultBuilder.build());
+            } catch (final DescriptorValidationException dve) {
+                throw new IllegalStateException("validation should not fail", dve);
+            }
         }
 
         public Builder setName(String name) {

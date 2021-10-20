@@ -240,6 +240,10 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                     return Optional.empty();
                 }
 
+                // TODO NORSE need logic here to match an ordinal access against a field access,
+                //      preferably through calling a new method on predicates (one that defaults to
+                //      semanticEquals()).
+
                 // we found a compatible association between a comparison range in the query and a
                 // parameter placeholder in the candidate
                 return Optional.of(new PredicateMapping(this,

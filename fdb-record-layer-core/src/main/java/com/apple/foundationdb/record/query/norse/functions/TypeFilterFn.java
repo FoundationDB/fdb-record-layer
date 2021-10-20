@@ -63,7 +63,7 @@ public class TypeFilterFn extends BuiltInFunction<RelationalExpression> {
                 .skip(1L) // that's the stream
                 .peek(argument -> Verify.verify(argument.getResultType().getTypeCode() == Type.TypeCode.STRING))
                 .map(argument -> {
-                    final Object result = ((Value)argument).compileTimeEval(EvaluationContext.EMPTY);
+                    final Object result = ((Value)argument).compileTimeEval(EvaluationContext.forDynamicSchema(parserContext.getDynamicSchemaBuilder().build()));
                     if (result instanceof String) {
                         return (String)result;
                     } else {

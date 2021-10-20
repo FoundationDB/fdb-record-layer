@@ -55,7 +55,7 @@ import java.util.stream.StreamSupport;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TupleConstructorValue implements Value {
+public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tuple-Value");
     @Nonnull
     private final String protoTypeName;
@@ -174,19 +174,6 @@ public class TupleConstructorValue implements Value {
     @Override
     public boolean equals(final Object other) {
         return semanticEquals(other, AliasMap.identitiesFor(getCorrelatedTo()));
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull final Value other, @Nonnull final AliasMap equivalenceMap) {
-        if (!Value.super.equalsWithoutChildren(other, equivalenceMap)) {
-            return false;
-        }
-
-        final TupleConstructorValue otherTupleConstructorValue = (TupleConstructorValue)other;
-
-        return protoTypeName.equals(otherTupleConstructorValue.getProtoTypeName()) &&
-               getResultType().equals(otherTupleConstructorValue.getResultType());
-
     }
 
     @Nonnull
