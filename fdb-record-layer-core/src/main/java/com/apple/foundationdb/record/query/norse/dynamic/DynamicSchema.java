@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.norse.dynamic;
 
 import com.apple.foundationdb.record.query.predicates.Type;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.protobuf.DescriptorProtos.FileDescriptorProto;
 import com.google.protobuf.DescriptorProtos.FileDescriptorSet;
 import com.google.protobuf.Descriptors.Descriptor;
@@ -39,6 +41,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -53,7 +56,7 @@ public class DynamicSchema {
     public static DynamicSchema empty() {
         FileDescriptorSet.Builder resultBuilder = FileDescriptorSet.newBuilder();
         try {
-            return new DynamicSchema(resultBuilder.build());
+            return new DynamicSchema(resultBuilder.build(), Maps.newHashMap());
         } catch (final DescriptorValidationException e) {
             throw new IllegalStateException(e);
         }
@@ -83,7 +86,7 @@ public class DynamicSchema {
     }
 
     public static DynamicSchema parseFrom(byte[] schemaDescBuf) throws DescriptorValidationException, IOException {
-        return new DynamicSchema(FileDescriptorSet.parseFrom(schemaDescBuf));
+        return new DynamicSchema(FileDescriptorSet.parseFrom(schemaDescBuf), Maps.newHashMap());
     }
 
     // --- public ---
@@ -100,6 +103,24 @@ public class DynamicSchema {
             return null;
         }
         return DynamicMessage.newBuilder(msgType);
+    }
+
+    /**
+     * Creates a new dynamic message builder for the given type.
+     *
+     * @param type the type name
+     * @return the message builder (null if not found)
+     */
+    public DynamicMessage.Builder newMessageBuilder(@Nonnull final Type type) {
+        final String msgTypeName = typeToNameMap.get(type);
+        Objects.requireNonNull(msgTypeName);
+        return newMessageBuilder(msgTypeName);
+    }
+
+    public String getProtoTypeName(@Nonnull final Type type) {
+        final String typeName = typeToNameMap.get(type);
+        Objects.requireNonNull(typeName);
+        return typeName;
     }
 
     /**
@@ -208,7 +229,7 @@ public class DynamicSchema {
     }
 
     // --- private ---
-    private DynamicSchema(FileDescriptorSet fileDescSet) throws DescriptorValidationException {
+    private DynamicSchema(FileDescriptorSet fileDescSet, Map<Type, String> typeToNameMap) throws DescriptorValidationException {
         this.fileDescSet = fileDescSet;
         Map<String,FileDescriptor> fileDescMap = init(fileDescSet);
 
@@ -229,6 +250,8 @@ public class DynamicSchema {
         for (String enumName : enumDupes) {
             enumDescriptorMapShort.remove(enumName);
         }
+
+        this.typeToNameMap = ImmutableMap.copyOf(typeToNameMap);
     }
 
     private Map<String,FileDescriptor> init(FileDescriptorSet fileDescSet) throws DescriptorValidationException {
@@ -314,6 +337,7 @@ public class DynamicSchema {
     private final Map<String,Descriptor> msgDescriptorMapShort = new HashMap<>();
     private final Map<String,EnumDescriptor> enumDescriptorMapFull = new HashMap<>();
     private final Map<String,EnumDescriptor> enumDescriptorMapShort = new HashMap<>();
+    private final Map<Type, String> typeToNameMap;
 
     /**
      * DynamicSchema.Builder.
@@ -326,7 +350,7 @@ public class DynamicSchema {
             resultBuilder.addFile(fileDescProtoBuilder.build());
             resultBuilder.mergeFrom(this.fileDescSetBuilder.build());
             try {
-                return new DynamicSchema(resultBuilder.build());
+                return new DynamicSchema(resultBuilder.build(), typeToNameMap);
             } catch (final DescriptorValidationException dve) {
                 throw new IllegalStateException("validation should not fail", dve);
             }
@@ -347,8 +371,12 @@ public class DynamicSchema {
             return this;
         }
 
-        public Builder addType(@Nonnull final String typeName, @Nonnull final Type type) {
-            fileDescProtoBuilder.addMessageType(type.buildDescriptor(typeName));
+        public Builder addType(@Nonnull final Type type) {
+            typeToNameMap.computeIfAbsent(type, t -> {
+                final String protoTypeName = Type.uniqueCompliantTypeName();
+                fileDescProtoBuilder.addMessageType(type.buildDescriptor(protoTypeName));
+                return protoTypeName;
+            });
             return this;
         }
 
@@ -384,9 +412,11 @@ public class DynamicSchema {
         private Builder() {
             fileDescProtoBuilder = FileDescriptorProto.newBuilder();
             fileDescSetBuilder = FileDescriptorSet.newBuilder();
+            typeToNameMap = Maps.newHashMap();
         }
 
         private final FileDescriptorProto.Builder fileDescProtoBuilder;
         private final FileDescriptorSet.Builder fileDescSetBuilder;
+        private final Map<Type, String> typeToNameMap;
     }
 }

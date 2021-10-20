@@ -41,8 +41,8 @@ import java.util.Set;
  * A property that computes the set of complex (dynamic) types that is used by the graph passed in.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TypesUsedProperty implements PlannerProperty<Set<Type>> {
-    private static final TypesUsedProperty INSTANCE = new TypesUsedProperty();
+public class UsedTypesProperty implements PlannerProperty<Set<Type>> {
+    private static final UsedTypesProperty INSTANCE = new UsedTypesProperty();
 
     @Nonnull
     @Override

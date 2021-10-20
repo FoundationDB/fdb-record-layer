@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
@@ -34,6 +35,8 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
@@ -47,6 +50,7 @@ import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -58,25 +62,22 @@ import java.util.stream.StreamSupport;
 public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tuple-Value");
     @Nonnull
-    private final String protoTypeName;
-    @Nonnull
     protected final List<Pair<? extends Value, Optional<String>>> childrenAndNames;
     @Nonnull
     private final Supplier<List<? extends Value>> childrenSupplier;
     @Nonnull
     private final Supplier<Type.Record> resultTypeSupplier;
 
-    private TupleConstructorValue(@Nonnull final String protoTypeName,
-                                  @Nonnull List<Pair<? extends Value, Optional<String>>> childrenAndNames) {
-        this.protoTypeName = protoTypeName;
+    @Nonnull
+    private final Cache<DynamicSchema, String> protoTypeNameCache =
+            CacheBuilder.newBuilder()
+                    .maximumSize(3)
+                    .build();
+
+    private TupleConstructorValue(@Nonnull List<Pair<? extends Value, Optional<String>>> childrenAndNames) {
         this.childrenAndNames = ImmutableList.copyOf(childrenAndNames);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.resultTypeSupplier = Suppliers.memoize(this::computeResultType);
-    }
-
-    @Nonnull
-    public String getProtoTypeName() {
-        return protoTypeName;
     }
 
     @Nonnull
@@ -110,8 +111,7 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final DynamicSchema dynamicSchema = context.getDynamicSchema();
-        final DynamicMessage.Builder resultMessageBuilder = dynamicSchema.newMessageBuilder(protoTypeName);
+        final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(context.getDynamicSchema());
         final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
         final DynamicMessage.Builder tupleResult = DynamicMessage.newBuilder(descriptorForType);
 
@@ -125,6 +125,15 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
         }
 
         return tupleResult.build();
+    }
+
+    @Nonnull
+    private DynamicMessage.Builder newMessageBuilderForType(@Nonnull DynamicSchema dynamicSchema) {
+        try {
+            return dynamicSchema.newMessageBuilder(protoTypeNameCache.get(dynamicSchema, () -> dynamicSchema.getProtoTypeName(getResultType())));
+        } catch (final ExecutionException ee) {
+            throw new RecordCoreException("unable to retrieve typename from type cache");
+        }
     }
 
     @Override
@@ -187,7 +196,7 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
                         (newChild, childAndName) -> Pair.of(newChild, childAndName.getValue()))
                         .collect(ImmutableList.toImmutableList());
 
-        return new TupleConstructorValue(this.protoTypeName, newChildrenAndNames);
+        return new TupleConstructorValue(newChildrenAndNames);
     }
 
     public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
@@ -218,31 +227,23 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
                         .peek(pair -> Verify.verify(pair.getKey().isPresent()))
                         .map(pair -> Pair.of(pair.getKey().get(), pair.getValue()))
                         .collect(ImmutableList.toImmutableList());
-        return createAndRegister(parserContext.getDynamicSchemaBuilder(), namedArguments);
-    }
-
-    private static TupleConstructorValue createAndRegister(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder,
-                                                           @Nonnull final List<Pair<? extends Value, Optional<String>>> namedArguments) {
-        final TupleConstructorValue tupleConstructorValue = new TupleConstructorValue(Type.uniqueCompliantTypeName(), namedArguments);
-        dynamicSchemaBuilder.addType(tupleConstructorValue.getProtoTypeName(), tupleConstructorValue.getResultType());
-        return tupleConstructorValue;
+        return new TupleConstructorValue(namedArguments);
     }
 
     public static TupleConstructorValue of(@Nonnull final List<Pair<? extends Value, Optional<String>>> namedArguments) {
-        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), namedArguments);
+        return new TupleConstructorValue(namedArguments);
     }
 
     public static TupleConstructorValue of(@Nonnull final Pair<? extends Value, Optional<String>> namedArgument) {
-        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), ImmutableList.of(namedArgument));
+        return new TupleConstructorValue(ImmutableList.of(namedArgument));
     }
 
     public static TupleConstructorValue ofUnnamed(@Nonnull final Value argument) {
-        return new TupleConstructorValue(Type.uniqueCompliantTypeName(), ImmutableList.of(Pair.of(argument, Optional.empty())));
+        return new TupleConstructorValue(ImmutableList.of(Pair.of(argument, Optional.empty())));
     }
 
     public static TupleConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
-        return new TupleConstructorValue(Type.uniqueCompliantTypeName(),
-                arguments.stream()
+        return new TupleConstructorValue(arguments.stream()
                         .map(argument -> Pair.of(argument, Optional.<String>empty()))
                         .collect(ImmutableList.toImmutableList()));
     }

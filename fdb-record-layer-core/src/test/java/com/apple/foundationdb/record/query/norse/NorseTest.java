@@ -37,7 +37,9 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.debug.Debugger;
+import com.apple.foundationdb.record.query.plan.temp.properties.UsedTypesProperty;
 import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
@@ -56,6 +58,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("checkstyle:AbbreviationAsWordInName")
@@ -178,7 +181,10 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         final ParseTree tree = parser.pipe();
 
         final ParserWalker parserWalker = new ParserWalker(dynamicSchemaBuilder, recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
-        return parserWalker.toGraph(tree);
+        final RelationalExpression relationalExpression = parserWalker.toGraph(tree);
+        final Set<Type> used = UsedTypesProperty.evaluate(relationalExpression);
+        used.forEach(type -> dynamicSchemaBuilder.addType(type));
+        return relationalExpression;
     }
 
     private void printError(@Nonnull final PlannerRepl repl, @Nonnull final Throwable t) {

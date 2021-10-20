@@ -25,6 +25,7 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
@@ -34,6 +35,8 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.predicates.Type.TypeCode;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors;
@@ -43,6 +46,7 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -126,17 +130,10 @@ public abstract class AbstractArrayConstructorValue implements CreatesDynamicTyp
                 .map(argumentAtom -> (Value)argumentAtom)
                 .collect(ImmutableList.toImmutableList());
 
-        return createAndRegister(parserContext.getDynamicSchemaBuilder(), arguments);
-    }
-
-    private static AbstractArrayConstructorValue createAndRegister(@Nonnull DynamicSchema.Builder dynamicSchemaBuilder, @Nonnull final List<? extends Value> arguments) {
         final Type elementType = resolveElementType(arguments);
 
         if (needsNestedProto(elementType)) {
-            final ArrayConstructorValue arrayConstructorValue = new ArrayConstructorValue(Type.uniqueCompliantTypeName(), arguments, elementType);
-
-            dynamicSchemaBuilder.addType(arrayConstructorValue.getProtoTypeName(), arrayConstructorValue.getResultType());
-            return arrayConstructorValue;
+            return new ArrayConstructorValue(arguments, elementType);
         } else {
             return new LightArrayConstructorValue(arguments, elementType);
         }
@@ -192,24 +189,20 @@ public abstract class AbstractArrayConstructorValue implements CreatesDynamicTyp
     @SuppressWarnings("java:S2160")
     public static class ArrayConstructorValue extends AbstractArrayConstructorValue {
         @Nonnull
-        private final String protoTypeName;
+        private final Cache<DynamicSchema, String> protoTypeNameCache =
+                CacheBuilder.newBuilder()
+                        .maximumSize(3)
+                        .build();
 
-        public ArrayConstructorValue(@Nonnull final String protoTypeName, @Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
+        public ArrayConstructorValue(@Nonnull final List<? extends Value> children, @Nonnull final Type elementType) {
             super(children, elementType);
-            this.protoTypeName = protoTypeName;
-        }
-
-        @Nonnull
-        public String getProtoTypeName() {
-            return protoTypeName;
         }
 
         @Nullable
         @Override
         @SuppressWarnings("java:S6213")
         public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-            final DynamicSchema dynamicSchema = context.getDynamicSchema();
-            final DynamicMessage.Builder resultMessageBuilder = dynamicSchema.newMessageBuilder(protoTypeName);
+            final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(context.getDynamicSchema());
             final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
 
             return StreamSupport.stream(getChildren().spliterator(), false)
@@ -229,7 +222,16 @@ public abstract class AbstractArrayConstructorValue implements CreatesDynamicTyp
         public ArrayConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
             Verify.verify(!Iterables.isEmpty(newChildren));
             Verify.verifyNotNull(resolveElementType(newChildren).equals(getElementType()));
-            return new ArrayConstructorValue(protoTypeName, ImmutableList.copyOf(newChildren), getElementType());
+            return new ArrayConstructorValue(ImmutableList.copyOf(newChildren), getElementType());
+        }
+
+        @Nonnull
+        private DynamicMessage.Builder newMessageBuilderForType(@Nonnull DynamicSchema dynamicSchema) {
+            try {
+                return dynamicSchema.newMessageBuilder(protoTypeNameCache.get(dynamicSchema, () -> dynamicSchema.getProtoTypeName(getResultType())));
+            } catch (final ExecutionException ee) {
+                throw new RecordCoreException("unable to retrieve typename from type cache");
+            }
         }
     }
 
