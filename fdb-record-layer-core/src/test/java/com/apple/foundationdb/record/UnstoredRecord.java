@@ -36,10 +36,10 @@ import javax.annotation.Nullable;
  * For evaluation unit tests.
  */
 public class UnstoredRecord<M extends Message> implements FDBRecord<M> {
-    final M record;
+    final M protoRecord;
 
-    public UnstoredRecord(M record) {
-        this.record = record;
+    public UnstoredRecord(M protoRecord) {
+        this.protoRecord = protoRecord;
     }
 
     @Nonnull
@@ -57,7 +57,7 @@ public class UnstoredRecord<M extends Message> implements FDBRecord<M> {
     @Nonnull
     @Override
     public M getRecord() {
-        return record;
+        return protoRecord;
     }
 
     @Override

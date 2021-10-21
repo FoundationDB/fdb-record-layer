@@ -43,7 +43,7 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     @Nonnull
     private final RecordType recordType;
     @Nonnull
-    private final M record;
+    private final M protoRecord;
     @Nullable
     private final FDBRecordVersion recordVersion;
 
@@ -53,19 +53,19 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     private final boolean split;
     private final boolean versionedInline;
 
-    public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record,
+    public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord,
                            @Nonnull FDBStoredSizes size, @Nullable FDBRecordVersion recordVersion) {
-        this(primaryKey, recordType, record, size.getKeyCount(), size.getKeySize(), size.getValueSize(), size.isSplit(), size.isVersionedInline(), recordVersion);
+        this(primaryKey, recordType, protoRecord, size.getKeyCount(), size.getKeySize(), size.getValueSize(), size.isSplit(), size.isVersionedInline(), recordVersion);
     }
 
     @API(API.Status.INTERNAL)
     @SuppressWarnings("squid:S00107")
-    public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record,
+    public FDBStoredRecord(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord,
                            int keyCount, int keySize, int valueSize, boolean split, boolean versionedInline, @Nullable FDBRecordVersion recordVersion) {
 
         this.primaryKey = primaryKey;
         this.recordType = recordType;
-        this.record = record;
+        this.protoRecord = protoRecord;
 
         this.keyCount = keyCount;
         this.keySize = keySize;
@@ -90,7 +90,7 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     @Override
     @Nonnull
     public M getRecord() {
-        return record;
+        return protoRecord;
     }
 
     @Override
@@ -141,13 +141,13 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
 
     /**
      * Get a builder for a stored record.
-     * @param record Protobuf record
+     * @param protoRecord Protobuf record
      * @param <M> type used to represent stored records
      * @return a new builder initialized with the record
      */
     @Nonnull
-    public static <M extends Message> FDBStoredRecordBuilder<M> newBuilder(@Nonnull M record) {
-        return new FDBStoredRecordBuilder<>(record);
+    public static <M extends Message> FDBStoredRecordBuilder<M> newBuilder(@Nonnull M protoRecord) {
+        return new FDBStoredRecordBuilder<>(protoRecord);
     }
 
     /**
@@ -157,7 +157,7 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
      */
     @Nonnull
     public FDBStoredRecord<M> withVersion(@Nullable FDBRecordVersion recordVersion) {
-        return new FDBStoredRecord<>(primaryKey, recordType, record, this, recordVersion);
+        return new FDBStoredRecord<>(primaryKey, recordType, protoRecord, this, recordVersion);
     }
 
     /**
@@ -193,7 +193,7 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
         if (!recordType.getName().equals(that.recordType.getName())) {
             return false;
         }
-        if (!record.equals(that.record)) {
+        if (!protoRecord.equals(that.protoRecord)) {
             return false;
         }
         if (recordVersion == null && that.recordVersion != null || recordVersion != null && !recordVersion.equals(that.recordVersion)) {
@@ -208,7 +208,7 @@ public class FDBStoredRecord<M extends Message> implements FDBIndexableRecord<M>
     public int hashCode() {
         int result = primaryKey.hashCode();
         result = 31 * result + recordType.getName().hashCode();
-        result = 31 * result + record.hashCode();
+        result = 31 * result + protoRecord.hashCode();
         result = 31 * result + keyCount;
         result = 31 * result + keySize;
         result = 31 * result + valueSize;

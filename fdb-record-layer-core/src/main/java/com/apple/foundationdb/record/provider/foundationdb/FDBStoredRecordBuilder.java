@@ -40,7 +40,7 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     @Nullable
     private RecordType recordType;
     @Nullable
-    private M record;
+    private M protoRecord;
     @Nullable
     private FDBRecordVersion recordVersion;
 
@@ -55,8 +55,8 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     }
 
     // Having this means the diamond operator can be used more often.
-    public FDBStoredRecordBuilder(@Nonnull M record) {
-        this.record = record;
+    public FDBStoredRecordBuilder(@Nonnull M protoRecord) {
+        this.protoRecord = protoRecord;
     }
 
     @Override
@@ -80,10 +80,10 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     @Override
     @Nonnull
     public M getRecord() {
-        if (record == null) {
+        if (protoRecord == null) {
             throw new RecordCoreException("record has not been set");
         }
-        return record;
+        return protoRecord;
     }
 
     @Override
@@ -133,7 +133,7 @@ public class FDBStoredRecordBuilder<M extends Message> implements FDBRecord<M>, 
     }
 
     public FDBStoredRecordBuilder<M> setRecord(M record) {
-        this.record = record;
+        this.protoRecord = record;
         return this;
     }
 
