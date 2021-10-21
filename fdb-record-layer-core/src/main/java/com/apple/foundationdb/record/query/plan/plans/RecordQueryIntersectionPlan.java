@@ -106,22 +106,20 @@ public class RecordQueryIntersectionPlan implements RecordQueryPlanWithChildren,
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                             @Nonnull final EvaluationContext context,
+                                                                             @Nullable final byte[] continuation,
+                                                                             @Nonnull final ExecuteProperties executeProperties) {
         final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
         return IntersectionCursor.create(store, getComparisonKey(), reverse,
                 quantifiers.stream()
                         .map(Quantifier.Physical::getRangesOverPlan)
                         .map(childPlan -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)
                                 ((byte[] childContinuation) -> childPlan
-                                        .executePlan(store, context, childContinuation, childExecuteProperties)
-                                        .map(result -> result.getQueriedRecord(0))))
+                                        .execute(store, context, childContinuation, childExecuteProperties)))
                         .collect(Collectors.toList()),
                 continuation)
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(QueryResult::of);
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Override

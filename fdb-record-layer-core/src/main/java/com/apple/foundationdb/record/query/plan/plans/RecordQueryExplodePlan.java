@@ -74,10 +74,10 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
     @Nonnull
     @Override
     @SuppressWarnings("unchecked")
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                           @Nonnull final EvaluationContext context,
+                                                           @Nullable final byte[] continuation,
+                                                           @Nonnull final ExecuteProperties executeProperties) {
         final Type.Array valueResultType = (Type.Array)collectionValue.getResultType();
 
         List<Object> arrayAsList = (List<Object>)collectionValue.eval(store, context, null, null);
@@ -108,7 +108,7 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
                         normalizedElement = element;
                     }
 
-                    return QueryResult.of(normalizedElement);
+                    return normalizedElement;
                 });
     }
 

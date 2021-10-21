@@ -85,20 +85,22 @@ public class RecordQueryFilterPlan extends RecordQueryFilterPlanBase {
         return conjunctedFilter.isAsync();
     }
 
+    @SuppressWarnings("unchecked")
     @Nullable
     @Override
     protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
                                                      @Nonnull EvaluationContext context,
-                                                     @Nullable FDBRecord<M> record) {
-        return conjunctedFilter.eval(store, context, record);
+                                                     @Nullable Object currentObject) {
+        return conjunctedFilter.eval(store, context, (currentObject instanceof FDBRecord<?>) ? (FDBRecord<M>)currentObject : null);
     }
 
     @Nullable
     @Override
+    @SuppressWarnings("unchecked")
     protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store,
                                                                              @Nonnull EvaluationContext context,
-                                                                             @Nullable FDBRecord<M> record) {
-        return conjunctedFilter.evalAsync(store, context, record);
+                                                                             @Nullable final Object currentObject) {
+        return conjunctedFilter.evalAsync(store, context, (currentObject instanceof FDBRecord<?>) ? (FDBRecord<M>)currentObject : null);
     }
 
     @Override

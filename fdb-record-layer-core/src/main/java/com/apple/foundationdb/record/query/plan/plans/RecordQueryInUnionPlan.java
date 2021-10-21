@@ -123,10 +123,10 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                           @Nonnull final EvaluationContext context,
+                                                           @Nullable final byte[] continuation,
+                                                           @Nonnull final ExecuteProperties executeProperties) {
         int size = getValuesSize(context);
         if (size > maxNumberOfValuesAllowed) {
             throw new RecordCoreException("too many IN values").addLogInfo("size", size);
@@ -150,8 +150,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
                 .map(childContext -> (Function<byte[], RecordCursor<FDBQueriedRecord<M>>>)childContinuation -> childPlan.execute(store, childContext, childContinuation, childExecuteProperties))
                 .collect(Collectors.toList());
         return UnionCursor.create(store, comparisonKey, reverse, childCursorFunctions, continuation)
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
-                .map(QueryResult::of);
+                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }
 
     @Nonnull

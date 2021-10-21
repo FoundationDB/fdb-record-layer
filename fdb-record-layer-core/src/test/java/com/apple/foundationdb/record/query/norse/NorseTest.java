@@ -26,8 +26,6 @@ import com.apple.foundationdb.record.RecordCursorIterator;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TestRecords4Proto;
 import com.apple.foundationdb.record.TestRecords4Proto.RestaurantRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
@@ -42,6 +40,7 @@ import com.apple.foundationdb.record.query.predicates.Formatter;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.TextFormat;
 import org.antlr.v4.runtime.ANTLRInputStream;
@@ -56,7 +55,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -135,19 +133,18 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                 long numRecords = 0;
                 try (FDBRecordContext context = openContext()) {
                     openNestedRecordStore(context);
-                    try (RecordCursorIterator<QueryResult> cursor = recordStore.executePlan(recordQueryPlan, EvaluationContext.forBindingsAndDynamicSchema(Bindings.EMPTY_BINDINGS, dynamicSchemaBuilder.build())).asIterator()) {
+                    try (RecordCursorIterator<?> cursor = recordStore.executePlan(recordQueryPlan, EvaluationContext.forBindingsAndDynamicSchema(Bindings.EMPTY_BINDINGS, dynamicSchemaBuilder.build())).asIterator()) {
                         while (cursor.hasNext()) {
-                            final QueryResult rec = Objects.requireNonNull(cursor.next());
+                            final Object result = QueryResult.unwrapValue(Objects.requireNonNull(cursor.next()));
                             final ImmutableList.Builder<String> columnsToPrintBuilder = ImmutableList.builder();
-                            final List<Object> queryResultElements = rec.getElements();
-                            for (final Object queryResultElement : queryResultElements) {
-                                if (queryResultElement instanceof FDBRecord) {
-                                    columnsToPrintBuilder.add(TextFormat.shortDebugString(((FDBQueriedRecord<?>)queryResultElement).getRecord()));
-                                } else if (queryResultElement instanceof Message) {
-                                    columnsToPrintBuilder.add(TextFormat.shortDebugString((Message)queryResultElement));
-                                } else {
-                                    columnsToPrintBuilder.add(queryResultElement == null ? "null" : queryResultElement.toString().replace('\n', ' '));
+                            if (result instanceof Message) {
+                                final Message message = (Message)result;
+                                final Descriptors.Descriptor descriptor = message.getDescriptorForType();
+                                for (final Descriptors.FieldDescriptor field : descriptor.getFields()) {
+                                    columnsToPrintBuilder.add(resultAsString(message.getField(field)));
                                 }
+                            } else {
+                                columnsToPrintBuilder.add(resultAsString(result));
                             }
 
                             final ImmutableList<String> columnsToPrint = columnsToPrintBuilder.build();
@@ -173,6 +170,14 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    private String resultAsString(final Object result) {
+        if (result instanceof Message) {
+            return TextFormat.shortDebugString((Message)result);
+        } else {
+            return result == null ? "null" : result.toString().replace('\n', ' ');
+        }
+    }
+
     private RelationalExpression parseQuery(@Nonnull final String command, @Nonnull DynamicSchema.Builder dynamicSchemaBuilder) {
         final ANTLRInputStream in = new ANTLRInputStream(command);
         NorseLexer lexer = new NorseLexer(in);
@@ -183,7 +188,7 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         final ParserWalker parserWalker = new ParserWalker(dynamicSchemaBuilder, recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
         final RelationalExpression relationalExpression = parserWalker.toGraph(tree);
         final Set<Type> used = UsedTypesProperty.evaluate(relationalExpression);
-        used.forEach(type -> dynamicSchemaBuilder.addType(type));
+        used.forEach(dynamicSchemaBuilder::addType);
         return relationalExpression;
     }
 

@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
@@ -76,6 +75,6 @@ public class MapFn extends BuiltInFunction<RelationalExpression> {
         final List<? extends Value> resultsAsValues = graphExpansion.getResultsAs(Value.class);
         final Value resultValue = Iterables.getOnlyElement(resultsAsValues);
 
-        return new RecordQueryMapPlan(inQuantifier, TupleConstructorValue.wrapIfNotTuple(resultValue));
+        return new RecordQueryMapPlan(inQuantifier, resultValue);
     }
 }

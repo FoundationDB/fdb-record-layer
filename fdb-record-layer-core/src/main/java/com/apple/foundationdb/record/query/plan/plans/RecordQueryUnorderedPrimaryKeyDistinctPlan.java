@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -82,13 +83,13 @@ public class RecordQueryUnorderedPrimaryKeyDistinctPlan implements RecordQueryPl
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                             @Nonnull final EvaluationContext context,
+                                                                             @Nullable final byte[] continuation,
+                                                                             @Nonnull final ExecuteProperties executeProperties) {
         final Set<Tuple> seen = new HashSet<>();
-        return getInner().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit())
-                .filterInstrumented(result -> seen.add(result.getQueriedRecord(0).getPrimaryKey()), store.getTimer(),
+        return getInner().execute(store, context, continuation, executeProperties.clearSkipAndLimit())
+                .filterInstrumented(result -> seen.add(result.getPrimaryKey()), store.getTimer(),
                         Collections.emptySet(), duringEvents, uniqueCounts, duplicateCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

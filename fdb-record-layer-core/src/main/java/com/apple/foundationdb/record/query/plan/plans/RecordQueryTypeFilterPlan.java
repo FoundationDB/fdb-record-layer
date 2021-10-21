@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -102,14 +103,14 @@ public class RecordQueryTypeFilterPlan implements RecordQueryPlanWithChild, Type
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
-        final RecordCursor<QueryResult> results = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                             @Nonnull final EvaluationContext context,
+                                                                             @Nullable final byte[] continuation,
+                                                                             @Nonnull final ExecuteProperties executeProperties) {
+        final RecordCursor<FDBQueriedRecord<M>> results = getInnerPlan().execute(store, context, continuation, executeProperties.clearSkipAndLimit());
 
         return results
-                .filterInstrumented(result -> recordTypes.contains(result.getQueriedRecord(0).getRecordType().getName()), store.getTimer(),
+                .filterInstrumented(result -> recordTypes.contains(result.getRecordType().getName()), store.getTimer(),
                         inCounts, duringEvents, successCounts, failureCounts)
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit());
     }

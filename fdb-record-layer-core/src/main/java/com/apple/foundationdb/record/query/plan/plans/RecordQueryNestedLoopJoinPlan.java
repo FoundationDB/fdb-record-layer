@@ -76,22 +76,23 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                           @Nonnull final EvaluationContext context,
+                                                           @Nullable final byte[] continuation,
+                                                           @Nonnull final ExecuteProperties executeProperties) {
+        final Value resultValue = getResultValue();
+
         return RecordCursor.flatMapPipelined(
                 outerContinuation ->
                         outer.getRangesOverPlan().executePlan(store, context, continuation, executeProperties),
                 (outerResult, innerContinuation) -> {
-                    final EvaluationContext nestedContext = context.withBinding(outer.getAlias(), outerResult);
+                    final EvaluationContext fromOuterContext = context.withBinding(outer.getAlias(), outerResult);
 
-                    return new MapCursor<>(inner.getRangesOverPlan().executePlan(store, nestedContext, continuation, executeProperties),
+                    return new MapCursor<>(inner.getRangesOverPlan().executePlan(store, fromOuterContext, continuation, executeProperties),
                             innerResult -> {
-                                final ImmutableList.Builder<Object> resultBuilder = ImmutableList.builder();
-                                resultBuilder.addAll(outerResult.getElements());
-                                resultBuilder.addAll(innerResult.getElements());
-                                return QueryResult.of(resultBuilder.build());
+                                final EvaluationContext nestedContext =
+                                        fromOuterContext.withBinding(inner.getAlias(), innerResult);
+                                return resultValue.eval(store, nestedContext, null, null);
                             });
                 },
                 continuation,

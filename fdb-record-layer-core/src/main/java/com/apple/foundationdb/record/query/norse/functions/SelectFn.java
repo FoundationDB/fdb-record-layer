@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpressio
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
@@ -72,7 +71,7 @@ public class SelectFn extends BuiltInFunction<RelationalExpression> {
         Verify.verify(graphExpansion.getPredicates().isEmpty());
         final List<? extends Value> resultsAsValues = graphExpansion.getResultsAs(Value.class);
         final Value resultValue = Iterables.getOnlyElement(resultsAsValues);
-        return new SelectExpression(TupleConstructorValue.wrapIfNotTuple(resultValue),
+        return new SelectExpression(resultValue,
                 ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
                 ImmutableList.of());
     }

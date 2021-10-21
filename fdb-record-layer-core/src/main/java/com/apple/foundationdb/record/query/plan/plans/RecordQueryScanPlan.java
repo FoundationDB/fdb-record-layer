@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
@@ -109,16 +110,15 @@ public class RecordQueryScanPlan implements RecordQueryPlanWithNoChildren, Recor
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<FDBQueriedRecord<M>> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                             @Nonnull final EvaluationContext context,
+                                                                             @Nullable final byte[] continuation,
+                                                                             @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = comparisons.toTupleRange(store, context);
         return store.scanRecords(
                 range.getLow(), range.getHigh(), range.getLowEndpoint(), range.getHighEndpoint(), continuation,
                 executeProperties.asScanProperties(reverse))
-                .map(store::queriedRecord)
-                .map(QueryResult::of);
+                .map(store::queriedRecord);
     }
 
     @Nullable

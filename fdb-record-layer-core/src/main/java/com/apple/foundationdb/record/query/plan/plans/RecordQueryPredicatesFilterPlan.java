@@ -24,7 +24,6 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
-import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -82,20 +81,23 @@ public class RecordQueryPredicatesFilterPlan extends RecordQueryFilterPlanBase i
         return false;
     }
 
+    @SuppressWarnings("unchecked")
     @Nullable
     @Override
-    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
-        if (record == null) {
+    protected <M extends Message> Boolean evalFilter(@Nonnull FDBRecordStoreBase<M> store,
+                                                     @Nonnull EvaluationContext context,
+                                                     @Nullable Object currentObject) {
+        if (currentObject == null) {
             return null;
         }
 
-        final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), record.getRecord());
-        return conjunctedPredicate.eval(store, nestedContext, record, record.getRecord());
+        final EvaluationContext nestedContext = context.withBinding(getInner().getAlias(), currentObject);
+        return conjunctedPredicate.eval(store, nestedContext, null, null);
     }
 
     @Nullable
     @Override
-    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable FDBRecord<M> record) {
+    protected <M extends Message> CompletableFuture<Boolean> evalFilterAsync(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context, @Nullable final Object currentObject) {
         throw new UnsupportedOperationException();
     }
 

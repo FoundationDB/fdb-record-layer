@@ -31,10 +31,12 @@ import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.google.common.collect.ImmutableSet;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.List;
 
 /**
  * A value representing the quantifier as an object.
@@ -88,8 +90,10 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final QueryResult binding = (QueryResult)context.getBinding(alias);
-        return binding.get(ordinalPosition);
+        final Message binding = (Message)QueryResult.unwrapValue(context.getBinding(alias));
+
+        final List<Descriptors.FieldDescriptor> fields = binding.getDescriptorForType().getFields();
+        return binding.getField(fields.get(ordinalPosition));
     }
 
     @Nonnull

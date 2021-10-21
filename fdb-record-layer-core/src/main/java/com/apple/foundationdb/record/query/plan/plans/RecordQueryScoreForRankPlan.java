@@ -117,10 +117,10 @@ public class RecordQueryScoreForRankPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                           @Nonnull final EvaluationContext context,
+                                                           @Nullable final byte[] continuation,
+                                                           @Nonnull final ExecuteProperties executeProperties) {
         return RecordCursor.mapFuture(store.getExecutor(), bindScores(store, context, executeProperties.getIsolationLevel()), continuation,
                 (innerContext, innerContinuation) -> getChild().executePlan(store, innerContext, innerContinuation, executeProperties));
     }

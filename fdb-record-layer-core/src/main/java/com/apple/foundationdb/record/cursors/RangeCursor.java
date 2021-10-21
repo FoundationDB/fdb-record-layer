@@ -25,8 +25,6 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -38,7 +36,7 @@ import java.util.concurrent.Executor;
  * A cursor that returns a sequence from 0 to an (exclusive) limit.
  */
 @API(API.Status.MAINTAINED)
-public class RangeCursor implements RecordCursor<QueryResult> {
+public class RangeCursor implements RecordCursor<Integer> {
     @Nonnull
     private final Executor executor;
     private final int exclusiveLimit;
@@ -56,16 +54,16 @@ public class RangeCursor implements RecordCursor<QueryResult> {
 
     @Nonnull
     @Override
-    public CompletableFuture<RecordCursorResult<QueryResult>> onNext() {
+    public CompletableFuture<RecordCursorResult<Integer>> onNext() {
         return CompletableFuture.completedFuture(getNext());
     }
 
     @Nonnull
     @Override
-    public RecordCursorResult<QueryResult> getNext() {
-        RecordCursorResult<QueryResult> nextResult;
+    public RecordCursorResult<Integer> getNext() {
+        RecordCursorResult<Integer> nextResult;
         if (nextPosition < exclusiveLimit) {
-            nextResult = RecordCursorResult.withNextValue(QueryResult.of(ImmutableList.of(nextPosition)), new Continuation(nextPosition + 1, exclusiveLimit));
+            nextResult = RecordCursorResult.withNextValue(nextPosition, new Continuation(nextPosition + 1, exclusiveLimit));
             nextPosition++;
         } else {
             nextResult = RecordCursorResult.exhausted();

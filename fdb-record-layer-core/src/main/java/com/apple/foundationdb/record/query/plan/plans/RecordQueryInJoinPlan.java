@@ -73,10 +73,10 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                           @Nonnull final EvaluationContext context,
+                                                           @Nullable final byte[] continuation,
+                                                           @Nonnull final ExecuteProperties executeProperties) {
         return RecordCursor.flatMapPipelined(
                 outerContinuation -> {
                     final List<Object> values = getValues(context);

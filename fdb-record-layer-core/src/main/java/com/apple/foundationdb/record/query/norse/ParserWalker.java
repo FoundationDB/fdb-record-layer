@@ -867,7 +867,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             final RecordQueryRangePlan rangePlan = new RecordQueryRangePlan(new LiteralValue<>(primitiveType(TypeCode.INT, false), 1));
 
             final Value topValue = (Value)topAtom;
-            topExpression = new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(rangePlan)), TupleConstructorValue.wrapIfNotTuple(topValue));
+            topExpression = new RecordQueryMapPlan(Quantifier.physical(GroupExpressionRef.of(rangePlan)), topValue);
         } else {
             topExpression = (RelationalExpression)topAtom;
         }

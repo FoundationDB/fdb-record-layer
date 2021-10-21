@@ -53,7 +53,6 @@ import java.util.Objects;
  * A query plan of any complexity will have child plans and execute by altering or combining the children's streams in some way.
  *
  * @see com.apple.foundationdb.record.query.RecordQuery
- * @see com.apple.foundationdb.record.query.plan.RecordQueryPlanner#plan
  *
  */
 @API(API.Status.STABLE)
@@ -69,12 +68,13 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      * @return a cursor of records that match the query criteria
      */
     @Nonnull
+    @SuppressWarnings("unchecked")
     default <M extends Message> RecordCursor<FDBQueriedRecord<M>> execute(@Nonnull FDBRecordStoreBase<M> store,
                                                                           @Nonnull EvaluationContext context,
                                                                           @Nullable byte[] continuation,
                                                                           @Nonnull ExecuteProperties executeProperties) {
         return executePlan(store, context, continuation, executeProperties)
-                .map(result -> result.getQueriedRecord(0));
+                .map(result -> (FDBQueriedRecord<M>)result);
     }
 
     @Nonnull
@@ -120,10 +120,29 @@ public interface RecordQueryPlan extends QueryPlan<FDBQueriedRecord<Message>>, P
      */
     @API(API.Status.EXPERIMENTAL)
     @Nonnull
-    <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                              @Nonnull EvaluationContext context,
-                                                              @Nullable byte[] continuation,
-                                                              @Nonnull ExecuteProperties executeProperties);
+    default <M extends Message, R> RecordCursor<R> executeAndNarrow(@Nonnull Class<R> resultClass,
+                                                                    @Nonnull FDBRecordStoreBase<M> store,
+                                                                    @Nonnull EvaluationContext context,
+                                                                    @Nullable byte[] continuation,
+                                                                    @Nonnull ExecuteProperties executeProperties) {
+        return executePlan(store, context, continuation, executeProperties).map(resultClass::cast);
+    }
+
+    /**
+     * Execute this plan, returning a {@link RecordCursor} to {@link QueryResult} result.
+     * @param store record store from which to fetch records
+     * @param context evaluation context containing parameter bindings
+     * @param continuation continuation from a previous execution of this same plan
+     * @param executeProperties limits on execution
+     * @param <M> type used to represent stored records
+     * @return a cursor of {@link QueryResult} that match the query criteria
+     */
+    @API(API.Status.EXPERIMENTAL)
+    @Nonnull
+    <M extends Message> RecordCursor<?> executePlan(@Nonnull FDBRecordStoreBase<M> store,
+                                                    @Nonnull EvaluationContext context,
+                                                    @Nullable byte[] continuation,
+                                                    @Nonnull ExecuteProperties executeProperties);
 
     /**
      * Returns the (zero or more) {@code RecordQueryPlan} children of this plan.

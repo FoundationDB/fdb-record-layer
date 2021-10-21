@@ -44,7 +44,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -73,14 +72,14 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                           @Nonnull final EvaluationContext context,
+                                                           @Nullable final byte[] continuation,
+                                                           @Nonnull final ExecuteProperties executeProperties) {
         return new MapCursor<>(getChild().executePlan(store, context, continuation, executeProperties),
-                queryResult -> {
-                    final EvaluationContext nestedContext = context.withBinding(inner.getAlias(), queryResult);
-                    return QueryResult.of(Lists.newArrayList(resultValue.eval(store, nestedContext, null, null)));
+                innerResult -> {
+                    final EvaluationContext nestedContext = context.withBinding(inner.getAlias(), innerResult);
+                    return resultValue.eval(store, nestedContext, null, null);
                 });
     }
 

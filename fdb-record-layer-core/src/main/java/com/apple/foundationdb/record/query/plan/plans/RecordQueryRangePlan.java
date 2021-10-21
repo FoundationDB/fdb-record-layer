@@ -75,11 +75,11 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
-                                                                     @Nonnull final EvaluationContext context,
-                                                                     @Nullable final byte[] continuation,
-                                                                     @Nonnull final ExecuteProperties executeProperties) {
-        final int exclusiveLimit = (int)exclusiveLimitValue.eval(store, context, null, null);
+    public <M extends Message> RecordCursor<Integer> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                 @Nonnull final EvaluationContext context,
+                                                                 @Nullable final byte[] continuation,
+                                                                 @Nonnull final ExecuteProperties executeProperties) {
+        final int exclusiveLimit = (int)Objects.requireNonNull(exclusiveLimitValue.eval(store, context, null, null));
         return new RangeCursor(store.getExecutor(), exclusiveLimit, continuation);
     }
 

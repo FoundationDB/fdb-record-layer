@@ -31,7 +31,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
-import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithChild;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -80,28 +79,25 @@ public class RecordQuerySortPlan implements RecordQueryPlanWithChild {
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                     @Nonnull EvaluationContext context,
-                                                                     @Nullable byte[] continuation,
-                                                                     @Nonnull ExecuteProperties executeProperties) {
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull FDBRecordStoreBase<M> store,
+                                                           @Nonnull EvaluationContext context,
+                                                           @Nullable byte[] continuation,
+                                                           @Nonnull ExecuteProperties executeProperties) {
         // Since we are sorting, we need to feed through everything from the inner plan,
         // even just to get the top few.
         final ExecuteProperties executeInner = executeProperties.clearSkipAndLimit();
         final Function<byte[], RecordCursor<FDBQueriedRecord<M>>> innerCursor =
-                innerContinuation -> getChild().executePlan(store, context, innerContinuation, executeInner)
-                        .map(result -> result.<M>getQueriedRecord(0));
+                innerContinuation -> getChild().execute(store, context, innerContinuation, executeInner);
         final int skip = executeProperties.getSkip();
         final int limit = executeProperties.getReturnedRowLimitOrMax();
         final int maxRecordsToRead = limit == Integer.MAX_VALUE ? limit : skip + limit;
         final RecordQuerySortAdapter<M> adapter = key.getAdapter(store, maxRecordsToRead);
         final FDBStoreTimer timer = store.getTimer();
-        final RecordCursor<FDBQueriedRecord<M>> sorted;
         if (adapter.isMemoryOnly()) {
-            sorted = MemorySortCursor.create(adapter, innerCursor, timer, continuation).skipThenLimit(skip, limit);
+            return MemorySortCursor.create(adapter, innerCursor, timer, continuation).skipThenLimit(skip, limit);
         } else {
-            sorted = FileSortCursor.create(adapter, innerCursor, timer, continuation, skip, limit);
+            return FileSortCursor.create(adapter, innerCursor, timer, continuation, skip, limit);
         }
-        return sorted.map(QueryResult::of);
     }
 
     @Override
