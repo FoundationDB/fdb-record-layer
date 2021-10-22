@@ -54,7 +54,7 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
     @Override
     public byte[] serialize(@Nonnull RecordMetaData metaData,
                             @Nonnull RecordType recordType,
-                            @Nonnull M record,
+                            @Nonnull M rec,
                             @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
         try {
@@ -66,7 +66,7 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
                         .addLogInfo("unionDescriptorFullName", metaData.getUnionDescriptor().getFullName())
                         .addLogInfo(LogMessageKeys.META_DATA_VERSION, metaData.getVersion());
             }
-            setUnionField(metaData, recordType, unionBuilder, record);
+            setUnionField(metaData, recordType, unionBuilder, rec);
             @SuppressWarnings("unchecked")
             U storedRecord = (U) unionBuilder.build();
             return storedRecord.toByteArray();
@@ -80,7 +80,7 @@ public abstract class MessageBuilderRecordSerializerBase<M extends Message, U ex
     protected abstract void setUnionField(@Nonnull RecordMetaData metaData,
                                           @Nonnull RecordType recordType,
                                           @Nonnull B unionBuilder,
-                                          @Nonnull M record);
+                                          @Nonnull M rec);
 
     @Nonnull
     @Override
