@@ -422,92 +422,92 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
 
     /**
      * Async version of {@link #saveRecord(Message)}.
-     * @param record the record to save
+     * @param rec the record to save
      * @return a future that completes with the stored record form of the saved record
      */
     @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record) {
-        return saveRecordAsync(record, (FDBRecordVersion)null);
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec) {
+        return saveRecordAsync(rec, (FDBRecordVersion)null);
     }
 
     /**
      * Async version of {@link #saveRecord(Message, RecordExistenceCheck)}.
-     * @param record the record to save
+     * @param rec the record to save
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return a future that completes with the stored record form of the saved record
      */
     @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck) {
-        return saveRecordAsync(record, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck) {
+        return saveRecordAsync(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
     /**
      * Async version of {@link #saveRecord(Message, FDBRecordVersion)}.
-     * @param record the record to save
+     * @param rec the record to save
      * @param version the associated record version
      * @return a future that completes with the stored record form of the saved record
      */
     @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record, @Nullable FDBRecordVersion version) {
-        return saveRecordAsync(record, version, VersionstampSaveBehavior.DEFAULT);
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec, @Nullable FDBRecordVersion version) {
+        return saveRecordAsync(rec, version, VersionstampSaveBehavior.DEFAULT);
     }
 
     /**
      * Async version of {@link #saveRecord(Message, FDBRecordVersion, VersionstampSaveBehavior)}.
-     * @param record the record to save
+     * @param rec the record to save
      * @param version the associated record version
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return a future that completes with the stored record form of the saved record
      */
     @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M record, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
-        return saveRecordAsync(record, RecordExistenceCheck.NONE, version, behavior);
+    default CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull final M rec, @Nullable FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+        return saveRecordAsync(rec, RecordExistenceCheck.NONE, version, behavior);
     }
 
     /**
      * Async version of {@link #saveRecord(Message, RecordExistenceCheck, FDBRecordVersion, VersionstampSaveBehavior)}.
-     * @param record the record to save
+     * @param rec the record to save
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @param version the associated record version
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return a future that completes with the stored record form of the saved record
      */
     @Nonnull
-    CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M record, @Nonnull RecordExistenceCheck existenceCheck,
+    CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck,
                                                           @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior);
 
     /**
      * Save the given record.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M record) {
-        return saveRecord(record, (FDBRecordVersion)null);
+    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec) {
+        return saveRecord(rec, (FDBRecordVersion)null);
     }
 
     /**
      * Save the given record.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck) {
-        return saveRecord(record, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
+    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck) {
+        return saveRecord(rec, existenceCheck, null, VersionstampSaveBehavior.DEFAULT);
     }
 
     /**
      * Save the given record with a specific version. If <code>null</code>
      * is passed for <code>version</code>, then a new version is
      * created that will be unique for this record.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @param version the version to associate with the record when saving
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M record, @Nullable final FDBRecordVersion version) {
-        return saveRecord(record, version, VersionstampSaveBehavior.DEFAULT);
+    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nullable final FDBRecordVersion version) {
+        return saveRecord(rec, version, VersionstampSaveBehavior.DEFAULT);
     }
 
     /**
@@ -516,14 +516,14 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * the method acts as {@link #saveRecord(Message, FDBRecordVersion)}. If behavior is <code>NO_VERSION</code> then
      * <code>version</code> is ignored and no version is saved. If behavior is <code>WITH_VERSION</code> then the value
      * of <code>version</code>  is stored as given by the caller.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @param version the version to associate with the record when saving
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M record, @Nullable final FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
-        return saveRecord(record, RecordExistenceCheck.NONE, version, behavior);
+    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nullable final FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
+        return saveRecord(rec, RecordExistenceCheck.NONE, version, behavior);
     }
 
     /**
@@ -532,56 +532,56 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * the method acts as {@link #saveRecord(Message, FDBRecordVersion)}. If behavior is <code>NO_VERSION</code> then
      * <code>version</code> is ignored and no version is saved. If behavior is <code>WITH_VERSION</code> then the value
      * of <code>version</code>  is stored as given by the caller.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @param existenceCheck when to throw an exception if a record with the same primary key does or does not already exist
      * @param version the version to associate with the record when saving
      * @param behavior the save behavior w.r.t. the given <code>version</code>
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
-    default FDBStoredRecord<M> saveRecord(@Nonnull final M record, @Nonnull RecordExistenceCheck existenceCheck,
+    default FDBStoredRecord<M> saveRecord(@Nonnull final M rec, @Nonnull RecordExistenceCheck existenceCheck,
                                          @Nullable final FDBRecordVersion version, @Nonnull final VersionstampSaveBehavior behavior) {
-        return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecordAsync(record, existenceCheck, version, behavior));
+        return getContext().asyncToSync(FDBStoreTimer.Waits.WAIT_SAVE_RECORD, saveRecordAsync(rec, existenceCheck, version, behavior));
     }
 
     /**
      * Save the given record and throw an exception if a record already exists with the same primary key.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @return a future that completes with the stored record form of the saved record
      */
     @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> insertRecordAsync(@Nonnull final M record) {
-        return saveRecordAsync(record, RecordExistenceCheck.ERROR_IF_EXISTS);
+    default CompletableFuture<FDBStoredRecord<M>> insertRecordAsync(@Nonnull final M rec) {
+        return saveRecordAsync(rec, RecordExistenceCheck.ERROR_IF_EXISTS);
     }
 
     /**
      * Save the given record and throw an exception if a record already exists with the same primary key.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
-    default FDBStoredRecord<M> insertRecord(@Nonnull final M record) {
-        return saveRecord(record, RecordExistenceCheck.ERROR_IF_EXISTS);
+    default FDBStoredRecord<M> insertRecord(@Nonnull final M rec) {
+        return saveRecord(rec, RecordExistenceCheck.ERROR_IF_EXISTS);
     }
 
     /**
      * Save the given record and throw an exception if the record does not already exist in the database.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @return a future that completes with the stored record form of the saved record
      */
     @Nonnull
-    default CompletableFuture<FDBStoredRecord<M>> updateRecordAsync(@Nonnull final M record) {
-        return saveRecordAsync(record, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+    default CompletableFuture<FDBStoredRecord<M>> updateRecordAsync(@Nonnull final M rec) {
+        return saveRecordAsync(rec, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
     }
 
     /**
      * Save the given record and throw an exception if the record does not already exist in the database.
-     * @param record the record to be saved
+     * @param rec the record to be saved
      * @return wrapping object containing saved record and metadata
      */
     @Nonnull
-    default FDBStoredRecord<M> updateRecord(@Nonnull final M record) {
-        return saveRecord(record, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
+    default FDBStoredRecord<M> updateRecord(@Nonnull final M rec) {
+        return saveRecord(rec, RecordExistenceCheck.ERROR_IF_NOT_EXISTS_OR_RECORD_TYPE_CHANGED);
     }
 
     /**
@@ -996,8 +996,8 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                                                                         @Nonnull final IndexOrphanBehavior orphanBehavior,
                                                                         @Nonnull final ExecuteState executeState) {
         final Tuple primaryKey = entry.getPrimaryKey();
-        return loadRecordInternal(primaryKey, executeState,false).thenApply(record -> {
-            if (record == null) {
+        return loadRecordInternal(primaryKey, executeState,false).thenApply(rec -> {
+            if (rec == null) {
                 switch (orphanBehavior) {
                     case SKIP:
                         return null;
@@ -1016,7 +1016,7 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
                         throw new RecordCoreException("Unexpected index orphan behavior: " + orphanBehavior);
                 }
             }
-            return new FDBIndexedRecord<>(entry, record);
+            return new FDBIndexedRecord<>(entry, rec);
         });
     }
 
@@ -1427,34 +1427,34 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Evaluate a {@link RecordFunction} against a record.
      * @param function the function to evaluate
-     * @param record the record to evaluate against
+     * @param rec the record to evaluate against
      * @param <T> the type of the result
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
     default <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull RecordFunction<T> function,
-                                                            @Nonnull FDBRecord<M> record) {
-        return evaluateRecordFunction(EvaluationContext.EMPTY, function, record);
+                                                            @Nonnull FDBRecord<M> rec) {
+        return evaluateRecordFunction(EvaluationContext.EMPTY, function, rec);
     }
 
     /**
      * Evaluate a {@link RecordFunction} against a record.
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
-     * @param record the record to evaluate against
+     * @param rec the record to evaluate against
      * @param <T> the type of the result
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
     default <T> CompletableFuture<T> evaluateRecordFunction(@Nonnull EvaluationContext evaluationContext,
                                                             @Nonnull RecordFunction<T> function,
-                                                            @Nonnull FDBRecord<M> record) {
+                                                            @Nonnull FDBRecord<M> rec) {
         if (function instanceof IndexRecordFunction<?>) {
             IndexRecordFunction<T> indexRecordFunction = (IndexRecordFunction<T>)function;
-            return evaluateIndexRecordFunction(evaluationContext, indexRecordFunction, record);
+            return evaluateIndexRecordFunction(evaluationContext, indexRecordFunction, rec);
         } else if (function instanceof StoreRecordFunction<?>) {
             StoreRecordFunction<T> storeRecordFunction = (StoreRecordFunction<T>)function;
-            return evaluateStoreFunction(evaluationContext, storeRecordFunction, record);
+            return evaluateStoreFunction(evaluationContext, storeRecordFunction, rec);
         }
         throw new RecordCoreException("Cannot evaluate record function " + function);
     }
@@ -1464,25 +1464,25 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param <T> the type of the result
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
-     * @param record the record to evaluate against
+     * @param rec the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
     <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext,
                                                          @Nonnull IndexRecordFunction<T> function,
-                                                         @Nonnull FDBRecord<M> record);
+                                                         @Nonnull FDBRecord<M> rec);
 
     /**
      * Evaluate a {@link StoreRecordFunction} against a record.
      * @param <T> the type of the result
      * @param function the function to evaluate
-     * @param record the record to evaluate against
+     * @param rec the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
     default <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull StoreRecordFunction<T> function,
-                                                           @Nonnull FDBRecord<M> record) {
-        return evaluateStoreFunction(EvaluationContext.EMPTY, function, record);
+                                                           @Nonnull FDBRecord<M> rec) {
+        return evaluateStoreFunction(EvaluationContext.EMPTY, function, rec);
     }
 
     /**
@@ -1490,13 +1490,13 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @param <T> the type of the result
      * @param evaluationContext evaluation context containing parameter bindings
      * @param function the function to evaluate
-     * @param record the record to evaluate against
+     * @param rec the record to evaluate against
      * @return a future that will complete with the result of evaluating the function against the record
      */
     @Nonnull
     <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext,
                                                    @Nonnull StoreRecordFunction<T> function,
-                                                   @Nonnull FDBRecord<M> record);
+                                                   @Nonnull FDBRecord<M> rec);
 
     /**
      * Evaluate an {@link IndexAggregateFunction} against a range of the store.
