@@ -73,6 +73,12 @@ public class RecordQueryExplodePlan implements RecordQueryPlanWithNoChildren {
 
     @Nonnull
     @Override
+    public Set<Type> getDynamicTypes() {
+        return ImmutableSet.of(collectionValue.getResultType());
+    }
+
+    @Nonnull
+    @Override
     @SuppressWarnings("unchecked")
     public <M extends Message> RecordCursor<?> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                            @Nonnull final EvaluationContext context,

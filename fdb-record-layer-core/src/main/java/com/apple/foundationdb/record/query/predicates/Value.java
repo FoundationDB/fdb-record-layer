@@ -216,6 +216,23 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return translationMap.getOrDefault(this, this);
     }
 
+    @Nonnull
+    default Set<Type> getDynamicTypes() {
+        return fold(p -> {
+            if (p instanceof CreatesDynamicTypesValue) {
+                return ImmutableSet.of(p.getResultType());
+            }
+            return ImmutableSet.<Type>of();
+        }, (thisTypes, childTypeSets) -> {
+            final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
+            for (final Set<Type> childTypes : childTypeSets) {
+                nestedBuilder.addAll(childTypes);
+            }
+            nestedBuilder.addAll(thisTypes);
+            return nestedBuilder.build();
+        });
+    }
+
     @Override
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {

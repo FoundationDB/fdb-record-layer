@@ -133,25 +133,55 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                 long numRecords = 0;
                 try (FDBRecordContext context = openContext()) {
                     openNestedRecordStore(context);
+                    final Type resultType = recordQueryPlan.getResultType().getInnerType();
+                    final Type.Record recordType = resultType instanceof Type.Record ? (Type.Record)resultType : null;
+
+                    final ImmutableList.Builder<String> columnNamesBuilder = ImmutableList.builder();
+                    if (recordType != null) {
+                        for (final Type.Record.Field field : Objects.requireNonNull(recordType.getFields())) {
+                            columnNamesBuilder.add(field.getFieldName());
+                        }
+                    } else {
+                        columnNamesBuilder.add("unnamed");
+                    }
+
+                    final ImmutableList<String> columnNames = columnNamesBuilder.build();
+                    if (columnNames.size() == 1) {
+                        repl.printlnHighlighted2(columnNames.get(0));
+                        repl.printlnHighlighted2(Strings.repeat("-", columnNames.get(0).length()));
+                        repl.println();
+                    } else {
+                        repl.printlnHighlighted2(columnNames.stream()
+                                .map(columnToPrint -> Strings.padEnd(columnToPrint.length() > 40 ? columnToPrint.substring(0, 40) : columnToPrint, 40, ' '))
+                                .collect(Collectors.joining("    ")));
+                        repl.printlnHighlighted2(columnNames.stream()
+                                .map(columnToPrint -> Strings.repeat("-", 40))
+                                .collect(Collectors.joining("    ")));
+                        repl.println();
+                    }
+
                     try (RecordCursorIterator<?> cursor = recordStore.executePlan(recordQueryPlan, EvaluationContext.forBindingsAndDynamicSchema(Bindings.EMPTY_BINDINGS, dynamicSchemaBuilder.build())).asIterator()) {
                         while (cursor.hasNext()) {
                             final Object result = QueryResult.unwrapValue(Objects.requireNonNull(cursor.next()));
-                            final ImmutableList.Builder<String> columnsToPrintBuilder = ImmutableList.builder();
+                            final ImmutableList.Builder<String> columnsBuilder = ImmutableList.builder();
                             if (result instanceof Message) {
+                                Objects.requireNonNull(recordType);
                                 final Message message = (Message)result;
                                 final Descriptors.Descriptor descriptor = message.getDescriptorForType();
-                                for (final Descriptors.FieldDescriptor field : descriptor.getFields()) {
-                                    columnsToPrintBuilder.add(resultAsString(message.getField(field)));
+                                int i = 0;
+                                for (final Type.Record.Field field : Objects.requireNonNull(recordType.getFields())) {
+                                    columnsBuilder.add(resultAsString(message.getField(descriptor.findFieldByNumber(field.getFieldIndex()))));
+                                    i ++;
                                 }
                             } else {
-                                columnsToPrintBuilder.add(resultAsString(result));
+                                columnsBuilder.add(resultAsString(result));
                             }
 
-                            final ImmutableList<String> columnsToPrint = columnsToPrintBuilder.build();
-                            if (columnsToPrint.size() == 1) {
-                                repl.println(columnsToPrint.get(0));
+                            final ImmutableList<String> columns = columnsBuilder.build();
+                            if (columns.size() == 1) {
+                                repl.println(columns.get(0));
                             } else {
-                                repl.println(columnsToPrint.stream()
+                                repl.println(columns.stream()
                                         .map(columnToPrint -> Strings.padEnd(columnToPrint.length() > 40 ? columnToPrint.substring(0, 40) : columnToPrint, 40, ' '))
                                         .collect(Collectors.joining("    ")));
                             }

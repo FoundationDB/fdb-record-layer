@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.predicates;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.BiMap;
@@ -423,7 +424,7 @@ public interface Type {
         private Record(final boolean isNullable,
                        @Nullable final List<Field> fields) {
             this.isNullable = isNullable;
-            this.fields = fields == null ? null : ImmutableList.copyOf(fields);
+            this.fields = fields == null ? null : normalizeFields(fields);
             this.fieldTypeMapSupplier = Suppliers.memoize(this::computeFieldTypeMap);
             this.elementTypesSupplier = Suppliers.memoize(this::computeElementTypes);
         }
@@ -462,8 +463,8 @@ public interface Type {
 
         @SuppressWarnings("OptionalGetWithoutIsPresent")
         private Map<String, Type> computeFieldTypeMap() {
-            return Objects.requireNonNull(fields).stream()
-                    .filter(field -> field.getFieldNameOptional().isPresent())
+            return Objects.requireNonNull(fields)
+                    .stream()
                     .collect(ImmutableMap.toImmutableMap(field -> field.getFieldNameOptional().get(), Field::getFieldType));
         }
 
@@ -478,18 +479,14 @@ public interface Type {
             final DescriptorProto.Builder recordMsgBuilder = DescriptorProto.newBuilder();
             recordMsgBuilder.setName(typeName);
 
-            int i = 0;
             for (final Field field : fields) {
                 final Type fieldType = field.getFieldType();
-                final Optional<String> fieldNameOptional = field.getFieldNameOptional();
-                if (fieldNameOptional.isPresent()) {
-                    final String fieldName = fieldNameOptional.get();
-                    fieldType.addProtoField(recordMsgBuilder, field.getFieldIndexOptional().orElse(i + 1), fieldName, typeName(fieldName), FieldDescriptorProto.Label.LABEL_OPTIONAL);
-                } else {
-                    // anonymous field
-                    fieldType.addProtoField(recordMsgBuilder, field.getFieldIndexOptional().orElse(i + 1), fieldName(i + 1), typeName(i + 1), FieldDescriptorProto.Label.LABEL_OPTIONAL);
-                }
-                i++;
+                final String fieldName = field.getFieldName();
+                fieldType.addProtoField(recordMsgBuilder,
+                        field.getFieldIndex(),
+                        fieldName,
+                        typeName(fieldName),
+                        FieldDescriptorProto.Label.LABEL_OPTIONAL);
             }
 
             return recordMsgBuilder.build();
@@ -652,6 +649,23 @@ public interface Type {
             return resultBuilder.build();
         }
 
+        @Nonnull
+        private static List<Field> normalizeFields(@Nonnull final List<Field> fields) {
+            Objects.requireNonNull(fields);
+            final ImmutableList.Builder<Field> resultFieldsBuilder = ImmutableList.builder();
+
+            int i = 0;
+            for (final Field field : fields) {
+                resultFieldsBuilder.add(
+                        new Field(field.getFieldType(),
+                                Optional.of(field.getFieldNameOptional().orElse(fieldName(i + 1))),
+                                Optional.of(field.getFieldIndexOptional().orElse(i + 1))));
+                i++;
+            }
+
+            return resultFieldsBuilder.build();
+        }
+
         @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
         public static class Field {
             @Nonnull
@@ -678,8 +692,18 @@ public interface Type {
             }
 
             @Nonnull
+            public String getFieldName() {
+                return getFieldNameOptional().orElseThrow(() -> new RecordCoreException("field name should have been set"));
+            }
+
+            @Nonnull
             public Optional<Integer> getFieldIndexOptional() {
                 return fieldIndexOptional;
+            }
+
+            @Nonnull
+            public int getFieldIndex() {
+                return getFieldIndexOptional().orElseThrow(() -> new RecordCoreException("field index should have been set"));
             }
 
             @Override

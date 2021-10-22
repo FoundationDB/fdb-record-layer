@@ -162,11 +162,9 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         SemanticException.check(ordinal >= 0 && ordinal < recordType.getFields().size(), "given ordinal is out of bounds");
 
         if (atom instanceof QuantifiedObjectValue) {
-            final Type.Record.Field field = Objects.requireNonNull(recordType.getFields()).get(ordinal);
-
             return QuantifiedColumnValue.of(((QuantifiedValue)atom).getAlias(),
                     ordinal,
-                    field.getFieldType());
+                    recordType);
         } else {
             return OrdinalFieldValue.of((Value)atom, ordinal);
         }

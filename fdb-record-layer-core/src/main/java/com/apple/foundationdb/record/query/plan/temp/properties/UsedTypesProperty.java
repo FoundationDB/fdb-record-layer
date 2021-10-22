@@ -24,12 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.PlannerProperty;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpressionWithPredicates;
-import com.apple.foundationdb.record.query.predicates.CreatesDynamicTypesValue;
-import com.apple.foundationdb.record.query.predicates.PredicateWithValue;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
@@ -52,48 +47,9 @@ public class UsedTypesProperty implements PlannerProperty<Set<Type>> {
             resultBuilder.addAll(childResult);
         }
 
-        if (expression instanceof RelationalExpressionWithPredicates) {
-            final List<? extends QueryPredicate> predicates = ((RelationalExpressionWithPredicates)expression).getPredicates();
-
-            for (final QueryPredicate predicate : predicates) {
-                final Set<Type> typesForPredicate =
-                        predicate.fold(p -> {
-                            if (p instanceof PredicateWithValue) {
-                                return typesForValue(((PredicateWithValue)p).getValue());
-                            }
-                            return ImmutableSet.<Type>of();
-                        }, (thisTypes, childTypeSets) -> {
-                            final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
-                            for (final Set<Type> childTypes : childTypeSets) {
-                                nestedBuilder.addAll(childTypes);
-                            }
-                            nestedBuilder.addAll(thisTypes);
-                            return nestedBuilder.build();
-                        });
-                resultBuilder.addAll(typesForPredicate);
-            }
-        }
-
-        resultBuilder.addAll(typesForValue(expression.getResultValue()));
+        resultBuilder.addAll(expression.getDynamicTypes());
 
         return resultBuilder.build();
-    }
-
-    @Nonnull
-    private static Set<Type> typesForValue(@Nonnull final Value value) {
-        return value.fold(p -> {
-            if (p instanceof CreatesDynamicTypesValue) {
-                return ImmutableSet.of(p.getResultType());
-            }
-            return ImmutableSet.<Type>of();
-        }, (thisTypes, childTypeSets) -> {
-            final ImmutableSet.Builder<Type> nestedBuilder = ImmutableSet.builder();
-            for (final Set<Type> childTypes : childTypeSets) {
-                nestedBuilder.addAll(childTypes);
-            }
-            nestedBuilder.addAll(thisTypes);
-            return nestedBuilder.build();
-        });
     }
 
     @Nonnull

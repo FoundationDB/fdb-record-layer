@@ -552,7 +552,6 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @SuppressWarnings("UnstableApiUsage")
     @Nonnull
     protected static List<? extends QuantifiedColumnValue> pullUpResultValues(@Nonnull final Type type, @Nonnull CorrelationIdentifier alias) {
-        // TODO make sure this is sound
         final List<Type> elementTypes;
         if (type instanceof Type.Record) {
             elementTypes = Objects.requireNonNull(((Type.Record)type).getElementTypes());
@@ -560,8 +559,10 @@ public abstract class Quantifier implements Correlated<Quantifier> {
             throw new IllegalStateException("quantifier does not flow records");
         }
 
+        final Type.Record recordType = (Type.Record)type;
+
         return Streams.mapWithIndex(elementTypes.stream(),
-                (columnType, index) -> QuantifiedColumnValue.of(alias, Math.toIntExact(index), columnType))
+                (columnType, index) -> QuantifiedColumnValue.of(alias, Math.toIntExact(index), recordType))
                 .collect(ImmutableList.toImmutableList());
     }
 

@@ -522,6 +522,18 @@ public class PlannerRepl implements Debugger {
                 .toAnsi());
     }
 
+    public void printlnHighlighted2(final String string) {
+        printHighlighted2(string);
+        println();
+    }
+
+    public void printHighlighted2(final String string) {
+        print(new AttributedStringBuilder()
+                .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.YELLOW + AttributedStyle.BRIGHT).bold())
+                .append(string)
+                .toAnsi());
+    }
+
     public void printlnError(final String string) {
         print(new AttributedStringBuilder()
                 .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.RED + AttributedStyle.BRIGHT).bold())

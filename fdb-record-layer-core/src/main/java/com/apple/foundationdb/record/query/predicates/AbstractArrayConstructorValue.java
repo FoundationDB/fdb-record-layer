@@ -56,7 +56,7 @@ import static com.apple.foundationdb.record.query.predicates.Type.Array.needsNes
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public abstract class AbstractArrayConstructorValue implements CreatesDynamicTypesValue {
+public abstract class AbstractArrayConstructorValue implements Value, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Array-Constructor-Value");
 
     @Nonnull

@@ -49,14 +49,14 @@ public class OrdinalFieldValue implements ValueWithChild {
     private final Value child;
     private final int ordinalPosition;
 
-    private final Type resultType;
+    private final Type.Record.Field field;
 
     private OrdinalFieldValue(@Nonnull final Value child,
                               final int ordinalPosition) {
         SemanticException.check(child.getResultType().getTypeCode() == Type.TypeCode.TUPLE, "child has to be a tuple");
         this.child = child;
         this.ordinalPosition = ordinalPosition;
-        this.resultType = Objects.requireNonNull(((Type.Record)child.getResultType()).getElementTypes()).get(ordinalPosition);
+        this.field = Objects.requireNonNull(((Type.Record)child.getResultType()).getFields()).get(ordinalPosition);
     }
 
     public int getOrdinalPosition() {
@@ -78,7 +78,7 @@ public class OrdinalFieldValue implements ValueWithChild {
     @Nonnull
     @Override
     public Type getResultType() {
-        return resultType;
+        return field.getFieldType();
     }
 
     @Nonnull
@@ -93,7 +93,7 @@ public class OrdinalFieldValue implements ValueWithChild {
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
         final Message childTuple = (Message)child.eval(store, context, record, message);
         final Descriptors.Descriptor descriptorForType = childTuple.getDescriptorForType();
-        final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.getFields().get(ordinalPosition);
+        final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(field.getFieldIndex());
         return childTuple.getField(fieldDescriptor);
     }
 

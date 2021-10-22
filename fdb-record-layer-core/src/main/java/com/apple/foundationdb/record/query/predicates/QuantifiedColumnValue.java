@@ -36,7 +36,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.List;
+import java.util.Objects;
 
 /**
  * A value representing the quantifier as an object.
@@ -51,24 +51,28 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     private final CorrelationIdentifier alias;
     private final int ordinalPosition;
     @Nonnull
-    private final Type resultType;
+    private final Type.Record recordType;
 
     private QuantifiedColumnValue(@Nonnull final CorrelationIdentifier alias,
                                   final int ordinalPosition,
-                                  final Type resultType) {
+                                  final Type.Record recordType) {
         this.alias = alias;
         this.ordinalPosition = ordinalPosition;
-        this.resultType = resultType;
+        this.recordType = recordType;
     }
 
     public int getOrdinalPosition() {
         return ordinalPosition;
     }
 
+    private Type.Record.Field getFieldForOrdinal() {
+        return Objects.requireNonNull(recordType.getFields()).get(ordinalPosition);
+    }
+
     @Nonnull
     @Override
     public Type getResultType() {
-        return resultType;
+        return getFieldForOrdinal().getFieldType();
     }
 
     @Nonnull
@@ -81,7 +85,7 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Override
     public QuantifiedColumnValue rebaseLeaf(@Nonnull final AliasMap translationMap) {
         if (translationMap.containsSource(alias)) {
-            return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition, resultType);
+            return new QuantifiedColumnValue(translationMap.getTargetOrThrow(alias), ordinalPosition, recordType);
         }
         return this;
     }
@@ -90,10 +94,10 @@ public class QuantifiedColumnValue implements QuantifiedValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final Message binding = (Message)QueryResult.unwrapValue(context.getBinding(alias));
-
-        final List<Descriptors.FieldDescriptor> fields = binding.getDescriptorForType().getFields();
-        return binding.getField(fields.get(ordinalPosition));
+        final Message childTuple = (Message)QueryResult.unwrapValue(context.getBinding(alias));
+        final Descriptors.Descriptor descriptorForType = childTuple.getDescriptorForType();
+        final Descriptors.FieldDescriptor fieldDescriptor = descriptorForType.findFieldByNumber(getFieldForOrdinal().getFieldIndex());
+        return childTuple.getField(fieldDescriptor);
     }
 
     @Nonnull
@@ -153,11 +157,11 @@ public class QuantifiedColumnValue implements QuantifiedValue {
 
     @Nonnull
     public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal) {
-        return of(alias, ordinal, Type.primitiveType(Type.TypeCode.UNKNOWN));
+        return of(alias, ordinal, Type.Record.erased());
     }
 
     @Nonnull
-    public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal, @Nonnull final Type resultType) {
-        return new QuantifiedColumnValue(alias, ordinal, resultType);
+    public static QuantifiedColumnValue of(@Nonnull CorrelationIdentifier alias, int ordinal, @Nonnull final Type.Record recordType) {
+        return new QuantifiedColumnValue(alias, ordinal, recordType);
     }
 }

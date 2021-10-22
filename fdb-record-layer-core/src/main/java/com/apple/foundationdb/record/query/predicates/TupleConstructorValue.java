@@ -49,6 +49,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
@@ -116,10 +117,12 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
         final DynamicMessage.Builder tupleResult = DynamicMessage.newBuilder(descriptorForType);
 
         int i = 0;
+        final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
+
         for (final Value child : getChildren()) {
             final Object childResultElement = child.eval(store, context, record, message);
             if (childResultElement != null) {
-                tupleResult.setField(descriptorForType.findFieldByNumber(i + 1), childResultElement);
+                tupleResult.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), childResultElement);
             }
             i ++;
         }

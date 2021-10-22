@@ -162,6 +162,11 @@ public interface RelationalExpression extends Correlated<RelationalExpression>, 
     @Nonnull
     Value getResultValue();
 
+    @Nonnull
+    default Set<Type> getDynamicTypes() {
+        return getResultValue().getDynamicTypes();
+    }
+
     @SuppressWarnings("java:S3655")
     default boolean semanticEqualsForResults(@Nonnull final RelationalExpression otherExpression, @Nonnull final AliasMap aliasMap) {
         return getResultValue().semanticEquals(otherExpression.getResultValue(), aliasMap);
