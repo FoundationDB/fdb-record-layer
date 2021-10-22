@@ -119,8 +119,8 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M record, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
-        return untypedStore.saveTypedRecord(typedSerializer, record, existenceCheck, version, behavior);
+    public CompletableFuture<FDBStoredRecord<M>> saveRecordAsync(@Nonnull M rec, @Nonnull RecordExistenceCheck existenceCheck, @Nullable FDBRecordVersion version, @Nonnull VersionstampSaveBehavior behavior) {
+        return untypedStore.saveTypedRecord(typedSerializer, rec, existenceCheck, version, behavior);
     }
 
     @Nonnull
@@ -230,14 +230,14 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
-        return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, record);
+    public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> rec) {
+        return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, rec);
     }
 
     @Nonnull
     @Override
-    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> record) {
-        return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, record);
+    public <T> CompletableFuture<T> evaluateStoreFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull StoreRecordFunction<T> function, @Nonnull FDBRecord<M> rec) {
+        return untypedStore.evaluateTypedStoreFunction(evaluationContext, function, rec);
     }
 
     @Nonnull
