@@ -43,9 +43,9 @@ public class MessageBuilderRecordSerializer extends MessageBuilderRecordSerializ
     protected void setUnionField(@Nonnull RecordMetaData metaData,
                                  @Nonnull RecordType recordType,
                                  @Nonnull Message.Builder unionBuilder,
-                                 @Nonnull Message record) {
+                                 @Nonnull Message rec) {
         Descriptors.FieldDescriptor unionField = metaData.getUnionFieldForRecordType(recordType);
-        unionBuilder.setField(unionField, record);
+        unionBuilder.setField(unionField, rec);
     }
 
     @Nonnull

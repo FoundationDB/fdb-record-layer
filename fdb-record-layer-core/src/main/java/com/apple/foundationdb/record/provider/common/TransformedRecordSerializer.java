@@ -202,9 +202,9 @@ public class TransformedRecordSerializer<M extends Message> implements RecordSer
     @Override
     public byte[] serialize(@Nonnull RecordMetaData metaData,
                             @Nonnull RecordType recordType,
-                            @Nonnull M record,
+                            @Nonnull M rec,
                             @Nullable StoreTimer timer) {
-        byte[] innerSerialized = inner.serialize(metaData, recordType, record, timer);
+        byte[] innerSerialized = inner.serialize(metaData, recordType, rec, timer);
 
         TransformState state = new TransformState(innerSerialized);
 

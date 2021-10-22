@@ -89,7 +89,7 @@ public class TypedRecordSerializer<M extends Message, U extends Message, B exten
     protected void setUnionField(@Nonnull RecordMetaData metaData,
                                  @Nonnull RecordType recordType,
                                  @Nonnull B unionBuilder,
-                                 @Nonnull M record) {
+                                 @Nonnull M rec) {
         final String typeName = recordType.getName();
         final String valid =  validRecordType.get();
         if (!typeName.equals(valid)) {
@@ -102,7 +102,7 @@ public class TypedRecordSerializer<M extends Message, U extends Message, B exten
             }
             validRecordType.compareAndSet(valid, typeName);
         }
-        setter.accept(unionBuilder, record);
+        setter.accept(unionBuilder, rec);
     }
 
     @Nonnull

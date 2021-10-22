@@ -70,17 +70,17 @@ public class DynamicMessageRecordSerializer implements RecordSerializer<Message>
     @Override
     public byte[] serialize(@Nonnull RecordMetaData metaData,
                             @Nonnull RecordType recordType,
-                            @Nonnull Message record,
+                            @Nonnull Message rec,
                             @Nullable StoreTimer timer) {
         long startTime = System.nanoTime();
         try {
             // Wrap in union message, if needed.
-            Message storedRecord = record;
+            Message storedRecord = rec;
             Descriptors.Descriptor unionDescriptor = metaData.getUnionDescriptor();
             if (unionDescriptor != null) {
                 DynamicMessage.Builder unionBuilder = DynamicMessage.newBuilder(unionDescriptor);
                 Descriptors.FieldDescriptor unionField = metaData.getUnionFieldForRecordType(recordType);
-                unionBuilder.setField(unionField, record);
+                unionBuilder.setField(unionField, rec);
                 storedRecord = unionBuilder.build();
             }
             return serializeToBytes(storedRecord);

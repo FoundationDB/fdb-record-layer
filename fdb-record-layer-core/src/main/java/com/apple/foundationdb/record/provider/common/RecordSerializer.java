@@ -53,13 +53,13 @@ public interface RecordSerializer<M extends Message> {
      *
      * @param metaData the store's meta-data
      * @param recordType the record type of the message
-     * @param record the Protobuf record to serialize
+     * @param rec the Protobuf record to serialize
      * @param timer a timer used to instrument serialization
      * @return the serialized record
      */
     @Nonnull
     byte[] serialize(@Nonnull RecordMetaData metaData, @Nonnull RecordType recordType,
-                     @Nonnull M record, @Nullable StoreTimer timer);
+                     @Nonnull M rec, @Nullable StoreTimer timer);
 
     /**
      * Convert a byte array to a Protobuf record. This should be the inverse of the
