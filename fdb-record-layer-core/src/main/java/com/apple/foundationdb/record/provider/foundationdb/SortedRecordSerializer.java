@@ -68,14 +68,14 @@ public class SortedRecordSerializer<M extends Message> {
         @Nonnull
         private final RecordType recordType;
         @Nonnull
-        private final M record;
+        private final M protoRecord;
         @Nullable
         private final FDBRecordVersion version;
 
-        public Sorted(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record, FDBRecordVersion version) {
+        public Sorted(@Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord, FDBRecordVersion version) {
             this.primaryKey = primaryKey;
             this.recordType = recordType;
-            this.record = record;
+            this.protoRecord = protoRecord;
             this.version = version;
         }
 
@@ -106,7 +106,7 @@ public class SortedRecordSerializer<M extends Message> {
         @Nonnull
         @Override
         public M getRecord() {
-            return record;
+            return protoRecord;
         }
 
         @Override
@@ -127,22 +127,22 @@ public class SortedRecordSerializer<M extends Message> {
         }
     }
 
-    public void write(@Nonnull FDBRecord<M> record, CodedOutputStream stream) throws IOException {
-        stream.writeMessageNoTag(toProto(record));
+    public void write(@Nonnull FDBRecord<M> rec, CodedOutputStream stream) throws IOException {
+        stream.writeMessageNoTag(toProto(rec));
     }
 
     @Nonnull
-    public byte[] serialize(@Nonnull FDBRecord<M> record) {
-        return toProto(record).toByteArray();
+    public byte[] serialize(@Nonnull FDBRecord<M> rec) {
+        return toProto(rec).toByteArray();
     }
 
     @Nonnull
-    public RecordSortingProto.SortedRecord toProto(@Nonnull FDBRecord<M> record) {
+    public RecordSortingProto.SortedRecord toProto(@Nonnull FDBRecord<M> rec) {
         final RecordSortingProto.SortedRecord.Builder builder = RecordSortingProto.SortedRecord.newBuilder();
-        builder.setPrimaryKey(ByteString.copyFrom(record.getPrimaryKey().pack()));
-        builder.setMessage(ByteString.copyFrom(serializer.serialize(recordMetaData, record.getRecordType(), record.getRecord(), timer)));
-        if (record.hasVersion()) {
-            builder.setVersion(ByteString.copyFrom(record.getVersion().toBytes()));
+        builder.setPrimaryKey(ByteString.copyFrom(rec.getPrimaryKey().pack()));
+        builder.setMessage(ByteString.copyFrom(serializer.serialize(recordMetaData, rec.getRecordType(), rec.getRecord(), timer)));
+        if (rec.hasVersion()) {
+            builder.setVersion(ByteString.copyFrom(rec.getVersion().toBytes()));
         }
         return builder.build();
     }
@@ -181,9 +181,9 @@ public class SortedRecordSerializer<M extends Message> {
         return new Sorted<>(primaryKey, recordType, record, version);
     }
 
-    public void writeSortKeyAndRecord(@Nonnull Tuple sortKey, @Nonnull FDBRecord<M> record, @Nonnull CodedOutputStream stream) throws IOException {
+    public void writeSortKeyAndRecord(@Nonnull Tuple sortKey, @Nonnull FDBRecord<M> rec, @Nonnull CodedOutputStream stream) throws IOException {
         stream.writeByteArrayNoTag(sortKey.pack());
-        write(record, stream);
+        write(rec, stream);
     }
 
     @Nonnull

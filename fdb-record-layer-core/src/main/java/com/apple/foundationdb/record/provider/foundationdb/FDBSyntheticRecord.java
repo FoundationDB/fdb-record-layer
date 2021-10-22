@@ -50,7 +50,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
     @Nonnull
     private final SyntheticRecordType<?> recordType;
     @Nonnull
-    private final Message record;
+    private final Message protoRecord;
     @Nonnull
     private final Map<String, FDBStoredRecord<? extends Message>> constituents;
 
@@ -58,11 +58,11 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
     private final int keySize;
     private final int valueSize;
 
-    protected FDBSyntheticRecord(@Nonnull Tuple primaryKey, @Nonnull SyntheticRecordType<?> recordType, @Nonnull Message record,
+    protected FDBSyntheticRecord(@Nonnull Tuple primaryKey, @Nonnull SyntheticRecordType<?> recordType, @Nonnull Message protoRecord,
                                  @Nonnull FDBStoredSizes size, @Nonnull Map<String, FDBStoredRecord<? extends Message>> constituents) {
         this.primaryKey = primaryKey;
         this.recordType = recordType;
-        this.record = record;
+        this.protoRecord = protoRecord;
         this.constituents = constituents;
         this.keyCount = size.getKeyCount();
         this.keySize = size.getKeySize();
@@ -113,7 +113,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
     @Nonnull
     @Override
     public Message getRecord() {
-        return record;
+        return protoRecord;
     }
 
     /**
@@ -195,7 +195,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
         if (!recordType.getName().equals(that.recordType.getName())) {
             return false;
         }
-        if (!record.equals(that.record)) {
+        if (!protoRecord.equals(that.protoRecord)) {
             return false;
         }
 
@@ -204,7 +204,7 @@ public class FDBSyntheticRecord implements FDBIndexableRecord<Message> {
 
     @Override
     public int hashCode() {
-        return Objects.hash(primaryKey, recordType, record, constituents, keyCount, keySize, valueSize);
+        return Objects.hash(primaryKey, recordType, protoRecord, constituents, keyCount, keySize, valueSize);
     }
 
     @Override

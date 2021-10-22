@@ -69,8 +69,8 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         return new Stored<>(stored);
     }
 
-    public static <M extends Message> FDBQueriedRecord<M> covered(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record) {
-        return new Covered<>(index, indexEntry, primaryKey, recordType, record);
+    public static <M extends Message> FDBQueriedRecord<M> covered(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord) {
+        return new Covered<>(index, indexEntry, primaryKey, recordType, protoRecord);
     }
 
     @SuppressWarnings("PMD.AvoidFieldNameMatchingTypeName")
@@ -195,14 +195,14 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Nonnull
         private final RecordType recordType;
         @Nonnull
-        private final M record;
+        private final M protoRecord;
 
-        public Covered(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M record) {
+        public Covered(@Nonnull Index index, @Nonnull IndexEntry indexEntry, @Nonnull Tuple primaryKey, @Nonnull RecordType recordType, @Nonnull M protoRecord) {
             this.index = index;
             this.indexEntry = indexEntry;
             this.primaryKey = primaryKey;
             this.recordType = recordType;
-            this.record = record;
+            this.protoRecord = protoRecord;
         }
 
         @Nullable
@@ -232,7 +232,7 @@ public abstract class FDBQueriedRecord<M extends Message> implements FDBRecord<M
         @Nonnull
         @Override
         public M getRecord() {
-            return record;
+            return protoRecord;
         }
 
         @Override
