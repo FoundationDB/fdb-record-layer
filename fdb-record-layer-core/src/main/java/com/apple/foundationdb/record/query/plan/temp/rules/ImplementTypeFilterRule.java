@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.RecordTypesProperty;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Sets;
@@ -91,7 +92,8 @@ public class ImplementTypeFilterRule extends PlannerRule<LogicalTypeFilterExpres
             call.yield(call.ref(
                     new RecordQueryTypeFilterPlan(
                             Quantifier.physical(GroupExpressionRef.from(unsatisfiedEntry.getValue())),
-                            unsatisfiedEntry.getKey())));
+                            unsatisfiedEntry.getKey(),
+                            (Type.Record)typeFilter.getResultType().getInnerType())));
         }
     }
 }

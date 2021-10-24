@@ -143,11 +143,12 @@ public interface MatchCandidate {
 
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data.
+     * @param recordMetaData the metadata for the compilation
      * @param partialMatch the match to be used
      * @return a new {@link RelationalExpression}
      */
     @SuppressWarnings("java:S135")
-    default RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch) {
+    default RelationalExpression toEquivalentExpression(@Nonnull final RecordMetaData recordMetaData, @Nonnull final PartialMatch partialMatch) {
         final MatchInfo matchInfo = partialMatch.getMatchInfo();
         final Map<CorrelationIdentifier, ComparisonRange> prefixMap = computeBoundParameterPrefixMap(matchInfo);
 
@@ -166,12 +167,13 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentExpression(partialMatch, comparisonRangesForScanBuilder.build(), matchInfo.isReverse());
+        return toEquivalentExpression(recordMetaData, partialMatch, comparisonRangesForScanBuilder.build(), matchInfo.isReverse());
     }
 
     /**
      * Creates a logical expression that represents a scan over the materialized candidate data. This method is expected
      * to be implemented by specific implementations of {@link MatchCandidate}.
+     * @param recordMetaData the metadata for the compilation
      * @param partialMatch the {@link PartialMatch} that matched th query and the candidate
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
      * @param isReverse an indicator whether this expression should conceptually flow data in an ascending (forward) or
@@ -179,7 +181,7 @@ public interface MatchCandidate {
      * @return a new {@link RelationalExpression}
      */
     @Nonnull
-    RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch, @Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse);
+    RelationalExpression toEquivalentExpression(@Nonnull final RecordMetaData recordMetaData, @Nonnull PartialMatch partialMatch, @Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse);
 
     @Nonnull
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {

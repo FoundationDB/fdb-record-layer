@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.metadata.SyntheticRecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.LiteralKeyExpression;
 import com.apple.foundationdb.record.util.MapUtils;
+import com.google.common.base.Verify;
 import com.google.protobuf.Descriptors;
 
 import javax.annotation.Nonnull;
@@ -42,6 +43,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Meta-data for Record Layer record stores.
@@ -629,5 +632,39 @@ public class RecordMetaData implements RecordMetaDataProvider {
         }
 
         return builder.build();
+    }
+
+    @Nonnull
+    public Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromNames(@Nonnull final Collection<String> recordTypeNames) {
+        return getFieldDescriptorMap(recordTypeNames.stream().map(this::getRecordType));
+    }
+
+    @Nonnull
+    public Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMapFromTypes(@Nonnull final Collection<RecordType> recordTypes) {
+        return getFieldDescriptorMap(recordTypes.stream());
+    }
+
+    @Nonnull
+    private Map<String, Descriptors.FieldDescriptor> getFieldDescriptorMap(@Nonnull final Stream<RecordType> recordTypeStream) {
+        return recordTypeStream
+                .flatMap(recordType -> recordType.getDescriptor().getFields().stream())
+                .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
+                        Collectors.reducing(null,
+                                (fieldDescriptor, fieldDescriptor2) -> {
+                                    Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);
+                                    if (fieldDescriptor == null) {
+                                        return fieldDescriptor2;
+                                    }
+                                    if (fieldDescriptor2 == null) {
+                                        return fieldDescriptor;
+                                    }
+                                    // TODO improve
+                                    if (fieldDescriptor.getType().getJavaType() ==
+                                            fieldDescriptor2.getType().getJavaType()) {
+                                        return fieldDescriptor;
+                                    }
+
+                                    throw new IllegalArgumentException("cannot form union type of complex fields");
+                                })));
     }
 }

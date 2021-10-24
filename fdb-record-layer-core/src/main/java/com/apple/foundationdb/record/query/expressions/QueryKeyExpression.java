@@ -422,7 +422,8 @@ public class QueryKeyExpression {
 
         @Nonnull
         @Override
-        public String explain(@Nonnull final Formatter formatter) {
+        public String explain(@Nonnull final com.apple.foundationdb.record.query.predicates.Type comparandType,
+                              @Nonnull final Formatter formatter) {
             return "<NOT DONE YET";
         }
     }

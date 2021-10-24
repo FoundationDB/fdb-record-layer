@@ -375,18 +375,24 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public String explain(@Nonnull final Formatter formatter) {
         final ImmutableList.Builder<String> argumentsBuilder = ImmutableList.builder();
+
         for (final Comparisons.Comparison equalityComparison : comparisons.getEqualityComparisons()) {
-            argumentsBuilder.add(equalityComparison.explain(formatter));
+            // TODO hook up the type information for the parts of the index to these arguments
+            argumentsBuilder.add(equalityComparison.explain(new Type.Any(), formatter));
         }
 
         final Set<Comparisons.Comparison> inEqualityComparisons = comparisons.getInequalityComparisons();
 
         final ImmutableList.Builder<String> inEqualityArgumentsBuilder = ImmutableList.builder();
         for (final Comparisons.Comparison inEqualityComparison : inEqualityComparisons) {
-            inEqualityArgumentsBuilder.add(inEqualityComparison.explain(formatter));
+            inEqualityArgumentsBuilder.add(inEqualityComparison.explain(new Type.Any(), formatter));
         }
-        final String inEqualityArgument = String.join(" && ", inEqualityArgumentsBuilder.build());
-        argumentsBuilder.add(inEqualityArgument);
+
+        final ImmutableList<String> inEqualityArguments = inEqualityArgumentsBuilder.build();
+        if (!inEqualityArguments.isEmpty()) {
+            final String inEqualityArgument = String.join(" && ", inEqualityArguments);
+            argumentsBuilder.add(inEqualityArgument);
+        }
         final ImmutableList<String> arguments = argumentsBuilder.build();
 
         if (arguments.isEmpty()) {

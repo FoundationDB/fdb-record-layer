@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -158,22 +159,24 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
+    public RelationalExpression toEquivalentExpression(@Nonnull final RecordMetaData recordMetaData,
+                                                       @Nonnull final PartialMatch partialMatch,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges,
                                                        final boolean isReverse) {
-        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, isReverse)
+        return tryFetchCoveringIndexScan(recordMetaData, partialMatch, comparisonRanges, isReverse)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 IndexScanType.BY_VALUE,
                                 toScanComparisons(comparisonRanges),
-                                new Type.Any(),
+                                Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes)),
                                 isReverse,
                                 false,
                                 (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()));
     }
 
     @Nonnull
-    private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final PartialMatch partialMatch,
+    private Optional<RelationalExpression> tryFetchCoveringIndexScan(@Nonnull final RecordMetaData recordMetaData,
+                                                                     @Nonnull final PartialMatch partialMatch,
                                                                      @Nonnull final List<ComparisonRange> comparisonRanges,
                                                                      final boolean isReverse) {
         if (recordTypes.size() > 1) {
@@ -208,7 +211,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
                 new RecordQueryIndexPlan(index.getName(),
                         IndexScanType.BY_VALUE,
                         toScanComparisons(comparisonRanges),
-                        new Type.Any(),
+                        Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromTypes(recordTypes)),
                         isReverse,
                         false,
                         (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate());

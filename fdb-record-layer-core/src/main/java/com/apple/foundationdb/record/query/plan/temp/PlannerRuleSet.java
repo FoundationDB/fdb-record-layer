@@ -35,6 +35,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.ImplementFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementInUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIndexScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementIntersectionRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.ImplementMapRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementPhysicalScanRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.ImplementUnorderedUnionRule;
@@ -48,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctBelowFilt
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushFilterThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughDistinctRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughSimpleSelectRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughSortRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushReferencedFieldsThroughDistinctRule;
@@ -117,7 +119,9 @@ public class PlannerRuleSet {
             new PushInterestingOrderingThroughSortRule(),
             new PushInterestingOrderingThroughDistinctRule(),
             new PushInterestingOrderingThroughUnionRule(),
-            new ImplementInUnionRule()
+            new PushInterestingOrderingThroughSimpleSelectRule(),
+            new ImplementInUnionRule(),
+            new ImplementMapRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =
             ImmutableList.<PlannerRule<? extends RelationalExpression>>builder()

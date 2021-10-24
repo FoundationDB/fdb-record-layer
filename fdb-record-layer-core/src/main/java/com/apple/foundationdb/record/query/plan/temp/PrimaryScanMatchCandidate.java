@@ -20,9 +20,11 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
@@ -109,12 +111,16 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
 
     @Nonnull
     @Override
-    public RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,
+    public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
+                                                       @Nonnull PartialMatch partialMatch,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges,
                                                        final boolean isReverse) {
-        return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
+        final PrimaryScanExpression primaryScanExpression =
                 new PrimaryScanExpression(getAvailableRecordTypes(),
                         comparisonRanges,
-                        isReverse));
+                        isReverse);
+        return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
+                Quantifier.forEach(GroupExpressionRef.of(primaryScanExpression)),
+                Type.Record.fromFieldDescriptorsMap(recordMetaData.getFieldDescriptorMapFromNames(getQueriedRecordTypes())));
     }
 }

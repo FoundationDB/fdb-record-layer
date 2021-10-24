@@ -139,7 +139,6 @@ public class ValuePredicate implements PredicateWithValue {
     public String explain(@Nonnull final Formatter formatter) {
         final String comparandString;
         comparandString = formatLiteral(value.getResultType(), comparison.typelessString());
-
         return "(" + value.explain(formatter) + " " + Comparison.typeToSymbol(comparison.getType()) + " " + comparandString + ")";
     }
 

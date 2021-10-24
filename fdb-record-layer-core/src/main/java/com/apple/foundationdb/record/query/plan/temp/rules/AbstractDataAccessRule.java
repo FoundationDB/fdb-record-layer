@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.BoundKeyPart;
@@ -247,7 +248,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         // create scans for all best matches
         final Map<PartialMatch, RelationalExpression> bestMatchToExpressionMap =
-                createScansForMatches(bestMaximumCoverageMatches);
+                createScansForMatches(call.getContext().getMetaData(), bestMaximumCoverageMatches);
 
         final ExpressionRef<RelationalExpression> toBeInjectedReference = GroupExpressionRef.empty();
 
@@ -414,18 +415,20 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
     /**
      * Private helper method to compute a map of matches to scans (no compensation applied yet).
+     * @param recordMetaData the metadata for the compilation
      * @param matches a collection of matches
      * @return a map of the matches where a match is associated with a scan expression created based on that match
      */
     @Nonnull
-    private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull final Collection<PartialMatch> matches) {
+    private static Map<PartialMatch, RelationalExpression> createScansForMatches(@Nonnull final RecordMetaData recordMetaData,
+                                                                                 @Nonnull final Collection<PartialMatch> matches) {
         return matches
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
                         Function.identity(),
                         partialMatch -> {
                             final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
-                            return matchCandidate.toEquivalentExpression(partialMatch);
+                            return matchCandidate.toEquivalentExpression(recordMetaData, partialMatch);
                         }));
     }
 

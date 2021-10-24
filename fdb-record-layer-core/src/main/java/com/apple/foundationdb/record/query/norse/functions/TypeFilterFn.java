@@ -41,7 +41,6 @@ import com.google.protobuf.Descriptors;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Function
@@ -76,30 +75,7 @@ public class TypeFilterFn extends BuiltInFunction<RelationalExpression> {
 
         final RecordMetaData recordMetaData = parserContext.getRecordMetaData();
 
-        final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = recordTypeNames
-                .stream()
-                .flatMap(recordTypeName -> recordMetaData.getRecordType(recordTypeName).getDescriptor().getFields().stream())
-                .collect(Collectors.groupingBy(Descriptors.FieldDescriptor::getName,
-                        Collectors.reducing(null,
-                                (fieldDescriptor, fieldDescriptor2) -> {
-                                    Verify.verify(fieldDescriptor != null || fieldDescriptor2 != null);
-                                    if (fieldDescriptor == null) {
-                                        return fieldDescriptor2;
-                                    }
-                                    if (fieldDescriptor2 == null) {
-                                        return fieldDescriptor;
-                                    }
-                                    // TODO improve
-                                    final Type.TypeCode typeCode = Type.TypeCode.fromProtobufType(fieldDescriptor.getType());
-                                    final Type.TypeCode typeCode2 = Type.TypeCode.fromProtobufType(fieldDescriptor2.getType());
-                                    if (typeCode.isPrimitive() &&
-                                            typeCode2.isPrimitive() &&
-                                            typeCode == typeCode2) {
-                                        return fieldDescriptor;
-                                    }
-
-                                    throw new IllegalArgumentException("cannot form union type of complex fields");
-                                })));
+        final Map<String, Descriptors.FieldDescriptor> fieldDescriptorMap = recordMetaData.getFieldDescriptorMapFromNames(recordTypeNames);
 
         return new RecordQueryTypeFilterPlan(Quantifier.physical(GroupExpressionRef.of((RelationalExpression)arguments.get(0))), recordTypeNames,
                 Type.Record.fromFieldDescriptorsMap(fieldDescriptorMap));

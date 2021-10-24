@@ -35,7 +35,7 @@ import java.util.function.Function;
  * This class (as all {@link Value}s) is stateless. It is used to evaluate and return runtime results based on the
  * given parameters.
  *
- * @param <T> the type of value being accumulAted by this Value.
+ * @param <T> the type of value being accumulated by this Value.
  * @param <R> the type of result returned when the accumulation is done
  */
 public class AggregateValue<T, R> extends DerivedValue {

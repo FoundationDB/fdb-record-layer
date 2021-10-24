@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.util.HashUtils;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
@@ -705,7 +706,8 @@ public class Comparisons {
         }
 
         @Nonnull
-        default String explain(@Nonnull final Formatter formatter) {
+        default String explain(@Nonnull final com.apple.foundationdb.record.query.predicates.Type comparandType,
+                               @Nonnull final Formatter formatter) {
             return "<NOT DONE YET";
         }
 
@@ -839,8 +841,17 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public String explain(@Nonnull final Formatter formatter) {
-            return explainWithComparand(formatter, typelessString());
+        public String explain(@Nonnull final com.apple.foundationdb.record.query.predicates.Type comparandType,
+                              @Nonnull final Formatter formatter) {
+            if (comparandType.getTypeCode() == com.apple.foundationdb.record.query.predicates.Type.TypeCode.ANY) {
+                // TODO remove hack to second guess the type if the type is not inferred properly
+                if (comparand instanceof String) {
+                    return explainWithComparand(formatter,
+                            LiteralValue.formatLiteral(com.apple.foundationdb.record.query.predicates.Type.primitiveType(com.apple.foundationdb.record.query.predicates.Type.TypeCode.STRING),
+                                    typelessString()));
+                }
+            }
+            return explainWithComparand(formatter, LiteralValue.formatLiteral(comparandType, typelessString()));
         }
 
         @Nonnull
@@ -1074,7 +1085,8 @@ public class Comparisons {
 
         @Nonnull
         @Override
-        public String explain(@Nonnull final Formatter formatter) {
+        public String explain(@Nonnull final com.apple.foundationdb.record.query.predicates.Type comparandType,
+                              @Nonnull final Formatter formatter) {
             return explainWithComparand(formatter, parameter);
         }
 

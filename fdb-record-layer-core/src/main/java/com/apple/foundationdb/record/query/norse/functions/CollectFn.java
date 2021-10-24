@@ -1,0 +1,96 @@
+/*
+ * CollectFn.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.query.norse.functions;
+
+import com.apple.foundationdb.record.query.norse.BuiltInFunction;
+import com.apple.foundationdb.record.query.norse.ParserContext;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan;
+import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
+import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
+import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.Atom;
+import com.apple.foundationdb.record.query.predicates.Lambda;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
+import com.apple.foundationdb.record.query.predicates.Type;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.auto.service.AutoService;
+import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+
+import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Objects;
+
+/**
+ * Function
+ * collect(STREAM, ANY -> ANY, ANY -> ANY) -> STREAM.
+ */
+@AutoService(BuiltInFunction.class)
+public class CollectFn extends BuiltInFunction<RelationalExpression> {
+    public CollectFn() {
+        super("collect",
+                ImmutableList.of(
+                        new Type.Stream(),
+                        new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any()),
+                        new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any())),
+                CollectFn::encapsulate);
+    }
+
+    public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
+        // the call is already validated against the resolved function
+        Verify.verify(arguments.get(0) instanceof RecordQueryPlan);
+        Verify.verify(arguments.get(1) instanceof Lambda);
+        Verify.verify(arguments.get(2) instanceof Lambda);
+
+        // get the typing information from the first argument
+        final RecordQueryPlan inStream = (RecordQueryPlan)arguments.get(0);
+        final Type streamedType = Objects.requireNonNull(inStream.getResultType().getInnerType(), "relation type must not be erased");
+        Verify.verify(streamedType.getTypeCode() == Type.TypeCode.TUPLE);
+
+        // grouping key
+
+        final Lambda groupingLambda = (Lambda)arguments.get(1);
+
+        final Quantifier.Physical inQuantifier = Quantifier.physical(GroupExpressionRef.of(inStream));
+        final QuantifiedObjectValue argumentValue = inQuantifier.getFlowedObjectValue();
+        final GraphExpansion groupingGraphExpansion = groupingLambda.unifyBody(argumentValue);
+        Verify.verify(groupingGraphExpansion.getQuantifiers().isEmpty());
+        Verify.verify(groupingGraphExpansion.getPredicates().isEmpty());
+
+        final List<? extends Value> groupingValues = groupingGraphExpansion.getResultsAs(Value.class);
+        final Value groupingValue = Iterables.getOnlyElement(groupingValues);
+
+        final Lambda collectLambda = (Lambda)arguments.get(2);
+
+        final GraphExpansion collectGraphExpansion = groupingLambda.unifyBody(argumentValue);
+        Verify.verify(collectGraphExpansion.getQuantifiers().isEmpty());
+        Verify.verify(collectGraphExpansion.getPredicates().isEmpty());
+
+        final List<? extends Value> collectValues = collectGraphExpansion.getResultsAs(Value.class);
+        final Value resultValue = Iterables.getOnlyElement(collectValues);
+
+        return new RecordQueryStreamingAggregatePlan(inQuantifier, );
+    }
+}
