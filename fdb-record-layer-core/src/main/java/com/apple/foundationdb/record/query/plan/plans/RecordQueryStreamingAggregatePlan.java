@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.cursors.aggregate.AggregateCursor;
 import com.apple.foundationdb.record.cursors.aggregate.StreamGrouping;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -35,9 +36,12 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
+import com.apple.foundationdb.record.query.predicates.OAggregateValue;
+import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
@@ -52,7 +56,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -65,7 +68,7 @@ import java.util.function.Supplier;
  * <LI>Group items by its list of group {@link Value}s. This list (order matters) holds the {@link Value}s that will
  * decide
  * how records are collated into groups. Within each group, all concrete fields are equal</LI>
- * <LI>Aggregate items by its list of {@link AggregateValue} values. Each concrete {@link AggregateValue} (their order
+ * <LI>Aggregate items by its list of {@link OAggregateValue} values. Each concrete {@link OAggregateValue} (their order
  * in the list determines their order in the output) will calculate the aggregation function (SUM, MIN, MAX etc.) over
  * its field</LI>
  * </UL>
@@ -80,34 +83,55 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @Nonnull
     private final Supplier<Value> resultValueSupplier;
     @Nonnull
-    private final List<AggregateValue<?, ?>> aggregateValues;
+    private final AggregateValue aggregateValue;
     @Nonnull
-    private final List<Value> groupingKeys;
+    private final Value groupingKeyValue;
+    @Nonnull
+    private final CorrelationIdentifier groupingKeyAlias;
+    @Nonnull
+    private final CorrelationIdentifier aggregateAlias;
+    @Nonnull
+    private final Value completeResultValue;
 
     /**
      * Construct a new plan.
      *
      * @param inner the quantifier that this plan owns
-     * @param groupingKeys the list of {@link Value} to group by
-     * @param aggregateValues the list of {@link AggregateValue} to aggregate by
+     * @param groupingKeyValue the {@link Value} to group by
+     * @param aggregateValue the {@link AggregateValue} to aggregate by grouping key
      */
-    public RecordQueryStreamingAggregatePlan(@Nonnull final Quantifier.Physical inner, @Nonnull final List<Value> groupingKeys, @Nonnull final List<AggregateValue<?, ?>> aggregateValues) {
+    public RecordQueryStreamingAggregatePlan(@Nonnull final Quantifier.Physical inner, @Nonnull final Value groupingKeyValue, @Nonnull final AggregateValue aggregateValue) {
         this.inner = inner;
-        this.groupingKeys = groupingKeys;
-        this.aggregateValues = aggregateValues;
-        this.resultValueSupplier = Suppliers.memoize(() -> TupleConstructorValue.ofUnnamed(createValuesList()));
+        this.groupingKeyValue = groupingKeyValue;
+        this.aggregateValue = aggregateValue;
+        this.groupingKeyAlias = CorrelationIdentifier.uniqueID();
+        this.aggregateAlias = CorrelationIdentifier.uniqueID();
+        this.completeResultValue = TupleConstructorValue.ofUnnamed(ImmutableList.of(
+                QuantifiedObjectValue.of(groupingKeyAlias, groupingKeyValue.getResultType()),
+                QuantifiedObjectValue.of(aggregateAlias, aggregateValue.getResultType())));
+        this.resultValueSupplier = Suppliers.memoize(this::computeResultValue);
     }
 
     @Nonnull
     @Override
-    public <M extends Message> RecordCursor<Message> executePlan(@Nonnull FDBRecordStoreBase<M> store,
-                                                                 @Nonnull EvaluationContext context,
-                                                                 @Nullable byte[] continuation,
-                                                                 @Nonnull ExecuteProperties executeProperties) {
+    @SuppressWarnings("unchecked")
+    public <M extends Message> RecordCursor<?> executePlan(@Nonnull FDBRecordStoreBase<M> store,
+                                                           @Nonnull EvaluationContext context,
+                                                           @Nullable byte[] continuation,
+                                                           @Nonnull ExecuteProperties executeProperties) {
         final RecordCursor<?> innerCursor = getInnerPlan().executePlan(store, context, continuation, executeProperties.clearSkipAndLimit());
-        @SuppressWarnings("unchecked")
-        StreamGrouping<Message> streamGrouping = new StreamGrouping<>(groupingKeys, aggregateValues, (FDBRecordStoreBase<Message>)store, context, inner.getAlias());
-        return null; // TODO new AggregateCursor<>(innerCursor, streamGrouping);
+
+        StreamGrouping<Message> streamGrouping =
+                new StreamGrouping<>(context.getDynamicSchema(),
+                        groupingKeyValue,
+                        aggregateValue,
+                        completeResultValue,
+                        groupingKeyAlias,
+                        aggregateAlias,
+                        (FDBRecordStoreBase<Message>)store,
+                        context,
+                        inner.getAlias());
+        return new AggregateCursor<>(innerCursor, streamGrouping);
     }
 
     @Override
@@ -124,14 +148,14 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @Nonnull
     @Override
     public String toString() {
-        return getInnerPlan() + " | AGGREGATE BY " + aggregateValues + ", GROUP BY " + groupingKeys;
+        return getInnerPlan() + " | AGGREGATE BY " + aggregateValue + ", GROUP BY " + groupingKeyValue;
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return Streams.concat(groupingKeys.stream().flatMap(value -> value.getCorrelatedTo().stream()),
-                        aggregateValues.stream().flatMap(value -> value.getCorrelatedTo().stream()))
+        return Streams.concat(groupingKeyValue.getCorrelatedTo().stream(),
+                aggregateValue.getCorrelatedTo().stream())
                 .collect(ImmutableSet.toImmutableSet());
     }
 
@@ -139,13 +163,13 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @Override
     public RecordQueryStreamingAggregatePlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                           @Nonnull final List<Quantifier> rebasedQuantifiers) {
-        return new RecordQueryStreamingAggregatePlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), groupingKeys, aggregateValues);
+        return new RecordQueryStreamingAggregatePlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class), groupingKeyValue, aggregateValue);
     }
 
     @Nonnull
     @Override
     public RecordQueryStreamingAggregatePlan withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryStreamingAggregatePlan(Quantifier.physical(GroupExpressionRef.of(child)), groupingKeys, aggregateValues);
+        return new RecordQueryStreamingAggregatePlan(Quantifier.physical(GroupExpressionRef.of(child), inner.getAlias()), groupingKeyValue, aggregateValue);
     }
 
     @Nonnull
@@ -180,12 +204,12 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(BASE_HASH, groupingKeys, aggregateValues);
+        return Objects.hash(BASE_HASH, groupingKeyValue, aggregateValue);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), groupingKeys, aggregateValues);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getInnerPlan(), groupingKeyValue, aggregateValue);
     }
 
     @Nonnull
@@ -210,17 +234,9 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
         return 1 + getInnerPlan().getComplexity();
     }
 
-    private List<String> asString() {
-        StringBuilder builder = new StringBuilder();
-        aggregateValues.forEach(value -> builder.append(value.toString()).append(" "));
-        builder.append("GROUP BY ");
-        groupingKeys.forEach(value -> builder.append(value.toString()).append(" "));
-
-        return Collections.singletonList(builder.toString());
-    }
-
-    private List<Value> createValuesList() {
-        return ImmutableList.<Value>builder().addAll(this.groupingKeys).addAll(this.aggregateValues).build();
+    @Nonnull
+    private Value computeResultValue() {
+        return TupleConstructorValue.ofUnnamed(ImmutableList.<Value>builder().add(this.groupingKeyValue).add(this.aggregateValue).build());
     }
 
     /**
@@ -237,8 +253,8 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.STREAMING_AGGREGATE_OPERATOR,
-                        asString(),
-                        ImmutableMap.of()),
+                        ImmutableList.of("STREAM AGG {{agg}}", "GROUP BY {{groupingKey}}"),
+                        ImmutableMap.of("agg", Attribute.gml(aggregateValue.toString()), "groupingKey", Attribute.gml(groupingKeyValue.toString()))),
                 childGraphs);
     }
 }

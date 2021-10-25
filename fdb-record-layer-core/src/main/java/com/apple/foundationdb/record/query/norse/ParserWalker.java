@@ -31,6 +31,8 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
+import com.apple.foundationdb.record.query.predicates.AggregateValue;
+import com.apple.foundationdb.record.query.predicates.AggregatingTupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.FieldValue;
@@ -315,6 +317,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
 
         final ImmutableList.Builder<Pair<? extends Value, Optional<String>>> childrenAndNamesBuilder = ImmutableList.builder();
 
+        boolean allAggregates = true;
         for (final NorseParser.TupleElementContext elementContext : tupleElementContexts) {
             final Atom elementAtom = elementContext.accept(this);
             Verify.verify(elementAtom.getResultType().getTypeCode() != TypeCode.STREAM && elementAtom.narrow(Value.class).isPresent());
@@ -331,9 +334,26 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 final NorseParser.TupleElementNamedContext elementNamedContext = (NorseParser.TupleElementNamedContext)elementContext;
                 childrenAndNamesBuilder.add(Pair.of(elementValue, Optional.of(elementNamedContext.IDENTIFIER().getText())));
             }
+
+            if (!(elementValue instanceof AggregateValue)) {
+                allAggregates = false;
+            }
         }
 
-        return TupleConstructorValue.of(childrenAndNamesBuilder.build());
+        //
+        // Since aggregating functions are not part of the type system (maybe a to-be-done), but we need to distinguish
+        // the aggregating from the non-aggregating tuple constructor, we do this by looking at the input functions
+        // which must be aggregating for the tuple to be aggregating.
+        //
+        if (allAggregates) {
+            return AggregatingTupleConstructorValue.of(
+                    childrenAndNamesBuilder.build()
+                            .stream()
+                            .map(childAndName -> Pair.of((AggregateValue)childAndName.getKey(), childAndName.getValue()))
+                            .collect(ImmutableList.toImmutableList()));
+        } else {
+            return TupleConstructorValue.of(childrenAndNamesBuilder.build());
+        }
     }
 
     @Override

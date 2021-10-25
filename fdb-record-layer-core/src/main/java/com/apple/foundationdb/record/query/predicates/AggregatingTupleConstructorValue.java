@@ -1,5 +1,5 @@
 /*
- * TupleConstructorValue.java
+ * AggregatingTupleConstructorValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.cursors.aggregate.Accumulator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
@@ -39,6 +40,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -48,6 +50,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,12 +63,12 @@ import java.util.stream.StreamSupport;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tuple-Constructor-Value");
+public class AggregatingTupleConstructorValue implements Value, AggregateValue, CreatesDynamicTypesValue {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Aggregating-Tuple-Constructor-Value");
     @Nonnull
-    protected final List<Pair<? extends Value, Optional<String>>> childrenAndNames;
+    protected final List<Pair<? extends AggregateValue, Optional<String>>> childrenAndNames;
     @Nonnull
-    private final Supplier<List<? extends Value>> childrenSupplier;
+    private final Supplier<List<? extends AggregateValue>> childrenSupplier;
     @Nonnull
     private final Supplier<Type.Record> resultTypeSupplier;
 
@@ -75,7 +78,7 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
                     .maximumSize(3)
                     .build();
 
-    private TupleConstructorValue(@Nonnull List<Pair<? extends Value, Optional<String>>> childrenAndNames) {
+    private AggregatingTupleConstructorValue(@Nonnull List<Pair<? extends AggregateValue, Optional<String>>> childrenAndNames) {
         this.childrenAndNames = ImmutableList.copyOf(childrenAndNames);
         this.childrenSupplier = Suppliers.memoize(this::computeChildren);
         this.resultTypeSupplier = Suppliers.memoize(this::computeResultType);
@@ -83,11 +86,11 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
 
     @Nonnull
     @Override
-    public Iterable<? extends Value> getChildren() {
+    public Iterable<? extends AggregateValue> getChildren() {
         return childrenSupplier.get();
     }
 
-    private List<? extends Value> computeChildren() {
+    private List<? extends AggregateValue> computeChildren() {
         return childrenAndNames
                 .stream()
                 .map(Pair::getKey)
@@ -112,21 +115,67 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
     @Nullable
     @Override
     public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
-        final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(context.getDynamicSchema());
-        final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
+        throw new IllegalStateException("unable to eval an aggregation function with eval()");
+    }
 
-        int i = 0;
-        final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
-
-        for (final Value child : getChildren()) {
-            final Object childResultElement = child.eval(store, context, record, message);
-            if (childResultElement != null) {
-                resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), childResultElement);
-            }
-            i ++;
+    @Nullable
+    @Override
+    public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        final List<Object> listOfPartials = Lists.newArrayList();
+        for (final AggregateValue child : getChildren()) {
+            final Object childResultElement = child.evalToPartial(store, context, record, message);
+            listOfPartials.add(childResultElement);
         }
+        return Collections.unmodifiableList(listOfPartials);
+    }
 
-        return resultMessageBuilder.build();
+    @Nonnull
+    @Override
+    public Accumulator createAccumulator(final @Nonnull DynamicSchema dynamicSchema) {
+        return new Accumulator() {
+            List<Accumulator> childAccumulators = null;
+            @Override
+            public void accumulate(@Nullable final Object currentObject) {
+                if (childAccumulators == null) {
+                    final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
+                    for (final AggregateValue child : getChildren()) {
+                        childAccumulatorsBuilder.add(child.createAccumulator(dynamicSchema));
+                    }
+                    childAccumulators = childAccumulatorsBuilder.build();
+                }
+                Verify.verify(currentObject instanceof Collection);
+                final List<?> currentObjectAsList = (List<?>)currentObject;
+                int i = 0;
+                for (final Object o : currentObjectAsList) {
+                    childAccumulators.get(i).accumulate(o);
+                    i++;
+                }
+            }
+
+            @Nullable
+            @Override
+            public Object finish() {
+                if (childAccumulators == null) {
+                    return null;
+                }
+
+                final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(dynamicSchema);
+                final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
+
+                int i = 0;
+                final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
+
+                for (final Accumulator childAccumulator : childAccumulators) {
+                    final Object finalResult = childAccumulator.finish();
+                    if (finalResult != null) {
+                        resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), finalResult);
+                    }
+                    i ++;
+                }
+
+                return resultMessageBuilder.build();
+            }
+        };
     }
 
     @Nonnull
@@ -189,63 +238,63 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
 
     @Nonnull
     @Override
-    public TupleConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
+    public AggregatingTupleConstructorValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(childrenAndNames.size() == Iterables.size(newChildren));
         //noinspection UnstableApiUsage
-        final ImmutableList<Pair<? extends Value, Optional<String>>> newChildrenAndNames =
+        final ImmutableList<Pair<? extends AggregateValue, Optional<String>>> newChildrenAndNames =
                 Streams.zip(StreamSupport.stream(newChildren.spliterator(), false),
                         this.childrenAndNames.stream(),
-                        (newChild, childAndName) -> Pair.of(newChild, childAndName.getValue()))
+                        (newChild, childAndName) -> Pair.of((AggregateValue)newChild, childAndName.getValue()))
                         .collect(ImmutableList.toImmutableList());
 
-        return new TupleConstructorValue(newChildrenAndNames);
+        return new AggregatingTupleConstructorValue(newChildrenAndNames);
     }
 
-    public static List<? extends Value> tryUnwrapIfTuple(@Nonnull final List<? extends Value> values) {
+    public static List<? extends AggregateValue> tryUnwrapIfTuple(@Nonnull final List<? extends AggregateValue> values) {
         if (values.size() != 1) {
             return values;
         }
 
         final Value onlyElement = Iterables.getOnlyElement(values);
-        if (!(onlyElement instanceof TupleConstructorValue)) {
+        if (!(onlyElement instanceof AggregatingTupleConstructorValue)) {
             return values;
         }
 
-        return ImmutableList.copyOf(onlyElement.getChildren());
+        return ImmutableList.copyOf(((AggregatingTupleConstructorValue)onlyElement).getChildren());
     }
 
-    public static TupleConstructorValue wrapIfNotTuple(@Nonnull final Value value) {
-        if (value instanceof TupleConstructorValue) {
-            return (TupleConstructorValue)value;
+    public static AggregatingTupleConstructorValue wrapIfNotTuple(@Nonnull final AggregateValue value) {
+        if (value instanceof AggregatingTupleConstructorValue) {
+            return (AggregatingTupleConstructorValue)value;
         }
 
-        return TupleConstructorValue.ofUnnamed(value);
+        return AggregatingTupleConstructorValue.ofUnnamed(value);
     }
 
     private static Value encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<Value> builtInFunction, @Nonnull final List<Atom> arguments) {
-        final ImmutableList<Pair<? extends Value, Optional<String>>> namedArguments =
+        final ImmutableList<Pair<? extends AggregateValue, Optional<String>>> namedArguments =
                 arguments.stream()
-                        .map(atom -> Pair.of(atom.narrow(Value.class), Optional.<String>empty()))
+                        .map(atom -> Pair.of(atom.narrow(AggregateValue.class), Optional.<String>empty()))
                         .peek(pair -> Verify.verify(pair.getKey().isPresent()))
                         .map(pair -> Pair.of(pair.getKey().get(), pair.getValue()))
                         .collect(ImmutableList.toImmutableList());
-        return new TupleConstructorValue(namedArguments);
+        return new AggregatingTupleConstructorValue(namedArguments);
     }
 
-    public static TupleConstructorValue of(@Nonnull final List<Pair<? extends Value, Optional<String>>> namedArguments) {
-        return new TupleConstructorValue(namedArguments);
+    public static AggregatingTupleConstructorValue of(@Nonnull final List<Pair<? extends AggregateValue, Optional<String>>> namedArguments) {
+        return new AggregatingTupleConstructorValue(namedArguments);
     }
 
-    public static TupleConstructorValue of(@Nonnull final Pair<? extends Value, Optional<String>> namedArgument) {
-        return new TupleConstructorValue(ImmutableList.of(namedArgument));
+    public static AggregatingTupleConstructorValue of(@Nonnull final Pair<? extends AggregateValue, Optional<String>> namedArgument) {
+        return new AggregatingTupleConstructorValue(ImmutableList.of(namedArgument));
     }
 
-    public static TupleConstructorValue ofUnnamed(@Nonnull final Value argument) {
-        return new TupleConstructorValue(ImmutableList.of(Pair.of(argument, Optional.empty())));
+    public static AggregatingTupleConstructorValue ofUnnamed(@Nonnull final AggregateValue argument) {
+        return new AggregatingTupleConstructorValue(ImmutableList.of(Pair.of(argument, Optional.empty())));
     }
 
-    public static TupleConstructorValue ofUnnamed(@Nonnull final Collection<? extends Value> arguments) {
-        return new TupleConstructorValue(arguments.stream()
+    public static AggregatingTupleConstructorValue ofUnnamed(@Nonnull final Collection<? extends AggregateValue> arguments) {
+        return new AggregatingTupleConstructorValue(arguments.stream()
                         .map(argument -> Pair.of(argument, Optional.<String>empty()))
                         .collect(ImmutableList.toImmutableList()));
     }
@@ -253,8 +302,8 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
     @AutoService(BuiltInFunction.class)
     public static class TupleFn extends BuiltInFunction<Value> {
         public TupleFn() {
-            super("tuple",
-                    ImmutableList.of(), new Type.Any(), TupleConstructorValue::encapsulate);
+            super("aggtuple",
+                    ImmutableList.of(), new Type.Any(), AggregatingTupleConstructorValue::encapsulate);
         }
     }
 }

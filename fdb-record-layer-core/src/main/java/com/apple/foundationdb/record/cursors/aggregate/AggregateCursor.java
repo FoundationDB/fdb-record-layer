@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.cursors.aggregate;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
@@ -36,58 +38,56 @@ import java.util.concurrent.Executor;
  * A cursor that groups incoming records by the given grouping criteria.
  *
  * @param <M> the record type that holds the actual data
+ * @param <K> the type of the inner record cursor
  */
 @API(API.Status.EXPERIMENTAL)
-public class AggregateCursor<M extends Message> implements RecordCursor<Message> {
+public class AggregateCursor<M extends Message, K> implements RecordCursor<Object> {
     // Inner cursor to provide record inflow
     @Nonnull
-    private final RecordCursor<QueryResult> inner;
+    private final RecordCursor<K> inner;
     // group aggregator to break incoming records into groups
     @Nonnull
     private final StreamGrouping<M> groupAggregator;
     // Previous record processed by this cursor
     @Nullable
-    private RecordCursorResult<QueryResult> previousResult;
+    private RecordCursorResult<K> previousResult;
     // Previous non-empty record processed by this cursor
     @Nullable
-    private RecordCursorResult<QueryResult> previousValidResult;
+    private RecordCursorResult<K> previousValidResult;
 
-    public AggregateCursor(@Nonnull RecordCursor<QueryResult> inner, @Nonnull final StreamGrouping<M> groupAggregator) {
+    public AggregateCursor(@Nonnull RecordCursor<K> inner, @Nonnull final StreamGrouping<M> groupAggregator) {
         this.inner = inner;
         this.groupAggregator = groupAggregator;
     }
 
     @Nonnull
     @Override
-    public CompletableFuture<RecordCursorResult<Message>> onNext() {
-//        if (previousResult != null && !previousResult.hasNext()) {
-//            // post-done termination condition: Keep returning terminal element after inner is exhausted.
-//            return CompletableFuture.completedFuture(previousResult);
-//        }
-//
-//        return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
-//            previousResult = innerResult;
-//            if (!innerResult.hasNext()) {
-//                groupAggregator.finalizeGroup();
-//                return false;
-//            } else {
-//                previousValidResult = innerResult;
-//                FDBQueriedRecord<M> record = innerResult.get().getQueriedRecord(0);
-//                boolean groupBreak = groupAggregator.apply(record);
-//                return (!groupBreak);
-//            }
-//        }), getExecutor()).thenApply(vignore -> {
-//            if ((previousValidResult == null) && (!previousResult.hasNext())) {
-//                // Edge case where there are no records at all
-//                return previousResult;
-//            }
-//            List<Object> groupResult = groupAggregator.getCompletedGroupResult();
-//            QueryResult queryResult = QueryResult.of(groupResult);
-//            // Use the last valid result for the continuation as we need non-terminal one here.
-//            RecordCursorContinuation continuation = previousValidResult.getContinuation();
-//            return RecordCursorResult.withNextValue(queryResult, continuation);
-//        });
-        return null;
+    public CompletableFuture<RecordCursorResult<Object>> onNext() {
+        if (previousResult != null && !previousResult.hasNext()) {
+            // post-done termination condition: Keep returning terminal element after inner is exhausted.
+            return CompletableFuture.completedFuture(RecordCursorResult.exhausted());
+        }
+
+        return AsyncUtil.whileTrue(() -> inner.onNext().thenApply(innerResult -> {
+            previousResult = innerResult;
+            if (!innerResult.hasNext()) {
+                groupAggregator.finalizeGroup();
+                return false;
+            } else {
+                previousValidResult = innerResult;
+                final Object currentObject = QueryResult.unwrapValue(innerResult.get());
+                boolean groupBreak = groupAggregator.apply(currentObject);
+                return (!groupBreak);
+            }
+        }), getExecutor()).thenApply(vignore -> {
+            if ((previousValidResult == null) && (!previousResult.hasNext())) {
+                // Edge case where there are no records at all
+                return RecordCursorResult.withNextValue(previousResult.get(), previousResult.getContinuation());
+            }
+            // Use the last valid result for the continuation as we need non-terminal one here.
+            RecordCursorContinuation continuation = previousValidResult.getContinuation();
+            return RecordCursorResult.withNextValue(groupAggregator.getCompletedGroupResult(), continuation);
+        });
     }
 
     @Override

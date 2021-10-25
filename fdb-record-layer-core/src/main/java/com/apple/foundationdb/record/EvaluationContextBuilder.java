@@ -22,6 +22,7 @@ package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -87,6 +88,10 @@ public class EvaluationContextBuilder {
     public EvaluationContextBuilder setBinding(@Nonnull String name, @Nullable Object value) {
         bindings.set(name, value);
         return this;
+    }
+
+    public EvaluationContextBuilder setBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
+        return setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value);
     }
 
     /**

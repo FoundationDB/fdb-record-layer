@@ -24,7 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.cursors.aggregate.RecordValueAccumulator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
-import com.apple.foundationdb.record.query.predicates.AggregateValue;
+import com.apple.foundationdb.record.query.predicates.OAggregateValue;
 import com.apple.foundationdb.record.query.predicates.AggregateValues;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.protobuf.Message;
@@ -166,7 +166,7 @@ public class AggregateValueTest {
         accumulateAndAssert(AggregateValues.averageDouble(doubleValueOnlyNull), 1, null);
     }
 
-    private <S> void accumulateAndAssert(final AggregateValue<?, ?> aggregateValue, final int accumulateCount, final Object value) {
+    private <S> void accumulateAndAssert(final OAggregateValue<?, ?> aggregateValue, final int accumulateCount, final Object value) {
         RecordValueAccumulator<?, ?> accumulator = aggregateValue.createAccumulator();
         accumulate(accumulateCount, accumulator);
         assertFinish(accumulator, value);

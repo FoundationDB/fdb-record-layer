@@ -186,6 +186,6 @@ public class EvaluationContext {
      * @return a new <code>EvaluationContext</code> with the new binding
      */
     public EvaluationContext withBinding(@Nonnull CorrelationIdentifier alias, @Nullable Object value) {
-        return childBuilder().setBinding(Bindings.Internal.CORRELATION.bindingName(alias.getId()), value).build();
+        return childBuilder().setBinding(alias, value).build();
     }
 }

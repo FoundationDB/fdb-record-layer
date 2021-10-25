@@ -270,7 +270,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
 //
 //    private static class AggregatePlanBuilder {
 //        private final Quantifier.Physical quantifier;
-//        private final List<AggregateValue<?, ?>> aggregateValues;
+//        private final List<OAggregateValue<?, ?>> aggregateValues;
 //        private final List<Value> groupValues;
 //        private String recordName;
 //
@@ -305,7 +305,7 @@ public class FDBStreamAggregateTest extends FDBRecordStoreQueryTestBase {
 //            return Quantifier.physical(GroupExpressionRef.of(filterPlan));
 //        }
 //
-//        private AggregateValue<?, ?> createAggregateValue(Value value, String aggregateType) {
+//        private OAggregateValue<?, ?> createAggregateValue(Value value, String aggregateType) {
 //            switch (aggregateType) {
 //                case ("SumInteger"):
 //                    return AggregateValues.sumInt(value);
