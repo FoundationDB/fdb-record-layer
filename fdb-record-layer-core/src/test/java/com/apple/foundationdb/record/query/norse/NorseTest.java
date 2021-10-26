@@ -162,28 +162,35 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
 
                     try (RecordCursorIterator<?> cursor = recordStore.executePlan(recordQueryPlan, EvaluationContext.forBindingsAndDynamicSchema(Bindings.EMPTY_BINDINGS, dynamicSchemaBuilder.build())).asIterator()) {
                         while (cursor.hasNext()) {
-                            final Object result = QueryResult.unwrapValue(Objects.requireNonNull(cursor.next()));
+                            final Object next = cursor.next();
                             final ImmutableList.Builder<String> columnsBuilder = ImmutableList.builder();
-                            if (result instanceof Message) {
-                                Objects.requireNonNull(recordType);
-                                final Message message = (Message)result;
-                                final Descriptors.Descriptor descriptor = message.getDescriptorForType();
-                                int i = 0;
-                                for (final Type.Record.Field field : Objects.requireNonNull(recordType.getFields())) {
-                                    columnsBuilder.add(resultAsString(message.getField(descriptor.findFieldByNumber(field.getFieldIndex()))));
-                                    i ++;
+                            if (next != null) {
+                                final Object result = QueryResult.unwrapValue(Objects.requireNonNull(next));
+                                if (result instanceof Message) {
+                                    Objects.requireNonNull(recordType);
+                                    final Message message = (Message)result;
+                                    final Descriptors.Descriptor descriptor = message.getDescriptorForType();
+                                    for (final Type.Record.Field field : Objects.requireNonNull(recordType.getFields())) {
+                                        columnsBuilder.add(resultAsString(message.getField(descriptor.findFieldByNumber(field.getFieldIndex()))));
+                                    }
+                                } else {
+                                    columnsBuilder.add(resultAsString(result));
+                                }
+
+                                final ImmutableList<String> columns = columnsBuilder.build();
+                                if (columns.size() == 1) {
+                                    repl.println(columns.get(0));
+                                } else {
+                                    repl.println(columns.stream()
+                                            .map(columnToPrint -> Strings.padEnd(columnToPrint.length() > 40 ? columnToPrint.substring(0, 40) : columnToPrint, 40, ' '))
+                                            .collect(Collectors.joining("    ")));
                                 }
                             } else {
-                                columnsBuilder.add(resultAsString(result));
-                            }
-
-                            final ImmutableList<String> columns = columnsBuilder.build();
-                            if (columns.size() == 1) {
-                                repl.println(columns.get(0));
-                            } else {
-                                repl.println(columns.stream()
-                                        .map(columnToPrint -> Strings.padEnd(columnToPrint.length() > 40 ? columnToPrint.substring(0, 40) : columnToPrint, 40, ' '))
-                                        .collect(Collectors.joining("    ")));
+                                if (columnNames.size() == 1) {
+                                    repl.println("null");
+                                } else {
+                                    repl.println("tuple is null");
+                                }
                             }
                             numRecords ++;
                         }

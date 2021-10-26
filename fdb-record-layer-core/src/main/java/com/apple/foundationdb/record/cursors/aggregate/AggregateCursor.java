@@ -25,6 +25,7 @@ import com.apple.foundationdb.async.AsyncUtil;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.RecordCursorStartContinuation;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.google.protobuf.Message;
@@ -82,7 +83,11 @@ public class AggregateCursor<M extends Message, K> implements RecordCursor<Objec
         }), getExecutor()).thenApply(vignore -> {
             if ((previousValidResult == null) && (!previousResult.hasNext())) {
                 // Edge case where there are no records at all
-                return RecordCursorResult.withNextValue(previousResult.get(), previousResult.getContinuation());
+                if (groupAggregator.isResultOnEmpty()) {
+                    return RecordCursorResult.withNextValue(groupAggregator.getCompletedGroupResult(), RecordCursorStartContinuation.START);
+                } else {
+                    return RecordCursorResult.exhausted();
+                }
             }
             // Use the last valid result for the continuation as we need non-terminal one here.
             RecordCursorContinuation continuation = previousValidResult.getContinuation();

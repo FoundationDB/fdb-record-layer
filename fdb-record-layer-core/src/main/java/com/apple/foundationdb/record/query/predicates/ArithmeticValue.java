@@ -173,6 +173,14 @@ public class ArithmeticValue implements Value {
         return new ArithmeticValue(physicalOperator, (Value)arg0, (Value)arg1);
     }
 
+    private static Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> computeOperatorMap() {
+        final ImmutableMap.Builder<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
+        for (final PhysicalOperator operator : PhysicalOperator.values()) {
+            mapBuilder.put(Triple.of(operator.getLogicalOperator(), operator.getLeftArgType(), operator.getRightArgType()), operator);
+        }
+        return mapBuilder.build();
+    }
+
     @AutoService(BuiltInFunction.class)
     public static class AddFn extends BuiltInFunction<Value> {
         public AddFn() {
@@ -211,14 +219,6 @@ public class ArithmeticValue implements Value {
             super("mod",
                     ImmutableList.of(new Type.Any(), new Type.Any()), ArithmeticValue::encapsulate);
         }
-    }
-
-    private static Map<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> computeOperatorMap() {
-        final ImmutableMap.Builder<Triple<LogicalOperator, TypeCode, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
-        for (final PhysicalOperator operation : PhysicalOperator.values()) {
-            mapBuilder.put(Triple.of(operation.getLogicalOperator(), operation.getLeftArgType(), operation.getRightArgType()), operation);
-        }
-        return mapBuilder.build();
     }
 
     private enum LogicalOperator {

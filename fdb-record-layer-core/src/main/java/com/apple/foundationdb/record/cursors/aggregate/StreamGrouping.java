@@ -31,6 +31,7 @@ import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Objects;
 
 /**
  * StreamGrouping breaks streams of records into groups, based on grouping criteria.
@@ -60,7 +61,7 @@ import javax.annotation.Nullable;
 public class StreamGrouping<M extends Message> {
     @Nonnull
     private final DynamicSchema dynamicSchema;
-    @Nonnull
+    @Nullable
     private final Value groupingKeyValue;
     @Nonnull
     private final AggregateValue aggregateValue;
@@ -95,7 +96,7 @@ public class StreamGrouping<M extends Message> {
      * @param alias the quantifier alias for the value evaluation
      */
     public StreamGrouping(@Nonnull final DynamicSchema dynamicSchema,
-                          @Nonnull final Value groupingKeyValue,
+                          @Nullable final Value groupingKeyValue,
                           @Nonnull final AggregateValue aggregateValue,
                           @Nonnull final Value completeResultValue,
                           @Nonnull final CorrelationIdentifier groupingKeyAlias,
@@ -130,13 +131,19 @@ public class StreamGrouping<M extends Message> {
      * @return true IFF the next record provided constitutes a group break
      */
     public boolean apply(@Nonnull Object currentObject) {
-        Object nextGroup = evalGroupingKey(currentObject);
-        boolean groupBreak = isGroupBreak(currentGroup, nextGroup);
-        if (groupBreak) {
-            finalizeGroup(nextGroup);
+        final boolean groupBreak;
+        if (groupingKeyValue != null) {
+            Object nextGroup = evalGroupingKey(currentObject);
+            groupBreak = isGroupBreak(currentGroup, nextGroup);
+            if (groupBreak) {
+                finalizeGroup(nextGroup);
+            } else {
+                // for the case where we have no current group. In most cases, this changes nothing
+                currentGroup = nextGroup;
+            }
         } else {
-            // for the case where we have no current group. In most cases, this changes nothing
-            currentGroup = nextGroup;
+            groupBreak = false;
+            currentGroup = null;
         }
         accumulate(currentObject);
         return groupBreak;
@@ -185,6 +192,10 @@ public class StreamGrouping<M extends Message> {
 
     private Object evalGroupingKey(@Nullable final Object currentObject) {
         final EvaluationContext nestedContext = context.withBinding(alias, currentObject);
-        return groupingKeyValue.eval(store, nestedContext, null, null);
+        return Objects.requireNonNull(groupingKeyValue).eval(store, nestedContext, null, null);
+    }
+
+    public boolean isResultOnEmpty() {
+        return groupingKeyValue == null;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * ArithmeticValue.java
+ * NumericAggregationValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -35,17 +35,20 @@ import com.apple.foundationdb.record.query.norse.dynamic.DynamicSchema;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.predicates.Type.TypeCode;
 import com.google.auto.service.AutoService;
+import com.google.common.base.Enums;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -54,7 +57,7 @@ import java.util.function.UnaryOperator;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class SumValue implements Value, AggregateValue {
+public class NumericAggregationValue implements Value, AggregateValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Sum-Value");
 
     @Nonnull
@@ -62,8 +65,8 @@ public class SumValue implements Value, AggregateValue {
     @Nonnull
     private final Value child;
 
-    public SumValue(@Nonnull PhysicalOperator operator,
-                    @Nonnull Value child) {
+    public NumericAggregationValue(@Nonnull PhysicalOperator operator,
+                                   @Nonnull Value child) {
         this.operator = operator;
         this.child = child;
     }
@@ -83,7 +86,7 @@ public class SumValue implements Value, AggregateValue {
     @Nonnull
     @Override
     public Accumulator createAccumulator(final @Nonnull DynamicSchema dynamicSchema) {
-        return new SumAccumulator(operator);
+        return new NumericAccumulator(operator);
     }
 
     @Nonnull
@@ -106,9 +109,9 @@ public class SumValue implements Value, AggregateValue {
 
     @Nonnull
     @Override
-    public SumValue withChildren(final Iterable<? extends Value> newChildren) {
+    public NumericAggregationValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 1);
-        return new SumValue(this.operator, Iterables.get(newChildren, 1));
+        return new NumericAggregationValue(this.operator, Iterables.get(newChildren, 1));
     }
 
     @Override
@@ -139,11 +142,11 @@ public class SumValue implements Value, AggregateValue {
     }
 
     @Nonnull
-    private static final Supplier<Map<TypeCode, PhysicalOperator>> operatorMapSupplier =
-            Suppliers.memoize(SumValue::computeOperatorMap);
+    private static final Supplier<Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator>> operatorMapSupplier =
+            Suppliers.memoize(NumericAggregationValue::computeOperatorMap);
 
     @Nonnull
-    private static Map<TypeCode, PhysicalOperator> getOperatorMap() {
+    private static Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator> getOperatorMap() {
         return operatorMapSupplier.get();
     }
 
@@ -159,37 +162,130 @@ public class SumValue implements Value, AggregateValue {
         Verify.verify(arguments.size() == 1);
         final Atom arg0 = arguments.get(0);
         final Type type0 = arg0.getResultType();
-        SemanticException.check(type0.isPrimitive(), "only primitive types allowed in sum operation");
+        SemanticException.check(type0.isPrimitive(), "only primitive types allowed in numeric aggregation operation");
+
+        final Optional<LogicalOperator> logicalOperatorOptional = Enums.getIfPresent(LogicalOperator.class, functionName.toUpperCase()).toJavaUtil();
+        Verify.verify(logicalOperatorOptional.isPresent());
+        final LogicalOperator logicalOperator = logicalOperatorOptional.get();
 
         final PhysicalOperator physicalOperator =
-                getOperatorMap().get(type0.getTypeCode());
+                getOperatorMap().get(Pair.of(logicalOperator, type0.getTypeCode()));
 
-        Verify.verifyNotNull(physicalOperator, "unable to encapsulate arithmetic operation due to type mismatch(es)");
+        Verify.verifyNotNull(physicalOperator, "unable to encapsulate aggregate operation due to type mismatch(es)");
 
-        return new SumValue(physicalOperator, (Value)arg0);
+        return new NumericAggregationValue(physicalOperator, (Value)arg0);
+    }
+
+    private static Map<Pair<LogicalOperator, TypeCode>, PhysicalOperator> computeOperatorMap() {
+        final ImmutableMap.Builder<Pair<LogicalOperator, TypeCode>, PhysicalOperator> mapBuilder = ImmutableMap.builder();
+        for (final PhysicalOperator operator : PhysicalOperator.values()) {
+            mapBuilder.put(Pair.of(operator.getLogicalOperator(), operator.getArgType()), operator);
+        }
+        return mapBuilder.build();
     }
 
     @AutoService(BuiltInFunction.class)
     public static class SumFn extends BuiltInFunction<AggregateValue> {
         public SumFn() {
             super("sum",
-                    ImmutableList.of(new Type.Any()), SumValue::encapsulate);
+                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
         }
     }
 
-    private static Map<TypeCode, PhysicalOperator> computeOperatorMap() {
-        final ImmutableMap.Builder<TypeCode, PhysicalOperator> mapBuilder = ImmutableMap.builder();
-        for (final PhysicalOperator operation : PhysicalOperator.values()) {
-            mapBuilder.put(operation.getArgType(), operation);
+    @AutoService(BuiltInFunction.class)
+    public static class AvgFn extends BuiltInFunction<AggregateValue> {
+        public AvgFn() {
+            super("avg",
+                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
         }
-        return mapBuilder.build();
+    }
+
+    @AutoService(BuiltInFunction.class)
+    public static class MinFn extends BuiltInFunction<AggregateValue> {
+        public MinFn() {
+            super("min",
+                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
+        }
+    }
+
+    @AutoService(BuiltInFunction.class)
+    public static class MaxFn extends BuiltInFunction<AggregateValue> {
+        public MaxFn() {
+            super("max",
+                    ImmutableList.of(new Type.Any()), NumericAggregationValue::encapsulate);
+        }
+    }
+
+    private enum LogicalOperator {
+        SUM,
+        AVG,
+        MIN,
+        MAX
     }
 
     private enum PhysicalOperator {
-        SUM_I(TypeCode.INT, TypeCode.INT, v -> (int)v, (s, v) -> (int)s + (int)v, s -> (int)s),
-        SUM_L(TypeCode.LONG, TypeCode.LONG, v -> (long)v, (s, v) -> (long)s + (long)v, s -> (long)s),
-        SUM_F(TypeCode.FLOAT, TypeCode.FLOAT, v -> (float)v, (s, v) -> (float)s + (float)v, s -> (float)s),
-        SUM_D(TypeCode.DOUBLE, TypeCode.DOUBLE, v -> (double)v, (s, v) -> (double)s + (double)v, s -> (double)s);
+        SUM_I(LogicalOperator.SUM, TypeCode.INT, TypeCode.INT, v -> (int)v, (s, v) -> Math.addExact((int)s, (int)v), s -> (int)s),
+        SUM_L(LogicalOperator.SUM, TypeCode.LONG, TypeCode.LONG, v -> (long)v, (s, v) -> Math.addExact((long)s, (long)v), s -> (long)s),
+        SUM_F(LogicalOperator.SUM, TypeCode.FLOAT, TypeCode.FLOAT, v -> (float)v, (s, v) -> (float)s + (float)v, s -> (float)s),
+        SUM_D(LogicalOperator.SUM, TypeCode.DOUBLE, TypeCode.DOUBLE, v -> (double)v, (s, v) -> (double)s + (double)v, s -> (double)s),
+
+        AVG_I(LogicalOperator.AVG, TypeCode.INT, TypeCode.INT,
+                v -> Pair.of(v, 1L),
+                (s1, s2) -> {
+                    final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of(Math.addExact((int)pair1.getKey(), (int)pair2.getKey()), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                },
+                s -> {
+                    final Pair<?, ?> pair = (Pair<?, ?>)s;
+                    return Math.toIntExact((long)(Integer)pair.getKey() / (long)pair.getValue());
+                }),
+        AVG_L(LogicalOperator.AVG, TypeCode.LONG, TypeCode.LONG,
+                v -> Pair.of(v, 1L),
+                (s1, s2) -> {
+                    final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of(Math.addExact((long)pair1.getKey(), (long)pair2.getKey()), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                },
+                s -> {
+                    final Pair<?, ?> pair = (Pair<?, ?>)s;
+                    return (long)pair.getKey() / (long)pair.getValue();
+                }),
+        AVG_F(LogicalOperator.AVG, TypeCode.FLOAT, TypeCode.FLOAT,
+                v -> Pair.of(v, 1L),
+                (s1, s2) -> {
+                    final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of((float)pair1.getKey() + (float)pair2.getKey(), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                },
+                s -> {
+                    final Pair<?, ?> pair = (Pair<?, ?>)s;
+                    return (float)pair.getKey() / (long)pair.getValue();
+                }),
+        AVG_D(LogicalOperator.AVG, TypeCode.DOUBLE, TypeCode.DOUBLE,
+                v -> Pair.of(v, 1L),
+                (s1, s2) -> {
+                    final Pair<?, ?> pair1 = (Pair<?, ?>)s1;
+                    final Pair<?, ?> pair2 = (Pair<?, ?>)s2;
+                    return Pair.of((double)pair1.getKey() + (double)pair2.getKey(), Math.addExact((long)pair1.getValue(), (long)pair2.getValue()));
+                },
+                s -> {
+                    final Pair<?, ?> pair = (Pair<?, ?>)s;
+                    return (double)pair.getKey() / (long)pair.getValue();
+                }),
+
+        MIN_I(LogicalOperator.MIN, TypeCode.INT, TypeCode.INT, v -> (int)v, (s, v) -> Math.min((int)s, (int)v), s -> (int)s),
+        MIN_L(LogicalOperator.MIN, TypeCode.LONG, TypeCode.LONG, v -> (long)v, (s, v) -> Math.min((long)s, (long)v), s -> (long)s),
+        MIN_F(LogicalOperator.MIN, TypeCode.FLOAT, TypeCode.FLOAT, v -> (float)v, (s, v) -> Math.min((float)s, (float)v), s -> (float)s),
+        MIN_D(LogicalOperator.MIN, TypeCode.DOUBLE, TypeCode.DOUBLE, v -> (double)v, (s, v) -> Math.min((double)s, (double)v), s -> (double)s),
+
+        MAX_I(LogicalOperator.MAX, TypeCode.INT, TypeCode.INT, v -> (int)v, (s, v) -> Math.max((int)s, (int)v), s -> (int)s),
+        MAX_L(LogicalOperator.MAX, TypeCode.LONG, TypeCode.LONG, v -> (long)v, (s, v) -> Math.max((long)s, (long)v), s -> (long)s),
+        MAX_F(LogicalOperator.MAX, TypeCode.FLOAT, TypeCode.FLOAT, v -> (float)v, (s, v) -> Math.max((float)s, (float)v), s -> (float)s),
+        MAX_D(LogicalOperator.MAX, TypeCode.DOUBLE, TypeCode.DOUBLE, v -> (double)v, (s, v) -> Math.max((double)s, (double)v), s -> (double)s);
+
+        @Nonnull
+        private final LogicalOperator logicalOperator;
 
         @Nonnull
         private final TypeCode argType;
@@ -206,16 +302,23 @@ public class SumValue implements Value, AggregateValue {
         @Nonnull
         private final UnaryOperator<Object> partialToFinalFunction;
 
-        PhysicalOperator(@Nonnull final TypeCode argType,
+        PhysicalOperator(@Nonnull LogicalOperator logicalOperator,
+                         @Nonnull final TypeCode argType,
                          @Nonnull final TypeCode resultType,
                          @Nonnull final UnaryOperator<Object> initialToPartialFunction,
                          @Nonnull final BinaryOperator<Object> partialToPartialFunction,
                          @Nonnull final UnaryOperator<Object> partialToFinalFunction) {
+            this.logicalOperator = logicalOperator;
             this.argType = argType;
             this.resultType = resultType;
             this.initialToPartialFunction = initialToPartialFunction;
             this.partialToPartialFunction = partialToPartialFunction;
             this.partialToFinalFunction = partialToFinalFunction;
+        }
+
+        @Nonnull
+        public LogicalOperator getLogicalOperator() {
+            return logicalOperator;
         }
 
         @Nonnull
@@ -266,19 +369,21 @@ public class SumValue implements Value, AggregateValue {
 
         @Nullable
         public Object evalPartialToFinal(@Nullable Object object) {
-            return object;
+            if (object == null) {
+                return null;
+            }
+            return partialToFinalFunction.apply(object);
         }
     }
 
-    public static class SumAccumulator implements Accumulator {
+    public static class NumericAccumulator implements Accumulator {
         private final PhysicalOperator physicalOperator;
         Object state = null;
 
-        public SumAccumulator(@Nonnull final PhysicalOperator physicalOperator) {
+        public NumericAccumulator(@Nonnull final PhysicalOperator physicalOperator) {
             this.physicalOperator = physicalOperator;
         }
 
-        @SuppressWarnings("unchecked")
         @Override
         public void accumulate(@Nullable final Object currentObject) {
             this.state = physicalOperator.evalPartialToPartial(state, currentObject);

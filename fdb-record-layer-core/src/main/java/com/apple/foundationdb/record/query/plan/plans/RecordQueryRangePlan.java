@@ -223,7 +223,7 @@ public class RecordQueryRangePlan implements RecordQueryPlanWithNoChildren {
 
         final PlannerGraph.DataNodeWithInfo dataNodeWithInfo;
         dataNodeWithInfo = new PlannerGraph.DataNodeWithInfo(NodeInfo.BASE_DATA,
-                ImmutableList.of("limit: 0 <= i < {{exclusiveLimit}}"),
+                ImmutableList.of("range: 0 <= i < {{exclusiveLimit}}"),
                 ImmutableMap.of("exclusiveLimit", Attribute.gml(exclusiveLimitValue)));
 
         return PlannerGraph.fromNodeAndChildGraphs(

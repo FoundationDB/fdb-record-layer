@@ -1,5 +1,5 @@
 /*
- * MapFn.java
+ * CollectFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,12 +22,13 @@ package com.apple.foundationdb.record.query.norse.functions;
 
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryMapPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
@@ -43,35 +44,49 @@ import java.util.List;
 
 /**
  * Function
- * map(STREAM, TUPLE -> TUPLE) -> STREAM.
+ * collect(STREAM, ANY -> ANY, ANY -> ANY) -> STREAM.
  */
 @AutoService(BuiltInFunction.class)
-public class MapFn extends BuiltInFunction<RelationalExpression> {
-    public MapFn() {
-        super("map",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(Type.Record.erased()), Type.Record.erased())), MapFn::encapsulate);
+public class CollectByFn extends BuiltInFunction<RelationalExpression> {
+    public CollectByFn() {
+        super("collect",
+                ImmutableList.of(
+                        new Type.Stream(),
+                        new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any()),
+                        new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any())),
+                CollectByFn::encapsulate);
     }
 
     public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
         // the call is already validated against the resolved function
         Verify.verify(arguments.get(0) instanceof RecordQueryPlan);
         Verify.verify(arguments.get(1) instanceof Lambda);
+        Verify.verify(arguments.get(2) instanceof Lambda);
 
         // get the typing information from the first argument
         final RecordQueryPlan inStream = (RecordQueryPlan)arguments.get(0);
-
-        // provide a calling scope to the lambda
-        final Lambda lambda = (Lambda)arguments.get(1);
-
         final Quantifier.Physical inQuantifier = Quantifier.physical(GroupExpressionRef.of(inStream));
         final QuantifiedObjectValue argumentValue = inQuantifier.getFlowedObjectValue();
-        final GraphExpansion graphExpansion = lambda.unifyBody(argumentValue);
-        Verify.verify(graphExpansion.getQuantifiers().isEmpty());
-        Verify.verify(graphExpansion.getPredicates().isEmpty());
 
-        final List<? extends Value> resultsAsValues = graphExpansion.getResultsAs(Value.class);
-        final Value resultValue = Iterables.getOnlyElement(resultsAsValues);
+        // grouping key
+        final Lambda groupingLambda = (Lambda)arguments.get(1);
 
-        return new RecordQueryMapPlan(inQuantifier, resultValue);
+        final GraphExpansion groupingGraphExpansion = groupingLambda.unifyBody(argumentValue);
+        Verify.verify(groupingGraphExpansion.getQuantifiers().isEmpty());
+        Verify.verify(groupingGraphExpansion.getPredicates().isEmpty());
+
+        final List<? extends Value> groupingValues = groupingGraphExpansion.getResultsAs(Value.class);
+        final Value groupingValue = Iterables.getOnlyElement(groupingValues);
+
+        final Lambda collectLambda = (Lambda)arguments.get(2);
+
+        final GraphExpansion collectGraphExpansion = collectLambda.unifyBody(argumentValue);
+        Verify.verify(collectGraphExpansion.getQuantifiers().isEmpty());
+        Verify.verify(collectGraphExpansion.getPredicates().isEmpty());
+
+        final List<? extends AggregateValue> collectValues = collectGraphExpansion.getResultsAs(AggregateValue.class);
+        final AggregateValue collectValue = Iterables.getOnlyElement(collectValues);
+
+        return new RecordQueryStreamingAggregatePlan(inQuantifier, groupingValue, collectValue);
     }
 }

@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.cursors.aggregate;
 import javax.annotation.Nullable;
 
 /**
- * A list of {@link AggregateAccumulator}s.
  * This class applies aggregation operations to all of its accumulators and return the combined result.
  */
 public interface Accumulator {

@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.cursors.aggregate.Accumulator;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
@@ -39,6 +40,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
@@ -48,6 +50,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,7 +63,7 @@ import java.util.stream.StreamSupport;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
+public class TupleConstructorValue implements Value, AggregateValue, CreatesDynamicTypesValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Tuple-Constructor-Value");
     @Nonnull
     protected final List<Pair<? extends Value, Optional<String>>> childrenAndNames;
@@ -127,6 +130,68 @@ public class TupleConstructorValue implements Value, CreatesDynamicTypesValue {
         }
 
         return resultMessageBuilder.build();
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object evalToPartial(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        final List<Object> listOfPartials = Lists.newArrayList();
+        for (final Value child : getChildren()) {
+            Verify.verify(child instanceof AggregateValue);
+            final Object childResultElement = ((AggregateValue)child).evalToPartial(store, context, record, message);
+            listOfPartials.add(childResultElement);
+        }
+        return Collections.unmodifiableList(listOfPartials);
+    }
+
+    @Nonnull
+    @Override
+    public Accumulator createAccumulator(final @Nonnull DynamicSchema dynamicSchema) {
+        return new Accumulator() {
+            List<Accumulator> childAccumulators = null;
+            @Override
+            public void accumulate(@Nullable final Object currentObject) {
+                if (childAccumulators == null) {
+                    final ImmutableList.Builder<Accumulator> childAccumulatorsBuilder = ImmutableList.builder();
+                    for (final Value child : getChildren()) {
+                        Verify.verify(child instanceof AggregateValue);
+                        childAccumulatorsBuilder.add(((AggregateValue)child).createAccumulator(dynamicSchema));
+                    }
+                    childAccumulators = childAccumulatorsBuilder.build();
+                }
+                Verify.verify(currentObject instanceof Collection);
+                final List<?> currentObjectAsList = (List<?>)currentObject;
+                int i = 0;
+                for (final Object o : currentObjectAsList) {
+                    childAccumulators.get(i).accumulate(o);
+                    i++;
+                }
+            }
+
+            @Nullable
+            @Override
+            public Object finish() {
+                if (childAccumulators == null) {
+                    return null;
+                }
+
+                final DynamicMessage.Builder resultMessageBuilder = newMessageBuilderForType(dynamicSchema);
+                final Descriptors.Descriptor descriptorForType = resultMessageBuilder.getDescriptorForType();
+
+                int i = 0;
+                final List<Type.Record.Field> fields = Objects.requireNonNull(getResultType().getFields());
+
+                for (final Accumulator childAccumulator : childAccumulators) {
+                    final Object finalResult = childAccumulator.finish();
+                    if (finalResult != null) {
+                        resultMessageBuilder.setField(descriptorForType.findFieldByNumber(fields.get(i).getFieldIndex()), finalResult);
+                    }
+                    i ++;
+                }
+
+                return resultMessageBuilder.build();
+            }
+        };
     }
 
     @Nonnull

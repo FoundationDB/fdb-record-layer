@@ -1,5 +1,5 @@
 /*
- * OAggregateValue.java
+ * AggregateValue.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -42,7 +42,7 @@ public interface AggregateValue extends Value {
      * values representing this value.
      *
      * @return a new {@link Accumulator} for aggregating values for this Value.
-     * @param dynamicSchema
+     * @param dynamicSchema dynamic schema
      */
     @Nonnull
     Accumulator createAccumulator(@Nonnull final DynamicSchema dynamicSchema);

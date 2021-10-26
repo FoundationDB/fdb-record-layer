@@ -33,7 +33,6 @@ import com.apple.foundationdb.record.query.predicates.Atom;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.Type;
-import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -44,7 +43,7 @@ import java.util.List;
 
 /**
  * Function
- * collect(STREAM, ANY -> ANY, ANY -> ANY) -> STREAM.
+ * collect(STREAM, ANY -> ANY) -> STREAM.
  */
 @AutoService(BuiltInFunction.class)
 public class CollectFn extends BuiltInFunction<RelationalExpression> {
@@ -52,7 +51,6 @@ public class CollectFn extends BuiltInFunction<RelationalExpression> {
         super("collect",
                 ImmutableList.of(
                         new Type.Stream(),
-                        new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any()),
                         new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any())),
                 CollectFn::encapsulate);
     }
@@ -61,24 +59,13 @@ public class CollectFn extends BuiltInFunction<RelationalExpression> {
         // the call is already validated against the resolved function
         Verify.verify(arguments.get(0) instanceof RecordQueryPlan);
         Verify.verify(arguments.get(1) instanceof Lambda);
-        Verify.verify(arguments.get(2) instanceof Lambda);
 
         // get the typing information from the first argument
         final RecordQueryPlan inStream = (RecordQueryPlan)arguments.get(0);
-
-        // grouping key
-        final Lambda groupingLambda = (Lambda)arguments.get(1);
-
         final Quantifier.Physical inQuantifier = Quantifier.physical(GroupExpressionRef.of(inStream));
         final QuantifiedObjectValue argumentValue = inQuantifier.getFlowedObjectValue();
-        final GraphExpansion groupingGraphExpansion = groupingLambda.unifyBody(argumentValue);
-        Verify.verify(groupingGraphExpansion.getQuantifiers().isEmpty());
-        Verify.verify(groupingGraphExpansion.getPredicates().isEmpty());
 
-        final List<? extends Value> groupingValues = groupingGraphExpansion.getResultsAs(Value.class);
-        final Value groupingValue = Iterables.getOnlyElement(groupingValues);
-
-        final Lambda collectLambda = (Lambda)arguments.get(2);
+        final Lambda collectLambda = (Lambda)arguments.get(1);
 
         final GraphExpansion collectGraphExpansion = collectLambda.unifyBody(argumentValue);
         Verify.verify(collectGraphExpansion.getQuantifiers().isEmpty());
@@ -87,6 +74,6 @@ public class CollectFn extends BuiltInFunction<RelationalExpression> {
         final List<? extends AggregateValue> collectValues = collectGraphExpansion.getResultsAs(AggregateValue.class);
         final AggregateValue collectValue = Iterables.getOnlyElement(collectValues);
 
-        return new RecordQueryStreamingAggregatePlan(inQuantifier, groupingValue, collectValue);
+        return new RecordQueryStreamingAggregatePlan(inQuantifier, null, collectValue);
     }
 }
