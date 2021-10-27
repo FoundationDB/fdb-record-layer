@@ -70,10 +70,24 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
         final CascadesPlanner planner = new CascadesPlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState());
 
         while (true) {
-            final String command = repl.readLine(new AttributedStringBuilder()
+            String command = repl.readLine(new AttributedStringBuilder()
                     .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.WHITE + AttributedStyle.BRIGHT).bold())
                     .append("norse ")
                     .toAnsi());
+
+            // paste mode
+            if (command.equals(":")) {
+                final StringBuilder commandBuilder = new StringBuilder();
+                String thisLine;
+                do {
+                    thisLine = repl.readLine(new AttributedStringBuilder()
+                            .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.WHITE + AttributedStyle.BRIGHT).bold())
+                            .append(">>>> ")
+                            .toAnsi());
+                    commandBuilder.append(thisLine);
+                } while (!thisLine.isEmpty());
+                command = commandBuilder.toString();
+            }
 
             if (command.isEmpty()) {
                 continue;
@@ -92,15 +106,15 @@ class NorseTest extends FDBRecordStoreQueryTestBase {
                 repl.println();
 
                 if (words.length == 2) {
-                    if (words[0].equalsIgnoreCase("describe")) {
+                    if (words[0].equalsIgnoreCase(":describe")) {
                         final RelationalExpression relationalExpression = parseQuery(words[1], dynamicSchemaBuilder);
                         repl.println(relationalExpression.getResultType().toString());
                         continue;
-                    } else if (words[0].equalsIgnoreCase("debug")) {
+                    } else if (words[0].equalsIgnoreCase(":debug")) {
                         planner.plan(words[1], (query, context) -> parseQuery(query, dynamicSchemaBuilder));
                         repl.printlnHighlighted("end of planner debugger");
                         continue;
-                    } else if (words[0].equalsIgnoreCase("explain")) {
+                    } else if (words[0].equalsIgnoreCase(":explain")) {
                         final RecordQueryPlan recordQueryPlan = planner.plan(words[1], (query, context) -> {
                             repl.removeInternalBreakPoints();
                             return parseQuery(query, dynamicSchemaBuilder);

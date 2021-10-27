@@ -73,7 +73,7 @@ comprehensionBindings
     ;
 
 comprehensionBinding
-    : extractor BACK_ARROW pipe              # ComprehensionBindingIteration
+    : extractor IN pipe                      # ComprehensionBindingIteration
     | IDENTIFIER COLONEQUALS pipe            # ComprehensionBindingAssign
     | IF pipe                                # ComprehensionBindingIf
     ;

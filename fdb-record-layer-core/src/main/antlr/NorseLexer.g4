@@ -58,6 +58,7 @@ GOTO:               'goto';
 IMPLEMENTS:         'implements';
 IMPORT:             'import';
 INSTANCEOF:         'instanceof';
+IN:                 'in';
 INT:                'int';
 INTERFACE:          'interface';
 LONG:               'long';
