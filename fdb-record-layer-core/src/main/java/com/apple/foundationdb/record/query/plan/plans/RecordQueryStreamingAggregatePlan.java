@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
+import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -134,6 +135,15 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
     @Override
     public List<? extends Quantifier> getQuantifiers() {
         return ImmutableList.of(inner);
+    }
+
+    @Nonnull
+    @Override
+    public Set<Type> getDynamicTypes() {
+        return ImmutableSet.copyOf(Iterables.concat(
+                RecordQueryPlanWithChild.super.getDynamicTypes(),
+                groupingKeyValue == null ? ImmutableSet.of() : groupingKeyValue.getDynamicTypes(),
+                aggregateValue.getDynamicTypes()));
     }
 
     @Nonnull

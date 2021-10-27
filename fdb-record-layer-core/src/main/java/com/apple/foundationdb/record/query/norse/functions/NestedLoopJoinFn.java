@@ -59,8 +59,6 @@ public class NestedLoopJoinFn extends BuiltInFunction<RelationalExpression> {
 
         // get the typing information from the first argument
         final RecordQueryPlan outerStream = (RecordQueryPlan)arguments.get(0);
-        final Type outerType = Objects.requireNonNull(outerStream.getResultType().getInnerType(), "stream type must not be erased");
-        //Verify.verify(outerType.getTypeCode() == Type.TypeCode.TUPLE);
 
         // provide a calling scope to the lambda
         final Lambda lambda = (Lambda)arguments.get(1);

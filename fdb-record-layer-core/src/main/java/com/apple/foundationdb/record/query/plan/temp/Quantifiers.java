@@ -31,8 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.matching.GenericMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchFunction;
 import com.apple.foundationdb.record.query.plan.temp.matching.MatchPredicate;
 import com.apple.foundationdb.record.query.plan.temp.matching.PredicatedMatcher;
-import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
-import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.AbstractIterator;
@@ -40,13 +38,11 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -442,44 +438,14 @@ public class Quantifiers {
     }
 
     @Nonnull
-    public static Value pullUpAndFlatten(@Nonnull final List<? extends Quantifier> quantifiers) {
+    public static List<? extends Value> pullUp(@Nonnull final List<? extends Quantifier> quantifiers) {
         Verify.verify(!quantifiers.isEmpty());
 
-        final ImmutableList<? extends Value> values = quantifiers
+        return quantifiers
                 .stream()
                 .filter(quantifier -> !(quantifier instanceof Existential))
                 .map(Quantifier::getFlowedObjectValue)
                 .collect(ImmutableList.toImmutableList());
-
-        return flatten(values);
-    }
-
-    @Nonnull
-    public static Value flatten(@Nonnull final List<? extends Value> values) {
-        Verify.verify(!values.isEmpty());
-
-        if (values.size() == 1) {
-            return values.get(0);
-        } else {
-            final ImmutableList.Builder<Pair<? extends Value, Optional<String>>> childrenAndNamesBuilder = ImmutableList.builder();
-            for (final Value value : values) {
-                final Type type = value.getResultType();
-
-                if (type.getTypeCode() != Type.TypeCode.TUPLE) {
-                    childrenAndNamesBuilder.add(Pair.of(value, Optional.empty()));
-                } else {
-                    final Type.Record recordType = (Type.Record)type;
-                    final List<? extends Value> elementValues = Type.Record.deconstructTuple(value);
-                    final List<Type.Record.Field> fields = Objects.requireNonNull(recordType.getFields());
-                    Verify.verify(elementValues.size() == fields.size());
-                    for (int i = 0, fieldsSize = fields.size(); i < fieldsSize; i++) {
-                        final Type.Record.Field field = fields.get(i);
-                        childrenAndNamesBuilder.add(Pair.of(elementValues.get(i), field.getFieldNameOptional()));
-                    }
-                }
-            }
-            return TupleConstructorValue.of(childrenAndNamesBuilder.build());
-        }
     }
 
     /**

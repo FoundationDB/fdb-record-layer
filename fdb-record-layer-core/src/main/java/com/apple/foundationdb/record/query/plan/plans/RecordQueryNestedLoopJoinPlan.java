@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -142,7 +143,8 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
 
     @Nonnull
     private Value computeResultValue() {
-        return Quantifiers.pullUpAndFlatten(ImmutableList.of(outer, inner));
+        //return Quantifiers.pullUpAndFlatten(ImmutableList.of(outer, inner));
+        return TupleConstructorValue.ofUnnamed(Quantifiers.pullUp(ImmutableList.of(outer, inner)));
     }
 
     @Nonnull

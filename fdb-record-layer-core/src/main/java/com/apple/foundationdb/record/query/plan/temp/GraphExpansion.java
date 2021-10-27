@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate.Placeholder;
+import com.apple.foundationdb.record.query.predicates.Values;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -285,7 +286,7 @@ public class GraphExpansion implements KeyExpressionVisitor.Result {
                             .addAll(getResultsAs(Value.class))
                             .build();
 
-            return new SelectExpression(Quantifiers.flatten(allResultValues), quantifiers, getPredicates());
+            return new SelectExpression(Values.mergeTuples(allResultValues), quantifiers, getPredicates());
         }
 
         @Nonnull

@@ -134,6 +134,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                                                        @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
         final TupleRange range = comparisons.toTupleRange(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
+
         return store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, executeProperties.asScanProperties(reverse));
     }
 
