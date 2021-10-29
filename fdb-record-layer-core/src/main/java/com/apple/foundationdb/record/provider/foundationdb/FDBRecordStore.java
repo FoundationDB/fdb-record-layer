@@ -1222,7 +1222,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         int[] indexKeyLocations = index.getPrimaryKeyComponentPositions(); // TODO: If this is null, do something similar to the Index.getPrimaryKey
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         Subspace indexSubspace = indexMaintainer.getIndexSubspace();
-        final Tuple hopInfo = createHopInfo(indexSubspace, recordSubspace, commonPrimaryKey);  // PREFIX, "{K[x]}", "{K[y]}", "{...}"
+        final Tuple hopInfo = createHopInfo(indexSubspace, recordSubspace, commonPrimaryKey, index);
 
         if (!isIndexReadable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
@@ -1237,22 +1237,24 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     /**
-     * Create the list of index key-references that would allow the DB to prefetch the records pointed to by hte index entries.
-     * The keyLocations match each primary key element that is also indexed. Null keyLocations means no primary key is part of the index.
+     * Create the list of index key-references that would allow the DB to prefetch the records pointed to by the index entries.
      * The commonPrimaryKey is the representation of the primary key for the referenced records
-     * The index structure is: [Prefix, I1...In, K1...Kn] where Ix are the index fields and Kx are the primary keys of the indexed record.
+     * The index structure is: [P1...Pn, I1...In, K1...Kn] where Px are the prefix elements, Ix are the index fields and Kx are the primary keys of the indexed record.
      * Since {@link Index#trimPrimaryKey(List)} remove redundant key entries, we need to construct the list of locations of the primary key
      * elements by using the keyLocations (if there are any), followed by the remaining key elements.
+     * @param indexSubspace the Index subspace (the prefix for the record entries)
      * @param recordSubspace the Record subspace (the prefix for the record entries)
-     * @param indexSubspace the Index subspace (teh prefix for the record entries)
      * @param commonPrimaryKey the metadata of the primary key (used to construct the PK locations in teh dereferenced record)
-     * @return
+     * @param index the index being referenced
+     * @return A Tuple representing the HopInfo structure required by the FDB getRangeAndHop call
      */
-    private Tuple createHopInfo(@Nonnull Subspace indexSubspace, @Nonnull Subspace recordSubspace, @Nullable KeyExpression commonPrimaryKey) {
-        Tuple result =  Tuple.fromBytes(recordSubspace.pack()); // TODO: Add "RECORD" prefix
-        Tuple indexPrefix = Tuple.fromBytes(indexSubspace.pack());
-        int prefixLength = indexPrefix.size();
-        for (int i = 0 ; i < commonPrimaryKey.getColumnSize() ; i++) {
+    @Nonnull
+    private Tuple createHopInfo(@Nonnull Subspace indexSubspace, @Nonnull Subspace recordSubspace, @Nullable KeyExpression commonPrimaryKey, @Nonnull final Index index) {
+        int prefixLength = Tuple.fromBytes(indexSubspace.pack()).size();
+        List<Integer> keyLocations = index.getEntryPrimaryKeyPositions(commonPrimaryKey.getColumnSize());
+
+        Tuple result =  Tuple.fromBytes(recordSubspace.pack());
+        for (int i: keyLocations) {
             result = result.add("{K[" + (i + prefixLength) + "]}");
         }
         return result;
