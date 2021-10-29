@@ -410,8 +410,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         final String explainQuantifiers = getQuantifiers().stream()
                 .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
                 .map(quantifier -> {
-                    final String explainQuantifier = Iterables.getOnlyElement(quantifier.getRangesOver().getMembers()).explain(formatter);
-                    return "(" + formatter.getQuantifierName(quantifier.getAlias()) + ") <- " + explainQuantifier;
+                    final String explainBindingExpression = Iterables.getOnlyElement(quantifier.getRangesOver().getMembers()).explain(formatter);
+                    return explainBindingExpression + " as " + formatter.getQuantifierName(quantifier.getAlias());
                 })
                 .collect(Collectors.joining("; "));
 
@@ -419,7 +419,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 .map(predicate -> "if " + predicate.explain(formatter))
                 .collect(Collectors.joining("; "));
 
-        return "[" + explainResultValues + ": " + explainQuantifiers + (predicates.isEmpty() ? "" : "; " + explainPredicates) + "]";
+        return "[" + explainQuantifiers + (predicates.isEmpty() ? "" : "; " + explainPredicates) + "] yield " + explainResultValues;
     }
 
     public static boolean isSimpleSelect(@Nonnull final List<? extends Quantifier> quantifiers,

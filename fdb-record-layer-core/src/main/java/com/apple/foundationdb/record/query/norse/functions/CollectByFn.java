@@ -49,7 +49,7 @@ import java.util.List;
 @AutoService(BuiltInFunction.class)
 public class CollectByFn extends BuiltInFunction<RelationalExpression> {
     public CollectByFn() {
-        super("collect",
+        super("collectBy",
                 ImmutableList.of(
                         new Type.Stream(),
                         new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any()),

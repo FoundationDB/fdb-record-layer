@@ -64,8 +64,8 @@ bindingIdentifier
     ;
 
 comprehension
-    : LBRACK pipe COLON comprehensionBindings RBRACK    # ComprehensionWithBindings
-    | LBRACK pipe RBRACK                                # ComprehensionSimple
+    : LBRACK comprehensionBindings RBRACK (YIELD expression)?  # ComprehensionWithBindings
+    | LBRACK pipe RBRACK                                       # ComprehensionSimple
     ;
 
 comprehensionBindings
@@ -73,7 +73,7 @@ comprehensionBindings
     ;
 
 comprehensionBinding
-    : extractor IN pipe                      # ComprehensionBindingIteration
+    : pipe AS extractor                      # ComprehensionBindingIteration
     | IDENTIFIER COLONEQUALS pipe            # ComprehensionBindingAssign
     | IF pipe                                # ComprehensionBindingIf
     ;

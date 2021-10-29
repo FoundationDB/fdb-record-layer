@@ -1,5 +1,5 @@
 /*
- * WhereFn.java
+ * MapFn.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -22,16 +22,16 @@ package com.apple.foundationdb.record.query.norse.functions;
 
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
+import com.apple.foundationdb.record.query.norse.SemanticException;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryValueFilterPlan;
 import com.apple.foundationdb.record.query.plan.temp.GraphExpansion;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.predicates.Atom;
-import com.apple.foundationdb.record.query.predicates.BooleanValue;
 import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
-import com.apple.foundationdb.record.query.predicates.QueryPredicate;
 import com.apple.foundationdb.record.query.predicates.Type;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.auto.service.AutoService;
@@ -41,46 +41,39 @@ import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 
 /**
  * Function
- * filter(RELATION, FUNCTION) -> RELATION.
+ * filter(STREAM, TUPLE -> BOOLEAN) -> STREAM.
  */
 @AutoService(BuiltInFunction.class)
-public class WhereFn extends BuiltInFunction<RelationalExpression> {
-    public WhereFn() {
-        super("where",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Any()), Type.primitiveType(Type.TypeCode.BOOLEAN))), WhereFn::encapsulate);
+public class FilterFn extends BuiltInFunction<RelationalExpression> {
+    public FilterFn() {
+        super("filter",
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any())), FilterFn::encapsulate);
     }
 
     public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {
         // the call is already validated against the resolved function
-        Verify.verify(arguments.get(0) instanceof RelationalExpression);
+        Verify.verify(arguments.get(0) instanceof RecordQueryPlan);
         Verify.verify(arguments.get(1) instanceof Lambda);
 
         // get the typing information from the first argument
-        final RelationalExpression inStream = (RelationalExpression)arguments.get(0);
-        final Type streamedType = Objects.requireNonNull(inStream.getResultType().getInnerType(), "relation type must not be erased");
-        Verify.verify(streamedType.getTypeCode() == Type.TypeCode.TUPLE);
+        final RecordQueryPlan inStream = (RecordQueryPlan)arguments.get(0);
 
         // provide a calling scope to the lambda
         final Lambda lambda = (Lambda)arguments.get(1);
 
-        final Quantifier.ForEach inQuantifier = Quantifier.forEachBuilder().build(GroupExpressionRef.of(inStream));
+        final Quantifier.Physical inQuantifier = Quantifier.physical(GroupExpressionRef.of(inStream));
         final QuantifiedObjectValue argumentValue = inQuantifier.getFlowedObjectValue();
         final GraphExpansion graphExpansion = lambda.unifyBody(argumentValue);
+        Verify.verify(graphExpansion.getQuantifiers().isEmpty());
         Verify.verify(graphExpansion.getPredicates().isEmpty());
-        final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
-        if (resultValue instanceof BooleanValue) {
-            final Optional<? extends QueryPredicate> queryPredicateOptional = ((BooleanValue)resultValue).toQueryPredicate(inQuantifier.getAlias());
-            if (queryPredicateOptional.isPresent()) {
-                return new SelectExpression(inQuantifier.getFlowedObjectValue(),
-                        ImmutableList.copyOf(Iterables.concat(ImmutableList.of(inQuantifier), graphExpansion.getQuantifiers())),
-                        ImmutableList.of(queryPredicateOptional.get()));
-            }
-        }
-        throw new IllegalArgumentException("cannot express filter in terms of QueryPredicates");
+
+        final List<? extends Value> resultsAsValues = graphExpansion.getResultsAs(Value.class);
+        final Value resultValue = Iterables.getOnlyElement(resultsAsValues);
+        SemanticException.check(resultValue.getResultType().getTypeCode() == Type.TypeCode.BOOLEAN, "function used as filter predicate must return boolean value");
+
+        return new RecordQueryValueFilterPlan(inQuantifier, resultValue);
     }
 }

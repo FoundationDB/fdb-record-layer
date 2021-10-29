@@ -39,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
@@ -148,7 +149,7 @@ public class RecordQueryMapPlan implements RecordQueryPlanWithChild, RelationalE
         final String boundVariables = formatter.getQuantifierName(inner.getAlias());
         final String explainInner = Iterables.getOnlyElement(inner.getRangesOver().getMembers()).explain(formatter);
 
-        return "map(" + explainInner + ", (" + boundVariables + ") => (" + resultValue.explain(formatter) + "))";
+        return "map(" + explainInner + ", " + Lambda.explainWithSimpleBody(formatter, resultValue, ImmutableList.of(boundVariables)) + ")";
     }
 
     @Override

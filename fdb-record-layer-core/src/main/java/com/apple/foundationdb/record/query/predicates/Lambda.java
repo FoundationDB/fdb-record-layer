@@ -108,7 +108,6 @@ public class Lambda implements Atom {
         return encapsulate(ImmutableSet.of(), boundIdentifiers);
     }
 
-
     @Nonnull
     public GraphExpansion unifyBody(@Nonnull List<? extends Value> argumentValues) {
         if (argumentValues.size() != parameterNameOptionals.size()) {
@@ -128,5 +127,27 @@ public class Lambda implements Atom {
     @Override
     public String toString() {
         return getResultType().toString();
+    }
+
+    @Nonnull
+    public static String explainWithSimpleBody(final @Nonnull Formatter formatter, @Nonnull final Value bodyResultValue, @Nonnull final List<String> boundVariables) {
+        if (boundVariables.isEmpty()) {
+            return "() => " + bodyResultValue.explain(formatter);
+        } else if (boundVariables.size() == 1) {
+            return boundVariables.get(0) + " => " + bodyResultValue.explain(formatter);
+        } else {
+            return "(" + String.join(", ", boundVariables) + ") => " + bodyResultValue.explain(formatter);
+        }
+    }
+
+    @Nonnull
+    public static String explainLeftSide(final @Nonnull Formatter formatter, @Nonnull final List<String> boundVariables) {
+        if (boundVariables.isEmpty()) {
+            return "() => ";
+        } else if (boundVariables.size() == 1) {
+            return boundVariables.get(0) + " => ";
+        } else {
+            return "(" + String.join(", ", boundVariables) + ") => ";
+        }
     }
 }

@@ -22,8 +22,11 @@ package com.apple.foundationdb.record.query.predicates;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -32,8 +35,10 @@ import com.google.auto.service.AutoService;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,7 +46,7 @@ import java.util.Optional;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class NotValue implements BooleanValue, Value.CompileTimeValue {
+public class NotValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Not-Value");
     @Nonnull
     private final Value child;
@@ -74,6 +79,17 @@ public class NotValue implements BooleanValue, Value.CompileTimeValue {
     public NotValue withChildren(final Iterable<? extends Value> newChildren) {
         Verify.verify(Iterables.size(newChildren) == 2);
         return new NotValue(Iterables.get(newChildren, 0));
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        final Object result = child.eval(store, context, record, message);
+        if (result == null) {
+            return false;
+        }
+
+        return !(Boolean)result;
     }
 
     @Override

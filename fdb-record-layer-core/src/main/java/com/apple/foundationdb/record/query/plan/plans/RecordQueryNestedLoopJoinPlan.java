@@ -39,12 +39,14 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -156,8 +158,19 @@ public class RecordQueryNestedLoopJoinPlan implements RecordQueryPlanWithChildre
     @Nonnull
     @Override
     public String explain(@Nonnull final Formatter formatter) {
-        // TODO
-        return RecordQueryPlanWithChildren.super.explain(formatter);
+        formatter.registerForFormatting(outer.getAlias());
+        formatter.registerForFormatting(inner.getAlias());
+
+        final Set<CorrelationIdentifier> correlatedAliases =
+                inner.getCorrelatedTo();
+
+        correlatedAliases.forEach(formatter::registerForFormatting);
+
+        final String boundVariables = formatter.getQuantifierName(outer.getAlias());
+        final String explainOuter = Iterables.getOnlyElement(outer.getRangesOver().getMembers()).explain(formatter);
+        final String explainInner = Iterables.getOnlyElement(inner.getRangesOver().getMembers()).explain(formatter);
+
+        return "nljn(" + explainOuter + ", " + Lambda.explainLeftSide(formatter, ImmutableList.of(boundVariables)) + explainInner + ")";
     }
 
     @Override

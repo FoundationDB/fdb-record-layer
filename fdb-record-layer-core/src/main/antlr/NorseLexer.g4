@@ -83,6 +83,7 @@ TRY:                'try';
 VOID:               'void';
 VOLATILE:           'volatile';
 WHILE:              'while';
+YIELD:              'yield';
 
 // Literals
 

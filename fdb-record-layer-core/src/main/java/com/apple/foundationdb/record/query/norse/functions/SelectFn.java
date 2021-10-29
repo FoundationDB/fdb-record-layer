@@ -49,7 +49,7 @@ import java.util.Objects;
 public class SelectFn extends BuiltInFunction<RelationalExpression> {
     public SelectFn() {
         super("select",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(Type.Record.erased()), Type.Record.erased())), SelectFn::encapsulate);
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any())), SelectFn::encapsulate);
     }
 
     private static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {

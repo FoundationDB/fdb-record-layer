@@ -108,8 +108,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             functionOptional = FunctionCatalog.resolve(functionName, 2);
             if (functionOptional.isPresent()) {
                 final Type type1 = functionOptional.get().resolveParameterType(1);
-                if (type1.getTypeCode() == TypeCode.TUPLE ||
-                        (type1.getTypeCode() == TypeCode.FUNCTION && Objects.requireNonNull(((Type.Function)type1).getResultType()).getTypeCode() == TypeCode.TUPLE)) {
+                if (isInterpretAsTuple(type1)) {
                     final BuiltInFunction<? extends Atom> function = functionOptional.get();
                     final List<Type> resolvedParameterTypes = function.resolveParameterTypes(2);
 
@@ -143,6 +142,17 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 .flatMap(builtInFunction -> builtInFunction.validateCall(Type.fromAtoms(arguments)))
                 .map(builtInFunction -> builtInFunction.encapsulate(parserContext, arguments))
                 .orElseThrow(() -> new SemanticException("unable to compile in function " + functionName));
+    }
+
+    private boolean isInterpretAsTuple(final Type type) {
+        if (type.getTypeCode() == TypeCode.TUPLE) {
+            return true;
+        }
+        if (type.getTypeCode() == TypeCode.FUNCTION) {
+            final TypeCode typeCodeOfFunction = Objects.requireNonNull(((Type.Function)type).getResultType()).getTypeCode();
+            return typeCodeOfFunction == TypeCode.TUPLE || typeCodeOfFunction == TypeCode.ANY;
+        }
+        return false;
     }
 
     @Override
@@ -219,8 +229,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
             functionOptional = FunctionCatalog.resolve(functionName, 1);
             if (functionOptional.isPresent()) {
                 final Type type0 = functionOptional.get().resolveParameterType(0);
-                if (type0.getTypeCode() == TypeCode.TUPLE ||
-                        (type0.getTypeCode() == TypeCode.FUNCTION && Objects.requireNonNull(((Type.Function)type0).getResultType()).getTypeCode() == TypeCode.TUPLE)) {
+                if (isInterpretAsTuple(type0)) {
                     argumentsOptional = Optional.of(ImmutableList.of(callArgument(argumentsContext, type0)));
                 }
             }
@@ -567,6 +576,7 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
         final ImmutableList.Builder<Quantifier> quantifiersBuilder = ImmutableList.builder();
         final ImmutableList.Builder<QueryPredicate> predicatesBuilder = ImmutableList.builder();
         final ImmutableMap.Builder<String, Value> boundIdentifierToValueMapBuilder = ImmutableMap.builder();
+        Quantifier lastBindingQuantifier = null;
 
         for (final NorseParser.ComprehensionBindingContext comprehensionBindingContext : comprehensionBindingContexts) {
             final ImmutableMap<String, Value> boundIdentifierToValueMap = boundIdentifierToValueMapBuilder.build();
@@ -596,9 +606,9 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                         throw new IllegalStateException("shouldn't be in this state");
                     }
                 }
-                final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
-                quantifiersBuilder.add(forEach);
-                final List<? extends QuantifiedColumnValue> flowedValues = forEach.getFlowedValues();
+                lastBindingQuantifier = Quantifier.forEach(GroupExpressionRef.of(result));
+                quantifiersBuilder.add(lastBindingQuantifier);
+                final List<? extends QuantifiedColumnValue> flowedValues = lastBindingQuantifier.getFlowedValues();
 
                 Verify.verify(!flowedValues.isEmpty());
                 final ImmutableList<Optional<String>> declaredBindingNameOptionals = declaredParameterNameOptionals(extractorContext);
@@ -614,7 +624,9 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                             });
                 } else {
                     final Optional<String> declaredBindingNameOptional = declaredBindingNameOptionals.get(0);
-                    declaredBindingNameOptional.ifPresent(s -> boundIdentifierToValueMapBuilder.put(s, forEach.getFlowedObjectValue()));
+                    if (declaredBindingNameOptional.isPresent()) {
+                        boundIdentifierToValueMapBuilder.put(declaredBindingNameOptional.get(), lastBindingQuantifier.getFlowedObjectValue());
+                    }
                 }
             } else if (comprehensionBindingContext instanceof NorseParser.ComprehensionBindingAssignContext) {
                 final NorseParser.ComprehensionBindingAssignContext bindingContext = (NorseParser.ComprehensionBindingAssignContext)comprehensionBindingContext;
@@ -622,11 +634,11 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
                 quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
                 final RelationalExpression result = Iterables.getOnlyElement(graphExpansion.getResultsAs(RelationalExpression.class));
-                final Quantifier.ForEach forEach = Quantifier.forEach(GroupExpressionRef.of(result));
-                quantifiersBuilder.add(forEach);
+                lastBindingQuantifier = Quantifier.forEach(GroupExpressionRef.of(result));
+                quantifiersBuilder.add(lastBindingQuantifier);
 
                 // TODO we need to build a COLLECT() here but there is no such expression yet
-                final List<? extends QuantifiedColumnValue> flowedValues = forEach.getFlowedValues();
+                final List<? extends QuantifiedColumnValue> flowedValues = lastBindingQuantifier.getFlowedValues();
                 Verify.verify(flowedValues.size() == 1);
                 final String declaredParameterName = Objects.requireNonNull(bindingContext.IDENTIFIER()).getText();
                 Preconditions.checkArgument(!boundIdentifierToValueMap.containsKey(declaredParameterName), "duplicate binding for identifier " + declaredParameterName);
@@ -653,12 +665,25 @@ public class ParserWalker extends NorseParserBaseVisitor<Atom> {
                 argumentsFromBoundVariables(boundVariables, boundIdentifierToValueMap);
 
         // process result
-        final NorseParser.PipeContext yieldContext = Objects.requireNonNull(ctx.pipe());
-        final Lambda lambda = lambdaBodyWithResult(boundVariables, yieldContext);
-        final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
-        Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
-        final Value resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
-        quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
+        final NorseParser.ExpressionContext yieldContext = ctx.expression();
+        final Value resultValue;
+        if (yieldContext != null) {
+            final Lambda lambda = lambdaBodyWithResult(boundVariables, yieldContext);
+            final GraphExpansion graphExpansion = lambda.unifyBody(arguments);
+            Preconditions.checkArgument(graphExpansion.getResults().stream().noneMatch(typed -> typed.getResultType().getTypeCode() == TypeCode.STREAM));
+            resultValue = Iterables.getOnlyElement(graphExpansion.getResultsAs(Value.class));
+            quantifiersBuilder.addAll(graphExpansion.getQuantifiers());
+        } else {
+            final long numberOfBindingClauses = comprehensionBindingContexts
+                    .stream()
+                    .filter(context -> context instanceof NorseParser.ComprehensionBindingIterationContext ||
+                                       context instanceof NorseParser.ComprehensionBindingAssignContext)
+                    .count();
+            SemanticException.check(numberOfBindingClauses == 1, "comprehension must use yield if there are more than one binding clause");
+            Objects.requireNonNull(lastBindingQuantifier);
+            resultValue = lastBindingQuantifier.getFlowedObjectValue();
+        }
+        
         final ImmutableList<Quantifier> quantifiers = quantifiersBuilder.build();
         final ImmutableList<QueryPredicate> predicates = predicatesBuilder.build();
         // optimization if there is only one quantifier and there are only trivial result values

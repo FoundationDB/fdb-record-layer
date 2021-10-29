@@ -49,7 +49,7 @@ import java.util.List;
 public class MapFn extends BuiltInFunction<RelationalExpression> {
     public MapFn() {
         super("map",
-                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(Type.Record.erased()), Type.Record.erased())), MapFn::encapsulate);
+                ImmutableList.of(new Type.Stream(), new Type.Function(ImmutableList.of(new Type.Any()), new Type.Any())), MapFn::encapsulate);
     }
 
     public static RelationalExpression encapsulate(@Nonnull ParserContext parserContext, @Nonnull BuiltInFunction<RelationalExpression> builtInFunction, @Nonnull final List<Atom> arguments) {

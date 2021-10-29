@@ -25,6 +25,8 @@ import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.norse.BuiltInFunction;
 import com.apple.foundationdb.record.query.norse.ParserContext;
@@ -37,8 +39,10 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -48,7 +52,7 @@ import java.util.function.Function;
  * A value merges the input messages given to it into an output message.
  */
 @API(API.Status.EXPERIMENTAL)
-public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
+public class RelOpValue implements BooleanValue {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Rel-Op-Value");
 
     @Nonnull
@@ -89,6 +93,23 @@ public class RelOpValue implements BooleanValue, Value.CompileTimeValue {
                 Iterables.get(newChildren, 0),
                 Iterables.get(newChildren, 1),
                 compileTimeEvalFn);
+    }
+
+    @Nullable
+    @Override
+    public <M extends Message> Object eval(@Nonnull final FDBRecordStoreBase<M> store, @Nonnull final EvaluationContext context, @Nullable final FDBRecord<M> record, @Nullable final M message) {
+        if (comparisonType == Comparisons.Type.EQUALS) {
+            final Object leftResult = leftChild.eval(store, context, record, message);
+            if (leftResult == null) {
+                return false;
+            }
+            final Object rightResult = rightChild.eval(store, context, record, message);
+            if (rightResult == null) {
+                return false;
+            }
+            return leftResult.equals(rightResult);
+        }
+        throw new UnsupportedOperationException("inequality comparison not supported yet");
     }
 
     @Override

@@ -40,6 +40,8 @@ import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.predicates.AggregateValue;
+import com.apple.foundationdb.record.query.predicates.Formatter;
+import com.apple.foundationdb.record.query.predicates.Lambda;
 import com.apple.foundationdb.record.query.predicates.QuantifiedObjectValue;
 import com.apple.foundationdb.record.query.predicates.TupleConstructorValue;
 import com.apple.foundationdb.record.query.predicates.Type;
@@ -124,6 +126,30 @@ public class RecordQueryStreamingAggregatePlan implements RecordQueryPlanWithChi
                         context,
                         inner.getAlias());
         return new AggregateCursor<>(innerCursor, streamGrouping);
+    }
+
+    @Nonnull
+    @Override
+    public String explain(@Nonnull final Formatter formatter) {
+        formatter.registerForFormatting(inner.getAlias());
+
+        final Set<CorrelationIdentifier> correlatedAliases =
+                ImmutableSet.copyOf(Iterables.concat(groupingKeyValue == null ? ImmutableSet.of() : groupingKeyValue.getCorrelatedTo(),
+                        aggregateValue.getCorrelatedTo()));
+
+        correlatedAliases.forEach(formatter::registerForFormatting);
+
+        final String boundVariables = formatter.getQuantifierName(inner.getAlias());
+        final String explainInner = Iterables.getOnlyElement(inner.getRangesOver().getMembers()).explain(formatter);
+
+        if (groupingKeyValue == null) {
+            return "collect(" + explainInner + ", " + Lambda.explainWithSimpleBody(formatter, aggregateValue, ImmutableList.of(boundVariables)) + ")";
+        } else {
+            return "collect(" +
+                   explainInner + ", " +
+                   Lambda.explainWithSimpleBody(formatter, groupingKeyValue, ImmutableList.of(boundVariables)) + ", " +
+                   Lambda.explainWithSimpleBody(formatter, aggregateValue, ImmutableList.of(boundVariables)) + ")";
+        }
     }
 
     @Override

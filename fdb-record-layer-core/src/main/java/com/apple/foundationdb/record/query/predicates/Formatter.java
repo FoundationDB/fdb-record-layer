@@ -49,7 +49,7 @@ public class Formatter {
     }
 
     public void registerForFormatting(@Nonnull final CorrelationIdentifier alias) {
-        aliasToFormattingNameMap.put(alias, "q" + quantifierNumber.getAndIncrement());
+        aliasToFormattingNameMap.putIfAbsent(alias, "q" + quantifierNumber.getAndIncrement());
     }
 
     @Nonnull
