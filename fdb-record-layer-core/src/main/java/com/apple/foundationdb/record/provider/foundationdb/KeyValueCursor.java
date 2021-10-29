@@ -267,12 +267,14 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             }
 
             final AsyncIterator<KeyValue> iterator;
+            ReadTransaction readTransaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
             if (hopInfo == null) {
-                iterator = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot())
+                iterator = readTransaction
                         .getRange(begin, end, limit, reverse, streamingMode)
                         .iterator();
             } else {
-                iterator = (context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot()))
+                readTransaction.options().setReadYourWritesDisable(); // TODO: This is just for the POC - not yet supported
+                iterator = readTransaction
                         .getRangeAndHop(begin, end, hopInfo, limit, reverse, streamingMode)
                         .iterator();
             }
