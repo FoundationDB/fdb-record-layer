@@ -205,7 +205,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public boolean shouldUseIndexDereference() {
-        return false;
+        return true;
     }
 
     @Override
