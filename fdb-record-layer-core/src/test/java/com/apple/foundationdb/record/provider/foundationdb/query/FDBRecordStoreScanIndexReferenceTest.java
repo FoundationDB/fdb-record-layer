@@ -128,6 +128,7 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
 
         List<FDBQueriedRecord<Message>> results = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
+            context.ensureActive().options().setReadYourWritesDisable();
             openSimpleRecordStore(context);
             int i = 0;
             try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {

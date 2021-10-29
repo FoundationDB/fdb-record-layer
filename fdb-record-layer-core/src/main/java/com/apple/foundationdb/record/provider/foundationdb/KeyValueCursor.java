@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
@@ -267,14 +268,14 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             }
 
             final AsyncIterator<KeyValue> iterator;
-            ReadTransaction readTransaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
+            Transaction transaction = context.ensureActive();
+//            ReadTransaction transaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
             if (hopInfo == null) {
-                iterator = readTransaction
+                iterator = transaction
                         .getRange(begin, end, limit, reverse, streamingMode)
                         .iterator();
             } else {
-                readTransaction.options().setReadYourWritesDisable(); // TODO: This is just for the POC - not yet supported
-                iterator = readTransaction
+                iterator = transaction
                         .getRangeAndHop(begin, end, hopInfo, limit, reverse, streamingMode)
                         .iterator();
             }

@@ -86,8 +86,15 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     private final Type resultType;
 
+    public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nonnull IndexScanType scanType,
+                                @Nonnull final ScanComparisons comparisons,
+                                final boolean reverse) {
+        this(indexName, null, scanType, comparisons, reverse, false, Optional.empty());
+    }
+
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
-        this(indexName, scanParameters, reverse, false);
+        this(indexName, scanParameters, reverse, false, Optional.empty());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
@@ -205,6 +212,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public boolean shouldUseIndexDereference() {
+        // Here
         return true;
     }
 

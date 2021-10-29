@@ -1219,7 +1219,6 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                                                                                               final byte[] continuation, final ScanProperties scanProperties) {
 
         Subspace recordSubspace = recordsSubspace();
-        int[] indexKeyLocations = index.getPrimaryKeyComponentPositions(); // TODO: If this is null, do something similar to the Index.getPrimaryKey
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         Subspace indexSubspace = indexMaintainer.getIndexSubspace();
         final Tuple hopInfo = createHopInfo(indexSubspace, recordSubspace, commonPrimaryKey, index);
