@@ -120,12 +120,12 @@ public class PrimaryScanMatchCandidate implements MatchCandidate, ValueIndexLike
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull RecordMetaData recordMetaData,
                                                        @Nonnull PartialMatch partialMatch,
+                                                       @Nonnull final PlanContext planContext,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =
                 partialMatch.getMatchInfo()
                         .deriveReverseScanOrder()
                         .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of can"));
-
         return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
                 new PrimaryScanExpression(getAvailableRecordTypes(),
                         comparisonRanges,

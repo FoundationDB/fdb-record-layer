@@ -26,8 +26,11 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.cascades.MatchCandidate;
 import com.apple.foundationdb.record.query.plan.cascades.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.cascades.explain.NodeInfo;
@@ -63,8 +66,23 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
     @Nonnull
     IndexScanType getScanType();
 
+    default ScanComparisons getComparisons() {
+        return null;
+    }
+    default KeyExpression getCommonPrimaryKey() {
+        return null;
+    }
+
     @Nonnull
     Optional<? extends MatchCandidate> getMatchCandidateOptional();
+
+    /**
+     * Whether the plan should use the scanIndexReferences to dereference indexes into records downstream.
+     * @return TRUE is the plan should use index dereferencing, FALSE to not.
+     */
+    default boolean shouldUseIndexDereference() {
+        return false;
+    }
 
     @Nonnull
     <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store,
@@ -78,10 +96,17 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                                                                       @Nonnull EvaluationContext context,
                                                                       @Nullable byte[] continuation,
                                                                       @Nonnull ExecuteProperties executeProperties) {
-        final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
-        return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
-                .map(store::queriedRecord)
-                .map(QueryResult::of);
+        if (!shouldUseIndexDereference()) {
+            final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
+            return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
+                    .map(store::queriedRecord)
+                    .map(QueryResult::of);
+        } else {
+            final TupleRange range = getComparisons().toTupleRange(store, context);
+            return store.scanIndexPrefetch(getIndexName(), getScanType(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()))
+                    .map(store::queriedRecord)
+                    .map(QueryResult::of);
+        }
     }
 
     /**

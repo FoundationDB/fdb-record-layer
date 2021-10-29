@@ -51,9 +51,11 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
@@ -131,6 +133,22 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
+    public <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, final byte[] continuation, final ScanProperties scanProperties) {
+        final RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(state.indexSubspace)
+                .setContext(state.context)
+                .setRange(range)
+                .setContinuation(continuation)
+                .setScanProperties(scanProperties)
+                .setHopInfo(hopInfo)
+                .build();
+        return keyValues.map(kv -> {
+            state.store.countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES,
+                    kv);
+            return unpackKeyValueToIndexRecord(kv);
+        });
+
+    }
+
     /**
      * Convert stored key value pair into an index entry.
      * @param kv a raw key-value from the database
@@ -150,6 +168,19 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     @Nonnull
     protected IndexEntry unpackKeyValue(@Nonnull final Subspace subspace, @Nonnull final KeyValue kv) {
         return new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
+    }
+
+    @Nonnull
+    protected <M extends Message> FDBIndexedRecord<M> unpackKeyValueToIndexRecord(@Nonnull final KeyValue kv) {
+        return unpackKeyValueToIndexRecord(state.indexSubspace, kv);
+    }
+
+    @Nonnull
+    protected <M extends Message> FDBIndexedRecord<M> unpackKeyValueToIndexRecord(@Nonnull final Subspace subspace, @Nonnull final KeyValue kv) {
+        // TODO probably return FDBDereferencedIndexRecord that contains the index key/value and the rest as one blob to be parsed later.
+        IndexEntry indexEntry = new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
+        FDBStoredRecord<M> storedRecord = null;
+        return new FDBIndexedRecord<>(indexEntry, storedRecord);
     }
 
     /**

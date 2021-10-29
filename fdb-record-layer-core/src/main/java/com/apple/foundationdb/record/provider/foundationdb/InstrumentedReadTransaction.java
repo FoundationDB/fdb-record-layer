@@ -241,6 +241,21 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
         return underlying.getExecutor();
     }
 
+    @Override
+    public AsyncIterable<KeyValue> getRangeAndHop(final KeySelector begin, final KeySelector end, final byte[] rangeHop, final int limit, final boolean isReverse, final StreamingMode streamingMode) {
+        return underlying.getRangeAndHop(begin, end, rangeHop, limit, isReverse, streamingMode);
+    }
+
+    @Override
+    public CompletableFuture<KeyArrayResult> getRangeSplitPoints(final byte[] bytes, final byte[] bytes1, final long l) {
+        return underlying.getRangeSplitPoints(bytes, bytes1, l);
+    }
+
+    @Override
+    public CompletableFuture<KeyArrayResult> getRangeSplitPoints(final Range range, final long l) {
+        return underlying.getRangeSplitPoints(range, l);
+    }
+
     @Nullable
     protected byte[] recordRead(@Nullable byte[] value) {
         if (value != null) {

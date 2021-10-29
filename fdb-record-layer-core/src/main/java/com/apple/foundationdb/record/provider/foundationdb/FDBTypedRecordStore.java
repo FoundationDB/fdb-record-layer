@@ -169,6 +169,12 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
         return untypedStore.scanIndex(index, scanBounds, continuation, scanProperties);
     }
 
+    @Override
+    public RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+                                                               byte[] continuation, ScanProperties scanProperties, ExecuteState state) {
+        return untypedStore.scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
+    }
+
     @Nonnull
     @Override
     public RecordCursor<RecordIndexUniquenessViolation> scanUniquenessViolations(@Nonnull Index index, @Nonnull TupleRange range, @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {

@@ -182,6 +182,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
         private byte[] highBytes = null;
         private EndpointType lowEndpoint = null;
         private EndpointType highEndpoint = null;
+        private byte[] hopInfo;
 
         private Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
@@ -191,6 +192,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             return new Builder(subspace);
         }
 
+        @SuppressWarnings("unchecked")
         public KeyValueCursor build() throws RecordCoreException {
             if (subspace == null) {
                 throw new RecordCoreException("record subspace must be supplied");
@@ -264,9 +266,16 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
                 streamingMode = StreamingMode.EXACT;
             }
 
-            final AsyncIterator<KeyValue> iterator = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot())
-                    .getRange(begin, end, limit, reverse, streamingMode)
-                    .iterator();
+            final AsyncIterator<KeyValue> iterator;
+            if (hopInfo == null) {
+                iterator = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot())
+                        .getRange(begin, end, limit, reverse, streamingMode)
+                        .iterator();
+            } else {
+                iterator = (context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot()))
+                        .getRangeAndHop(begin, end, hopInfo, limit, reverse, streamingMode)
+                        .iterator();
+            }
 
             final CursorLimitManager limitManager = new CursorLimitManager(context, scanProperties);
             final int valuesLimit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
@@ -321,6 +330,11 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
         public Builder setHigh(@Nonnull byte[] highBytes, @Nonnull EndpointType highEndpoint) {
             this.highBytes = highBytes;
             this.highEndpoint = highEndpoint;
+            return this;
+        }
+
+        public Builder setHopInfo(@Nullable byte[] hopInfo) {
+            this.hopInfo = hopInfo;
             return this;
         }
     }

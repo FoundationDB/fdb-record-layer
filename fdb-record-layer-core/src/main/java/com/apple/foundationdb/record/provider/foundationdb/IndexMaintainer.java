@@ -265,4 +265,8 @@ public abstract class IndexMaintainer {
      * @return a future that completes with the result of the operation
      */
     public abstract CompletableFuture<IndexOperationResult> performOperation(@Nonnull IndexOperation operation);
+
+    public <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, final byte[] continuation, final ScanProperties scanProperties) {
+        throw new RecordCoreException("scanReferences operation is not supported by this index maintainer for Index " + state.index.getName());
+    }
 }

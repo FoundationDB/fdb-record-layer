@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -74,6 +75,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Nonnull
     protected final String indexName;
+    @Nullable
+    private final KeyExpression commonPrimaryKey;
     @Nonnull
     protected final IndexScanParameters scanParameters;
     protected final boolean reverse;
@@ -88,6 +91,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
@@ -95,6 +99,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
+                                @Nullable final KeyExpression commonPrimaryKey,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted,
@@ -110,6 +115,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                  @Nonnull final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional,
                                  @Nonnull final Type resultType) {
         this.indexName = indexName;
+        this.commonPrimaryKey = commonPrimaryKey;
         this.scanParameters = scanParameters;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
@@ -136,6 +142,12 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     public IndexScanParameters getScanParameters() {
         return scanParameters;
+    }
+
+    @Override
+    @Nullable
+    public KeyExpression getCommonPrimaryKey() {
+        return commonPrimaryKey;
     }
 
     @Nonnull
@@ -189,6 +201,11 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public Optional<? extends ScanWithFetchMatchCandidate> getMatchCandidateOptional() {
         return matchCandidateOptional;
+    }
+
+    @Override
+    public boolean shouldUseIndexDereference() {
+        return false;
     }
 
     @Override

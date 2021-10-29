@@ -163,7 +163,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     // instead of a transactional rebuild.
     public static final int MAX_RECORDS_FOR_REBUILD = 200;
 
-    // The maximum number of index rebuilds to run in parellel
+    // The maximum number of index rebuilds to run in parallel
     // TODO: This should probably be configured through the PipelineSizer
     public static final int MAX_PARALLEL_INDEX_REBUILD = 10;
 
@@ -1207,6 +1207,55 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         RecordCursor<IndexEntry> result = getIndexMaintainer(index)
                 .scan(scanBounds, continuation, scanProperties);
         return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, result);
+    }
+
+    @Override
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+                                                                     byte[] continuation, ScanProperties scanProperties, ExecuteState state) {
+        return scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
+    }
+
+    protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+                                                                                              final byte[] continuation, final ScanProperties scanProperties) {
+
+        Subspace recordSubspace = recordsSubspace();
+        int[] indexKeyLocations = index.getPrimaryKeyComponentPositions(); // TODO: If this is null, do something similar to the Index.getPrimaryKey
+        IndexMaintainer indexMaintainer = getIndexMaintainer(index);
+        Subspace indexSubspace = indexMaintainer.getIndexSubspace();
+        final Tuple hopInfo = createHopInfo(indexSubspace, recordSubspace, commonPrimaryKey);  // PREFIX, "{K[x]}", "{K[y]}", "{...}"
+
+        if (!isIndexReadable(index)) {
+            throw new ScanNonReadableIndexException("Cannot scan non-readable index",
+                    LogMessageKeys.INDEX_NAME, index.getName(),
+                    subspaceProvider.logKey(), subspaceProvider.toString(context));
+        }
+        RecordCursor<FDBIndexedRecord<M>> result = indexMaintainer
+                .scanIndexPrefetch(scanType, range, hopInfo.pack(), continuation, scanProperties);
+
+        // TODO: What's missing? Deserialize the blob from the record part of the result
+        return result;
+    }
+
+    /**
+     * Create the list of index key-references that would allow the DB to prefetch the records pointed to by hte index entries.
+     * The keyLocations match each primary key element that is also indexed. Null keyLocations means no primary key is part of the index.
+     * The commonPrimaryKey is the representation of the primary key for the referenced records
+     * The index structure is: [Prefix, I1...In, K1...Kn] where Ix are the index fields and Kx are the primary keys of the indexed record.
+     * Since {@link Index#trimPrimaryKey(List)} remove redundant key entries, we need to construct the list of locations of the primary key
+     * elements by using the keyLocations (if there are any), followed by the remaining key elements.
+     * @param recordSubspace the Record subspace (the prefix for the record entries)
+     * @param indexSubspace the Index subspace (teh prefix for the record entries)
+     * @param commonPrimaryKey the metadata of the primary key (used to construct the PK locations in teh dereferenced record)
+     * @return
+     */
+    private Tuple createHopInfo(@Nonnull Subspace indexSubspace, @Nonnull Subspace recordSubspace, @Nullable KeyExpression commonPrimaryKey) {
+        Tuple result =  Tuple.fromBytes(recordSubspace.pack()); // TODO: Add "RECORD" prefix
+        Tuple indexPrefix = Tuple.fromBytes(indexSubspace.pack());
+        int prefixLength = indexPrefix.size();
+        for (int i = 0 ; i < commonPrimaryKey.getColumnSize() ; i++) {
+            result = result.add("{K[" + (i + prefixLength) + "]}");
+        }
+        return result;
     }
 
     @Override
