@@ -36,6 +36,7 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Lists;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.apache.lucene.store.Directory;
@@ -57,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -87,6 +89,7 @@ public class FDBDirectory extends Directory {
     private static final int SEQUENCE_SUBSPACE = 0;
     private static final int META_SUBSPACE = 1;
     private static final int DATA_SUBSPACE = 2;
+    private static final List<String> suffixEndings = Lists.newArrayList(".cfs", ".cfe", ".si");
     private final AtomicLong nextTempFileCounter = new AtomicLong();
     private final FDBRecordContext context;
     private final Subspace subspace;
@@ -97,8 +100,17 @@ public class FDBDirectory extends Directory {
     private final LockFactory lockFactory;
     private final int blockSize;
     private final Cache<String, FDBLuceneFileReference> fileReferenceCache;
+    private final Cache<String, FDBLuceneMiltiFileReference> multiFileReferenceCache;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
 
+    public static String getMergedFileName(String name) {
+        for (String suffix : suffixEndings) {
+            if (name.endsWith(suffix)) {
+                return name.replace(suffix, "");
+            }
+        }
+        return null;
+    }
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
         this(subspace, context, NoLockFactory.INSTANCE);
     }
@@ -120,6 +132,11 @@ public class FDBDirectory extends Directory {
         this.lockFactory = lockFactory;
         this.blockSize = blockSize;
         this.fileReferenceCache = CacheBuilder.newBuilder()
+                .initialCapacity(initialCapacity)
+                .maximumSize(maximumSize)
+                .recordStats()
+                .build();
+        this.multiFileReferenceCache = CacheBuilder.newBuilder()
                 .initialCapacity(initialCapacity)
                 .maximumSize(maximumSize)
                 .recordStats()
@@ -172,6 +189,11 @@ public class FDBDirectory extends Directory {
     @Nonnull
     public CompletableFuture<FDBLuceneFileReference> getFDBLuceneFileReference(@Nonnull final String name) {
         LOGGER.trace("getFDBLuceneFileReference {}", name);
+        String mergedFileName = getMergedFileName(name);
+        if (mergedFileName != null) {
+            return getMultiFDBLuceneFileReference(mergedFileName)
+                    .thenApplyAsync((value) -> value == null ? null : value.getReference(name));
+        }
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
             return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
@@ -188,6 +210,36 @@ public class FDBDirectory extends Directory {
         }
     }
 
+
+    /**
+     * Checks the cache for  the file reference.
+     * If the file is in the cache it returns the cached value.
+     * If not there then it checks the subspace for it.
+     * If its there the file is added to the cache and returned to caller
+     * If the file doesn't exist in the subspace it returns null.
+     *
+     * @param name name for the file reference
+     * @return FDBLuceneFileReference
+     */
+    @Nonnull
+    public CompletableFuture<FDBLuceneMiltiFileReference> getMultiFDBLuceneFileReference(@Nonnull final String name) {
+        LOGGER.trace("getFDBLuceneFileReference {}", name);
+        FDBLuceneMiltiFileReference fileReference = this.multiFileReferenceCache.getIfPresent(name);
+        if (fileReference == null) {
+            return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
+                    .thenApply((value) -> {
+                                FDBLuceneMiltiFileReference fetchedRef = value == null ? null : new FDBLuceneMiltiFileReference(Tuple.fromBytes(value));
+                                if (fetchedRef != null) {
+                                    multiFileReferenceCache.put(name, fetchedRef);
+                                }
+                                return fetchedRef;
+                            }
+                    ), System.nanoTime());
+        } else {
+            return CompletableFuture.completedFuture(fileReference);
+        }
+    }
+
     /**
      * Puts a file reference in the meta subspace and in the cache under the given name.
      * @param name name for the file reference
@@ -196,7 +248,19 @@ public class FDBDirectory extends Directory {
     public void writeFDBLuceneFileReference(@Nonnull final String name, @Nonnull final FDBLuceneFileReference reference) {
         LOGGER.trace("writeFDBLuceneFileReference {}", reference);
         incrementCallCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE);
-        context.ensureActive().set(metaSubspace.pack(name), reference.getTuple().pack());
+        String mergedFileName = getMergedFileName(name);
+        if (mergedFileName != null) {
+            FDBLuceneMiltiFileReference multiFileReference = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_FILE_LENGTH, getMultiFDBLuceneFileReference(mergedFileName));
+            if (multiFileReference == null) {
+                multiFileReference = new FDBLuceneMiltiFileReference();
+                multiFileReferenceCache.put(mergedFileName, multiFileReference);
+            }
+            multiFileReference.putNewReference(name, reference);
+            context.ensureActive().set(metaSubspace.pack(mergedFileName), multiFileReference.getTuple().pack());
+        }
+        else {
+            context.ensureActive().set(metaSubspace.pack(name), reference.getTuple().pack());
+        }
         fileReferenceCache.put(name, reference);
     }
 
@@ -282,38 +346,55 @@ public class FDBDirectory extends Directory {
         long totalSize = 0L;
         for (KeyValue kv : context.ensureActive().getRange(metaSubspace.range())) {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
+            Tuple referenceTuple = Tuple.fromBytes(kv.getValue());
+            if (referenceTuple.get(0) instanceof ArrayList) {
+                FDBLuceneMiltiFileReference multiFileReference = new FDBLuceneMiltiFileReference(Tuple.fromBytes(kv.getValue()));
+                for (Map.Entry<String, FDBLuceneFileReference> file : multiFileReference.listReferences()) {
+                    outList.add(file.getKey());
+                    totalSize += logIndexFileSize(file.getKey(), file.getValue(), displayList);
+                }
+                multiFileReferenceCache.put(name, multiFileReference);
+                continue;
+            }
             outList.add(name);
             FDBLuceneFileReference fileReference = new FDBLuceneFileReference(Tuple.fromBytes(kv.getValue()));
             // Only composite files and segments are prefetched.
-            if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
-                try {
-                    readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
-                    // Attempt to cache the last block since we check it for checksum in all the
-                    // current Codecs
-                    int lastBlock = (int) (fileReference.getSize() / fileReference.getBlockSize());
-                    if (lastBlock != 0) {
-                        readBlock(name, CompletableFuture.completedFuture(fileReference), lastBlock);
-                    }
-                } catch (RecordCoreException e) {
-                    LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
-                }
-            }
+            totalSize += logIndexFileSize(name, fileReference, displayList);
+
             this.fileReferenceCache.put(name, fileReference);
-            if (LOGGER.isDebugEnabled()) {
-                if (displayList == null) {
-                    displayList = new ArrayList<>();
-                }
-                if (kv.getValue() != null) {
-                    displayList.add(name + "(" + fileReference.getSize() + ")");
-                    totalSize += fileReference.getSize();
-                }
-            }
+
         }
         if (LOGGER.isDebugEnabled()) {
             LOGGER.debug("listAllFiles -> count={}, totalSize={}", outList.size(), totalSize);
             LOGGER.debug("Files -> {}", displayList);
         }
         return outList;
+    }
+
+    private long logIndexFileSize(final String name, final FDBLuceneFileReference fileReference, List<String> displayList) {
+        if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
+            try {
+                readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
+                // Attempt to cache the last block since we check it for checksum in all the
+                // current Codecs
+                int lastBlock = (int) (fileReference.getSize() / fileReference.getBlockSize());
+                if (lastBlock != 0) {
+                    readBlock(name, CompletableFuture.completedFuture(fileReference), lastBlock);
+                }
+            } catch (RecordCoreException e) {
+                LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
+            }
+        }
+        if (LOGGER.isDebugEnabled()) {
+            if (displayList == null) {
+                displayList = new ArrayList<>();
+            }
+            if (fileReference != null) {
+                displayList.add(name + "(" + fileReference.getSize() + ")");
+                return fileReference.getSize();
+            }
+        }
+        return 0;
     }
 
     /**
@@ -412,16 +493,26 @@ public class FDBDirectory extends Directory {
     @Override
     public void rename(@Nonnull final String source, @Nonnull final String dest) {
         LOGGER.trace("rename -> source={}, dest={}", source, dest);
-        final byte[] key = metaSubspace.pack(source);
+        String mergedSourceName = getMergedFileName(source);
+        final byte[] key = mergedSourceName == null ? metaSubspace.pack(source) : metaSubspace.pack(mergedSourceName);
         context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_RENAME, context.ensureActive().get(key).thenApply((Function<byte[], Void>)value -> {
             if (value == null) {
                 throw new RecordCoreArgumentException("Invalid source name in rename function for source")
                         .addLogInfo(LogMessageKeys.SOURCE_FILE,source)
                         .addLogInfo(LogMessageKeys.INDEX_TYPE, IndexTypes.LUCENE);
             }
+            if (mergedSourceName != null) {
+                FDBLuceneMiltiFileReference multReference = new FDBLuceneMiltiFileReference(Tuple.fromBytes(value));
+                multReference.renameReference(source, dest);
+                multiFileReferenceCache.invalidate(mergedSourceName);
+                multiFileReferenceCache.put(mergedSourceName, multReference);
+                context.ensureActive().set(key, multReference.getTuple().pack());
+            }
+            else {
+                context.ensureActive().set(metaSubspace.pack(dest), value);
+                context.ensureActive().clear(key);
+            }
             fileReferenceCache.invalidate(source);
-            context.ensureActive().set(metaSubspace.pack(dest), value);
-            context.ensureActive().clear(key);
 
             return null;
         }));
