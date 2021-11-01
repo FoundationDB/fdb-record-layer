@@ -55,6 +55,7 @@ public class RecordQueryPlannerConfiguration {
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
     @Nonnull
     private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
+    private final boolean useIndexPrefetch;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -69,6 +70,7 @@ public class RecordQueryPlannerConfiguration {
                                             int maxNumMatchesPerRuleCall,
                                             @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
                                             @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules) {
+                                            @Nullable RecordQueryPlannerSortConfiguration sortConfiguration, final boolean useIndexPrefetch) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -82,6 +84,7 @@ public class RecordQueryPlannerConfiguration {
         this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
         this.sortConfiguration = sortConfiguration;
         this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
+        this.useIndexPrefetch = useIndexPrefetch;
     }
 
     /**
@@ -219,6 +222,16 @@ public class RecordQueryPlannerConfiguration {
         return !disabledTransformationRules.contains(rule.getClass());
     }
 
+    /**
+     * Whether the planner should use IndexPrefetch operations for the index scan plans. IndexPrefetch operations
+     * use the DB's API to fetch records from the index, rather than return the index entries, followed
+     * by record fetches.
+     * @return TRUE is the planner should use IndexPrefetch, FALSE otherwise
+     */
+    public boolean shouldUseIndexPrefetch() {
+        return useIndexPrefetch;
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -249,6 +262,7 @@ public class RecordQueryPlannerConfiguration {
         private RecordQueryPlannerSortConfiguration sortConfiguration;
         @Nonnull
         private Set<Class<? extends PlannerRule<?>>> disabledTransformationRules = Sets.newHashSet();
+        private boolean useIndexPrefetch = false;
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -264,6 +278,7 @@ public class RecordQueryPlannerConfiguration {
             this.maxNumMatchesPerRuleCall = configuration.maxNumMatchesPerRuleCall;
             this.sortConfiguration = configuration.sortConfiguration;
             this.disabledTransformationRules = configuration.disabledTransformationRules;
+            this.useIndexPrefetch = configuration.useIndexPrefetch;
         }
 
         public Builder() {
@@ -410,6 +425,19 @@ public class RecordQueryPlannerConfiguration {
             return this;
         }
 
+
+        /**
+         * Set whether the planner should use IndexPrefetch operations for the index scan plans. IndexPrefetch operations
+         * use the DB's API to fetch records from the index, rather than return the index entries, followed
+         * by record fetches.
+         * @param useIndexPrefetch whether to use IndexFetch in the scan plans
+         * @return this builder
+         */
+        public Builder setUseIndexPrefetch(final boolean useIndexPrefetch) {
+            this.useIndexPrefetch = useIndexPrefetch;
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
             return new RecordQueryPlannerConfiguration(indexScanPreference,
                     attemptFailedInJoinAsOr,
@@ -424,6 +452,9 @@ public class RecordQueryPlannerConfiguration {
                     maxNumMatchesPerRuleCall,
                     sortConfiguration,
                     disabledTransformationRules);
+            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, attemptFailedInJoinAsUnionMaxSize,
+                    complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters,
+                    maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall, sortConfiguration, useIndexPrefetch);
         }
     }
 }

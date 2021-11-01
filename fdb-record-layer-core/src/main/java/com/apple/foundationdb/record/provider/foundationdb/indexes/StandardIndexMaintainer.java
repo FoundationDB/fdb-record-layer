@@ -144,7 +144,7 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         return keyValues.map(kv -> {
             state.store.countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES,
                     kv);
-            return unpackKeyValueToIndexRecord(kv);
+            return unpackIndexPrefetchRecord(kv);
         });
 
     }
@@ -181,6 +181,12 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         IndexEntry indexEntry = new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
         FDBStoredRecord<M> storedRecord = null;
         return new FDBIndexedRecord<>(indexEntry, storedRecord);
+    }
+
+    @Nonnull
+    protected <M extends Message> FDBIndexedRecord<M> unpackIndexPrefetchRecord(@Nonnull final KeyValue kv) {
+        IndexEntry indexEntry = new IndexEntry(state.index, Tuple.fromBytes(kv.getKey()), null);
+        return new FDBIndexedRecord<>(indexEntry, null);
     }
 
     /**

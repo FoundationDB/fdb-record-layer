@@ -80,7 +80,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
      * Whether the plan should use the scanIndexReferences to dereference indexes into records downstream.
      * @return TRUE is the plan should use index dereferencing, FALSE to not.
      */
-    default boolean shouldUseIndexDereference() {
+    default boolean shouldUseIndexPreferch() {
         return false;
     }
 
@@ -96,7 +96,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
                                                                       @Nonnull EvaluationContext context,
                                                                       @Nullable byte[] continuation,
                                                                       @Nonnull ExecuteProperties executeProperties) {
-        if (!shouldUseIndexDereference()) {
+        if (!shouldUseIndexPreferch()) {
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return store.fetchIndexRecords(entryRecordCursor, IndexOrphanBehavior.ERROR, executeProperties.getState())
                     .map(store::queriedRecord)

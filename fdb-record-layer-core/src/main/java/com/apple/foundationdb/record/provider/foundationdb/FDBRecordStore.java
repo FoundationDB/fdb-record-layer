@@ -1256,6 +1256,7 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         for (int i: keyLocations) {
             result = result.add("{K[" + (i + prefixLength) + "]}");
         }
+        result = result.add("{...}");
         return result;
     }
 

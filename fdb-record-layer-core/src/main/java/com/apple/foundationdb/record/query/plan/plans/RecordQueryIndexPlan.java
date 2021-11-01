@@ -85,12 +85,13 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     private final Optional<? extends ScanWithFetchMatchCandidate> matchCandidateOptional;
     @Nonnull
     private final Type resultType;
+    private final boolean useIndexPrefetch;
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nonnull IndexScanType scanType,
                                 @Nonnull final ScanComparisons comparisons,
                                 final boolean reverse) {
-        this(indexName, null, scanType, comparisons, reverse, false, Optional.empty());
+        this(indexName, null, false, scanType, comparisons, reverse, false, Optional.empty());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
@@ -107,6 +108,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
                                 @Nullable final KeyExpression commonPrimaryKey,
+                                final boolean useIndexPrefetch,
                                 @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted,
@@ -128,6 +130,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
         this.resultType = resultType;
+        this.useIndexPrefetch = useIndexPrefetch;
     }
 
     @Nonnull
@@ -211,9 +214,8 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Override
-    public boolean shouldUseIndexDereference() {
-        // Here
-        return true;
+    public boolean shouldUseIndexPreferch() {
+        return useIndexPrefetch;
     }
 
     @Override

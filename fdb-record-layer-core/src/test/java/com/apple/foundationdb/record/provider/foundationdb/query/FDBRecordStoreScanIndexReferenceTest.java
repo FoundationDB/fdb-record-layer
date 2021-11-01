@@ -61,6 +61,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
@@ -105,12 +106,17 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 @Tag(Tags.RequiresFDB)
 class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
-    @DualPlannerTest
-    void query() throws Exception {
+
+    @Test
+    void queryPerformance() throws Exception {
+        int nRecords = 50;
+        int nTimes = 100;
+
+        // populate the DB
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
 
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < nRecords*2; i++) {
                 TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
                 recBuilder.setRecNo(i);
                 recBuilder.setStrValueIndexed((i & 1) == 1 ? "odd" : "even");
@@ -124,26 +130,49 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("str_value_indexed").equalsValue("even"))
                 .build();
+
+        // Run regular index scan
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(false)
+                .build());
         RecordQueryPlan plan = planner.plan(query);
 
+        long time = 0;
+        time = executeQuery(plan, nTimes);
+        System.out.println("Executed query " + nTimes + " times for " + nRecords*nTimes + " records using index scan in " + TimeUnit.NANOSECONDS.toMillis(time) + " millis");
+
+        // Run IndexPrefetch plan
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setUseIndexPrefetch(true)
+                .build());
+        plan = planner.plan(query);
+
+        time = executeQuery(plan, nTimes);
+        System.out.println("Executed query " + nTimes + " times for " + nRecords*nTimes + " records using index prefetch in " + TimeUnit.NANOSECONDS.toMillis(time) + " millis");
+    }
+
+    private long executeQuery(RecordQueryPlan plan, int times) throws Exception {
+        long start;
+        long end;
         List<FDBQueriedRecord<Message>> results = new ArrayList<>();
         try (FDBRecordContext context = openContext()) {
             context.ensureActive().options().setReadYourWritesDisable();
             openSimpleRecordStore(context);
-            int i = 0;
-            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
-                while (cursor.hasNext()) {
-                    FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
-                    results.add(rec);
-//                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
-//                    myrec.mergeFrom(rec.getRecord());
-//                    assertEquals(0, myrec.getNumValueUnique() % 2);
-                    i++;
+
+            start = System.nanoTime();
+            for (int i = 0; i < times; i++) {
+                try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                    while (cursor.hasNext()) {
+                        FDBQueriedRecord<Message> rec = Objects.requireNonNull(cursor.next());
+                        results.add(rec);
+                    }
                 }
             }
-            assertEquals(50, i);
-            assertDiscardedNone(context);
+            end = System.nanoTime();
         }
+        return end - start;
     }
 
     /**
@@ -265,9 +294,9 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
             while (true) {
                 RecordCursor<TestRecords1Proto.MySimpleRecord> cursor =
                         recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
-                                .setReturnedRowLimit(10)
-                                .build())
-                            .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build());
+                                        .setReturnedRowLimit(10)
+                                        .build())
+                                .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build());
                 List<TestRecords1Proto.MySimpleRecord> list = cursor.asList().get();
                 assertEquals(Math.min(10, 100 - retrieved.size()), list.size());
                 for (int i = 0; i < list.size(); i++) {
@@ -301,9 +330,9 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
             while (true) {
                 RecordCursor<TestRecords1Proto.MySimpleRecord> cursor =
                         recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
-                                .setReturnedRowLimit(5)
-                                .build())
-                            .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build());
+                                        .setReturnedRowLimit(5)
+                                        .build())
+                                .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build());
                 List<TestRecords1Proto.MySimpleRecord> list = cursor.asList().get();
                 assertEquals(Math.min(5, 50 - retrieved.size()), list.size());
                 for (int i = 0; i < list.size(); i++) {
@@ -332,8 +361,8 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
                                 .where(queryComponents(exactly(equalsObject(filter)))));
 
                 assertEquals(913370522, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-            // TODO: https://github.com/FoundationDB/fdb-record-layer/issues/1074
-            // assertEquals(389700036, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                // TODO: https://github.com/FoundationDB/fdb-record-layer/issues/1074
+                // assertEquals(389700036, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
             } else {
                 assertMatchesExactly(plan,
                         predicatesFilterPlan(typeFilterPlan(scanPlan().where(scanComparisons(unbounded()))))
@@ -345,8 +374,8 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
             while (true) {
                 RecordCursor<TestRecords1Proto.MySimpleRecord> cursor =
                         recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
-                                .setReturnedRowLimit(15)
-                                .build())
+                                        .setReturnedRowLimit(15)
+                                        .build())
                                 .map(rec -> TestRecords1Proto.MySimpleRecord.newBuilder().mergeFrom(rec.getRecord()).build());
                 List<TestRecords1Proto.MySimpleRecord> list = cursor.asList().get();
                 assertEquals(Math.min(15, 50 - retrieved.size()), list.size());
@@ -390,7 +419,7 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
         List<Long> list = new ArrayList<>();
         byte[] continuation = null;
         int count = 0;
-        
+
         do {
             try (FDBRecordContext context = openContext()) {
                 openSimpleRecordStore(context, null);
@@ -834,6 +863,7 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
     /**
      * Check that a query with a CNF filter predicate that would be very large in disjunctive normal form does not get
      * normalized. For now, the predicate should be left alone as a filter.
+     *
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
      */
     @Test
@@ -857,6 +887,7 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
     /**
      * Check that a query with a non-CNF filter predicate that would be very large in disjunctive normal form does not
      * get normalized. For now, the predicate should be left alone as a filter.
+     *
      * @see com.apple.foundationdb.record.query.plan.planning.BooleanNormalizer
      */
     @Test
@@ -866,12 +897,12 @@ class FDBRecordStoreScanIndexReferenceTest extends FDBRecordStoreQueryTestBase {
 
         final QueryComponent cnf = Query.and(
                 IntStream.rangeClosed(1, 9).boxed().map(i ->
-                        Query.or(IntStream.rangeClosed(1, 9).boxed()
-                                .map(j -> Query.and(
-                                        Query.field("num_value_3_indexed").equalsValue(i * 9 + j),
-                                        Query.field("str_value_indexed").equalsValue("foo")))
-                                .collect(Collectors.toList())))
-                .collect(Collectors.toList()));
+                                Query.or(IntStream.rangeClosed(1, 9).boxed()
+                                        .map(j -> Query.and(
+                                                Query.field("num_value_3_indexed").equalsValue(i * 9 + j),
+                                                Query.field("str_value_indexed").equalsValue("foo")))
+                                        .collect(Collectors.toList())))
+                        .collect(Collectors.toList()));
 
         final RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
