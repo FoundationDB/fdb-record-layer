@@ -68,6 +68,53 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
 
 
     @Test
+    public void testSIWriteMultiLuceneFileReference() throws Exception {
+        String luceneReference1 = "luceneReference1.si";
+        FDBLuceneFileReference fileReference = new FDBLuceneFileReference(1, 10, 10);
+        directory.writeFDBLuceneFileReference(luceneReference1, fileReference);
+        CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference(luceneReference1);
+        FDBLuceneFileReference actual = luceneFileReference.get(5, TimeUnit.SECONDS);
+        assertNotNull(actual, "file reference should exist");
+        assertEquals(actual, fileReference);
+
+        assertCorrectMetricCount(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE,1);
+    }
+
+    @Test
+    public void testSICFSCFEWritesAllToSingleReferenceAndOnlyHasOneRead() throws Exception {
+        String luceneReference = "luceneReference1";
+        String luceneReference1 = "luceneReference1.si";
+        String luceneReference2 = "luceneReference1.cfe";
+        String luceneReference3 = "luceneReference1.cfs";
+
+        FDBLuceneFileReference fileReference1 = new FDBLuceneFileReference(1, 10, 10);
+        FDBLuceneFileReference fileReference2 = new FDBLuceneFileReference(1, 10, 10);
+        FDBLuceneFileReference fileReference3 = new FDBLuceneFileReference(1, 10, 10);
+
+        directory.writeFDBLuceneFileReference(luceneReference1, fileReference1);
+        directory.writeFDBLuceneFileReference(luceneReference2, fileReference2);
+        directory.writeFDBLuceneFileReference(luceneReference3, fileReference3);
+
+        CompletableFuture<FDBLuceneMiltiFileReference> luceneMultiFileReference = directory.getMultiFDBLuceneFileReference(luceneReference);
+        CompletableFuture<FDBLuceneFileReference> luceneFileReference1 = directory.getFDBLuceneFileReference(luceneReference1);
+        CompletableFuture<FDBLuceneFileReference> luceneFileReference2 = directory.getFDBLuceneFileReference(luceneReference2);
+        CompletableFuture<FDBLuceneFileReference> luceneFileReference3 = directory.getFDBLuceneFileReference(luceneReference3);
+        FDBLuceneMiltiFileReference actual = luceneMultiFileReference.get(5, TimeUnit.SECONDS);
+        FDBLuceneFileReference actual1 = luceneFileReference1.get(5, TimeUnit.SECONDS);
+        FDBLuceneFileReference actual2 = luceneFileReference2.get(5, TimeUnit.SECONDS);
+        FDBLuceneFileReference actual3 = luceneFileReference3.get(5, TimeUnit.SECONDS);
+        assertNotNull(actual, "file reference should exist");
+        assertNotNull(actual1, "file reference should exist");
+        assertNotNull(actual2, "file reference should exist");
+        assertNotNull(actual3, "file reference should exist");
+        assertEquals(actual1, fileReference1);
+        assertEquals(actual2, fileReference2);
+        assertEquals(actual3, fileReference3);
+
+        assertCorrectMetricCount(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE,1);
+    }
+
+    @Test
     public void testWriteGetLuceneFileReference() throws Exception {
         CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("NonExist");
         assertNull(luceneFileReference.get(5, TimeUnit.SECONDS));
