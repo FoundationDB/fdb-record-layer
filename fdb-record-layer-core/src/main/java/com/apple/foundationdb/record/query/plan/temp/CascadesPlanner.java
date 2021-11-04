@@ -206,7 +206,7 @@ public class CascadesPlanner implements QueryPlanner {
     private int maxQueueSize;
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState) {
-        this(metaData, recordStoreState, PlannerRuleSet.ALL);
+        this(metaData, recordStoreState, defaultPlannerRuleSet());
     }
 
     public CascadesPlanner(@Nonnull RecordMetaData metaData, @Nonnull RecordStoreState recordStoreState, @Nonnull PlannerRuleSet ruleSet) {
@@ -576,7 +576,7 @@ public class CascadesPlanner implements QueryPlanner {
         @Override
         public void execute() {
             // Enqueue all rules that need to run after all exploration for a (group, expression) pair is done.
-            ruleSet.getMatchPartitionRules()
+            ruleSet.getMatchPartitionRules(rule -> configuration.isRuleEnabled(rule))
                     .filter(this::shouldEnqueueRule)
                     .forEach(this::enqueueTransformMatchPartition);
 
@@ -584,7 +584,7 @@ public class CascadesPlanner implements QueryPlanner {
             // by the type of their _root_, not any of the stuff lower down. As a result, we have enough information
             // right here to determine the set of all possible rules that could ever be applied here, regardless of
             // what happens towards the leaves of the tree.
-            ruleSet.getExpressionRules(getExpression())
+            ruleSet.getExpressionRules(getExpression(), rule -> configuration.isRuleEnabled(rule))
                     .filter(rule -> !(rule instanceof PlannerRule.PreOrderRule) &&
                                     shouldEnqueueRule(rule))
                     .forEach(this::enqueueTransformTask);
@@ -596,7 +596,7 @@ public class CascadesPlanner implements QueryPlanner {
                     .map(Quantifier::getRangesOver)
                     .forEach(this::enqueueExploreGroup);
 
-            ruleSet.getExpressionRules(getExpression())
+            ruleSet.getExpressionRules(getExpression(), rule -> configuration.isRuleEnabled(rule))
                     .filter(rule -> rule instanceof PlannerRule.PreOrderRule &&
                                     shouldEnqueueRule(rule))
                     .forEach(this::enqueueTransformTask);
@@ -915,7 +915,7 @@ public class CascadesPlanner implements QueryPlanner {
 
         @Override
         public void execute() {
-            ruleSet.getPartialMatchRules()
+            ruleSet.getPartialMatchRules(rule -> configuration.isRuleEnabled(rule))
                     .forEach(rule -> taskStack.push(new TransformPartialMatch(getContext(), getGroup(), getExpression(), partialMatch, rule)));
         }
 
@@ -978,5 +978,14 @@ public class CascadesPlanner implements QueryPlanner {
         public String toString() {
             return "OptimizeInputs(" + group + ")";
         }
+    }
+
+    /**
+     * Returns the default set of transformation rules.
+     * @return a {@link PlannerRuleSet} using the default set of transformation rules
+     */
+    @Nonnull
+    public static PlannerRuleSet defaultPlannerRuleSet() {
+        return PlannerRuleSet.DEFAULT;
     }
 }

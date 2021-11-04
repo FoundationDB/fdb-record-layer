@@ -23,9 +23,16 @@ package com.apple.foundationdb.record.query.plan;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.sorting.RecordQueryPlannerSortConfiguration;
+import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
+import com.apple.foundationdb.record.query.plan.temp.PlannerRuleSet;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * A set of configuration options for the {@link RecordQueryPlanner}.
@@ -46,6 +53,8 @@ public class RecordQueryPlannerConfiguration {
     private final int maxNumMatchesPerRuleCall;
     @Nullable
     private final RecordQueryPlannerSortConfiguration sortConfiguration;
+    @Nonnull
+    private final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules;
 
     private RecordQueryPlannerConfiguration(@Nonnull QueryPlanner.IndexScanPreference indexScanPreference,
                                             boolean attemptFailedInJoinAsOr,
@@ -58,7 +67,8 @@ public class RecordQueryPlannerConfiguration {
                                             int maxTotalTaskCount,
                                             boolean useFullKeyForValueIndex,
                                             int maxNumMatchesPerRuleCall,
-                                            @Nullable RecordQueryPlannerSortConfiguration sortConfiguration) {
+                                            @Nullable RecordQueryPlannerSortConfiguration sortConfiguration,
+                                            @Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules) {
         this.indexScanPreference = indexScanPreference;
         this.attemptFailedInJoinAsOr = attemptFailedInJoinAsOr;
         this.attemptFailedInJoinAsUnionMaxSize = attemptFailedInJoinAsUnionMaxSize;
@@ -71,6 +81,7 @@ public class RecordQueryPlannerConfiguration {
         this.useFullKeyForValueIndex = useFullKeyForValueIndex;
         this.maxNumMatchesPerRuleCall = maxNumMatchesPerRuleCall;
         this.sortConfiguration = sortConfiguration;
+        this.disabledTransformationRules = ImmutableSet.copyOf(disabledTransformationRules);
     }
 
     /**
@@ -199,6 +210,15 @@ public class RecordQueryPlannerConfiguration {
         return sortConfiguration;
     }
 
+    /**
+     * Method to return if a particular rule is enabled per this configuration.
+     * @param rule in question
+     * @return {@code true} is enabled, {@code false} otherwise
+     */
+    public boolean isRuleEnabled(@Nonnull PlannerRule<?> rule) {
+        return !disabledTransformationRules.contains(rule.getClass());
+    }
+
     @Nonnull
     public Builder asBuilder() {
         return new Builder(this);
@@ -227,6 +247,8 @@ public class RecordQueryPlannerConfiguration {
         private int maxNumMatchesPerRuleCall = 0;
         @Nullable
         private RecordQueryPlannerSortConfiguration sortConfiguration;
+        @Nonnull
+        private Set<Class<? extends PlannerRule<?>>> disabledTransformationRules = Sets.newHashSet();
 
         public Builder(@Nonnull RecordQueryPlannerConfiguration configuration) {
             this.indexScanPreference = configuration.indexScanPreference;
@@ -241,6 +263,7 @@ public class RecordQueryPlannerConfiguration {
             this.useFullKeyForValueIndex = configuration.useFullKeyForValueIndex;
             this.maxNumMatchesPerRuleCall = configuration.maxNumMatchesPerRuleCall;
             this.sortConfiguration = configuration.sortConfiguration;
+            this.disabledTransformationRules = configuration.disabledTransformationRules;
         }
 
         public Builder() {
@@ -345,9 +368,62 @@ public class RecordQueryPlannerConfiguration {
             setSortConfiguration(allowNonIndexSort ? RecordQueryPlannerSortConfiguration.getDefaultInstance() : null);
             return this;
         }
- 
+
+        /**
+         * Set a set of planner transformation rules that should be considered disabled for any planning effort.
+         * @param disabledTransformationRules a set of disabled rules.
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setDisabledTransformationRules(@Nonnull final Set<Class<? extends PlannerRule<?>>> disabledTransformationRules) {
+            this.disabledTransformationRules = Sets.newHashSet(disabledTransformationRules);
+            return this;
+        }
+
+        /**
+         * Set a set of rules names that identify planner transformation rules that should be considered disabled
+         * for any planning effort.
+         * @param disabledTransformationRuleNames a set of rule names identifying (via simple class name)
+         *        transformation rules
+         * @param plannerRuleSet a {@link PlannerRuleSet} that is used to resolve the rule name to a rule class
+         * @return this builder
+         */
+        @SuppressWarnings("unchecked")
+        @Nonnull
+        public Builder setDisabledTransformationRuleNames(@Nonnull final Set<String> disabledTransformationRuleNames, @Nonnull PlannerRuleSet plannerRuleSet) {
+            final Stream<? extends PlannerRule<?>> allRules = plannerRuleSet.getAllRules();
+            this.disabledTransformationRules =
+                    allRules.map(rule -> (Class<? extends PlannerRule<?>>)rule.getClass())
+                            .filter(ruleClass -> disabledTransformationRuleNames.contains(ruleClass.getSimpleName()))
+                            .collect(Collectors.toSet());
+            return this;
+        }
+
+        /**
+         * Helper method to disable the planner transformation rule class passed in.
+         * @param ruleClass a rule class that should be disabled
+         * @return this builder
+         */
+        @Nonnull
+        public Builder disableTransformationRule(@Nonnull Class<? extends PlannerRule<?>> ruleClass) {
+            this.disabledTransformationRules.add(ruleClass);
+            return this;
+        }
+
         public RecordQueryPlannerConfiguration build() {
-            return new RecordQueryPlannerConfiguration(indexScanPreference, attemptFailedInJoinAsOr, attemptFailedInJoinAsUnionMaxSize, complexityThreshold, checkForDuplicateConditions, deferFetchAfterUnionAndIntersection, optimizeForIndexFilters, maxTaskQueueSize, maxTotalTaskCount, useFullKeyForValueIndex, maxNumMatchesPerRuleCall, sortConfiguration);
+            return new RecordQueryPlannerConfiguration(indexScanPreference,
+                    attemptFailedInJoinAsOr,
+                    attemptFailedInJoinAsUnionMaxSize,
+                    complexityThreshold,
+                    checkForDuplicateConditions,
+                    deferFetchAfterUnionAndIntersection,
+                    optimizeForIndexFilters,
+                    maxTaskQueueSize,
+                    maxTotalTaskCount,
+                    useFullKeyForValueIndex,
+                    maxNumMatchesPerRuleCall,
+                    sortConfiguration,
+                    disabledTransformationRules);
         }
     }
 }
