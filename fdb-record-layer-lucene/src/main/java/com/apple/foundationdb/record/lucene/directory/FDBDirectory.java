@@ -63,6 +63,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
+import static org.apache.lucene.codecs.lucene70.Lucene70SegmentInfoFormat.SI_EXTENSION;
+
 /**
  * Directory implementation backed by FDB which attempts to
  * model a file system on top of FoundationDB.
@@ -188,12 +193,58 @@ public class FDBDirectory extends Directory {
         }
     }
 
+    public static boolean isSegmentInfo(String name) {
+        return name.endsWith(SI_EXTENSION);
+    }
+
+    public static boolean isCompoundFile(String name) {
+        return name.endsWith(DATA_EXTENSION);
+    }
+
+    public static boolean isEntriesFile(String name) {
+        return name.endsWith(ENTRIES_EXTENSION);
+    }
+
+    public static String convertToDataFile(String name) {
+        if (isSegmentInfo(name)) {
+            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
+        } else if (isEntriesFile(name)) {
+            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
+        } else {
+            return name;
+        }
+
+    }
+
     /**
      * Puts a file reference in the meta subspace and in the cache under the given name.
      * @param name name for the file reference
      * @param reference the file reference being inserted
      */
-    public void writeFDBLuceneFileReference(@Nonnull final String name, @Nonnull final FDBLuceneFileReference reference) {
+    public void writeFDBLuceneFileReference(@Nonnull String name, @Nonnull FDBLuceneFileReference reference) {
+        if (isEntriesFile(name)) {
+            name = convertToDataFile(name);
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
+            if (storedRef != null) {
+                storedRef.setEntries(reference.getEntries());
+                reference = storedRef;
+            }
+        }
+        if (isSegmentInfo(name)) {
+            name = convertToDataFile(name);
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
+            if (storedRef != null) {
+                storedRef.setSegmentInfo(reference.getSegmentInfo());
+                reference = storedRef;
+            }
+        }
+        if (name.endsWith(".cfs")) {
+            FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
+            if (storedRef != null) {
+                reference.setSegmentInfo(storedRef.getSegmentInfo());
+                reference.setEntries(storedRef.getEntries());
+            }
+        }
         LOGGER.trace("writeFDBLuceneFileReference {}", reference);
         incrementCallCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE);
         context.ensureActive().set(metaSubspace.pack(name), reference.getTuple().pack());
@@ -284,16 +335,10 @@ public class FDBDirectory extends Directory {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             outList.add(name);
             FDBLuceneFileReference fileReference = new FDBLuceneFileReference(Tuple.fromBytes(kv.getValue()));
-            // Only composite files and segments are prefetched.
-            if (name.endsWith(".cfs") || name.endsWith(".si") || name.endsWith(".cfe")) {
+            // Only composite files are prefetched.
+            if (name.endsWith(".cfs")) {
                 try {
                     readBlock(name, CompletableFuture.completedFuture(fileReference), 0);
-                    // Attempt to cache the last block since we check it for checksum in all the
-                    // current Codecs
-                    int lastBlock = (int) (fileReference.getSize() / fileReference.getBlockSize());
-                    if (lastBlock != 0) {
-                        readBlock(name, CompletableFuture.completedFuture(fileReference), lastBlock);
-                    }
                 } catch (RecordCoreException e) {
                     LOGGER.warn(KeyValueLogMessage.of("Exception thrown during prefetch", "resource", name, "exception"), e);
                 }
@@ -324,6 +369,10 @@ public class FDBDirectory extends Directory {
     public void deleteFile(@Nonnull String name) throws IOException {
 
         LOGGER.trace("deleteFile -> {}", name);
+
+        if (isEntriesFile(name) || isSegmentInfo(name)) {
+            return;
+        }
         boolean deleted = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_DELETE_FILE, getFDBLuceneFileReference(name).thenApplyAsync(
                 (value) -> {
                     if (value == null) {
@@ -350,7 +399,14 @@ public class FDBDirectory extends Directory {
     @Override
     public long fileLength(@Nonnull String name) throws NoSuchFileException {
         LOGGER.trace("fileLength -> {}", name);
+        name = convertToDataFile(name);
         FDBLuceneFileReference reference = context.asyncToSync(FDBStoreTimer.Waits.WAIT_LUCENE_FILE_LENGTH, getFDBLuceneFileReference(name));
+        if (isEntriesFile(name)) {
+            return reference.getEntries().length;
+        }
+        if (isSegmentInfo(name)) {
+            return reference.getSegmentInfo().length;
+        }
         if (reference == null) {
             throw new NoSuchFileException(name);
         }
