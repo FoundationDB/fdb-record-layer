@@ -38,9 +38,11 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.apple.foundationdb.record.query.plan.temp.PlannerRuleSet;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.test.Tags;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Disabled;
@@ -124,6 +126,66 @@ class FDBCoveringIndexQueryTest extends FDBRecordStoreQueryTestBase {
                     myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
                     assertTrue(myrec.getNumValueUnique() > 990);
                     assertFalse(myrec.hasNumValue2());
+                    i++;
+                }
+            }
+            assertEquals(10, i);
+            assertDiscardedNone(context);
+        }
+    }
+
+    /**
+     * Verify that a covering index is used when possible.
+     */
+    @SuppressWarnings("unchecked")
+    @DualPlannerTest
+    void coveringOff() throws Exception {
+        complexQuerySetup(null);
+
+        RecordQuery query = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_unique").greaterThan(990))
+                .setSort(field("num_value_unique"))
+                .setRequiredResults(Collections.singletonList(field("num_value_unique")))
+                .build();
+
+        // Covering(Index(MySimpleRecord$num_value_unique ([990],>) -> [num_value_unique: KEY[0], rec_no: KEY[1]])
+        planner.setConfiguration(planner.getConfiguration()
+                .asBuilder()
+                .setDisabledTransformationRuleNames(ImmutableSet.of(
+                        "PushFilterThroughFetchRule",
+                        "PushDistinctThroughFetchRule",
+                        "PushSetOperationThroughFetchRule",
+                        "MergeProjectionAndFetchRule"), PlannerRuleSet.DEFAULT).build());
+        RecordQueryPlan plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    coveringIndexPlan()
+                            .where(indexPlanOf(indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>")))));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-158312359, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(-1293351441, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(-1374755849, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            final BindingMatcher<? extends RecordQueryPlan> planMatcher =
+                    indexPlan().where(indexName("MySimpleRecord$num_value_unique")).and(scanComparisons(range("([990],>")));
+            assertMatchesExactly(plan, planMatcher);
+
+            assertEquals(-158312359, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(594363437, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(512959029, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context);
+            int i = 0;
+            try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
+                while (cursor.hasNext()) {
+                    FDBQueriedRecord<Message> rec = cursor.next();
+                    TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                    myrec.mergeFrom(Objects.requireNonNull(rec).getRecord());
+                    assertTrue(myrec.getNumValueUnique() > 990);
                     i++;
                 }
             }
