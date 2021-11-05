@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.tuple.Tuple;
 
 import javax.annotation.Nonnull;
@@ -28,20 +29,29 @@ import javax.annotation.Nonnull;
 /**
  * A File Reference record laying out the id, size, and block size.
  */
+@SpotBugsSuppressWarnings("EI_EXPOSE_REP")
 @API(API.Status.EXPERIMENTAL)
 public class FDBLuceneFileReference {
     private final long id;
     private final long size;
     private final long blockSize;
+    private byte[] segmentInfo;
+    private byte[] entries;
 
     public FDBLuceneFileReference(@Nonnull Tuple tuple) {
-        this(tuple.getLong(0), tuple.getLong(1), tuple.getLong(2));
+        this(tuple.getLong(0), tuple.getLong(1), tuple.getLong(2), tuple.getBytes(3), tuple.getBytes(4));
     }
 
     public FDBLuceneFileReference(long id, long size, long blockSize) {
+        this(id, size, blockSize, null, null);
+    }
+
+    public FDBLuceneFileReference(long id, long size, long blockSize, byte[] segmentInfo, byte[] entries) {
         this.id = id;
         this.size = size;
         this.blockSize = blockSize;
+        this.segmentInfo = segmentInfo;
+        this.entries = entries;
     }
 
     public long getId() {
@@ -56,12 +66,30 @@ public class FDBLuceneFileReference {
         return blockSize;
     }
 
+    public void setSegmentInfo(byte[] segmentInfo) {
+        this.segmentInfo = segmentInfo;
+    }
+
+    public void setEntries(byte[] entries) {
+        this.entries = entries;
+    }
+
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
+    public byte[] getSegmentInfo() {
+        return segmentInfo;
+    }
+
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
+    public byte[] getEntries() {
+        return entries;
+    }
+
     public Tuple getTuple() {
-        return Tuple.from(id, size, blockSize);
+        return Tuple.from(id, size, blockSize, segmentInfo, entries);
     }
 
     @Override
     public String toString() {
-        return "Reference [ id=" + id + ", size=" + size + ", blockSize=" + blockSize + "]";
+        return "Reference [ id=" + id + ", size=" + size + ", blockSize=" + blockSize + ", segmentInfo=" + (getSegmentInfo() == null ? 0 : getSegmentInfo().length) + ", entries=" + (getEntries() == null ? 0 : getEntries().length) + "]";
     }
 }
