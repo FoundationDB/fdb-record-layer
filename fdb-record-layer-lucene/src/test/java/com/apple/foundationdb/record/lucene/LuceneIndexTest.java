@@ -204,7 +204,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
         }
     }
-    
+
     @Test
     public void simpleInsertAndSearchNumFDBFetches() {
         try (FDBRecordContext context = openContext()) {

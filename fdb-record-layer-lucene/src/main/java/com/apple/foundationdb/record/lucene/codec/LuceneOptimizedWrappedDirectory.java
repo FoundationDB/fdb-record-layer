@@ -33,7 +33,6 @@ import org.apache.lucene.store.Lock;
 import java.io.IOException;
 import java.util.Collection;
 
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isEntriesFile;
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isSegmentInfo;
 

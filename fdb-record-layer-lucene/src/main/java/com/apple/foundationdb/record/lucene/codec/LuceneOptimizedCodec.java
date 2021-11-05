@@ -50,7 +50,7 @@ import org.apache.lucene.codecs.lucene70.Lucene70Codec;
 public class LuceneOptimizedCodec extends Codec {
 
     private final Lucene70Codec baseCodec;
-    private final CompoundFormat compoundFormat;
+    private final LuceneOptimizedCompoundFormat compoundFormat;
     private final LuceneOptimizedSegmentInfoFormat segmentInfoFormat;
 
     /**
