@@ -27,16 +27,29 @@ import org.apache.lucene.store.IndexInput;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
+
 public class LuceneOptimizedWrappedIndexInput extends IndexInput {
     private final FDBDirectory directory;
     FDBLuceneFileReference reference;
     byte[] value;
     private int position;
 
+    public static String convertToDataFile(String name) {
+        if (FDBDirectory.isSegmentInfo(name)) {
+            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
+        } else if (FDBDirectory.isEntriesFile(name)) {
+            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
+        } else {
+            return name;
+        }
+
+    }
+
     public LuceneOptimizedWrappedIndexInput(@Nonnull String name, @Nonnull FDBDirectory directory, boolean isSegmentInfo) {
         super(name);
         this.directory = directory;
-        reference = this.directory.getFDBLuceneFileReference(LuceneOptimizedWrappedDirectory.convertToDataFile(name)).join();
+        reference = this.directory.getFDBLuceneFileReference(convertToDataFile(name)).join();
         value = isSegmentInfo ? reference.getSegmentInfo() : reference.getEntries();
         position = 0;
     }

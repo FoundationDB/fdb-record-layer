@@ -37,13 +37,13 @@ import java.util.stream.Collectors;
  */
 public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     /** Extension of compound file. */
-    static final String DATA_EXTENSION = "cfs";
+    public static final String DATA_EXTENSION = "cfs";
     /** Extension of compound file entries. */
-    static final String ENTRIES_EXTENSION = "cfe";
+    public static final String ENTRIES_EXTENSION = "cfe";
 
-    static final String DATA_CODEC = "Lucene50CompoundData";
-    static final String ENTRY_CODEC = "Lucene50CompoundEntries";
-    static final int VERSION_START = 0;
+    public static final String DATA_CODEC = "Lucene50CompoundData";
+    public static final String ENTRY_CODEC = "Lucene50CompoundEntries";
+    public static final int VERSION_START = 0;
     static final int VERSION_CURRENT = VERSION_START;
 
     private Lucene50CompoundFormat compoundFormat;

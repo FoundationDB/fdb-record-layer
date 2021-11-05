@@ -63,9 +63,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedDirectory.convertToDataFile;
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedDirectory.isEntriesFile;
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedWrappedDirectory.isSegmentInfo;
+
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
+import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
+import static org.apache.lucene.codecs.lucene70.Lucene70SegmentInfoFormat.SI_EXTENSION;
 
 /**
  * Directory implementation backed by FDB which attempts to
@@ -190,6 +191,29 @@ public class FDBDirectory extends Directory {
         } else {
             return CompletableFuture.completedFuture(fileReference);
         }
+    }
+
+    public static boolean isSegmentInfo(String name) {
+        return name.endsWith(SI_EXTENSION);
+    }
+
+    public static boolean isCompoundFile(String name) {
+        return name.endsWith(DATA_EXTENSION);
+    }
+
+    public static boolean isEntriesFile(String name) {
+        return name.endsWith(ENTRIES_EXTENSION);
+    }
+
+    public static String convertToDataFile(String name) {
+        if (isSegmentInfo(name)) {
+            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
+        } else if (isEntriesFile(name)) {
+            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
+        } else {
+            return name;
+        }
+
     }
 
     /**

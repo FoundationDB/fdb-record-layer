@@ -34,35 +34,12 @@ import java.io.IOException;
 import java.util.Collection;
 
 import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.DATA_EXTENSION;
-import static com.apple.foundationdb.record.lucene.codec.LuceneOptimizedCompoundFormat.ENTRIES_EXTENSION;
-import static org.apache.lucene.codecs.lucene70.Lucene70SegmentInfoFormat.SI_EXTENSION;
+import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isEntriesFile;
+import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isSegmentInfo;
 
 public class LuceneOptimizedWrappedDirectory extends Directory {
     private final FDBDirectory fdbDirectory;
     private final Directory wrappedDirectory;
-
-    public static boolean isSegmentInfo(String name) {
-        return name.endsWith(SI_EXTENSION);
-    }
-
-    public static boolean isCompoundFile(String name) {
-        return name.endsWith(DATA_EXTENSION);
-    }
-
-    public static boolean isEntriesFile(String name) {
-        return name.endsWith(ENTRIES_EXTENSION);
-    }
-
-    public static String convertToDataFile(String name) {
-        if (isSegmentInfo(name)) {
-            return name.substring(0, name.length() - 2) + DATA_EXTENSION;
-        } else if (isEntriesFile(name)) {
-            return name.substring(0, name.length() - 3) + DATA_EXTENSION;
-        } else {
-            return name;
-        }
-
-    }
 
     public LuceneOptimizedWrappedDirectory(Directory directory) {
         this.wrappedDirectory = directory;
