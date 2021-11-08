@@ -35,6 +35,7 @@ public class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
     private final SegmentInfoFormat segmentInfosFormat = new Lucene70SegmentInfoFormat();
 
     public LuceneOptimizedSegmentInfoFormat() {
+        super();
     }
 
     @Override

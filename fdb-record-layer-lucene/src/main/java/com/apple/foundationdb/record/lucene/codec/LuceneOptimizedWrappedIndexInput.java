@@ -56,7 +56,7 @@ public class LuceneOptimizedWrappedIndexInput extends IndexInput {
 
     @Override
     public void close() throws IOException {
-
+        // Simply to override the abstract method of super class. Nothing is needed when closing this.
     }
 
     @Override
