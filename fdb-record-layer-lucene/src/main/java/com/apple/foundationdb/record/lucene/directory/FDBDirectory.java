@@ -229,16 +229,14 @@ public class FDBDirectory extends Directory {
                 storedRef.setEntries(reference.getEntries());
                 reference = storedRef;
             }
-        }
-        if (isSegmentInfo(name)) {
+        } else if (isSegmentInfo(name)) {
             name = convertToDataFile(name);
             FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
             if (storedRef != null) {
                 storedRef.setSegmentInfo(reference.getSegmentInfo());
                 reference = storedRef;
             }
-        }
-        if (name.endsWith(".cfs")) {
+        } else if (isCompoundFile(name)) {
             FDBLuceneFileReference storedRef = getFDBLuceneFileReference(name).join();
             if (storedRef != null) {
                 reference.setSegmentInfo(storedRef.getSegmentInfo());
