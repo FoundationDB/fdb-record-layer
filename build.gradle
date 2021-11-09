@@ -173,8 +173,8 @@ apply from: file('gradle/coverage.gradle')
 subprojects {
     apply from: rootProject.file('gradle/testing.gradle')
 
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
 
     ext {
         if (System.getenv('PROTO_VERSION') != null) {
