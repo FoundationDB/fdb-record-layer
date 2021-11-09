@@ -37,7 +37,12 @@ import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.codecs.compressing.CompressionMode;
+import org.apache.lucene.codecs.compressing.Compressor;
+import org.apache.lucene.codecs.compressing.Decompressor;
 import org.apache.lucene.index.IndexFileNames;
+import org.apache.lucene.store.ByteArrayDataInput;
+import org.apache.lucene.store.ByteBuffersDataOutput;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
@@ -45,6 +50,7 @@ import org.apache.lucene.store.IndexOutput;
 import org.apache.lucene.store.Lock;
 import org.apache.lucene.store.LockFactory;
 import org.apache.lucene.store.NoLockFactory;
+import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,6 +60,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -180,7 +187,7 @@ public class FDBDirectory extends Directory {
         if (fileReference == null) {
             return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
                     .thenApplyAsync((value) -> {
-                                FDBLuceneFileReference fetchedref = value == null ? null : new FDBLuceneFileReference(Tuple.fromBytes(value));
+                                FDBLuceneFileReference fetchedref = value == null ? null : new FDBLuceneFileReference(Tuple.fromBytes(decompressBytes(value)));
                                 if (fetchedref != null) {
                                     this.fileReferenceCache.put(name, fetchedref);
                                 }
@@ -223,7 +230,7 @@ public class FDBDirectory extends Directory {
         }
         LOGGER.trace("writeFDBLuceneFileReference {}", reference);
         incrementCallCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE);
-        context.ensureActive().set(metaSubspace.pack(name), reference.getTuple().pack());
+        context.ensureActive().set(metaSubspace.pack(name), compressBytes(reference.getTuple().pack()));
         fileReferenceCache.put(name, reference);
     }
 
@@ -239,9 +246,10 @@ public class FDBDirectory extends Directory {
             //This may not be correct transactionally
             timer.increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, value.length);
         }
-        LOGGER.trace("writeData id={}, block={}, valueSize={}", id, block, value.length);
+        byte[] compressedValue = compressBytes(value);
+        LOGGER.trace("writeData id={}, block={}, valueSize={}, compressedValueSize={}", id, block, value.length, compressedValue.length);
         Verify.verify(value.length <= blockSize);
-        context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), value);
+        context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), compressedValue);
     }
 
     /**
@@ -266,7 +274,9 @@ public class FDBDirectory extends Directory {
 
             long start = System.nanoTime();
             return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
-                    () -> context.instrument(FDBStoreTimer.Events.LUCENE_FDB_READ_BLOCK, context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block))))
+                    () -> context.instrument(FDBStoreTimer.Events.LUCENE_FDB_READ_BLOCK,
+                            context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
+                                    .thenApplyAsync(data -> data == null ? null : decompressBytes(data)))
             ), start);
         } catch (ExecutionException e) {
             throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
@@ -310,7 +320,7 @@ public class FDBDirectory extends Directory {
         for (KeyValue kv : context.ensureActive().getRange(metaSubspace.range())) {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             outList.add(name);
-            FDBLuceneFileReference fileReference = new FDBLuceneFileReference(Tuple.fromBytes(kv.getValue()));
+            FDBLuceneFileReference fileReference = new FDBLuceneFileReference(Tuple.fromBytes(decompressBytes(kv.getValue())));
             // Only composite files are prefetched.
             if (name.endsWith(".cfs")) {
                 try {
@@ -505,4 +515,31 @@ public class FDBDirectory extends Directory {
     public Subspace getSubspace() {
         return subspace;
     }
+
+    public static byte[] compressBytes(byte[] value) throws RecordCoreException {
+        try {
+            Compressor compressor = CompressionMode.HIGH_COMPRESSION.newCompressor();
+            ByteBuffersDataOutput output = new ByteBuffersDataOutput();
+            output.writeVInt(value.length);
+            compressor.compress(value, 0, value.length, output);
+            return output.toArrayCopy();
+        } catch (Exception e) {
+            throw new RecordCoreException(e);
+        }
+
+    }
+
+    public static byte[] decompressBytes(byte[] value) {
+        try {
+            BytesRef ref = new BytesRef();
+            ByteArrayDataInput input = new ByteArrayDataInput(value);
+            int originalLength = input.readVInt();
+            Decompressor decompressor = CompressionMode.HIGH_COMPRESSION.newDecompressor();
+            decompressor.decompress(input, originalLength, 0, originalLength, ref);
+            return Arrays.copyOfRange(ref.bytes, ref.offset, ref.length);
+        } catch (Exception e) {
+            throw new RecordCoreException(e);
+        }
+    }
+
 }

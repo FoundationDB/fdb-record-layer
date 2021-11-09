@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -49,6 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
@@ -522,4 +524,13 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         returnValue[1] = builder.toString();
         return returnValue;
     }
+
+    @Test
+    public void testCompressDecompress() {
+        byte[] foo = "sdfaksdfklasdfkldasfl;dasklf;asdkf;asdkf;".getBytes();
+        byte[] compressedBytes = FDBDirectory.compressBytes(foo);
+        byte[] decompressedBytes = FDBDirectory.decompressBytes(compressedBytes);
+        assertTrue(Arrays.equals(foo, FDBDirectory.decompressBytes(FDBDirectory.compressBytes(foo))));
+    }
+
 }
