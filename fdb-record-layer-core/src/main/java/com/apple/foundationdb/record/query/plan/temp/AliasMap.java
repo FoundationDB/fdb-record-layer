@@ -162,6 +162,8 @@ import java.util.function.Function;
  *
  */
 public class AliasMap {
+    private static final AliasMap EMPTY = new AliasMap(ImmutableBiMap.of());
+
     private final ImmutableBiMap<CorrelationIdentifier, CorrelationIdentifier> map;
 
     /**
@@ -473,6 +475,72 @@ public class AliasMap {
     }
 
     /**
+     * Find complete matches between two sets of aliases, given their depends-on sets and a
+     * {@link MatchPredicate}.
+     * This method creates an underlying {@link PredicatedMatcher} to do the work.
+     * @param aliases a set of aliases
+     * @param dependsOnFn a function that returns the set of dependencies for a given alias within {@code aliases}
+     * @param otherAliases a set of other aliases
+     * @param otherDependsOnFn a function that returns the set of dependencies for a given alias within {@code otherAliases}
+     * @param matchPredicate match predicate. see {@link MatchPredicate}
+     *        for more info
+     * @return an iterable of {@link AliasMap}s where each individual {@link AliasMap} is considered one match
+     */
+    public Iterable<AliasMap> findCompleteMatches(@Nonnull final Set<CorrelationIdentifier> aliases,
+                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                                  @Nonnull final Set<CorrelationIdentifier> otherAliases,
+                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                                  @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+        return matcher(
+                aliases,
+                dependsOnFn,
+                otherAliases,
+                otherDependsOnFn,
+                matchPredicate)
+                .findCompleteMatches();
+    }
+
+    /**
+     * Find matches (including partial matches) between two sets of aliases, given their depends-on sets and a
+     * {@link MatchPredicate}.
+     * This method creates an underlying {@link PredicatedMatcher} to do the work.
+     * @param aliases a set of aliases
+     * @param dependsOnFn a function that returns the set of dependencies for a given alias within {@code aliases}
+     * @param otherAliases a set of other aliases
+     * @param otherDependsOnFn a function that returns the set of dependencies for a given alias within {@code otherAliases}
+     * @param matchPredicate match predicate. see {@link MatchPredicate}
+     *        for more info
+     * @return an iterable of {@link AliasMap}s where each individual {@link AliasMap} is considered one match
+     */
+    public Iterable<AliasMap> findMatches(@Nonnull final Set<CorrelationIdentifier> aliases,
+                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                          @Nonnull final Set<CorrelationIdentifier> otherAliases,
+                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                          @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+        return matcher(
+                aliases,
+                dependsOnFn,
+                otherAliases,
+                otherDependsOnFn,
+                matchPredicate)
+                .findMatches();
+    }
+
+    private PredicatedMatcher matcher(@Nonnull final Set<CorrelationIdentifier> aliases,
+                                      @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
+                                      @Nonnull final Set<CorrelationIdentifier> otherAliases,
+                                      @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
+                                      @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
+        return FindingMatcher.onAliases(
+                this,
+                aliases,
+                dependsOnFn,
+                otherAliases,
+                otherDependsOnFn,
+                matchPredicate);
+    }
+
+    /**
      * Create a new empty builder.
      * @return a builder for a new {@link AliasMap}
      */
@@ -497,7 +565,7 @@ public class AliasMap {
      */
     @Nonnull
     public static AliasMap emptyMap() {
-        return new AliasMap(ImmutableBiMap.of());
+        return EMPTY;
     }
 
     /**
@@ -644,71 +712,5 @@ public class AliasMap {
         public AliasMap build() {
             return new AliasMap(ImmutableBiMap.copyOf(map));
         }
-    }
-
-    /**
-     * Find complete matches between two sets of aliases, given their depends-on sets and a
-     * {@link MatchPredicate}.
-     * This method creates an underlying {@link PredicatedMatcher} to do the work.
-     * @param aliases a set of aliases
-     * @param dependsOnFn a function that returns the set of dependencies for a given alias within {@code aliases}
-     * @param otherAliases a set of other aliases
-     * @param otherDependsOnFn a function that returns the set of dependencies for a given alias within {@code otherAliases}
-     * @param matchPredicate match predicate. see {@link MatchPredicate}
-     *        for more info
-     * @return an iterable of {@link AliasMap}s where each individual {@link AliasMap} is considered one match
-     */
-    public Iterable<AliasMap> findCompleteMatches(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                                  @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                                  @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                                  @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
-        return matcher(
-                aliases,
-                dependsOnFn,
-                otherAliases,
-                otherDependsOnFn,
-                matchPredicate)
-                .findCompleteMatches();
-    }
-
-    /**
-     * Find matches (including partial matches) between two sets of aliases, given their depends-on sets and a
-     * {@link MatchPredicate}.
-     * This method creates an underlying {@link PredicatedMatcher} to do the work.
-     * @param aliases a set of aliases
-     * @param dependsOnFn a function that returns the set of dependencies for a given alias within {@code aliases}
-     * @param otherAliases a set of other aliases
-     * @param otherDependsOnFn a function that returns the set of dependencies for a given alias within {@code otherAliases}
-     * @param matchPredicate match predicate. see {@link MatchPredicate}
-     *        for more info
-     * @return an iterable of {@link AliasMap}s where each individual {@link AliasMap} is considered one match
-     */
-    public Iterable<AliasMap> findMatches(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                          @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                          @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                          @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
-        return matcher(
-                aliases,
-                dependsOnFn,
-                otherAliases,
-                otherDependsOnFn,
-                matchPredicate)
-                .findMatches();
-    }
-
-    private PredicatedMatcher matcher(@Nonnull final Set<CorrelationIdentifier> aliases,
-                                      @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> dependsOnFn,
-                                      @Nonnull final Set<CorrelationIdentifier> otherAliases,
-                                      @Nonnull final Function<CorrelationIdentifier, Set<CorrelationIdentifier>> otherDependsOnFn,
-                                      @Nonnull final MatchPredicate<CorrelationIdentifier> matchPredicate) {
-        return FindingMatcher.onAliases(
-                this,
-                aliases,
-                dependsOnFn,
-                otherAliases,
-                otherDependsOnFn,
-                matchPredicate);
     }
 }

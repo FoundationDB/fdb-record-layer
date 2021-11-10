@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record;
 
 import com.apple.foundationdb.annotation.API;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -61,6 +62,11 @@ public class Bindings {
 
         public String bindingName(@Nonnull String suffix) {
             return value + suffix;
+        }
+
+        public String identifier(@Nonnull String bindingName) {
+            Verify.verify(bindingName.startsWith(value));
+            return bindingName.substring(value.length());
         }
     }
 

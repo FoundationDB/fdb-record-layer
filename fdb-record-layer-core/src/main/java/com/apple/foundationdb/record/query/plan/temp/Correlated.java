@@ -152,6 +152,26 @@ public interface Correlated<S extends Correlated<S>> {
     boolean semanticEquals(@Nullable Object other, @Nonnull AliasMap aliasMap);
 
     /**
+     * Static helper to shorten boilerplate for callers that have to deal with nullable objects.
+     * @param one one instance
+     * @param other another instance
+     * @param aliasMap an {@link AliasMap}
+     * @param <S> the type parameter for {@code Correlated}
+     * @return This method returns {@code true} if both objects passed in are {@code null}, {@code false}
+     *         if {@code one} is {@code null} but {@code another} is not and defers to the instance-based semantic
+     *         equality in any other case.
+     */
+    static <S extends Correlated<S>> boolean semanticEquals(@Nullable Correlated<S> one, @Nullable Correlated<S> other, @Nonnull AliasMap aliasMap) {
+        if (one == null && other == null) {
+            return true;
+        }
+        if (one == null) {
+            return false;
+        }
+        return one.semanticEquals(other, aliasMap);
+    }
+
+    /**
      * Return a semantic hash code for this object. The hash code must obey the convention that for any two objects
      * {@code o1} and {@code o2} and for every {@link AliasMap} {@code aliasMap}:
      *

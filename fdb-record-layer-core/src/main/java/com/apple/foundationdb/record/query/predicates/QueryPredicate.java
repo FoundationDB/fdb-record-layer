@@ -169,13 +169,13 @@ public interface QueryPredicate extends Correlated<QueryPredicate>, TreeLike<Que
     /**
      * Method to find all mappings of this predicate in an {@link Iterable} of candidate predicates. If no mapping can
      * be found at all, this method will then call {@link #impliesCandidatePredicate(AliasMap, QueryPredicate)} using
-     * a tautology predicate as candidate which by should by contract should return a {@link PredicateMapping}.
+     * a tautology predicate as candidate which should by contract should return a {@link PredicateMapping}.
      * @param aliasMap the current alias map
      * @param candidatePredicates an {@link Iterable} of candiate predicates
      * @return a non-empty set of {@link PredicateMapping}s
      */
     default Set<PredicateMapping> findImpliedMappings(@NonNull AliasMap aliasMap,
-                                                      @Nonnull Iterable<QueryPredicate> candidatePredicates) {
+                                                      @Nonnull Iterable<? extends QueryPredicate> candidatePredicates) {
         final ImmutableSet.Builder<PredicateMapping> mappingBuilder = ImmutableSet.builder();
 
         for (final QueryPredicate candidatePredicate : candidatePredicates) {

@@ -272,14 +272,16 @@ public interface Compensation {
      *        method
      * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
      *        used for compensation
-     * @param unmappedForEachQuantifiers a set of quantifiers that are not mapped in the original {@link PartialMatch}
+     * @param mappedQuantifiers a set of quantifiers that are mapped in the original {@link PartialMatch}.
+     * @param unmappedForEachQuantifiers a set of for each quantifiers that are not mapped in the original {@link PartialMatch}
      * @return a new compensation
      */
     @Nonnull
     static Compensation ofChildCompensationAndPredicateMap(@Nonnull final Compensation childCompensation,
                                                            @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                                                           @Nonnull final Set<Quantifier> mappedQuantifiers,
                                                            @Nonnull final Set<Quantifier.ForEach> unmappedForEachQuantifiers) {
-        return predicateCompensationMap.isEmpty() ? noCompensation() : new ForMatch(childCompensation, predicateCompensationMap, unmappedForEachQuantifiers);
+        return predicateCompensationMap.isEmpty() ? noCompensation() : new ForMatch(childCompensation, predicateCompensationMap, mappedQuantifiers, unmappedForEachQuantifiers);
     }
 
     /**
@@ -291,7 +293,10 @@ public interface Compensation {
         Compensation getChildCompensation();
 
         @Nonnull
-        Set<Quantifier> getUnmappedForEachQuantifiers();
+        Set<Quantifier> getMappedQuantifiers();
+
+        @Nonnull
+        Set<Quantifier> getUnmatchedForEachQuantifiers();
 
         @Nonnull
         Map<QueryPredicate, QueryPredicate> getPredicateCompensationMap();
@@ -299,7 +304,6 @@ public interface Compensation {
         /**
          * Method to return a new compensation of at least type {@link WithPredicateCompensation} based on the current
          * compensation object. This method should be implemented by implementing classes and/or their sub classes.
-         * TODO make this method protected in Java 11.
          * @param childCompensation a compensation that should be applied before the compensation being created in this
          *        method
          * @param predicateCompensationMap map that maps {@link QueryPredicate}s of the query to {@link QueryPredicate}s
@@ -310,6 +314,7 @@ public interface Compensation {
         @Nonnull
         WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull Compensation childCompensation,
                                                                       @Nonnull IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                                                                      @Nonnull final Collection<? extends Quantifier> mappedQuantifiers,
                                                                       @Nonnull Set<? extends Quantifier> unmappedForEachQuantifiers);
 
         /**
@@ -331,7 +336,21 @@ public interface Compensation {
 
             final WithPredicateCompensation otherWithPredicateCompensation = (WithPredicateCompensation)otherCompensation;
 
-            if (!getUnmappedForEachQuantifiers().isEmpty() || !otherWithPredicateCompensation.getUnmappedForEachQuantifiers().isEmpty()) {
+            final var unionedMappedQuantifiers = Sets.union(getMappedQuantifiers(), otherWithPredicateCompensation.getMappedQuantifiers());
+            final var numberForEachInUnion = unionedMappedQuantifiers.stream().filter(quantifier -> quantifier instanceof Quantifier.ForEach).collect(ImmutableList.toImmutableList()).size();
+            if (numberForEachInUnion > 1) {
+                // TODO This should be made better in the future. For now we just return the impossible compensation.
+                //      What we need instead of using mapped and unmapped quantifiers is sufficient info to create a
+                //      translation map from quantified column values to compensating values instead of having to perform
+                //      translation on a quantifier level which becomes ambiguous if the source query has more than one
+                //      matched quantifier underneath the query expression but the replacing scan expression only has one
+                //      quantifier. What that translation map should define is a mapping from quantifier on the
+                //      query side to quantifier column value on the over scan expression that is created in the
+                //      data access rules.
+                return impossibleCompensation();
+            }
+
+            if (!getUnmatchedForEachQuantifiers().isEmpty() || !otherWithPredicateCompensation.getUnmatchedForEachQuantifiers().isEmpty()) {
                 return impossibleCompensation();
             }
 
@@ -367,7 +386,7 @@ public interface Compensation {
                 return unionedChildCompensation;
             }
 
-            return derivedWithPredicateCompensationMap(unionedChildCompensation, combinedMap, ImmutableSet.of());
+            return derivedWithPredicateCompensationMap(unionedChildCompensation, combinedMap, unionedMappedQuantifiers, ImmutableSet.of());
         }
 
         /**
@@ -405,7 +424,7 @@ public interface Compensation {
 
             final Compensation childCompensation = getChildCompensation();
             Verify.verify(!(childCompensation instanceof WithPredicateCompensation) ||
-                          ((WithPredicateCompensation)childCompensation).getUnmappedForEachQuantifiers().isEmpty());
+                          ((WithPredicateCompensation)childCompensation).getUnmatchedForEachQuantifiers().isEmpty());
 
             final Compensation intersectedChildCompensation = childCompensation.intersect(otherWithPredicateCompensation.getChildCompensation());
             if (!intersectedChildCompensation.isNeeded() && combinedMap.isEmpty()) {
@@ -416,10 +435,15 @@ public interface Compensation {
                 return intersectedChildCompensation;
             }
 
-            final Sets.SetView<Quantifier> intersectedForEachQuantifiers =
-                    Sets.intersection(getUnmappedForEachQuantifiers(), otherWithPredicateCompensation.getUnmappedForEachQuantifiers());
+            // Note that at the current time each side can only contribute at most one foreach quantifier, thus the
+            // intersection should also only contain at most one for each quantifier.
+            final Sets.SetView<Quantifier> intersectedMappedQuantifiers =
+                    Sets.intersection(getMappedQuantifiers(), otherWithPredicateCompensation.getMappedQuantifiers());
 
-            return derivedWithPredicateCompensationMap(intersectedChildCompensation, combinedMap, intersectedForEachQuantifiers);
+            final Sets.SetView<Quantifier> intersectedUnmappedForEachQuantifiers =
+                    Sets.intersection(getUnmatchedForEachQuantifiers(), otherWithPredicateCompensation.getUnmatchedForEachQuantifiers());
+
+            return derivedWithPredicateCompensationMap(intersectedChildCompensation, combinedMap, intersectedMappedQuantifiers, intersectedUnmappedForEachQuantifiers);
         }
     }
 
@@ -429,21 +453,24 @@ public interface Compensation {
     class ForMatch implements WithPredicateCompensation {
         @Nonnull
         private final Compensation childCompensation;
-
-        @Nonnull
-        private final Set<Quantifier> unmappedForEachQuantfiers;
-
         @Nonnull
         final Map<QueryPredicate, QueryPredicate> predicateCompensationMap;
+        @Nonnull
+        private final Set<Quantifier> mappedQuantifiers;
+        @Nonnull
+        private final Set<Quantifier> unmatchedForEachQuantifiers;
 
-        public ForMatch(@Nonnull final Compensation childCompensation,
-                        @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap,
-                        @Nonnull final Collection<? extends Quantifier> unmappedForEachQuantifiers) {
+        private ForMatch(@Nonnull final Compensation childCompensation,
+                         @Nonnull final Map<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                         @Nonnull final Collection<? extends Quantifier> mappedQuantifiers,
+                         @Nonnull final Collection<? extends Quantifier> unmatchedForEachQuantifiers) {
             this.childCompensation = childCompensation;
             this.predicateCompensationMap = Maps.newIdentityHashMap();
             this.predicateCompensationMap.putAll(predicateCompensationMap);
-            this.unmappedForEachQuantfiers = new LinkedIdentitySet<>();
-            this.unmappedForEachQuantfiers.addAll(unmappedForEachQuantifiers);
+            this.mappedQuantifiers = new LinkedIdentitySet<>();
+            this.mappedQuantifiers.addAll(mappedQuantifiers);
+            this.unmatchedForEachQuantifiers = new LinkedIdentitySet<>();
+            this.unmatchedForEachQuantifiers.addAll(unmatchedForEachQuantifiers);
         }
 
         @Override
@@ -454,8 +481,14 @@ public interface Compensation {
 
         @Nonnull
         @Override
-        public Set<Quantifier> getUnmappedForEachQuantifiers() {
-            return unmappedForEachQuantfiers;
+        public Set<Quantifier> getMappedQuantifiers() {
+            return mappedQuantifiers;
+        }
+
+        @Nonnull
+        @Override
+        public Set<Quantifier> getUnmatchedForEachQuantifiers() {
+            return unmatchedForEachQuantifiers;
         }
 
         @Nonnull
@@ -468,9 +501,10 @@ public interface Compensation {
         @Override
         public WithPredicateCompensation derivedWithPredicateCompensationMap(@Nonnull final Compensation childCompensation,
                                                                              @Nonnull final IdentityHashMap<QueryPredicate, QueryPredicate> predicateCompensationMap,
+                                                                             @Nonnull final Collection<? extends Quantifier> mappedQuantifiers,
                                                                              @Nonnull final Set<? extends Quantifier> unmappedForEachQuantifiers) {
             Verify.verify(!predicateCompensationMap.isEmpty());
-            return new ForMatch(childCompensation, predicateCompensationMap, unmappedForEachQuantifiers);
+            return new ForMatch(childCompensation, predicateCompensationMap, mappedQuantifiers, unmappedForEachQuantifiers);
         }
 
         /**
@@ -486,16 +520,28 @@ public interface Compensation {
             if (childCompensation.isNeeded()) {
                 reference = GroupExpressionRef.of(childCompensation.apply(reference));
             }
+
+            final var mappedForEachQuantifiers =
+                    mappedQuantifiers
+                            .stream()
+                            .filter(quantifier -> quantifier instanceof Quantifier.ForEach)
+                            .map(Quantifier::getAlias)
+                            .collect(ImmutableList.toImmutableList());
+
+            Verify.verify(mappedForEachQuantifiers.size() <= 1);
             final Quantifier quantifier = Quantifier.forEach(reference);
+
+            final AliasMap translationMap;
+            if (mappedQuantifiers.size() == 1) {
+                translationMap = AliasMap.of(Iterables.getOnlyElement(mappedForEachQuantifiers), quantifier.getAlias());
+            } else {
+                translationMap = AliasMap.emptyMap();
+            }
+
             final Collection<QueryPredicate> predicates = predicateCompensationMap.values();
             final ImmutableList<QueryPredicate> rebasedPredicates = predicates
                     .stream()
-                    .map(queryPredicate -> {
-                        final Set<CorrelationIdentifier> correlatedTo = queryPredicate.getCorrelatedTo();
-                        Verify.verify(correlatedTo.size() == 1);
-                        final AliasMap translationMap = AliasMap.of(Iterables.getOnlyElement(correlatedTo), quantifier.getAlias());
-                        return queryPredicate.rebase(translationMap);
-                    })
+                    .map(queryPredicate -> queryPredicate.rebase(translationMap))
                     .collect(ImmutableList.toImmutableList());
             return new LogicalFilterExpression(rebasedPredicates, quantifier);
         }

@@ -486,6 +486,53 @@ public class FDBRepeatedFieldQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     /**
+     * Verify that sorts on repeated fields are implemented with fanout indexes.
+     * Verify that they include distinctness filters and value filters where necessary.
+     */
+    @DualPlannerTest
+    public void sortRepeated2() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openNestedRecordStore(context);
+            commit(context);
+        }
+
+        RecordQuery.Builder builder = RecordQuery.newBuilder()
+                .setRecordType("RestaurantRecord")
+                .setFilter(Query.field("reviews").oneOfThem().matches(Query.field("rating").notNull()))
+                .setSort(field("reviews", FanType.FanOut).nest("rating"));
+        RecordQuery query = builder.setRemoveDuplicates(false).build();
+
+        // Index(review_rating ([null],>)
+        RecordQueryPlan plan = planner.plan(query);
+        assertThat(plan, indexScan(allOf(indexName("review_rating"), bounds(hasTupleString("([null],>")))));
+        if (planner instanceof RecordQueryPlanner) {
+            assertEquals(-1499993185, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1617129902, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1617129902, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertEquals(-1499993185, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1617129908, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1617129908, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+
+        query = builder.setRemoveDuplicates(true).build();
+
+        // Index(review_rating ([null],>) | UnorderedPrimaryKeyDistinct()
+        plan = planner.plan(query);
+        if (planner instanceof RecordQueryPlanner) {
+            assertThat(plan, primaryKeyDistinct(indexScan(allOf(indexName("review_rating"), bounds(hasTupleString("([null],>"))))));
+            assertEquals(-1499993184, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(821950248, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(821950248, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        } else {
+            assertThat(plan, fetch(primaryKeyDistinct(coveringIndexScan(indexScan(allOf(indexName("review_rating"), bounds(hasTupleString("([null],>"))))))));
+            assertEquals(-1910017683, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+            assertEquals(1317916225, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+            assertEquals(1317916225, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+        }
+    }
+
+    /**
      * Verify that repeated fields can be retrieved using indexes.
      * Verify that demanding unique values forces a distinctness plan at the end.
      */

@@ -242,9 +242,14 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
         final ImmutableList.Builder<KeyPart> result = ImmutableList.builder();
         for (int i = scanComparisons.getEqualitySize(); i < normalizedKeyExpressions.size(); i++) {
             final KeyExpression currentKeyExpression = normalizedKeyExpressions.get(i);
-            if (currentKeyExpression.createsDuplicates()) {
-                break;
-            }
+
+            //
+            // Note that it is not really important here if the keyExpression can be normalized in a lossless way
+            // or not. A key expression containing repeated fields is sort-compatible with its normalized key
+            // expression. We used to refuse to compute the sort order in the presence of repeats, however,
+            // I think that restriction can be relaxed.
+            //
+
             result.add(KeyPart.of(currentKeyExpression,
                     i == scanComparisons.getEqualitySize()
                     ? ComparisonRange.Type.INEQUALITY

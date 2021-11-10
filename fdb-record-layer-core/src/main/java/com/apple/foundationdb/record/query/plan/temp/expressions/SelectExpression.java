@@ -51,17 +51,14 @@ import com.google.common.base.Equivalence;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Streams;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -259,26 +256,6 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
             return ImmutableList.of();
         }
 
-        // Build a multimap that allows us to quickly relate a source alias (on the query side) with
-        // predicates on the candidate side that are correlated to the mapped alias. This structure is only needed
-        // for efficiency.
-        // TODO make this map work for join predicates
-        final ImmutableListMultimap.Builder<CorrelationIdentifier, QueryPredicate> aliasToOtherPredicatesMapBuilder =
-                ImmutableListMultimap.builder();
-        for (final QueryPredicate otherPredicate : otherSelectExpression.getPredicates()) {
-            final Set<CorrelationIdentifier> otherCorrelatedTo = otherPredicate.getCorrelatedTo();
-            // we currently can only match local (non join) predicates
-            if (otherCorrelatedTo.size() == 1) {
-                @Nullable final CorrelationIdentifier sourceAlias =
-                        aliasMap.getSource(Iterables.getOnlyElement(otherCorrelatedTo));
-                if (sourceAlias != null) {
-                    aliasToOtherPredicatesMapBuilder.put(sourceAlias, otherPredicate);
-                }
-            }
-        }
-        final ImmutableListMultimap<CorrelationIdentifier, QueryPredicate> aliasToOtherPredicatesMap =
-                aliasToOtherPredicatesMapBuilder.build();
-
         //
         // Map predicates on the query side to predicates on the candidate side. Record parameter bindings and/or
         // compensations for each mapped predicate.
@@ -315,11 +292,8 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
             // TODO join predicates
             if (correlatedTo.size() == 1) {
-                final CorrelationIdentifier correlatedToAlias = Iterables.getOnlyElement(correlatedTo);
-                final ImmutableList<QueryPredicate> candidatePredicates = aliasToOtherPredicatesMap.get(correlatedToAlias);
                 final Set<PredicateMapping> impliedMappingsForPredicate =
-                        predicate.findImpliedMappings(aliasMap, candidatePredicates);
-
+                        predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
                 predicateMappingsBuilder.add(impliedMappingsForPredicate);
             }
         }
@@ -508,7 +482,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
                 .reduce(Compensation.noCompensation(), Compensation::union);
 
         //
-        // The fact that we matched the partial match handed must mean that the child compensation is not impossible.
+        // The fact that we matched the partial match handed in must mean that the child compensation is not impossible.
         //
         Verify.verify(!childCompensation.isImpossible());
 
@@ -534,6 +508,7 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         return Compensation.ofChildCompensationAndPredicateMap(childCompensation,
                 toBeReappliedPredicatesMap,
+                computeMappedQuantifiers(partialMatch),
                 computeUnmatchedForEachQuantifiers(partialMatch));
     }
 }

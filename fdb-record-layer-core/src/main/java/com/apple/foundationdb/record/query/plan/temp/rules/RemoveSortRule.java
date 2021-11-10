@@ -83,14 +83,6 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
 
         final List<KeyExpression> normalizedSortExpressions = sortKeyExpression.normalizeKeyForPositions();
         for (final KeyExpression normalizedSortExpression : normalizedSortExpressions) {
-            //
-            // A top level sort (which is the only sort supported at this point should not be able to express
-            // and order based on a repeated field).
-            //
-            if (normalizedSortExpression.createsDuplicates()) {
-                return;
-            }
-
             if (equalityBoundKeys.contains(normalizedSortExpression)) {
                 equalityBoundUnsorted--;
                 continue;

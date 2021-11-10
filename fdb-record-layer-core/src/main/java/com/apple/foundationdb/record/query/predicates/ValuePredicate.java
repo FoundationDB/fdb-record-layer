@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -77,17 +78,20 @@ public class ValuePredicate implements PredicateWithValue {
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return value.getCorrelatedTo();
+        final var builder = ImmutableSet.<CorrelationIdentifier>builder();
+        builder.addAll(value.getCorrelatedTo());
+        builder.addAll(comparison.getCorrelatedTo());
+        return builder.build();
     }
 
     @Nonnull
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public QueryPredicate rebaseLeaf(@Nonnull final AliasMap translationMap) {
-        Value rebasedValue = value.rebase(translationMap);
-        // TODO rebase comparison if needed
-        if (value != rebasedValue) { // reference comparison intended
-            return new ValuePredicate(rebasedValue, comparison);
+        final var rebasedValue = value.rebase(translationMap);
+        final var rebasedComparison = comparison.rebase(translationMap);
+        if (value != rebasedValue || rebasedComparison != comparison) { // reference comparison intended
+            return new ValuePredicate(rebasedValue, rebasedComparison);
         }
         return this;
     }
@@ -111,12 +115,12 @@ public class ValuePredicate implements PredicateWithValue {
         }
         final ValuePredicate that = (ValuePredicate)other;
         return value.semanticEquals(that.value, equivalenceMap) &&
-               comparison.equals(that.comparison);
+               comparison.semanticEquals(that.comparison, equivalenceMap);
     }
     
     @Override
     public int semanticHashCode() {
-        return Objects.hash(value.semanticHashCode(), comparison);
+        return Objects.hash(value.semanticHashCode(), comparison.semanticHashCode());
     }
 
     @Override
@@ -126,6 +130,6 @@ public class ValuePredicate implements PredicateWithValue {
 
     @Override
     public String toString() {
-        return value.toString() + " " + comparison.toString();
+        return value + " " + comparison;
     }
 }

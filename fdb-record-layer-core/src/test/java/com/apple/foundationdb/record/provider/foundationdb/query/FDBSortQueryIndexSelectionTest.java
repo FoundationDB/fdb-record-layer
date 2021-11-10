@@ -623,7 +623,7 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
      * Verify that sorts on nested fields are implemented using nested record field indexes.
      */
     @SuppressWarnings("java:S5961")
-    @Test
+    @DualPlannerTest
     void sortNested() {
         try (FDBRecordContext context = openContext()) {
             RecordMetaDataBuilder builder = RecordMetaData.newBuilder().setRecords(TestRecordsWithHeaderProto.getDescriptor());
@@ -677,10 +677,17 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
 
                 // Index(MyRecord$header_num ([null],[50]))
                 RecordQueryPlan plan = planner.plan(query);
+
                 assertThat(plan, indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])")))));
-                assertEquals(2008179964, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(2049006062, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(-204519612, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                if (planner instanceof RecordQueryPlanner) {
+                    assertEquals(2008179964, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                    assertEquals(2049006062, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                    assertEquals(-204519612, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                } else {
+                    assertEquals(2008179964, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                    assertEquals(2049006068, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION)); // TODO strictly sorted is not set
+                    assertEquals(-204519606, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS)); // TODO strictly sorted is not set
+                }
 
                 int i = 0;
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
@@ -749,9 +756,16 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 RecordQueryPlan plan = planner.plan(query);
                 assertThat(plan, fetch(filter(filter,
                         coveringIndexScan(indexScan(allOf(indexName("MyRecord$header_num"), unbounded()))))));
-                assertEquals(673903077, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(-582153460, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(-421343502, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+
+                if (planner instanceof RecordQueryPlanner) {
+                    assertEquals(673903077, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                    assertEquals(-582153460, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                    assertEquals(-421343502, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                } else {
+                    assertEquals(749683984, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                    assertEquals(87367824, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                    assertEquals(248177782, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                }
 
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
@@ -783,9 +797,15 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
                 RecordQueryPlan plan = planner.plan(query);
                 assertThat(plan, fetch(filter(Query.field("header").matches(Query.field("rec_no").greaterThan(10L)),
                         coveringIndexScan(indexScan(allOf(indexName("MyRecord$header_num"), bounds(hasTupleString("([null],[50])"))))))));
-                assertEquals(1473993740, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
-                assertEquals(1598662608, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
-                assertEquals(619653398, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                if (planner instanceof RecordQueryPlanner) {
+                    assertEquals(1473993740, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                    assertEquals(1598662608, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                    assertEquals(619653398, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                } else {
+                    assertEquals(1549774647, plan.planHash(PlanHashable.PlanHashKind.LEGACY));
+                    assertEquals(-2026783218, plan.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
+                    assertEquals(1289174868, plan.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+                }
 
                 try (RecordCursorIterator<FDBQueriedRecord<Message>> cursor = recordStore.executeQuery(plan).asIterator()) {
                     while (cursor.hasNext()) {
@@ -1032,5 +1052,4 @@ class FDBSortQueryIndexSelectionTest extends FDBRecordStoreQueryTestBase {
             }
         }
     }
-
 }

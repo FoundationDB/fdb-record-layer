@@ -209,9 +209,11 @@ subprojects {
                 // exclude generated Protobuf classes
                 exclude "**/*Proto.java"
                 exclude "**/*ProtoV3.java"
-                // warnings are errors
-                options.addBooleanOption('Xwerror', true)
-                options.addStringOption('source', '8')
+                // TODO warnings should be errors, however, javadoc in Java 11 is broken with respect to a
+                //      no-modules setup. That is a bug that was fixed in Java 12.
+                //      https://bugs.openjdk.java.net/browse/JDK-8212233
+                options.addBooleanOption('Xwerror', false)
+                options.addStringOption('source', '11')
                 options.with {
                     overview "src/main/javadoc/overview.html"
 

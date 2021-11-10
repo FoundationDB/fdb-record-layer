@@ -116,4 +116,16 @@ public interface RelationalExpressionWithChildren extends RelationalExpression {
         }
         return unmappedForEachQuantifiers;
     }
+
+    @Nonnull
+    default Set<Quantifier> computeMappedQuantifiers(@Nonnull final PartialMatch partialMatch) {
+        final var matchInfo = partialMatch.getMatchInfo();
+        final var mappedForEachQuantifiers = new LinkedIdentitySet<Quantifier>();
+        for (final Quantifier quantifier : getQuantifiers()) {
+            if (matchInfo.getChildPartialMatch(quantifier.getAlias()).isPresent()) {
+                mappedForEachQuantifiers.add(quantifier);
+            }
+        }
+        return mappedForEachQuantifiers;
+    }
 }
