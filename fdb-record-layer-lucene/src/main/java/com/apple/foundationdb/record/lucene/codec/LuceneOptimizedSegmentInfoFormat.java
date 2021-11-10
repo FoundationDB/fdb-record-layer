@@ -31,10 +31,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
-public class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
+class LuceneOptimizedSegmentInfoFormat extends SegmentInfoFormat {
     private final SegmentInfoFormat segmentInfosFormat = new Lucene70SegmentInfoFormat();
 
-    public LuceneOptimizedSegmentInfoFormat() {
+    LuceneOptimizedSegmentInfoFormat() {
         super();
     }
 

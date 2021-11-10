@@ -31,9 +31,9 @@ import java.io.IOException;
 import java.util.stream.Collectors;
 
 /**
- *
- * Wrapper for the Lucene50CompoundFormat to optimize compound files for sitting on FoundationDB.
- *
+ * Wrapper for the {@link Lucene50CompoundFormat} to optimize compound files for sitting on FoundationDB.
+ * In contrast to {@link Lucene50CompoundFormat}, this wrapper uses {@link LuceneOptimizedWrappedDirectory}
+ * as the {@link Directory} for read/write of compound file.
  */
 public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     /** Extension of compound file. */
@@ -51,7 +51,6 @@ public class LuceneOptimizedCompoundFormat extends CompoundFormat {
     public LuceneOptimizedCompoundFormat() {
         this.compoundFormat = new Lucene50CompoundFormat();
     }
-
 
     @Override
     public Directory getCompoundReader(Directory dir, final SegmentInfo si, final IOContext context) throws IOException {

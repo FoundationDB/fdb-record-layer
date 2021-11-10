@@ -22,9 +22,13 @@ package com.apple.foundationdb.record.lucene.directory;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
-import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.record.LuceneFileSystemProto;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * A File Reference record laying out the id, size, and block size.
@@ -38,15 +42,17 @@ public class FDBLuceneFileReference {
     private byte[] segmentInfo;
     private byte[] entries;
 
-    public FDBLuceneFileReference(@Nonnull Tuple tuple) {
-        this(tuple.getLong(0), tuple.getLong(1), tuple.getLong(2), tuple.getBytes(3), tuple.getBytes(4));
+    private FDBLuceneFileReference(@Nonnull LuceneFileSystemProto.LuceneFileReference protoMessage) {
+        this(protoMessage.getId(), protoMessage.getSize(), protoMessage.getBlockSize(),
+                protoMessage.hasSegmentInfo() ? protoMessage.getSegmentInfo().toByteArray() : null,
+                protoMessage.hasEntries() ? protoMessage.getEntries().toByteArray() : null);
     }
 
     public FDBLuceneFileReference(long id, long size, long blockSize) {
         this(id, size, blockSize, null, null);
     }
 
-    public FDBLuceneFileReference(long id, long size, long blockSize, byte[] segmentInfo, byte[] entries) {
+    private FDBLuceneFileReference(long id, long size, long blockSize, byte[] segmentInfo, byte[] entries) {
         this.id = id;
         this.size = size;
         this.blockSize = blockSize;
@@ -84,12 +90,32 @@ public class FDBLuceneFileReference {
         return entries;
     }
 
-    public Tuple getTuple() {
-        return Tuple.from(id, size, blockSize, segmentInfo, entries);
+    @Nonnull
+    public byte[] getBytes() {
+        final LuceneFileSystemProto.LuceneFileReference.Builder builder = LuceneFileSystemProto.LuceneFileReference.newBuilder();
+        builder.setId(this.id);
+        builder.setSize(this.size);
+        builder.setBlockSize(this.blockSize);
+        if (this.segmentInfo != null) {
+            builder.setSegmentInfo(ByteString.copyFrom(this.segmentInfo));
+        }
+        if (this.entries != null) {
+            builder.setEntries(ByteString.copyFrom(this.entries));
+        }
+        return builder.build().toByteArray();
     }
 
     @Override
     public String toString() {
         return "Reference [ id=" + id + ", size=" + size + ", blockSize=" + blockSize + ", segmentInfo=" + (getSegmentInfo() == null ? 0 : getSegmentInfo().length) + ", entries=" + (getEntries() == null ? 0 : getEntries().length) + "]";
+    }
+
+    @Nullable
+    public static FDBLuceneFileReference parseFromBytes(@Nullable byte[] value) {
+        try {
+            return value == null ? null : new FDBLuceneFileReference(LuceneFileSystemProto.LuceneFileReference.parseFrom(value));
+        } catch (InvalidProtocolBufferException ex) {
+            throw new RecordCoreException("Invalid bytes for parsing of lucene file reference", ex);
+        }
     }
 }

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene.codec;
 
+import com.google.auto.service.AutoService;
 import org.apache.lucene.codecs.Codec;
 import org.apache.lucene.codecs.CompoundFormat;
 import org.apache.lucene.codecs.DocValuesFormat;
@@ -46,7 +47,12 @@ import org.apache.lucene.codecs.lucene70.Lucene70Codec;
  * - .si file data is serialized as segmentInfo on the current compound file reference (.cfs)
  * - .si diagnostic information is not stored
  * - Removed checksum validation on Compound File Reader
+ *
+ * Forwards/backwards compatibility is not supported during transition from the {@link Lucene70Codec} to this implementation unfortunately.
+ * Indexes need to rebuilt before handling search requests.
+ *
  */
+@AutoService(Codec.class)
 public class LuceneOptimizedCodec extends Codec {
 
     private final Lucene70Codec baseCodec;
@@ -63,6 +69,7 @@ public class LuceneOptimizedCodec extends Codec {
     /**
      * Instantiates a new codec, specifying the stored fields compression
      * mode to use.
+     * The constant "RL" is an arbitrary name for the codec that will be written into the index segment.
      * @param mode stored fields compression mode to use for newly
      *             flushed/merged segments.
      */

@@ -36,11 +36,11 @@ import java.util.Collection;
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isEntriesFile;
 import static com.apple.foundationdb.record.lucene.directory.FDBDirectory.isSegmentInfo;
 
-public class LuceneOptimizedWrappedDirectory extends Directory {
+class LuceneOptimizedWrappedDirectory extends Directory {
     private final FDBDirectory fdbDirectory;
     private final Directory wrappedDirectory;
 
-    public LuceneOptimizedWrappedDirectory(Directory directory) {
+    LuceneOptimizedWrappedDirectory(Directory directory) {
         this.wrappedDirectory = directory;
         this.fdbDirectory = (FDBDirectory)FilterDirectory.unwrap(directory);
     }

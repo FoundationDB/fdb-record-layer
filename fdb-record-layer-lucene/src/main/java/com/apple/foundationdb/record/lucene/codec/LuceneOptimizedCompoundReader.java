@@ -43,6 +43,7 @@ import java.util.Map;
 /**
  *
  * Borrowed from Lucene to remove checksum from end of file.
+ * This implementation skips the reading and validation of checksum, which could have quite big data size sometimes.
  *
  * Class for accessing a compound stream.
  * This class implements a directory, but is limited to only read operations.
