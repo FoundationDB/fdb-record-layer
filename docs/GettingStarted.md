@@ -53,6 +53,9 @@ project's `build.gradle` file:
 repositories {
     // gradle init put some other stuff here...
     mavenCentral()
+    maven {
+      url "https://ossartifacts.jfrog.io/artifactory/fdb-record-layer/"
+    }
 }
 dependencies {
     // gradle init put some other stuff here, too...
