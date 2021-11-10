@@ -872,7 +872,7 @@ public class OnlineIndexScrubber implements AutoCloseable {
          */
         public OnlineIndexScrubber build() {
             validate();
-            OnlineIndexer.Config conf = new OnlineIndexer.Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
+            OnlineIndexer.Config conf = new OnlineIndexer.Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes, 0);
             if (scrubbingPolicyBuilder != null) {
                 scrubbingPolicy = scrubbingPolicyBuilder.build();
             }

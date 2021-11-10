@@ -812,14 +812,17 @@ public class OnlineIndexer implements AutoCloseable {
         private final int recordsPerSecond;
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
+        private final long timeLimitMilliseconds;
 
-        Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter, int maxWriteLimitBytes) {
+        Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
+                   int maxWriteLimitBytes, long timeLimitMilliseconds) {
             this.maxLimit = maxLimit;
             this.maxRetries = maxRetries;
             this.recordsPerSecond = recordsPerSecond;
             this.progressLogIntervalMillis = progressLogIntervalMillis;
             this.increaseLimitAfter = increaseLimitAfter;
             this.maxWriteLimitBytes = maxWriteLimitBytes;
+            this.timeLimitMilliseconds = timeLimitMilliseconds;
         }
 
         /**
@@ -874,6 +877,14 @@ public class OnlineIndexer implements AutoCloseable {
             return maxWriteLimitBytes;
         }
 
+        /**
+         * Exit with exception if this limit is exceeded (checked after each non-final iteration).
+         * @return time limit, in millisecond units.
+         */
+        public long getTimeLimitMilliseconds() {
+            return timeLimitMilliseconds;
+        }
+
         @Nonnull
         public static Builder newBuilder() {
             return new Builder();
@@ -891,7 +902,8 @@ public class OnlineIndexer implements AutoCloseable {
                     .setIncreaseLimitAfter(this.increaseLimitAfter)
                     .setProgressLogIntervalMillis(this.progressLogIntervalMillis)
                     .setRecordsPerSecond(this.recordsPerSecond)
-                    .setMaxRetries(this.maxRetries);
+                    .setMaxRetries(this.maxRetries)
+                    .setTimeLimitMilliseconds(timeLimitMilliseconds);
         }
 
         /**
@@ -906,6 +918,7 @@ public class OnlineIndexer implements AutoCloseable {
             private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
             private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
             private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
+            private long timeLimitMilliseconds = 0;
 
             protected Builder() {
 
@@ -992,12 +1005,25 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
+             * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a non-final
+             * iteration.
+             * @param timeLimitMilliseconds the time limit, in milliseconds units
+             * @return this builder
+             */
+            @Nonnull
+            public Builder setTimeLimitMilliseconds(long timeLimitMilliseconds) {
+                this.timeLimitMilliseconds = timeLimitMilliseconds;
+                return this;
+            }
+
+            /**
              * Build a {@link Config}.
              * @return a new Config object needed by {@link OnlineIndexer}
              */
             @Nonnull
             public Config build() {
-                return new Config(maxLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
+                return new Config(maxLimit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
+                        maxWriteLimitBytes, timeLimitMilliseconds);
             }
         }
     }
@@ -1040,6 +1066,7 @@ public class OnlineIndexer implements AutoCloseable {
         private IndexStatePrecondition indexStatePrecondition = null;
         private boolean useSynchronizedSession = true;
         private long leaseLengthMillis = DEFAULT_LEASE_LENGTH_MILLIS;
+        private long timeLimitMilliseconds = 0;
 
         protected Builder() {
         }
@@ -1797,6 +1824,18 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
+         * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a non-final
+         * iteration.
+         * @param timeLimitMilliseconds the time limit, in milliseconds units
+         * @return this builder
+         */
+        @Nonnull
+        public Builder setTimeLimitMilliseconds(long timeLimitMilliseconds) {
+            this.timeLimitMilliseconds = timeLimitMilliseconds;
+            return this;
+        }
+
+        /**
          * Add an {@link IndexingPolicy} policy. If set, this policy will determine how the index should be
          * built.
          * For backward compatibility, the use of deprecated {@link #indexStatePrecondition} may override some policy values.
@@ -1833,7 +1872,8 @@ public class OnlineIndexer implements AutoCloseable {
         public OnlineIndexer build() {
             determineIndexingPolicy();
             validate();
-            Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter, maxWriteLimitBytes);
+            Config conf = new Config(limit, maxRetries, recordsPerSecond, progressLogIntervalMillis, increaseLimitAfter,
+                    maxWriteLimitBytes, timeLimitMilliseconds);
             return new OnlineIndexer(runner, recordStoreBuilder, targetIndexes, recordTypes,
                     configLoader, conf,
                     useSynchronizedSession, leaseLengthMillis, trackProgress, indexingPolicy);
