@@ -31,27 +31,25 @@ public class QueryPlanInfoTest {
     private static final QueryPlanInfo.QueryPlanInfoKey<String> KEY_STR = new QueryPlanInfo.QueryPlanInfoKey<>("S");
     private static final QueryPlanInfo.QueryPlanInfoKey<Integer> KEY_INT = new QueryPlanInfo.QueryPlanInfoKey<>("I");
 
-    private QueryPlanInfo classUnderTest;
-
     @BeforeEach
     void setup() throws Exception {
-        classUnderTest = new QueryPlanInfo();
     }
 
     @Test
     void testAddKey() throws Exception {
-        Assertions.assertFalse(classUnderTest.containsKey(KEY_STR));
-        classUnderTest.put(KEY_STR, "Value");
+        QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
+                .put(KEY_STR, "Value")
+                .build();
         Assertions.assertTrue(classUnderTest.containsKey(KEY_STR));
         Assertions.assertEquals("Value", classUnderTest.get(KEY_STR));
     }
 
     @Test
     void testAddTwoKeys() throws Exception {
-        Assertions.assertFalse(classUnderTest.containsKey(KEY_STR));
-        Assertions.assertFalse(classUnderTest.containsKey(KEY_INT));
-        classUnderTest.put(KEY_STR, "Value");
-        classUnderTest.put(KEY_INT, 2);
+        QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
+                .put(KEY_STR, "Value")
+                .put(KEY_INT, 2)
+                .build();
         Assertions.assertTrue(classUnderTest.containsKey(KEY_STR));
         Assertions.assertTrue(classUnderTest.containsKey(KEY_INT));
         Assertions.assertEquals("Value", classUnderTest.get(KEY_STR));
@@ -60,12 +58,26 @@ public class QueryPlanInfoTest {
 
     @Test
     void testNullValue() throws Exception {
-        classUnderTest.put(KEY_STR, null);
-        classUnderTest.put(KEY_INT, null);
+        QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
+                .put(KEY_STR, null)
+                .put(KEY_INT, null)
+                .build();
         Assertions.assertTrue(classUnderTest.containsKey(KEY_STR));
         Assertions.assertTrue(classUnderTest.containsKey(KEY_INT));
         Assertions.assertNull(classUnderTest.get(KEY_STR));
         Assertions.assertNull(classUnderTest.get(KEY_INT));
     }
 
+    @Test
+    void testBuildFrom() throws Exception {
+        QueryPlanInfo classUnderTest = QueryPlanInfo.newBuilder()
+                .put(KEY_STR, "Value")
+                .build();
+        classUnderTest = classUnderTest.toBuilder()
+                .put(KEY_INT, 2)
+                .build();
+
+        Assertions.assertEquals("Value", classUnderTest.get(KEY_STR));
+        Assertions.assertEquals(2, classUnderTest.get(KEY_INT));
+    }
 }

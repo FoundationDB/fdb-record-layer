@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
+import com.apple.foundationdb.record.query.plan.QueryPlanInfo;
 import com.apple.foundationdb.record.query.plan.QueryPlanInfoKeys;
 import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
@@ -250,10 +251,12 @@ public class CascadesPlanner implements QueryPlanner {
     @Nonnull
     @Override
     public QueryPlanResult planQuery(@Nonnull final RecordQuery query, @Nonnull ParameterRelationshipGraph parameterRelationshipGraph) {
-        QueryPlanResult result = new QueryPlanResult(plan(query, parameterRelationshipGraph));
-        result.getPlanInfo().put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount);
-        result.getPlanInfo().put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize);
-        return result;
+        RecordQueryPlan plan = plan(query, parameterRelationshipGraph);
+        QueryPlanInfo info = QueryPlanInfo.newBuilder()
+                .put(QueryPlanInfoKeys.TOTAL_TASK_COUNT, taskCount)
+                .put(QueryPlanInfoKeys.MAX_TASK_QUEUE_SIZE, maxQueueSize)
+                .build();
+        return new QueryPlanResult(plan, info);
     }
 
     @Nonnull

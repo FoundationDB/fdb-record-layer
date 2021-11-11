@@ -39,7 +39,12 @@ public class QueryPlanResult implements PlanHashable {
 
     public QueryPlanResult(@Nonnull final RecordQueryPlan plan) {
         this.plan = plan;
-        planInfo = new QueryPlanInfo();
+        planInfo = QueryPlanInfo.EMPTY;
+    }
+
+    public QueryPlanResult(@Nonnull final RecordQueryPlan plan, @Nonnull final QueryPlanInfo planInfo) {
+        this.plan = plan;
+        this.planInfo = planInfo;
     }
 
     @Nonnull
