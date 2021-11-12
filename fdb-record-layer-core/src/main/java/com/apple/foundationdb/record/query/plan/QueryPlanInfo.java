@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -32,6 +34,7 @@ import java.util.Set;
  * This class holds some additional information regarding the query plan that can be attached to the plan itself, without
  * impacting its structure. This info can be added during planning to help reason about the plan and the planning process.
  */
+@API(API.Status.STABLE)
 public class QueryPlanInfo {
     private final Map<QueryPlanInfoKey<?>, Object> info;
 
