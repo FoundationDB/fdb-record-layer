@@ -35,7 +35,7 @@ import java.util.Set;
 public class QueryPlanInfo {
     private final Map<QueryPlanInfoKey<?>, Object> info;
 
-    public static final QueryPlanInfo EMPTY = new QueryPlanInfo(Collections.emptyMap());
+    private static final QueryPlanInfo EMPTY = new QueryPlanInfo(Collections.emptyMap());
 
     private QueryPlanInfo(@Nonnull final Map<QueryPlanInfoKey<?>, Object> infoMap) {
         info = infoMap;
@@ -44,6 +44,11 @@ public class QueryPlanInfo {
     @Nonnull
     public static Builder newBuilder() {
         return new Builder();
+    }
+
+    @Nonnull
+    public static QueryPlanInfo empty()  {
+        return EMPTY;
     }
 
     @Nonnull
