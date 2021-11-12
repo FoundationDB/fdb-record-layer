@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -31,6 +32,7 @@ import javax.annotation.Nonnull;
  * This is the result of the call of {@link QueryPlanner#plan(RecordQuery)} call. It contains the actual plan produced coupled
  * with some additional information related to the plan and the planning process.
  */
+@API(API.Status.STABLE)
 public class QueryPlanResult implements PlanHashable {
     @Nonnull
     private final RecordQueryPlan plan;
@@ -39,7 +41,12 @@ public class QueryPlanResult implements PlanHashable {
 
     public QueryPlanResult(@Nonnull final RecordQueryPlan plan) {
         this.plan = plan;
-        planInfo = new QueryPlanInfo();
+        planInfo = QueryPlanInfo.empty();
+    }
+
+    public QueryPlanResult(@Nonnull final RecordQueryPlan plan, @Nonnull final QueryPlanInfo planInfo) {
+        this.plan = plan;
+        this.planInfo = planInfo;
     }
 
     @Nonnull

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.annotation.API;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -32,11 +34,29 @@ import java.util.Set;
  * This class holds some additional information regarding the query plan that can be attached to the plan itself, without
  * impacting its structure. This info can be added during planning to help reason about the plan and the planning process.
  */
+@API(API.Status.STABLE)
 public class QueryPlanInfo {
     private final Map<QueryPlanInfoKey<?>, Object> info;
 
-    public QueryPlanInfo() {
-        info = new HashMap<>();
+    private static final QueryPlanInfo EMPTY = new QueryPlanInfo(Collections.emptyMap());
+
+    private QueryPlanInfo(@Nonnull final Map<QueryPlanInfoKey<?>, Object> infoMap) {
+        info = infoMap;
+    }
+
+    @Nonnull
+    public static Builder newBuilder() {
+        return new Builder();
+    }
+
+    @Nonnull
+    public static QueryPlanInfo empty()  {
+        return EMPTY;
+    }
+
+    @Nonnull
+    public Builder toBuilder() {
+        return new Builder(this);
     }
 
     /**
@@ -60,20 +80,6 @@ public class QueryPlanInfo {
     @Nullable
     public <T> T get(@Nonnull QueryPlanInfoKey<T> key) {
         return key.narrow(info.get(key));
-    }
-
-    /**
-     * Set a value for the given key.
-     *
-     * @param key   the key to use
-     * @param value the value to associate with the key
-     * @param <T>   the type of the value to set (determined by the Key generic type)
-     * @return this
-     */
-    @Nonnull
-    public <T> QueryPlanInfo put(@Nonnull QueryPlanInfoKey<T> key, @Nonnull T value) {
-        info.put(key, value);
-        return this;
     }
 
     /**
@@ -113,7 +119,7 @@ public class QueryPlanInfo {
             return name;
         }
 
-        // Suppress Unchecked Cast exception since all put() into the table use the right type for the value from the key.
+        // Suppress Unchecked Cast exception since all put() into the map use the right type for the value from the key.
         @SuppressWarnings("unchecked")
         public T narrow(@Nonnull Object o) {
             return (T) o;
@@ -139,6 +145,45 @@ public class QueryPlanInfo {
         @Override
         public String toString() {
             return name;
+        }
+    }
+
+    /**
+     * A Builder for the {@link QueryPlanInfo} class. Since the plan info is immutable, this builder is used to populate
+     * the map with content. Once built, the {@link QueryPlanInfo} cannot be modified.
+     */
+    public static class Builder {
+        private final Map<QueryPlanInfoKey<?>, Object> infoMap;
+
+        private Builder() {
+            infoMap = new HashMap<>();
+        }
+
+        private Builder(QueryPlanInfo source) {
+            infoMap = new HashMap<>(source.info);
+        }
+
+        /**
+         * Set a value for the given key.
+         *
+         * @param key   the key to use
+         * @param value the value to associate with the key
+         * @param <T>   the type of the value to set (determined by the Key generic type)
+         * @return this
+         */
+        @Nonnull
+        public <T> Builder put(@Nonnull QueryPlanInfoKey<T> key, @Nonnull T value) {
+            infoMap.put(key, value);
+            return this;
+        }
+
+        @Nullable
+        public <T> T get(@Nonnull QueryPlanInfoKey<T> key) {
+            return key.narrow(infoMap.get(key));
+        }
+
+        public QueryPlanInfo build() {
+            return new QueryPlanInfo(infoMap);
         }
     }
 }
