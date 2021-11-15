@@ -92,7 +92,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         CompletableFuture<FDBLuceneFileReference> luceneFileReference = directory.getFDBLuceneFileReference("test1");
         assertNotNull(luceneFileReference.get(5, TimeUnit.SECONDS), "fileReference should exist");
 
-        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE,2);
+        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, reference1.getBytes().length + reference2.getBytes().length);
+        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL, 2);
     }
 
     @Test
@@ -110,7 +111,8 @@ public class FDBDirectoryTest extends FDBDirectoryBaseTest {
         assertNotNull(directory.readBlock("testReference2",
                 directory.getFDBLuceneFileReference("testReference2"), 1).get(), "seek data should exist");
 
-        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE,data.length);
+        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, data.length);
+        assertCorrectMetricCount(FDBStoreTimer.Counts.LUCENE_WRITE_CALL, 1);
     }
 
     @Test
