@@ -143,7 +143,7 @@ public class FDBDirectory extends Directory {
      * @return current increment value
      */
     public synchronized long getIncrement() {
-        incrementCallCount(FDBStoreTimer.Counts.LUCENE_GET_INCREMENT_CALLS);
+        increment(FDBStoreTimer.Counts.LUCENE_GET_INCREMENT_CALLS);
         return context.ensureActive().get(sequenceSubspaceKey).thenApply(
             (value) -> {
                 if (value == null) {
@@ -157,10 +157,17 @@ public class FDBDirectory extends Directory {
             }).join();
     }
 
-    private void incrementCallCount(FDBStoreTimer.Counts counter) {
+    private void increment(FDBStoreTimer.Counts counter) {
         final FDBStoreTimer timer = context.getTimer();
         if (timer != null) {
             timer.increment(counter);
+        }
+    }
+
+    private void increment(FDBStoreTimer.Counts counter, int amount) {
+        final FDBStoreTimer timer = context.getTimer();
+        if (timer != null) {
+            timer.increment(counter, amount);
         }
     }
 
@@ -242,8 +249,10 @@ public class FDBDirectory extends Directory {
             }
         }
         LOGGER.trace("writeFDBLuceneFileReference {}", reference);
-        incrementCallCount(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE);
-        context.ensureActive().set(metaSubspace.pack(name), reference.getBytes());
+        final byte[] fileReferenceBytes = reference.getBytes();
+        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, fileReferenceBytes.length);
+        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
+        context.ensureActive().set(metaSubspace.pack(name), fileReferenceBytes);
         fileReferenceCache.put(name, reference);
     }
 
@@ -254,11 +263,9 @@ public class FDBDirectory extends Directory {
      * @param value the data to be stored
      */
     public void writeData(long id, int block, @Nonnull byte[] value) {
-        FDBStoreTimer timer = context.getTimer();
-        if (timer != null) {
-            //This may not be correct transactionally
-            timer.increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, value.length);
-        }
+        //This may not be correct transactionally
+        increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, value.length);
+        increment(FDBStoreTimer.Counts.LUCENE_WRITE_CALL);
         LOGGER.trace("writeData id={}, block={}, valueSize={}", id, block, value.length);
         Verify.verify(value.length <= blockSize);
         context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), value);
