@@ -24,19 +24,25 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Make QueryPlanResult and QueryPlanInfo immutable [(Issue #1456)](https://github.com/FoundationDB/fdb-record-layer/issues/1456)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Up java source and target compatibility to 11 [(Issue #1454)](https://github.com/FoundationDB/fdb-record-layer/issues/1454)
-* **Breaking change** Codec with a few optimizations for speeding up compound files sitting on FoundationDB. Backwards compatibility is not supported, so rebuilding Lucene indexes with shutting down search requests handling is needed for transition. [(Issue #1457)](https://github.com/FoundationDB/fdb-record-layer/issues/1457)
+* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.1.222.0
+
+* **Feature** Make QueryPlanResult and QueryPlanInfo immutable [(Issue #1456)](https://github.com/FoundationDB/fdb-record-layer/issues/1456)
+* **Breaking change** Up java source and target compatibility to 11 [(Issue #1454)](https://github.com/FoundationDB/fdb-record-layer/issues/1454)
+* **Breaking change** Codec with a few optimizations for speeding up compound files sitting on FoundationDB. Backwards compatibility is not supported, so rebuilding Lucene indexes with shutting down search requests handling is needed for transition. [(Issue #1457)](https://github.com/FoundationDB/fdb-record-layer/issues/1457)
 
 ## 3.0
 
