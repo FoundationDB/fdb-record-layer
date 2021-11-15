@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
@@ -69,8 +68,10 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.apple.foundationdb.record.TestHelpers.assertLoadRecord;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.coveringIndexScan;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.fetch;
@@ -135,22 +136,13 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     private static final String MAP_DOC = "MapDocument";
 
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
+    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), IndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
-    private static final List<KeyExpression> keys = Lists.newArrayList(
-            new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
-                    LuceneKeyExpression.FieldType.STRING_KEY_MAP, false, false),
-            new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false));
+    private static final List<KeyExpression> keys = List.of(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value")));
+    private static final KeyExpression mainExpression = field("entry", KeyExpression.FanType.FanOut).nest(concat(keys));
 
-    private static final LuceneThenKeyExpression mainExpression = new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys);
-
-    // TODO: This is not a legal index: GroupingKeyExpression cannot be a child of a ThenKeyExpression.
-    private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", new LuceneThenKeyExpression( null, Lists.newArrayList(new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(mainExpression), 1),
-            new LuceneFieldKeyExpression("doc_id",KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL,
-                                                             LuceneKeyExpression.FieldType.LONG, false, false))), IndexTypes.LUCENE);
-
-    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
-            mainExpression), 1), IndexTypes.LUCENE);
+    private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", concat(mainExpression, field("doc_id")), IndexTypes.LUCENE);
+    private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(mainExpression, 1), IndexTypes.LUCENE);
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
@@ -182,7 +174,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
-        final Index ngramIndex = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
+        final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), IndexTypes.LUCENE,
                 ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
                         IndexOptions.TEXT_TOKEN_MIN_SIZE, String.valueOf(minSize),
                         IndexOptions.TEXT_TOKEN_MAX_SIZE, String.valueOf(maxSize),
@@ -191,7 +183,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     }
 
     protected void openRecordStoreWithSynonymIndex(FDBRecordContext context) {
-        final Index ngramIndex = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
+        final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), IndexTypes.LUCENE,
                 ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
         openRecordStore(context, store -> { }, ngramIndex);
     }
@@ -669,6 +661,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
         }
     }
+
     /*
     @ParameterizedTest
     @BooleanSource

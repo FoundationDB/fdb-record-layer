@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -52,12 +51,12 @@ import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLaye
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
-import com.beust.jcommander.internal.Lists;
 import com.google.common.collect.ImmutableMap;
 import org.apache.lucene.index.IndexFileNames;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -67,8 +66,10 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -82,33 +83,31 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private static final String MAP_DOC = "MapDocument";
 
-    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
-
-    private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
-            new LuceneThenKeyExpression(null, Lists.newArrayList(
-                    new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false),
-                    new LuceneFieldKeyExpression("text2", LuceneKeyExpression.FieldType.STRING, false, false))),
+    private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes",
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
-    private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
+    private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+    private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
                     IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
-    private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
+    private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
 
-    private static final List<KeyExpression> keys = com.google.common.collect.Lists.newArrayList(
-            new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
-                    LuceneKeyExpression.FieldType.STRING_KEY_MAP, false, false),
-            new LuceneFieldKeyExpression("value", LuceneKeyExpression.FieldType.STRING, false, false),
-            new LuceneFieldKeyExpression("second_value", LuceneKeyExpression.FieldType.STRING, false, false),
-            new LuceneFieldKeyExpression("third_value", LuceneKeyExpression.FieldType.STRING, false, false));
+    private static final List<KeyExpression> keys = List.of(
+            field("key"),
+            function(LuceneFunctionNames.LUCENE_TEXT, field("value")),
+            function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")),
+            function(LuceneFunctionNames.LUCENE_TEXT, field("third_value")));
 
-    private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value",new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(
-            new LuceneThenKeyExpression((LuceneFieldKeyExpression) keys.get(0), keys)), 3), IndexTypes.LUCENE);
+    private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3), IndexTypes.LUCENE);
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                 "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +

@@ -1,9 +1,9 @@
 /*
- * LuceneKeyExpressionVisitorFactory.java
+ * LuceneFunctionNames.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,13 +20,17 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
-import com.google.auto.service.AutoService;
+import com.apple.foundationdb.annotation.API;
 
-@AutoService(KeyExpressionVisitor.Factory.class)
-public class LuceneKeyExpressionVisitorFactory implements KeyExpressionVisitor.Factory {
-    @Override
-    public KeyExpressionVisitor createVisitor() {
-        return new LuceneTypeConverter();
+/**
+ * Key function names for Lucene indexes.
+ */
+@API(API.Status.EXPERIMENTAL)
+public class LuceneFunctionNames {
+    public static final String LUCENE_FIELD_NAME = "lucene_field_name";
+    public static final String LUCENE_STORED = "lucene_stored";
+    public static final String LUCENE_TEXT = "lucene_text";
+
+    private LuceneFunctionNames() {
     }
 }

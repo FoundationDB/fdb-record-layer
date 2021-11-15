@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -47,9 +48,8 @@ import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
-
-import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndexFieldNames;
 
 /**
  * A planner to implement lucene query planning so that we can isolate the lucene functionality to
@@ -75,7 +75,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (parentFieldName != null) {
             completeFieldName = parentFieldName + "_" + completeFieldName;
         }
-        if (!validateIndexField(index, completeFieldName)) {
+        if (!validateIndexField(index, completeFieldName, true)) {
             return null;
         }
         String comparisonString;
@@ -120,7 +120,7 @@ public class LucenePlanner extends RecordQueryPlanner {
         //TODO figure out how to take into account the parentField name here. Or maybe disallow this if its contained within a
         // oneOfThem. Not sure if thats even allowed via the metadata validation on the query at the start of the planner.
         for (String field : filter.getFields()) {
-            if (!validateIndexField(index, field)) {
+            if (!validateIndexField(index, field, false)) {
                 return null;
             }
         }
@@ -229,9 +229,26 @@ public class LucenePlanner extends RecordQueryPlanner {
         return null;
     }
 
-    public boolean validateIndexField(@Nonnull Index index,
-                                       @Nonnull String field) {
-        return listIndexFieldNames(index.getRootExpression()).contains(field);
+    public boolean validateIndexField(@Nonnull Index index, @Nonnull String field, boolean complete) {
+        for (RecordType recordType : getRecordMetaData().recordTypesForIndex(index)) {
+            if (complete) {
+                // For a filter made from components, we have the complete path of record fields and so the actual document field name.
+                // TODO: This is inefficient to do for every comparison and doesn't really work if any document fields take their name from runtime values.
+                final Map<String, LuceneIndexExpressions.DocumentFieldType> fields = LuceneIndexExpressions.getDocumentFieldTypes(index.getRootExpression(), recordType.getDescriptor());
+                if (fields.containsKey(field)) {
+                    return true;
+                }
+            } else {
+                // Otherwise can only check that the field name given corresponds to some top-level branch to an indexed field.
+                final List<List<String>> paths = LuceneIndexExpressions.getRecordFieldsPaths(index.getRootExpression(), recordType.getDescriptor());
+                for (List<String> path : paths) {
+                    if (path.get(0).equals(field)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     @Override

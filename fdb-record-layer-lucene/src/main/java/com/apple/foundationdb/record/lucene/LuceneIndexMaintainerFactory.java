@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexValidator;
-import com.apple.foundationdb.record.metadata.MetaDataValidator;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
@@ -54,12 +53,7 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
     @Nonnull
     @Override
     public IndexValidator getIndexValidator(@Nonnull Index index) {
-        return new IndexValidator(index) {
-            @Override
-            public void validate(@Nonnull MetaDataValidator metaDataValidator) {
-                // nothing to validate
-            }
-        };
+        return new LuceneIndexValidator(index);
     }
 
     @Override

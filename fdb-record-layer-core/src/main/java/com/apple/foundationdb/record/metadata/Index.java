@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpressionVisitor;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
@@ -186,16 +185,6 @@ public class Index {
         if (proto.hasValueExpression()) {
             KeyExpression value = KeyExpression.fromProto(proto.getValueExpression());
             expr = toKeyWithValueExpression(expr, value);
-        }
-
-        //Todo: explore alternate approach to use function key expressions, this should be unnecessary?
-        final List<KeyExpressionVisitor> visitors = KeyExpressionVisitor.Registry.instance().visitors();
-        if (!visitors.isEmpty()) {
-            for (KeyExpressionVisitor visitor : visitors) {
-                if (visitor.applies(type)) {
-                    expr = visitor.visit(expr);
-                }
-            }
         }
 
         rootExpression = expr;
