@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -154,12 +155,13 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         if (explodeValue instanceof LiteralValue<?>) {
             final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
             if (literalValue instanceof List<?>) {
-                inValuesSource = new RecordQueryInUnionPlan.InValues(explodeQuantifier.getAlias().getId(), (List<Object>)literalValue);
+                inValuesSource = new RecordQueryInUnionPlan.InValues(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()), (List<Object>)literalValue);
             } else {
                 return;
             }
         } else if (explodeValue instanceof QuantifiedColumnValue) {
-            inValuesSource = new RecordQueryInUnionPlan.InParameter(explodeQuantifier.getAlias().getId(), ((QuantifiedColumnValue)explodeValue).getAlias().getId());
+            inValuesSource = new RecordQueryInUnionPlan.InParameter(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                    ((QuantifiedColumnValue)explodeValue).getAlias().getId());
         } else {
             return;
         }
@@ -180,7 +182,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                     final Comparisons.Comparison comparison = expressionComparisonEntry.getValue();
                     if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
                         final Comparisons.ParameterComparison parameterComparison = (Comparisons.ParameterComparison)comparison;
-                        if (parameterComparison.getParameter().equals(explodeQuantifier.getAlias().getId())) {
+                        if (parameterComparison.isCorrelatedTo(explodeQuantifier.getAlias())) {
                             matchingKeyExpression = expressionComparisonEntry.getKey();
                         }
                     }

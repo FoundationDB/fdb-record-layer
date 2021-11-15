@@ -160,7 +160,7 @@ public class InComparisonToExplodeRule extends PlannerRule<SelectExpression> {
                 final Quantifier.ForEach newQuantifier = Quantifier.forEach(GroupExpressionRef.of(explodeExpression));
                 transformedPredicates.add(
                         new ValuePredicate(((ValuePredicate)predicate).getValue(),
-                                new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, newQuantifier.getAlias().toString(), Bindings.Internal.CORRELATION)));
+                                new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, Bindings.Internal.CORRELATION.bindingName(newQuantifier.getAlias().toString()), Bindings.Internal.CORRELATION)));
                 transformedQuantifiers.add(newQuantifier);
             } else {
                 transformedPredicates.add(predicate);

@@ -58,10 +58,6 @@
         <module name="fdb-record-layer.fdb-record-layer-icu.main" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel target="1.8">
-      <module name="fdb-record-layer" target="11" />
-      <module name="fdb-record-layer.main" target="11" />
-      <module name="fdb-record-layer.test" target="11" />
-    </bytecodeTargetLevel>
+    <bytecodeTargetLevel target="11" />
   </component>
 </project>

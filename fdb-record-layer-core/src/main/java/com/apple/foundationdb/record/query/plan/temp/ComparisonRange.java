@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -39,6 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -75,7 +77,7 @@ import java.util.stream.Collectors;
  * </p>
  */
 @API(API.Status.EXPERIMENTAL)
-public class ComparisonRange implements PlanHashable {
+public class ComparisonRange implements PlanHashable, Correlated<ComparisonRange> {
     public static final ComparisonRange EMPTY = new ComparisonRange();
 
     /**
@@ -156,6 +158,120 @@ public class ComparisonRange implements PlanHashable {
             throw new RecordCoreException("tried to get non-existent inequality comparisons from ComparisonRange");
         }
         return inequalityComparisons;
+    }
+
+    @Nonnull
+    @Override
+    public Set<CorrelationIdentifier> getCorrelatedTo() {
+        final var builder = ImmutableSet.<CorrelationIdentifier>builder();
+        if (equalityComparison != null) {
+            builder.addAll(equalityComparison.getCorrelatedTo());
+        }
+        if (inequalityComparisons != null) {
+            for (final var inequalityComparison : inequalityComparisons) {
+                builder.addAll(inequalityComparison.getCorrelatedTo());
+            }
+        }
+        return builder.build();
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("PMD.CompareObjectsWithEquals")
+    public ComparisonRange rebase(@Nonnull final AliasMap translationMap) {
+        final var rebasedEqualityComparison = equalityComparison  == null
+                                              ? null
+                                              : equalityComparison.rebase(translationMap);
+
+        final List<Comparisons.Comparison> rebasedInequalityComparisons;
+        if (inequalityComparisons != null) {
+            boolean allRemainedSame = true;
+            final var rebasedInequalityComparisonsBuilder = ImmutableList.<Comparisons.Comparison>builder();
+            for (final var inequalityComparison : inequalityComparisons) {
+                final var rebasedInequalityComparison = inequalityComparison.rebase(translationMap);
+                rebasedInequalityComparisonsBuilder.add(rebasedInequalityComparison);
+                if (inequalityComparison != rebasedInequalityComparison) {
+                    allRemainedSame = false;
+                }
+            }
+            rebasedInequalityComparisons = allRemainedSame ? inequalityComparisons : rebasedInequalityComparisonsBuilder.build();
+        } else {
+            rebasedInequalityComparisons = null;
+        }
+
+        // reference equality is intended here as we use that mechanism to detect changes in the rebased objects
+        if (rebasedEqualityComparison == equalityComparison &&
+                rebasedInequalityComparisons == inequalityComparisons) {
+            return this;
+        }
+        if (isEquality()) {
+            Objects.requireNonNull(rebasedEqualityComparison);
+            return new ComparisonRange(rebasedEqualityComparison);
+        } else if (isInequality()) {
+            Objects.requireNonNull(rebasedInequalityComparisons);
+            return new ComparisonRange(rebasedInequalityComparisons);
+        }
+        throw new IllegalStateException("this should never be reached");
+    }
+
+    @SuppressWarnings("UnstableApiUsage")
+    @Override
+    public boolean semanticEquals(@Nullable final Object other, @Nonnull final AliasMap aliasMap) {
+        if (this == other) {
+            return true;
+        }
+        if (other == null || getClass() != other.getClass()) {
+            return false;
+        }
+        ComparisonRange that = (ComparisonRange)other;
+
+        Verify.verify(isEquality() ^ isInequality());
+        Verify.verify(that.isEquality() ^ that.isInequality());
+        
+        if (isEquality()) {
+            return Correlated.semanticEquals(this.equalityComparison, that.equalityComparison, aliasMap);
+        }
+        if (isInequality()) {
+            if (!that.isInequality()) {
+                return false;
+            }
+            Objects.requireNonNull(this.inequalityComparisons);
+            Objects.requireNonNull(that.inequalityComparisons);
+            if (inequalityComparisons.size() != that.inequalityComparisons.size()) {
+                return false;
+            }
+            for (final var inequalityComparison : inequalityComparisons) {
+                boolean found = false;
+                for (final var thatInequalityComparison : that.inequalityComparisons) {
+                    if (inequalityComparison.semanticEquals(thatInequalityComparison, aliasMap)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+        throw new IllegalStateException("this should never be reached");
+    }
+
+    @Override
+    public int semanticHashCode() {
+        if (isEquality()) {
+            Objects.requireNonNull(equalityComparison);
+            return equalityComparison.semanticHashCode();
+        }
+        if (isInequality()) {
+            Objects.requireNonNull(inequalityComparisons);
+            return inequalityComparisons.stream()
+                    .map(Comparisons.Comparison::semanticHashCode)
+                    .collect(ImmutableList.toImmutableList())
+                    .hashCode();
+        }
+        throw new IllegalStateException("this should never be reached");
     }
 
     @SuppressWarnings({"ConstantConditions", "java:S2447"})
@@ -307,21 +423,15 @@ public class ComparisonRange implements PlanHashable {
     }
 
     @Override
+    @SpotBugsSuppressWarnings("EQ_UNUSUAL")
+    @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
     public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ComparisonRange that = (ComparisonRange)o;
-        return Objects.equals(equalityComparison, that.equalityComparison) &&
-               Objects.equals(inequalityComparisons, that.inequalityComparisons);
+        return semanticEquals(o, AliasMap.identitiesFor(getCorrelatedTo()));
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(equalityComparison, inequalityComparisons);
+        return semanticHashCode();
     }
 
     @Nonnull

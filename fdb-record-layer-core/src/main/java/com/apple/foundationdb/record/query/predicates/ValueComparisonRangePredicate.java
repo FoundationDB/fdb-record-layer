@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
+import com.apple.foundationdb.record.query.plan.temp.Correlated;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.google.common.base.Verify;
@@ -211,18 +212,23 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
                 return false;
             }
 
-            return Objects.equals(comparisonRange, ((Sargable)other).comparisonRange);
+            return Correlated.semanticEquals(comparisonRange, ((Sargable)other).comparisonRange, equivalenceMap);
         }
 
         @Nonnull
         @Override
         public Sargable rebaseLeaf(@Nonnull final AliasMap translationMap) {
-            return new Sargable(getValue().rebase(translationMap), comparisonRange);
+            final var rebasedValue = getValue().rebase(translationMap);
+            final var rebasedComparisonRange = comparisonRange.rebase(translationMap);
+            if (rebasedValue != getValue() || rebasedComparisonRange != comparisonRange) {
+                return new Sargable(rebasedValue, rebasedComparisonRange);
+            }
+            return this;
         }
 
         @Override
         public int semanticHashCode() {
-            return Objects.hash(super.semanticHashCode(), comparisonRange);
+            return Objects.hash(super.semanticHashCode(), comparisonRange.semanticHashCode());
         }
 
         @Override

@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 /**
- * An map to keep track of interesting physical properties for an expression reference. References ({@link ExpressionRef})
+ * A map to keep track of interesting physical properties for an expression reference. References ({@link ExpressionRef})
  * are a central part of the memoization effort within the {@link CascadesPlanner}. Member expressions contained in
  * a reference all yield the same final result not taking into account physical properties such as sorted-ness,
  * existence of duplicates, etc. A set of plan members of a reference can be partitioned into subsets by physical
@@ -63,7 +63,7 @@ public class InterestingPropertiesMap {
     private long currentTick;
 
     /**
-     * The is the goal tick. This tick is between the {@link #watermarkCommittedTick} and the {@link #currentTick}.
+     * The watermark goal tick. This tick is between the {@link #watermarkCommittedTick} and the {@link #currentTick}.
      * This needs to be tracked as this tick is used to understand that a particular change to the interesting properties
      * has caused a proper (re-)exploration of the affected sub dag. If other pushes happen through other rules,
      * {@link #currentTick} will get further bumped and needs to cause further exploration. This tick tells that
