@@ -188,7 +188,7 @@ public class FDBDirectory extends Directory {
         if (fileReference == null) {
             return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
                     .thenApplyAsync((value) -> {
-                        final FDBLuceneFileReference fetchedref = FDBLuceneFileReference.parseFromBytes(value);
+                        final FDBLuceneFileReference fetchedref = FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(value));
                         if (fetchedref != null) {
                             this.fileReferenceCache.put(name, fetchedref);
                         }
@@ -248,11 +248,18 @@ public class FDBDirectory extends Directory {
                 reference.setEntries(storedRef.getEntries());
             }
         }
-        LOGGER.trace("writeFDBLuceneFileReference {}", reference);
         final byte[] fileReferenceBytes = reference.getBytes();
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, fileReferenceBytes.length);
+        final byte[] encodedBytes = LuceneSerializer.encode(reference.getBytes(), true, false);
+        increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
-        context.ensureActive().set(metaSubspace.pack(name), fileReferenceBytes);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(KeyValueLogMessage.of("Write lucene file reference",
+                    LogMessageKeys.FILE_NAME, name,
+                    LogMessageKeys.DATA_SIZE, fileReferenceBytes.length,
+                    LogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length,
+                    LogMessageKeys.FILE_REFERENCE, reference));
+        }
+        context.ensureActive().set(metaSubspace.pack(name), encodedBytes);
         fileReferenceCache.put(name, reference);
     }
 
@@ -263,12 +270,19 @@ public class FDBDirectory extends Directory {
      * @param value the data to be stored
      */
     public void writeData(long id, int block, @Nonnull byte[] value) {
+        final byte[] encodedBytes = LuceneSerializer.encode(value, true, false);
         //This may not be correct transactionally
-        increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, value.length);
+        increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_CALL);
-        LOGGER.trace("writeData id={}, block={}, valueSize={}", id, block, value.length);
+        if (LOGGER.isTraceEnabled()) {
+            LOGGER.trace(KeyValueLogMessage.of("Write lucene data",
+                    LogMessageKeys.FILE_ID, id,
+                    LogMessageKeys.BLOCK_NUMBER, block,
+                    LogMessageKeys.DATA_SIZE, value.length,
+                    LogMessageKeys.ENCODED_DATA_SIZE, encodedBytes.length));
+        }
         Verify.verify(value.length <= blockSize);
-        context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), value);
+        context.ensureActive().set(dataSubspace.pack(Tuple.from(id, block)), encodedBytes);
     }
 
     /**
@@ -293,7 +307,9 @@ public class FDBDirectory extends Directory {
 
             long start = System.nanoTime();
             return context.instrument(FDBStoreTimer.Events.LUCENE_READ_BLOCK,blockCache.get(Pair.of(id, block),
-                    () -> context.instrument(FDBStoreTimer.Events.LUCENE_FDB_READ_BLOCK, context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block))))
+                    () -> context.instrument(FDBStoreTimer.Events.LUCENE_FDB_READ_BLOCK,
+                            context.ensureActive().get(dataSubspace.pack(Tuple.from(id, block)))
+                                    .thenApplyAsync(data -> LuceneSerializer.decode(data)))
             ), start);
         } catch (ExecutionException e) {
             throw new RecordCoreException(CompletionExceptionLogHelper.asCause(e));
@@ -337,7 +353,7 @@ public class FDBDirectory extends Directory {
         for (KeyValue kv : context.ensureActive().getRange(metaSubspace.range())) {
             String name = metaSubspace.unpack(kv.getKey()).getString(0);
             outList.add(name);
-            final FDBLuceneFileReference fileReference = FDBLuceneFileReference.parseFromBytes(kv.getValue());
+            final FDBLuceneFileReference fileReference = FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(kv.getValue()));
             // Only composite files are prefetched.
             if (name.endsWith(".cfs")) {
                 try {
