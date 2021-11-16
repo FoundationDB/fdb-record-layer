@@ -255,7 +255,22 @@ public enum LogMessageKeys {
 
     // ranked set
     HASH_FUNCTION("hash_function"),
-    HASH("hash");
+    HASH("hash"),
+
+    // Lucene data compression
+    BLOCK_NUMBER("block_number"),
+    COMPRESSED_EVENTUALLY("compressed_eventually"),
+    COMPRESSION_SUPPOSED("compression_supposed"),
+    COMPRESSION_VERSION("compression_version"),
+    DATA_SIZE("data_size"),
+    DATA_VALUE("data_value"),
+    ENCODED_DATA_SIZE("encoded_data_size"),
+    ENCRYPTED_EVENTUALLY("encrypted_eventually"),
+    ENCRYPTION_SUPPOSED("encryption_supposed"),
+    FILE_ID("file_id"),
+    FILE_NAME("file_name"),
+    FILE_REFERENCE("file_reference"),
+    ORIGINAL_DATA_SIZE("original_data-size");
 
     private final String logKey;
 
