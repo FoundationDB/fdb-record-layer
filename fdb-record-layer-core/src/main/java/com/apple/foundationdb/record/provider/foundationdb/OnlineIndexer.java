@@ -813,7 +813,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
         private final long timeLimitMilliseconds;
-        public static final long UNLIMITED_TIME=0;
+        public static final long UNLIMITED_TIME = 0;
 
         Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
                    int maxWriteLimitBytes, long timeLimitMilliseconds) {
