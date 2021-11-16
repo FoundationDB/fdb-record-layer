@@ -74,6 +74,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link OnlineIndexer} which does not need to use {@link OnlineIndexer#buildIndex()} (or similar APIs) to
@@ -1043,7 +1044,7 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
                     try {
                         Thread.sleep(2);
                     } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        fail("The test was interrupted");
                     }
                     return old;
                 })

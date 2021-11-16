@@ -565,24 +565,24 @@ public abstract class IndexingBase {
                     .toString());
         }
 
-        validateTimeLimit();
+        validateTimeLimit(toWait);
         return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
     }
 
-    private void validateTimeLimit() {
+    private void validateTimeLimit(int toWait) {
         final long timeLimitMilliseconds = common.config.getTimeLimitMilliseconds();
-        if (timeLimitMilliseconds <= 0) {
+        if (timeLimitMilliseconds == OnlineIndexer.Config.UNLIMITED_TIME) {
             return;
         }
-        final long now = System.currentTimeMillis();
+        final long now = System.currentTimeMillis() + toWait; // adding the time we are about to wait
         if (startingTimeMillis + timeLimitMilliseconds >= now) {
             return;
         }
         throw new TimeLimitException("Time Limit Exceeded",
-                LogMessageKeys.TIME_STARTED, startingTimeMillis,
-                LogMessageKeys.TIME_LIMIT, timeLimitMilliseconds,
-                LogMessageKeys.TIME_ENDED, now,
-                LogMessageKeys.TIME_UNIT, "milliseconds");
+                LogMessageKeys.TIME_LIMIT_MILLIS, timeLimitMilliseconds,
+                LogMessageKeys.TIME_STARTED_MILLIS, startingTimeMillis,
+                LogMessageKeys.TIME_ENDED_MILLIS, now,
+                LogMessageKeys.TIME_TO_WAIT_MILLIS, toWait);
     }
 
     private boolean shouldLogBuildProgress() {
@@ -837,7 +837,7 @@ public abstract class IndexingBase {
     }
 
     /**
-     * thrown when the indexing process fails to meet a precondition.
+     * Thrown when the indexing process fails to meet a precondition.
      */
     @SuppressWarnings("serial")
     public static class ValidationException extends RecordCoreException {
@@ -858,7 +858,7 @@ public abstract class IndexingBase {
     }
 
     /**
-     * thrown when the indexing process exceeds the time limit.
+     * Thrown when the indexing process exceeds the time limit.
      */
     @SuppressWarnings("serial")
     public static class TimeLimitException extends RecordCoreException {

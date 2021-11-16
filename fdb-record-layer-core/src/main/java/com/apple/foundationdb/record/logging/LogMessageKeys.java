@@ -246,6 +246,12 @@ public enum LogMessageKeys {
     MAX_LIMIT("max_limit"),
     NEXT_CONTINUATION("next_continuation"),
 
+    // time limits milliseconds
+    TIME_LIMIT_MILLIS("time_limit_milliseconds"),
+    TIME_STARTED_MILLIS("time_started_milliseconds"),
+    TIME_ENDED_MILLIS("time_ended_milliseconds"),
+    TIME_TO_WAIT_MILLIS("time_to_wait_milliseconds"),
+
     // Log the name of the tokenizer used
     TOKENIZER_NAME("tokenizer_name"),
 

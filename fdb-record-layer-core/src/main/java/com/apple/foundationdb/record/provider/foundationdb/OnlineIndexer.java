@@ -813,6 +813,7 @@ public class OnlineIndexer implements AutoCloseable {
         private final long progressLogIntervalMillis;
         private final int increaseLimitAfter;
         private final long timeLimitMilliseconds;
+        public static final long UNLIMITED_TIME=0;
 
         Config(int maxLimit, int maxRetries, int recordsPerSecond, long progressLogIntervalMillis, int increaseLimitAfter,
                    int maxWriteLimitBytes, long timeLimitMilliseconds) {
@@ -878,7 +879,7 @@ public class OnlineIndexer implements AutoCloseable {
         }
 
         /**
-         * Exit with exception if this limit is exceeded (checked after each non-final iteration).
+         * Exit with exception if this limit is exceeded (checked after each non-final transaction).
          * @return time limit, in millisecond units.
          */
         public long getTimeLimitMilliseconds() {
@@ -918,7 +919,7 @@ public class OnlineIndexer implements AutoCloseable {
             private int recordsPerSecond = DEFAULT_RECORDS_PER_SECOND;
             private long progressLogIntervalMillis = DEFAULT_PROGRESS_LOG_INTERVAL;
             private int increaseLimitAfter = DO_NOT_RE_INCREASE_LIMIT;
-            private long timeLimitMilliseconds = 0;
+            private long timeLimitMilliseconds = UNLIMITED_TIME;
 
             protected Builder() {
 
@@ -1005,13 +1006,16 @@ public class OnlineIndexer implements AutoCloseable {
             }
 
             /**
-             * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a non-final
-             * iteration.
+             * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a
+             * non-final transaction.
              * @param timeLimitMilliseconds the time limit, in milliseconds units
              * @return this builder
              */
             @Nonnull
             public Builder setTimeLimitMilliseconds(long timeLimitMilliseconds) {
+                if (timeLimitMilliseconds < UNLIMITED_TIME) {
+                    timeLimitMilliseconds = UNLIMITED_TIME;
+                }
                 this.timeLimitMilliseconds = timeLimitMilliseconds;
                 return this;
             }
@@ -1825,8 +1829,8 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a non-final
-         * iteration.
-         * @param timeLimitMilliseconds the time limit, in milliseconds units
+         * transaction.
+         * @param timeLimitMilliseconds the time limit in milliseconds
          * @return this builder
          */
         @Nonnull
