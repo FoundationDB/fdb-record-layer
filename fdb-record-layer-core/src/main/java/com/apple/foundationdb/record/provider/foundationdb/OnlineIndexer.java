@@ -880,7 +880,7 @@ public class OnlineIndexer implements AutoCloseable {
 
         /**
          * Exit with exception if this limit is exceeded (checked after each non-final transaction).
-         * @return time limit, in millisecond units.
+         * @return time limit in millisecond
          */
         public long getTimeLimitMilliseconds() {
             return timeLimitMilliseconds;
@@ -1008,7 +1008,7 @@ public class OnlineIndexer implements AutoCloseable {
             /**
              * Set the time limit. The indexer will exit with a proper exception if this time is exceeded after a
              * non-final transaction.
-             * @param timeLimitMilliseconds the time limit, in milliseconds units
+             * @param timeLimitMilliseconds the time limit in milliseconds
              * @return this builder
              */
             @Nonnull
