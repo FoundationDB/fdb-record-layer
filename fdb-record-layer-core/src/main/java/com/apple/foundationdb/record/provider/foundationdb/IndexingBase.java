@@ -93,6 +93,7 @@ public abstract class IndexingBase {
 
     private long timeOfLastProgressLogMillis = 0;
     private boolean forceStampOverwrite = false;
+    private final long startingTimeMillis;
 
     IndexingBase(@Nonnull IndexingCommon common,
                  @Nonnull OnlineIndexer.IndexingPolicy policy) {
@@ -108,6 +109,7 @@ public abstract class IndexingBase {
         this.isScrubber = isScrubber;
         IndexState expectedIndexState = isScrubber ? IndexState.READABLE : IndexState.WRITE_ONLY;
         this.throttle = new IndexingThrottle(common, expectedIndexState);
+        this.startingTimeMillis = System.currentTimeMillis();
     }
 
     // helper functions
@@ -563,7 +565,24 @@ public abstract class IndexingBase {
                     .toString());
         }
 
+        validateTimeLimit(toWait);
         return MoreAsyncUtil.delayedFuture(toWait, TimeUnit.MILLISECONDS).thenApply(vignore3 -> true);
+    }
+
+    private void validateTimeLimit(int toWait) {
+        final long timeLimitMilliseconds = common.config.getTimeLimitMilliseconds();
+        if (timeLimitMilliseconds == OnlineIndexer.Config.UNLIMITED_TIME) {
+            return;
+        }
+        final long now = System.currentTimeMillis() + toWait; // adding the time we are about to wait
+        if (startingTimeMillis + timeLimitMilliseconds >= now) {
+            return;
+        }
+        throw new TimeLimitException("Time Limit Exceeded",
+                LogMessageKeys.TIME_LIMIT_MILLIS, timeLimitMilliseconds,
+                LogMessageKeys.TIME_STARTED_MILLIS, startingTimeMillis,
+                LogMessageKeys.TIME_ENDED_MILLIS, now,
+                LogMessageKeys.TIME_TO_WAIT_MILLIS, toWait);
     }
 
     private boolean shouldLogBuildProgress() {
@@ -818,7 +837,7 @@ public abstract class IndexingBase {
     }
 
     /**
-     * thrown when the indexing process fails to meet a precondition.
+     * Thrown when the indexing process fails to meet a precondition.
      */
     @SuppressWarnings("serial")
     public static class ValidationException extends RecordCoreException {
@@ -832,6 +851,27 @@ public abstract class IndexingBase {
                 current != null;
                 current = current.getCause()) {
             if (current instanceof ValidationException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Thrown when the indexing process exceeds the time limit.
+     */
+    @SuppressWarnings("serial")
+    public static class TimeLimitException extends RecordCoreException {
+        TimeLimitException(@Nonnull String msg, @Nullable Object ... keyValues) {
+            super(msg, keyValues);
+        }
+    }
+
+    public static boolean isTimeLimitException(@Nullable Throwable ex) {
+        for (Throwable current = ex;
+                current != null;
+                current = current.getCause()) {
+            if (current instanceof TimeLimitException) {
                 return true;
             }
         }

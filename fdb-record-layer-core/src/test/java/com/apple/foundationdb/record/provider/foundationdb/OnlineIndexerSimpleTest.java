@@ -74,6 +74,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Tests for {@link OnlineIndexer} which does not need to use {@link OnlineIndexer#buildIndex()} (or similar APIs) to
@@ -1014,6 +1015,42 @@ public class OnlineIndexerSimpleTest extends OnlineIndexerTest {
             final boolean range1IsEmpty = RangeSet.isFirstKey(range.begin) && RangeSet.isFinalKey(range.end);
             assertTrue(range1IsEmpty);
             context.commit(); // fake commit, happy compiler
+        }
+    }
+
+    @Test
+    public void testTimeLimit() {
+        List<TestRecords1Proto.MySimpleRecord> records = LongStream.range(0, 200).mapToObj(val ->
+                TestRecords1Proto.MySimpleRecord.newBuilder().setRecNo(val).setNumValue2((int)val + 1).build()
+        ).collect(Collectors.toList());
+        Index index = new Index("newIndex", field("num_value_2").ungrouped(), IndexTypes.SUM);
+        IndexAggregateFunction aggregateFunction = new IndexAggregateFunction(FunctionNames.SUM, index.getRootExpression(), index.getName());
+        List<String> indexTypes = Collections.singletonList("MySimpleRecord");
+        FDBRecordStoreTestBase.RecordMetaDataHook hook = metaDataBuilder -> metaDataBuilder.addIndex("MySimpleRecord", index);
+
+        openSimpleMetaData();
+        try (FDBRecordContext context = openContext()) {
+            records.forEach(recordStore::saveRecord);
+            context.commit();
+        }
+
+        openSimpleMetaData(hook);
+        try (OnlineIndexer indexer = OnlineIndexer.newBuilder()
+                .setDatabase(fdb).setMetaData(metaData).setIndex(index).setSubspace(subspace)
+                .setTimeLimitMilliseconds(1)
+                .setLimit(20)
+                .setConfigLoader(old -> {
+                    // Ensure that time limit is exceeded
+                    try {
+                        Thread.sleep(2);
+                    } catch (InterruptedException e) {
+                        fail("The test was interrupted");
+                    }
+                    return old;
+                })
+                .build()) {
+            IndexingBase.TimeLimitException e = assertThrows(IndexingBase.TimeLimitException.class, indexer::buildIndex);
+            assertTrue(e.getMessage().contains("Time Limit Exceeded"));
         }
     }
 }
