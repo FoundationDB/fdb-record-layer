@@ -61,13 +61,11 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -92,11 +90,11 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
         if (expression instanceof RecordQueryScanPlan) {
             return fromKeyAndScanComparisons(context.getCommonPrimaryKey(),
                     ((RecordQueryScanPlan)expression).getComparisons(),
-                    (RecordQueryScanPlan)expression);
+                    false);
         } else if (expression instanceof PrimaryScanExpression) {
             return fromKeyAndScanComparisons(context.getCommonPrimaryKey(),
                     ((PrimaryScanExpression)expression).scanComparisons(),
-                    null);
+                    false);
         } else if (expression instanceof RecordQueryIndexPlan || expression instanceof RecordQueryCoveringIndexPlan) {
             return fromIndexScanOrCoveringIndexScan(context, (RecordQueryPlan)expression);
         } else if (expression instanceof LogicalSortExpression) {
@@ -117,7 +115,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                 }
             }
 
-            return Optional.of(new OrderingInfo(equalityBoundKeyMap, keyPartBuilder.build(), null, null));
+            return Optional.of(new OrderingInfo(equalityBoundKeyMap, keyPartBuilder.build(), childOrderingInfoOptional.map(OrderingInfo::isDistinct).orElse(false)));
         } else if (expression instanceof RecordQueryIntersectionPlan) {
             final RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan)expression;
             return fromSetPlanAndChildren(intersectionPlan,
@@ -165,14 +163,19 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
     public Optional<OrderingInfo> evaluateAtRef(@Nonnull ExpressionRef<? extends RelationalExpression> ref, @Nonnull List<Optional<OrderingInfo>> memberResults) {
         final List<Optional<Ordering>> orderingOptionals = orderingOptionals(memberResults);
         final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeys(orderingOptionals, Ordering.preserveOrder());
-        if (!commonOrderingKeysOptional.isPresent()) {
+        if (commonOrderingKeysOptional.isEmpty()) {
             return Optional.empty();
         }
 
         final Optional<SetMultimap<KeyExpression, Comparisons.Comparison>> commonEqualityBoundKeysOptional =
                 Ordering.combineEqualityBoundKeys(orderingOptionals, Ordering::intersectEqualityBoundKeys);
+
+        final var allAreDistinct = memberResults
+                .stream()
+                .allMatch(orderingInfoOptional -> orderingInfoOptional.map(OrderingInfo::isDistinct).orElse(false));
+
         return commonEqualityBoundKeysOptional
-                .map(keyExpressions -> new OrderingInfo(keyExpressions, commonOrderingKeysOptional.get(), null, childOrderingInfos(memberResults)));
+                .map(keyExpressions -> new OrderingInfo(keyExpressions, commonOrderingKeysOptional.get(), allAreDistinct));
 
     }
 
@@ -206,25 +209,13 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
         final KeyExpression commonPrimaryKeyForIndex = RecordMetaData.commonPrimaryKey(recordTypesForIndex);
         final KeyExpression keyExpression = ValueIndexExpansionVisitor.fullKey(index, commonPrimaryKeyForIndex);
         final ScanComparisons scanComparisons = recordQueryIndexPlan.getComparisons();
-        return fromKeyAndScanComparisons(keyExpression, scanComparisons, recordQueryIndexPlan);
-    }
-
-    @Nullable
-    private static List<OrderingInfo> childOrderingInfos(@Nonnull List<Optional<OrderingInfo>> memberResults) {
-        List<OrderingInfo> result = new ArrayList<>(memberResults.size());
-        for (Optional<OrderingInfo> member : memberResults) {
-            if (!member.isPresent()) {
-                return null;
-            }
-            result.add(member.get());
-        }
-        return result;
+        return fromKeyAndScanComparisons(keyExpression, scanComparisons, index.isUnique());
     }
 
     @Nonnull
     private static Optional<OrderingInfo> fromKeyAndScanComparisons(@Nullable final KeyExpression keyExpression,
                                                                     @Nonnull final ScanComparisons scanComparisons,
-                                                                    @Nullable RecordQueryPlan orderedPlan) {
+                                                                    final boolean isDistinct) {
         if (keyExpression == null) {
             return Optional.empty();
         }
@@ -256,7 +247,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                     : ComparisonRange.Type.EMPTY));
         }
 
-        return Optional.of(new OrderingInfo(equalityBoundKeyMapBuilder.build(), result.build(), orderedPlan, null));
+        return Optional.of(new OrderingInfo(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct));
     }
 
     @Nonnull
@@ -271,15 +262,14 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                 combineFn)
                 .map(ordering -> new OrderingInfo(ordering.getEqualityBoundKeyMap(),
                         ordering.getOrderingKeyParts(),
-                        plan,
-                        childOrderingInfos(childResults)));
+                        false)); // TODO do better than this as we can determine this by using the semantics of plan
     }
 
     public static Optional<Ordering> fromOrderingsForSetPlan(@Nonnull final List<Optional<Ordering>> orderingOptionals,
                                                              @Nonnull final Ordering requiredOrdering,
                                                              @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparisons.Comparison>> combineFn) {
         final Optional<List<KeyPart>> commonOrderingKeys = Ordering.commonOrderingKeys(orderingOptionals, requiredOrdering);
-        if (!commonOrderingKeys.isPresent()) {
+        if (commonOrderingKeys.isEmpty()) {
             return Optional.empty();
         }
 
@@ -309,7 +299,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                 resultKeyPartBuilder.add(KeyPart.of(normalizedKeyExpression, ComparisonRange.Type.EMPTY));
             }
 
-            return Optional.of(new OrderingInfo(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), null, null));
+            return Optional.of(new OrderingInfo(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), childOrderingInfo.isDistinct()));
         } else {
             return Optional.empty();
         }
@@ -363,7 +353,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
 
             equalityBoundFileKeyExpressions.forEach(resultEqualityBoundKeyMap::put);
 
-            return Optional.of(new OrderingInfo(resultEqualityBoundKeyMap, resultOrderingKeyParts, null, null));
+            return Optional.of(new OrderingInfo(resultEqualityBoundKeyMap, resultOrderingKeyParts, childOrderingInfo.isDistinct()));
         } else {
             return Optional.empty();
         }
@@ -374,19 +364,22 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
      */
     public static class OrderingInfo {
         @Nonnull final Ordering ordering;
-        @Nullable final RecordQueryPlan orderedPlan;
-        @Nullable final List<OrderingInfo> children;
+        final boolean isDistinct;
 
-        public OrderingInfo(@Nonnull final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundKeyMap, final List<KeyPart> orderingKeyParts,
-                            @Nullable final RecordQueryPlan orderedPlan, @Nullable final List<OrderingInfo> children) {
+        public OrderingInfo(@Nonnull final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundKeyMap,
+                            @Nonnull final List<KeyPart> orderingKeyParts,
+                            final boolean isDistinct) {
             this.ordering = new Ordering(equalityBoundKeyMap, orderingKeyParts);
-            this.orderedPlan = orderedPlan;
-            this.children = children;
+            this.isDistinct = isDistinct;
         }
 
         @Nonnull
         public Ordering getOrdering() {
             return ordering;
+        }
+
+        public boolean isDistinct() {
+            return isDistinct;
         }
 
         public SetMultimap<KeyExpression, Comparisons.Comparison> getEqualityBoundKeyMap() {
@@ -403,16 +396,6 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
 
         public boolean isPreserve() {
             return ordering.isPreserve();
-        }
-
-        // TODO: This suggests that ordering and distinct should be tracked together.
-        public boolean strictlyOrderedIfUnique(Function<String,Index> getIndex, int nkeys) {
-            if (orderedPlan instanceof RecordQueryIndexPlan) {
-                RecordQueryIndexPlan indexPlan = (RecordQueryIndexPlan)orderedPlan;
-                Index index = getIndex.apply(indexPlan.getIndexName());
-                return index.isUnique() && nkeys >= index.getColumnSize();
-            }
-            return false;
         }
     }
 

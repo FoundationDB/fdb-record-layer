@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp.matching;
 
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterator;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
 
 import java.util.Iterator;
 import java.util.List;

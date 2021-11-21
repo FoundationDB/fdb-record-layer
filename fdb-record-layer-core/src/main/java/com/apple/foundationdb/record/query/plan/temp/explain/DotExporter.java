@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp.explain;
 
-import com.apple.foundationdb.record.query.plan.temp.TopologicalSort;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;

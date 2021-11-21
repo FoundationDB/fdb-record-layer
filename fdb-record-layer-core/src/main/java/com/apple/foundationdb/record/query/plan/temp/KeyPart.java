@@ -71,6 +71,11 @@ public class KeyPart {
         return Objects.hash(getNormalizedKeyExpression(), getComparisonRangeType());
     }
 
+    @Override
+    public String toString() {
+        return "(" + normalizedKeyExpression + ", " + comparisonRangeType + ')';
+    }
+
     @Nonnull
     public static List<KeyPart> prefix(@Nonnull final List<? extends KeyPart> keyParts, final int endExclusive) {
         return ImmutableList.copyOf(keyParts.subList(0, endExclusive));

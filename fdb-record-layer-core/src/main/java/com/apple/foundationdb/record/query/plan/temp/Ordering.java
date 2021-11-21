@@ -21,10 +21,13 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
 import com.google.common.base.Verify;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
@@ -40,6 +43,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
+import java.util.stream.StreamSupport;
 
 /**
  * This class captures an ordering property. An ordering is a list of parts that define the actual ordering of
@@ -192,6 +196,27 @@ public class Ordering {
         return true;
     }
 
+    @Nonnull
+    public Optional<List<KeyPart>> satisfiesRequiredOrdering(@Nonnull final List<KeyExpression> requiredOrderingKeyParts,
+                                                             @Nonnull final Set<KeyExpression> comparablyBoundKeys) {
+        final var partialOrder =
+                PartialOrder.<KeyPart>builder()
+                        .addListWithDependencies(this.getOrderingKeyParts())
+                        .addSet(equalityBoundKeyMap.keySet().stream().map(keyExpression -> KeyPart.of(keyExpression, ComparisonRange.Type.EQUALITY)).collect(ImmutableSet.toImmutableSet()))
+                        .addSet(comparablyBoundKeys.stream().map(keyExpression -> KeyPart.of(keyExpression, ComparisonRange.Type.EMPTY)).collect(ImmutableSet.toImmutableSet()))
+                        .build();
+
+        final var satisfyingPermutations =
+                TopologicalSort.satisfyingPermutations(
+                        partialOrder,
+                        requiredOrderingKeyParts,
+                        KeyPart::getNormalizedKeyExpression,
+                        (t, p) -> true);
+
+        return StreamSupport.stream(satisfyingPermutations.spliterator(), false)
+                .findAny();
+    }
+
     /**
      * Method to combine a list of {@link Ordering}s into one {@link Ordering} is possible. This method is e.g. used
      * by logic to establish a comparison key that reasons ordering in the context of planning for a distinct set
@@ -290,7 +315,7 @@ public class Ordering {
             final Optional<Ordering> currentOrderingOptional = orderingOptionalsIterator.next();
 
             //
-            // If any of the orderings are not set, the common ordering is not well defined. Return
+            // If any of the orderings are not set, the common ordering is not well-defined. Return
             // with Optional.empty().
             //
             if (!currentOrderingOptional.isPresent()) {
