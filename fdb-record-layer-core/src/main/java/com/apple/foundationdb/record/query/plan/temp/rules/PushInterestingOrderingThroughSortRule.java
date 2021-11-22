@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
@@ -78,7 +77,7 @@ public class PushInterestingOrderingThroughSortRule extends PlannerRule<LogicalS
             final List<KeyExpression> normalizedSortKeys = sortKeyExpression.normalizeKeyForPositions();
             final ImmutableList.Builder<KeyPart> keyPartBuilder = ImmutableList.builder();
             for (final KeyExpression keyExpression : normalizedSortKeys) {
-                keyPartBuilder.add(KeyPart.of(keyExpression, ComparisonRange.Type.EMPTY));
+                keyPartBuilder.add(KeyPart.of(keyExpression));
             }
 
             final ImmutableSet<Ordering> orderings =

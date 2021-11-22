@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
-import com.google.common.base.Verify;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -202,8 +201,8 @@ public class Ordering {
         final var partialOrder =
                 PartialOrder.<KeyPart>builder()
                         .addListWithDependencies(this.getOrderingKeyParts())
-                        .addSet(equalityBoundKeyMap.keySet().stream().map(keyExpression -> KeyPart.of(keyExpression, ComparisonRange.Type.EQUALITY)).collect(ImmutableSet.toImmutableSet()))
-                        .addSet(comparablyBoundKeys.stream().map(keyExpression -> KeyPart.of(keyExpression, ComparisonRange.Type.EMPTY)).collect(ImmutableSet.toImmutableSet()))
+                        .addSet(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
+                        .addSet(comparablyBoundKeys.stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
                         .build();
 
         final var satisfyingPermutations =
@@ -372,9 +371,6 @@ public class Ordering {
 
                     final KeyPart currentKeyPart = currentOrderingKeysIterator.next();
 
-                    Verify.verify(currentKeyPart.getComparisonRangeType() == ComparisonRange.Type.INEQUALITY ||
-                                  currentKeyPart.getComparisonRangeType() == ComparisonRange.Type.EMPTY);
-
                     final KeyExpression normalizedCurrentKeyPart = currentKeyPart.getNormalizedKeyExpression();
                     if (!commonKeyPart.getNormalizedKeyExpression().equals(normalizedCurrentKeyPart)) {
                         if (equalityBoundKeyMap.containsKey(normalizedCurrentKeyPart)) {
@@ -470,7 +466,7 @@ public class Ordering {
         }
 
         final Optional<Ordering> commonOrderingInfoOptional = membersIterator.next();
-        if (!commonOrderingInfoOptional.isPresent()) {
+        if (commonOrderingInfoOptional.isEmpty()) {
             return Optional.empty();
         }
 
@@ -479,7 +475,7 @@ public class Ordering {
 
         while (membersIterator.hasNext()) {
             final Optional<Ordering> currentOrderingOptional = membersIterator.next();
-            if (!currentOrderingOptional.isPresent()) {
+            if (currentOrderingOptional.isEmpty()) {
                 return Optional.empty();
             }
 

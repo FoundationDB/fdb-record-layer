@@ -36,10 +36,8 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlanWithIndex;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQuerySetPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
@@ -111,25 +109,25 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                     childOrderingInfoOptional.map(OrderingInfo::getEqualityBoundKeyMap).orElse(ImmutableSetMultimap.of());
             for (final KeyExpression keyExpression : normalizedSortKeys) {
                 if (!equalityBoundKeyMap.containsKey(keyExpression)) {
-                    keyPartBuilder.add(KeyPart.of(keyExpression, ComparisonRange.Type.EMPTY));
+                    keyPartBuilder.add(KeyPart.of(keyExpression));
                 }
             }
 
             return Optional.of(new OrderingInfo(equalityBoundKeyMap, keyPartBuilder.build(), childOrderingInfoOptional.map(OrderingInfo::isDistinct).orElse(false)));
         } else if (expression instanceof RecordQueryIntersectionPlan) {
             final RecordQueryIntersectionPlan intersectionPlan = (RecordQueryIntersectionPlan)expression;
-            return fromSetPlanAndChildren(intersectionPlan,
+            return fromSetPlanAndChildren(
                     childResults,
                     orderingFromComparisonKey(intersectionPlan.getComparisonKey()),
                     Ordering::unionEqualityBoundKeys);
         } else if (expression instanceof RecordQueryUnionPlan) {
             final RecordQueryUnionPlan unionPlan = (RecordQueryUnionPlan)expression;
-            return fromSetPlanAndChildren(unionPlan,
+            return fromSetPlanAndChildren(
                     childResults,
                     orderingFromComparisonKey(unionPlan.getComparisonKey()),
                     Ordering::intersectEqualityBoundKeys);
         } else if (expression instanceof RecordQueryUnorderedUnionPlan) {
-            return fromSetPlanAndChildren((RecordQueryUnorderedUnionPlan)expression, childResults, Ordering.preserveOrder(), Ordering::intersectEqualityBoundKeys);
+            return fromSetPlanAndChildren(childResults, Ordering.preserveOrder(), Ordering::intersectEqualityBoundKeys);
         } else if (expression instanceof RecordQueryInUnionPlan) {
             return fromChildrenAndInUnionPlan(childResults, (RecordQueryInUnionPlan)expression);
         } else if (expression instanceof RecordQueryPredicatesFilterPlan) {
@@ -145,7 +143,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                 comparisonKey
                         .normalizeKeyForPositions()
                         .stream()
-                        .map(e -> KeyPart.of(e, ComparisonRange.Type.INEQUALITY))
+                        .map(KeyPart::of)
                         .collect(Collectors.toList()));
     }
 
@@ -241,18 +239,14 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
             // I think that restriction can be relaxed.
             //
 
-            result.add(KeyPart.of(currentKeyExpression,
-                    i == scanComparisons.getEqualitySize()
-                    ? ComparisonRange.Type.INEQUALITY
-                    : ComparisonRange.Type.EMPTY));
+            result.add(KeyPart.of(currentKeyExpression));
         }
 
         return Optional.of(new OrderingInfo(equalityBoundKeyMapBuilder.build(), result.build(), isDistinct));
     }
 
     @Nonnull
-    public static Optional<OrderingInfo> fromSetPlanAndChildren(@Nullable final RecordQuerySetPlan plan,
-                                                                @Nonnull final List<Optional<OrderingInfo>> childResults,
+    public static Optional<OrderingInfo> fromSetPlanAndChildren(@Nonnull final List<Optional<OrderingInfo>> childResults,
                                                                 @Nonnull final Ordering requiredOrdering,
                                                                 @Nonnull final BinaryOperator<SetMultimap<KeyExpression, Comparisons.Comparison>> combineFn) {
         final List<Optional<Ordering>> orderingOptionals = orderingOptionals(childResults);
@@ -296,7 +290,7 @@ public class OrderingProperty implements PlannerProperty<Optional<OrderingProper
                 if (resultEqualityBoundKeyMap.containsKey(normalizedKeyExpression)) {
                     resultEqualityBoundKeyMap.removeAll(normalizedKeyExpression);
                 }
-                resultKeyPartBuilder.add(KeyPart.of(normalizedKeyExpression, ComparisonRange.Type.EMPTY));
+                resultKeyPartBuilder.add(KeyPart.of(normalizedKeyExpression));
             }
 
             return Optional.of(new OrderingInfo(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), childOrderingInfo.isDistinct()));

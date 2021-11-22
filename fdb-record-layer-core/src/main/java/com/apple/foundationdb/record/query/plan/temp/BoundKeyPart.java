@@ -33,6 +33,9 @@ import java.util.Optional;
  * A key expression that can be bound by a comparison during graph matching.
  */
 public class BoundKeyPart extends KeyPart {
+    @Nonnull
+    private final ComparisonRange.Type comparisonRangeType;
+
     @Nullable
     private final QueryPredicate queryPredicate;
 
@@ -49,8 +52,10 @@ public class BoundKeyPart extends KeyPart {
     private BoundKeyPart(@Nonnull final KeyExpression normalizedKeyExpression,
                          @Nonnull final ComparisonRange.Type comparisonRangeType,
                          @Nullable final QueryPredicate queryPredicate,
-                         @Nullable final QueryPredicate candidatePredicate) {
-        super(normalizedKeyExpression, comparisonRangeType);
+                         @Nullable final QueryPredicate candidatePredicate,
+                         final boolean isReverse) {
+        super(normalizedKeyExpression, isReverse);
+        this.comparisonRangeType = comparisonRangeType;
         this.queryPredicate = queryPredicate;
         this.candidatePredicate = candidatePredicate;
     }
@@ -63,6 +68,11 @@ public class BoundKeyPart extends KeyPart {
     @Nullable
     public QueryPredicate getCandidatePredicate() {
         return candidatePredicate;
+    }
+
+    @Nonnull
+    public ComparisonRange.Type getComparisonRangeType() {
+        return comparisonRangeType;
     }
 
     public Optional<CorrelationIdentifier> getParameterAlias() {
@@ -102,7 +112,8 @@ public class BoundKeyPart extends KeyPart {
     public static BoundKeyPart of(@Nonnull final KeyExpression normalizedKeyExpression,
                                   @Nonnull final ComparisonRange.Type comparisonRangeType,
                                   @Nullable final QueryPredicate queryPredicate,
-                                  @Nullable final QueryPredicate candidatePredicate) {
-        return new BoundKeyPart(normalizedKeyExpression, comparisonRangeType, queryPredicate, candidatePredicate);
+                                  @Nullable final QueryPredicate candidatePredicate,
+                                  final boolean isReverse) {
+        return new BoundKeyPart(normalizedKeyExpression, comparisonRangeType, queryPredicate, candidatePredicate, isReverse);
     }
 }

@@ -301,7 +301,8 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
                     BoundKeyPart.of(normalizedKey,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                             queryPredicate,
-                            candidatePredicate));
+                            candidatePredicate,
+                            isReverse));
         }
 
         return builder.build();

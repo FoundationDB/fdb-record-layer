@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlanBase;
-import com.apple.foundationdb.record.query.plan.temp.ComparisonRange;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
@@ -238,7 +237,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                 if (requiredKeyPart.getNormalizedKeyExpression().equals(providedKeyPart.getNormalizedKeyExpression())) {
                     break;
                 } else if (inBoundExpressions.contains(requiredKeyPart.getNormalizedKeyExpression())) {
-                    resultingOrderingKeyPartBuilder.add(KeyPart.of(requiredKeyPart.getNormalizedKeyExpression(), ComparisonRange.Type.EMPTY));
+                    resultingOrderingKeyPartBuilder.add(KeyPart.of(requiredKeyPart.getNormalizedKeyExpression()));
                 } else {
                     toBeAdded = null;
                     break;
