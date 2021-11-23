@@ -51,11 +51,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Tag(Tags.RequiresFDB)
 public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
-    private int mockSelectionCount;
 
     @BeforeEach
     void setup() throws Exception {
-        mockSelectionCount = 0;
     }
 
     @DualPlannerTest
@@ -109,8 +107,7 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey());
 
-        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> {
-        }, record -> { }));
+        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> { }, record -> { }));
     }
 
     @DualPlannerTest
@@ -131,8 +128,7 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey());
 
-        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> {
-        }, record -> { }));
+        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> { }, record -> { }));
     }
 
     @DualPlannerTest
@@ -228,8 +224,7 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
         // Iteration 3, start with previous continuation, fail since one plan ends sooner
         byte[] continuation2 = result.getContinuation().toBytes();
         assertThrows(RecordCoreException.class, () -> querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation2, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(), count -> {
-                }, record -> { }, context -> { }));
+                continuation2, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(), count -> { }, record -> { }, context -> { }));
     }
 
     @Nonnull
