@@ -37,10 +37,12 @@ class OrderingTest {
 
         final var requiredOrdering = ImmutableList.of(a, b, c);
 
-        final var providedOrdering = new Ordering(
-                ImmutableSetMultimap.of(b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
-                ImmutableList.of(KeyPart.of(a, ComparisonRange.Type.INEQUALITY),
-                        KeyPart.of(c, ComparisonRange.Type.INEQUALITY)));
+        final var providedOrdering =
+                new Ordering(
+                        ImmutableSetMultimap.of(b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                        ImmutableList.of(KeyPart.of(a),
+                                KeyPart.of(c)),
+                        false);
 
         System.out.println(providedOrdering.satisfiesRequiredOrdering(requiredOrdering, ImmutableSet.of()));
     }
@@ -53,9 +55,11 @@ class OrderingTest {
 
         final var requiredOrdering = ImmutableList.of(a, b, c);
 
-        final var providedOrdering = new Ordering(
-                ImmutableSetMultimap.of(a, new Comparisons.NullComparison(Comparisons.Type.IS_NULL), b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
-                ImmutableList.of(KeyPart.of(c, ComparisonRange.Type.INEQUALITY)));
+        final var providedOrdering =
+                new Ordering(
+                        ImmutableSetMultimap.of(a, new Comparisons.NullComparison(Comparisons.Type.IS_NULL), b, new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                        ImmutableList.of(KeyPart.of(c)),
+                        false);
 
         System.out.println(providedOrdering.satisfiesRequiredOrdering(requiredOrdering, ImmutableSet.of()));
     }

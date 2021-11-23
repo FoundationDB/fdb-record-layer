@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalTypeFilterExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.PrimaryScanExpression;
@@ -110,11 +111,15 @@ public class PrimaryScanMatchCandidate implements MatchCandidate {
     @Nonnull
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch,
-                                                       @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                       final boolean isReverse) {
+                                                       @Nonnull final List<ComparisonRange> comparisonRanges) {
+        final var reverseScanOrder =
+                partialMatch.getMatchInfo()
+                        .deriveReverseScanOrder()
+                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of can"));
+
         return new LogicalTypeFilterExpression(getQueriedRecordTypes(),
                 new PrimaryScanExpression(getAvailableRecordTypes(),
                         comparisonRanges,
-                        isReverse));
+                        reverseScanOrder));
     }
 }

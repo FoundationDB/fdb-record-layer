@@ -27,13 +27,13 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPl
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
+import com.apple.foundationdb.record.query.plan.temp.Ordering;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalSortExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty.OrderingInfo;
 
 import javax.annotation.Nonnull;
 import java.util.Iterator;
@@ -42,10 +42,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalSortExpression;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers.anyPlan;
-import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
+import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.logicalSortExpression;
 
 /**
  * A rule that implements a sort expression by removing this expression if appropriate.
@@ -74,15 +74,15 @@ public class RemoveSortRule extends PlannerRule<LogicalSortExpression> {
             return;
         }
 
-        final Optional<OrderingInfo> orderingInfoOptional = OrderingProperty.evaluate(innerPlan, call.getContext());
-        if (!orderingInfoOptional.isPresent()) {
+        final Optional<Ordering> orderingOptional = OrderingProperty.evaluate(innerPlan, call.getContext());
+        if (orderingOptional.isEmpty()) {
             return;
         }
 
-        final OrderingInfo orderingInfo = orderingInfoOptional.get();
-        final Set<KeyExpression> equalityBoundKeys = orderingInfo.getEqualityBoundKeys();
+        final Ordering ordering = orderingOptional.get();
+        final Set<KeyExpression> equalityBoundKeys = ordering.getEqualityBoundKeys();
         int equalityBoundUnsorted = equalityBoundKeys.size();
-        final List<KeyPart> orderingKeys = orderingInfo.getOrderingKeyParts();
+        final List<KeyPart> orderingKeys = ordering.getOrderingKeyParts();
         final Iterator<KeyPart> orderingKeysIterator = orderingKeys.iterator();
 
         final List<KeyExpression> normalizedSortExpressions = sortKeyExpression.normalizeKeyForPositions();

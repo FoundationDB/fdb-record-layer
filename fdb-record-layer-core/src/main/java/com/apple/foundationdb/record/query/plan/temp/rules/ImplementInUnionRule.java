@@ -61,7 +61,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
@@ -137,11 +136,11 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                         .stream()
                         .flatMap(plan -> {
                             final Optional<Ordering> orderingForLegOptional =
-                                    OrderingProperty.evaluate(plan, context).map(OrderingProperty.OrderingInfo::getOrdering);
+                                    OrderingProperty.evaluate(plan, context);
 
                             return orderingForLegOptional
-                                    .map(ordering -> Stream.of(Pair.of(ordering, plan)))
-                                    .orElse(Stream.of());
+                                    .stream()
+                                    .map(ordering -> Pair.of(ordering, plan));
                         })
                         .collect(Collectors.groupingBy(Pair::getLeft,
                                 Collectors.mapping(Pair::getRight,
@@ -234,10 +233,10 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
             KeyPart toBeAdded = providedKeyPart;
             while (requiredOrderingIterator.hasNext()) {
                 final KeyPart requiredKeyPart = requiredOrderingIterator.next();
-                if (requiredKeyPart.getNormalizedKeyExpression().equals(providedKeyPart.getNormalizedKeyExpression())) {
+                if (requiredKeyPart.equals(providedKeyPart)) {
                     break;
                 } else if (inBoundExpressions.contains(requiredKeyPart.getNormalizedKeyExpression())) {
-                    resultingOrderingKeyPartBuilder.add(KeyPart.of(requiredKeyPart.getNormalizedKeyExpression()));
+                    resultingOrderingKeyPartBuilder.add(KeyPart.of(requiredKeyPart.getNormalizedKeyExpression(), requiredKeyPart.isReverse()));
                 } else {
                     toBeAdded = null;
                     break;
@@ -254,6 +253,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(providedOrdering.getEqualityBoundKeyMap());
         inBoundExpressions.forEach(resultEqualityBoundKeyMap::removeAll);
 
-        return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultingOrderingKeyPartBuilder.build()));
+        return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultingOrderingKeyPartBuilder.build(), providedOrdering.isDistinct()));
     }
 }

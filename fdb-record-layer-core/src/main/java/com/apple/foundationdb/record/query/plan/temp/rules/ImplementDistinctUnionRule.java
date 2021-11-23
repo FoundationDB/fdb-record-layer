@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
-import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
@@ -41,7 +41,6 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty.OrderingInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -121,7 +120,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                                             .stream()
                                             .flatMap(plan -> {
                                                 final Optional<Ordering> orderingForLegOptional =
-                                                        OrderingProperty.evaluate(plan, context).map(OrderingInfo::getOrdering);
+                                                        OrderingProperty.evaluate(plan, context);
 
                                                 return orderingForLegOptional
                                                         .map(ordering -> Stream.of(Pair.of(ordering, plan)))
@@ -142,7 +141,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
 
             for (final Ordering requiredOrdering : requiredOrderings) {
                 final Optional<Ordering> combinedOrderingOptional =
-                        OrderingProperty.fromOrderingsForSetPlan(orderingOptionals, requiredOrdering, Ordering::intersectEqualityBoundKeys);
+                        OrderingProperty.deriveForUnionFromOrderings(orderingOptionals, requiredOrdering, Ordering::intersectEqualityBoundKeys);
                 if (!combinedOrderingOptional.isPresent()) {
                     continue;
                 }

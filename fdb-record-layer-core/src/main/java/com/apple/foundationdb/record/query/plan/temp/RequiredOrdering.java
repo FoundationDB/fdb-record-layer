@@ -1,5 +1,5 @@
 /*
- * InterestingOrdering.java
+ * RequiredOrdering.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,7 +32,7 @@ import java.util.Objects;
  * Instances of this class are used to communicate required ordering properties during planning.
  *
  */
-public class InterestingOrdering {
+public class RequiredOrdering {
     /**
      * A list of {@link KeyExpression}s where none of the contained expressions is equality-bound. This list
      * defines the actual order of records.
@@ -40,8 +40,15 @@ public class InterestingOrdering {
     @Nonnull
     private final List<KeyPart> orderingKeyParts;
 
-    public InterestingOrdering(@Nonnull final List<KeyPart> orderingKeyParts) {
+    private final boolean isDistinct;
+
+    public RequiredOrdering(@Nonnull final List<KeyPart> orderingKeyParts, final boolean isDistinct) {
         this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
+        this.isDistinct = isDistinct;
+    }
+
+    public boolean isDistinct() {
+        return isDistinct;
     }
 
     /**
@@ -63,10 +70,10 @@ public class InterestingOrdering {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof InterestingOrdering)) {
+        if (!(o instanceof RequiredOrdering)) {
             return false;
         }
-        final InterestingOrdering ordering = (InterestingOrdering)o;
+        final RequiredOrdering ordering = (RequiredOrdering)o;
         return getOrderingKeyParts().equals(ordering.getOrderingKeyParts());
     }
 
@@ -80,7 +87,7 @@ public class InterestingOrdering {
      * @return a new ordering that preserves the order of records
      */
     @Nonnull
-    public static InterestingOrdering preserveOrder() {
-        return new InterestingOrdering(ImmutableList.of());
+    public static RequiredOrdering preserveOrder() {
+        return new RequiredOrdering(ImmutableList.of(), false);
     }
 }

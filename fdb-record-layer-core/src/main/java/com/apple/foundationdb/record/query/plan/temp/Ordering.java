@@ -98,10 +98,14 @@ public class Ordering {
     @Nonnull
     private final List<KeyPart> orderingKeyParts;
 
+    private final boolean isDistinct;
+
     public Ordering(@Nonnull final SetMultimap<KeyExpression, Comparison> equalityBoundKeyMap,
-                    @Nonnull final List<KeyPart> orderingKeyParts) {
+                    @Nonnull final List<KeyPart> orderingKeyParts,
+                    final boolean isDistinct) {
         this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
         this.equalityBoundKeyMap = ImmutableSetMultimap.copyOf(equalityBoundKeyMap);
+        this.isDistinct = isDistinct;
     }
 
     /**
@@ -128,6 +132,10 @@ public class Ordering {
         return orderingKeyParts;
     }
 
+    public boolean isDistinct() {
+        return isDistinct;
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
@@ -151,7 +159,7 @@ public class Ordering {
      */
     @Nonnull
     public static Ordering preserveOrder() {
-        return new Ordering(ImmutableSetMultimap.of(), ImmutableList.of());
+        return new Ordering(ImmutableSetMultimap.of(), ImmutableList.of(), false);
     }
 
     /**
@@ -217,7 +225,7 @@ public class Ordering {
     }
 
     /**
-     * Method to combine a list of {@link Ordering}s into one {@link Ordering} is possible. This method is e.g. used
+     * Method to combine a list of {@link Ordering}s into one {@link Ordering} if possible. This method is e.g. used
      * by logic to establish a comparison key that reasons ordering in the context of planning for a distinct set
      * operation such as intersection or a union distinct.
      * Two or more orderings can be compatible or incompatible. If they are incompatible, this method will return an
@@ -396,7 +404,7 @@ public class Ordering {
 
                 //
                 // At this point we have either found an actual next key which at least on one side does not have
-                // an equality binding or we wont find one at all and this is the last iteration.
+                // an equality binding, or we won't find one at all and this is the last iteration.
                 // Before we either continue or give up we need to weave in the information from the required ordering
                 // that is passed in.
                 // If there is a required key part that is equality-bound on both sides, the caller can impose

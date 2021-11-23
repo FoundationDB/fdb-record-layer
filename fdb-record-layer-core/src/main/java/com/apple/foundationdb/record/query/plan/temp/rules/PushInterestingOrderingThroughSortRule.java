@@ -77,11 +77,11 @@ public class PushInterestingOrderingThroughSortRule extends PlannerRule<LogicalS
             final List<KeyExpression> normalizedSortKeys = sortKeyExpression.normalizeKeyForPositions();
             final ImmutableList.Builder<KeyPart> keyPartBuilder = ImmutableList.builder();
             for (final KeyExpression keyExpression : normalizedSortKeys) {
-                keyPartBuilder.add(KeyPart.of(keyExpression));
+                keyPartBuilder.add(KeyPart.of(keyExpression, logicalSortExpression.isReverse()));
             }
 
             final ImmutableSet<Ordering> orderings =
-                    ImmutableSet.of(new Ordering(ImmutableSetMultimap.of(), keyPartBuilder.build()));
+                    ImmutableSet.of(new Ordering(ImmutableSetMultimap.of(), keyPartBuilder.build(), false));
 
             call.pushRequirement(lowerRef,
                     OrderingAttribute.ORDERING,
