@@ -48,7 +48,6 @@ import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Assertions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -135,7 +134,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
      * @param checkRecord Consumer that asserts every record retrieved
      * @param checkDiscarded Consumer that asserts the number of discarded records
      * @return the last result from the cursor
-     * @throws Exception
+     * @throws Throwable any thrown exception, or its cause if the exception is a {@link ExecutionException}
      */
     protected RecordCursorResult<FDBQueriedRecord<Message>> querySimpleRecordStoreWithContinuation(@Nonnull RecordMetaDataHook recordMetaDataHook,
                                                                                                    @Nonnull RecordQueryPlan plan,

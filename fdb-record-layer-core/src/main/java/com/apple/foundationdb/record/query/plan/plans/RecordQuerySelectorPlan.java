@@ -83,11 +83,12 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     /**
-     * Factory method that takes in a list of relative priorities and created a selection policy based on the priorities
+     * Factory method that takes in a list of relative priorities and created a selection policy based on the priorities.
      *
      * @param children the list of subplans
      * @param relativePlanPriorities a list (of the same length as the children) that determines the relative
      * priority for selecting the plan. Sum of all the priorities must be 1.0
+     * @return newly created plan
      */
     public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final List<Double> relativePlanPriorities) {
         validateParams(children, relativePlanPriorities);
@@ -95,11 +96,11 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     /**
-     * Factory method that takes in a {@link PlanSelector}
+     * Factory method that takes in a {@link PlanSelector}.
      *
      * @param children the list of subplans
-     * @param planSelector the plan selector to use
-     * priority for selecting the plan. Sum of all the priorities must be 1.0
+     * @param planSelector the plan selector to use priority for selecting the plan. Sum of all the priorities must be 1.0
+     * @return newly created plan
      */
     public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final PlanSelector planSelector) {
         Verify.verify((children != null) && !children.isEmpty());
