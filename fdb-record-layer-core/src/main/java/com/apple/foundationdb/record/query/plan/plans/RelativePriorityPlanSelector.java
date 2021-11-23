@@ -30,7 +30,6 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-import java.util.function.Function;
 
 public class RelativePriorityPlanSelector implements RecordQuerySelectorPlan.PlanSelector {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Relative-Priority-Plan-Selector");
