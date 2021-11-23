@@ -52,7 +52,7 @@ public class RelativePriorityPlanSelectorTest {
 
     @Test
     void testSelectRandomOnePriority() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(1.0), new MockRandom(0.5));
+        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Collections.singletonList(1.0), new MockRandom(0.5));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(0, selectedIndex);
     }
@@ -67,8 +67,9 @@ public class RelativePriorityPlanSelectorTest {
         Assertions.assertThrows(VerifyException.class, () -> new RelativePriorityPlanSelector(Collections.emptyList(), new MockRandom(0.5)));
     }
 
-    private class MockRandom extends Random {
-        private double mockValue;
+    private static class MockRandom extends Random {
+        static final long serialVersionUID = 3905348978240129618L;
+        private final double mockValue;
 
         private MockRandom(final double mockValue) {
             this.mockValue = mockValue;

@@ -31,21 +31,16 @@ import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
-import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.test.Tags;
 import com.google.common.base.VerifyException;
 import com.google.protobuf.Message;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nonnull;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.TestHelpers.assertDiscardedAtMost;
@@ -114,7 +109,8 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey());
 
-        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> {}, record -> {}));
+        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> {
+        }, record -> { }));
     }
 
     @DualPlannerTest
@@ -135,7 +131,8 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey());
 
-        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> {}, record -> {}));
+        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty, record -> {
+        }, record -> { }));
     }
 
     @DualPlannerTest
@@ -231,11 +228,12 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
         // Iteration 3, start with previous continuation, fail since one plan ends sooner
         byte[] continuation2 = result.getContinuation().toBytes();
         assertThrows(RecordCoreException.class, () -> querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
-                continuation2, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(), count -> {}, record -> {}, context -> {}));
+                continuation2, ExecuteProperties.newBuilder().setReturnedRowLimit(15).build(), count -> {
+                }, record -> { }, context -> { }));
     }
 
     @Nonnull
-    private List<RecordQueryPlan> plan(final RecordQuery ...queries) {
+    private List<RecordQueryPlan> plan(final RecordQuery... queries) {
         return Arrays.stream(queries).map(planner::plan).collect(Collectors.toList());
     }
 
