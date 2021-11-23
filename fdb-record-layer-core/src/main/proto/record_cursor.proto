@@ -108,3 +108,16 @@ message LuceneIndexContinuation {
     required float score = 2;
     optional uint64 shard = 3;
 }
+
+message SelectorPlanContinuation {
+    required uint64 selectedPlan = 1; // The selected plan executing from the l;ist of optional plans
+    optional bytes innerContinuation = 4; // The selected plan's continuation
+}
+
+message ComparatorContinuation {
+    message CursorState {
+        optional bytes continuation = 1;
+        optional bool started = 2;
+    }
+    repeated CursorState other_child_state = 1;
+}
