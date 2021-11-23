@@ -59,7 +59,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -143,7 +142,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         RecordQueryPlan selectedPlan = getChild(selectedPlanIndex);
         RecordCursor<QueryResult> innerCursor = selectedPlan.executePlan(store, context, selectorContinuation.getInnerContinuation(), executeProperties);
         // Create a wrapper cursor over the inner one, to encode the continuation values
-        return new SelectorPlanCursor<>(selectedPlanIndex, innerCursor);
+        return new SelectorPlanCursor<>(selectedPlanIndex, innerCursor, store.getTimer());
     }
 
     @Override
@@ -221,10 +220,12 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         // Inner cursor to provide record inflow
         @Nonnull
         private final RecordCursor<QueryResult> inner;
+        @Nullable FDBStoreTimer timer;
 
-        public SelectorPlanCursor(final long selectedPlanIndex, @Nonnull final RecordCursor<QueryResult> inner) {
+        public SelectorPlanCursor(final long selectedPlanIndex, @Nonnull final RecordCursor<QueryResult> inner, @Nullable FDBStoreTimer timer) {
             this.inner = inner;
             this.selectedPlanIndex = selectedPlanIndex;
+            this.timer = timer;
         }
 
         @Nonnull
@@ -253,13 +254,22 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         }
 
         private RecordCursorResult<QueryResult> calculateCursorResult(final RecordCursorResult<QueryResult> innerResult) {
+            final long startTime = System.nanoTime();
             if (innerResult.hasNext()) {
                 SelectorContinuation continuation = new SelectorContinuation(selectedPlanIndex, innerResult.getContinuation().toBytes(), false);
+                logTimer(startTime);
                 return RecordCursorResult.withNextValue(innerResult.get(), continuation);
             } else {
                 // Inner is done - return a no-next result with wrapped continuation and the same no-next reason and isEnd.
                 SelectorContinuation continuation = new SelectorContinuation(selectedPlanIndex, innerResult.getContinuation().toBytes(), innerResult.getContinuation().isEnd());
+                logTimer(startTime);
                 return RecordCursorResult.withoutNextValue(continuation, innerResult.getNoNextReason());
+            }
+        }
+
+        private void logTimer(final long startTime) {
+            if (timer != null) {
+                timer.record(FDBStoreTimer.Events.QUERY_SELECTOR, System.nanoTime() - startTime);
             }
         }
     }
