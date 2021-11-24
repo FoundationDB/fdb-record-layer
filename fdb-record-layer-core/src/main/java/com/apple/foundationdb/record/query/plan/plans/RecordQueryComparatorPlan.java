@@ -43,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +50,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -206,8 +206,8 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.COMPARATOR_OPERATOR,
-                        ImmutableList.of("COMPARE BY {{comparisonKey}}"),
-                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
+                        List.of("COMPARE BY {{comparisonKey}}"),
+                        Map.of("comparisonKey", Attribute.gml(comparisonKey.toString()))),
                 childGraphs);
     }
 }
