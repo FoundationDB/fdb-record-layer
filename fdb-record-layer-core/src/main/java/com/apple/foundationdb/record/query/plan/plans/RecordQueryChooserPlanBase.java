@@ -28,8 +28,6 @@ import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -54,9 +52,9 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
     @Nonnull
     private final Supplier<List<? extends Value>> resultValuesSupplier;
 
-    public RecordQueryChooserPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers) {
+    protected RecordQueryChooserPlanBase(@Nonnull final List<Quantifier.Physical> quantifiers) {
         Verify.verify(!quantifiers.isEmpty());
-        this.quantifiers = ImmutableList.copyOf(quantifiers);
+        this.quantifiers = List.copyOf(quantifiers);
         boolean firstReverse = quantifiers.get(0).getRangesOverPlan().isReverse();
         if (!getChildStream().allMatch(child -> child.isReverse() == firstReverse)) {
             throw new RecordCoreArgumentException("children of chooser plan do not all have same value for reverse field");
@@ -103,7 +101,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of();
+        return Set.of();
     }
 
     @Nonnull
