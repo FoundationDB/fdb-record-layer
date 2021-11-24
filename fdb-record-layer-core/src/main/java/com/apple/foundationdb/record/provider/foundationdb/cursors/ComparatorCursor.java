@@ -76,7 +76,7 @@ public class ComparatorCursor<T> extends ComparatorCursorBase<T, T> {
             @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
             @Nullable byte[] continuation) {
         return create(
-                (S record) -> comparisonKey.evaluateSingleton(record).toTupleAppropriateList(),
+                (S rec) -> comparisonKey.evaluateSingleton(rec).toTupleAppropriateList(),
                 cursorFunctions, continuation, store.getTimer());
     }
 
