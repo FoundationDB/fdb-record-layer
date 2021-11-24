@@ -44,7 +44,7 @@ public class RelativePriorityPlanSelector implements RecordQuerySelectorPlan.Pla
 
     @VisibleForTesting
     RelativePriorityPlanSelector(@Nonnull final List<Double> priorities, @Nonnull final Random random) {
-        Verify.verify((priorities != null) && (!priorities.isEmpty()));
+        Verify.verify(!priorities.isEmpty());
         this.priorities = ImmutableList.copyOf(priorities);
         this.random = random;
         double sumAll = this.priorities.stream().mapToDouble(Double::doubleValue).sum();

@@ -46,7 +46,6 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpre
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -56,6 +55,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -103,7 +103,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      * @return newly created plan
      */
     public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final PlanSelector planSelector) {
-        Verify.verify((children != null) && !children.isEmpty());
+        Verify.verify(!children.isEmpty());
         final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
@@ -143,7 +143,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         RecordQueryPlan selectedPlan = getChild(selectedPlanIndex);
         RecordCursor<QueryResult> innerCursor = selectedPlan.executePlan(store, context, selectorContinuation.getInnerContinuation(), executeProperties);
         // Create a wrapper cursor over the inner one, to encode the continuation values
-        return new SelectorPlanCursor<>(selectedPlanIndex, innerCursor, store.getTimer());
+        return new SelectorPlanCursor(selectedPlanIndex, innerCursor, store.getTimer());
     }
 
     @Override
@@ -187,8 +187,8 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         return PlannerGraph.fromNodeAndChildGraphs(
                 new PlannerGraph.OperatorNodeWithInfo(this,
                         NodeInfo.SELECTOR_OPERATOR,
-                        ImmutableList.of("SELECT BY {{planSelector}}"),
-                        ImmutableMap.of("planSelector", Attribute.gml(planSelector.toString()))),
+                        List.of("SELECT BY {{planSelector}}"),
+                        Map.of("planSelector", Attribute.gml(planSelector.toString()))),
                 childGraphs);
     }
 
@@ -200,8 +200,8 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     private static void validateParams(@Nonnull final List<? extends RecordQueryPlan> plans, @Nonnull final List<Double> relativePlanPriorities) {
-        Verify.verify((plans != null) && (!plans.isEmpty()));
-        Verify.verify((relativePlanPriorities != null) && (!relativePlanPriorities.isEmpty()));
+        Verify.verify(!plans.isEmpty());
+        Verify.verify(!relativePlanPriorities.isEmpty());
         Verify.verify(plans.size() == relativePlanPriorities.size());
     }
 
@@ -215,7 +215,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         }
     }
 
-    private static class SelectorPlanCursor<M extends Message> implements RecordCursor<QueryResult> {
+    private static class SelectorPlanCursor implements RecordCursor<QueryResult> {
         // The index of the selected plan within the parent selector plan
         private final long selectedPlanIndex;
         // Inner cursor to provide record inflow
