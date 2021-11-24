@@ -103,6 +103,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     @Nonnull
     @Override
+    @SuppressWarnings("squid:S2095")
     public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
