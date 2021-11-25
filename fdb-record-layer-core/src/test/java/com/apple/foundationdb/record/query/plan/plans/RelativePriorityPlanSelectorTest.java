@@ -58,11 +58,6 @@ public class RelativePriorityPlanSelectorTest {
     }
 
     @Test
-    void testNull() throws Exception {
-        Assertions.assertThrows(VerifyException.class, () -> new RelativePriorityPlanSelector(null, new MockRandom(0.5)));
-    }
-
-    @Test
     void testEmpty() throws Exception {
         Assertions.assertThrows(VerifyException.class, () -> new RelativePriorityPlanSelector(Collections.emptyList(), new MockRandom(0.5)));
     }
