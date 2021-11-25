@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
@@ -94,12 +95,12 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
 
         final PlannerBindings bindings = call.getBindings();
 
-        final Optional<Set<Ordering>> requiredOrderingsOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
-        if (!requiredOrderingsOptional.isPresent()) {
+        final Optional<Set<RequestedOrdering>> requiredOrderingsOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
+        if (requiredOrderingsOptional.isEmpty()) {
             return;
         }
 
-        final Set<Ordering> requiredOrderings = requiredOrderingsOptional.get();
+        final Set<RequestedOrdering> requestedOrderings = requiredOrderingsOptional.get();
 
         final KeyExpression commonPrimaryKey = context.getCommonPrimaryKey();
         if (commonPrimaryKey == null) {
@@ -173,7 +174,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         for (final Map.Entry<Ordering, ImmutableList<RecordQueryPlan>> providedOrderingEntry : groupedByOrdering.entrySet()) {
             final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(providedOrderingEntry.getValue());
 
-            for (final Ordering requiredOrdering : requiredOrderings) {
+            for (final RequestedOrdering requiredOrdering : requestedOrderings) {
                 final Ordering providedOrdering = providedOrderingEntry.getKey();
                 KeyExpression matchingKeyExpression = null;
                 for (Map.Entry<KeyExpression, Comparisons.Comparison> expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
@@ -192,7 +193,7 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
                 // Compute a comparison key that satisfies the required ordering
                 final Optional<Ordering> combinedOrderingOptional =
                         orderingForInUnion(providedOrdering, requiredOrdering, ImmutableSet.of(matchingKeyExpression));
-                if (!combinedOrderingOptional.isPresent()) {
+                if (combinedOrderingOptional.isEmpty()) {
                     continue;
                 }
 
@@ -225,14 +226,14 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
 
     @SuppressWarnings("java:S135")
     public static Optional<Ordering> orderingForInUnion(@Nonnull Ordering providedOrdering,
-                                                        @Nonnull Ordering requiredOrdering,
+                                                        @Nonnull RequestedOrdering requestedOrdering,
                                                         @Nonnull Set<KeyExpression> inBoundExpressions) {
-        final Iterator<KeyPart> requiredOrderingIterator = requiredOrdering.getOrderingKeyParts().iterator();
+        final Iterator<KeyPart> requestedOrderingIterator = requestedOrdering.getOrderingKeyParts().iterator();
         final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
         for (final KeyPart providedKeyPart : providedOrdering.getOrderingKeyParts()) {
             KeyPart toBeAdded = providedKeyPart;
-            while (requiredOrderingIterator.hasNext()) {
-                final KeyPart requiredKeyPart = requiredOrderingIterator.next();
+            while (requestedOrderingIterator.hasNext()) {
+                final KeyPart requiredKeyPart = requestedOrderingIterator.next();
                 if (requiredKeyPart.equals(providedKeyPart)) {
                     break;
                 } else if (inBoundExpressions.contains(requiredKeyPart.getNormalizedKeyExpression())) {

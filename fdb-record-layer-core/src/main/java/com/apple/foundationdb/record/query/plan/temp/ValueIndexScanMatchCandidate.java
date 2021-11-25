@@ -157,6 +157,7 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     }
 
     @Nonnull
+    @Override
     public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
                                                        @Nonnull final List<ComparisonRange> comparisonRanges) {
         final var reverseScanOrder =

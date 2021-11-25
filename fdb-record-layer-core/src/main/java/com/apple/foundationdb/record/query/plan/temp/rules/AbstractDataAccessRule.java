@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.query.plan.temp.PrimaryScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.ReferencedFieldsAttribute;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.temp.ValueIndexScanMatchCandidate;
 import com.apple.foundationdb.record.query.plan.temp.expressions.IndexScanExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
@@ -210,13 +211,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         //
         // return if there is no pre-determined interesting ordering
         //
-        final Optional<Set<Ordering>> interestingOrderingsOptional =
+        final Optional<Set<RequestedOrdering>> interestingOrderingsOptional =
                 call.getInterestingProperty(OrderingAttribute.ORDERING);
-        if (!interestingOrderingsOptional.isPresent()) {
+        if (interestingOrderingsOptional.isEmpty()) {
             return;
         }
 
-        final Set<Ordering> interestingOrderings = interestingOrderingsOptional.get();
+        final Set<RequestedOrdering> interestingOrderings = interestingOrderingsOptional.get();
 
         //
         // group matches by candidates
@@ -307,7 +308,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     @SuppressWarnings({"java:S1905", "java:S135"})
-    private static List<PartialMatch> maximumCoverageMatches(@Nonnull final Collection<PartialMatch> matches, @Nonnull final Set<Ordering> interestedOrderings) {
+    private static List<PartialMatch> maximumCoverageMatches(@Nonnull final Collection<PartialMatch> matches, @Nonnull final Set<RequestedOrdering> interestedOrderings) {
         final ImmutableList<Pair<PartialMatch, Map<QueryPredicate, BoundKeyPart>>> boundKeyPartMapsForMatches =
                 matches
                         .stream()
@@ -362,7 +363,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @Nonnull
     @SuppressWarnings("java:S135")
-    private static Set<Ordering> satisfiedOrderings(@Nonnull final PartialMatch partialMatch, @Nonnull final Set<Ordering> requestedOrderings) {
+    private static Set<RequestedOrdering> satisfiedOrderings(@Nonnull final PartialMatch partialMatch, @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         return requestedOrderings
                 .stream()
                 .filter(requestedOrdering -> {
@@ -601,9 +602,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      * of the data source.
      * TODO This logic turned out to be very similar to {@link Ordering#commonOrderingKeys(List, Ordering)}. This is
      *      a case of converging evolution but should be addressed. We should call that code path to establish that
-     *      we are creating a valid intersection. In fact, we shouldn't need a comparison key in the
-     *      {@link LogicalIntersectionExpression} as that will be computable through the plan children of the
-     *      implementing intersection plan.
+     *      we are creating a valid intersection.
      * @param commonPrimaryKeyParts common primary key of the data source (e.g., record types)
      * @param partition partition we would like to intersect
      * @return an optional {@link KeyExpression} if there is a common intersection ordering, {@code Optional.empty()} if

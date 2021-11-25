@@ -318,21 +318,6 @@ public class TopologicalSort {
         public EnumeratingIterator<T> iterator() {
             return new KahnIterator<>(partialOrder);
         }
-
-        private static <T> ImmutableSetMultimap<T, T> computeUsedByMap(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
-            // invert the dependencies
-            final ImmutableSetMultimap.Builder<T, T> builder = ImmutableSetMultimap.builder();
-
-            for (final T element : set) {
-                final Set<T> dependsOnElements = dependsOnFn.apply(element);
-                for (final T dependsOnElement : dependsOnElements) {
-                    if (set.contains(dependsOnElement)) {
-                        builder.put(dependsOnElement, element);
-                    }
-                }
-            }
-            return builder.build();
-        }
     }
 
     private static class KahnIterator<T> extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
@@ -542,75 +527,31 @@ public class TopologicalSort {
         }
     }
 
-    /**
-     * An implementation of {@link EnumeratingIterable} that is optimized to work for single item
-     * input sets. The case where the input set is exactly one item is trivial and also properly handled by
-     * {@link BacktrackIterable}. Iterators created by this class, however, avoid to build complex state objects
-     * during their lifecycle.
-     *
-     * @param <T> type
-     */
-    private static class SingleIterable<T> implements EnumeratingIterable<T> {
-        @Nonnull
-        private final T singleElement;
-
-        private SingleIterable(@Nonnull final T singleElement) {
-            this.singleElement = singleElement;
+    public static <T> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
+                                                               @Nonnull final List<T> targetPermutation,
+                                                               @Nonnull final BiPredicate<T, T> satisfiabilityPredicate) {
+        if (partialOrder.size() == 0) {
+            return ImmutableList.of();
         }
 
-        private class SingleIterator extends AbstractIterator<List<T>> implements EnumeratingIterator<T> {
-            boolean atFirst = true;
-
-            @Override
-            public void skip(final int level) {
-                if (atFirst) {
-                    throw new UnsupportedOperationException("cannot skip on before first element");
+        final EnumeratingIterator<T> enumeratingIterator;
+        if (partialOrder.size() > 1) {
+            enumeratingIterator = new BacktrackIterator<>(partialOrder) {
+                @Nonnull
+                @Override
+                protected Iterator<T> domain(final int t) {
+                    if (t < targetPermutation.size()) {
+                        final var currentPermutedElement = Objects.requireNonNull(targetPermutation.get(t));
+                        return Iterators.singletonIterator(currentPermutedElement);
+                    } else {
+                        return super.domain(t);
+                    }
                 }
-                // no op, we are at the end
-            }
-
-            @Override
-            protected List<T> computeNext() {
-                if (!atFirst) {
-                    return endOfData();
-                }
-
-                atFirst = false;
-
-                return ImmutableList.of(singleElement);
-            }
+            };
+        } else {
+            Verify.verify(partialOrder.size() == 1);
+            enumeratingIterator = EnumeratingIterable.singleIterable(Iterables.getOnlyElement(partialOrder.getSet())).iterator();
         }
-
-        @Nonnull
-        @Override
-        public EnumeratingIterator<T> iterator() {
-            return new SingleIterator();
-        }
-    }
-
-    public static <T, P> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
-                                                                  @Nonnull final List<P> targetPermutation,
-                                                                  @Nonnull final Function<T, P> domainMapper,
-                                                                  @Nonnull final BiPredicate<T, P> satisfiabilityPredicate) {
-        final var domainMap =
-                partialOrder
-                        .getSet()
-                        .stream()
-                        .collect(ImmutableSetMultimap.toImmutableSetMultimap(domainMapper, Function.identity()));
-
-        final var enumeratingIterator = new BacktrackIterator<>(partialOrder) {
-            @Nonnull
-            @Override
-            protected Iterator<T> domain(final int t) {
-                if (t < targetPermutation.size()) {
-                    final var currentPermutedElement = Objects.requireNonNull(targetPermutation.get(t));
-                    final var currentElements = Objects.requireNonNull(domainMap.get(currentPermutedElement));
-                    return currentElements.iterator();
-                } else {
-                    return super.domain(t);
-                }
-            }
-        };
 
         return () -> new AbstractIterator<>() {
             @Override
@@ -662,7 +603,7 @@ public class TopologicalSort {
      */
     public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final Set<T> set,
                                                                           @Nonnull final Function<T, Set<T>> dependsOnFn) {
-        return topologicalOrderPermutations(set, () -> complexIterable(set, KahnIterable.computeUsedByMap(set, dependsOnFn)));
+        return topologicalOrderPermutations(set, () -> complexIterable(set, PartialOrder.fromFunctionalDependencies(set, dependsOnFn)));
     }
 
     /**
@@ -678,7 +619,7 @@ public class TopologicalSort {
      */
     public static <T> EnumeratingIterable<T> topologicalOrderPermutations(@Nonnull final Set<T> set,
                                                                           @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
-        return topologicalOrderPermutations(set, () -> complexIterable(set, dependsOnMap.inverse()));
+        return topologicalOrderPermutations(set, () -> complexIterable(set, dependsOnMap));
     }
 
     /**
@@ -704,7 +645,7 @@ public class TopologicalSort {
         return complexIterableSupplier.get();
     }
 
-    private static <T> EnumeratingIterable<T> complexIterable(final Set<T> set, final ImmutableSetMultimap<T, T> usedByMap) {
+    private static <T> EnumeratingIterable<T> complexIterable(final Set<T> set, final ImmutableSetMultimap<T, T> dependsOnMap) {
         //
         // We can use two implementations to deal with the complex case. If there are quite a few dependencies,
         // we should use Kahn's algorithm, as finding a topological ordering is linear and there hopefully are not too
@@ -716,12 +657,12 @@ public class TopologicalSort {
         //
 
         // try Kahn's algorithm
-        if ((double)usedByMap.size() / (double) set.size() > 0.5d) {
-            return new KahnIterable<>(PartialOrder.of(set, usedByMap));
+        if ((double)dependsOnMap.size() / (double) set.size() > 0.5d) {
+            return new KahnIterable<>(PartialOrder.of(set, dependsOnMap.inverse()));
         }
 
         // use backtracking
-        return new BacktrackIterable<>(PartialOrder.of(set, usedByMap.inverse()));
+        return new BacktrackIterable<>(PartialOrder.of(set, dependsOnMap));
     }
 
     @Nullable
@@ -729,7 +670,7 @@ public class TopologicalSort {
         if (set.isEmpty()) {
             return EnumeratingIterable.emptyIterable();
         } else if (set.size() == 1) {
-            return new SingleIterable<>(Iterables.getOnlyElement(set));
+            return EnumeratingIterable.singleIterable(Iterables.getOnlyElement(set));
         }
         return null;
     }
@@ -748,7 +689,7 @@ public class TopologicalSort {
      */
     public static <T> Optional<List<T>> anyTopologicalOrderPermutation(@Nonnull final Set<T> set, @Nonnull final Function<T, Set<T>> dependsOnFn) {
         return anyTopologicalOrderPermutation(set,
-                () -> new KahnIterable<>(PartialOrder.of(set, KahnIterable.computeUsedByMap(set, dependsOnFn))));
+                () -> new KahnIterable<>(PartialOrder.ofInverted(set, dependsOnFn)));
     }
 
     /**

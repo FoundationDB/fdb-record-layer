@@ -1,5 +1,5 @@
 /*
- * RequiredOrdering.java
+ * RequestedOrdering.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -32,7 +32,7 @@ import java.util.Objects;
  * Instances of this class are used to communicate required ordering properties during planning.
  *
  */
-public class RequiredOrdering {
+public class RequestedOrdering {
     /**
      * A list of {@link KeyExpression}s where none of the contained expressions is equality-bound. This list
      * defines the actual order of records.
@@ -40,15 +40,19 @@ public class RequiredOrdering {
     @Nonnull
     private final List<KeyPart> orderingKeyParts;
 
-    private final boolean isDistinct;
+    private final Distinctness distinctness;
 
-    public RequiredOrdering(@Nonnull final List<KeyPart> orderingKeyParts, final boolean isDistinct) {
+    public RequestedOrdering(@Nonnull final List<KeyPart> orderingKeyParts, final Distinctness distinctness) {
         this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
-        this.isDistinct = isDistinct;
+        this.distinctness = distinctness;
+    }
+
+    public Distinctness getDistinctness() {
+        return distinctness;
     }
 
     public boolean isDistinct() {
-        return isDistinct;
+        return distinctness == Distinctness.DISTINCT;
     }
 
     /**
@@ -70,10 +74,10 @@ public class RequiredOrdering {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof RequiredOrdering)) {
+        if (!(o instanceof RequestedOrdering)) {
             return false;
         }
-        final RequiredOrdering ordering = (RequiredOrdering)o;
+        final RequestedOrdering ordering = (RequestedOrdering)o;
         return getOrderingKeyParts().equals(ordering.getOrderingKeyParts());
     }
 
@@ -87,7 +91,13 @@ public class RequiredOrdering {
      * @return a new ordering that preserves the order of records
      */
     @Nonnull
-    public static RequiredOrdering preserveOrder() {
-        return new RequiredOrdering(ImmutableList.of(), false);
+    public static RequestedOrdering preserve() {
+        return new RequestedOrdering(ImmutableList.of(), Distinctness.PRESERVE_DISTINCTNESS);
+    }
+
+    public enum Distinctness {
+        DISTINCT,
+        NO_DISTINCT,
+        PRESERVE_DISTINCTNESS
     }
 }
