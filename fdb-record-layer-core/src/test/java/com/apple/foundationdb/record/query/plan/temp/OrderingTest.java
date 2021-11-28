@@ -37,7 +37,7 @@ class OrderingTest {
         final var b = KeyPart.of(Key.Expressions.field("b"));
         final var c = KeyPart.of(Key.Expressions.field("c"));
 
-        final var requiredOrdering = ImmutableList.of(a, b, c);
+        final var requestedOrdering = ImmutableList.of(a, b, c);
 
         final var providedOrdering =
                 new Ordering(
@@ -45,7 +45,7 @@ class OrderingTest {
                         ImmutableList.of(a, c),
                         false);
 
-        System.out.println(providedOrdering.satisfiesRequiredOrdering(requiredOrdering, ImmutableSet.of()));
+        System.out.println(providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of()));
     }
 
     @Test
@@ -54,7 +54,7 @@ class OrderingTest {
         final var b = KeyPart.of(Key.Expressions.field("b"));
         final var c = KeyPart.of(Key.Expressions.field("c"));
 
-        final var requiredOrdering = ImmutableList.of(a, b, c);
+        final var requestedOrdering = ImmutableList.of(a, b, c);
 
         final var providedOrdering =
                 new Ordering(
@@ -63,7 +63,7 @@ class OrderingTest {
                         ImmutableList.of(c),
                         false);
 
-        System.out.println(providedOrdering.satisfiesRequiredOrdering(requiredOrdering, ImmutableSet.of()));
+        System.out.println(providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of()));
     }
 
     @Test
@@ -212,7 +212,7 @@ class OrderingTest {
 
 
         final var mergedPartialOrderOptional =
-                Ordering.commonOrderingKeysNew(
+                Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
                                 Optional.of(two),
@@ -247,7 +247,7 @@ class OrderingTest {
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
         var mergedPartialOrderOptional =
-                Ordering.commonOrderingKeysNew(
+                Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
                                 Optional.of(two)),
@@ -260,7 +260,7 @@ class OrderingTest {
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
         mergedPartialOrderOptional =
-                Ordering.commonOrderingKeysNew(
+                Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
                                 Optional.of(two)),
@@ -273,7 +273,7 @@ class OrderingTest {
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
         mergedPartialOrderOptional =
-                Ordering.commonOrderingKeysNew(
+                Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
                                 Optional.of(two)),

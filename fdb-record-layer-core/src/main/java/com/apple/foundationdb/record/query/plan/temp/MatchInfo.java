@@ -21,8 +21,11 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -30,6 +33,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -130,6 +134,32 @@ public class MatchInfo {
     @Nonnull
     public List<BoundKeyPart> getBoundKeyParts() {
         return boundKeyParts;
+    }
+
+    @Nullable
+    public QueryPredicate getCandidatePredicateForBoundKeyPart(final BoundKeyPart boundKeyPart) {
+        if (boundKeyPart.getQueryPredicate() == null) {
+            Verify.verify(boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EMPTY);
+            return null;
+        }
+
+        return getAccumulatedPredicateMap()
+                .getMappingOptional(boundKeyPart.getQueryPredicate())
+                .map(PredicateMultiMap.PredicateMapping::getCandidatePredicate)
+                .orElseThrow(() -> new IllegalStateException("mapping must be present"));
+    }
+
+    public Optional<CorrelationIdentifier> getParameterAliasForBoundKeyPart(final BoundKeyPart boundKeyPart) {
+        @Nullable final var candidatePredicate = getCandidatePredicateForBoundKeyPart(boundKeyPart);
+        if (candidatePredicate == null) {
+            return Optional.empty();
+        }
+
+        if (!(candidatePredicate instanceof ValueComparisonRangePredicate.Placeholder)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getParameterAlias());
     }
 
     /**

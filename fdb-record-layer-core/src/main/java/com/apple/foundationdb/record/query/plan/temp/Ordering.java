@@ -24,17 +24,13 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterators;
-import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -158,7 +154,7 @@ public class Ordering {
     public PartialOrder<KeyPart> toPartialOrder() {
         return PartialOrder.<KeyPart>builder()
                 .addListWithDependencies(this.getOrderingKeyParts())
-                .addSet(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
+                .addAll(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
                 .build();
     }
 
@@ -167,7 +163,7 @@ public class Ordering {
      * @param requestedOrdering other required ordering
      * @return {@code true} if this ordering satisfies the ordering that is passed in, {@code false} otherwise
      */
-    public boolean satisfiesRequiredOrdering(@Nonnull final RequestedOrdering requestedOrdering) {
+    public boolean satisfiesRequestedOrdering(@Nonnull final RequestedOrdering requestedOrdering) {
         final Iterator<KeyPart> orderingKeysIterator = orderingKeyParts.iterator();
         final List<KeyPart> normalizedRequiredKeyParts = requestedOrdering.getOrderingKeyParts();
 
@@ -204,13 +200,13 @@ public class Ordering {
     }
 
     @Nonnull
-    public Optional<List<KeyPart>> satisfiesRequiredOrdering(@Nonnull final List<KeyPart> requiredOrderingKeyParts,
-                                                             @Nonnull final Set<KeyExpression> comparablyBoundKeys) {
+    public Optional<List<KeyPart>> satisfiesRequestedOrdering(@Nonnull final List<KeyPart> requiredOrderingKeyParts,
+                                                              @Nonnull final Set<KeyExpression> comparablyBoundKeys) {
         final var partialOrder =
                 PartialOrder.<KeyPart>builder()
                         .addListWithDependencies(this.getOrderingKeyParts())
-                        .addSet(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
-                        .addSet(comparablyBoundKeys.stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
+                        .addAll(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
+                        .addAll(comparablyBoundKeys.stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
                         .build();
 
         final var satisfyingPermutations =
@@ -224,16 +220,69 @@ public class Ordering {
     }
 
     @Nonnull
-    private static <K extends KeyPart> Optional<List<K>> satisfiesKeyPartsOrdering(@Nonnull final PartialOrder<K> partialOrder,
-                                                                                   @Nonnull final List<K> requestedOrderingKeyParts) {
+    public static <T extends KeyPart> Optional<List<T>> satisfiesKeyPartsOrdering(@Nonnull final PartialOrder<T> partialOrder,
+                                                                                  @Nonnull final List<KeyPart> requestedOrderingKeyParts) {
         final var satisfyingPermutations =
                 TopologicalSort.satisfyingPermutations(
                         partialOrder,
                         requestedOrderingKeyParts,
+                        t -> t,
                         (t, p) -> true);
 
         return StreamSupport.stream(satisfyingPermutations.spliterator(), false)
                 .findAny();
+    }
+
+    @Nonnull
+    @SuppressWarnings("java:S135")
+    public static <K extends KeyPart> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull final PartialOrder<K> left,
+                                                                                   @Nonnull final PartialOrder<K> right) {
+        final var leftDependencies = left.getDependencyMap();
+        final var rightDependencies = right.getDependencyMap();
+
+        final var elementBuilder = ImmutableSet.<K>builder();
+        final var dependencyBuilder = ImmutableSetMultimap.<K, K>builder();
+
+        var leftEligibleSet = left.eligibleSet();
+        var rightEligibleSet = right.eligibleSet();
+
+        Set<K> lastElements = ImmutableSet.of();
+        while (!leftEligibleSet.isEmpty() && !rightEligibleSet.isEmpty()) {
+            final var leftElements = leftEligibleSet.eligibleElements();
+            final var rightElements = rightEligibleSet.eligibleElements();
+
+            final var intersectedElements = Sets.intersection(leftElements, rightElements);
+
+            if (intersectedElements.isEmpty()) {
+                break;
+            }
+
+            elementBuilder.addAll(intersectedElements);
+            for (final var intersectedElement : intersectedElements) {
+                for (final var lastElement : lastElements) {
+                    if (leftDependencies.get(intersectedElement).contains(lastElement) || rightDependencies.get(intersectedElement).contains(lastElement)) {
+                        dependencyBuilder.put(intersectedElement, lastElement);
+                    }
+                }
+            }
+
+            leftEligibleSet = leftEligibleSet.removeEligibleElements(intersectedElements);
+            rightEligibleSet = rightEligibleSet.removeEligibleElements(intersectedElements);
+
+            lastElements = intersectedElements;
+        }
+
+        return PartialOrder.of(elementBuilder.build(), dependencyBuilder.build());
+    }
+
+    @Nonnull
+    @SuppressWarnings("java:S135")
+    public static <K extends KeyPart> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull Iterable<PartialOrder<K>> partialOrders) {
+
+
+        return StreamSupport.stream(partialOrders.spliterator(), false)
+                .reduce(Ordering::mergePartialOrderOfOrderings)
+                .orElseThrow(() -> new IllegalStateException("must have a partial order"));
     }
 
     /**
@@ -304,226 +353,8 @@ public class Ordering {
      *         {@code Optional.empty()} if such a common ordering does not exist
      */
     @Nonnull
-    @SuppressWarnings("java:S135")
     public static Optional<List<KeyPart>> commonOrderingKeys(@Nonnull List<Optional<Ordering>> orderingOptionals,
                                                              @Nonnull RequestedOrdering requestedOrdering) {
-        final Iterator<Optional<Ordering>> orderingOptionalsIterator = orderingOptionals.iterator();
-        if (!orderingOptionalsIterator.hasNext()) {
-            // don't bail on incorrect graph structure, just return empty()
-            return Optional.empty();
-        }
-
-        final Optional<Ordering> commonOrderingOptional = orderingOptionalsIterator.next();
-        if (commonOrderingOptional.isEmpty()) {
-            return Optional.empty();
-        }
-
-        final var commonOrdering = commonOrderingOptional.get();
-
-        if (!commonOrdering.satisfiesRequiredOrdering(requestedOrdering)) {
-            return Optional.empty();
-        }
-        final List<KeyPart> requiredOrderingKeys = requestedOrdering.getOrderingKeyParts();
-        List<KeyPart> commonOrderingKeys = commonOrdering.getOrderingKeyParts();
-        final SetMultimap<KeyExpression, Comparison> equalityBoundKeyMap = HashMultimap.create(commonOrdering.getEqualityBoundKeyMap());
-
-        //
-        // Go through all orderings. We already have our hands on the first one.
-        //
-        while (orderingOptionalsIterator.hasNext()) {
-            final Optional<Ordering> currentOrderingOptional = orderingOptionalsIterator.next();
-
-            //
-            // If any of the orderings are not set, the common ordering is not well-defined. Return
-            // with Optional.empty().
-            //
-            if (currentOrderingOptional.isEmpty()) {
-                return Optional.empty();
-            }
-
-            final var currentOrdering = currentOrderingOptional.get();
-            final List<KeyPart> currentOrderingKeys = currentOrdering.getOrderingKeyParts();
-
-            //
-            // Special case -- if both are empty (and if one is -- both should be), the result is empty.
-            //
-            if (commonOrderingKeys.isEmpty() && currentOrderingKeys.isEmpty()) {
-                continue;
-            }
-
-            if (commonOrderingKeys.isEmpty()) {
-                // current is not empty
-                // TODO this may need to be changed to returning Optional.of(ImmutableList.of())
-                return Optional.empty();
-            }
-
-            //
-            // Weave of three iterators. We open iterators over
-            // - the keys of the required ordering
-            // - the keys of the current ordering
-            // - the keys of the already established partial common ordering (common to right before the current ordering)
-            //
-            final Iterator<KeyPart> requiredOrderingKeysIterator = requiredOrderingKeys.iterator();
-            final Iterator<KeyPart> currentOrderingKeysIterator = currentOrderingKeys.iterator();
-            final PeekingIterator<KeyPart> commonOrderingKeysIterator = Iterators.peekingIterator(commonOrderingKeys.iterator());
-
-            final ImmutableList.Builder<KeyPart> mergedOrderingKeysBuilder = ImmutableList.builder();
-
-            //
-            // Go through all the key parts of the common side in order.
-            //
-            while (commonOrderingKeysIterator.hasNext()) {
-                final var commonKeyPart = commonOrderingKeysIterator.peek();
-
-                //
-                // Find a match on the current inner side. It may be that there are other key parts scattered within
-                // the current side that are not strictly speaking compatible with the common ordering. However, we
-                // should ignore those key parts if they are bound by equality in the common side (and keep looking
-                // further down the current side).
-                //
-                @Nullable KeyPart toBeAdded = null;
-
-                while (toBeAdded == null) {
-                    if (!currentOrderingKeysIterator.hasNext()) {
-                        // We haven't found the matching part in current.
-                        break;
-                    }
-
-                    final var currentKeyPart = currentOrderingKeysIterator.next();
-
-                    final var normalizedCurrentKeyPart = currentKeyPart.getNormalizedKeyExpression();
-                    if (!commonKeyPart.getNormalizedKeyExpression().equals(normalizedCurrentKeyPart)) {
-                        if (equalityBoundKeyMap.containsKey(normalizedCurrentKeyPart)) {
-                            //
-                            // The part didn't match but that part is also not relevant in terms of order as the
-                            // common side has it bound through an equality. We now, however, need to remove that
-                            // binding as the current side does not bind this as an equality binding.
-                            //
-                            // Example: common: a, c and b is equality-bound
-                            //          current: a, b, c
-                            // The result is a compatible ordering a, b, c where b is no longer equality-bound.
-                            //
-                            equalityBoundKeyMap.removeAll(normalizedCurrentKeyPart);
-                            toBeAdded = currentKeyPart;
-                        } else {
-                            break;
-                        }
-                    } else {
-                        toBeAdded = commonKeyPart;
-                        commonOrderingKeysIterator.next();
-                    }
-                }
-
-                //
-                // At this point we have either found an actual next key which at least on one side does not have
-                // an equality binding, or we won't find one at all and this is the last iteration.
-                // Before we either continue or give up we need to weave in the information from the required ordering
-                // that is passed in.
-                // If there is a required key part that is equality-bound on both sides, the caller can impose
-                // whatever order at this point, i.e. a union of one leg being a = 5 and another a = 6, can
-                // be satisfied by a union distinct entirely.
-                //
-                while (requiredOrderingKeysIterator.hasNext()) {
-                    final var requiredKeyPart = requiredOrderingKeysIterator.next();
-
-                    final var normalizedRequiredKey = requiredKeyPart.getNormalizedKeyExpression();
-                    if (toBeAdded != null &&
-                            normalizedRequiredKey.equals(toBeAdded.getNormalizedKeyExpression())) {
-                        break;
-                    }
-
-                    if (equalityBoundKeyMap.containsKey(normalizedRequiredKey) &&
-                            currentOrdering.getEqualityBoundKeyMap().containsKey(normalizedRequiredKey)) {
-                        final Set<Comparison> comparisons = equalityBoundKeyMap.get(normalizedRequiredKey);
-                        final Set<Comparison> currentComparisons = currentOrdering.getEqualityBoundKeyMap().get(normalizedRequiredKey);
-
-                        if (!comparisons.equals(currentComparisons)) {
-                            mergedOrderingKeysBuilder.add(requiredKeyPart);
-                            equalityBoundKeyMap.removeAll(requiredKeyPart.getNormalizedKeyExpression());
-                        }
-                    } else {
-                        toBeAdded = null;
-                        break;
-                    }
-                }
-
-                if (toBeAdded == null) {
-                    break;
-                } else {
-                    mergedOrderingKeysBuilder.add(toBeAdded);
-                }
-            }
-
-            if (requiredOrderingKeysIterator.hasNext()) {
-                // there are more parts to the required ordering that haven't been satisfied
-                return Optional.empty();
-            }
-
-            commonOrderingKeys = mergedOrderingKeysBuilder.build();
-
-            if (commonOrderingKeys.isEmpty()) {
-                return Optional.empty();
-            }
-        }
-
-        return Optional.of(commonOrderingKeys);
-    }
-
-    @Nonnull
-    @SuppressWarnings("java:S135")
-    public static <K extends KeyPart> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull final PartialOrder<K> left,
-                                                                                   @Nonnull final PartialOrder<K> right) {
-        final var leftDependencies = left.getDependencyMap();
-        final var rightDependencies = right.getDependencyMap();
-
-        final var elementBuilder = ImmutableSet.<K>builder();
-        final var dependencyBuilder = ImmutableSetMultimap.<K, K>builder();
-
-        var leftEligibleSet = left.eligibleSet();
-        var rightEligibleSet = right.eligibleSet();
-
-        Set<K> lastElements = ImmutableSet.of();
-        while (!leftEligibleSet.isEmpty() && !rightEligibleSet.isEmpty()) {
-            final var leftElements = leftEligibleSet.eligibleElements();
-            final var rightElements = rightEligibleSet.eligibleElements();
-
-            final var intersectedElements = Sets.intersection(leftElements, rightElements);
-
-            if (intersectedElements.isEmpty()) {
-                break;
-            }
-
-            elementBuilder.addAll(intersectedElements);
-            for (final var intersectedElement : intersectedElements) {
-                for (final var lastElement : lastElements) {
-                    if (leftDependencies.get(intersectedElement).contains(lastElement) || rightDependencies.get(intersectedElement).contains(lastElement)) {
-                        dependencyBuilder.put(intersectedElement, lastElement);
-                    }
-                }
-            }
-
-            leftEligibleSet = leftEligibleSet.removeEligibleElements(intersectedElements);
-            rightEligibleSet = rightEligibleSet.removeEligibleElements(intersectedElements);
-
-            lastElements = intersectedElements;
-        }
-
-        return PartialOrder.of(elementBuilder.build(), dependencyBuilder.build());
-    }
-
-    @Nonnull
-    @SuppressWarnings("java:S135")
-    public static <K extends KeyPart> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull Iterable<PartialOrder<K>> partialOrders) {
-
-
-        return StreamSupport.stream(partialOrders.spliterator(), false)
-                .reduce(Ordering::mergePartialOrderOfOrderings)
-                .orElseThrow(() -> new IllegalStateException("must have a partial order"));
-    }
-
-    @Nonnull
-    public static Optional<List<KeyPart>> commonOrderingKeysNew(@Nonnull List<Optional<Ordering>> orderingOptionals,
-                                                                @Nonnull RequestedOrdering requestedOrdering) {
         if (orderingOptionals.isEmpty()) {
             return Optional.empty();
         }

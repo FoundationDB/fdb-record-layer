@@ -530,9 +530,21 @@ public class TopologicalSort {
     public static <T> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
                                                                @Nonnull final List<T> targetPermutation,
                                                                @Nonnull final BiPredicate<T, T> satisfiabilityPredicate) {
+        return satisfyingPermutations(partialOrder, targetPermutation, Function.identity(), satisfiabilityPredicate);
+    }
+
+    public static <T, P> Iterable<List<T>> satisfyingPermutations(@Nonnull final PartialOrder<T> partialOrder,
+                                                                  @Nonnull final List<P> targetPermutation,
+                                                                  @Nonnull final Function<T, P> domainMapper,
+                                                                  @Nonnull final BiPredicate<T, P> satisfiabilityPredicate) {
         if (partialOrder.size() == 0) {
             return ImmutableList.of();
         }
+
+        final var domainMap =
+                partialOrder.getSet()
+                        .stream()
+                        .collect(ImmutableSetMultimap.toImmutableSetMultimap(domainMapper, Function.identity()));
 
         final EnumeratingIterator<T> enumeratingIterator;
         if (partialOrder.size() > 1) {
@@ -542,7 +554,8 @@ public class TopologicalSort {
                 protected Iterator<T> domain(final int t) {
                     if (t < targetPermutation.size()) {
                         final var currentPermutedElement = Objects.requireNonNull(targetPermutation.get(t));
-                        return Iterators.singletonIterator(currentPermutedElement);
+                        final var currentElements = Objects.requireNonNull(domainMap.get(currentPermutedElement));
+                        return currentElements.iterator();
                     } else {
                         return super.domain(t);
                     }

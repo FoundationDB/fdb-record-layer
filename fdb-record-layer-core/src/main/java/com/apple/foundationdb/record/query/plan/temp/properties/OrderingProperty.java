@@ -74,6 +74,7 @@ import java.util.stream.Stream;
  * expression might return multiple results for the same record.
  */
 @API(API.Status.EXPERIMENTAL)
+@SuppressWarnings("java:S3776")
 public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
     @Nonnull
     private final PlanContext context;
@@ -173,7 +174,7 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
         }
         final var commonEqualityBoundKeysMap = commonEqualityBoundKeysMapOptional.get();
 
-        final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeysNew(orderingOptionals, RequestedOrdering.preserve());
+        final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeys(orderingOptionals, RequestedOrdering.preserve());
         if (commonOrderingKeysOptional.isEmpty()) {
             return Optional.empty();
         }
@@ -264,7 +265,7 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
         }
         final var commonEqualityBoundKeysMap = commonEqualityBoundKeysMapOptional.get();
 
-        final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeysNew(orderingOptionals, requestedOrdering);
+        final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeys(orderingOptionals, requestedOrdering);
         if (commonOrderingKeysOptional.isEmpty()) {
             return Optional.empty();
         }
@@ -289,7 +290,7 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
         }
         final var commonEqualityBoundKeysMap = commonEqualityBoundKeysMapOptional.get();
 
-        final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeysNew(orderingOptionals, requestedOrdering);
+        final Optional<List<KeyPart>> commonOrderingKeysOptional = Ordering.commonOrderingKeys(orderingOptionals, requestedOrdering);
         if (commonOrderingKeysOptional.isEmpty()) {
             return Optional.empty();
         }
