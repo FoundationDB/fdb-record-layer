@@ -94,7 +94,7 @@ import java.util.function.Supplier;
  *
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("java:S4738")
+@SuppressWarnings({"java:S4738", "java:S3776"})
 public class TopologicalSort {
 
     private TopologicalSort() {

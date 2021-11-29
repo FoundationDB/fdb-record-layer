@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
+import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
 /**
@@ -142,61 +143,52 @@ public class Ordering {
             return false;
         }
         final var ordering = (Ordering)o;
-        return getEqualityBoundKeys().equals(ordering.getEqualityBoundKeys()) && getOrderingKeyParts().equals(ordering.getOrderingKeyParts());
+        return getEqualityBoundKeys().equals(ordering.getEqualityBoundKeys()) &&
+               getOrderingKeyParts().equals(ordering.getOrderingKeyParts()) &&
+               isDistinct() == ordering.isDistinct();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getEqualityBoundKeys(), getOrderingKeyParts());
+        return Objects.hash(getEqualityBoundKeys(), getOrderingKeyParts(), isDistinct());
     }
 
+    /**
+     * Method to compute the {@link PartialOrder} representing this {@link Ordering}.
+     *
+     * An ordering expresses the order of e.g. fields {@code a, b, x} and additionally declares some fields, e.g. {@code c}
+     * to be equal-bound to a value (e.g. {@code 5}). That means that {@code c} can freely move in the order declaration of
+     * {@code a, b, x} and satisfy {@link RequestedOrdering}s such as e.g. {@code a, c, b, x}, {@code a, b, x, c}
+     * or similar.
+     *
+     * Generalizing this idea, for this example we can also say that in this case the plan is ordered by
+     * {@code c} as well as all the values for {@code c} are identical. Generalizing further, a plan, or by extension,
+     * a stream of data can actually be ordered by many things at the same time. For instance, a stream of four
+     * fields {@code a, b, x, y} can be ordered by {@code a, b} and {@code x, y} at the same time (consider e.g. that
+     * {@code x = 10 * a; y = 10 *b}. Both of these orderings are equally correct and representative.
+     *
+     * Based on these two independent orderings we can construct new orderings that are also correct:
+     * {@code a, b, x, y}, {@code a, x, b, y}, or {@code x, y, a, b}, among others.
+     *
+     * In order to properly capture this multitude of orderings, we can use partial orders (see {@link PartialOrder})
+     * to define the ordering (unfortunate name clash). For our example, we can write
+     *
+     * <pre>
+     * {@code
+     * PartialOrder([a, b, x, y], [a < b, x < y])
+     * }
+     * </pre>
+     *
+     * and mean all topologically correct permutations of {@code a, b, x, y}.
+     *
+     * @return a {@link PartialOrder} for this ordering
+     */
     @Nonnull
     public PartialOrder<KeyPart> toPartialOrder() {
         return PartialOrder.<KeyPart>builder()
                 .addListWithDependencies(this.getOrderingKeyParts())
                 .addAll(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
                 .build();
-    }
-
-    /**
-     * Method to compute if the required ordering that is passed in is satisfied by this ordering.
-     * @param requestedOrdering other required ordering
-     * @return {@code true} if this ordering satisfies the ordering that is passed in, {@code false} otherwise
-     */
-    public boolean satisfiesRequestedOrdering(@Nonnull final RequestedOrdering requestedOrdering) {
-        final Iterator<KeyPart> orderingKeysIterator = orderingKeyParts.iterator();
-        final List<KeyPart> normalizedRequiredKeyParts = requestedOrdering.getOrderingKeyParts();
-
-        //
-        // Go through all of the required ordering parts
-        //
-        for (final KeyPart normalizedRequestedKeyPart : normalizedRequiredKeyParts) {
-
-            //
-            // If this ordering binds the required part through equality, we can just skip it.
-            //
-            final var normalizedRequestedKey = normalizedRequestedKeyPart.getNormalizedKeyExpression();
-            if (equalityBoundKeyMap.containsKey(normalizedRequestedKey)) {
-                continue;
-            }
-
-            //
-            // If we don't have another part and the other side has, we need to bail and return false.
-            //
-            if (!orderingKeysIterator.hasNext()) {
-                return false;
-            }
-
-            final var currentOrderingKeyPart = orderingKeysIterator.next();
-
-            //
-            // If our next expression is incompatible with the required part, we need to return false.
-            //
-            if (!normalizedRequestedKey.equals(currentOrderingKeyPart.getNormalizedKeyExpression())) {
-                return false;
-            }
-        }
-        return true;
     }
 
     @Nonnull
@@ -220,13 +212,14 @@ public class Ordering {
     }
 
     @Nonnull
-    public static <T extends KeyPart> Optional<List<T>> satisfiesKeyPartsOrdering(@Nonnull final PartialOrder<T> partialOrder,
-                                                                                  @Nonnull final List<KeyPart> requestedOrderingKeyParts) {
+    public static <T> Optional<List<T>> satisfiesKeyPartsOrdering(@Nonnull final PartialOrder<T> partialOrder,
+                                                                  @Nonnull final List<KeyPart> requestedOrderingKeyParts,
+                                                                  @Nonnull final Function<T, KeyPart> domainMapperFunction) {
         final var satisfyingPermutations =
                 TopologicalSort.satisfyingPermutations(
                         partialOrder,
                         requestedOrderingKeyParts,
-                        t -> t,
+                        domainMapperFunction,
                         (t, p) -> true);
 
         return StreamSupport.stream(satisfyingPermutations.spliterator(), false)
@@ -235,8 +228,8 @@ public class Ordering {
 
     @Nonnull
     @SuppressWarnings("java:S135")
-    public static <K extends KeyPart> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull final PartialOrder<K> left,
-                                                                                   @Nonnull final PartialOrder<K> right) {
+    public static <K> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull final PartialOrder<K> left,
+                                                                   @Nonnull final PartialOrder<K> right) {
         final var leftDependencies = left.getDependencyMap();
         final var rightDependencies = right.getDependencyMap();
 
@@ -277,9 +270,7 @@ public class Ordering {
 
     @Nonnull
     @SuppressWarnings("java:S135")
-    public static <K extends KeyPart> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull Iterable<PartialOrder<K>> partialOrders) {
-
-
+    public static <K> PartialOrder<K> mergePartialOrderOfOrderings(@Nonnull Iterable<PartialOrder<K>> partialOrders) {
         return StreamSupport.stream(partialOrders.spliterator(), false)
                 .reduce(Ordering::mergePartialOrderOfOrderings)
                 .orElseThrow(() -> new IllegalStateException("must have a partial order"));
@@ -373,7 +364,7 @@ public class Ordering {
                                 .map(Ordering::toPartialOrder)
                                 .iterator());
 
-        return satisfiesKeyPartsOrdering(mergedPartialOrder, requestedOrdering.getOrderingKeyParts());
+        return satisfiesKeyPartsOrdering(mergedPartialOrder, requestedOrdering.getOrderingKeyParts(), Function.identity());
     }
 
     /**

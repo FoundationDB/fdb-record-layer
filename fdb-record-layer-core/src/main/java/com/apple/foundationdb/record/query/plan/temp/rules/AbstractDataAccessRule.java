@@ -370,7 +370,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                             boundKeyParts
                                     .stream()
                                     .filter(boundKeyPart -> boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EQUALITY)
-                                    .map(KeyPart::getNormalizedKeyExpression)
+                                    .map(BoundKeyPart::getNormalizedKeyExpression)
                                     .collect(ImmutableSet.toImmutableSet());
 
                     final Iterator<BoundKeyPart> boundKeyPartIterator = boundKeyParts.iterator();
@@ -417,10 +417,8 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .stream()
                 .collect(ImmutableMap.toImmutableMap(
                         Function.identity(),
-                        partialMatch -> {
-                            final MatchCandidate matchCandidate = partialMatch.getMatchCandidate();
-                            return matchCandidate.toEquivalentExpression(partialMatch);
-                        }));
+                        partialMatch -> partialMatch.getMatchCandidate()
+                                .toEquivalentExpression(partialMatch)));
     }
 
     /**
@@ -512,7 +510,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                                                                                 @Nonnull final Set<RequestedOrdering> requestedOrderings) {
         final var expressionsBuilder = ImmutableList.<RelationalExpression>builder();
 
-        final var orderingPartialOrder = intersectionOrderingNew(partition);
+        final var orderingPartialOrder = intersectionOrdering(partition);
 
         final ImmutableSet<BoundKeyPart> equalityBoundKeyParts = partition
                 .stream()
@@ -523,9 +521,14 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .collect(ImmutableSet.toImmutableSet());
 
         for (final var requestedOrdering : requestedOrderings) {
-            final var satisfyingOrderingPartsOptional = Ordering.satisfiesKeyPartsOrdering(orderingPartialOrder, requestedOrdering.getOrderingKeyParts());
-            final var comparisonKeyOptional = satisfyingOrderingPartsOptional
-                    .flatMap(parts -> comparisonKey(commonPrimaryKeyParts, equalityBoundKeyParts, parts));
+            final var satisfyingOrderingPartsOptional =
+                    Ordering.satisfiesKeyPartsOrdering(orderingPartialOrder,
+                            requestedOrdering.getOrderingKeyParts(),
+                            BoundKeyPart::getKeyPart);
+            final var comparisonKeyOptional =
+                    satisfyingOrderingPartsOptional
+                            .map(parts -> parts.stream().filter(part -> !equalityBoundKeyParts.contains(part)).collect(ImmutableList.toImmutableList()))
+                            .flatMap(parts -> comparisonKey(commonPrimaryKeyParts, equalityBoundKeyParts, parts));
 
             if (comparisonKeyOptional.isEmpty()) {
                 continue;
@@ -563,7 +566,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
      */
     @SuppressWarnings({"ConstantConditions", "java:S1066"})
     @Nonnull
-    private static PartialOrder<BoundKeyPart> intersectionOrderingNew(@Nonnull final List<PartialMatch> partition) {
+    private static PartialOrder<BoundKeyPart> intersectionOrdering(@Nonnull final List<PartialMatch> partition) {
 
         final var orderingPartialOrders = partition.stream()
                 .map(PartialMatch::getMatchInfo)
@@ -605,13 +608,13 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
                 .map(BoundKeyPart::getNormalizedKeyExpression)
                 .collect(ImmutableSet.toImmutableSet());
 
-        final boolean allComparisonPartsInIndexParts =
+        final boolean allCommonPrimaryKeyPartsInIndexParts =
                 commonPrimaryKeyParts
                         .stream()
                         .filter(commonPrimaryKeyPart -> !equalityBoundPartsSet.contains(commonPrimaryKeyPart))
                         .allMatch(indexOrderingPartsSet::contains);
 
-        if (!allComparisonPartsInIndexParts) {
+        if (!allCommonPrimaryKeyPartsInIndexParts) {
             return Optional.empty();
         }
 
@@ -625,7 +628,7 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
 
         return Optional.of(Key.Expressions.concat(
                 indexOrderingParts.stream()
-                        .map(KeyPart::getNormalizedKeyExpression)
+                        .map(BoundKeyPart::getNormalizedKeyExpression)
                         .collect(ImmutableList.toImmutableList())));
     }
 
@@ -646,28 +649,5 @@ public abstract class AbstractDataAccessRule<R extends RelationalExpression> ext
         }
 
         return intersectedQuantifiers;
-    }
-
-    @SuppressWarnings("unused")
-    private static class BoundPartition {
-        @Nonnull
-        private final Map<QueryPredicate, BoundKeyPart> predicateToBoundKeyPartMap;
-        @Nonnull
-        private final List<PartialMatch> partition;
-
-        private BoundPartition(@Nonnull final Map<QueryPredicate, BoundKeyPart> predicateToBoundKeyPartMap, @Nonnull final List<PartialMatch> partition) {
-            this.predicateToBoundKeyPartMap = predicateToBoundKeyPartMap;
-            this.partition = partition;
-        }
-
-        @Nonnull
-        public Map<QueryPredicate, BoundKeyPart> getPredicateToBoundKeyPartMap() {
-            return predicateToBoundKeyPartMap;
-        }
-
-        @Nonnull
-        public List<PartialMatch> getPartition() {
-            return partition;
-        }
     }
 }

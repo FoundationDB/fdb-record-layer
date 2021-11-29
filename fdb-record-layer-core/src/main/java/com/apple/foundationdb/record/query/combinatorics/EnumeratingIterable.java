@@ -78,7 +78,7 @@ public interface EnumeratingIterable<T> extends Iterable<List<T>> {
 
     /**
      * An implementation of {@link EnumeratingIterable} that is optimized to work for single item
-     * input sets. Iterators created by this class, however, avoid to build complex state objects
+     * input sets. Iterators created by this class, however, avoid building complex state objects
      * during their lifecycle.
      *
      * @param <T> type

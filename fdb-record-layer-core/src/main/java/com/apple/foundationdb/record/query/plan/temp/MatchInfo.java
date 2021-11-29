@@ -174,25 +174,19 @@ public class MatchInfo {
      */
     @Nonnull
     public Optional<Boolean> deriveReverseScanOrder() {
-        var allForward = true;
-        var allReverse = true;
-
+        var numReverse  = 0;
         for (var boundKeyPart : boundKeyParts) {
-            if (boundKeyPart.isReverse() && allForward) {
-                allForward = false;
-            } else if (!boundKeyPart.isReverse() && allReverse) {
-                allReverse = false;
+            if (boundKeyPart.isReverse()) {
+                numReverse ++;
             }
         }
 
-        if (!allForward && !allReverse) {
-            return Optional.empty();
-        }
-
-        if (allForward) {
+        if (numReverse == 0) {
             return Optional.of(false); // forward
+        } else if (numReverse == boundKeyParts.size()) {
+            return Optional.of(true); // reverse
         } else {
-            return Optional.of(true);
+            return Optional.empty();
         }
     }
 

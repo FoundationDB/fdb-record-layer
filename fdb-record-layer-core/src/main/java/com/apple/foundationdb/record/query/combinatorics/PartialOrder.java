@@ -37,15 +37,42 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * A class to represent partially ordered set of elements of some type. A partially ordered set or partial order over
+ * {@code objects(T)} is defined as a subset of {@code object(T) cross objects(T)} (that is, a mathematical relation)
+ * that is:
+ * <ul>
+ *     <li>
+ *        irreflexive
+ *     </li>
+ *     <li>
+ *        transitive
+ *     </li>
+ *     <li>
+ *         asymmetrical
+ *     </li>
+ * </ul>
+ *
+ * This class is closely connected to other classes in this package. See also {@link TopologicalSort} and
+ * {@link TransitiveClosure}.
+ *
+ * @param <T> the type of elements
+ */
 public class PartialOrder<T> {
     @Nonnull
     private final ImmutableSet<T> set;
     @Nonnull
     private final ImmutableSetMultimap<T, T> dependencyMap;
+    @Nonnull
+    private final Supplier<PartialOrder<T>> dualSupplier;
+    @Nonnull
+    private final Supplier<ImmutableSetMultimap<T, T>> transitiveClosureSupplier;
 
     public PartialOrder(@Nonnull final Set<T> set, @Nonnull final SetMultimap<T, T> dependencyMap) {
         this.set = ImmutableSet.copyOf(set);
         this.dependencyMap = ImmutableSetMultimap.copyOf(dependencyMap);
+        this.dualSupplier = Suppliers.memoize(() -> PartialOrder.of(set, this.dependencyMap.inverse()));
+        this.transitiveClosureSupplier = Suppliers.memoize(() -> TransitiveClosure.transitiveClosure(set, this.dependencyMap));
     }
 
     @Nonnull
@@ -53,18 +80,23 @@ public class PartialOrder<T> {
         return set;
     }
 
-
     @Nonnull
     public ImmutableSetMultimap<T, T> getDependencyMap() {
         return dependencyMap;
+    }
+
+    @Nonnull
+    public ImmutableSetMultimap<T, T> getFullDependencyMap() {
+        return transitiveClosureSupplier.get();
     }
 
     int size() {
         return set.size();
     }
 
-    public PartialOrder<T> invertDependencies() {
-        return PartialOrder.of(set, dependencyMap.inverse());
+    @Nonnull
+    public PartialOrder<T> dualOrder() {
+        return dualSupplier.get();
     }
 
     @Nonnull
@@ -72,8 +104,30 @@ public class PartialOrder<T> {
         return new EligibleSet<>(this);
     }
 
+    @Override
+    public boolean equals(final Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof PartialOrder)) {
+            return false;
+        }
+        final PartialOrder<?> that = (PartialOrder<?>)o;
+        return getSet().equals(that.getSet()) && getFullDependencyMap().equals(that.getFullDependencyMap());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(getSet(), getDependencyMap());
+    }
+
+    @Nonnull
+    public static <T> PartialOrder<T> empty() {
+        return new PartialOrder<>(ImmutableSet.of(), ImmutableSetMultimap.of());
+    }
+
     /**
-     * A class allowing to compute a subset of elements in a partial order that are said to be <em>eligible</em>eligible.
+     * A class allowing to compute a subset of elements in a partial order that are said to be <em>eligible</em>.
      * An <em>eligible</em> element is an element that is smallest with respect to the partial order. In total order,
      * there would only ever be exactly one such element. In a partial order there can be many such elements.
      *

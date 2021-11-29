@@ -28,9 +28,22 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * This class captures an interesting ordering.
- * Instances of this class are used to communicate required ordering properties during planning.
+ * This class captures a requested ordering. Instances of this class are used to communicate ordering properties
+ * towards the sources during planning.
  *
+ * There are two flows of information at work during planning:
+ * <ul>
+ *     <li>
+ *         a {@link RequestedOrdering} is used to convey to an upstream expression (closer to source) that a particular
+ *         order is useful or even required in order for the operation downstream to properly plan
+ *     </li>
+ *     <li>
+ *         an {@link Ordering} which e.g. is attached to plans (or can be computed of plans) that declares the ordering
+ *         of that plan
+ *     </li>
+ * </ul>
+ *
+ * An {@link Ordering} satisfies a {@link RequestedOrdering} iff it adheres to the constraints given in the request.
  */
 public class RequestedOrdering {
     /**
@@ -78,12 +91,13 @@ public class RequestedOrdering {
             return false;
         }
         final RequestedOrdering ordering = (RequestedOrdering)o;
-        return getOrderingKeyParts().equals(ordering.getOrderingKeyParts());
+        return getOrderingKeyParts().equals(ordering.getOrderingKeyParts()) &&
+               getDistinctness() == ordering.getDistinctness();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getOrderingKeyParts());
+        return Objects.hash(getOrderingKeyParts(), getDistinctness());
     }
 
     /**
@@ -97,7 +111,7 @@ public class RequestedOrdering {
 
     public enum Distinctness {
         DISTINCT,
-        NO_DISTINCT,
+        NOT_DISTINCT,
         PRESERVE_DISTINCTNESS
     }
 }

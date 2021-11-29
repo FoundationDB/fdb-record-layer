@@ -31,7 +31,10 @@ import java.util.Objects;
 /**
  * A key expression that can be bound by a comparison during graph matching.
  */
-public class BoundKeyPart extends KeyPart {
+public class BoundKeyPart {
+    @Nonnull
+    private final KeyPart keyPart;
+
     @Nonnull
     private final ComparisonRange.Type comparisonRangeType;
 
@@ -48,13 +51,26 @@ public class BoundKeyPart extends KeyPart {
                          @Nonnull final ComparisonRange.Type comparisonRangeType,
                          @Nullable final QueryPredicate queryPredicate,
                          final boolean isReverse) {
-        super(normalizedKeyExpression, isReverse);
-
         Preconditions.checkArgument((queryPredicate == null && comparisonRangeType == ComparisonRange.Type.EMPTY) ||
                                     (queryPredicate != null && comparisonRangeType != ComparisonRange.Type.EMPTY));
 
+        this.keyPart = KeyPart.of(normalizedKeyExpression, isReverse);
         this.comparisonRangeType = comparisonRangeType;
         this.queryPredicate = queryPredicate;
+    }
+
+    @Nonnull
+    public KeyPart getKeyPart() {
+        return keyPart;
+    }
+
+    @Nonnull
+    public KeyExpression getNormalizedKeyExpression() {
+        return keyPart.getNormalizedKeyExpression();
+    }
+
+    public boolean isReverse() {
+        return keyPart.isReverse();
     }
 
     @Nullable
@@ -75,16 +91,14 @@ public class BoundKeyPart extends KeyPart {
         if (!(o instanceof BoundKeyPart)) {
             return false;
         }
-        if (!super.equals(o)) {
-            return false;
-        }
         final BoundKeyPart that = (BoundKeyPart)o;
-        return Objects.equals(getQueryPredicate(), that.getQueryPredicate());
+        return getKeyPart().equals(that.getKeyPart()) &&
+               Objects.equals(getQueryPredicate(), that.getQueryPredicate());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), getQueryPredicate());
+        return Objects.hash(getKeyPart().hashCode(), getQueryPredicate());
     }
 
     @Nonnull

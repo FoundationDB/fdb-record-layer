@@ -290,13 +290,6 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
-            final QueryPredicate candidatePredicate =
-                    queryPredicate == null
-                    ? null
-                    : accumulatedPredicateMap.getMappingOptional(queryPredicate)
-                            .map(PredicateMapping::getCandidatePredicate)
-                            .orElseThrow(() -> new RecordCoreException("no candidate predicate"));
-
             builder.add(
                     BoundKeyPart.of(normalizedKey,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),

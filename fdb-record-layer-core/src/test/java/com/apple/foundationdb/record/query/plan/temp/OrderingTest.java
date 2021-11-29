@@ -26,9 +26,14 @@ import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OrderingTest {
     @Test
@@ -45,11 +50,16 @@ class OrderingTest {
                         ImmutableList.of(a, c),
                         false);
 
-        System.out.println(providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of()));
+        final var satisfyingOrderingOptional = providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of());
+        assertTrue(satisfyingOrderingOptional.isPresent());
+
+        satisfyingOrderingOptional
+                .ifPresentOrElse(satisfyingOrdering -> assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering),
+                        Assertions::fail);
     }
 
     @Test
-    void testOrdering1() {
+    void testOrdering2() {
         final var a = KeyPart.of(Key.Expressions.field("a"));
         final var b = KeyPart.of(Key.Expressions.field("b"));
         final var c = KeyPart.of(Key.Expressions.field("c"));
@@ -63,7 +73,11 @@ class OrderingTest {
                         ImmutableList.of(c),
                         false);
 
-        System.out.println(providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of()));
+        final var satisfyingOrderingOptional = providedOrdering.satisfiesRequestedOrdering(requestedOrdering, ImmutableSet.of());
+
+        satisfyingOrderingOptional
+                .ifPresentOrElse(satisfyingOrdering -> assertEquals(ImmutableList.of(a, b, c), satisfyingOrdering),
+                        Assertions::fail);
     }
 
     @Test
@@ -82,12 +96,10 @@ class OrderingTest {
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
 
-        var eligibleSet = mergedPartialOrder.eligibleSet();
-        while (!eligibleSet.isEmpty()) {
-            final var eligibleElements = eligibleSet.eligibleElements();
-            System.out.println(eligibleElements);
-            eligibleSet = eligibleSet.removeEligibleElements(eligibleElements);
-        }
+        assertEquals(
+                // note there is no b -> c here
+                PartialOrder.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, a)),
+                mergedPartialOrder);
     }
 
     @Test
@@ -106,12 +118,9 @@ class OrderingTest {
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
 
-        var eligibleSet = mergedPartialOrder.eligibleSet();
-        while (!eligibleSet.isEmpty()) {
-            final var eligibleElements = eligibleSet.eligibleElements();
-            System.out.println(eligibleElements);
-            eligibleSet = eligibleSet.removeEligibleElements(eligibleElements);
-        }
+        assertEquals(
+                PartialOrder.of(ImmutableSet.of(a, b, c), ImmutableSetMultimap.of(b, a, c, b)),
+                mergedPartialOrder);
     }
 
     @Test
@@ -130,12 +139,7 @@ class OrderingTest {
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(leftPartialOrder, rightPartialOrder);
 
-        var eligibleSet = mergedPartialOrder.eligibleSet();
-        while (!eligibleSet.isEmpty()) {
-            final var eligibleElements = eligibleSet.eligibleElements();
-            System.out.println(eligibleElements);
-            eligibleSet = eligibleSet.removeEligibleElements(eligibleElements);
-        }
+        assertEquals(PartialOrder.empty(), mergedPartialOrder);
     }
 
     @Test
@@ -145,8 +149,6 @@ class OrderingTest {
         final var c = KeyPart.of(Key.Expressions.field("c"));
         final var d = KeyPart.of(Key.Expressions.field("d"));
         final var e = KeyPart.of(Key.Expressions.field("e"));
-        final var f = KeyPart.of(Key.Expressions.field("f"));
-
 
         final var one =
                 PartialOrder.of(ImmutableSet.of(a, b, c, d),
@@ -167,12 +169,9 @@ class OrderingTest {
 
         final var mergedPartialOrder = Ordering.mergePartialOrderOfOrderings(ImmutableList.of(one, two, three, four));
 
-        var eligibleSet = mergedPartialOrder.eligibleSet();
-        while (!eligibleSet.isEmpty()) {
-            final var eligibleElements = eligibleSet.eligibleElements();
-            System.out.println(eligibleElements);
-            eligibleSet = eligibleSet.removeEligibleElements(eligibleElements);
-        }
+        assertEquals(
+                PartialOrder.of(ImmutableSet.of(a, b, c, d), ImmutableSetMultimap.of(b, a, c, b)),
+                mergedPartialOrder);
     }
 
     @Test
@@ -182,7 +181,6 @@ class OrderingTest {
         final var c = KeyPart.of(Key.Expressions.field("c"));
         final var d = KeyPart.of(Key.Expressions.field("d"));
         final var e = KeyPart.of(Key.Expressions.field("e"));
-        final var f = KeyPart.of(Key.Expressions.field("f"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(d.getNormalizedKeyExpression(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -210,8 +208,7 @@ class OrderingTest {
                 ImmutableList.of(a, b, c),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-
-        final var mergedPartialOrderOptional =
+        final var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
@@ -220,17 +217,17 @@ class OrderingTest {
                                 Optional.of(four)),
                         requestedOrdering);
 
-        System.out.println(mergedPartialOrderOptional);
+        commonOrderingKeysOptional
+                .ifPresentOrElse(commonOrderingKeys -> assertEquals(ImmutableList.of(a, b, c, d), commonOrderingKeys),
+                        Assertions::fail);
     }
 
     @Test
-    void testCommonOrdering1() {
+    void testCommonOrdering2() {
         final var a = KeyPart.of(Key.Expressions.field("a"));
         final var b = KeyPart.of(Key.Expressions.field("b"));
         final var c = KeyPart.of(Key.Expressions.field("c"));
         final var x = KeyPart.of(Key.Expressions.field("x"));
-        final var e = KeyPart.of(Key.Expressions.field("e"));
-        final var f = KeyPart.of(Key.Expressions.field("f"));
 
         final var one = new Ordering(
                 ImmutableSetMultimap.of(c.getNormalizedKeyExpression(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
@@ -246,39 +243,79 @@ class OrderingTest {
                 ImmutableList.of(a, b, c, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        var mergedPartialOrderOptional =
+        var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
                                 Optional.of(two)),
                         requestedOrdering);
 
-        System.out.println(mergedPartialOrderOptional);
+        commonOrderingKeysOptional
+                .ifPresentOrElse(commonOrderingKeys -> assertEquals(ImmutableList.of(a, b, c, x), commonOrderingKeys),
+                        Assertions::fail);
+    }
 
-        requestedOrdering = new RequestedOrdering(
+    @Test
+    void testCommonOrdering3() {
+        final var a = KeyPart.of(Key.Expressions.field("a"));
+        final var b = KeyPart.of(Key.Expressions.field("b"));
+        final var c = KeyPart.of(Key.Expressions.field("c"));
+        final var x = KeyPart.of(Key.Expressions.field("x"));
+
+        final var one = new Ordering(
+                ImmutableSetMultimap.of(c.getNormalizedKeyExpression(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                ImmutableList.of(a, b, x),
+                false);
+
+        final var two = new Ordering(
+                ImmutableSetMultimap.of(b.getNormalizedKeyExpression(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                ImmutableList.of(a, c, x),
+                false);
+
+        final var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, c, b, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        mergedPartialOrderOptional =
+        final var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
                                 Optional.of(two)),
                         requestedOrdering);
 
-        System.out.println(mergedPartialOrderOptional);
+        commonOrderingKeysOptional
+                .ifPresentOrElse(commonOrderingKeys -> assertEquals(ImmutableList.of(a, c, b, x), commonOrderingKeys),
+                        Assertions::fail);
+    }
 
-        requestedOrdering = new RequestedOrdering(
+    @Test
+    void testCommonOrdering4() {
+        final var a = KeyPart.of(Key.Expressions.field("a"));
+        final var b = KeyPart.of(Key.Expressions.field("b"));
+        final var c = KeyPart.of(Key.Expressions.field("c"));
+        final var x = KeyPart.of(Key.Expressions.field("x"));
+
+        final var one = new Ordering(
+                ImmutableSetMultimap.of(c.getNormalizedKeyExpression(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                ImmutableList.of(a, b, x),
+                false);
+
+        final var two = new Ordering(
+                ImmutableSetMultimap.of(b.getNormalizedKeyExpression(), new Comparisons.NullComparison(Comparisons.Type.IS_NULL)),
+                ImmutableList.of(a, c, x),
+                false);
+
+        var requestedOrdering = new RequestedOrdering(
                 ImmutableList.of(a, b, x),
                 RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
 
-        mergedPartialOrderOptional =
+        final var commonOrderingKeysOptional =
                 Ordering.commonOrderingKeys(
                         ImmutableList.of(
                                 Optional.of(one),
                                 Optional.of(two)),
                         requestedOrdering);
 
-        System.out.println(mergedPartialOrderOptional);
+        assertFalse(commonOrderingKeysOptional.isPresent());
     }
 }
