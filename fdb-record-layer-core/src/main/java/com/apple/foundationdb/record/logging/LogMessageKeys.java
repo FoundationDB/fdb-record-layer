@@ -264,6 +264,7 @@ public enum LogMessageKeys {
     HASH("hash"),
 
     // Lucene data compression
+    ANALYZER_NAME("analyzer_name"),
     BLOCK_NUMBER("block_number"),
     COMPRESSED_EVENTUALLY("compressed_eventually"),
     COMPRESSION_SUPPOSED("compression_supposed"),

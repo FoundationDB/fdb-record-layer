@@ -108,6 +108,22 @@ public class IndexOptions {
      */
     public static final String TEXT_TOKENIZER_VERSION_OPTION = "textTokenizerVersion";
     /**
+     * The name of the Lucene analyzer to use with a {@link IndexTypes#TEXT} index.
+     */
+    public static final String TEXT_ANALYZER_NAME_OPTION = "testAnalyzerName";
+    /**
+     * The minimum size of ngram tokenizer, when using ngram analyzer.
+     */
+    public static final String TEXT_TOKEN_MIN_SIZE = "textTokenMinSize";
+    /**
+     * The maximum size of ngram tokenizer, when using ngram analyzer.
+     */
+    public static final String TEXT_TOKEN_MAX_SIZE = "textTokenMaxSize";
+    /**
+     * Whether a Lucene's EdgeNGramTokenFilter or a regular NGramTokenFilter to use for the ngram analyzer.
+     */
+    public static final String NGRAM_TOKEN_EDGES_ONLY = "ngramTokenEdgesOnly";
+    /**
      * If {@code "true"}, a {@link IndexTypes#TEXT} index will add a conflict range for the whole index to keep the commit size down at the expense of more conflicts.
      */
     @API(API.Status.EXPERIMENTAL)
