@@ -232,6 +232,7 @@ public enum LogMessageKeys {
 
     // query plan
     PLAN("plan"),
+    PLAN_HASH("plan_hash"),
 
     // error
     ERROR("error"),
