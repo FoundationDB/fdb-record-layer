@@ -25,7 +25,6 @@ import com.apple.foundationdb.record.metadata.IndexOptions;
 import org.apache.lucene.analysis.Analyzer;
 
 import javax.annotation.Nonnull;
-import java.util.Map;
 
 /**
  * Registry for {@link Analyzer}s. This registry allows for full-text indexes to specify
@@ -33,23 +32,13 @@ import java.util.Map;
  * The registry will then be queried for the analyzer that has that name at query-time.
  *
  * <p>
- * Note that there are two ways of adding elements to the tokenizer registry. The first
- * is to use the {@link com.google.auto.service.AutoService AutoService} annotation to mark
- * a {@link LuceneAnalyzerFactory} implementation as one that should be loaded into
- * the registry. The other is to call {@link #register(LuceneAnalyzerFactory) register()}
- * on this interface to register that analyzer manually. This second way is useful
- * for analyzers that are built on the fly from configuration parameters, for example.
+ * Note that the way of adding elements to the analyzer registry is to use the
+ * {@link com.google.auto.service.AutoService AutoService} annotation to mark a
+ * {@link LuceneAnalyzerFactory} implementation as one that should be loaded into the registry.
  * </p>
  */
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {
     @Nonnull
     Analyzer getLuceneAnalyzer(@Nonnull Index index);
-
-    void register(@Nonnull LuceneAnalyzerFactory analyzerFactory);
-
-    @Nonnull
-    Map<String, LuceneAnalyzerFactory> getRegistry();
-
-    void reset();
 }

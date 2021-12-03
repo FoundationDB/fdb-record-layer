@@ -20,10 +20,8 @@
 
 package com.apple.foundationdb.record.lucene;
 
-import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
-import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
@@ -33,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -43,9 +40,7 @@ import java.util.ServiceLoader;
  * loader to determine which {@link LuceneAnalyzerFactory} implementation exist,
  * and it populates the registry with those analyzers. An instance of this registry
  * is used by the {@link LuceneIndexMaintainer}
- * in order to choose the analyzer for a block of text. One can therefore register
- * additional analyzers for that index by calling the {@link #register(LuceneAnalyzerFactory) register}
- * method on the singleton instance of this class and supplying the additional analyzer.
+ * in order to choose the analyzer for a block of text.
  */
 public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     @Nonnull
@@ -86,16 +81,10 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
 
     @Nonnull
     @Override
-    public Map<String, LuceneAnalyzerFactory> getRegistry() {
-        return Collections.unmodifiableMap(registry);
-    }
-
-    @Nonnull
-    @Override
     public Analyzer getLuceneAnalyzer(@Nonnull Index index) {
         final String name = index.getOption(IndexOptions.TEXT_ANALYZER_NAME_OPTION);
         // TODO: Get rid of the condition after OR operator, after having all analyzers registered with this registry
-        if (name == null || !name.equals(NgramAnalyzer.getName())) {
+        if (name == null || !registry.keySet().contains(name)) {
             return new StandardAnalyzer();
         } else {
             LuceneAnalyzerFactory analyzerFactory = registry.get(name);
@@ -104,27 +93,5 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
             }
             return analyzerFactory.getAnalyzer(index);
         }
-    }
-
-    // Synchronize this method so that we don't need a ConcurrentHashMap but so that
-    // it is still thread safe.
-    @Override
-    @SuppressWarnings("PMD.CompareObjectsWithEquals")
-    public synchronized void register(@Nonnull LuceneAnalyzerFactory analyzerFactory) {
-        final String name = analyzerFactory.getName();
-        LuceneAnalyzerFactory oldFactory = registry.putIfAbsent(name, analyzerFactory);
-        // If there was a factory already registered and the old factory isn't the same as
-        // the new one, throw an error
-        if (oldFactory != null && !oldFactory.equals(analyzerFactory)) {
-            throw new RecordCoreArgumentException("attempted to register duplicate lucene analyzer", LogMessageKeys.ANALYZER_NAME, name);
-        }
-        if (LOGGER.isInfoEnabled()) {
-            LOGGER.info(KeyValueLogMessage.of("registered analyzer", LogMessageKeys.ANALYZER_NAME, name));
-        }
-    }
-
-    @Override
-    public void reset() {
-        registry = initRegistry();
     }
 }
