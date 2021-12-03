@@ -40,7 +40,7 @@ import java.util.List;
 
 class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorProto.ComparatorContinuation.Builder, RecordCursorContinuation> {
 
-    final private int referencePlanIndex;
+    private final int referencePlanIndex;
 
     @Nonnull
     private static final RecordCursorProto.ComparatorContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.ComparatorContinuation.CursorState.newBuilder()
