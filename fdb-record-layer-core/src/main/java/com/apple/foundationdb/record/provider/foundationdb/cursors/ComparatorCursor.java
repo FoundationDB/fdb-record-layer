@@ -26,17 +26,23 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
- * A cursor that implements an comparison of matching elements from a set of cursors all of whom are ordered compatibly.
+ * A cursor that implements a comparison of matching elements from a set of cursors all of whom are ordered compatibly.
  * For each record returned by the sub-cursors, this cursor will ensure that they are the same (by using the comparison
- * function). The cursor will stop and fail if the records are not the same or if one of the sub-cursors ends prematurely.
+ * function). The cursor will log and continue if the records are not the same or if one of the sub-cursors ends
+ * prematurely.
+ * The cursor defines a "reference cursor" whose results are assumed to be correct. Values are compared to this
+ * cursor's
+ * results, and the reference cursor's results are the ones that are actually returned.
  *
  * @param <T> the type of elements returned by the cursor
  */
@@ -44,13 +50,17 @@ import java.util.function.Function;
 public class ComparatorCursor<T> extends ComparatorCursorBase<T, T> {
 
     private ComparatorCursor(@Nonnull List<KeyedMergeCursorState<T>> cursorStates,
-                             @Nullable FDBStoreTimer timer) {
-        super(cursorStates, timer);
+                             @Nullable FDBStoreTimer timer,
+                             final int referencePlanIndex,
+                             @Nonnull final Supplier<String> planStringSupplier,
+                             @Nonnull final Supplier<Integer> planHashSupplier) {
+        super(cursorStates, timer, referencePlanIndex, planStringSupplier, planHashSupplier);
     }
 
     @Override
+    @Nonnull
     protected T getNextResult(@Nonnull List<KeyedMergeCursorState<T>> cursorStates) {
-        return cursorStates.get(0).getResult().get();
+        return getReferenceState(cursorStates).getResult().get();
     }
 
     /**
@@ -60,30 +70,39 @@ public class ComparatorCursor<T> extends ComparatorCursorBase<T, T> {
      * as the overload of this function that takes a function to extract a comparison
      * key.
      *
+     * @param <M> the type of the Protobuf record elements of the cursor
+     * @param <S> the type of record wrapping a record of type <code>M</code>
      * @param store record store from which records will be fetched
      * @param comparisonKey the key expression used to compare records from different cursors
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
      * @param continuation any continuation from a previous scan
-     * @param <M> the type of the Protobuf record elements of the cursor
-     * @param <S> the type of record wrapping a record of type <code>M</code>
+     * @param referencePlanIndex the index of the reference cursor in the given list of sub-cursors
+     * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
+     * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
+     *
      * @return a cursor containing same records in all child cursors
-     * @see #create(Function, List, byte[], FDBStoreTimer)
+     *
+     * @see #create(Function, List, byte[], FDBStoreTimer, int, Supplier, Supplier)
      */
     @Nonnull
     public static <M extends Message, S extends FDBRecord<M>> ComparatorCursor<S> create(
             @Nonnull FDBRecordStoreBase<M> store,
             @Nonnull KeyExpression comparisonKey,
             @Nonnull List<Function<byte[], RecordCursor<S>>> cursorFunctions,
-            @Nullable byte[] continuation) {
+            @Nullable byte[] continuation,
+            final int referencePlanIndex,
+            @Nonnull final Supplier<String> planStringSupplier,
+            @Nonnull final Supplier<Integer> planHashSupplier) {
         return create(
                 (S rec) -> comparisonKey.evaluateSingleton(rec).toTupleAppropriateList(),
-                cursorFunctions, continuation, store.getTimer());
+                cursorFunctions, continuation, store.getTimer(),
+                referencePlanIndex, planStringSupplier, planHashSupplier);
     }
 
     /**
      * Create a comparator cursor from several compatibly-ordered cursors.
-     * The returned cursor will return all elements that are equal in all of the provided
-     * cursors, preserving order. All cursors must return elements in the same order
+     * The returned cursor will the reference results for the reference cursor, preserving order.
+     * All cursors must return elements in the same order.
      * Additionally, if the comparison key function evaluates to the same value when applied
      * to two elements (possibly from different cursors), then those two elements
      * should be equal. In other words, the value of the comparison key should be the <i>only</i>
@@ -99,11 +118,15 @@ public class ComparatorCursor<T> extends ComparatorCursorBase<T, T> {
      * cursor as a whole.
      * </p>
      *
+     * @param <T> the type of elements returned by this cursor
      * @param comparisonKeyFunction the function evaluated to compare elements from different cursors
      * @param cursorFunctions a list of functions to produce {@link RecordCursor}s from a continuation
      * @param continuation any continuation from a previous scan
      * @param timer the timer used to instrument events
-     * @param <T> the type of elements returned by this cursor
+     * @param referencePlanIndex the index of the reference cursor in the given list of sub-cursors
+     * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
+     * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
+     *
      * @return a cursor containing all records in all child cursors
      */
     @Nonnull
@@ -111,7 +134,11 @@ public class ComparatorCursor<T> extends ComparatorCursorBase<T, T> {
             @Nonnull Function<? super T, ? extends List<Object>> comparisonKeyFunction,
             @Nonnull List<Function<byte[], RecordCursor<T>>> cursorFunctions,
             @Nullable byte[] continuation,
-            @Nullable FDBStoreTimer timer) {
-        return new ComparatorCursor<>(createCursorStates(cursorFunctions, continuation, comparisonKeyFunction), timer);
+            @Nullable FDBStoreTimer timer,
+            final int referencePlanIndex,
+            @Nonnull final Supplier<String> planStringSupplier,
+            @Nonnull final Supplier<Integer> planHashSupplier) {
+        return new ComparatorCursor<>(createCursorStates(cursorFunctions, continuation, comparisonKeyFunction, referencePlanIndex), timer,
+                referencePlanIndex, planStringSupplier, planHashSupplier);
     }
 }

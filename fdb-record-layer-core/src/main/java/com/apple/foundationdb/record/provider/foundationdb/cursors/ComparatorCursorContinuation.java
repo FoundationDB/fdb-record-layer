@@ -39,6 +39,9 @@ import java.util.Collections;
 import java.util.List;
 
 class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorProto.ComparatorContinuation.Builder, RecordCursorContinuation> {
+
+    final private int referencePlanIndex;
+
     @Nonnull
     private static final RecordCursorProto.ComparatorContinuation.CursorState EXHAUSTED_PROTO = RecordCursorProto.ComparatorContinuation.CursorState.newBuilder()
             .setStarted(true)
@@ -49,12 +52,14 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
             .build();
 
     private ComparatorCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations,
-                                         @Nullable RecordCursorProto.ComparatorContinuation originalProto) {
+                                         @Nullable RecordCursorProto.ComparatorContinuation originalProto,
+                                         final int referencePlanIndex) {
         super(continuations, originalProto);
+        this.referencePlanIndex = referencePlanIndex;
     }
 
-    private ComparatorCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations) {
-        this(continuations, null);
+    private ComparatorCursorContinuation(@Nonnull List<RecordCursorContinuation> continuations, final int referencePlanIndex) {
+        this(continuations, null, referencePlanIndex);
     }
 
     @Override
@@ -94,22 +99,22 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
 
     @Override
     public boolean isEnd() {
-        // one of the children have actually stopped, so the children should all stop
-        return getContinuations().stream().anyMatch(RecordCursorContinuation::isEnd);
+        // The reference plan is the one that decides when to end
+        return getContinuations().get(referencePlanIndex).isEnd();
     }
 
     @Nonnull
     static ComparatorCursorContinuation from(@Nonnull ComparatorCursorBase<?, ?> cursor) {
-        return new ComparatorCursorContinuation(cursor.getChildContinuations());
+        return new ComparatorCursorContinuation(cursor.getChildContinuations(), cursor.getReferencePlanIndex());
     }
 
     @Nonnull
-    static ComparatorCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren) {
+    static ComparatorCursorContinuation from(@Nullable byte[] bytes, int numberOfChildren, int referencePlanIndex) {
         if (bytes == null) {
-            return new ComparatorCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START));
+            return new ComparatorCursorContinuation(Collections.nCopies(numberOfChildren, RecordCursorStartContinuation.START), referencePlanIndex);
         }
         try {
-            return ComparatorCursorContinuation.from(RecordCursorProto.ComparatorContinuation.parseFrom(bytes), numberOfChildren);
+            return ComparatorCursorContinuation.from(RecordCursorProto.ComparatorContinuation.parseFrom(bytes), numberOfChildren, referencePlanIndex);
         } catch (InvalidProtocolBufferException ex) {
             throw new RecordCoreException("invalid continuation", ex)
                     .addLogInfo(LogMessageKeys.RAW_BYTES, ByteArrayUtil2.loggable(bytes));
@@ -117,7 +122,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
     }
 
     @Nonnull
-    static ComparatorCursorContinuation from(@Nonnull RecordCursorProto.ComparatorContinuation parsed, int numberOfChildren) {
+    static ComparatorCursorContinuation from(@Nonnull RecordCursorProto.ComparatorContinuation parsed, int numberOfChildren, int referencePlanIndex) {
         ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
         for (RecordCursorProto.ComparatorContinuation.CursorState state : parsed.getOtherChildStateList()) {
             if (!state.getStarted()) {
@@ -134,7 +139,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
                     .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, numberOfChildren - 2)
                     .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getOtherChildStateCount());
         }
-        return new ComparatorCursorContinuation(children, parsed);
+        return new ComparatorCursorContinuation(children, parsed, referencePlanIndex);
     }
 
 }

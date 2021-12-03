@@ -56,7 +56,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * A {@link RecordQueryChooserPlanBase} that executes all child plans and compares their results using the provided comparison key.
+ * A {@link RecordQueryChooserPlanBase} that executes all child plans and compares their results using the provided
+ * comparison key.
  * Results from child plans are assumed to all be with a compatible sort order.
  */
 @API(API.Status.INTERNAL)
@@ -66,11 +67,14 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     @Nonnull
     private final KeyExpression comparisonKey;
+    private final int referencePlanIndex;
 
-    private RecordQueryComparatorPlan(@Nonnull List<Quantifier.Physical> quantifiers,
-                                      @Nonnull KeyExpression comparisonKey) {
+    private RecordQueryComparatorPlan(@Nonnull final List<Quantifier.Physical> quantifiers,
+                                      @Nonnull final KeyExpression comparisonKey,
+                                      final int referencePlanIndex) {
         super(quantifiers);
         this.comparisonKey = comparisonKey;
+        this.referencePlanIndex = referencePlanIndex;
     }
 
     /**
@@ -78,17 +82,21 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      *
      * @param children the list of plans to compare results from
      * @param comparisonKey a key expression by which the results of all plans are compared by
+     * @param referencePlanIndex the index of the "reference plan" (source of truth) among the given sub-plans
      *
      * @return a new plan that will compare all results from child plans
      */
     @Nonnull
-    public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull KeyExpression comparisonKey) {
+    public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
+                                                 @Nonnull KeyExpression comparisonKey,
+                                                 final int referencePlanIndex) {
         Verify.verify(!children.isEmpty());
+        Verify.verify((referencePlanIndex >= 0) && (referencePlanIndex < children.size()));
         final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
         }
-        return new RecordQueryComparatorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey);
+        return new RecordQueryComparatorPlan(Quantifiers.fromPlans(childRefsBuilder.build()), comparisonKey, referencePlanIndex);
     }
 
     /**
@@ -113,7 +121,10 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
                         getChildren().stream()
                                 .map(childPlan -> comparatorCursorFunction(store, context, childExecuteProperties, childPlan))
                                 .collect(Collectors.toList()),
-                        continuation)
+                        continuation,
+                        referencePlanIndex,
+                        () -> toString(),
+                        () -> planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS))
                 .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
                 .map(QueryResult::of);
     }
@@ -149,7 +160,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
                                                                   @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryComparatorPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers),
-                getComparisonKey());
+                getComparisonKey(), referencePlanIndex);
     }
 
     @Override
@@ -197,7 +208,9 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     @Override
     public RecordQueryComparatorPlan strictlySorted() {
-        return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream().map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList())), comparisonKey);
+        return new RecordQueryComparatorPlan(Quantifiers.fromPlans(getChildStream()
+                    .map(p -> GroupExpressionRef.of((RecordQueryPlan)p.strictlySorted())).collect(Collectors.toList())),
+                comparisonKey, referencePlanIndex);
     }
 
     @Nonnull
