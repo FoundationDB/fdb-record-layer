@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
+import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -179,15 +180,24 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer(), service);
     }
 
-    protected void openRecordStore(FDBRecordContext context) {
-        openRecordStore(context, store -> { });
+    protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
+        final Index ngramIndex = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
+                ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.getName(),
+                        IndexOptions.TEXT_TOKEN_MIN_SIZE, String.valueOf(minSize),
+                        IndexOptions.TEXT_TOKEN_MAX_SIZE, String.valueOf(maxSize),
+                        IndexOptions.NGRAM_TOKEN_EDGES_ONLY, String.valueOf(edgesOnly)));
+        openRecordStore(context, store -> { }, ngramIndex);
     }
 
-    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook) {
+    protected void openRecordStore(FDBRecordContext context) {
+        openRecordStore(context, store -> { }, SIMPLE_TEXT_SUFFIXES);
+    }
+
+    protected void openRecordStore(FDBRecordContext context, RecordMetaDataHook hook, Index simpleDocIndex) {
         RecordMetaDataBuilder metaDataBuilder = RecordMetaData.newBuilder().setRecords(TestRecordsTextProto.getDescriptor());
         metaDataBuilder.getRecordType(TextIndexTestUtils.COMPLEX_DOC).setPrimaryKey(concatenateFields("group", "doc_id"));
         metaDataBuilder.removeIndex("SimpleDocument$text");
-        metaDataBuilder.addIndex(TextIndexTestUtils.SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+        metaDataBuilder.addIndex(TextIndexTestUtils.SIMPLE_DOC, simpleDocIndex);
         metaDataBuilder.addIndex(MAP_DOC, MAP_ON_LUCENE_INDEX);
         metaDataBuilder.addIndex(MAP_DOC, MAP_AND_FIELD_ON_LUCENE_INDEX);
         hook.apply(metaDataBuilder);
@@ -219,6 +229,88 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             mapWithFieldDocuments.forEach(recordStore::saveRecord);
             commit(context);
         }
+    }
+
+    private void initializeWithNgramIndex(String text, boolean edgesOnly, int minSize, int maxSize) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithNgramIndex(context, edgesOnly, minSize, maxSize);
+            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText(text)
+                    .build();
+            recordStore.saveRecord(document);
+            commit(context);
+        }
+    }
+
+    private void assertTermIndexedOrNot(String term, boolean indexedExpected, boolean shouldDeferFetch) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context);
+            final QueryComponent filter = new LuceneQueryComponent(term, Lists.newArrayList());
+            // Query for full records
+            RecordQuery query = RecordQuery.newBuilder()
+                    .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
+                    .setFilter(filter)
+                    .build();
+            setDeferFetchAfterUnionAndIntersection(shouldDeferFetch);
+            RecordQueryPlan plan = planner.plan(query);
+            RecordCursor<FDBQueriedRecord<Message>> fdbQueriedRecordRecordCursor = recordStore.executeQuery(plan);
+            RecordCursor<Tuple> map = fdbQueriedRecordRecordCursor.map(FDBQueriedRecord::getPrimaryKey);
+            List<Long> primaryKeys = map.map(t -> t.getLong(0)).asList().get();
+            if (indexedExpected) {
+                assertEquals(ImmutableSet.of(1L), ImmutableSet.copyOf(primaryKeys), "Expected term not indexed");
+            } else {
+                assertThat("Unexpected term indexed", primaryKeys.isEmpty());
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testNgram(boolean shouldDeferFetch) throws Exception {
+        initializeWithNgramIndex("Good morning Mr Tian", false, 3, 5);
+        // Token with length == 2, not indexed
+        assertTermIndexedOrNot("mo", false, shouldDeferFetch);
+        // Token with length == 3, indexed
+        assertTermIndexedOrNot("mor", true, shouldDeferFetch);
+        // Token with length == 4, indexed
+        assertTermIndexedOrNot("morn", true, shouldDeferFetch);
+        // Token with length == 5, indexed
+        assertTermIndexedOrNot("morni", true, shouldDeferFetch);
+        // Token not on front edge, also indexed, because not edgesOnly
+        assertTermIndexedOrNot("ornin", true, shouldDeferFetch);
+        // Token not on front edge, also indexed, because not edgesOnly
+        assertTermIndexedOrNot("rning", true, shouldDeferFetch);
+        // Token with length == 6, not indexed
+        assertTermIndexedOrNot("mornin", false, shouldDeferFetch);
+        // Token indexed with higher/lower case ignored
+        assertTermIndexedOrNot("Good", true, shouldDeferFetch);
+        assertTermIndexedOrNot("good", true, shouldDeferFetch);
+        // Token with length == 2, but also indexed, because it is a separate word
+        assertTermIndexedOrNot("Mr", true, shouldDeferFetch);
+        // Token with length == 7, but also indexed, because it is a separate word
+        assertTermIndexedOrNot("morning", true, shouldDeferFetch);
+        // Query parser parses it as "Mr" and "T" with OR operator, and "Mr" is indexed
+        assertTermIndexedOrNot("Mr T", true, shouldDeferFetch);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testNgramEdgesOnly(boolean shouldDeferFetch) throws Exception {
+        initializeWithNgramIndex("Good morning Mr Tian", true, 3, 5);
+        // Token with length == 2, not indexed
+        assertTermIndexedOrNot("mo", false, shouldDeferFetch);
+        // Token with length == 3, indexed
+        assertTermIndexedOrNot("mor", true, shouldDeferFetch);
+        // Token with length == 4, indexed
+        assertTermIndexedOrNot("morn", true, shouldDeferFetch);
+        // Token with length == 5, indexed
+        assertTermIndexedOrNot("morni", true, shouldDeferFetch);
+        // Not indexed, because edgesOnly
+        assertTermIndexedOrNot("ornin", false, shouldDeferFetch);
+        // Not indexed, because edgesOnly
+        assertTermIndexedOrNot("rning", false, shouldDeferFetch);
     }
 
     @ParameterizedTest
