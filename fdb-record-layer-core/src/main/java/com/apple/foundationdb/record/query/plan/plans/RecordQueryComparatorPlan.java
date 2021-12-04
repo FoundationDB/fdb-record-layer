@@ -174,6 +174,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
         }
         final RecordQueryComparatorPlan other = (RecordQueryComparatorPlan)otherExpression;
         return ((isReverse() == other.isReverse()) &&
+                (referencePlanIndex == other.referencePlanIndex) &&
                 comparisonKey.equals(other.comparisonKey));
     }
 
@@ -190,12 +191,12 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(getComparisonKey(), isReverse());
+        return Objects.hash(getComparisonKey(), referencePlanIndex, isReverse());
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren(), getComparisonKey(), isReverse());
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, getChildren(), getComparisonKey(), referencePlanIndex, isReverse());
     }
 
     @Override
