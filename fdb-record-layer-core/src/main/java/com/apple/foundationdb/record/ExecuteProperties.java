@@ -74,7 +74,7 @@ public class ExecuteProperties {
 
     private final CursorStreamingMode defaultCursorStreamingMode;
 
-    private ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
+    protected ExecuteProperties(int skip, int rowLimit, @Nonnull IsolationLevel isolationLevel, long timeLimit,
                               @Nonnull ExecuteState state, boolean failOnScanLimitReached, @Nonnull CursorStreamingMode defaultCursorStreamingMode) {
         this.skip = skip;
         this.rowLimit = rowLimit;

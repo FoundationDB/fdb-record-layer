@@ -146,13 +146,8 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                                                                        @Nonnull final ExecuteProperties executeProperties) {
         final TupleRange range = groupingComparisons == null ? comparisons.toTupleRange() : comparisons.append(groupingComparisons).toTupleRange(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
-        RecordCursor<IndexEntry> indexEntryRecordCursor = store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, executeProperties.asScanProperties(reverse));
-        if (indexEntryRecordCursor instanceof LuceneRecordCursor && sort != null)  {
-            ((LuceneRecordCursor) indexEntryRecordCursor).setSort(sort.toKeyExpression());
-        }
-        if (indexEntryRecordCursor instanceof LuceneRecordCursor && executorService != null) {
-            ((LuceneRecordCursor)indexEntryRecordCursor).setExecutor(executorService);
-        }
+        LuceneExecuteProperties luceneExecuteProperties = new LuceneExecuteProperties(executeProperties, executorService, sort);
+        RecordCursor<IndexEntry> indexEntryRecordCursor = store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, luceneExecuteProperties.asScanProperties(reverse));
         return indexEntryRecordCursor;
     }
 }

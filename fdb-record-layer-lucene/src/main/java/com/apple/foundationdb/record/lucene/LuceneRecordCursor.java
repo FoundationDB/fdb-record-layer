@@ -124,6 +124,10 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
         this.fields = fields;
         this.groupingKey = groupingKey;
+        KeyExpression sort = ((LuceneExecuteProperties)scanProperties.getExecuteProperties()).sort;
+        ExecutorService service = ((LuceneExecuteProperties) scanProperties.getExecuteProperties()).service;
+        if (sort != null) setSort(sort.toKeyExpression());
+        if (service != null) setExecutor(service);
     }
 
     @Nonnull
