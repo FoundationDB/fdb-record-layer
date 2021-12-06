@@ -176,39 +176,41 @@ abstract class ComparatorCursorBase<T, U> extends MergeCursor<T, U, KeyedMergeCu
     }
 
     private void logComparisonFailure(List<Object> expectedKey, List<Object> actualKey) {
-        getTimer().increment(mismatchesCounts, 1);
-        // Only log comparison failure the first time we see it (per continuation)
-        if (!errorLogged) {
-            errorLogged = true;
-            KeyValueLogMessage message = KeyValueLogMessage.build("Cursor Result Comparison Failed",
-                    LogMessageKeys.EXPECTED, expectedKey,
-                    LogMessageKeys.ACTUAL, actualKey,
-                    LogMessageKeys.PLAN_HASH, planHashSupplier.get(),
-                    LogMessageKeys.PLAN, planStringSupplier.get());
-            logger.error(message.toString());
+        if (getTimer() != null) {
+            getTimer().increment(mismatchesCounts, 1);
+            // Only log comparison failure the first time we see it (per continuation)
+            if (!errorLogged) {
+                errorLogged = true;
+                KeyValueLogMessage message = KeyValueLogMessage.build("Cursor Result Comparison Failed",
+                        LogMessageKeys.EXPECTED, expectedKey,
+                        LogMessageKeys.ACTUAL, actualKey,
+                        LogMessageKeys.PLAN_HASH, planHashSupplier.get(),
+                        LogMessageKeys.PLAN, planStringSupplier.get());
+                logger.error(message.toString());
+            }
         }
     }
 
     private void logTerminationFailure(KeyedMergeCursorState<T> referenceCursorState) {
-        getTimer().increment(mismatchesCounts, 1);
-        // Only log failure the first time we see it (per continuation)
-        if (!errorLogged) {
-            errorLogged = true;
-            KeyValueLogMessage message = KeyValueLogMessage.build("Not all cursors are exhausted",
-                    LogMessageKeys.EXPECTED, isSourceExhausted(referenceCursorState),
-                    LogMessageKeys.PLAN_HASH, planHashSupplier.get(),
-                    LogMessageKeys.PLAN, planStringSupplier.get());
-            logger.error(message.toString());
+        if (getTimer() != null) {
+            getTimer().increment(mismatchesCounts, 1);
+            // Only log failure the first time we see it (per continuation)
+            if (!errorLogged) {
+                errorLogged = true;
+                KeyValueLogMessage message = KeyValueLogMessage.build("Not all cursors are exhausted",
+                        LogMessageKeys.EXPECTED, isSourceExhausted(referenceCursorState),
+                        LogMessageKeys.PLAN_HASH, planHashSupplier.get(),
+                        LogMessageKeys.PLAN, planStringSupplier.get());
+                logger.error(message.toString());
+            }
         }
     }
 
     /**
      * Calculate and return the reason the cursor returns a no-next result. At this point, it is assumed that the
      * {@link #computeNextResultStates} method has finished and the cursor has stopped. This can be because all
-     * sub-cursors
-     * are exhausted, or otherwise they all have non-exhaustion reason. Calculate the weakest reason and return it so
-     * that
-     * continuation can pick up from that point.
+     * sub-cursors are exhausted, or otherwise they all have non-exhaustion reason. Calculate the weakest reason
+     * and return it so that continuation can pick up from that point.
      *
      * @return the weakest reason for stopping
      */

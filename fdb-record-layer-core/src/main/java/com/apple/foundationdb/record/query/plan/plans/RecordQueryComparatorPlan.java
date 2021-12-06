@@ -78,7 +78,7 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     }
 
     /**
-     * Factory method to create a new instance of hte Comparator plan.
+     * Factory method to create a new instance of the Comparator plan.
      *
      * @param children the list of plans to compare results from
      * @param comparisonKey a key expression by which the results of all plans are compared by

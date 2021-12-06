@@ -93,8 +93,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                                          Supplier<EvaluationContext> contextSupplier,
                                          TestHelpers.DangerousConsumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord)
             throws Exception {
-        return querySimpleRecordStore(recordMetaDataHook, plan, contextSupplier, checkRecord, context -> {
-        });
+        return querySimpleRecordStore(recordMetaDataHook, plan, contextSupplier, checkRecord, context -> { });
     }
 
     protected int querySimpleRecordStore(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
@@ -285,13 +284,11 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected <T> List<T> fetchResultValues(RecordQueryPlan plan, Opener opener, Function<Message, T> rowHandler) throws Exception {
-        return fetchResultValues(plan, opener, rowHandler, context -> {
-        });
+        return fetchResultValues(plan, opener, rowHandler, context -> { });
     }
 
     protected List<Object> fetchResultValues(RecordQueryPlan plan, final int fieldNumber, Opener opener) throws Exception {
-        return fetchResultValues(plan, fieldNumber, opener, context -> {
-        });
+        return fetchResultValues(plan, fieldNumber, opener, context -> { });
     }
 
     protected <T> List<T> fetchResultValues(RecordQueryPlan plan, Opener opener, Function<Message, T> rowHandler,
@@ -327,8 +324,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan, byte[] continuation, int limit,
                                           TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
-        queryRecordsWithHeader(recordMetaDataHook, plan, continuation, limit, handleResults, context -> {
-        });
+        queryRecordsWithHeader(recordMetaDataHook, plan, continuation, limit, handleResults, context -> { });
     }
 
 
@@ -349,8 +345,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
                                           TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
-        queryRecordsWithHeader(recordMetaDataHook, plan, handleResults, context -> {
-        });
+        queryRecordsWithHeader(recordMetaDataHook, plan, handleResults, context -> { });
     }
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,

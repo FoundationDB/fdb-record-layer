@@ -111,7 +111,7 @@ message LuceneIndexContinuation {
 
 message SelectorPlanContinuation {
     required uint64 selectedPlan = 1; // The selected plan executing from the l;ist of optional plans
-    optional bytes innerContinuation = 4; // The selected plan's continuation
+    optional bytes innerContinuation = 2; // The selected plan's continuation
 }
 
 message ComparatorContinuation {
