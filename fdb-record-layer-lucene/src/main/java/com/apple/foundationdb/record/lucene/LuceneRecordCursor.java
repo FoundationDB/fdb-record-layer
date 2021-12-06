@@ -72,7 +72,7 @@ import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.g
 class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     private static final Logger LOGGER = LoggerFactory.getLogger(LuceneRecordCursor.class);
     // pagination within single instance of record cursor for lucene queries.
-    private static final int MAX_PAGE_SIZE = 200;
+    private static final int MAX_PAGE_SIZE = 201;
     @Nonnull
     private final Executor executor;
     @Nullable
