@@ -40,8 +40,7 @@ import java.util.function.Supplier;
  * function). The cursor will log and continue if the records are not the same or if one of the sub-cursors ends
  * prematurely.
  * The cursor defines a "reference cursor" whose results are assumed to be correct. Values are compared to this
- * cursor's
- * results, and the reference cursor's results are the ones that are actually returned.
+ * cursor's results, and the reference cursor's results are the ones that are actually returned.
  *
  * @param <T> the type of elements returned by the cursor
  */
@@ -113,7 +112,7 @@ public class ComparatorCursor<T> extends ComparatorCursorBase<T, T> {
      * The cursors are provided as a list of functions rather than a list of {@link RecordCursor}s.
      * These functions should create a new <code>RecordCursor</code> instance with a given
      * continuation appropriate for that cursor type. The value of that continuation will be determined
-     * by this function from the <code>continuation</code> parameter for the intersection
+     * by this function from the <code>continuation</code> parameter for the
      * cursor as a whole.
      * </p>
      *

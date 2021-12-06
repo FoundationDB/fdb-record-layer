@@ -64,8 +64,7 @@ import java.util.stream.Collectors;
 /**
  * A {@link RecordQueryChooserPlanBase} that selects one of its children to be executed.
  * This plan can be used to allow the planner to have a few optional plans to be executed where the decision on which
- * one
- * actually gets run is deferred to execution time.
+ * one actually gets run is deferred to execution time.
  * The selector can be used with a given lambda that selects among the plans, and as a convenience, a relative priority
  * selector is also provided. The relative priority selector takes a list of priorities (each associated with a plan)
  * and selects a plan at random with relative priority as given by the priority of the plan.

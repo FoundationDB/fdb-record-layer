@@ -611,7 +611,7 @@ public class FDBStoreTimer extends StoreTimer {
         /** The number of matching records by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
         QUERY_COMPARATOR_MATCH("number of records matched", false),
         /** The number of comparison failures by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
-        QUERY_COMPARATOR_MISMATCH("number of records matched", false),
+        QUERY_COMPARATOR_MISMATCH("number of record comparison mismatched", false),
         /** The number of comparisons made by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
         QUERY_COMPARATOR_COMPARED("number of comparisons", false),
         /** The number of times the read version was taken from the cache of the last seen version. */
