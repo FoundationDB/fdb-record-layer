@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb;
 
 import com.apple.foundationdb.TransactionOptions;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -51,6 +52,8 @@ public class FDBRecordContextConfig {
     private final boolean saveOpenStackTrace;
     @Nullable
     private final TransactionListener listener;
+    @Nonnull
+    private final RecordLayerPropertyStorage propertyStorage;
 
     private FDBRecordContextConfig(@Nonnull Builder builder) {
         this.mdcContext = builder.mdcContext;
@@ -65,6 +68,7 @@ public class FDBRecordContextConfig {
         this.trackOpen = builder.trackOpen;
         this.saveOpenStackTrace = builder.saveOpenStackTrace;
         this.listener = builder.listener;
+        this.propertyStorage = builder.recordContextProperties;
     }
 
     /**
@@ -196,6 +200,16 @@ public class FDBRecordContextConfig {
     }
 
     /**
+     * Get the properties for this context configured by adopter.
+     *
+     * @return a wrapper of the properties mapping
+     */
+    @Nonnull
+    public RecordLayerPropertyStorage getPropertyStorage() {
+        return propertyStorage;
+    }
+
+    /**
      * Convert the current configuration to a builder. This will set all options in the builder to their
      * current values in this configuration object.
      *
@@ -227,6 +241,7 @@ public class FDBRecordContextConfig {
         private boolean trackOpen = false;
         private boolean saveOpenStackTrace = false;
         private TransactionListener listener = null;
+        private RecordLayerPropertyStorage recordContextProperties = RecordLayerPropertyStorage.getEmptyInstance();
 
         private Builder() {
         }
@@ -244,6 +259,7 @@ public class FDBRecordContextConfig {
             this.trackOpen = config.trackOpen;
             this.saveOpenStackTrace = config.saveOpenStackTrace;
             this.listener = config.listener;
+            this.recordContextProperties = config.propertyStorage;
         }
 
         private Builder(@Nonnull Builder config) {
@@ -259,6 +275,7 @@ public class FDBRecordContextConfig {
             this.trackOpen = config.trackOpen;
             this.saveOpenStackTrace = config.saveOpenStackTrace;
             this.listener = config.listener;
+            this.recordContextProperties = config.recordContextProperties;
         }
 
         /**
@@ -556,6 +573,28 @@ public class FDBRecordContextConfig {
 
         public TransactionListener getListener() {
             return listener;
+        }
+
+        /**
+         * Get the properties' wrapper to be used by this context to pass in the parameters configured by adopter.
+         * If no properties specified, this context will use the {@link RecordLayerPropertyStorage#getEmptyInstance()} instance.
+         *
+         * @return the wrapper of the properties
+         */
+        public RecordLayerPropertyStorage getRecordContextProperties() {
+            return recordContextProperties;
+        }
+
+        /**
+         * Set the properties' wrapper to be used by this context to pass in the parameters configured by adopter.
+         * If this method is never called, this context will use the {@link RecordLayerPropertyStorage#getEmptyInstance()} instance.
+         *
+         * @param recordContextProperties the wrapper of properties to be used by this context, configured by adopter
+         * @return this builder
+         */
+        public Builder setRecordContextProperties(@Nonnull final RecordLayerPropertyStorage recordContextProperties) {
+            this.recordContextProperties = recordContextProperties;
+            return this;
         }
 
         /**

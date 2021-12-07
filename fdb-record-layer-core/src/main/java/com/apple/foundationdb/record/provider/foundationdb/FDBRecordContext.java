@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.RecordCoreStorageException;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.util.MapUtils;
 import com.apple.foundationdb.system.SystemKeyspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -160,6 +161,8 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     private long trackOpenTimeNanos;
     @Nonnull
     private final Map<Object, Object> session = new LinkedHashMap<>();
+    @Nonnull
+    private final RecordLayerPropertyStorage propertyStorage;
 
     protected FDBRecordContext(@Nonnull FDBDatabase fdb,
                                @Nonnull Transaction transaction,
@@ -212,6 +215,7 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
         }
 
         this.dirtyStoreState = false;
+        this.propertyStorage = config.getPropertyStorage();
     }
 
     @Nullable
@@ -1386,6 +1390,16 @@ public class FDBRecordContext extends FDBTransactionContext implements AutoClose
     @API(API.Status.EXPERIMENTAL)
     public synchronized <T> T removeFromSession(@Nonnull String key, @Nonnull Class<T> clazz) {
         return (T) session.remove(key);
+    }
+
+    /**
+     * Get the properties configured by adopter for this FDBRecordContext.
+     *
+     * @return the wrapper of a mapping of the properties
+     */
+    @API(API.Status.EXPERIMENTAL)
+    public RecordLayerPropertyStorage getPropertyStorage() {
+        return propertyStorage;
     }
 
 }

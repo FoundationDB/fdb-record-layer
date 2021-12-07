@@ -41,10 +41,12 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.test.Tags;
@@ -60,6 +62,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -192,6 +195,17 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         final Collection<StoreTimer.Event> events = timer.getEvents();
         Assertions.assertTrue(events.contains(metric), "Did not count get increment calls!");
         Assertions.assertEquals(expectedValue, timer.getCounter(metric).getCount(), "Incorrect call count ");
+    }
+
+    @Override
+    public FDBRecordContext openContext() {
+        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
+                .setTimer(timer)
+                .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
+                .setSaveOpenStackTrace(true)
+                .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true).build())
+                .build();
+        return fdb.openContext(config);
     }
 
     @Test
