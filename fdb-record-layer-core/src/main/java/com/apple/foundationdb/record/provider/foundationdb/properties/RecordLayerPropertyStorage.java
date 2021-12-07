@@ -26,6 +26,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.google.common.collect.ImmutableMap;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -51,7 +52,7 @@ public class RecordLayerPropertyStorage {
         return propertyMap;
     }
 
-    @Nonnull
+    @Nullable
     public <T> T getPropertyValue(@Nonnull RecordLayerPropertyKey<T> propertyKey) {
         if (propertyMap.containsKey(propertyKey)) {
             Object value = propertyMap.get(propertyKey).getValue();

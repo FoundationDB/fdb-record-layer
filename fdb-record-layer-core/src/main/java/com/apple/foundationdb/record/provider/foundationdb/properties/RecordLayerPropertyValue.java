@@ -54,16 +54,12 @@ public final class RecordLayerPropertyValue<T> {
         return key;
     }
 
-    @Nonnull
+    @Nullable
     public T getValue() {
         final T defaultValue = key.getDefaultValue();
         if (valueSupplier == null) {
             return defaultValue;
         }
-        T value = valueSupplier.get();
-        if (value == null) {
-            return defaultValue;
-        }
-        return value;
+        return valueSupplier.get();
     }
 }

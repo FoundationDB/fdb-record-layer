@@ -24,6 +24,8 @@ import com.apple.foundationdb.record.RecordCoreException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Objects;
+
 public class RecordLayerPropertyTest {
     @Test
     void testDefaultPropertyValue() {
@@ -32,7 +34,7 @@ public class RecordLayerPropertyTest {
         final RecordLayerPropertyStorage properties = RecordLayerPropertyStorage.newBuilder()
                 .build();
         // Assert the prop value is returned as default value false
-        Assertions.assertEquals(false, properties.getPropertyValue(propertyKey), "Unexpected prop value");
+        Assertions.assertEquals(false, Objects.requireNonNull(properties.getPropertyValue(propertyKey)), "Unexpected prop value");
     }
 
     @Test
@@ -43,7 +45,7 @@ public class RecordLayerPropertyTest {
                 .addProp(propertyKey, true)
                 .build();
         // Assert the prop value is returned from supplier as true
-        Assertions.assertEquals(true, properties.getPropertyValue(propertyKey), "Unexpected prop value");
+        Assertions.assertEquals(true, Objects.requireNonNull(properties.getPropertyValue(propertyKey)), "Unexpected prop value");
     }
 
     @Test
@@ -56,7 +58,7 @@ public class RecordLayerPropertyTest {
                 .build();
         // Assert exception is thrown due to casting a String to Boolean
         Assertions.assertThrows(RecordCoreException.class,
-                () -> properties.getPropertyValue(propertyKey), "A class cast exception from putting a string in a boolean property is expected");
+                () -> Objects.requireNonNull(properties.getPropertyValue(propertyKey)), "A class cast exception from putting a string in a boolean property is expected");
     }
 
     private static RecordLayerPropertyKey<Boolean> getTestPropertyKey() {
