@@ -1,0 +1,45 @@
+/*
+ * LuceneRecordContextProperties.java
+ *
+ * This source file is part of the FoundationDB open source project
+ *
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.apple.foundationdb.record.lucene;
+
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+
+import java.util.function.Supplier;
+
+/**
+ * The list of {@link RecordLayerPropertyKey} for configuration of the lucene indexing for a {@link com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext}.
+ */
+public final class LuceneRecordContextProperties {
+    /**
+     * A defined {@link RecordLayerPropertyKey} for Boolean type to control whether the compression of lucene index is enabled.
+     * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
+     * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_COMPRESSION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.compressionEnabled", false);
+
+    /**
+     * A defined {@link RecordLayerPropertyKey} for Boolean type to control whether the encryption of lucene index is enabled.
+     * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
+     * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
+     */
+    public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_ENCRYPTION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.encryptionEnabled", false);
+}

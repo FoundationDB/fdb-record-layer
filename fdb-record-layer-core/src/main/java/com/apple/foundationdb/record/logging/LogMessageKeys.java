@@ -277,7 +277,11 @@ public enum LogMessageKeys {
     FILE_ID("file_id"),
     FILE_NAME("file_name"),
     FILE_REFERENCE("file_reference"),
-    ORIGINAL_DATA_SIZE("original_data-size");
+    ORIGINAL_DATA_SIZE("original_data-size"),
+
+    // Record context properties
+    PROPERTY_NAME("property_name"),
+    PROPERTY_TYPE("property_type");
 
     private final String logKey;
 

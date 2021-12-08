@@ -27,6 +27,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.logging.CompletionExceptionLogHelper;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
@@ -57,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -104,6 +106,9 @@ public class FDBDirectory extends Directory {
     private final Cache<String, FDBLuceneFileReference> fileReferenceCache;
     private final Cache<Pair<Long, Integer>, CompletableFuture<byte[]>> blockCache;
 
+    private final boolean compressionEnabled;
+    private final boolean encryptionEnabled;
+
     public FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context) {
         this(subspace, context, NoLockFactory.INSTANCE);
     }
@@ -112,7 +117,8 @@ public class FDBDirectory extends Directory {
         this(subspace, context, lockFactory, DEFAULT_BLOCK_SIZE, DEFAULT_INITIAL_CAPACITY, DEFAULT_MAXIMUM_SIZE, DEFAULT_CONCURRENCY_LEVEL);
     }
 
-    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory, int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel) {
+    FDBDirectory(@Nonnull Subspace subspace, @Nonnull FDBRecordContext context, @Nonnull LockFactory lockFactory,
+                 int blockSize, final int initialCapacity, final int maximumSize, final int concurrencyLevel) {
         Verify.verify(subspace != null);
         Verify.verify(context != null);
         Verify.verify(lockFactory != null);
@@ -135,6 +141,8 @@ public class FDBDirectory extends Directory {
                 .maximumSize(maximumSize)
                 .recordStats()
                 .build();
+        this.compressionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
+        this.encryptionEnabled = Objects.requireNonNullElse(context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED), false);
     }
 
     /**
@@ -249,7 +257,7 @@ public class FDBDirectory extends Directory {
             }
         }
         final byte[] fileReferenceBytes = reference.getBytes();
-        final byte[] encodedBytes = LuceneSerializer.encode(reference.getBytes(), true, false);
+        final byte[] encodedBytes = LuceneSerializer.encode(reference.getBytes(), compressionEnabled, encryptionEnabled);
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_SIZE, encodedBytes.length);
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_FILE_REFERENCE_CALL);
         if (LOGGER.isTraceEnabled()) {
@@ -270,7 +278,7 @@ public class FDBDirectory extends Directory {
      * @param value the data to be stored
      */
     public void writeData(long id, int block, @Nonnull byte[] value) {
-        final byte[] encodedBytes = LuceneSerializer.encode(value, true, false);
+        final byte[] encodedBytes = LuceneSerializer.encode(value, compressionEnabled, encryptionEnabled);
         //This may not be correct transactionally
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_SIZE, encodedBytes.length);
         increment(FDBStoreTimer.Counts.LUCENE_WRITE_CALL);

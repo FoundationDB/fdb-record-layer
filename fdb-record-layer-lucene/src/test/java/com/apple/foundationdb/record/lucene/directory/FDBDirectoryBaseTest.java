@@ -20,11 +20,15 @@
 
 package com.apple.foundationdb.record.lucene.directory;
 
+import com.apple.foundationdb.record.lucene.LuceneRecordContextProperties;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBTransactionPriority;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.subspace.Subspace;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -54,8 +58,16 @@ public abstract class FDBDirectoryBaseTest {
             context.ensureActive().clear(subspace.range());
             return null;
         });
-        FDBRecordContext context = fdb.openContext(null,timer);
+        FDBRecordContext context = fdb.openContext(getContextConfig());
         directory = new FDBDirectory(subspace, context);
+    }
+
+    private FDBRecordContextConfig getContextConfig() {
+        return FDBRecordContextConfig.newBuilder()
+                .setTimer(timer)
+                .setPriority(FDBTransactionPriority.DEFAULT)
+                .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true).build())
+                .build();
     }
 
     protected int randomInt(int minimum) {
