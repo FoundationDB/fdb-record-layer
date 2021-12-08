@@ -22,7 +22,7 @@ package com.apple.foundationdb.util;
 
 import com.apple.foundationdb.annotation.API;
 
-import javax.annotation.Nonnull;
+import java.util.Locale;
 
 /**
  * Common {@link LoggableException} keys logged by the FoundationDB extensions library.
@@ -30,18 +30,18 @@ import javax.annotation.Nonnull;
  */
 @API(API.Status.UNSTABLE)
 public enum LogMessageKeys {
-    SUBSPACE("subspace"),
+    SUBSPACE,
 
     // synchronized session
-    SESSION_ID("session_id"),
-    EXISTING_SESSION("existing_session"),
-    EXISTING_SESSION_EXPIRE_TIME("existing_session_expire_time"),
+    SESSION_ID,
+    EXISTING_SESSION,
+    EXISTING_SESSION_EXPIRE_TIME,
     ;
 
     private final String logKey;
 
-    LogMessageKeys(@Nonnull String key) {
-        this.logKey = key;
+    LogMessageKeys() {
+        this.logKey = name().toLowerCase(Locale.ROOT);
     }
 
     @Override
