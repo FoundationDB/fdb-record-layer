@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.RecordCursorContinuation;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.cursors.CursorLimitManager;
@@ -124,6 +123,13 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
         this.fields = fields;
         this.groupingKey = groupingKey;
+        if (scanProperties instanceof LuceneScanProperties) {
+            KeyExpression keyExpression = ((LuceneScanProperties)scanProperties).getSort();
+            if (keyExpression != null) {
+                this.sort = new Sort(new SortField(keyExpression.toKeyExpression().getField().getFieldName(), SortField.Type.STRING));
+            }
+            this.executorService = ((LuceneScanProperties)scanProperties).getService();
+        }
     }
 
     @Nonnull
@@ -273,13 +279,5 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
             timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_INDEX_SCAN, startTime);
             timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_DOCUMENTS, topDocs.scoreDocs.length);
         }
-    }
-
-    public void setSort(RecordMetaDataProto.KeyExpression sortKeyExpression) {
-        sort = new Sort(new SortField(sortKeyExpression.getField().getFieldName(), SortField.Type.STRING));
-    }
-
-    public void setExecutor(ExecutorService service) {
-        this.executorService = service;
     }
 }
