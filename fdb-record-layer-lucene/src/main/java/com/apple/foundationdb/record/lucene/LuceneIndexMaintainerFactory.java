@@ -28,6 +28,8 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactory;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.analysis.Analyzer;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
@@ -63,7 +65,7 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-        return new LuceneIndexMaintainer(state, state.context.getExecutor(),
-                LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzer(state.index));
+        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(state.index);
+        return new LuceneIndexMaintainer(state, state.context.getExecutor(), analyzerPair.getLeft(), analyzerPair.getRight());
     }
 }

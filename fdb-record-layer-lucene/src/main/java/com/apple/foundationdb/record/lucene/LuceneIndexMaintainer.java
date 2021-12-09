@@ -85,14 +85,16 @@ import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.validateL
 @API(API.Status.EXPERIMENTAL)
 public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private static final Logger LOG = LoggerFactory.getLogger(LuceneIndexMaintainer.class);
-    private final Analyzer analyzer;
+    private final Analyzer indexAnalyzer;
+    private final Analyzer queryAnalyzer;
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
 
-    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer analyzer) {
+    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer) {
         super(state);
-        this.analyzer = analyzer;
+        this.indexAnalyzer = indexAnalyzer;
+        this.queryAnalyzer = queryAnalyzer;
         KeyExpression rootExpression = this.state.index.getRootExpression();
         validateLucene(rootExpression);
         this.executor = executor;
@@ -122,11 +124,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             QueryParser parser;
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
                 List<String> fieldNames = listIndexFieldNames(state.index.getRootExpression());
-                parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), analyzer);
+                parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), queryAnalyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
             } else {
                 // initialize default to scan primary key.
-                parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, analyzer);
+                parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, queryAnalyzer);
             }
             Query query = parser.parse(range.getLow().getString(0));
             return new LuceneRecordCursor(executor, scanProperties, state, query, continuation,
@@ -159,7 +161,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentEntry> keys, Tuple groupingKey, byte[] primaryKey) throws IOException {
-        final IndexWriter newWriter = getOrCreateIndexWriter(state, analyzer, executor, groupingKey);
+        final IndexWriter newWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
         BytesRef ref = new BytesRef(primaryKey);
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
@@ -171,7 +173,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     }
 
     private void deleteDocument(Tuple groupingKey, byte[] primaryKey) throws IOException {
-        final IndexWriter oldWriter = getOrCreateIndexWriter(state, analyzer, executor, groupingKey);
+        final IndexWriter oldWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
         Query query = SortedDocValuesField.newSlowExactQuery(PRIMARY_KEY_SEARCH_NAME, new BytesRef(primaryKey));
         oldWriter.deleteDocuments(query);
     }

@@ -22,12 +22,13 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.metadata.Index;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 
 import javax.annotation.Nonnull;
 
 /**
  * Each implementation of {@link Analyzer} should have its own implementation
- * of this factory interface to provide instances of the analyzer to a
+ * of this factory interface to provide instances of the analyzers for indexing and query to a
  * {@link LuceneAnalyzerRegistry}. The registry will populate a mapping of names to
  * analyzers using the methods of this interface.
  *
@@ -45,11 +46,28 @@ public interface LuceneAnalyzerFactory {
     String getName();
 
     /**
-     * Get an instance of the text analyzer given the {@link Index}. For a given factory, each analyzer
+     * Get an instance of the text analyzer for indexing given the {@link Index}. For a given factory, each indexing analyzer
      * should be of the same type, and it should match the result of {@link #getName()}.
      *
-     * @return an instance of the analyzer that this factory creates
+     * @param index the index this analyzer is used for
+     * @return an instance of the analyzer for indexing that this factory creates
      */
     @Nonnull
-    Analyzer getAnalyzer(@Nonnull Index index);
+    Analyzer getIndexAnalyzer(@Nonnull Index index);
+
+    /**
+     * Get an instance of the text analyzer for query given the {@link Index}. For a given factory, each query analyzer
+     * should be of the same type, and it should match the result of {@link #getName()}.
+     * Not need to override this method if {@link StandardAnalyzer} is to be used for query time.
+     * Call {@link #getIndexAnalyzer(Index)} before calling this method, and use its return for the argument {@code indexAnalyzer}.
+     * Override this method to customize the analyzer for query time, or directly return the {@code indexAnalyzer} instance, if it is used for both indexing and query time.
+     *
+     * @param index the index this analyzer is used for
+     * @param indexAnalyzer the instance of analyzer for indexing used by this factory, that can be returned by this method in case it is also used for query
+     * @return an instance of the analyzer for query that this factory creates, the default one is {@link StandardAnalyzer}
+     */
+    @Nonnull
+    default Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
+        return new StandardAnalyzer();
+    }
 }
