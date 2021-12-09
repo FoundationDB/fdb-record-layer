@@ -88,7 +88,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
                         .build();
             }
         }
-        builder.addOtherChildState(cursorState);
+        builder.addChildState(cursorState);
     }
 
     @Override
@@ -104,7 +104,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
     }
 
     @Nonnull
-    static ComparatorCursorContinuation from(@Nonnull ComparatorCursorBase<?, ?> cursor) {
+    static ComparatorCursorContinuation from(@Nonnull ComparatorCursor<?> cursor) {
         return new ComparatorCursorContinuation(cursor.getChildContinuations(), cursor.getReferencePlanIndex());
     }
 
@@ -124,7 +124,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
     @Nonnull
     static ComparatorCursorContinuation from(@Nonnull RecordCursorProto.ComparatorContinuation parsed, int numberOfChildren, int referencePlanIndex) {
         ImmutableList.Builder<RecordCursorContinuation> builder = ImmutableList.builder();
-        for (RecordCursorProto.ComparatorContinuation.CursorState state : parsed.getOtherChildStateList()) {
+        for (RecordCursorProto.ComparatorContinuation.CursorState state : parsed.getChildStateList()) {
             if (!state.getStarted()) {
                 builder.add(RecordCursorStartContinuation.START);
             } else if (state.hasContinuation()) {
@@ -137,7 +137,7 @@ class ComparatorCursorContinuation extends MergeCursorContinuation<RecordCursorP
         if (children.size() != numberOfChildren) {
             throw new RecordCoreArgumentException("invalid continuation (extraneous child state information present)")
                     .addLogInfo(LogMessageKeys.EXPECTED_CHILD_COUNT, numberOfChildren - 2)
-                    .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getOtherChildStateCount());
+                    .addLogInfo(LogMessageKeys.READ_CHILD_COUNT, parsed.getChildStateCount());
         }
         return new ComparatorCursorContinuation(children, parsed, referencePlanIndex);
     }

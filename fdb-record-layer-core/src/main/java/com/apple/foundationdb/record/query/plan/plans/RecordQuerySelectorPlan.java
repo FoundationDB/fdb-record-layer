@@ -200,7 +200,6 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
 
     private static void validateParams(@Nonnull final List<? extends RecordQueryPlan> plans, @Nonnull final List<Double> relativePlanPriorities) {
         Verify.verify(!plans.isEmpty());
-        Verify.verify(!relativePlanPriorities.isEmpty());
         Verify.verify(plans.size() == relativePlanPriorities.size());
     }
 
@@ -274,10 +273,6 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         }
     }
 
-    public interface PlanSelector extends PlanHashable {
-        int selectPlan(List<RecordQueryPlan> plans);
-    }
-
     private static class SelectorContinuation implements RecordCursorContinuation {
         private long selectedPlanIndex;
         @Nullable
@@ -314,11 +309,15 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
         @Nullable
         @Override
         public byte[] toBytes() {
-            RecordCursorProto.SelectorPlanContinuation continuation = RecordCursorProto.SelectorPlanContinuation.newBuilder()
-                    .setSelectedPlan(selectedPlanIndex)
-                    .setInnerContinuation(innerContinuation)
-                    .build();
-            return continuation.toByteArray();
+            if (isEnd()) {
+                return null;
+            } else {
+                RecordCursorProto.SelectorPlanContinuation continuation = RecordCursorProto.SelectorPlanContinuation.newBuilder()
+                        .setSelectedPlan(selectedPlanIndex)
+                        .setInnerContinuation(innerContinuation)
+                        .build();
+                return continuation.toByteArray();
+            }
         }
 
         @Override
@@ -339,5 +338,4 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
             return (innerContinuation == null) ? null : innerContinuation.toByteArray();
         }
     }
-
 }

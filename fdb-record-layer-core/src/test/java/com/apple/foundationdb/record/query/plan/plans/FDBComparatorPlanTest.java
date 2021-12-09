@@ -142,7 +142,7 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
-        // This plan has same records as the previous one, but end sooner
+        // This plan has same records as the previous one, but ends sooner
         RecordQuery query2 = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.and(
