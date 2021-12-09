@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
 
 import javax.annotation.Nonnull;
@@ -40,5 +41,5 @@ import javax.annotation.Nonnull;
 @SuppressWarnings("unused")
 public interface LuceneAnalyzerRegistry {
     @Nonnull
-    Analyzer getLuceneAnalyzer(@Nonnull Index index);
+    Pair<Analyzer, Analyzer> getLuceneAnalyzerPair(@Nonnull Index index);
 }

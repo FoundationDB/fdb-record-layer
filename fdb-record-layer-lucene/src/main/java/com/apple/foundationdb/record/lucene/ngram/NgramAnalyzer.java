@@ -89,7 +89,7 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
         @SuppressWarnings("deprecation")
         @Nonnull
         @Override
-        public Analyzer getAnalyzer(@Nonnull Index index) {
+        public Analyzer getIndexAnalyzer(@Nonnull Index index) {
             try {
                 final String minLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MIN_SIZE)).orElse(DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH);
                 final String maxLengthString = Optional.ofNullable(index.getOption(IndexOptions.TEXT_TOKEN_MAX_SIZE)).orElse(DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH);

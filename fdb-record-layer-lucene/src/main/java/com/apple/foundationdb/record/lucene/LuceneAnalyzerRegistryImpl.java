@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.slf4j.Logger;
@@ -81,17 +82,19 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
 
     @Nonnull
     @Override
-    public Analyzer getLuceneAnalyzer(@Nonnull Index index) {
+    public Pair<Analyzer, Analyzer> getLuceneAnalyzerPair(@Nonnull Index index) {
         final String name = index.getOption(IndexOptions.TEXT_ANALYZER_NAME_OPTION);
         // TODO: Get rid of the condition after OR operator, after having all analyzers registered with this registry
         if (name == null || !registry.keySet().contains(name)) {
-            return new StandardAnalyzer();
+            Analyzer standardAnalyzer = new StandardAnalyzer();
+            return Pair.of(standardAnalyzer, standardAnalyzer);
         } else {
             LuceneAnalyzerFactory analyzerFactory = registry.get(name);
             if (analyzerFactory == null) {
                 throw new MetaDataException("unrecognized lucene analyzer for tokenizer", LogMessageKeys.ANALYZER_NAME, name);
             }
-            return analyzerFactory.getAnalyzer(index);
+            final Analyzer indexAnalyzer = analyzerFactory.getIndexAnalyzer(index);
+            return Pair.of(indexAnalyzer, analyzerFactory.getQueryAnalyzer(index, indexAnalyzer));
         }
     }
 }

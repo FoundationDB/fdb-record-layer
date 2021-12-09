@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
+import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -89,6 +90,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     new LuceneFieldKeyExpression("text2", LuceneKeyExpression.FieldType.STRING, false, false))),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+    private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.getName(),
+                    IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
+                    IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
     private static final List<KeyExpression> keys = com.google.common.collect.Lists.newArrayList(
             new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
@@ -588,6 +594,42 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
         }
         context.close();
+    }
+
+    @Test
+    void scanWithNgramIndex() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, NGRAM_LUCENE_INDEX);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hello record layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hello")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hel")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("ell")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("ecord")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hel ord aye")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("ello record")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // The term "ella" is not expected
+            assertEquals(0, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("ella")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
     }
 
     private static String[] generateRandomWords(int numberOfWords) {
