@@ -22,37 +22,55 @@ package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.predicates.QueryPredicate;
-import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
+import com.google.common.base.Preconditions;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.Objects;
-import java.util.Optional;
 
 /**
  * A key expression that can be bound by a comparison during graph matching.
  */
-public class BoundKeyPart extends KeyPart {
-    @Nullable
-    private final QueryPredicate queryPredicate;
+public class BoundKeyPart {
+    @Nonnull
+    private final KeyPart keyPart;
+
+    @Nonnull
+    private final ComparisonRange.Type comparisonRangeType;
 
     @Nullable
-    private final QueryPredicate candidatePredicate;
+    private final QueryPredicate queryPredicate;
 
     /**
      * Constructor.
      * @param normalizedKeyExpression normalized key expression as an alternative representation of this part
      * @param comparisonRangeType type of comparison
      * @param queryPredicate reference to {@link QueryPredicate} on query side
-     * @param candidatePredicate reference to {@link QueryPredicate} on candidate side
      */
     private BoundKeyPart(@Nonnull final KeyExpression normalizedKeyExpression,
                          @Nonnull final ComparisonRange.Type comparisonRangeType,
                          @Nullable final QueryPredicate queryPredicate,
-                         @Nullable final QueryPredicate candidatePredicate) {
-        super(normalizedKeyExpression, comparisonRangeType);
+                         final boolean isReverse) {
+        Preconditions.checkArgument((queryPredicate == null && comparisonRangeType == ComparisonRange.Type.EMPTY) ||
+                                    (queryPredicate != null && comparisonRangeType != ComparisonRange.Type.EMPTY));
+
+        this.keyPart = KeyPart.of(normalizedKeyExpression, isReverse);
+        this.comparisonRangeType = comparisonRangeType;
         this.queryPredicate = queryPredicate;
-        this.candidatePredicate = candidatePredicate;
+    }
+
+    @Nonnull
+    public KeyPart getKeyPart() {
+        return keyPart;
+    }
+
+    @Nonnull
+    public KeyExpression getNormalizedKeyExpression() {
+        return keyPart.getNormalizedKeyExpression();
+    }
+
+    public boolean isReverse() {
+        return keyPart.isReverse();
     }
 
     @Nullable
@@ -60,21 +78,9 @@ public class BoundKeyPart extends KeyPart {
         return queryPredicate;
     }
 
-    @Nullable
-    public QueryPredicate getCandidatePredicate() {
-        return candidatePredicate;
-    }
-
-    public Optional<CorrelationIdentifier> getParameterAlias() {
-        if (candidatePredicate == null) {
-            return Optional.empty();
-        }
-
-        if (!(candidatePredicate instanceof ValueComparisonRangePredicate.Placeholder)) {
-            return Optional.empty();
-        }
-
-        return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getParameterAlias());
+    @Nonnull
+    public ComparisonRange.Type getComparisonRangeType() {
+        return comparisonRangeType;
     }
 
     @Override
@@ -85,24 +91,21 @@ public class BoundKeyPart extends KeyPart {
         if (!(o instanceof BoundKeyPart)) {
             return false;
         }
-        if (!super.equals(o)) {
-            return false;
-        }
         final BoundKeyPart that = (BoundKeyPart)o;
-        return Objects.equals(getQueryPredicate(), that.getQueryPredicate()) &&
-               Objects.equals(getCandidatePredicate(), that.getCandidatePredicate());
+        return getKeyPart().equals(that.getKeyPart()) &&
+               Objects.equals(getQueryPredicate(), that.getQueryPredicate());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), getQueryPredicate(), getCandidatePredicate());
+        return Objects.hash(getKeyPart().hashCode(), getQueryPredicate());
     }
 
     @Nonnull
     public static BoundKeyPart of(@Nonnull final KeyExpression normalizedKeyExpression,
                                   @Nonnull final ComparisonRange.Type comparisonRangeType,
                                   @Nullable final QueryPredicate queryPredicate,
-                                  @Nullable final QueryPredicate candidatePredicate) {
-        return new BoundKeyPart(normalizedKeyExpression, comparisonRangeType, queryPredicate, candidatePredicate);
+                                  final boolean isReverse) {
+        return new BoundKeyPart(normalizedKeyExpression, comparisonRangeType, queryPredicate, isReverse);
     }
 }

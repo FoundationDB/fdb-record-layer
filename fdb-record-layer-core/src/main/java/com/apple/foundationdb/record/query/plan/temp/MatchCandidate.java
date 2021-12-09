@@ -166,7 +166,7 @@ public interface MatchCandidate {
             comparisonRangesForScanBuilder.add(prefixMap.get(parameterAlias));
         }
 
-        return toEquivalentExpression(partialMatch, comparisonRangesForScanBuilder.build(), matchInfo.isReverse());
+        return toEquivalentExpression(partialMatch, comparisonRangesForScanBuilder.build());
     }
 
     /**
@@ -174,12 +174,10 @@ public interface MatchCandidate {
      * to be implemented by specific implementations of {@link MatchCandidate}.
      * @param partialMatch the {@link PartialMatch} that matched th query and the candidate
      * @param comparisonRanges a {@link List} of {@link ComparisonRange}s to be applied
-     * @param isReverse an indicator whether this expression should conceptually flow data in an ascending (forward) or
-     *        descending (backward or reverse) order
      * @return a new {@link RelationalExpression}
      */
     @Nonnull
-    RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch, @Nonnull final List<ComparisonRange> comparisonRanges, final boolean isReverse);
+    RelationalExpression toEquivalentExpression(@Nonnull PartialMatch partialMatch, @Nonnull final List<ComparisonRange> comparisonRanges);
 
     @Nonnull
     default SetMultimap<ExpressionRef<? extends RelationalExpression>, RelationalExpression> findReferencingExpressions(@Nonnull final ImmutableList<? extends ExpressionRef<? extends RelationalExpression>> references) {

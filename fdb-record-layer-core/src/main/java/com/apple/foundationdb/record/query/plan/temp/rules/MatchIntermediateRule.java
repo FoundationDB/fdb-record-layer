@@ -23,7 +23,7 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
 import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;

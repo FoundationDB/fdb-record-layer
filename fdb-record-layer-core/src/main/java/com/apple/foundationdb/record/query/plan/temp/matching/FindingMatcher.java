@@ -22,8 +22,8 @@ package com.apple.foundationdb.record.query.plan.temp.matching;
 
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterator;
-import com.apple.foundationdb.record.query.plan.temp.TransitiveClosure;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
+import com.apple.foundationdb.record.query.combinatorics.TransitiveClosure;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;

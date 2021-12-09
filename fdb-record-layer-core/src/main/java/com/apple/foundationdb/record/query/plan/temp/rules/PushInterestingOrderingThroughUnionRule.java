@@ -22,13 +22,13 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
-import com.apple.foundationdb.record.query.plan.temp.Ordering;
 import com.apple.foundationdb.record.query.plan.temp.OrderingAttribute;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
+import com.apple.foundationdb.record.query.plan.temp.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
@@ -61,8 +61,8 @@ public class PushInterestingOrderingThroughUnionRule extends PlannerRule<Logical
 
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
-        final Optional<Set<Ordering>> interestingOrderingOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
-        if (!interestingOrderingOptional.isPresent()) {
+        final Optional<Set<RequestedOrdering>> interestingOrderingOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
+        if (interestingOrderingOptional.isEmpty()) {
             return;
         }
 

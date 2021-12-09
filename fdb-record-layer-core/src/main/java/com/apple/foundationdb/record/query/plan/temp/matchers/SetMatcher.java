@@ -21,8 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp.matchers;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
-import com.apple.foundationdb.record.query.plan.temp.TopologicalSort;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;

@@ -28,7 +28,7 @@ import com.apple.foundationdb.record.query.plan.temp.MatchInfo;
 import com.apple.foundationdb.record.query.plan.temp.PartialMatch;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
-import com.apple.foundationdb.record.query.plan.temp.TopologicalSort;
+import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nonnull;

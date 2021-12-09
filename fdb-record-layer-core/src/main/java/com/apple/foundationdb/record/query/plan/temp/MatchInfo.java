@@ -21,8 +21,11 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
+import com.apple.foundationdb.record.query.predicates.QueryPredicate;
+import com.apple.foundationdb.record.query.predicates.ValueComparisonRangePredicate;
 import com.google.common.base.Equivalence;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -30,6 +33,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -64,13 +68,10 @@ public class MatchInfo {
     @Nonnull
     private final List<BoundKeyPart> boundKeyParts;
 
-    private final boolean isReverse;
-
     private MatchInfo(@Nonnull final Map<CorrelationIdentifier, ComparisonRange> parameterBindingMap,
                       @Nonnull final IdentityBiMap<Quantifier, PartialMatch> quantifierToPartialMatchMap,
                       @Nonnull final PredicateMap predicateMap,
-                      @Nonnull final List<BoundKeyPart> boundKeyParts,
-                      final boolean isReverse) {
+                      @Nonnull final List<BoundKeyPart> boundKeyParts) {
         this.parameterBindingMap = ImmutableMap.copyOf(parameterBindingMap);
         this.quantifierToPartialMatchMap = quantifierToPartialMatchMap.toImmutable();
         this.aliasToPartialMatchMapSupplier = Suppliers.memoize(() -> {
@@ -86,7 +87,6 @@ public class MatchInfo {
         });
 
         this.boundKeyParts = ImmutableList.copyOf(boundKeyParts);
-        this.isReverse = isReverse;
     }
 
     @Nonnull
@@ -136,17 +136,65 @@ public class MatchInfo {
         return boundKeyParts;
     }
 
-    public boolean isReverse() {
-        return isReverse;
+    @Nullable
+    public QueryPredicate getCandidatePredicateForBoundKeyPart(final BoundKeyPart boundKeyPart) {
+        if (boundKeyPart.getQueryPredicate() == null) {
+            Verify.verify(boundKeyPart.getComparisonRangeType() == ComparisonRange.Type.EMPTY);
+            return null;
+        }
+
+        return getAccumulatedPredicateMap()
+                .getMappingOptional(boundKeyPart.getQueryPredicate())
+                .map(PredicateMultiMap.PredicateMapping::getCandidatePredicate)
+                .orElseThrow(() -> new IllegalStateException("mapping must be present"));
     }
 
-    public MatchInfo withOrderingInfo(@Nonnull final List<BoundKeyPart> boundKeyParts,
-                                      final boolean isReverse) {
+    public Optional<CorrelationIdentifier> getParameterAliasForBoundKeyPart(final BoundKeyPart boundKeyPart) {
+        @Nullable final var candidatePredicate = getCandidatePredicateForBoundKeyPart(boundKeyPart);
+        if (candidatePredicate == null) {
+            return Optional.empty();
+        }
+
+        if (!(candidatePredicate instanceof ValueComparisonRangePredicate.Placeholder)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(((ValueComparisonRangePredicate.Placeholder)candidatePredicate).getParameterAlias());
+    }
+
+    /**
+     * Derive if a scan is reverse by looking at all the bound key parts in this match info. The planner structures
+     * are laid out in a way that they could theoretically support a scan direction by key part. In reality, we only
+     * support a direction for a scan. Consequently, we only allow that either none or all of the key parts indicate
+     * {@link KeyPart#isReverse()}.
+     * @return {@code Optional.of(false)} if all bound key parts indicate a forward ordering,
+     *         {@code Optional.of(true)} if all bound key parts indicate a reverse ordering,
+     *         {@code Optional.empty()} otherwise. The caller should deal with that result accordingly.
+     *         Note that if there are no bound key parts at all, this method will return {@code Optional.of(false)}.
+     */
+    @Nonnull
+    public Optional<Boolean> deriveReverseScanOrder() {
+        var numReverse  = 0;
+        for (var boundKeyPart : boundKeyParts) {
+            if (boundKeyPart.isReverse()) {
+                numReverse ++;
+            }
+        }
+
+        if (numReverse == 0) {
+            return Optional.of(false); // forward
+        } else if (numReverse == boundKeyParts.size()) {
+            return Optional.of(true); // reverse
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    public MatchInfo withOrderingInfo(@Nonnull final List<BoundKeyPart> boundKeyParts) {
         return new MatchInfo(parameterBindingMap,
                 quantifierToPartialMatchMap,
                 predicateMap,
-                boundKeyParts,
-                isReverse);
+                boundKeyParts);
     }
 
     @Nonnull
@@ -172,15 +220,12 @@ public class MatchInfo {
                 .collect(Collectors.toCollection(Sets::newIdentityHashSet));
 
         final List<BoundKeyPart> boundKeyParts;
-        final boolean isReverse;
         if (regularQuantifiers.size() == 1) {
             final Quantifier regularQuantifier = Iterables.getOnlyElement(regularQuantifiers);
             final PartialMatch partialMatch = Objects.requireNonNull(partialMatchMap.getUnwrapped(regularQuantifier));
             boundKeyParts = partialMatch.getMatchInfo().getBoundKeyParts();
-            isReverse = partialMatch.getMatchInfo().isReverse();
         } else {
             boundKeyParts = ImmutableList.of();
-            isReverse = false;
         }
 
         final Optional<Map<CorrelationIdentifier, ComparisonRange>> mergedParameterBindingsOptional =
@@ -189,8 +234,7 @@ public class MatchInfo {
                 .map(mergedParameterBindings -> new MatchInfo(mergedParameterBindings,
                         partialMatchMap,
                         predicateMap,
-                        boundKeyParts,
-                        isReverse));
+                        boundKeyParts));
     }
 
     public static Optional<Map<CorrelationIdentifier, ComparisonRange>> tryMergeParameterBindings(final Collection<Map<CorrelationIdentifier, ComparisonRange>> parameterBindingMaps) {

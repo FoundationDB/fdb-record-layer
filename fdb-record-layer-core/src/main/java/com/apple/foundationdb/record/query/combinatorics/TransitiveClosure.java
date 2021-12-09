@@ -1,9 +1,9 @@
 /*
- * TopologicalSort.java
+ * TransitiveClosure.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2020 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.record.query.plan.temp;
+package com.apple.foundationdb.record.query.combinatorics;
 
 import com.apple.foundationdb.annotation.API;
 import com.google.common.base.Preconditions;
@@ -56,10 +56,23 @@ public class TransitiveClosure {
      * @return the transitive closure
      */
     public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull Set<T> set, @Nonnull final ImmutableSetMultimap<T, T> dependsOnMap) {
+        return transitiveClosure(new PartialOrder<>(set, dependsOnMap));
+    }
+
+
+    /**
+     * Compute the transitive closure of the depends-on map that is passed in.
+     * @param partialOrder partial order to compute the transitive closure for
+     * @param <T> type
+     * @return the transitive closure of the partial order handed in
+     */
+    public static <T> ImmutableSetMultimap<T, T> transitiveClosure(@Nonnull PartialOrder<T> partialOrder) {
+        final var set = partialOrder.getSet();
+        final var dependsOnMap = partialOrder.getDependencyMap();
         final ImmutableSetMultimap<T, T> usedByMap = dependsOnMap.inverse();
         final Map<T, Integer> inDegreeMap = computeInDegreeMap(set, usedByMap);
-        final Set<T> processed = Sets.newHashSetWithExpectedSize(set.size());
-        final Deque<T> deque = new ArrayDeque<>(set.size());
+        final Set<T> processed = Sets.newHashSetWithExpectedSize(partialOrder.size());
+        final Deque<T> deque = new ArrayDeque<>(partialOrder.size());
         for (final T current : set) {
             if (inDegreeMap.get(current) == 0) {
                 deque.add(current);
@@ -90,7 +103,7 @@ public class TransitiveClosure {
             }
         }
 
-        Preconditions.checkArgument(processed.size() == set.size(), "circular dependency");
+        Preconditions.checkArgument(processed.size() == partialOrder.size(), "circular dependency");
 
         return ImmutableSetMultimap.copyOf(resultMap);
     }

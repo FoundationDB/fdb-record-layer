@@ -21,10 +21,10 @@
 package com.apple.foundationdb.record.query.plan.temp.matching;
 
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
-import com.apple.foundationdb.record.query.plan.temp.ChooseK;
+import com.apple.foundationdb.record.query.combinatorics.ChooseK;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
-import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterable;
-import com.apple.foundationdb.record.query.plan.temp.EnumeratingIterator;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterator;
 import com.apple.foundationdb.record.query.plan.temp.IterableHelpers;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -50,8 +50,8 @@ import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
-import static com.apple.foundationdb.record.query.plan.temp.TopologicalSort.anyTopologicalOrderPermutation;
-import static com.apple.foundationdb.record.query.plan.temp.TopologicalSort.topologicalOrderPermutations;
+import static com.apple.foundationdb.record.query.combinatorics.TopologicalSort.anyTopologicalOrderPermutation;
+import static com.apple.foundationdb.record.query.combinatorics.TopologicalSort.topologicalOrderPermutations;
 
 /**
  * Abstract base class for all matchers. Matching is an algorithm that <em>matches</em> two collections of things of type

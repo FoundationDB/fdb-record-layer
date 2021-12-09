@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.apple.foundationdb.record.query.plan.temp.matching.BoundMatch;
 import com.apple.foundationdb.record.query.plan.temp.matching.ComputingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matching.GenericMatcher;

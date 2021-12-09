@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -158,14 +159,18 @@ public class ValueIndexScanMatchCandidate implements ScanWithFetchMatchCandidate
     @Nonnull
     @Override
     public RelationalExpression toEquivalentExpression(@Nonnull final PartialMatch partialMatch,
-                                                       @Nonnull final List<ComparisonRange> comparisonRanges,
-                                                       final boolean isReverse) {
-        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, isReverse)
+                                                       @Nonnull final List<ComparisonRange> comparisonRanges) {
+        final var reverseScanOrder =
+                partialMatch.getMatchInfo()
+                        .deriveReverseScanOrder()
+                        .orElseThrow(() -> new RecordCoreException("match info should unambiguously indicate reversed-ness of can"));
+
+        return tryFetchCoveringIndexScan(partialMatch, comparisonRanges, reverseScanOrder)
                 .orElseGet(() ->
                         new RecordQueryIndexPlan(index.getName(),
                                 IndexScanType.BY_VALUE,
                                 toScanComparisons(comparisonRanges),
-                                isReverse,
+                                reverseScanOrder,
                                 false,
                                 (ValueIndexScanMatchCandidate)partialMatch.getMatchCandidate()));
     }

@@ -34,13 +34,11 @@ public class KeyPart {
     @Nonnull
     private final KeyExpression normalizedKeyExpression;
 
-    @Nonnull
-    private final ComparisonRange.Type comparisonRangeType;
+    private final boolean isReverse;
 
-    protected KeyPart(@Nonnull final KeyExpression normalizedKeyExpression,
-                      @Nonnull final ComparisonRange.Type comparisonRangeType) {
+    protected KeyPart(@Nonnull final KeyExpression normalizedKeyExpression, final boolean isReverse) {
         this.normalizedKeyExpression = normalizedKeyExpression;
-        this.comparisonRangeType = comparisonRangeType;
+        this.isReverse = isReverse;
     }
 
     @Nonnull
@@ -48,9 +46,8 @@ public class KeyPart {
         return normalizedKeyExpression;
     }
 
-    @Nonnull
-    public ComparisonRange.Type getComparisonRangeType() {
-        return comparisonRangeType;
+    public boolean isReverse() {
+        return isReverse;
     }
 
     @Override
@@ -61,14 +58,19 @@ public class KeyPart {
         if (!(o instanceof KeyPart)) {
             return false;
         }
-        final KeyPart keyPart = (KeyPart)o;
+        final var keyPart = (KeyPart)o;
         return getNormalizedKeyExpression().equals(keyPart.getNormalizedKeyExpression()) &&
-               getComparisonRangeType() == keyPart.getComparisonRangeType();
+               isReverse() == keyPart.isReverse();
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(getNormalizedKeyExpression(), getComparisonRangeType());
+        return Objects.hash(getNormalizedKeyExpression(), isReverse());
+    }
+
+    @Override
+    public String toString() {
+        return "(" + getNormalizedKeyExpression() + ", " + isReverse() + ')';
     }
 
     @Nonnull
@@ -77,19 +79,13 @@ public class KeyPart {
     }
 
     @Nonnull
-    public static KeyPart of(@Nonnull final KeyExpression normalizedKeyExpression,
-                             @Nonnull final ComparisonRange.Type comparisonRangeType) {
-        return new KeyPart(normalizedKeyExpression, comparisonRangeType);
+    public static KeyPart of(@Nonnull final KeyExpression normalizedKeyExpression) {
+        return KeyPart.of(normalizedKeyExpression, false);
     }
 
-    public static int getEqualitySize(@Nonnull final List<? extends KeyPart> keyParts) {
-        int i;
-        for (i = 0; i < keyParts.size(); i++) {
-            final KeyPart boundKeyPart = keyParts.get(i);
-            if (boundKeyPart.getComparisonRangeType() != ComparisonRange.Type.EQUALITY) {
-                break;
-            }
-        }
-        return i;
+    @Nonnull
+    public static KeyPart of(@Nonnull final KeyExpression normalizedKeyExpression,
+                             final boolean isReverse) {
+        return new KeyPart(normalizedKeyExpression, isReverse);
     }
 }

@@ -26,17 +26,17 @@ import javax.annotation.Nonnull;
 import java.util.Optional;
 import java.util.Set;
 
-public class OrderingAttribute implements PlannerAttribute<Set<Ordering>> {
-    public static final PlannerAttribute<Set<Ordering>> ORDERING = new OrderingAttribute();
+public class OrderingAttribute implements PlannerAttribute<Set<RequestedOrdering>> {
+    public static final PlannerAttribute<Set<RequestedOrdering>> ORDERING = new OrderingAttribute();
 
     @Nonnull
     @Override
-    public Optional<Set<Ordering>> combine(@Nonnull final Set<Ordering> currentProperty, @Nonnull final Set<Ordering> newProperty) {
+    public Optional<Set<RequestedOrdering>> combine(@Nonnull final Set<RequestedOrdering> currentProperty, @Nonnull final Set<RequestedOrdering> newProperty) {
         if (currentProperty.containsAll(newProperty)) {
             return Optional.empty();
         }
 
-        return Optional.of(ImmutableSet.<Ordering>builder()
+        return Optional.of(ImmutableSet.<RequestedOrdering>builder()
                 .addAll(currentProperty)
                 .addAll(newProperty)
                 .build());

@@ -20,6 +20,8 @@
 
 package com.apple.foundationdb.record.query.plan.temp;
 
+import com.apple.foundationdb.record.query.combinatorics.ChooseK;
+import com.apple.foundationdb.record.query.combinatorics.EnumeratingIterable;
 import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.Test;
 

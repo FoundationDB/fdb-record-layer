@@ -234,7 +234,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
     @Override
     public Optional<MatchInfo> adjustMatch(@Nonnull final PartialMatch partialMatch) {
         final MatchInfo matchInfo = partialMatch.getMatchInfo();
-        return Optional.of(matchInfo.withOrderingInfo(forPartialMatch(partialMatch), isReverse()));
+        return Optional.of(matchInfo.withOrderingInfo(forPartialMatch(partialMatch)));
     }
 
     /**
@@ -246,7 +246,7 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
      *     synthesize the comparison range in (2)
      * (4) the candidate predicate on the candidate side that is the {@link Placeholder} for the parameter
      * @param partialMatch the pre-existing partial match on {@code (expression, this)} that the caller wants to adjust.
-     * @return a list of bound key parts that express the order of the outgoing data stream and their respecitve mappings
+     * @return a list of bound key parts that express the order of the outgoing data stream and their respective mappings
      *         between query and match candidate
      */
     @Nonnull
@@ -290,18 +290,11 @@ public class MatchableSortExpression implements RelationalExpressionWithChildren
 
             Verify.verify(comparisonRange == null || comparisonRange.getRangeType() == ComparisonRange.Type.EMPTY || queryPredicate != null);
 
-            final QueryPredicate candidatePredicate =
-                    queryPredicate == null
-                    ? null
-                    : accumulatedPredicateMap.getMappingOptional(queryPredicate)
-                            .map(PredicateMapping::getCandidatePredicate)
-                            .orElseThrow(() -> new RecordCoreException("no candidate predicate"));
-
             builder.add(
                     BoundKeyPart.of(normalizedKey,
                             comparisonRange == null ? ComparisonRange.Type.EMPTY : comparisonRange.getRangeType(),
                             queryPredicate,
-                            candidatePredicate));
+                            isReverse));
         }
 
         return builder.build();

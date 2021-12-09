@@ -23,9 +23,9 @@ package com.apple.foundationdb.record.query.plan.temp.rules;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.combinatorics.CrossProduct;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
-import com.apple.foundationdb.record.query.plan.temp.CrossProduct;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
@@ -34,6 +34,7 @@ import com.apple.foundationdb.record.query.plan.temp.PlanContext;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalDistinctExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.LogicalUnionExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
@@ -41,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.PlannerBindings;
 import com.apple.foundationdb.record.query.plan.temp.matchers.RecordQueryPlanMatchers;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty.OrderingInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -54,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.ListMatcher.exactly;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.all;
@@ -94,11 +93,11 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final PlanContext context = call.getContext();
 
-        final Optional<Set<Ordering>> requiredOrderingsOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
-        if (!requiredOrderingsOptional.isPresent()) {
+        final Optional<Set<RequestedOrdering>> requiredOrderingsOptional = call.getInterestingProperty(OrderingAttribute.ORDERING);
+        if (requiredOrderingsOptional.isEmpty()) {
             return;
         }
-        final Set<Ordering> requiredOrderings = requiredOrderingsOptional.get();
+        final Set<RequestedOrdering> requestedOrderings = requiredOrderingsOptional.get();
 
         final KeyExpression commonPrimaryKey = context.getCommonPrimaryKey();
         if (commonPrimaryKey == null) {
@@ -121,11 +120,10 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                                             .stream()
                                             .flatMap(plan -> {
                                                 final Optional<Ordering> orderingForLegOptional =
-                                                        OrderingProperty.evaluate(plan, context).map(OrderingInfo::getOrdering);
+                                                        OrderingProperty.evaluate(plan, context);
 
-                                                return orderingForLegOptional
-                                                        .map(ordering -> Stream.of(Pair.of(ordering, plan)))
-                                                        .orElse(Stream.of());
+                                                return orderingForLegOptional.stream()
+                                                        .map(ordering -> Pair.of(ordering, plan));
                                             })
                                             .collect(Collectors.groupingBy(Pair::getLeft,
                                                     Collectors.mapping(Pair::getRight,
@@ -140,10 +138,10 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                                     Optional.of(entry.getKey()))
                             .collect(ImmutableList.toImmutableList());
 
-            for (final Ordering requiredOrdering : requiredOrderings) {
+            for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 final Optional<Ordering> combinedOrderingOptional =
-                        OrderingProperty.fromOrderingsForSetPlan(orderingOptionals, requiredOrdering, Ordering::intersectEqualityBoundKeys);
-                if (!combinedOrderingOptional.isPresent()) {
+                        OrderingProperty.deriveForUnionFromOrderings(orderingOptionals, requestedOrdering, Ordering::intersectEqualityBoundKeys);
+                if (combinedOrderingOptional.isEmpty()) {
                     continue;
                 }
 

@@ -37,7 +37,7 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 
 import static com.apple.foundationdb.record.query.expressions.BooleanComponent.groupedComparisons;
-import static com.apple.foundationdb.record.query.plan.temp.CrossProduct.crossProduct;
+import static com.apple.foundationdb.record.query.combinatorics.CrossProduct.crossProduct;
 
 /**
  * A class to keep track of the relationships of parameters in a query given a {@link RecordQuery} and a set of
