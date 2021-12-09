@@ -108,7 +108,6 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
      * @param <M> the type of records in the store
      * @return {@link RecordCursor} that iterates through the results of the execution
      */
-
     @Nonnull
     @Override
     @SuppressWarnings("squid:S2095")

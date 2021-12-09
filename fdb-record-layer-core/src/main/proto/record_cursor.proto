@@ -110,8 +110,8 @@ message LuceneIndexContinuation {
 }
 
 message SelectorPlanContinuation {
-    required uint64 selectedPlan = 1; // The selected plan executing from the l;ist of optional plans
-    optional bytes innerContinuation = 2; // The selected plan's continuation
+    optional uint64 selected_plan = 1; // The selected plan executing from the list of optional plans
+    optional bytes inner_continuation = 2; // The selected plan's continuation
 }
 
 message ComparatorContinuation {
@@ -119,5 +119,5 @@ message ComparatorContinuation {
         optional bytes continuation = 1;
         optional bool started = 2;
     }
-    repeated CursorState other_child_state = 1;
+    repeated CursorState child_state = 1;
 }

@@ -30,8 +30,9 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
-public class RelativePriorityPlanSelector implements RecordQuerySelectorPlan.PlanSelector {
+public class RelativePriorityPlanSelector implements PlanSelector {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Relative-Priority-Plan-Selector");
     @Nonnull
     List<Double> priorities;
@@ -39,7 +40,7 @@ public class RelativePriorityPlanSelector implements RecordQuerySelectorPlan.Pla
     Random random;
 
     public RelativePriorityPlanSelector(@Nonnull final List<Double> priorities) {
-        this(priorities, new Random());
+        this(priorities, ThreadLocalRandom.current());
     }
 
     @VisibleForTesting

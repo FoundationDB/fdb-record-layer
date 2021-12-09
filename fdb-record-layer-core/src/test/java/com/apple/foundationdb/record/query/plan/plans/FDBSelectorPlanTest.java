@@ -155,8 +155,8 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
         assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
     }
 
-    private RecordQuerySelectorPlan.PlanSelector mockSelector() {
-        return new RecordQuerySelectorPlan.PlanSelector() {
+    private PlanSelector mockSelector() {
+        return new PlanSelector() {
             @Override
             public int selectPlan(final List<RecordQueryPlan> plans) {
                 return (mockSelectionCount++ == 0) ? 1 : 1000;
