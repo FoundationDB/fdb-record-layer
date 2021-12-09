@@ -21,10 +21,14 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.metadata.Index;
+import com.google.common.collect.ImmutableList;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 
 import javax.annotation.Nonnull;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Function;
 
 /**
  * Each implementation of {@link Analyzer} should have its own implementation
@@ -69,5 +73,10 @@ public interface LuceneAnalyzerFactory {
     @Nonnull
     default Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
         return new StandardAnalyzer();
+    }
+
+    @Nonnull
+    default Function<String, List<String>> getFieldSplitter() {
+        return field -> ImmutableList.of(field);
     }
 }

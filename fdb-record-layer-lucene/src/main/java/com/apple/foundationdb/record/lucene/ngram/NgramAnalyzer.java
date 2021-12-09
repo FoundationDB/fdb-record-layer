@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.lucene.ngram;
 
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.RecordLayerAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
@@ -29,7 +30,6 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.StopFilter;
-import org.apache.lucene.analysis.StopwordAnalyzerBase;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.ngram.EdgeNGramTokenFilter;
 import org.apache.lucene.analysis.ngram.NGramTokenFilter;
@@ -41,15 +41,14 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.Optional;
 
-public class NgramAnalyzer extends StopwordAnalyzerBase {
-    private static final String DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH = "3";
-    private static final String DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH = "30";
-    private static final String DEFAULT_NGRAM_WITH_EDGES_ONLY = "false";
-    private static final String ANALYZER_NAME = "NGRAM";
+public class NgramAnalyzer extends RecordLayerAnalyzer {
+    public static final String DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH = "3";
+    public static final String DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH = "30";
+    public static final String DEFAULT_NGRAM_WITH_EDGES_ONLY = "false";
 
-    private final int minTokenLength;
-    private final int maxTokenLength;
-    private final boolean edgesOnly;
+    protected final int minTokenLength;
+    protected final int maxTokenLength;
+    protected final boolean edgesOnly;
 
     public NgramAnalyzer(@Nullable CharArraySet stopwords, int minTokenLength, int maxTokenLength, boolean edgesOnly) {
         super(stopwords);
@@ -74,12 +73,10 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
         return new LowerCaseFilter(in);
     }
 
-    public static String getName() {
-        return ANALYZER_NAME;
-    }
-
     @AutoService(LuceneAnalyzerFactory.class)
     public static class NgramAnalyzerFactory implements LuceneAnalyzerFactory {
+        public static final String ANALYZER_NAME = "NGRAM_ONLY";
+
         @Nonnull
         @Override
         public String getName() {

@@ -29,11 +29,13 @@ import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerFactor
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.google.auto.service.AutoService;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.lucene.analysis.Analyzer;
 
 import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Index Maintainer Factory for Lucene Indexes.  This adds the Lucene index to supported indexes.
@@ -65,7 +67,7 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(state.index);
-        return new LuceneIndexMaintainer(state, state.context.getExecutor(), analyzerPair.getLeft(), analyzerPair.getRight());
+        final Triple<Analyzer, Analyzer, Function<String, List<String>>> triple = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzersAndFieldSplitter(state.index);
+        return new LuceneIndexMaintainer(state, state.context.getExecutor(), triple.getLeft(), triple.getMiddle(), triple.getRight());
     }
 }

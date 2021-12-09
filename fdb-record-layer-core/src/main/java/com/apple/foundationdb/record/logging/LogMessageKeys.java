@@ -277,6 +277,7 @@ public enum LogMessageKeys {
     FILE_ID("file_id"),
     FILE_NAME("file_name"),
     FILE_REFERENCE("file_reference"),
+    LUCENE_FIELD_TYPE("lucene_field_type"),
     ORIGINAL_DATA_SIZE("original_data-size"),
 
     // Record context properties

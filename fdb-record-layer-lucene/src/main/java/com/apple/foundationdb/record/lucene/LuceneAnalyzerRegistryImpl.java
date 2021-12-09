@@ -25,7 +25,9 @@ import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.MetaDataException;
+import com.google.common.collect.ImmutableList;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.slf4j.Logger;
@@ -33,8 +35,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.function.Function;
 
 /**
  * Default implementation of the {@link LuceneAnalyzerRegistry}. It uses the class
@@ -95,6 +99,24 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
             }
             final Analyzer indexAnalyzer = analyzerFactory.getIndexAnalyzer(index);
             return Pair.of(indexAnalyzer, analyzerFactory.getQueryAnalyzer(index, indexAnalyzer));
+        }
+    }
+
+    @Nonnull
+    @Override
+    public Triple<Analyzer, Analyzer, Function<String, List<String>>> getLuceneAnalyzersAndFieldSplitter(@Nonnull Index index) {
+        final String name = index.getOption(IndexOptions.TEXT_ANALYZER_NAME_OPTION);
+        // TODO: Get rid of the condition after OR operator, after having all analyzers registered with this registry
+        if (name == null || !registry.keySet().contains(name)) {
+            final Analyzer standardAnalyzer = new StandardAnalyzer();
+            return Triple.of(standardAnalyzer, standardAnalyzer, field -> ImmutableList.of(field));
+        } else {
+            LuceneAnalyzerFactory analyzerFactory = registry.get(name);
+            if (analyzerFactory == null) {
+                throw new MetaDataException("unrecognized lucene analyzer for tokenizer", LogMessageKeys.ANALYZER_NAME, name);
+            }
+            final Analyzer indexAnalyzer = analyzerFactory.getIndexAnalyzer(index);
+            return Triple.of(indexAnalyzer, analyzerFactory.getQueryAnalyzer(index, indexAnalyzer), analyzerFactory.getFieldSplitter());
         }
     }
 }

@@ -23,9 +23,12 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.lucene.analysis.Analyzer;
 
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.function.Function;
 
 /**
  * Registry for {@link Analyzer}s. This registry allows for full-text indexes to specify
@@ -42,4 +45,7 @@ import javax.annotation.Nonnull;
 public interface LuceneAnalyzerRegistry {
     @Nonnull
     Pair<Analyzer, Analyzer> getLuceneAnalyzerPair(@Nonnull Index index);
+
+    @Nonnull
+    Triple<Analyzer, Analyzer, Function<String, List<String>>> getLuceneAnalyzersAndFieldSplitter(@Nonnull Index index);
 }

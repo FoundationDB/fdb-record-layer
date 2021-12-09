@@ -33,6 +33,9 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
+import com.apple.foundationdb.record.lucene.synonymandngram.SynonymAndNgramAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.synonymandngram.SynonymAndNgramIndexAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -84,6 +87,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static final Index SIMPLE_TEXT_SUFFIXES = new Index("Simple$text_suffixes", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
+    private static final Index SYNONYM_NGRAM_INDEX = new Index("Simple$synonym_ngram", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAndNgramAnalyzerFactory.ANALYZER_NAME));
+
+    private static final Index SYNONYM_INDEX = new Index("synonym_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
+
     private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
             new LuceneThenKeyExpression(null, Lists.newArrayList(
                     new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false),
@@ -92,7 +101,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
     private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.getName(),
+            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
                     IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
@@ -221,15 +230,69 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
                 metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             });
-            recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
-            recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT, TupleRange.allOf(Tuple.from("Vision")), null, ScanProperties.FORWARD_SCAN);
+            recordStore.saveRecord(createSimpleDocument(1623L, "abc def ghi", 2));
             assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
-                    TupleRange.allOf(Tuple.from("Vision")), null, ScanProperties.FORWARD_SCAN)
+                            TupleRange.allOf(Tuple.from("text:(+\"abc\" AND +\"def\" AND +\"ghi\")")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
             assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(SIMPLE_TEXT_SUFFIXES), context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void testSimple() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, "organism layer", 2));
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT, TupleRange.allOf(Tuple.from("abcefghij layer")), null, ScanProperties.FORWARD_SCAN);
+            List<IndexEntry> list = indexEntries.asList().join();
+            assertEquals(1, list.size());
+        }
+    }
+
+    @Test
+    void synonymIndexTest() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_INDEX);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, "whole organism layer", 2));
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SYNONYM_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT, TupleRange.allOf(Tuple.from("unit being")), null, ScanProperties.FORWARD_SCAN);
+            List<IndexEntry> list = indexEntries.asList().join();
+            assertEquals(1, list.size());
+        }
+    }
+
+    @Test
+    void synonymAndNgramTest() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_NGRAM_INDEX);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, "whole organism layer", 2));
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SYNONYM_NGRAM_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT, TupleRange.allOf(Tuple.from("(+\"unit\" AND +\"organism\" AND +\"lay\")")), null, ScanProperties.FORWARD_SCAN);
+            List<IndexEntry> list = indexEntries.asList().join();
+            assertEquals(1, list.size());
+        }
+    }
+
+    @Test
+    void synonymAndNgramTest2() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_NGRAM_INDEX);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, "whole", 2));
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SYNONYM_NGRAM_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT, TupleRange.allOf(Tuple.from("uni")), null, ScanProperties.FORWARD_SCAN);
+            List<IndexEntry> list = indexEntries.asList().join();
+            assertEquals(1, list.size());
         }
     }
 

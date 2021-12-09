@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.lucene.synonymandngram.SynonymAndNgramAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -58,6 +59,8 @@ import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
@@ -72,6 +75,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
 import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndexFieldNames;
@@ -90,14 +95,18 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
+    private final Function<String, List<String>> fieldSplitter;
 
-    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer) {
+    public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor,
+                                 @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer,
+                                 @Nonnull Function<String, List<String>> fieldSplitter) {
         super(state);
         this.indexAnalyzer = indexAnalyzer;
         this.queryAnalyzer = queryAnalyzer;
         KeyExpression rootExpression = this.state.index.getRootExpression();
         validateLucene(rootExpression);
         this.executor = executor;
+        this.fieldSplitter = fieldSplitter;
     }
 
     /**
@@ -123,15 +132,17 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // functionality in this way.
             QueryParser parser;
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
-                List<String> fieldNames = listIndexFieldNames(state.index.getRootExpression());
+                final List<String> fieldNames = listIndexFieldNames(state.index.getRootExpression()).stream().map(fieldSplitter::apply).flatMap(List::stream).collect(Collectors.toList());
                 parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), queryAnalyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
             } else {
                 // initialize default to scan primary key.
                 parser = new QueryParser(PRIMARY_KEY_SEARCH_NAME, queryAnalyzer);
             }
-            Query query = parser.parse(range.getLow().getString(0));
-            return new LuceneRecordCursor(executor, scanProperties, state, query, continuation,
+            Query query1 = parser.parse(range.getLow().getString(0));
+            Query query2 = parser.parse("ng-text:(+\"unit\" AND +\"organism\" AND +\"lay\")");
+            BooleanQuery booleanQuery = new BooleanQuery.Builder().add(query1, BooleanClause.Occur.SHOULD).add(query2, BooleanClause.Occur.SHOULD).build();
+            return new LuceneRecordCursor(executor, scanProperties, state, booleanQuery, continuation,
                     state.index.getRootExpression().normalizeKeyForPositions(), Tuple.fromStream(range.getLow().stream().skip(1)));
         } catch (Exception ioe) {
             throw new RecordCoreArgumentException("Unable to parse range given for query", "range", range,
@@ -150,7 +161,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                 document.add(new IntPoint(fieldName, (Integer)value));
                 break;
             case STRING:
-                document.add(new TextField(fieldName, value == null ? "" : value.toString(), expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                for (String field : fieldSplitter.apply(fieldName)) {
+                    document.add(new TextField(field, value == null ? "" : value.toString(), expression.isStored() ? Field.Store.YES : Field.Store.NO));
+                }
                 break;
             case LONG:
                 document.add(new LongPoint(fieldName, (long)value));

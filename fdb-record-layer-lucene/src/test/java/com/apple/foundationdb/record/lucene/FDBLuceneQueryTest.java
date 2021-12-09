@@ -26,6 +26,9 @@ import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
+import com.apple.foundationdb.record.lucene.synonymandngram.SynonymAndNgramAnalyzerFactory;
+import com.apple.foundationdb.record.lucene.synonymandngram.SynonymAndNgramIndexAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -182,11 +185,23 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
 
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
         final Index ngramIndex = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
-                ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.getName(),
+                ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
                         IndexOptions.TEXT_TOKEN_MIN_SIZE, String.valueOf(minSize),
                         IndexOptions.TEXT_TOKEN_MAX_SIZE, String.valueOf(maxSize),
                         IndexOptions.NGRAM_TOKEN_EDGES_ONLY, String.valueOf(edgesOnly)));
         openRecordStore(context, store -> { }, ngramIndex);
+    }
+
+    protected void openRecordStoreWithSynonymIndex(FDBRecordContext context) {
+        final Index synonymIndex = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
+                ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
+        openRecordStore(context, store -> { }, synonymIndex);
+    }
+
+    protected void openRecordStoreWithSynonymAndNgramIndex(FDBRecordContext context) {
+        final Index synonymIndex = new Index("Complex$text_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), IndexTypes.LUCENE,
+                ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAndNgramAnalyzerFactory.ANALYZER_NAME));
+        openRecordStore(context, store -> { }, synonymIndex);
     }
 
     protected void openRecordStore(FDBRecordContext context) {
@@ -244,6 +259,32 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    private void initializeWithSynonymIndex(String text) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithSynonymIndex(context);
+            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText(text)
+                    .build();
+            recordStore.saveRecord(document);
+            commit(context);
+        }
+    }
+
+    private void initializeWithSynonymAndNgramIndex(String text) {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStoreWithSynonymAndNgramIndex(context);
+            TestRecordsTextProto.SimpleDocument document = TestRecordsTextProto.SimpleDocument.newBuilder()
+                    .setDocId(1L)
+                    .setGroup(1)
+                    .setText(text)
+                    .build();
+            recordStore.saveRecord(document);
+            commit(context);
+        }
+    }
+
     private void assertTermIndexedOrNot(String term, boolean indexedExpected, boolean shouldDeferFetch) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
@@ -264,6 +305,35 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                 assertThat("Unexpected term indexed", primaryKeys.isEmpty());
             }
         }
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testSynonym(boolean shouldDeferFetch) throws Exception {
+        initializeWithSynonymIndex("Hi ABCDEFGHIHKLMNOP");
+        assertTermIndexedOrNot("hello", true, shouldDeferFetch);
+        assertTermIndexedOrNot("hel", false, shouldDeferFetch);
+        assertTermIndexedOrNot("hi", true, shouldDeferFetch);
+        assertTermIndexedOrNot("Hello ABCDEFGHIHKLMNOP", true, shouldDeferFetch);
+        assertTermIndexedOrNot("hi ABCDEFGH", true, shouldDeferFetch);
+    }
+
+    @ParameterizedTest
+    @BooleanSource
+    void testSynonymAndNgram(boolean shouldDeferFetch) throws Exception {
+        initializeWithSynonymAndNgramIndex("hello ABCDEFGHIHKLMNOP");
+        assertTermIndexedOrNot("nether", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("unit", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("who", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("whole", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("uni", false, shouldDeferFetch);
+//        assertTermIndexedOrNot("ABCDEFGHIHKLMNOP", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("GHI", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("hello", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("hel", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("ello", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("hi", true, shouldDeferFetch);
+//        assertTermIndexedOrNot("GHIHKLM", true, shouldDeferFetch);
     }
 
     @ParameterizedTest

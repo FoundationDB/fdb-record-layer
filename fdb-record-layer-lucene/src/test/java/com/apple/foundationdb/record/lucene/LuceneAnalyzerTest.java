@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
+import com.apple.foundationdb.record.lucene.synonymandngram.SynonymAndNgramIndexAnalyzer;
 import com.google.common.collect.ImmutableSet;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
@@ -66,6 +68,33 @@ public class LuceneAnalyzerTest {
 
         tokenizeWithAnalyzer(result, input, new NgramAnalyzer(stopWords, 3, 10, false));
         Assertions.assertEquals(ImmutableSet.of("rl"), result);
+    }
+
+    @Test
+    void testSynonymAnalyzer() throws Exception {
+        String input = "Hello friend";
+        Collection<String> result = new HashSet<>();
+
+        tokenizeWithAnalyzer(result, input, new SynonymAnalyzer(null));
+        Assertions.assertEquals(ImmutableSet.of("hello", "hullo", "hi", "howdy", "how", "do", "you", "friend", "quaker", "acquaintance", "ally", "supporter", "protagonist", "champion", "admirer", "booster"), result);
+    }
+
+    @Test
+    void testSynonymAndNgramAnalyzer() throws Exception {
+        String input = "Hello";
+        Collection<String> result = new HashSet<>();
+
+        tokenizeWithAnalyzer(result, input, new SynonymAndNgramIndexAnalyzer(null, 3, 6, false));
+        Assertions.assertEquals(ImmutableSet.of("hello", "hullo", "hi", "howdy", "how", "do", "you", "hel", "ell", "llo", "hell", "ello", "rl"), result);
+    }
+
+    @Test
+    void testSynonymAndNgramAnalyzer1() throws Exception {
+        String input = "Hello";
+        Collection<String> result = new HashSet<>();
+
+        tokenizeWithAnalyzer(result, input, new SynonymAndNgramIndexAnalyzer(null, 3, 6, false));
+        Assertions.assertEquals(ImmutableSet.of("hello", "hullo", "hi", "howdy", "how", "do", "you", "hel", "ell", "llo", "hell", "ello", "rl"), result);
     }
 
     @Test
