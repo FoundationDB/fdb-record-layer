@@ -58,7 +58,9 @@ public interface LuceneAnalyzerFactory {
     /**
      * Get an instance of the text analyzer for query given the {@link Index}. For a given factory, each query analyzer
      * should be of the same type, and it should match the result of {@link #getName()}.
-     * Not need to override this method if {@link StandardAnalyzer} is to be used for query time
+     * Not need to override this method if {@link StandardAnalyzer} is to be used for query time.
+     * Call {@link #getIndexAnalyzer(Index)} before calling this method, and use its return for the argument {@code indexAnalyzer}.
+     * Override this method to customize the analyzer for query time, or directly return the {@code indexAnalyzer} instance, if it is used for both indexing and query time.
      *
      * @param index the index this analyzer is used for
      * @param indexAnalyzer the instance of analyzer for indexing used by this factory, that can be returned by this method in case it is also used for query

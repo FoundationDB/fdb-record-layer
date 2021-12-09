@@ -65,7 +65,7 @@ public class LuceneIndexMaintainerFactory implements IndexMaintainerFactory {
     @Override
     @Nonnull
     public IndexMaintainer getIndexMaintainer(@Nonnull final IndexMaintainerState state) {
-        Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(state.index);
+        final Pair<Analyzer, Analyzer> analyzerPair = LuceneAnalyzerRegistryImpl.instance().getLuceneAnalyzerPair(state.index);
         return new LuceneIndexMaintainer(state, state.context.getExecutor(), analyzerPair.getLeft(), analyzerPair.getRight());
     }
 }
