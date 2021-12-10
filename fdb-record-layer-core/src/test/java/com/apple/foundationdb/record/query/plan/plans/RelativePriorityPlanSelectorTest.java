@@ -31,47 +31,47 @@ import java.util.Random;
 public class RelativePriorityPlanSelectorTest {
     @Test
     void testSelectRandom() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(0.2, 0.5, 0.3), new MockRandom(0.6));
+        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(60));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(1, selectedIndex);
     }
 
     @Test
     void testSelectRandomZero() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(0.2, 0.5, 0.3), new MockRandom(0.0));
+        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(0));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(0, selectedIndex);
     }
 
     @Test
     void testSelectRandomOne() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(0.2, 0.5, 0.3), new MockRandom(0.99999));
+        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(100));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(2, selectedIndex);
     }
 
     @Test
     void testSelectRandomOnePriority() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Collections.singletonList(1.0), new MockRandom(0.5));
+        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Collections.singletonList(100), new MockRandom(50));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(0, selectedIndex);
     }
 
     @Test
     void testEmpty() throws Exception {
-        Assertions.assertThrows(VerifyException.class, () -> new RelativePriorityPlanSelector(Collections.emptyList(), new MockRandom(0.5)));
+        Assertions.assertThrows(VerifyException.class, () -> new RelativePriorityPlanSelector(Collections.emptyList(), new MockRandom(50)));
     }
 
     private static class MockRandom extends Random {
         static final long serialVersionUID = 3905348978240129618L;
-        private final double mockValue;
+        private final int mockValue;
 
-        private MockRandom(final double mockValue) {
+        private MockRandom(final int mockValue) {
             this.mockValue = mockValue;
         }
 
         @Override
-        public double nextDouble() {
+        public int nextInt() {
             return mockValue;
         }
     }

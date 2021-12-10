@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
@@ -30,8 +31,7 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.test.Tags;
-import com.google.common.base.VerifyException;
-import com.google.protobuf.Message;
+ import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -65,7 +65,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
 
-        RecordQueryPlan planUnderTest = RecordQuerySelectorPlan.from(plan(query), Collections.singletonList(1.0));
+        RecordQueryPlan planUnderTest = RecordQuerySelectorPlan.from(plan(query), Collections.singletonList(100));
 
         int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), is(1)),
@@ -86,7 +86,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
                 .build();
 
         // This will always select plan1 for execution
-        RecordQueryPlan planUnderTest = RecordQuerySelectorPlan.from(plan(query1, query2), Arrays.asList(1.0, 0.0));
+        RecordQueryPlan planUnderTest = RecordQuerySelectorPlan.from(plan(query1, query2), Arrays.asList(100, 0));
 
         int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), is(1)),
@@ -96,7 +96,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
     @Test
     void testNoInnerPlansFails() {
-        assertThrows(VerifyException.class, () -> RecordQuerySelectorPlan.from(Collections.emptyList(), Collections.emptyList()));
+        assertThrows(RecordCoreArgumentException.class, () -> RecordQuerySelectorPlan.from(Collections.emptyList(), Collections.emptyList()));
     }
 
     @Test
@@ -107,7 +107,7 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
 
-        assertThrows(VerifyException.class, () -> RecordQuerySelectorPlan.from(plan(query), Arrays.asList(0.1, 0.2, 0.7)));
+        assertThrows(RecordCoreArgumentException.class, () -> RecordQuerySelectorPlan.from(plan(query), Arrays.asList(10, 20, 70)));
     }
 
     @DualPlannerTest
