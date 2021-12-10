@@ -130,7 +130,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public boolean supportsMessageParsing() {
-        return currentRow.value() instanceof MessageTuple;
+        return currentRow != null && currentRow.value() instanceof MessageTuple;
     }
 
     @Override

@@ -96,9 +96,9 @@ public interface RelationalResultSet extends AutoCloseable {
     Iterable<?> getRepeated(String fieldName) throws RelationalException;
 
     /**
-     * Determine if this result set support directly returning protobuf objects.
+     * Determine if the result set's current row support directly returning protobuf objects.
      *
-     * @return {@code true} if rows can be parsed directly to protobuf message objects, {@code false} otherwise.
+     * @return {@code true} if current row can be parsed directly to protobuf message objects, {@code false} otherwise.
      */
     boolean supportsMessageParsing();
 

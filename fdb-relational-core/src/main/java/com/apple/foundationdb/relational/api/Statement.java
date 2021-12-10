@@ -62,9 +62,9 @@ public interface Statement extends AutoCloseable {
     @Nonnull
     RelationalResultSet executeGet(@Nonnull String tableName, @Nonnull KeySet key, @Nonnull Options options, @Nonnull QueryProperties queryProperties) throws RelationalException;
 
-    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<Message> data, @Nonnull Options options) throws RelationalException;
+    int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, @Nonnull Options options) throws RelationalException;
 
-    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<Message> data, @Nonnull Options options) throws RelationalException {
+    default int executeInsert(@Nonnull String tableName, @Nonnull Iterable<? extends Message> data, @Nonnull Options options) throws RelationalException {
         return executeInsert(tableName, data.iterator(), options);
     }
 

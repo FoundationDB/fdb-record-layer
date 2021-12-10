@@ -119,8 +119,8 @@ public class RecordStoreStatement implements Statement {
         Scannable source = getSourceScannable(options, table);
 
         final KeyBuilder keyBuilder = source.getKeyBuilder();
-        NestableTuple start = keyBuilder.buildKey(scan.getStartKey(), true, true);
-        NestableTuple end = keyBuilder.buildKey(scan.getEndKey(), true, true);
+        NestableTuple start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
+        NestableTuple end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
 
         return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties());
     }
@@ -146,7 +146,7 @@ public class RecordStoreStatement implements Statement {
     }
 
     @Override
-    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<Message> data, Options options) throws RelationalException {
+    public int executeInsert(@Nonnull String tableName, @Nonnull Iterator<? extends Message> data, Options options) throws RelationalException {
         //do this check first because otherwise we might start an expensive transaction that does nothing
         if (!data.hasNext()) {
             return 0;
