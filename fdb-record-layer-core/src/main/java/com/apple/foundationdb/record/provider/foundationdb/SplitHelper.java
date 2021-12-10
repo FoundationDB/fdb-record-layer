@@ -50,7 +50,9 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -242,11 +244,14 @@ public class SplitHelper {
         final Subspace keySplitSubspace = subspace.subspace(key);
         if (clearBasedOnPreviousSizeInfo) {
             if (previousSizeInfo != null) {
-                if (previousSizeInfo.isSplit() || previousSizeInfo.isVersionedInline()) {
-                    tr.clear(keySplitSubspace.range()); // Record might be shorter than previous split.
-                } else {
-                    // Record was previously unsplit and had unsplit suffix because we are splitting long records.
-                    tr.clear(keySplitSubspace.pack(UNSPLIT_RECORD));
+                // Issue individual deletes for each key to allow underlying storage to optimize single key range
+                // clears. However, still include a write conflict range for the whole record to avoid adding extra
+                // work to the resolver.
+                Range keySplitSubspaceRange = keySplitSubspace.range();
+                tr.addWriteConflictRange(keySplitSubspaceRange.begin, keySplitSubspaceRange.end);
+                List<Long> offsets = offsets(previousSizeInfo);
+                for (Long offset : offsets) {
+                    tr.clear(keySplitSubspace.pack(offset));
                 }
             }
         } else {
@@ -462,6 +467,23 @@ public class SplitHelper {
             split = false;
             versionedInline = false;
         }
+    }
+
+    private static List<Long> offsets(FDBStoredSizes sizeInfo) {
+        List<Long> offsetList = new ArrayList<>(sizeInfo.getKeyCount());
+        if (sizeInfo.isVersionedInline()) {
+            offsetList.add(RECORD_VERSION);
+        }
+        if (sizeInfo.isSplit()) {
+            long current = START_SPLIT_RECORD;
+            while (offsetList.size() < sizeInfo.getKeyCount()) {
+                offsetList.add(current);
+                current++;
+            }
+        } else {
+            offsetList.add(UNSPLIT_RECORD);
+        }
+        return offsetList;
     }
 
     /**
