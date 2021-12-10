@@ -24,6 +24,10 @@ import com.apple.foundationdb.record.PlanHashable;
 
 import java.util.List;
 
+/**
+ * A plan selector selects one plan from the given list via some policy.
+ * Used by the {@link RecordQuerySelectorPlan} to pick the plan to be executed.
+ */
 public interface PlanSelector extends PlanHashable {
     int selectPlan(List<RecordQueryPlan> plans);
 }

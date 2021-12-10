@@ -177,7 +177,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     @Override
     @Nonnull
     protected NoNextReason mergeNoNextReasons() {
-        return getWeakestNoNextReason(getCursorStates());
+        return getStrongestNoNextReason(getCursorStates());
     }
 
     @Override
@@ -218,21 +218,27 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
                 // Regardless of comparison result, return all states (comparison logged results)
                 return cursorStates;
             }
-            // some cursors have no next result, if all are exhausted, we are done
+            // some cursors have no next value. If any has out-of-band state - give them a chance to catch up
+            if (cursorStates.stream().anyMatch(cursorState -> isOutOfBand(cursorState))) {
+                return Collections.emptyList();
+            }
+            // all cursors are either exhausted or reached in-band limit
+            // if all are exhausted, we are done
             long exhaustedCount = cursorStates.stream().filter(cursorState -> isSourceExhausted(cursorState)).count();
             if (exhaustedCount == cursorStates.size()) {
                 // Success
                 return Collections.emptyList();
             }
-            // if any (but not all) are exhausted, we fail
+            // if any (but not all) are exhausted, we fail, since at least one of them is exhausted and at least one
+            // has reached row limit (therefore comparison failed)
             if (exhaustedCount > 0) {
                 logTerminationFailure(getReferenceState(cursorStates));
             }
-            if (isSourceExhausted(getReferenceState(cursorStates))) {
-                // Reference exhausted - we are done
+            if (!hasNext(getReferenceState(cursorStates))) {
+                // Reference done - we are done
                 return Collections.emptyList();
             } else {
-                // Reference not exhausted - continue the iteration
+                // Reference not done - continue the iteration
                 return cursorStates;
             }
         });
@@ -288,6 +294,14 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
             return false;
         } else {
             return cursorState.getResult().getNoNextReason().isSourceExhausted();
+        }
+    }
+
+    private boolean isOutOfBand(final KeyedMergeCursorState<T> cursorState) {
+        if (hasNext(cursorState)) {
+            return false;
+        } else {
+            return cursorState.getResult().getNoNextReason().isOutOfBand();
         }
     }
 

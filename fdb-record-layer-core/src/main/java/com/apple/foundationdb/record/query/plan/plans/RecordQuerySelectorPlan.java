@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorContinuation;
@@ -44,7 +45,6 @@ import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
 import com.apple.foundationdb.record.query.plan.temp.expressions.RelationalExpressionWithChildren;
 import com.apple.foundationdb.tuple.ByteArrayUtil2;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.InvalidProtocolBufferException;
@@ -89,8 +89,10 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      * priority for selecting the plan. Sum of all the priorities must be 1.0
      * @return newly created plan
      */
-    public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final List<Double> relativePlanPriorities) {
-        validateParams(children, relativePlanPriorities);
+    public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final List<Integer> relativePlanPriorities) {
+        if (children.size() != relativePlanPriorities.size()) {
+            throw new RecordCoreArgumentException("Number of plans and number of relative priorities should be the same");
+        }
         return RecordQuerySelectorPlan.from(children, new RelativePriorityPlanSelector(relativePlanPriorities));
     }
 
@@ -102,7 +104,9 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
      * @return newly created plan
      */
     public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final PlanSelector planSelector) {
-        Verify.verify(!children.isEmpty());
+        if (children.isEmpty()) {
+            throw new RecordCoreArgumentException("Selector plan should have at least one plan");
+        }
         final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
@@ -196,11 +200,6 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     public RelationalExpressionWithChildren rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap, @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQuerySelectorPlan(
                 Quantifiers.narrow(Quantifier.Physical.class, rebasedQuantifiers), planSelector);
-    }
-
-    private static void validateParams(@Nonnull final List<? extends RecordQueryPlan> plans, @Nonnull final List<Double> relativePlanPriorities) {
-        Verify.verify(!plans.isEmpty());
-        Verify.verify(plans.size() == relativePlanPriorities.size());
     }
 
     private int selectPlanIndex(final SelectorContinuation continuation) {

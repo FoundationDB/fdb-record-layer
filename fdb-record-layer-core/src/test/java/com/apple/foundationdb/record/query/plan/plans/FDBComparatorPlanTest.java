@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
@@ -31,7 +32,6 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.test.Tags;
-import com.google.common.base.VerifyException;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -187,7 +187,7 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
     void testNoInnerPlansFail() throws Exception {
         complexQuerySetup(NO_HOOK);
 
-        assertThrows(VerifyException.class, () -> RecordQueryComparatorPlan.from(Collections.emptyList(), primaryKey(), 0));
+        assertThrows(RecordCoreArgumentException.class, () -> RecordQueryComparatorPlan.from(Collections.emptyList(), primaryKey(), 0));
     }
 
     @DualPlannerTest
@@ -298,7 +298,7 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
                 .setFilter(Query.field("num_value_2").equalsValue(1))
                 .build();
 
-        assertThrows(VerifyException.class, () -> RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 3));
+        assertThrows(RecordCoreArgumentException.class, () -> RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 3));
 
     }
 

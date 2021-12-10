@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -41,7 +42,6 @@ import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
@@ -90,8 +90,13 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
     public static RecordQueryComparatorPlan from(@Nonnull List<? extends RecordQueryPlan> children,
                                                  @Nonnull KeyExpression comparisonKey,
                                                  final int referencePlanIndex) {
-        Verify.verify(!children.isEmpty());
-        Verify.verify((referencePlanIndex >= 0) && (referencePlanIndex < children.size()));
+        if (children.isEmpty()) {
+            throw new RecordCoreArgumentException("Comparator plan should have at least one plan");
+        }
+        if ((referencePlanIndex < 0) || (referencePlanIndex >= children.size())) {
+            throw new RecordCoreArgumentException("Reference Plan Index should be within the range of sub plans");
+        }
+
         final ImmutableList.Builder<ExpressionRef<RecordQueryPlan>> childRefsBuilder = ImmutableList.builder();
         for (RecordQueryPlan child : children) {
             childRefsBuilder.add(GroupExpressionRef.of(child));
@@ -115,16 +120,18 @@ public class RecordQueryComparatorPlan extends RecordQueryChooserPlanBase {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        final ExecuteProperties childExecuteProperties = executeProperties.clearSkipAndLimit();
+        // The child plans all keep their skip and limit - this way we can ensure that they all handle their skip and
+        // limit correctly. The parent plan adds no skip and limit of its own - the reference plan is handling that.
+        final ExecuteProperties parentExecuteProperties = executeProperties.clearSkipAndLimit();
         return ComparatorCursor.create(store, getComparisonKey(),
                         getChildren().stream()
-                                .map(childPlan -> comparatorCursorFunction(store, context, childExecuteProperties, childPlan))
+                                .map(childPlan -> comparatorCursorFunction(store, context, executeProperties, childPlan))
                                 .collect(Collectors.toList()),
                         continuation,
                         referencePlanIndex,
                         () -> toString(),
                         () -> planHash(PlanHashKind.STRUCTURAL_WITHOUT_LITERALS))
-                .skipThenLimit(executeProperties.getSkip(), executeProperties.getReturnedRowLimit())
+                .skipThenLimit(parentExecuteProperties.getSkip(), parentExecuteProperties.getReturnedRowLimit())
                 .map(QueryResult::of);
     }
 
