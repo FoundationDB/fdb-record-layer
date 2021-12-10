@@ -287,6 +287,83 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
     }
 
     @DualPlannerTest
+    void testTwoSameInnerPlansWithScannedRowLimit() throws Throwable {
+        complexQuerySetup(NO_HOOK);
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_2").equalsValue(1))
+                .build();
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_2").equalsValue(1))
+                .build();
+
+        // This will select plan 1 for the first execution and later some illegal value. The idea is that after the
+        // first iteration, the continuation should determine the selected plan and not the relative priorities
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+
+        // Iteration 1, start with empty continuation
+        RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
+                // Note that this execution uses setScannedRecordsLimit (as opposed to returned row limit)
+                null, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
+                count -> assertThat(count, is(17)),
+                record -> assertThat(record.getNumValue2(), is(1)),
+                context -> assertDiscardedAtMost(68, context));
+        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED));
+
+        // Iteration 2, start with previous continuation, reach end (before limit)
+        byte[] continuation = result.getContinuation().toBytes();
+        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
+                continuation, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
+                count -> assertThat(count, is(16)),
+                record -> assertThat(record.getNumValue2(), is(1)),
+                context -> assertDiscardedAtMost(66, context));
+        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+    }
+
+    @DualPlannerTest
+    void testTwoDifferentInnerPlansWithScannedRowLimit() throws Throwable {
+        // This test has the non-reference plan ends but the cursor continues until the end of the reference plan
+        complexQuerySetup(NO_HOOK);
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_2").equalsValue(1))
+                .build();
+        // This plan has same records as the previous one, but end sooner
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.and(
+                        Query.field("num_value_2").equalsValue(1),
+                        Query.field("rec_no").lessThan(50L)))
+                .build();
+
+
+        // This will select plan 1 for the first execution and later some illegal value. The idea is that after the
+        // first iteration, the continuation should determine the selected plan and not the relative priorities
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 0);
+
+        // Iteration 1, start with empty continuation
+        RecordCursorResult<FDBQueriedRecord<Message>> result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
+                // Note that this execution uses setScannedRecordsLimit (as opposed to returned row limit)
+                null, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
+                count -> assertThat(count, is(17)),
+                record -> assertThat(record.getNumValue2(), is(1)),
+                context -> assertDiscardedAtMost(68, context));
+        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SCAN_LIMIT_REACHED));
+
+        // Iteration 2, start with previous continuation, reach end (before limit)
+        byte[] continuation = result.getContinuation().toBytes();
+        result = querySimpleRecordStoreWithContinuation(NO_HOOK, planUnderTest, EvaluationContext::empty,
+                continuation, ExecuteProperties.newBuilder().setScannedRecordsLimit(200).build(),
+                count -> assertThat(count, is(16)),
+                record -> assertThat(record.getNumValue2(), is(1)),
+                context -> assertDiscardedAtMost(66, context));
+        assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+    }
+
+    @DualPlannerTest
     void testIllegalReferencePlanIndex() throws Exception {
         complexQuerySetup(NO_HOOK);
         RecordQuery query1 = RecordQuery.newBuilder()
