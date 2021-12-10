@@ -14,7 +14,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 // begin next release
 ### NEXT_RELEASE
 
-* **Bug fix** Use 2 separate analyzers for indexing time and query time in LuceneIndexMaintainer [(Issue #1486)](https://github.com/FoundationDB/fdb-record-layer/issues/1486)
+* **Bug fix** Fix 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Bug fix** Fix 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -24,7 +24,7 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Suppor synonym for Lucene indexing [(Issue #1488)](https://github.com/FoundationDB/fdb-record-layer/issues/1488)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
@@ -37,6 +37,11 @@ This version of the Record Layer changes the Java source and target compatibilit
 
 // end next release
 -->
+
+### 3.1.224.0
+
+* **Bug fix** Use 2 separate analyzers for indexing time and query time in LuceneIndexMaintainer [(Issue #1486)](https://github.com/FoundationDB/fdb-record-layer/issues/1486)
+* **Feature** Suppor synonym for Lucene indexing [(Issue #1488)](https://github.com/FoundationDB/fdb-record-layer/issues/1488)
 
 ### 3.1.223.0
 
