@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
-import com.google.common.base.VerifyException;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -59,7 +59,7 @@ public class RelativePriorityPlanSelectorTest {
 
     @Test
     void testEmpty() throws Exception {
-        Assertions.assertThrows(VerifyException.class, () -> new RelativePriorityPlanSelector(Collections.emptyList(), new MockRandom(50)));
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> new RelativePriorityPlanSelector(Collections.emptyList(), new MockRandom(50)));
     }
 
     private static class MockRandom extends Random {
