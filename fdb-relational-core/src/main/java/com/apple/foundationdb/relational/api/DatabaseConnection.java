@@ -57,7 +57,7 @@ public interface DatabaseConnection extends AutoCloseable {
     boolean isAutoCommitEnabled();
 
     /**
-     * If no TransactionConfig passed in, a default config is used for the transaction
+     * If no TransactionConfig passed in, a default config is used for the transaction.
      */
     default void beginTransaction() throws RelationalException {
         beginTransaction(null);

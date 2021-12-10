@@ -1,5 +1,5 @@
 /*
- * RecordMetaDataStore.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,19 +18,8 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.recordlayer.catalog;
+/**
+ * A RecordLayer-based implementation of DDL logic such as creating and dropping a schema.
+ */
 
-import com.apple.foundationdb.record.RecordMetaDataProvider;
-
-import javax.annotation.Nonnull;
-import java.net.URI;
-
-public interface RecordMetaDataStore {
-    /**
-     * Load the metadata provider given a schema url.
-     *
-     * @param schemaUrl the URI for the schema to get metadata for.
-     * @return the metadata for the schema.
-     */
-    RecordMetaDataProvider loadMetaData(@Nonnull URI schemaUrl);
-}
+package com.apple.foundationdb.relational.recordlayer.ddl;

@@ -25,7 +25,6 @@ import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 
 import javax.annotation.Nonnull;
 import java.net.URI;
-import java.util.List;
 
 /**
  * Represents the MetaData about a database (schemas, tables, indexes, and so on).

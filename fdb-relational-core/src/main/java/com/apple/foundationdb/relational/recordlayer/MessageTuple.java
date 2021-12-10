@@ -23,23 +23,23 @@ package com.apple.foundationdb.relational.recordlayer;
 import com.google.protobuf.Message;
 
 public class MessageTuple extends AbstractTuple {
-    private final Message m;
+    private final Message message;
 
     public MessageTuple(Message m) {
-        this.m = m;
+        this.message = m;
     }
 
     @Override
     public int getNumFields() {
-        return m.getDescriptorForType().getFields().size();
+        return message.getDescriptorForType().getFields().size();
     }
 
     @Override
     public Object getObject(int position) {
-        return m.getField(m.getDescriptorForType().getFields().get(position));
+        return message.getField(message.getDescriptorForType().getFields().get(position));
     }
 
     public <M extends Message> M parseMessage() {
-        return (M)m;
+        return (M) message;
     }
 }

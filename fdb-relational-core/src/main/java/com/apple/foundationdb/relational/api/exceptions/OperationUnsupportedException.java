@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
-public class OperationUnsupportedException extends RelationalException{
+public class OperationUnsupportedException extends RelationalException {
     public OperationUnsupportedException(String message) {
         super(message, ErrorCode.UNSUPPORTED_OPERATION);
     }

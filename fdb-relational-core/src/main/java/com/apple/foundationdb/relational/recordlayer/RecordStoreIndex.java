@@ -108,18 +108,18 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     public String[] getFieldNames() {
         KeyExpression re = index.getRootExpression();
         if (re instanceof KeyWithValueExpression) {
-            KeyWithValueExpression kve = (KeyWithValueExpression)re;
+            KeyWithValueExpression kve = (KeyWithValueExpression) re;
             final List<KeyExpression> keyExpressions = kve.normalizeKeyForPositions();
             String[] fields = new String[keyExpressions.size()];
             int pos = 0;
-            for(KeyExpression ke: keyExpressions){
-                if(ke instanceof FieldKeyExpression){
-                    fields[pos] = ((FieldKeyExpression)ke).getFieldName();
+            for (KeyExpression ke : keyExpressions) {
+                if (ke instanceof FieldKeyExpression) {
+                    fields[pos] = ((FieldKeyExpression) ke).getFieldName();
                 }
                 pos++;
             }
             return fields;
-        }else{
+        } else {
             return getKeyFieldNames();
         }
     }
@@ -130,13 +130,13 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
         return getFields(rootExpression);
     }
 
-    private String[] getFields(KeyExpression expression){
+    private String[] getFields(KeyExpression expression) {
         Descriptors.Descriptor descriptor = table.loadRecordType().getDescriptor();
-        if(expression instanceof KeyWithValueExpression){
-            expression = ((KeyWithValueExpression)expression).getKeyExpression();
+        if (expression instanceof KeyWithValueExpression) {
+            expression = ((KeyWithValueExpression) expression).getKeyExpression();
         }
 
-        if(expression instanceof ThenKeyExpression) {
+        if (expression instanceof ThenKeyExpression) {
             String[] fields = new String[expression.getColumnSize()];
             //TODO(bfines) deal with more complicated KeyExpressions also
             List<KeyExpression> children = ((ThenKeyExpression) expression).getChildren();
@@ -153,7 +153,7 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
                 }
             }
             return fields;
-        }else{
+        } else {
             final List<Descriptors.FieldDescriptor> indexedFields = expression.validate(descriptor);
             return indexedFields.stream().map(Descriptors.FieldDescriptor::getName).toArray(String[]::new);
         }

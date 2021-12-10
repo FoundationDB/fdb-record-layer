@@ -58,7 +58,7 @@ public class MapRecordMetaDataStore implements MutableRecordMetaDataStore {
     @Override
     public void assignSchemaToTemplate(@Nonnull URI schemaUrl, @Nonnull String templateId) {
         RecordLayerTemplate template = loadTemplate(templateId);
-        if(template == null){
+        if (template == null) {
             throw new RelationalException("Unknown or non-existing schema template: <" + templateId + ">",
                     RelationalException.ErrorCode.UNKNOWN_SCHEMA_TEMPLATE);
         }

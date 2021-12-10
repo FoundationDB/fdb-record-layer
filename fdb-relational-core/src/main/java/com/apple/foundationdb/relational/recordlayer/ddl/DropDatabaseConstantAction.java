@@ -47,18 +47,19 @@ public class DropDatabaseConstantAction implements ConstantAction {
 
     @Override
     public void execute(Transaction txn) throws RelationalException {
-        KeySpacePath path = KeySpaceUtils.uriToPath(dbUrl,baseKeySpace);
+        KeySpacePath path = KeySpaceUtils.uriToPath(dbUrl, baseKeySpace);
         KeySpaceDirectory dir = path.getDirectory();
         //each subdirectory is a schema, so drop each one individually
 
         //make a copy to avoid a CME
         final List<KeySpaceDirectory> subdirectories = new ArrayList<>(dir.getSubdirectories());
-        for(KeySpaceDirectory schemaDir : subdirectories){
+        for (KeySpaceDirectory schemaDir : subdirectories) {
             String schemaName = schemaDir.getName();
-            if(!schemaName.startsWith("/"))
-                schemaName = "/"+schemaName;
+            if (!schemaName.startsWith("/")) {
+                schemaName = "/" + schemaName;
+            }
             URI schemaUrl = URI.create(dbUrl + schemaName);
-            constantActionFactory.getDropSchemaConstantAction(schemaUrl,options).execute(txn);
+            constantActionFactory.getDropSchemaConstantAction(schemaUrl, options).execute(txn);
         }
     }
 }

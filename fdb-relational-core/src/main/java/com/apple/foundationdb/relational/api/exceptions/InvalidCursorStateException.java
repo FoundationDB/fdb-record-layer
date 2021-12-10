@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
-public class InvalidCursorStateException extends RelationalException{
+public class InvalidCursorStateException extends RelationalException {
     public InvalidCursorStateException(String message) {
         super(message, ErrorCode.INVALID_CURSOR_STATE);
     }

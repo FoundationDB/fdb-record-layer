@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.relational.api.QueryProperties;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class QueryPropertiesUtils {
     public static ExecuteProperties getExecuteProperties(@Nonnull QueryProperties queryProperties) {

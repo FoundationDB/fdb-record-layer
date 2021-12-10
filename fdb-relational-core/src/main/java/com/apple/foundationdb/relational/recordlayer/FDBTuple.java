@@ -30,57 +30,57 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 class FDBTuple extends AbstractTuple {
-    private Tuple t;
+    private Tuple tuple;
 
-    public FDBTuple(Tuple t) {
-        this.t = t;
+    public FDBTuple(Tuple tuple) {
+        this.tuple = tuple;
     }
 
     /**
-     * Copy-constructor to make an FDB tuple from another type of tuple
+     * Copy-constructor to make an FDB tuple from another type of tuple.
      *
      * @param copy the tuple to copy
      */
     FDBTuple(@Nonnull NestableTuple copy) {
-        this.t = new Tuple();
+        this.tuple = new Tuple();
         for (int i = 0; i < copy.getNumFields(); i++) {
-            this.t.addObject(copy.getObject(i));
+            this.tuple.addObject(copy.getObject(i));
         }
     }
 
     void setTuple(Tuple t) {
-        this.t = t;
+        this.tuple = t;
     }
 
     @Override
     public int getNumFields() {
-        return t.size();
+        return tuple.size();
     }
 
     @Override
     public Object getObject(int position) {
-        return t.get(position);
+        return tuple.get(position);
     }
 
     @Override
     public NestableTuple getTuple(int position) throws InvalidTypeException, InvalidColumnReferenceException {
-        if (position < 0 || position >= t.size()) {
+        if (position < 0 || position >= tuple.size()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         try {
-            return new FDBTuple(t.getNestedTuple(position));
+            return new FDBTuple(tuple.getNestedTuple(position));
         } catch (ClassCastException cce) {
-            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to a Tuple type", cce);
+            throw new InvalidTypeException("Object <" + tuple.get(position) + "> cannot be converted to a Tuple type", cce);
         }
     }
 
     @Override
     public Iterable<NestableTuple> getArray(int position) throws InvalidTypeException, InvalidColumnReferenceException {
-        if (position < 0 || position >= t.size()) {
+        if (position < 0 || position >= tuple.size()) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
         }
         try {
-            final List<Object> nestedList = t.getNestedList(position);
+            final List<Object> nestedList = tuple.getNestedList(position);
             return nestedList.stream().map((obj) -> {
                 if (obj instanceof Tuple) {
                     return new FDBTuple((Tuple) obj);
@@ -89,11 +89,11 @@ class FDBTuple extends AbstractTuple {
                 }
             }).collect(Collectors.toList());
         } catch (ClassCastException cce) {
-            throw new InvalidTypeException("Object <" + t.get(position) + "> cannot be converted to an iterable type", cce);
+            throw new InvalidTypeException("Object <" + tuple.get(position) + "> cannot be converted to an iterable type", cce);
         }
     }
 
     Tuple fdbTuple() {
-        return t;
+        return tuple;
     }
 }

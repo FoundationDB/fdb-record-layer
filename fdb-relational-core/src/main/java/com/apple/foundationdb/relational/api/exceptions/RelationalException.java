@@ -117,7 +117,8 @@ public class RelationalException extends RuntimeException {
         UNKNOWN("XXXXX"),
         UNKNOWN_SCHEME("08001"),
         /**
-         * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream system
+         * Used for the exceptions due to internal issue of Relational, which is caused by neither clients nor upstream
+         * system.
          */
         INTERNAL_ERROR("XX000");
 

@@ -22,9 +22,6 @@ package com.apple.foundationdb.relational.api;
 
 import com.google.common.base.Preconditions;
 
-import javax.annotation.Nullable;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -100,8 +97,8 @@ public class TableScan {
         public TableScan build() {
             Preconditions.checkNotNull(this.tableName, "Cannot create a scan without a table name");
 
-            KeySet sk = startKey==null? KeySet.EMPTY: startKey;
-            KeySet ek = endKey==null? KeySet.EMPTY: endKey;
+            KeySet sk = startKey == null ? KeySet.EMPTY : startKey;
+            KeySet ek = endKey == null ? KeySet.EMPTY : endKey;
 
             return new TableScan(tableName, sk, ek, scanProperties);
         }

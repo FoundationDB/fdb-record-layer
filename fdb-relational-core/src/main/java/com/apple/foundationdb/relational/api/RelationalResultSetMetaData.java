@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.api;
 
 /**
- * Represents metadata about a given ResultSet
+ * Represents metadata about a given ResultSet.
  */
 public interface RelationalResultSetMetaData {
 

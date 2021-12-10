@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.catalog;
 
-import com.apple.foundationdb.relational.api.Relational;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.RecordLayerTemplate;
 
@@ -29,7 +28,7 @@ import java.net.URI;
 
 public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
     /**
-     * Load the schema template given a template identifier
+     * Load the schema template given a template identifier.
      *
      * @param templateId the unique ID of the template to load.
      * @return the template information for the specified uniqued identifier.
@@ -37,18 +36,19 @@ public interface MutableRecordMetaDataStore extends RecordMetaDataStore {
     RecordLayerTemplate loadTemplate(@Nonnull String templateId);
 
     /**
-     * Add a RecordLayerTemplate to this store
-     * There could be multiple templates maintained by this store
-     * The templateId got from {@link RecordLayerTemplate#getUniqueId()} is used as the key to uniquely identify the template from the mapping
+     * Add a RecordLayerTemplate to this store.
+     * There could be multiple templates maintained by this store.
+     * The templateId got from {@link RecordLayerTemplate#getUniqueId()} is used as the key to uniquely identify the
+     * template from the mapping.
      *
      * @param schemaTemplate the template to add.
      */
     void addSchemaTemplate(@Nonnull RecordLayerTemplate schemaTemplate);
 
     /**
-     * Assign a schema url to a template irrevocably
+     * Assign a schema url to a template irrevocably.
      * So the schema specified by the schemaUrl is supposed to use the schema template identified by the templateId
-     * One schema can be assigned to a template only once during creation, then it cannot switch to any other template
+     * One schema can be assigned to a template only once during creation, then it cannot switch to any other template.
      *
      * @param schemaUrl the URI for the schema to assign.
      * @param templateId the unique id for the schema template to assign for this schema.

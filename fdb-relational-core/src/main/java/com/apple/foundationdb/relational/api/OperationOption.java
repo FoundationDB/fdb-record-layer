@@ -81,11 +81,11 @@ public class OperationOption<T> {
          */
         ERROR_IF_NO_INFO_AND_NOT_EMPTY,
         /**
-         * Throw if the schema already exists
+         * Throw if the schema already exists.
          */
         ERROR_IF_EXISTS,
         /**
-         * Throw if the schema does not already exist
+         * Throw if the schema does not already exist.
          */
         ERROR_IF_NOT_EXISTS
     }

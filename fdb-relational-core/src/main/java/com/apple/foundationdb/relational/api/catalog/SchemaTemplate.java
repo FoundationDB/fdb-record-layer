@@ -21,7 +21,6 @@
 package com.apple.foundationdb.relational.api.catalog;
 
 import javax.annotation.Nonnull;
-import java.net.URI;
 
 /**
  * Represents a SchemaTemplate.

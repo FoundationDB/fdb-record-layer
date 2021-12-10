@@ -20,17 +20,24 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.relational.api.*;
-import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
-import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.RecordQuery;
-import com.google.common.base.Converter;
+import com.apple.foundationdb.relational.api.Continuation;
+import com.apple.foundationdb.relational.api.KeySet;
+import com.apple.foundationdb.relational.api.KeyValue;
+import com.apple.foundationdb.relational.api.NestableTuple;
+import com.apple.foundationdb.relational.api.OperationOption;
+import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.QueryProperties;
+import com.apple.foundationdb.relational.api.Queryable;
+import com.apple.foundationdb.relational.api.Statement;
+import com.apple.foundationdb.relational.api.TableScan;
+import com.apple.foundationdb.relational.api.RelationalResultSet;
+import com.apple.foundationdb.relational.api.exceptions.OperationUnsupportedException;
+import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Descriptors;
-import com.google.protobuf.Field;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -39,7 +46,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class RecordStoreStatement implements Statement {

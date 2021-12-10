@@ -63,6 +63,8 @@ public interface Scannable {
     KeyBuilder getKeyBuilder();
 
     /**
+     * If table, returns the table name or index name if it is an index.
+     *
      * @return the table name if it is a table, or index name if it is an index
      */
     @Nonnull

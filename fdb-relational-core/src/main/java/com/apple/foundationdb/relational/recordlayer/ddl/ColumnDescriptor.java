@@ -24,7 +24,7 @@ import javax.annotation.Nonnull;
 import java.util.Objects;
 
 /**
- * Descriptor for a Column type
+ * Descriptor for a Column type.
  */
 public class ColumnDescriptor {
     final String name;
@@ -41,8 +41,12 @@ public class ColumnDescriptor {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
         ColumnDescriptor that = (ColumnDescriptor) o;
         return isRepeated == that.isRepeated && isPrimaryKey == that.isPrimaryKey && name.equals(that.name) && dataType == that.dataType;
     }

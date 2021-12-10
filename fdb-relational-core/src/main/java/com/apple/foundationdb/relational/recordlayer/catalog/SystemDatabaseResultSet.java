@@ -69,17 +69,17 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     @Override
     public boolean next() throws RelationalException {
         nextCalled = true;
-        if(currentScanner == null){
-//            Options opts = options;
-//            if(currentContinuation!=null){
-//                opts = options.withOption(OperationOption.continuation(currentContinuation));
-//            }
+        if (currentScanner == null) {
+            // Options opts = options;
+            // if(currentContinuation!=null){
+            //   opts = options.withOption(OperationOption.continuation(currentContinuation));
+            // }
             currentScanner = systemScannable.openScan(txn,null,null,options);
         }
         boolean hasNext =  currentScanner.hasNext();
-        if(hasNext){
+        if (hasNext) {
             nextKeyValue = currentScanner.next();
-        }else{
+        } else {
             currentContinuation = null;
         }
         return hasNext;
@@ -87,38 +87,38 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
 
     @Override
     public void close() throws RelationalException {
-        if(currentScanner!=null){
+        if (currentScanner != null) {
             currentScanner.close();
         }
-        if(commitOnClose) {
+        if (commitOnClose) {
             txn.close();
         }
     }
 
     @Override
     public Object getObject(int position) throws RelationalException, ArrayIndexOutOfBoundsException {
-        if(!nextCalled){
+        if (!nextCalled) {
             throw new InvalidCursorStateException("Iterator was not advanced or has terminated");
         }
-        if(nextKeyValue.keyColumnCount()>position){
+        if (nextKeyValue.keyColumnCount() > position) {
             return nextKeyValue.key().getObject(position);
-        }else{
-            return nextKeyValue.value().getObject(position-nextKeyValue.keyColumnCount());
+        } else {
+            return nextKeyValue.value().getObject(position - nextKeyValue.keyColumnCount());
         }
     }
 
     @Override
     public int getNumFields() {
-        if(nextKeyValue==null){
+        if (nextKeyValue == null) {
             throw new InvalidCursorStateException("Iterator was not advanced or has terminated");
         }
-        return nextKeyValue.keyColumnCount()+nextKeyValue.value().getNumFields();
+        return nextKeyValue.keyColumnCount() + nextKeyValue.value().getNumFields();
     }
 
     @Override
     protected int getPosition(String fieldName) {
-        for(int i=0;i<fields.length;i++){
-            if(fields[i]!=null && fields[i].equalsIgnoreCase(fieldName)){
+        for (int i = 0; i < fields.length; i++) {
+            if (fields[i] != null && fields[i].equalsIgnoreCase(fieldName)) {
                 return i;
             }
         }

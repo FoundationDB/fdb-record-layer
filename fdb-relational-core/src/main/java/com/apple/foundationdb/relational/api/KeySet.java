@@ -28,7 +28,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public class KeySet {
-    public static final KeySet EMPTY = new KeySet(){
+    public static final KeySet EMPTY = new KeySet() {
         @Override
         public Map<String, Object> toMap() {
             return Collections.emptyMap();

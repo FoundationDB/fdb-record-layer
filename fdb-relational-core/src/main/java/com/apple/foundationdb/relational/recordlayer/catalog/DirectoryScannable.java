@@ -54,25 +54,25 @@ public class DirectoryScannable implements Scannable {
     private final KeySpace keySpace;
     private final URI prefix;
     private final String[] fieldNames;
-    private final Function<NestableTuple,NestableTuple> directoryTransform;
+    private final Function<NestableTuple, NestableTuple> directoryTransform;
 
     public DirectoryScannable(KeySpace keySpace) {
-        this(keySpace,URI.create("/"));
+        this(keySpace, URI.create("/"));
     }
 
-    public DirectoryScannable(KeySpace keySpace,Function<NestableTuple,NestableTuple> dirTransform) {
-        this(keySpace,URI.create("/"),new String[]{"path"},dirTransform);
+    public DirectoryScannable(KeySpace keySpace, Function<NestableTuple, NestableTuple> dirTransform) {
+        this(keySpace, URI.create("/"), new String[]{"path"}, dirTransform);
     }
 
-    public DirectoryScannable(KeySpace keySpace,URI prefix) {
+    public DirectoryScannable(KeySpace keySpace, URI prefix) {
         this(keySpace, prefix, new String[]{"path"}, objects -> objects);
     }
 
-    public DirectoryScannable(KeySpace keySpace,URI prefix,Function<NestableTuple,NestableTuple> directoryTransform) {
+    public DirectoryScannable(KeySpace keySpace, URI prefix, Function<NestableTuple, NestableTuple> directoryTransform) {
         this(keySpace, prefix, new String[]{"path"}, directoryTransform);
     }
 
-    public DirectoryScannable(KeySpace keySpace,URI prefix,String[] fieldNames,Function<NestableTuple,NestableTuple> directoryTransform) {
+    public DirectoryScannable(KeySpace keySpace, URI prefix, String[] fieldNames, Function<NestableTuple, NestableTuple> directoryTransform) {
         this.keySpace = keySpace;
         this.prefix = prefix;
         this.fieldNames = fieldNames;
@@ -90,10 +90,10 @@ public class DirectoryScannable implements Scannable {
         int mergeLevel = 1;
         RecordCursor<ResolvedKeySpacePath> cursor;
 
-        if(ksd.getKeyType().getAnyValue().equals(prefixPath.getValue())) {
+        if (ksd.getKeyType().getAnyValue().equals(prefixPath.getValue())) {
             cursor = listDirectory(prefixPath.getParent(), prefixDirName, ctx);
-        }else{
-            cursor = listDirectory(prefixPath,null,ctx);
+        } else {
+            cursor = listDirectory(prefixPath, null, ctx);
         }
 
         int ml = mergeLevel;
@@ -125,7 +125,7 @@ public class DirectoryScannable implements Scannable {
         return path.listSubdirectoryAsync(ctx, subdirName, null, ScanProperties.FORWARD_SCAN);
     }
 
-    private static class ListingGenerator implements TriFunction<FDBRecordContext,ScanProperties,byte[],RecordCursor<ResolvedKeySpacePath>>{
+    private static class ListingGenerator implements TriFunction<FDBRecordContext, ScanProperties, byte[], RecordCursor<ResolvedKeySpacePath>> {
         private final int position;
         private final KeySpacePath path;
         private final List<KeySpaceDirectory> subDirectories;
@@ -173,6 +173,6 @@ public class DirectoryScannable implements Scannable {
     @Nonnull
     @Override
     public String getName() {
-        return "directory("+prefix+")";
+        return "directory(" + prefix + ")";
     }
 }

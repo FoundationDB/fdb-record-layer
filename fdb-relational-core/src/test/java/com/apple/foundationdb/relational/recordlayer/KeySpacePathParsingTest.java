@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
-import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBDatabaseFactory;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -43,7 +42,7 @@ public class KeySpacePathParsingTest {
     void testParsingKeySpacePath() {
         URI expected = URI.create("/prod/testApp/12345");
         KeySpacePath path = KeySpaceUtils.uriToPath(expected,testSpace);
-        final URI uri = KeySpaceUtils.pathToURI(path);
+        final URI uri = KeySpaceUtils.pathToUri(path);
         Assertions.assertEquals(expected,uri,"Invalid parsing of URI or KeySpacePaths");
     }
 
@@ -79,7 +78,7 @@ public class KeySpacePathParsingTest {
 
         final URI expected = URI.create("//testApp/12345");
         final KeySpacePath path = KeySpaceUtils.uriToPath(expected, keySpace);
-        Assertions.assertEquals(expected, KeySpaceUtils.pathToURI(path), "KeySpacePath is not parsed as expected");
+        Assertions.assertEquals(expected, KeySpaceUtils.pathToUri(path), "KeySpacePath is not parsed as expected");
     }
 
     @Test
@@ -97,11 +96,11 @@ public class KeySpacePathParsingTest {
 
         final URI expected = URI.create("/prod/testApp/12345");
         final KeySpacePath path = KeySpaceUtils.uriToPath(expected, keySpace);
-        Assertions.assertEquals(expected, KeySpaceUtils.pathToURI(path), "Invalid parsing of URI or KeySpacePaths");
+        Assertions.assertEquals(expected, KeySpaceUtils.pathToUri(path), "Invalid parsing of URI or KeySpacePaths");
 
         final URI expected2 = URI.create("/prod//12345");
         final KeySpacePath path2 = KeySpaceUtils.uriToPath(expected2, keySpace);
-        Assertions.assertEquals(expected2, KeySpaceUtils.pathToURI(path2), "Invalid parsing of URI or KeySpacePaths");
+        Assertions.assertEquals(expected2, KeySpaceUtils.pathToUri(path2), "Invalid parsing of URI or KeySpacePaths");
     }
 
     @Test
@@ -158,7 +157,7 @@ public class KeySpacePathParsingTest {
     void testDirectoryLayer() {
         final URI expected = URI.create("/prod/testApp/12345");
         final KeySpacePath path = KeySpaceUtils.uriToPath(expected, getKeySpaceWithDirectoryLayerForTesting());
-        final URI uri = KeySpaceUtils.pathToURI(path);
+        final URI uri = KeySpaceUtils.pathToUri(path);
         Assertions.assertEquals(expected, uri, "Invalid parsing of URI or KeySpacePaths");
 
         // Assert all values for the keySpacePath are Long

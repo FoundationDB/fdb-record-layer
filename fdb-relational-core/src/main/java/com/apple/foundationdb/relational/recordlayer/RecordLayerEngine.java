@@ -32,7 +32,6 @@ import com.apple.foundationdb.relational.recordlayer.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
 import javax.annotation.Nullable;
-import java.net.URI;
 
 /**
  * A holder object for all the dependencies that need to be implemented by users.

@@ -60,6 +60,8 @@ public class QueryProperties {
     }
 
     /**
+     * Returns {@code true} if the query uses snapshot or serializable isolation level, {@code false} otherwise.
+     *
      * @return whether the query uses snapshot or serializable isolation level
      */
     public boolean isSnapshotIsolation() {
@@ -67,6 +69,8 @@ public class QueryProperties {
     }
 
     /**
+     * Returns the number of records to skip in the query before any rowLimit is applied.
+     *
      * @return the number of records to skip in the query before any rowLimit is applied
      */
     public int getSkip() {
@@ -74,13 +78,17 @@ public class QueryProperties {
     }
 
     /**
-     * @return the limit on the the maximum number of records to return
+     * Returns the limit on the maximum number of records to return.
+     *
+     * @return the limit on the maximum number of records to return
      */
     public int getRowLimit() {
         return rowLimit;
     }
 
     /**
+     * Returns the limit on the length of time that the cursor will run for.
+     *
      * @return the limit on the length of time that the cursor will run for
      */
     public long getTimeLimit() {
@@ -88,6 +96,8 @@ public class QueryProperties {
     }
 
     /**
+     * Returns the limit on the number of records that may be scanned.
+     *
      * @return the limit on the number of records that may be scanned
      */
     public int getScannedRecordsLimit() {
@@ -95,6 +105,8 @@ public class QueryProperties {
     }
 
     /**
+     * Returns the limit on the bytes that may be scanned.
+     *
      * @return the limit on the bytes that may be scanned
      */
     public long getScannedBytesLimit() {
@@ -102,13 +114,20 @@ public class QueryProperties {
     }
 
     /**
-     * @return whether it throws exception if the record scan limit is reached. It returns early with continuation if this is false
+     * Returns {@code true} if it throws exception if the record scan limit is reached, {@code false} if it returns
+     * early with continuation.
+     *
+     * @return whether it throws exception if the record scan limit is reached. It returns early with continuation
+     * if this is false
      */
     public boolean failOnScanLimitReached() {
         return failOnScanLimitReached;
     }
 
     /**
+     * Returns {@code true} if records are loaded immediately, {@code false} if processes records one-at-a-time, when
+     * opening the record cursor.
+     *
      * @return whether it loads all records immediately or processes records one-at-a-time, when opening the record cursor
      */
     public boolean loadAllRecordsImmediately() {
@@ -116,6 +135,8 @@ public class QueryProperties {
     }
 
     /**
+     * Returns {@code true} if the entries are read in reverse order, otherwise {@code false}.
+     *
      * @return whether it reads the entries in reverse order
      */
     public boolean isReverse() {

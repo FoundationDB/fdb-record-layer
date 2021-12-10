@@ -34,7 +34,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.function.Function;
 
-public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
+public abstract class RecordTypeScannable<CursorT> implements Scannable {
 
     @Override
     public final Scanner<KeyValue> openScan(@Nonnull Transaction t,
@@ -60,17 +60,18 @@ public abstract class RecordTypeScannable<CURSOR_TYPE> implements Scannable {
         FDBRecordStore store = getSchema().loadStore();
         //TODO(bfines) get the type index for this
         ScanProperties props = QueryPropertiesUtils.getScanProperties(scanProperties);
-        final RecordCursor<CURSOR_TYPE> cursor = openScan(store, range, props);
+        final RecordCursor<CursorT> cursor = openScan(store, range, props);
         return CursorScanner.create(cursor, keyValueTransform(), supportsMessageParsing());
     }
 
     /* ****************************************************************************************************************/
-    /*abstract methods*/
+    /* abstract methods */
+
+    protected abstract RecordCursor<CursorT> openScan(FDBRecordStore store, TupleRange range, ScanProperties props);
+
     protected abstract RecordLayerSchema getSchema();
 
-    protected abstract RecordCursor<CURSOR_TYPE> openScan(FDBRecordStore store, TupleRange range, ScanProperties props);
-
-    protected abstract Function<CURSOR_TYPE, KeyValue> keyValueTransform();
+    protected abstract Function<CursorT, KeyValue> keyValueTransform();
 
     protected abstract boolean supportsMessageParsing();
 

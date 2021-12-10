@@ -47,7 +47,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
     private final RecordStoreConnection conn;
     private final KeySpace keySpace;
 
-    public RecordLayerMetaData(@Nonnull RecordStoreConnection conn,@Nonnull KeySpace keySpace) {
+    public RecordLayerMetaData(@Nonnull RecordStoreConnection conn, @Nonnull KeySpace keySpace) {
         this.conn = conn;
         this.keySpace = keySpace;
     }
@@ -56,7 +56,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
     @Override
     @Nonnull
     public RelationalResultSet getSchemas() throws RelationalException {
-        if(!conn.inActiveTransaction()){
+        if (!conn.inActiveTransaction()) {
             conn.beginTransaction();
         }
         URI dbPath = conn.frl.getPath();
@@ -66,11 +66,11 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
             int lastSlashIdx = fullSchemaPath.lastIndexOf("/");
             //TODO(bfines) prepending the root's name doesn't feel right--should that be toPathString() instead?
             // but when I do toPathString() I end up with // not /...
-            String db = keySpace.getRoot().getName()+fullSchemaPath.substring(0,lastSlashIdx);
-            String schema = fullSchemaPath.substring(lastSlashIdx+1);
+            String db = keySpace.getRoot().getName() + fullSchemaPath.substring(0, lastSlashIdx);
+            String schema = fullSchemaPath.substring(lastSlashIdx + 1);
             return TupleUtils.toRelationalTuple(new Tuple().add(db).add(schema));
         });
-        return new RecordLayerResultSet(scannable,null,null, conn,QueryProperties.DEFAULT);
+        return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT);
     }
 
     @Override
@@ -78,12 +78,12 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
     public RelationalResultSet getTables(@Nonnull String schema) throws RelationalException {
         final Set<String> strings = conn.frl.loadSchema(schema, Options.create()).listTables();
         return new RecordLayerResultSet(new IterableScannable<>(strings,
-                s -> new ImmutableKeyValue(new EmptyTuple(), new ValueTuple(s)), new String[]{}, new String[]{"NAME"}),null,null,conn, QueryProperties.DEFAULT);
+                s -> new ImmutableKeyValue(new EmptyTuple(), new ValueTuple(s)), new String[]{}, new String[]{"NAME"}), null, null, conn, QueryProperties.DEFAULT);
     }
 
     @Override
     @Nonnull
-    public RelationalResultSet getColumns(@Nonnull String schema,@Nonnull String tableName) throws RelationalException {
+    public RelationalResultSet getColumns(@Nonnull String schema, @Nonnull String tableName) throws RelationalException {
         final TableMetaData metaData = describeTable(schema, tableName);
         final Descriptors.Descriptor tableTypeDescriptor = metaData.getTableTypeDescriptor();
         final List<Descriptors.FieldDescriptor> fields = tableTypeDescriptor.getFields();
@@ -91,15 +91,15 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
         fields.forEach(fd -> {
             Tuple dataTuple = new Tuple();
             dataTuple = dataTuple.add(fd.getName()).add(fd.getIndex()).add(formatFieldType(fd, fd.getType())).add(formatOptions(fd.getOptions()));
-            data.add(new ImmutableKeyValue(EmptyTuple.INSTANCE,TupleUtils.toRelationalTuple(dataTuple)));
+            data.add(new ImmutableKeyValue(EmptyTuple.INSTANCE, TupleUtils.toRelationalTuple(dataTuple)));
         });
 
-        return new RecordLayerResultSet(new IterableScannable<>(data, keyValue -> keyValue, new String[]{},new String[]{"NAME","INDEX","TYPE","OPTIONS"}),null,null,conn,QueryProperties.DEFAULT);
+        return new RecordLayerResultSet(new IterableScannable<>(data, keyValue -> keyValue, new String[]{}, new String[]{"NAME", "INDEX", "TYPE", "OPTIONS"}), null, null, conn, QueryProperties.DEFAULT);
     }
 
     @Nonnull
     @Override
-    public TableMetaData describeTable(@Nonnull String schema,@Nonnull String tableName) throws RelationalException {
+    public TableMetaData describeTable(@Nonnull String schema, @Nonnull String tableName) throws RelationalException {
         final RecordLayerSchema recordLayerSchema = conn.frl.loadSchema(schema, Options.create());
         final Table table = recordLayerSchema.loadTable(tableName, Options.create());
         return table.getMetaData();

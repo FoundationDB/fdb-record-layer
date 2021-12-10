@@ -73,10 +73,10 @@ public class RecordLayerDriver implements RelationalDriver {
     @Override
     public boolean acceptsURL(URI url) {
         return engine.getScheme().equalsIgnoreCase(url.getScheme());
-//        return url.startsWith(engine.getScheme());
+        // return url.startsWith(engine.getScheme());
     }
 
-    /*private helper methods*/
+    /* private helper methods */
     private int parseFormatVersion(URI url, Options connectionOptions) {
         return 1;
     }

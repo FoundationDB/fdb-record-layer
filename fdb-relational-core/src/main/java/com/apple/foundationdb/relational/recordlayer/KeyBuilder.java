@@ -50,13 +50,13 @@ public class KeyBuilder {
         this.scannableNameForMessage = scannableName;
     }
 
-    public @Nonnull
-    NestableTuple buildKey(Map<String, Object> keyFields) throws RelationalException {
+    @Nonnull
+    public NestableTuple buildKey(Map<String, Object> keyFields) throws RelationalException {
         return buildKey(keyFields, true, true);
     }
 
-    public @Nonnull
-    NestableTuple buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
+    @Nonnull
+    public NestableTuple buildKey(Map<String, Object> keyFields, boolean failOnMissingColumn, boolean failOnUnknownColumn) throws RelationalException {
         Object[] flattenedFields = new Object[key.getColumnSize()];
         Map<String, Object> keysNotPicked = new HashMap<>();
         keysNotPicked.putAll(keyFields);

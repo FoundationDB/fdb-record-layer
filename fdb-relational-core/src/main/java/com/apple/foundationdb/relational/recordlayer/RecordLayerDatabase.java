@@ -134,16 +134,16 @@ public class RecordLayerDatabase implements RelationalDatabase {
                     .setKeySpacePath(storePath)
                     .setSerializer(serializerRegistry.loadSerializer(storePath))
                     //TODO(bfines) replace this schema template with an actual mapping structure based on the storePath
-                    .setMetaDataProvider(metaDataStore.loadMetaData(KeySpaceUtils.pathToURI(storePath)))
+                    .setMetaDataProvider(metaDataStore.loadMetaData(KeySpaceUtils.pathToUri(storePath)))
                     .setUserVersionChecker(userVersionChecker)
                     .setFormatVersion(formatVersion)
                     .setContext(txn)
                     .createOrOpen(existenceCheck);
         } catch (RecordCoreException rce) {
             Throwable cause = Throwables.getRootCause(rce);
-            if(cause instanceof RecordStoreDoesNotExistException){
-                throw new RelationalException("Schema does not exist. Schema: <"+storeName+">",RelationalException.ErrorCode.SCHEMA_NOT_FOUND,cause);
-            }else {
+            if (cause instanceof RecordStoreDoesNotExistException) {
+                throw new RelationalException("Schema does not exist. Schema: <" + storeName + ">", RelationalException.ErrorCode.SCHEMA_NOT_FOUND, cause);
+            } else {
                 throw new RelationalException("Schema <" + storeName + "> cannot be found", RelationalException.ErrorCode.UNKNOWN_SCHEMA, cause);
             }
         }
@@ -153,16 +153,18 @@ public class RecordLayerDatabase implements RelationalDatabase {
         return fdbDb;
     }
 
-    KeySpace getKeySpace(){
+    KeySpace getKeySpace() {
         return catalog.getKeySpace();
     }
+
     /* ****************************************************************************************************************/
-    /* private helper methods*/
+    /* private helper methods */
+
     FDBRecordStore loadRecordStore(@Nonnull String schemaId, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
-        try{
+        try {
             return loadStore(this.connection.transaction.unwrap(FDBRecordContext.class), schemaId, existenceCheck);
-        } catch(NoSuchDirectoryException nsde){
-            throw new RelationalException("Unknown schema <"+schemaId+">", RelationalException.ErrorCode.UNKNOWN_SCHEMA, nsde);
+        } catch (NoSuchDirectoryException nsde) {
+            throw new RelationalException("Unknown schema <" + schemaId + ">", RelationalException.ErrorCode.UNKNOWN_SCHEMA, nsde);
         } catch (MetaDataException mde) {
             throw new RelationalException(mde.getMessage(), RelationalException.ErrorCode.UNKNOWN_SCHEMA, mde);
         }
@@ -173,7 +175,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
     }
 
     public URI getPath() {
-        return KeySpaceUtils.pathToURI(ksPath);
+        return KeySpaceUtils.pathToUri(ksPath);
     }
 
     @Nullable

@@ -89,7 +89,7 @@ public class KeyValueResultSet extends AbstractRecordLayerResultSet {
         if (keyValue == null) {
             throw new RelationalException("empty result set", RelationalException.ErrorCode.UNKNOWN);
         }
-        return keyValue.key().getNumFields()+keyValue.value().getNumFields();
+        return keyValue.key().getNumFields() + keyValue.value().getNumFields();
     }
 
     @Override

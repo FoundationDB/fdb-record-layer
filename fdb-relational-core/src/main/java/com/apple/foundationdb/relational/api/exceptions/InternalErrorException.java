@@ -20,7 +20,7 @@
 
 package com.apple.foundationdb.relational.api.exceptions;
 
-public class InternalErrorException extends RelationalException{
+public class InternalErrorException extends RelationalException {
     public InternalErrorException(String message) {
         super(message, ErrorCode.INTERNAL_ERROR);
     }

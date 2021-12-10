@@ -25,7 +25,7 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.google.protobuf.Message;
 
 /**
- * A registry for loading serializing based on a KeySpacePath
+ * A registry for loading serializing based on a KeySpacePath.
  */
 public interface SerializerRegistry {
 

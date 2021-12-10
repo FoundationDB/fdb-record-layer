@@ -42,23 +42,23 @@ public class Relational {
         //all connection URLs should start with "rlsc" to represent "relational layer service connection",
         // so we strip that out from the URI and pass the remainder in
         String scheme = url.getScheme();
-        if(!"rlsc".equalsIgnoreCase(scheme)){
-            throw new RelationalException("Unable to connect to url <"+url+">: invalid scheme <"+scheme+">", RelationalException.ErrorCode.INVALID_PATH);
+        if (!"rlsc".equalsIgnoreCase(scheme)) {
+            throw new RelationalException("Unable to connect to url <" + url + ">: invalid scheme <" + scheme + ">", RelationalException.ErrorCode.INVALID_PATH);
         }
-        URI nonSchemeURI = URI.create(url.toString().substring(5));
-        return getDriver(nonSchemeURI).connect(nonSchemeURI, existingTransaction, transactionConfig, connectionOptions);
+        URI nonSchemeUri = URI.create(url.toString().substring(5));
+        return getDriver(nonSchemeUri).connect(nonSchemeUri, existingTransaction, transactionConfig, connectionOptions);
     }
 
-    public static RelationalDriver getDriver(@Nonnull URI connectionUrl){
-        for(RelationalDriver driver: registeredDrivers){
-            if(driver.acceptsURL(connectionUrl)){
+    public static RelationalDriver getDriver(@Nonnull URI connectionUrl) {
+        for (RelationalDriver driver : registeredDrivers) {
+            if (driver.acceptsURL(connectionUrl)) {
                 return driver;
             }
         }
-        throw new RelationalException("No Driver registered which can interpret scheme <"+connectionUrl.getScheme()+">", RelationalException.ErrorCode.UNKNOWN_SCHEME);
+        throw new RelationalException("No Driver registered which can interpret scheme <" + connectionUrl.getScheme() + ">", RelationalException.ErrorCode.UNKNOWN_SCHEME);
     }
 
-    public static void registerDriver(@Nonnull RelationalDriver newDriver){
+    public static void registerDriver(@Nonnull RelationalDriver newDriver) {
         registeredDrivers.add(newDriver);
     }
 

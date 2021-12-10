@@ -97,7 +97,7 @@ public class RecordLayerCatalog implements Catalog {
         throw new OperationUnsupportedException("Unimplemented");
     }
 
-    public KeySpace getKeySpace(){
+    public KeySpace getKeySpace() {
         return keySpace;
     }
 

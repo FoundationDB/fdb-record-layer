@@ -36,8 +36,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 public class KeySpaceUtils {
-    public static @Nonnull URI pathToURI(@Nonnull KeySpacePath dbPath) {
-         return URI.create("/"+toPathString(dbPath));
+
+    @Nonnull
+    public static URI pathToUri(@Nonnull KeySpacePath dbPath) {
+        return URI.create("/" + toPathString(dbPath));
     }
 
     public static String toPathString(KeySpacePath path) {
@@ -59,8 +61,8 @@ public class KeySpaceUtils {
         return uriPath;
     }
 
-    public static @Nonnull
-    KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
+    @Nonnull
+    public static KeySpacePath uriToPath(@Nonnull URI url, @Nonnull KeySpace keySpace) {
         String path = getPath(url);
         if (path.length() < 1) {
             throw new RelationalException("<" + url + "> is an invalid database path", RelationalException.ErrorCode.INVALID_PATH);
@@ -70,9 +72,9 @@ public class KeySpaceUtils {
         }
         String[] pathElems = path.split("/");
         //TODO(bfines): this is super inefficient, we need to replace it with something more coherent
-        if(path.endsWith("/")){
-            pathElems = Arrays.copyOf(pathElems,pathElems.length+1);
-            pathElems[pathElems.length-1] = "";
+        if (path.endsWith("/")) {
+            pathElems = Arrays.copyOf(pathElems, pathElems.length + 1);
+            pathElems[pathElems.length - 1] = "";
         }
         KeySpaceDirectory directory = keySpace.getRoot();
         KeySpacePath thePath = null;
@@ -115,7 +117,7 @@ public class KeySpaceUtils {
      * Add the directory in the keySpace with the schemaId as the name.
      *
      * @param keySpace the KeySpace to add directory onto
-     * @param dbPath the KeySpacePath used to find the database directory
+     * @param dbPath   the KeySpacePath used to find the database directory
      * @param schemaId the identifier for the schema to add
      * @return A KeySpace which includes an extended directory structure for the specified schema.
      */
@@ -133,8 +135,8 @@ public class KeySpaceUtils {
 
     /* ****************************************************************************************************************/
     /*private helper methods*/
-    private static @Nullable
-    KeySpacePath uriToPathRecursive(@Nonnull KeySpace keySpace,
+    @Nullable
+    private static KeySpacePath uriToPathRecursive(@Nonnull KeySpace keySpace,
                                     @Nonnull KeySpaceDirectory directory,
                                     KeySpacePath parentPath,
                                     @Nonnull String[] pathElems,
@@ -232,6 +234,8 @@ public class KeySpaceUtils {
                     return null;
                 }
                 break;
+            default:
+                return null;
         }
 
         try {

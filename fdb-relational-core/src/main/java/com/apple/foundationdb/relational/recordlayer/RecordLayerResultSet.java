@@ -87,9 +87,9 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if (currentRow == null) {
             throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
         }
-        if(supportsMessageParsing()){
-            Message m = ((MessageTuple)currentRow.value()).parseMessage();
-            return m.getField(m.getDescriptorForType().findFieldByNumber(position+1));
+        if (supportsMessageParsing()) {
+            Message m = ((MessageTuple) currentRow.value()).parseMessage();
+            return m.getField(m.getDescriptorForType().findFieldByNumber(position + 1));
         }
         if (position < 0 || position >= (currentRow.keyColumnCount() + currentRow.value().getNumFields())) {
             throw InvalidColumnReferenceException.getExceptionForInvalidPositionNumber(position);
@@ -108,14 +108,14 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if (supportsMessageParsing()) {
             Message m = parseMessage();
             final List<Descriptors.FieldDescriptor> fields = m.getDescriptorForType().getFields();
-            for(Descriptors.FieldDescriptor field:fields){
-                if(field.getName().equalsIgnoreCase(fieldName)){
+            for (Descriptors.FieldDescriptor field : fields) {
+                if (field.getName().equalsIgnoreCase(fieldName)) {
                     return field.getIndex();
                 }
             }
         } else {
             for (int pos = 0; pos < fieldNames.length; pos++) {
-                if (fieldNames[pos]!=null && fieldNames[pos].equalsIgnoreCase(fieldName)) {
+                if (fieldNames[pos] != null && fieldNames[pos].equalsIgnoreCase(fieldName)) {
                     return pos;
                 }
             }
@@ -139,7 +139,7 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if (!supportsMessageParsing()) {
             throw new OperationUnsupportedException("This ResultSet does not support Message Parsing");
         }
-        return ((MessageTuple)currentRow.value()).parseMessage();
+        return ((MessageTuple) currentRow.value()).parseMessage();
     }
 
     @Override
@@ -147,9 +147,9 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
         if (currentRow == null) {
             throw new InvalidCursorStateException("Cursor was not advanced, or has been exhausted");
         }
-        if(supportsMessageParsing()){
+        if (supportsMessageParsing()) {
             return parseMessage().getDescriptorForType().getFields().size();
         }
-        return currentRow.key().getNumFields()+currentRow.value().getNumFields();
+        return currentRow.key().getNumFields() + currentRow.value().getNumFields();
     }
 }

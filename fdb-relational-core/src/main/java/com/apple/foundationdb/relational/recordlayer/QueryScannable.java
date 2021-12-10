@@ -65,7 +65,7 @@ public class QueryScannable implements Scannable {
         this.isExplain = isExplain;
         final FDBRecordStore fdbRecordStore = schema.loadStore();
         QueryPlanner planner = new CascadesPlanner(fdbRecordStore.getRecordMetaData(), fdbRecordStore.getRecordStoreState());
-//        QueryPlanner planner = new RecordQueryPlanner(fdbRecordStore.getRecordMetaData(),fdbRecordStore.getRecordStoreState());
+        // QueryPlanner planner = new RecordQueryPlanner(fdbRecordStore.getRecordMetaData(),fdbRecordStore.getRecordStoreState());
         final QueryPlanResult qpr = planner.planQuery(recordQuery);
         this.plan = qpr.getPlan();
     }
