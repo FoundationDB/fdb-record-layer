@@ -33,6 +33,7 @@ import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
+import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -92,9 +93,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
     private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.getName(),
+            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
                     IndexOptions.TEXT_TOKEN_MIN_SIZE, "3",
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
+
+    private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", new LuceneFieldKeyExpression("text", LuceneKeyExpression.FieldType.STRING, false, false), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
 
     private static final List<KeyExpression> keys = com.google.common.collect.Lists.newArrayList(
             new LuceneFieldKeyExpression("key", KeyExpression.FanType.FanOut, Key.Evaluated.NullStandin.NULL,
@@ -594,6 +598,39 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
         }
         context.close();
+    }
+
+    @Test
+    void scanWithSynonymIndex() {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_LUCENE_INDEX);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hullo record layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello recor layer", 1));
+            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("hullo record layer")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // "hullo" is synonym of "hello"
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("text:(+\"hullo\" AND +\"record\" AND +\"layer\")")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // it doesn't match due to the "recor"
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(0, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("text:(+\"hullo\" AND +\"recor\" AND +\"layer\")")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            // "hullo" is synonym of "hello", and "show" is synonym of "record"
+            recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
+            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from("text:(+\"hullo\" AND +\"show\" AND +\"layer\")")), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
     }
 
     @Test

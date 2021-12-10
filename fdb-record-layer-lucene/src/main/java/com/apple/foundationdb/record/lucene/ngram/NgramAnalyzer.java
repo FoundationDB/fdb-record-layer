@@ -45,7 +45,6 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
     private static final String DEFAULT_MINIMUM_NGRAM_TOKEN_LENGTH = "3";
     private static final String DEFAULT_MAXIMUM_NGRAM_TOKEN_LENGTH = "30";
     private static final String DEFAULT_NGRAM_WITH_EDGES_ONLY = "false";
-    private static final String ANALYZER_NAME = "NGRAM";
 
     private final int minTokenLength;
     private final int maxTokenLength;
@@ -74,12 +73,10 @@ public class NgramAnalyzer extends StopwordAnalyzerBase {
         return new LowerCaseFilter(in);
     }
 
-    public static String getName() {
-        return ANALYZER_NAME;
-    }
-
     @AutoService(LuceneAnalyzerFactory.class)
     public static class NgramAnalyzerFactory implements LuceneAnalyzerFactory {
+        public static final String ANALYZER_NAME = "NGRAM";
+
         @Nonnull
         @Override
         public String getName() {
