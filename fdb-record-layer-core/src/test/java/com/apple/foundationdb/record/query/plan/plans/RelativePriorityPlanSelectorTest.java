@@ -45,7 +45,7 @@ public class RelativePriorityPlanSelectorTest {
 
     @Test
     void testSelectRandomOne() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(100));
+        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(99));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(2, selectedIndex);
     }
@@ -71,7 +71,7 @@ public class RelativePriorityPlanSelectorTest {
         }
 
         @Override
-        public int nextInt() {
+        public int nextInt(int limit) {
             return mockValue;
         }
     }
