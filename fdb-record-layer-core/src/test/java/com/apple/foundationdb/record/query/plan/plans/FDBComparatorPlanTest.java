@@ -23,8 +23,10 @@ package com.apple.foundationdb.record.query.plan.plans;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest;
@@ -32,6 +34,7 @@ import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQ
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.test.Tags;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -377,6 +380,30 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
 
         assertThrows(RecordCoreArgumentException.class, () -> RecordQueryComparatorPlan.from(plan(query1, query2), primaryKey(), 3));
 
+    }
+
+    @DualPlannerTest
+    void testRepeatedKeyFails() throws Exception {
+        // Test when the comparison key is a repeated field
+        complexQuerySetup(NO_HOOK);
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_2").equalsValue(1))
+                .build();
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_2").equalsValue(1))
+                .build();
+
+        Descriptors.FieldDescriptor comparisonKey = recordStore.getRecordMetaData().getRecordType("MySimpleRecord").getDescriptor().findFieldByName("repeater");
+        KeyExpression keyExpression = Key.Expressions.fromDescriptor(comparisonKey);
+        RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), keyExpression, 0);
+
+        // For now, we can't compare keys that evaluate to multiple values and so the execution fails.
+        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
+                record -> assertThat(record.getNumValue2(), is(1)),
+                context -> assertDiscardedAtMost(134, context)));
     }
 
     @Nonnull

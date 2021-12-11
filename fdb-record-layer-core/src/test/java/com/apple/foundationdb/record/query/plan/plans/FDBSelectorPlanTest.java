@@ -30,8 +30,11 @@ import com.apple.foundationdb.record.provider.foundationdb.query.DualPlannerTest
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
+import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
 import com.apple.test.Tags;
- import com.google.protobuf.Message;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Message;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -153,6 +156,30 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
 
         assertThat(result.hasNext(), is(false));
         assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
+    }
+
+
+    @DualPlannerTest
+    void testPlanValues() throws Throwable {
+        complexQuerySetup(NO_HOOK);
+
+        RecordQuery query1 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .build();
+        RecordQuery query2 = RecordQuery.newBuilder()
+                .setRecordType("MySimpleRecord")
+                .setFilter(Query.field("num_value_2").equalsValue(1))
+                .build();
+
+        RecordQueryPlan plan = RecordQuerySelectorPlan.from(plan(query1, query2), List.of(50, 50));
+
+        List<? extends Value> resultValues = plan.getResultValues();
+        assertThat(resultValues.size(), is(1));
+        ValuePickerValue value = (ValuePickerValue)resultValues.get(0);
+        List<Value> subValues = ImmutableList.copyOf(value.getChildren());
+        assertThat(subValues.size(), is(2));
+        assertThat(subValues.get(0), is(plan.getQuantifiers().get(0).getFlowedValues().get(0)));
+        assertThat(subValues.get(1), is(plan.getQuantifiers().get(1).getFlowedValues().get(0)));
     }
 
     private PlanSelector mockSelector() {
