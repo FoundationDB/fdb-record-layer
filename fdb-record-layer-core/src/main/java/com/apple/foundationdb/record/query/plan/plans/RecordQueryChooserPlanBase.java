@@ -26,8 +26,11 @@ import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.apple.foundationdb.record.query.predicates.ValuePickerValue;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -61,7 +64,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
         }
         this.reverse = firstReverse;
         // Since all child plans are assumed to return the same Values, pick the first one to flow the values back.
-        this.resultValuesSupplier = Suppliers.memoize(quantifiers.get(0)::getFlowedValues);
+        this.resultValuesSupplier = Suppliers.memoize(this::calculateChildrenValues);
     }
 
     @Override
@@ -114,7 +117,6 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
 
     @Override
     public int getComplexity() {
-        // TODO: Should we count the COMPARATOR plan as N instead of one?
         return 1 + getChildStream().mapToInt(RecordQueryPlan::getComplexity).sum();
     }
 
@@ -131,5 +133,36 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
     @Override
     public boolean isStrictlySorted() {
         return getChildren().stream().allMatch(RecordQueryPlan::isStrictlySorted);
+    }
+
+    /**
+     * This utility calculates the list of values that are returned by the plan. The plan returns a list of
+     * {@link ValuePickerValue} that each represent the values returned by one of the child plans.
+     * Each {@link ValuePickerValue} holds a "selected index" that determines which of the sub-values it references, so
+     * that, in all, when the same "selected index" is chosen for all picker value, one would get back a consistent set
+     * of values, representing one of the child plans for this plan.
+     *
+     * @return list of {@link ValuePickerValue} representing all the values from all the sub plans
+     */
+    private List<? extends Value> calculateChildrenValues() {
+        // Store all values in a multimap, indexed by the ordinal of the value in the returned list
+        // Each list represents all the i'th Value from each of the sub plans
+        ImmutableListMultimap.Builder<Integer, Value> mapBuilder = ImmutableListMultimap.builder();
+        quantifiers.forEach(quantifier -> {
+            List<? extends Value> values = quantifier.getFlowedValues();
+            for (int i = 0 ; i < values.size() ; i++) {
+                mapBuilder.put(i, values.get(i));
+            }
+        });
+        ImmutableListMultimap<Integer, ? extends Value> valuesMap = mapBuilder.build();
+
+        ImmutableList.Builder<ValuePickerValue> resultBuilder = ImmutableList.builder();
+        for (int i = 0 ; i < valuesMap.keySet().size() ; i++) {
+            ImmutableList<? extends Value> subValues = valuesMap.get(i);
+            // For now, fix all the picker values to return the first sub value
+            resultBuilder.add(new ValuePickerValue(0, subValues));
+        }
+
+        return resultBuilder.build();
     }
 }

@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -47,7 +46,7 @@ public class RelativePriorityPlanSelector implements PlanSelector {
     Random random;
 
     /**
-     * Create a new priority selector with the given priority list
+     * Create a new priority selector with the given priority list.
      * @param priorities the list of priorities. These should all add up to 100.
      */
     public RelativePriorityPlanSelector(@Nonnull final List<Integer> priorities) {
