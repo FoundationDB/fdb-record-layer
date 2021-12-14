@@ -278,7 +278,7 @@ public enum LogMessageKeys {
     FILE_ID,
     FILE_NAME,
     FILE_REFERENCE,
-    ORIGINAL_DATA_SIZE
+    ORIGINAL_DATA_SIZE,
     // Record context properties
     PROPERTY_NAME,
     PROPERTY_TYPE
