@@ -36,6 +36,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -538,6 +539,14 @@ public abstract class Quantifier implements Correlated<Quantifier> {
     @Nonnull
     public <Q extends Quantifier> Q narrow(@Nonnull Class<Q> narrowedClass) {
         return narrowedClass.cast(this);
+    }
+
+    @Nonnull
+    public <Q extends Quantifier> Optional<Q> narrowMaybe(@Nonnull Class<Q> narrowedClass) {
+        if (narrowedClass.isInstance(this)) {
+            return Optional.of(narrowedClass.cast(this));
+        }
+        return Optional.empty();
     }
 
     @Nonnull

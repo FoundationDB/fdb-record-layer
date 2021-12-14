@@ -25,8 +25,15 @@ import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
 import java.util.AbstractSet;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collector;
 
 /**
  * A set of items that uses reference equality to determine equivalence for the
@@ -85,7 +92,7 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
     @Nonnull
     @Override
     public Iterator<T> iterator() {
-        return new Iterator<T>() {
+        return new Iterator<>() {
             @Nonnull
             private final Iterator<Equivalence.Wrapper<T>> innerIterator = members.iterator();
 
@@ -117,5 +124,57 @@ public class LinkedIdentitySet<T> extends AbstractSet<T> {
     @Override
     public int hashCode() {
         return members.hashCode();
+    }
+
+    public static <T> Collector<T, ?, Set<T>> toLinkedIdentitySet() {
+        return new SetCollector<>(
+                Collections.unmodifiableSet(EnumSet.of(Collector.Characteristics.UNORDERED,
+                        Collector.Characteristics.IDENTITY_FINISH)));
+    }
+
+    /**
+     * Simple implementation class for {@code Collector}.
+     *
+     * @param <T> the type of elements to be collected
+     */
+    private static class SetCollector<T> implements Collector<T, LinkedIdentitySet<T>, Set<T>> {
+        private final Set<Characteristics> characteristics;
+
+        private SetCollector(@Nonnull final Set<Characteristics> characteristics) {
+            this.characteristics = characteristics;
+        }
+
+        @Override
+        public BiConsumer<LinkedIdentitySet<T>, T> accumulator() {
+            return LinkedIdentitySet::add;
+        }
+
+        @Override
+        public Supplier<LinkedIdentitySet<T>> supplier() {
+            return LinkedIdentitySet::new;
+        }
+
+        @Override
+        public BinaryOperator<LinkedIdentitySet<T>> combiner() {
+            return (left, right) -> {
+                if (left.size() < right.size()) {
+                    right.addAll(left);
+                    return right;
+                } else {
+                    left.addAll(right);
+                    return left;
+                }
+            };
+        }
+
+        @Override
+        public Function<LinkedIdentitySet<T>, Set<T>> finisher() {
+            return s -> s;
+        }
+
+        @Override
+        public Set<Characteristics> characteristics() {
+            return characteristics;
+        }
     }
 }

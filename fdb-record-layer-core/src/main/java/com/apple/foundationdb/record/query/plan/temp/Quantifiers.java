@@ -39,6 +39,7 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
@@ -58,6 +59,11 @@ public class Quantifiers {
 
     private Quantifiers() {
         // prevent instantiation
+    }
+
+    @Nonnull
+    public static Set<CorrelationIdentifier> aliases(@Nonnull final Iterable<? extends Quantifier> quantifiers) {
+        return StreamSupport.stream(quantifiers.spliterator(), false).map(Quantifier::getAlias).collect(ImmutableSet.toImmutableSet());
     }
 
     /**

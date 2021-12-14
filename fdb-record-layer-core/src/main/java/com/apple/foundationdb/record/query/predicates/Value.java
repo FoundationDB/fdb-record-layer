@@ -196,6 +196,19 @@ public interface Value extends Correlated<Value>, TreeLike<Value>, PlanHashable,
         return translationMap.getOrDefault(this, this);
     }
 
+    @Nonnull
+    default <V extends Value> V narrow(@Nonnull Class<V> narrowedClass) {
+        return narrowedClass.cast(this);
+    }
+
+    @Nonnull
+    default <V extends Value> Optional<V> narrowMaybe(@Nonnull Class<V> narrowedClass) {
+        if (narrowedClass.isInstance(this)) {
+            return Optional.of(narrowedClass.cast(this));
+        }
+        return Optional.empty();
+    }
+
     @Override
     default boolean semanticEquals(@Nullable final Object other,
                                    @Nonnull final AliasMap aliasMap) {

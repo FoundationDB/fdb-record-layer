@@ -733,7 +733,7 @@ class FDBInQueryTest extends FDBRecordStoreQueryTestBase {
     /**
      * Verify that a query with multiple INs is translated into an index scan within multiple IN joins.
      */
-    @Test
+    @DualPlannerTest
     void testMultipleInQueryIndex() throws Exception {
         final RecordMetaDataHook recordMetaDataHook = metaData -> {
             metaData.getRecordType("MyRecord")

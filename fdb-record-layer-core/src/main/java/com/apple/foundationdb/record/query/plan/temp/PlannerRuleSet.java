@@ -49,6 +49,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctBelowFilt
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushFilterThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughDistinctRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughInLikeSelectRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughSortRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushReferencedFieldsThroughDistinctRule;
@@ -60,6 +61,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.RemoveProjectionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveRedundantTypeFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.RemoveSortRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.SelectDataAccessRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.SplitSelectExtractIndependentQuantifiersRule;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
@@ -86,7 +88,8 @@ public class PlannerRuleSet {
             new CombineFilterRule(),
             new RemoveRedundantTypeFilterRule(),
             new OrToLogicalUnionRule(),
-            new InComparisonToExplodeRule()
+            new InComparisonToExplodeRule(),
+            new SplitSelectExtractIndependentQuantifiersRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> MATCHING_RULES = ImmutableList.of(
             new MatchLeafRule(),
@@ -120,6 +123,7 @@ public class PlannerRuleSet {
             new PushInterestingOrderingThroughSortRule(),
             new PushInterestingOrderingThroughDistinctRule(),
             new PushInterestingOrderingThroughUnionRule(),
+            new PushInterestingOrderingThroughInLikeSelectRule(),
             new ImplementInUnionRule()
     );
     private static final List<PlannerRule<? extends RelationalExpression>> EXPLORATION_RULES =

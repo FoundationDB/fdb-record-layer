@@ -1,5 +1,5 @@
 /*
- * ImplementInUnionRule.java
+ * ImplementInJoinRule.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -21,7 +21,6 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
@@ -44,7 +43,6 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpressio
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
-import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.HashMultimap;
@@ -59,7 +57,6 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -75,14 +72,14 @@ import static com.apple.foundationdb.record.query.plan.temp.rules.PushInterestin
  */
 @API(API.Status.EXPERIMENTAL)
 @SuppressWarnings("PMD.TooManyStaticImports")
-public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
+public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
     private static final BindingMatcher<SelectExpression> root =
             selectExpression(explodeQuantifiersMatcher);
 
-    public ImplementInUnionRule() {
+    public ImplementInJoinRule() {
         super(root, ImmutableSet.of(OrderingAttribute.ORDERING));
     }
 
@@ -132,37 +129,41 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         final var quantifierToExplodeBiMap = computeQuantifierToExplodeMap(explodeQuantifiers, explodeExpressions.stream().collect(LinkedIdentitySet.toLinkedIdentitySet()));
         final var explodeToQuantifierBiMap = quantifierToExplodeBiMap.inverse();
 
+
+
+
+
         final var sourcesBuilder = ImmutableList.<RecordQueryInUnionPlan.InValuesSource>builder();
 
-        for (final var explodeExpression : explodeExpressions) {
-            final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
-            final List<? extends Value> explodeResultValues = explodeExpression.getResultValues();
-            if (explodeResultValues.size() != 1) {
-                return;
-            }
-            final Value explodeValue = Iterables.getOnlyElement(explodeResultValues);
-
-            //
-            // Create the source for the in-union plan
-            //
-            final RecordQueryInUnionPlan.InValuesSource inValuesSource;
-            if (explodeValue instanceof LiteralValue<?>) {
-                final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
-                if (literalValue instanceof List<?>) {
-                    inValuesSource = new RecordQueryInUnionPlan.InValues(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()), (List<Object>)literalValue);
-                } else {
-                    return;
-                }
-            } else if (explodeValue instanceof QuantifiedColumnValue) {
-                inValuesSource = new RecordQueryInUnionPlan.InParameter(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                        ((QuantifiedColumnValue)explodeValue).getAlias().getId());
-            } else {
-                return;
-            }
-            sourcesBuilder.add(inValuesSource);
-        }
-
-        final var inSources = sourcesBuilder.build();
+//        for (final var explodeExpression : explodeExpressions) {
+//            final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
+//            final List<? extends Value> explodeResultValues = explodeExpression.getResultValues();
+//            if (explodeResultValues.size() != 1) {
+//                return;
+//            }
+//            final Value explodeValue = Iterables.getOnlyElement(explodeResultValues);
+//
+//            //
+//            // Create the source for the in-union plan
+//            //
+//            final RecordQueryInUnionPlan.InValuesSource inValuesSource;
+//            if (explodeValue instanceof LiteralValue<?>) {
+//                final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+//                if (literalValue instanceof List<?>) {
+//                    inValuesSource = new RecordQueryInUnionPlan.InValues(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()), (List<Object>)literalValue);
+//                } else {
+//                    return;
+//                }
+//            } else if (explodeValue instanceof QuantifiedColumnValue) {
+//                inValuesSource = new RecordQueryInUnionPlan.InParameter(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+//                        ((QuantifiedColumnValue)explodeValue).getAlias().getId());
+//            } else {
+//                return;
+//            }
+//            sourcesBuilder.add(inValuesSource);
+//        }
+//
+//        final var inSources = sourcesBuilder.build();
 
         final Map<Ordering, ImmutableList<RecordQueryPlan>> groupedByOrdering =
                 innerQuantifier

@@ -230,6 +230,12 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         final ImmutableSet<CorrelationIdentifier> matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
 
+        if (getQuantifiers()
+                .stream()
+                .anyMatch(quantifier -> quantifier instanceof Quantifier.ForEach && !partialMatchMap.containsKeyUnwrapped(quantifier))) {
+            return ImmutableList.of();
+        }
+
         final boolean allNonMatchedQuantifiersIndependent =
                 getQuantifiers()
                         .stream()

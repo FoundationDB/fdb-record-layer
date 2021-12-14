@@ -31,12 +31,14 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpressi
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
+import com.apple.foundationdb.record.query.predicates.QuantifiedValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 
 import javax.annotation.Nonnull;
-
+import java.util.Collection;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
@@ -72,10 +74,10 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalE
 @SuppressWarnings("PMD.TooManyStaticImports")
 public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
-    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifierMatcher = some(forEachQuantifier(explodeExpressionMatcher));
+    private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
 
     private static final BindingMatcher<SelectExpression> root =
-            selectExpression(explodeQuantifierMatcher);
+            selectExpression(explodeQuantifiersMatcher);
 
     public SplitSelectExtractIndependentQuantifiersRule() {
         super(root);
@@ -87,11 +89,21 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         final var bindings = call.getBindings();
 
         final var selectExpression = bindings.get(root);
+        final Collection<? extends Quantifier.ForEach> explodeQuantifiers = bindings.get(explodeQuantifiersMatcher);
+        if (explodeQuantifiers.isEmpty()) {
+            return;
+        }
+
         final var explodeAliases =
-                bindings.get(explodeQuantifierMatcher)
+                explodeQuantifiers
                         .stream()
                         .map(Quantifier::getAlias)
                         .collect(ImmutableSet.toImmutableSet());
+
+        if (isSimpleSelect(selectExpression, explodeAliases)) {
+            // for not inductively exploding the graph
+            return;
+        }
 
         //
         // We first need to filter out the quantifiers that are correlated to some other quantifier in the
@@ -120,9 +132,14 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
         final var partitionedQuantifiers =
                 selectExpression.getQuantifiers()
                         .stream()
-                        .collect(Collectors.partitioningBy(quantifier -> explodeAliases.contains(quantifier.getAlias()) &&
-                                                                         eligibleAliases.contains(quantifier.getAlias()),
+                        .collect(Collectors.partitioningBy(quantifier ->
+                                        explodeAliases.contains(quantifier.getAlias()) && eligibleAliases.contains(quantifier.getAlias()),
                                 ImmutableList.toImmutableList()));
+
+        // we need a proper partitioning
+        if (partitionedQuantifiers.get(false).isEmpty() || partitionedQuantifiers.get(true).isEmpty()) {
+            return;
+        }
 
         //
         // Create a new SelectExpression with just the non-eligible quantifiers.
@@ -144,5 +161,24 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
                         ImmutableList.of());
 
         call.yield(GroupExpressionRef.of(upperSelectExpression));
+    }
+
+    private boolean isSimpleSelect(@Nonnull final SelectExpression selectExpression,
+                                   @Nonnull final Set<CorrelationIdentifier> explodeAliases) {
+        if (!selectExpression.getPredicates().isEmpty()) {
+            return false;
+        }
+
+        if (selectExpression
+                .getResultValues()
+                .stream()
+                .anyMatch(value ->
+                        value.narrowMaybe(QuantifiedValue.class)
+                                .filter(quantifiedValue -> !explodeAliases.contains(quantifiedValue.getAlias()))
+                                .isEmpty())) {
+            return false;
+        }
+
+        return true;
     }
 }

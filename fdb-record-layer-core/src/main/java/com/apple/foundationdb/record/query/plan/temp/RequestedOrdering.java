@@ -82,6 +82,19 @@ public class RequestedOrdering {
         return orderingKeyParts;
     }
 
+    public int size() {
+        return orderingKeyParts.size();
+    }
+
+    @Nonnull
+    public RequestedOrdering removePrefix(int prefixSize) {
+        if (prefixSize >= size()) {
+            return preserve();
+        }
+
+        return new RequestedOrdering(getOrderingKeyParts().subList(prefixSize, size()), getDistinctness());
+    }
+
     @Override
     public boolean equals(final Object o) {
         if (this == o) {
