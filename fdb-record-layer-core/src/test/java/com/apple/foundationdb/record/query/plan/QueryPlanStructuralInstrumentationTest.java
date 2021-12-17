@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -93,7 +94,11 @@ public class QueryPlanStructuralInstrumentationTest {
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
                 new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
                         new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "another_field")), Collections.emptySet()), false),
-                "another_field", Arrays.asList(2, 4), false, false);
+                "another_field",
+                Bindings.Internal.IN,
+                Arrays.asList(2, 4),
+                false,
+                false);
         assertUsesIndexes(plan, Lists.newArrayList(indexName));
 
         final StoreTimer timer = new FDBStoreTimer();

@@ -28,7 +28,6 @@ import com.apple.foundationdb.record.query.plan.temp.PlannerRule.PreOrderRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifiers;
-import com.apple.foundationdb.record.query.plan.temp.RequestedOrdering;
 import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpression;
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
@@ -100,14 +99,14 @@ public class PushInterestingOrderingThroughInLikeSelectRule extends PlannerRule<
         // For In-Join: Push down an adjusted requirement by chopping of a prefix of the size of the number of
         //              explode expressions
         //
-        final var requestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
-
-        for (final var requestedOrdering : requestedOrderings) {
-            requestedOrderingsBuilder.add(requestedOrdering.removePrefix(explodeQuantifiers.size()));
-        }
-        call.pushRequirement(lowerReference,
-                OrderingAttribute.ORDERING,
-                requestedOrderingsBuilder.build());
+//        final var requestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
+//
+//        for (final var requestedOrdering : requestedOrderings) {
+//            requestedOrderingsBuilder.add(requestedOrdering.removePrefix(explodeQuantifiers.size()));
+//        }
+//        call.pushRequirement(lowerReference,
+//                OrderingAttribute.ORDERING,
+//                requestedOrderingsBuilder.build());
     }
 
     @Nonnull
@@ -132,7 +131,7 @@ public class PushInterestingOrderingThroughInLikeSelectRule extends PlannerRule<
                 .map(quantifier -> quantifier.narrow(Quantifier.ForEach.class))
                 .findAny();
 
-        innerQuantifierOptional.flatMap(innerQuantifier -> {
+        return innerQuantifierOptional.flatMap(innerQuantifier -> {
             //
             // For now, we have to insist that this quantifier is correlated to all explode quantifiers.
             //

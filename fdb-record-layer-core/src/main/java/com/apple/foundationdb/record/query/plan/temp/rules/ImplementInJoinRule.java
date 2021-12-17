@@ -21,15 +21,15 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.query.expressions.Comparisons;
+import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.InSource;
+import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlanBase;
+import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
-import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
 import com.apple.foundationdb.record.query.plan.temp.OrderingAttribute;
@@ -43,24 +43,26 @@ import com.apple.foundationdb.record.query.plan.temp.expressions.SelectExpressio
 import com.apple.foundationdb.record.query.plan.temp.matchers.BindingMatcher;
 import com.apple.foundationdb.record.query.plan.temp.matchers.CollectionMatcher;
 import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty;
+import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.MultiMatcher.some;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.QuantifierMatchers.forEachQuantifier;
 import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalExpressionMatchers.explodeExpression;
@@ -107,7 +109,8 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         }
 
         final var explodeQuantifiers = bindings.get(explodeQuantifiersMatcher);
-        final var explodeAliases = Quantifiers.aliases(explodeQuantifiers);
+        final var explodeAliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(explodeQuantifiers);
+        final var explodeAliases = explodeAliasToQuantifierMap.keySet();
         final var innerQuantifierOptional =
                 findInnerQuantifier(selectExpression,
                         explodeQuantifiers,
@@ -126,44 +129,8 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         }
 
         final var explodeExpressions = bindings.getAll(explodeExpressionMatcher);
-        final var quantifierToExplodeBiMap = computeQuantifierToExplodeMap(explodeQuantifiers, explodeExpressions.stream().collect(LinkedIdentitySet.toLinkedIdentitySet()));
-        final var explodeToQuantifierBiMap = quantifierToExplodeBiMap.inverse();
-
-
-
-
-
-        final var sourcesBuilder = ImmutableList.<RecordQueryInUnionPlan.InValuesSource>builder();
-
-//        for (final var explodeExpression : explodeExpressions) {
-//            final var explodeQuantifier = Objects.requireNonNull(explodeToQuantifierBiMap.getUnwrapped(explodeExpression));
-//            final List<? extends Value> explodeResultValues = explodeExpression.getResultValues();
-//            if (explodeResultValues.size() != 1) {
-//                return;
-//            }
-//            final Value explodeValue = Iterables.getOnlyElement(explodeResultValues);
-//
-//            //
-//            // Create the source for the in-union plan
-//            //
-//            final RecordQueryInUnionPlan.InValuesSource inValuesSource;
-//            if (explodeValue instanceof LiteralValue<?>) {
-//                final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
-//                if (literalValue instanceof List<?>) {
-//                    inValuesSource = new RecordQueryInUnionPlan.InValues(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()), (List<Object>)literalValue);
-//                } else {
-//                    return;
-//                }
-//            } else if (explodeValue instanceof QuantifiedColumnValue) {
-//                inValuesSource = new RecordQueryInUnionPlan.InParameter(Bindings.Internal.CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-//                        ((QuantifiedColumnValue)explodeValue).getAlias().getId());
-//            } else {
-//                return;
-//            }
-//            sourcesBuilder.add(inValuesSource);
-//        }
-//
-//        final var inSources = sourcesBuilder.build();
+        final var quantifierToExplodeBiMap =
+                computeQuantifierToExplodeMap(explodeQuantifiers, explodeExpressions.stream().collect(LinkedIdentitySet.toLinkedIdentitySet()));
 
         final Map<Ordering, ImmutableList<RecordQueryPlan>> groupedByOrdering =
                 innerQuantifier
@@ -183,58 +150,143 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                                 Collectors.mapping(Pair::getRight,
                                         ImmutableList.toImmutableList())));
 
-        final int attemptFailedInJoinAsUnionMaxSize = call.getContext().getPlannerConfiguration().getAttemptFailedInJoinAsUnionMaxSize();
-
-        //
-        // We currently only implement the case where there is exactly one equality-bound comparison in
-        // the orderings of the plans that bind to the quantifier ranging over the explode expression.
-        //
         for (final Map.Entry<Ordering, ImmutableList<RecordQueryPlan>> providedOrderingEntry : groupedByOrdering.entrySet()) {
-            final GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(providedOrderingEntry.getValue());
+            final var providedOrdering = providedOrderingEntry.getKey();
+            final var equalityBoundKeyMap = providedOrdering.getEqualityBoundKeyMap();
 
+            final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
-                final var providedOrdering = providedOrderingEntry.getKey();
-                final var matchingKeyExpressionsBuilder = ImmutableSet.<KeyExpression>builder();
-                for (Map.Entry<KeyExpression, Comparisons.Comparison> expressionComparisonEntry : providedOrdering.getEqualityBoundKeyMap().entries()) {
-                    final Comparisons.Comparison comparison = expressionComparisonEntry.getValue();
-                    if (comparison.getType() == Comparisons.Type.EQUALS && comparison instanceof Comparisons.ParameterComparison) {
-                        final Comparisons.ParameterComparison parameterComparison = (Comparisons.ParameterComparison)comparison;
-                        if (parameterComparison.isCorrelation() && explodeAliases.containsAll(parameterComparison.getCorrelatedTo())) {
-                            matchingKeyExpressionsBuilder.add(expressionComparisonEntry.getKey());
-                        }
+                final var requestedOrderingKeyParts = requestedOrdering.getOrderingKeyParts();
+
+                final var sourcesBuilder = ImmutableList.<InSource>builder();
+
+                for (final var requestedOrderingKeyPart : requestedOrderingKeyParts) {
+                    final var comparisons = equalityBoundKeyMap.get(requestedOrderingKeyPart.getNormalizedKeyExpression());
+                    if (comparisons.isEmpty()) {
+                        return;
                     }
+
+                    final var comparisonsCorrelatedTo = comparisons.stream()
+                            .flatMap(comparison -> comparison.getCorrelatedTo().stream())
+                            .collect(ImmutableSet.toImmutableSet());
+
+                    if (comparisonsCorrelatedTo.size() > 1) {
+                        return;
+                    }
+
+                    if (Sets.intersection(comparisonsCorrelatedTo, explodeAliases).isEmpty()) {
+                        //
+                        // This case covers comparisons such as  a = <literal> or a = <correlation> where
+                        // <correlation> is anchored above and therefore this comparison causes an equality-bound
+                        // expression.
+                        //
+                        // Example: requested ordering: a, b, c
+                        //          ins: a explodes over (1, 2)
+                        //               c explodes over ('x', 'y')
+                        //          plan has equality-bound expressions over a, b, c
+                        //
+                        continue;
+                    }
+
+                    final var explodeAlias = Iterables.getOnlyElement(comparisonsCorrelatedTo);
+
+                    //
+                    // The quantifier still has to be available for us to choose from.
+                    //
+                    if (!availableExplodeAliases.contains(explodeAlias)) {
+                        return;
+                    }
+
+                    //
+                    // We need to find the one quantifier over an explode expression that we can use to establish
+                    // the requested order.
+                    //
+                    final var explodeQuantifier =
+                            Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
+                    final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+
+                    //
+                    // At this point we have a bound key expression that matches the requested order at this position,
+                    // and we have our hands on a particular explode expression leading us directly do the in source.
+                    //
+
+                    final var explodeResultValues = explodeExpression.getResultValues();
+                    if (explodeResultValues.size() != 1) {
+                        return;
+                    }
+                    final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
+
+                    final InSource inSource;
+                    if (explodeValue instanceof LiteralValue<?>) {
+                        final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+                        if (literalValue instanceof List<?>) {
+                            inSource = new SortedInValuesSource(
+                                    CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                                    (List<Object>)literalValue,
+                                    requestedOrderingKeyPart.isReverse());
+                        } else {
+                            return;
+                        }
+                    } else if (explodeValue instanceof QuantifiedColumnValue) {
+                        inSource = new SortedInParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                                ((QuantifiedColumnValue)explodeValue).getAlias().getId(),
+                                requestedOrderingKeyPart.isReverse());
+                    } else {
+                        return;
+                    }
+                    availableExplodeAliases.remove(explodeAlias);
+                    sourcesBuilder.add(inSource);
                 }
 
-                // Compute a comparison key that satisfies the requested ordering
-                final Optional<Ordering> combinedOrderingOptional =
-                        orderingForInUnion(providedOrdering, requestedOrdering, matchingKeyExpressionsBuilder.build());
-                if (combinedOrderingOptional.isEmpty()) {
-                    continue;
+                //
+                // We may still have some explodes available that we don't have a particular order requirement for.
+                // Create unsorted sources for these 'left-overs'.
+                //
+                for (final var explodeAlias : availableExplodeAliases) {
+                    final var explodeQuantifier =
+                            Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
+                    final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+
+                    final var explodeResultValues = explodeExpression.getResultValues();
+                    if (explodeResultValues.size() != 1) {
+                        return;
+                    }
+                    final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
+
+                    final InSource inSource;
+                    if (explodeValue instanceof LiteralValue<?>) {
+                        final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+                        if (literalValue instanceof List<?>) {
+                            inSource = new InValuesSource(
+                                    CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                                    (List<Object>)literalValue);
+                        } else {
+                            return;
+                        }
+                    } else if (explodeValue instanceof QuantifiedColumnValue) {
+                        inSource = new InParameterSource(
+                                CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                                ((QuantifiedColumnValue)explodeValue).getAlias().getId());
+                    } else {
+                        return;
+                    }
+                    sourcesBuilder.add(inSource);
                 }
 
-                final Ordering combinedOrdering = combinedOrderingOptional.get();
-                final List<KeyPart> orderingKeyParts = combinedOrdering.getOrderingKeyParts();
-
-                final List<KeyExpression> orderingKeys =
-                        orderingKeyParts
-                                .stream()
-                                .map(KeyPart::getNormalizedKeyExpression)
-                                .collect(ImmutableList.toImmutableList());
-
                 //
-                // At this point we know we can implement the distinct union over the partitions of compatibly ordered plans
+                // We can finally build the sources and based on those a right-deep plan starting from the last
+                // (most inner) source moving outward.
                 //
-                final KeyExpression comparisonKey =
-                        orderingKeys.size() == 1
-                        ? Iterables.getOnlyElement(orderingKeys) : Key.Expressions.concat(orderingKeys);
+                final var sources = sourcesBuilder.build();
+                final var reverseSources = Lists.reverse(sources);
 
-                final Quantifier.Physical newInnerQuantifier = Quantifier.physical(newInnerPlanReference);
-                call.yield(call.ref(
-                        new RecordQueryInUnionPlan(newInnerQuantifier,
-                                inSources,
-                                comparisonKey,
-                                RecordQueryUnionPlanBase.isReversed(ImmutableList.of(newInnerQuantifier)),
-                                attemptFailedInJoinAsUnionMaxSize)));
+                GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(providedOrderingEntry.getValue());
+                for (final InSource inSource : reverseSources) {
+                    final var inJoinPlan = inSource.toInJoinPlan(Quantifier.physical(newInnerPlanReference));
+                    newInnerPlanReference = GroupExpressionRef.of(inJoinPlan);
+                }
+
+                call.yield(newInnerPlanReference);
             }
         }
     }
@@ -254,38 +306,5 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
             }
         }
         return resultMap;
-    }
-
-    @SuppressWarnings("java:S135")
-    private static Optional<Ordering> orderingForInUnion(@Nonnull Ordering providedOrdering,
-                                                         @Nonnull RequestedOrdering requestedOrdering,
-                                                         @Nonnull Set<KeyExpression> innerBoundExpressions) {
-        final Iterator<KeyPart> requestedOrderingIterator = requestedOrdering.getOrderingKeyParts().iterator();
-        final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
-        for (final KeyPart providedKeyPart : providedOrdering.getOrderingKeyParts()) {
-            var toBeAdded = providedKeyPart;
-            while (requestedOrderingIterator.hasNext()) {
-                final var requiredKeyPart = requestedOrderingIterator.next();
-                if (requiredKeyPart.equals(providedKeyPart)) {
-                    break;
-                } else if (innerBoundExpressions.contains(requiredKeyPart.getNormalizedKeyExpression())) {
-                    resultingOrderingKeyPartBuilder.add(KeyPart.of(requiredKeyPart.getNormalizedKeyExpression(), requiredKeyPart.isReverse()));
-                } else {
-                    toBeAdded = null;
-                    break;
-                }
-            }
-
-            if (toBeAdded != null) {
-                resultingOrderingKeyPartBuilder.add(toBeAdded);
-            } else {
-                return Optional.empty();
-            }
-        }
-
-        final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(providedOrdering.getEqualityBoundKeyMap());
-        innerBoundExpressions.forEach(resultEqualityBoundKeyMap::removeAll);
-
-        return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultingOrderingKeyPartBuilder.build(), providedOrdering.isDistinct()));
     }
 }

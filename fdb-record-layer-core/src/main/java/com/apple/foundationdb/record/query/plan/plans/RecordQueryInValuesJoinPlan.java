@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -30,7 +31,6 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -40,7 +40,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -53,59 +52,67 @@ import java.util.Set;
 public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Values-Join-Plan");
 
-    @Nullable
-    private final List<Object> values;
-
     public RecordQueryInValuesJoinPlan(final RecordQueryPlan plan,
-                                       final String bindingName,
-                                       final @Nullable List<Object> values,
+                                       @Nonnull final String bindingName,
+                                       @Nonnull final Bindings.Internal internal,
+                                       @Nonnull final List<Object> values,
                                        final boolean sortValues,
                                        final boolean sortReverse) {
         this(Quantifier.physical(GroupExpressionRef.of(plan)),
                 bindingName,
+                internal,
                 values,
                 sortValues,
                 sortReverse);
     }
 
-    public RecordQueryInValuesJoinPlan(final Quantifier.Physical inner,
-                                       final String bindingName,
-                                       final @Nullable List<Object> values,
-                                       final boolean sortValues,
-                                       final boolean sortReverse) {
-        super(inner, bindingName, sortValues, sortReverse);
-        this.values = sortValues(values);
+    private RecordQueryInValuesJoinPlan(@Nonnull final Quantifier.Physical inner,
+                                        @Nonnull final String bindingName,
+                                        @Nonnull final Bindings.Internal internal,
+                                        @Nonnull final List<Object> values,
+                                        final boolean sortValues,
+                                        final boolean sortReverse) {
+        super(inner,
+                sortValues
+                ? new SortedInValuesSource(bindingName, values, sortReverse)
+                : new InValuesSource(bindingName, values),
+                internal);
+    }
+
+    public RecordQueryInValuesJoinPlan(@Nonnull final Quantifier.Physical inner,
+                                       @Nonnull final InValuesSource inSource,
+                                       @Nonnull final Bindings.Internal internal) {
+        super(inner, inSource, internal);
+    }
+
+    @Nonnull
+    private InValuesSource inValuesSource() {
+        return (InValuesSource)inSource;
     }
 
     @Override
-    @Nullable
+    @Nonnull
     public List<Object> getValues(EvaluationContext context) {
         return getInListValues();
     }
 
-    @Nullable
+    @Nonnull
     public List<Object> getInListValues() {
-        return values;
+        return inSource.getValues();
     }
 
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder(getInnerPlan().toString());
-        str.append(" WHERE ").append(bindingName)
-                .append(" IN ").append(values);
-        if (sortValuesNeeded) {
-            str.append(" SORTED");
-            if (sortReverse) {
-                str.append(" DESC");
-            }
-        }
+        str.append(" WHERE ").append(inSource.getBindingName())
+                .append(" IN ").append(getInListValues());
         return str.toString();
     }
 
     @Nonnull
     @Override
     public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
-        return ImmutableSet.of(); // TODO this should be reconsidered when we have selects
+        return ImmutableSet.of();
     }
 
     @Nonnull
@@ -113,40 +120,35 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
     public RecordQueryInValuesJoinPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                     @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryInValuesJoinPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                bindingName,
-                values,
-                sortValuesNeeded,
-                sortReverse);
+                inValuesSource(),
+                internal);
+
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryInValuesJoinPlan(child, bindingName, values, sortValuesNeeded, sortReverse);
-    }
-
-    @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
-        if (this == otherExpression) {
-            return true;
-        }
-        return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
-               Objects.equals(values, ((RecordQueryInValuesJoinPlan)otherExpression).values);
+        return new RecordQueryInValuesJoinPlan(Quantifier.physical(GroupExpressionRef.of(child)), inValuesSource(), internal);
     }
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(super.hashCodeWithoutChildren(), values);
+        return Objects.hash(super.hashCodeWithoutChildren());
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return super.basePlanHash(hashKind, BASE_HASH) + PlanHashable.iterablePlanHash(hashKind, values);
+                if (internal == Bindings.Internal.IN) {
+                    return super.basePlanHash(hashKind, BASE_HASH) + PlanHashable.iterablePlanHash(hashKind, inSource.getValues());
+                }
+                // fall through
             case FOR_CONTINUATION:
-                return super.basePlanHash(hashKind, BASE_HASH, values);
+                if (internal == Bindings.Internal.IN) {
+                    return super.basePlanHash(hashKind, BASE_HASH, inSource.getValues());
+                }
+                // fall through
             case STRUCTURAL_WITHOUT_LITERALS:
                 return super.basePlanHash(hashKind, BASE_HASH);
             default:
@@ -178,7 +180,7 @@ public class RecordQueryInValuesJoinPlan extends RecordQueryInJoinPlan {
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
                         ImmutableList.of("VALUES({{values}}"),
                         ImmutableMap.of("values",
-                                Attribute.gml(Objects.requireNonNull(values).stream()
+                                Attribute.gml(Objects.requireNonNull(getInListValues()).stream()
                                         .map(String::valueOf)
                                         .map(Attribute::gml)
                                         .collect(ImmutableList.toImmutableList()))));
