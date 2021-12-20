@@ -179,6 +179,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
+    @SuppressWarnings("fallthrough")
     protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
         switch (hashKind) {
             case LEGACY:

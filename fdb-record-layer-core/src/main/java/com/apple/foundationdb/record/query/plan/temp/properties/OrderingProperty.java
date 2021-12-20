@@ -368,7 +368,7 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
                 }
             }
 
-            if (inKeyExpression == null || inSource.isSorted()) {
+            if (inKeyExpression == null || !inSource.isSorted()) {
                 //
                 // This can only really happen if the inSource is not sorted.
                 // We can only propagate equality-bound information. Everything related to order and

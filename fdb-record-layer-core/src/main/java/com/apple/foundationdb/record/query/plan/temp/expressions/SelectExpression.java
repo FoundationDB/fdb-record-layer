@@ -293,15 +293,9 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         }
 
         for (final QueryPredicate predicate : getPredicates()) {
-            final Set<CorrelationIdentifier> correlatedTo =
-                    predicate.getCorrelatedTo();
-
-            // TODO join predicates
-            if (correlatedTo.size() == 1) {
-                final Set<PredicateMapping> impliedMappingsForPredicate =
-                        predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
-                predicateMappingsBuilder.add(impliedMappingsForPredicate);
-            }
+            final Set<PredicateMapping> impliedMappingsForPredicate =
+                    predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
+            predicateMappingsBuilder.add(impliedMappingsForPredicate);
         }
 
         //

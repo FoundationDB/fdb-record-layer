@@ -127,6 +127,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     }
 
     @Override
+    @SuppressWarnings("fallthrough")
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
