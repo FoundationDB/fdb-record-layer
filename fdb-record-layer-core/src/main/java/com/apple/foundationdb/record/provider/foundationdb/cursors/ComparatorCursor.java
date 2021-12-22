@@ -82,8 +82,8 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
                              @Nonnull final Supplier<Integer> planHashSupplier) {
         super(cursorStates, timer);
         this.referencePlanIndex = referencePlanIndex;
-        this.planStringSupplier = Suppliers.memoize(planStringSupplier::get);
-        this.planHashSupplier = Suppliers.memoize(planHashSupplier::get);
+        this.planStringSupplier = planStringSupplier;
+        this.planHashSupplier = planHashSupplier;
     }
 
 
