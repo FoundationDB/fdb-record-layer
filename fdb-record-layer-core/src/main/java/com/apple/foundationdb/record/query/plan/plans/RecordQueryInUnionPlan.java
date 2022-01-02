@@ -122,7 +122,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     }
 
     @Nonnull
-    public List<? extends InSource> getValuesSources() {
+    public List<? extends InSource> getInSources() {
         return valuesSources;
     }
 

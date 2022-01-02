@@ -452,7 +452,7 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryInUnionPlan> inUnionValuesSources(@Nonnull CollectionMatcher<? extends InSource> downstream) {
         return typedWithDownstream(RecordQueryInUnionPlan.class,
-                Extractor.of(RecordQueryInUnionPlan::getValuesSources, name -> "valuesSources(" + name + ")"),
+                Extractor.of(RecordQueryInUnionPlan::getInSources, name -> "valuesSources(" + name + ")"),
                 downstream);
     }
 
