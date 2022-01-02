@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
@@ -163,6 +164,21 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryIndexPlan> indexPlan() {
         return ofTypeOwning(RecordQueryIndexPlan.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInJoinPlan> inJoin(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryInJoinPlan.class, any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInJoinPlan> inJoinPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInJoinPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInJoinPlan> inJoinPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInJoinPlan.class, downstream);
     }
 
     @Nonnull

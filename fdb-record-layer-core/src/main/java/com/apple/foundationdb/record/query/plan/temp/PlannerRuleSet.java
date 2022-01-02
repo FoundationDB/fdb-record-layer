@@ -21,7 +21,9 @@
 package com.apple.foundationdb.record.query.plan.temp;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
@@ -49,6 +51,7 @@ import com.apple.foundationdb.record.query.plan.temp.rules.OrToLogicalUnionRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctBelowFilterRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushDistinctThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushFilterThroughFetchRule;
+import com.apple.foundationdb.record.query.plan.temp.rules.PushInJoinFilterThroughFetchRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughDistinctRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughInLikeSelectRule;
 import com.apple.foundationdb.record.query.plan.temp.rules.PushInterestingOrderingThroughSortRule;
@@ -110,6 +113,8 @@ public class PlannerRuleSet {
             new RemoveSortRule(),
             new PushDistinctBelowFilterRule(),
             new MergeFetchIntoCoveringIndexRule(),
+            new PushInJoinFilterThroughFetchRule<>(RecordQueryInValuesJoinPlan.class),
+            new PushInJoinFilterThroughFetchRule<>(RecordQueryInParameterJoinPlan.class),
             new PushFilterThroughFetchRule(),
             new PushDistinctThroughFetchRule(),
             new PushSetOperationThroughFetchRule<>(RecordQueryIntersectionPlan.class),
