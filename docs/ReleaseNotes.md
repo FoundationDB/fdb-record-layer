@@ -38,6 +38,9 @@ This version of the Record Layer changes the Java source and target compatibilit
 // end next release
 -->
 
+### 3.1.226.0
+
+
 ### 3.1.224.0
 
 * **Bug fix** Use 2 separate analyzers for indexing time and query time in LuceneIndexMaintainer [(Issue #1486)](https://github.com/FoundationDB/fdb-record-layer/issues/1486)
