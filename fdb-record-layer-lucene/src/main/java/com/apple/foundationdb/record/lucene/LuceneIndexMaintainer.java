@@ -30,11 +30,14 @@ import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -49,11 +52,13 @@ import com.google.common.base.Verify;
 import com.google.protobuf.Message;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.DoublePoint;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.IntPoint;
 import org.apache.lucene.document.LongPoint;
 import org.apache.lucene.document.SortedDocValuesField;
 import org.apache.lucene.document.StoredField;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
@@ -74,8 +79,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getOrCreateIndexWriter;
-import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.listIndexFieldNames;
-import static com.apple.foundationdb.record.lucene.LuceneKeyExpression.validateLucene;
 
 /**
  * Index maintainer for Lucene Indexes backed by FDB.  The insert, update, and delete functionality
@@ -93,11 +96,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer) {
         super(state);
+        this.executor = executor;
         this.indexAnalyzer = indexAnalyzer;
         this.queryAnalyzer = queryAnalyzer;
-        KeyExpression rootExpression = this.state.index.getRootExpression();
-        validateLucene(rootExpression);
-        this.executor = executor;
     }
 
     /**
@@ -123,8 +124,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // functionality in this way.
             QueryParser parser;
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
-                List<String> fieldNames = listIndexFieldNames(state.index.getRootExpression());
-                parser = new MultiFieldQueryParser(fieldNames.toArray(new String[fieldNames.size()]), queryAnalyzer);
+                String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
+                parser = new MultiFieldQueryParser(fieldNames, queryAnalyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
             } else {
                 // initialize default to scan primary key.
@@ -139,35 +140,55 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         }
     }
 
-    private void insertField(LuceneDocumentFromRecord.DocumentEntry entry, final Document document) {
-
-        Object value = entry.value;
-        String fieldName = entry.fieldName;
-        LuceneFieldKeyExpression expression = entry.expression;
-        switch (expression.getType()) {
-            case INT:
-                // Todo: figure out how to expand functionality to include storage, sorting etc.
-                document.add(new IntPoint(fieldName, (Integer)value));
-                break;
-            case STRING:
-                document.add(new TextField(fieldName, value == null ? "" : value.toString(), expression.isStored() ? Field.Store.YES : Field.Store.NO));
-                break;
-            case LONG:
-                document.add(new LongPoint(fieldName, (long)value));
-                break;
-            default:
-                throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", entry.expression.getType());
+    private String[] indexTextFields(@Nonnull Index index, @Nonnull RecordMetaData metaData) {
+        final Set<String> textFields = new HashSet<>();
+        for (RecordType recordType : metaData.recordTypesForIndex(index)) {
+            for (Map.Entry<String, LuceneIndexExpressions.DocumentFieldType> entry : LuceneIndexExpressions.getDocumentFieldTypes(index.getRootExpression(), recordType.getDescriptor()).entrySet()) {
+                if (entry.getValue() == LuceneIndexExpressions.DocumentFieldType.TEXT) {
+                    textFields.add(entry.getKey());
+                }
+            }
         }
+        return textFields.toArray(new String[0]);
     }
 
-    private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentEntry> keys, Tuple groupingKey, byte[] primaryKey) throws IOException {
+    private void insertField(LuceneDocumentFromRecord.DocumentField field, final Document document) {
+        String fieldName = field.getFieldName();
+        Object value = field.getValue();
+        Field luceneField;
+        switch (field.getType()) {
+            case TEXT:
+                luceneField = new TextField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
+                break;
+            case STRING:
+                luceneField = new StringField(fieldName, (String)value, field.isStored() ? Field.Store.YES : Field.Store.NO);
+                break;
+            case INT:
+                luceneField = new IntPoint(fieldName, (Integer)value);
+                break;
+            case LONG:
+                luceneField = new LongPoint(fieldName, (Long)value);
+                break;
+            case DOUBLE:
+                luceneField = new DoublePoint(fieldName, (Double)value);
+                break;
+            case BOOLEAN:
+                luceneField = new StringField(fieldName, ((Boolean)value).toString(), field.isStored() ? Field.Store.YES : Field.Store.NO);
+                break;
+            default:
+                throw new RecordCoreArgumentException("Invalid type for lucene index field", "type", field.getType());
+        }
+        document.add(luceneField);
+    }
+
+    private void writeDocument(@Nonnull List<LuceneDocumentFromRecord.DocumentField> fields, Tuple groupingKey, byte[] primaryKey) throws IOException {
         final IndexWriter newWriter = getOrCreateIndexWriter(state, indexAnalyzer, executor, groupingKey);
         BytesRef ref = new BytesRef(primaryKey);
         Document document = new Document();
         document.add(new StoredField(PRIMARY_KEY_FIELD_NAME, ref));
         document.add(new SortedDocValuesField(PRIMARY_KEY_SEARCH_NAME, ref));
-        for (LuceneDocumentFromRecord.DocumentEntry entry : keys ) {
-            insertField(entry, document);
+        for (LuceneDocumentFromRecord.DocumentField field : fields ) {
+            insertField(field, document);
         }
         newWriter.addDocument(document);
     }
@@ -186,11 +207,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         // Extract information for grouping from old and new records
         final KeyExpression root = state.index.getRootExpression();
-        final Map<Tuple, List<LuceneDocumentFromRecord.DocumentEntry>> oldRecordFields = LuceneDocumentFromRecord.getRecordFields(root, oldRecord);
-        final Map<Tuple, List<LuceneDocumentFromRecord.DocumentEntry>> newRecordFields = LuceneDocumentFromRecord.getRecordFields(root, newRecord);
+        final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> oldRecordFields = LuceneDocumentFromRecord.getRecordFields(root, oldRecord);
+        final Map<Tuple, List<LuceneDocumentFromRecord.DocumentField>> newRecordFields = LuceneDocumentFromRecord.getRecordFields(root, newRecord);
 
         final Set<Tuple> unchanged = new HashSet<>();
-        for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentEntry>> entry : oldRecordFields.entrySet()) {
+        for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : oldRecordFields.entrySet()) {
             if (entry.getValue().equals(newRecordFields.get(entry.getKey()))) {
                 unchanged.add(entry.getKey());
             }
@@ -213,7 +234,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
 
         // update new
         try {
-            for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentEntry>> entry : newRecordFields.entrySet()) {
+            for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
                 writeDocument(entry.getValue(), entry.getKey(), newRecord.getPrimaryKey().pack());
             }
         } catch (IOException e) {

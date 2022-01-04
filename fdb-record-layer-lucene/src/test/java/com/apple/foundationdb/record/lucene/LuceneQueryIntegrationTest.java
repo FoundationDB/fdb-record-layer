@@ -22,16 +22,9 @@ package com.apple.foundationdb.record.lucene;
 
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
-import com.apple.foundationdb.record.RecordMetaDataProto;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
-import com.apple.foundationdb.record.metadata.Key;
-import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
-import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
-import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokenizer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
@@ -42,7 +35,6 @@ import com.apple.foundationdb.record.query.plan.PlannableIndexTypes;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
 import com.apple.test.Tags;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -52,8 +44,10 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Set;
 
+import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 
 /**
  * Grab-bag of different tests around "black-box" testing the Lucene query component. Everything from
@@ -64,34 +58,20 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
 
     private final Index textIndex = new Index("Complex$text_index",
-            new LuceneFieldKeyExpression("text", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
-                    true,true),
-            IndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            IndexTypes.LUCENE);
 
     private final Index text2Index = new Index("Complex$text2_index",
-            new LuceneFieldKeyExpression("text2", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
-                    true,true),
-            IndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text2")),
+            IndexTypes.LUCENE);
 
     private final Index nestedDualIndex = new Index("Complex$nested_index",
-            new ThenKeyExpression(Arrays.asList(
-                    new NestingKeyExpression(field("header"),field("header_id")),
-                    new LuceneFieldKeyExpression("text", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
-                            true,true)
-            )),
-            IndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+            concat(field("header").nest("header_id"), function(LuceneFunctionNames.LUCENE_TEXT, field("text"))),
+            IndexTypes.LUCENE);
 
     private final Index nestedDualIndex2 = new Index("Complex$nested_index2",
-            new ThenKeyExpression(Arrays.asList(
-                    new NestingKeyExpression(field("header"),field("header_id")),
-                    new LuceneFieldKeyExpression("text2", KeyExpression.FanType.None, Key.Evaluated.NullStandin.NULL, LuceneKeyExpression.FieldType.STRING,
-                            true,true)
-            )),
-            IndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+            concat(field("header").nest("header_id"), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
+            IndexTypes.LUCENE);
 
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
@@ -124,24 +104,6 @@ public class LuceneQueryIntegrationTest extends FDBRecordStoreQueryTestBase {
                 .setSerializer(TextIndexTestUtils.COMPRESSING_SERIALIZER)
                 .uncheckedOpen();
         setupPlanner(null);
-    }
-
-    @Test
-    void createsIndexWithProperTypesFromProtoDef() {
-        final RecordMetaDataProto.Index protoIndex = textIndex.toProto();
-        Index deserialized = new Index(protoIndex);
-        Assertions.assertEquals(textIndex.getType(),deserialized.getType(),"Incorrect deserialized type");
-        final KeyExpression rootExpression = deserialized.getRootExpression();
-        Assertions.assertTrue(rootExpression instanceof LuceneKeyExpression,"Incorrect key expression type!");
-    }
-
-    @Test
-    void canCreateIndexWithNestingKeyUnderThen() {
-        final RecordMetaDataProto.Index protoIndex = nestedDualIndex.toProto();
-        Index deserialized = new Index(protoIndex);
-        Assertions.assertEquals(textIndex.getType(),deserialized.getType(),"Incorrect deserialized type");
-        final KeyExpression rootExpression = deserialized.getRootExpression();
-        Assertions.assertTrue(rootExpression instanceof LuceneKeyExpression,"Incorrect key expression type!");
     }
 
     @Test

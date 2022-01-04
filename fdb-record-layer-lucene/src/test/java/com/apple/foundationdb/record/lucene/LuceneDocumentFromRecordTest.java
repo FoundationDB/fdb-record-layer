@@ -31,57 +31,61 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
+import javax.annotation.Nullable;
+
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
+import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Unit tests of conversion of records to grouped documents.
  */
-public class LuceneDocumentFromRecordTest {
+class LuceneDocumentFromRecordTest {
 
     @Test
-    public void simple() {
+    void simple() {
         TestRecordsTextProto.SimpleDocument message = TestRecordsTextProto.SimpleDocument.newBuilder()
                 .setDocId(1)
                 .setText("some text")
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(field("text"));
-        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(documentEntry("text", "some text"))),
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(textField("text", "some text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
     @Test
-    public void group() {
+    void group() {
         TestRecordsTextProto.SimpleDocument message = TestRecordsTextProto.SimpleDocument.newBuilder()
                 .setDocId(2)
                 .setText("more text")
                 .setGroup(2)
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(field("text").groupBy(field("group")));
-        assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(documentEntry("text", "more text"))),
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group"));
+        assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
     @Test
-    public void multi() {
+    void multi() {
         TestRecordsTextProto.MultiDocument message = TestRecordsTextProto.MultiDocument.newBuilder()
                 .setDocId(3)
                 .addText("some text")
                 .addText("other text")
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(field("text", KeyExpression.FanType.FanOut));
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text", KeyExpression.FanType.FanOut));
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
-                        documentEntry("text", "some text", KeyExpression.FanType.FanOut),
-                        documentEntry("text", "other text", KeyExpression.FanType.FanOut))),
+                        textField("text", "some text"),
+                        textField("text", "other text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
     @Test
-    public void biGroup() {
+    void biGroup() {
         TestRecordsTextProto.ComplexDocument message = TestRecordsTextProto.ComplexDocument.newBuilder()
                 .setHeader(TestRecordsTextProto.ComplexDocument.Header.newBuilder().setHeaderId(4))
                 .setGroup(10)
@@ -89,32 +93,56 @@ public class LuceneDocumentFromRecordTest {
                 .addTag("tag1")
                 .addTag("tag2")
                 .setText2("second text")
+                .setScore(100)
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(concat(field("text"), field("text2")).groupBy(concat(field("group"), field("tag", KeyExpression.FanType.FanOut))));
+        KeyExpression index = concat(
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text2")),
+                field("score"))
+                .groupBy(concat(field("group"), field("tag", KeyExpression.FanType.FanOut)));
         assertEquals(ImmutableMap.of(
-                        Tuple.from(10, "tag1"), ImmutableList.of(documentEntry("text", "first text"), documentEntry("text2", "second text")),
-                        Tuple.from(10, "tag2"), ImmutableList.of(documentEntry("text", "first text"), documentEntry("text2", "second text"))),
+                        Tuple.from(10, "tag1"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100)),
+                        Tuple.from(10, "tag2"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
     @Test
-    public void map() {
+    void uncorrelatedMap() {
         TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(5)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k1").setValue("v1"))
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v2"))
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(field("entry", KeyExpression.FanType.FanOut).nest(concat(field("key"), field("value"))));
+        KeyExpression index = field("entry", KeyExpression.FanType.FanOut).nest(concat(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value"))));
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
-                        documentEntry("k1_value", "v1", luceneField("value")),
-                        documentEntry("k2_value", "v2", luceneField("value")))),
+                        stringField("entry_key", "k1"),
+                        textField("entry_value", "v1"),
+                        stringField("entry_key", "k2"),
+                        textField("entry_value", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
     @Test
-    public void groupedMap() {
+    void map() {
+        TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
+                .setDocId(5)
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k1").setValue("v1"))
+                .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k2").setValue("v2"))
+                .build();
+        FDBRecord<Message> record = unstoredRecord(message);
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(
+                field("entry", KeyExpression.FanType.FanOut).nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), field("key")))),
+                value(null)));
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
+                        textField("k1", "v1"),
+                        textField("k2", "v2"))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+    }
+
+    @Test
+    void groupedMap() {
         TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(6)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("k1").setValue("v10"))
@@ -122,15 +150,18 @@ public class LuceneDocumentFromRecordTest {
                 .setGroup(20)
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(field("entry", KeyExpression.FanType.FanOut).nest(concat(field("key"), field("value"))).groupBy(field("group")));
+        KeyExpression index = function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(
+                field("entry", KeyExpression.FanType.FanOut).nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME, concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), field("key")))),
+                value(null)))
+                .groupBy(field("group"));
         assertEquals(ImmutableMap.of(Tuple.from(20), ImmutableList.of(
-                        documentEntry("k1_value", "v10", luceneField("value")),
-                        documentEntry("k2_value", "v20", luceneField("value")))),
+                        textField("k1", "v10"),
+                        textField("k2", "v20"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
     @Test
-    public void groupingMap() {
+    void groupingMap() {
         TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(7)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("r1").setValue("val").setSecondValue("2val").setThirdValue("3val"))
@@ -138,16 +169,20 @@ public class LuceneDocumentFromRecordTest {
                 .setGroup(30)
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(new GroupingKeyExpression(concat(field("group"), field("entry", KeyExpression.FanType.FanOut)
-                .nest(concat(field("key"), field("value"), field("second_value"), field("third_value")))), 3));
+        KeyExpression index = new GroupingKeyExpression(concat(field("group"),
+                field("entry", KeyExpression.FanType.FanOut)
+                        .nest(concat(field("key"),
+                                function(LuceneFunctionNames.LUCENE_TEXT, field("value")),
+                                function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")),
+                                function(LuceneFunctionNames.LUCENE_TEXT, field("third_value"))))), 3);
         assertEquals(ImmutableMap.of(
-                Tuple.from(30, "r1"), ImmutableList.of(documentEntry("value", "val"), documentEntry("second_value", "2val"), documentEntry("third_value", "3val")),
-                Tuple.from(30, "r2"), ImmutableList.of(documentEntry("value", "nval"), documentEntry("second_value", "2nval"), documentEntry("third_value", "3nval"))),
+                Tuple.from(30, "r1"), ImmutableList.of(textField("value", "val"), textField("second_value", "2val"), textField("third_value", "3val")),
+                Tuple.from(30, "r2"), ImmutableList.of(textField("value", "nval"), textField("second_value", "2nval"), textField("third_value", "3nval"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
     @Test
-    public void groupingMapWithExtra() {
+    void groupingMapWithExtra() {
         TestRecordsTextProto.MapDocument message = TestRecordsTextProto.MapDocument.newBuilder()
                 .setDocId(8)
                 .addEntry(TestRecordsTextProto.MapDocument.Entry.newBuilder().setKey("en").setValue("first").setSecondValue("second"))
@@ -156,13 +191,13 @@ public class LuceneDocumentFromRecordTest {
                 .setText2("extra")
                 .build();
         FDBRecord<Message> record = unstoredRecord(message);
-        KeyExpression index = luceneKey(new GroupingKeyExpression(concat(
+        KeyExpression index = new GroupingKeyExpression(concat(
                 field("group"),
-                field("entry", KeyExpression.FanType.FanOut).nest(concat(field("key"), field("value"), field("second_value"))),
-                field("text2")), 3));
+                field("entry", KeyExpression.FanType.FanOut).nest(concat(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value")), function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")))),
+                function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))), 3);
         assertEquals(ImmutableMap.of(
-                        Tuple.from(40, "en"), ImmutableList.of(documentEntry("value", "first"), documentEntry("second_value", "second"), documentEntry("text2", "extra")),
-                        Tuple.from(40, "de"), ImmutableList.of(documentEntry("value", "erste"), documentEntry("second_value", "zweite"), documentEntry("text2", "extra"))),
+                        Tuple.from(40, "en"), ImmutableList.of(textField("value", "first"), textField("second_value", "second"), textField("text2", "extra")),
+                        Tuple.from(40, "de"), ImmutableList.of(textField("value", "erste"), textField("second_value", "zweite"), textField("text2", "extra"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
@@ -170,28 +205,21 @@ public class LuceneDocumentFromRecordTest {
         return new UnstoredRecord<>(message);
     }
 
-    private static KeyExpression luceneKey(KeyExpression key) {
-        return new LuceneTypeConverter().visit(key);
+    private static LuceneDocumentFromRecord.DocumentField documentField(String name, @Nullable Object value, LuceneIndexExpressions.DocumentFieldType type, boolean stored) {
+        return new LuceneDocumentFromRecord.DocumentField(name, value, type, stored);
     }
 
-    private static LuceneFieldKeyExpression luceneField(String name, KeyExpression.FanType fanType) {
-        return (LuceneFieldKeyExpression)luceneKey(field(name, fanType));
+    private static LuceneDocumentFromRecord.DocumentField stringField(String name, String value) {
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.STRING, false);
     }
 
-    private static LuceneFieldKeyExpression luceneField(String name) {
-        return luceneField(name, KeyExpression.FanType.None);
+    private static LuceneDocumentFromRecord.DocumentField textField(String name, String value) {
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.TEXT, false);
     }
 
-    private static LuceneDocumentFromRecord.DocumentEntry documentEntry(String name, Object value, LuceneFieldKeyExpression key) {
-        return new LuceneDocumentFromRecord.DocumentEntry(name, value, key);
-    }
 
-    private static LuceneDocumentFromRecord.DocumentEntry documentEntry(String name, Object value) {
-        return documentEntry(name, value, luceneField(name));
-    }
-
-    private static LuceneDocumentFromRecord.DocumentEntry documentEntry(String name, Object value, KeyExpression.FanType fanType) {
-        return documentEntry(name, value, luceneField(name, fanType));
+    private static LuceneDocumentFromRecord.DocumentField intField(String name, int value) {
+        return documentField(name, value, LuceneIndexExpressions.DocumentFieldType.INT, false);
     }
 
 }

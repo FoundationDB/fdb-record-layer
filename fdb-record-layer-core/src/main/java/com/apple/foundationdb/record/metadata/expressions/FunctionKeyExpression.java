@@ -157,6 +157,11 @@ public abstract class FunctionKeyExpression extends BaseKeyExpression implements
     public abstract int getMaxArguments();
 
     @Nonnull
+    public GroupingKeyExpression groupBy(@Nonnull KeyExpression groupByFirst, @Nonnull KeyExpression... groupByRest) {
+        return GroupingKeyExpression.of(this, groupByFirst, groupByRest);
+    }
+
+    @Nonnull
     @Override
     public <M extends Message> List<Key.Evaluated> evaluateMessage(@Nullable FDBRecord<M> record, @Nullable Message message) {
         final List<Key.Evaluated> evaluatedArguments = getArguments().evaluateMessage(record, message);
