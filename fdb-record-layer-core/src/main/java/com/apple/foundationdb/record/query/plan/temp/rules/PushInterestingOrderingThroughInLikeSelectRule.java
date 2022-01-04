@@ -89,24 +89,12 @@ public class PushInterestingOrderingThroughInLikeSelectRule extends PlannerRule<
         final var lowerReference = innerForEachQuantifier.getRangesOver();
 
         //
-        // For In-Union: Push down the existing requested orderings verbatim
+        // Push down the existing requested orderings verbatim. This is both applicable for possible in-joins
+        // and in-unions.
         //
         call.pushRequirement(lowerReference,
                 OrderingAttribute.ORDERING,
                 requestedOrderings);
-
-        //
-        // For In-Join: Push down an adjusted requirement by chopping of a prefix of the size of the number of
-        //              explode expressions
-        //
-//        final var requestedOrderingsBuilder = ImmutableSet.<RequestedOrdering>builder();
-//
-//        for (final var requestedOrdering : requestedOrderings) {
-//            requestedOrderingsBuilder.add(requestedOrdering.removePrefix(explodeQuantifiers.size()));
-//        }
-//        call.pushRequirement(lowerReference,
-//                OrderingAttribute.ORDERING,
-//                requestedOrderingsBuilder.build());
     }
 
     @Nonnull

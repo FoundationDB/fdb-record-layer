@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -71,15 +72,14 @@ public class InParameterSource extends InSource {
 
     @Nonnull
     @Override
-    @SuppressWarnings("unchecked")
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
-        return getBoundValues(context);
+        return getBoundValues(Objects.requireNonNull(context));
     }
 
     @Nonnull
     @SuppressWarnings("unchecked")
-    protected List<Object> getBoundValues(@Nullable final EvaluationContext context) {
-        Objects.requireNonNull(context);
+    protected List<Object> getBoundValues(@Nonnull final EvaluationContext context) {
         final List<Object> binding = (List<Object>)context.getBinding(getParameterName());
         return Objects.requireNonNullElse(binding, Collections.emptyList());
     }

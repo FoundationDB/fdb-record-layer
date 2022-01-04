@@ -53,6 +53,14 @@ import java.util.function.Supplier;
  */
 @API(API.Status.EXPERIMENTAL)
 public class CascadesCostModel implements Comparator<RelationalExpression> {
+    private static Set<Class<? extends RelationalExpression>> interestingPlanClasses =
+            ImmutableSet.of(
+                    RecordQueryScanPlan.class,
+                    RecordQueryPlanWithIndex.class,
+                    RecordQueryCoveringIndexPlan.class,
+                    RecordQueryFetchFromPartialRecordPlan.class,
+                    RecordQueryInJoinPlan.class);
+    
     @Nonnull
     private final RecordQueryPlannerConfiguration configuration;
     @Nonnull
@@ -63,14 +71,6 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         this.configuration = configuration;
         this.planContext = planContext;
     }
-
-    private static Set<Class<? extends RelationalExpression>> interestingPlanClasses =
-            ImmutableSet.of(
-                    RecordQueryScanPlan.class,
-                    RecordQueryPlanWithIndex.class,
-                    RecordQueryCoveringIndexPlan.class,
-                    RecordQueryFetchFromPartialRecordPlan.class,
-                    RecordQueryInJoinPlan.class);
 
     @Override
     public int compare(@Nonnull RelationalExpression a, @Nonnull RelationalExpression b) {
@@ -190,10 +190,10 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         final int numSourcesInJoinB = planCountMapB.getOrDefault(RecordQueryInJoinPlan.class, 0);
 
         int countSourcesInJoinCompare =
-                Integer.compare(numSourcesInJoinA, numSourcesInJoinB);
+                Integer.compare(numSourcesInJoinB, numSourcesInJoinA);
         if (countSourcesInJoinCompare != 0) {
             // bigger one wins
-            return -countSourcesInJoinCompare;
+            return countSourcesInJoinCompare;
         }
         
         //
@@ -271,15 +271,7 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
         if (!isInPlan(leftExpression)) {
             return OptionalInt.empty();
         }
-
-        //
-        // If both are InUnions we just return 0, that is we keep comparing the two inUnion plans using regular
-        // heuristics.
-        //
-//        if (rightExpression instanceof RecordQueryInUnionPlan) {
-//            return OptionalInt.of(0);
-//        }
-
+        
         // If no scan comparison on the in union side uses a comparison to the in-values, then the in union
         // plan is not useful.
         final Set<ScanComparisons> scanComparisonsSet = ScanComparisonsProperty.evaluate(leftExpression);

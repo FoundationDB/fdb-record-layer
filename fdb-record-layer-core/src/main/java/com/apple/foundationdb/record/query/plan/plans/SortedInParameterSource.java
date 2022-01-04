@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -62,9 +63,9 @@ public class SortedInParameterSource extends InParameterSource {
 
     @Nonnull
     @Override
-    @SuppressWarnings("unchecked")
+    @SpotBugsSuppressWarnings("NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE")
     protected List<Object> getValues(@Nullable final EvaluationContext context) {
-        final List<Object> values = getBoundValues(context);
+        final List<Object> values = getBoundValues(Objects.requireNonNull(context));
         // sortValues() guarantees non-null out on non-null in.
         return Objects.requireNonNull(InSource.sortValues(values, isReverse));
     }
@@ -84,7 +85,7 @@ public class SortedInParameterSource extends InParameterSource {
             return false;
         }
 
-        final SortedInParameterSource sortedInParameterSource = (SortedInParameterSource)o;
+        final var sortedInParameterSource = (SortedInParameterSource)o;
         if (!super.equals(sortedInParameterSource)) {
             return false;
         }

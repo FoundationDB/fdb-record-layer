@@ -210,8 +210,7 @@ public class PushSetOperationThroughFetchRule<P extends RecordQuerySetPlan> exte
                         .map(quantifier -> (Quantifier.Physical)quantifier)
                         .filter(quantifier -> !pushableAliases.contains(quantifier.getAlias()))
                         .collect(ImmutableList.toImmutableList());
-
-
+        
         final List<? extends ExpressionRef<RecordQueryPlan>> newPushedInnerPlans =
                 pushableFetchPlans
                         .stream()
