@@ -149,6 +149,12 @@ public enum LogMessageKeys {
     RESULT,
     INDEXER_CURR_RETRY,
     INDEXER_MAX_RETRIES,
+    /**
+     * Identical to {@link #DIRECTORY}. This is included only for backwards compatibility.
+     * @deprecated use {@link #DIRECTORY} instead
+     */
+    @Deprecated
+    DIRECTOY("directory"),
     DIRECTORY,
     SOURCE_INDEX,
     SOURCE_FILE,
