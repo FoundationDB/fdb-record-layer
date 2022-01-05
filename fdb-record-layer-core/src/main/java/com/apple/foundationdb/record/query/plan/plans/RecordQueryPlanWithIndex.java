@@ -104,7 +104,7 @@ public interface RecordQueryPlanWithIndex extends RecordQueryPlan {
         } else {
             final TupleRange range = getComparisons().toTupleRange(store, context);
             return store.scanIndexPrefetch(getIndexName(), getScanType(), range, getCommonPrimaryKey(), continuation, executeProperties.asScanProperties(isReverse()))
-                    .map(store::queriedRecord)
+                    .map(store::queriedRecordOfMessage)
                     .map(QueryResult::of);
         }
     }

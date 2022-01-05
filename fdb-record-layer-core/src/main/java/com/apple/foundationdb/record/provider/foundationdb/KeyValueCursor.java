@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
-import com.apple.foundationdb.Transaction;
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.KeySelector;
 import com.apple.foundationdb.KeyValue;
@@ -64,11 +63,11 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
     @Nullable
     private byte[] lastKey;
 
-    private KeyValueCursor(@Nonnull final FDBRecordContext context,
-                           @Nonnull final AsyncIterator<KeyValue> iterator,
-                           int prefixLength,
-                           @Nonnull final CursorLimitManager limitManager,
-                           int valuesLimit) {
+    protected KeyValueCursor(@Nonnull final FDBRecordContext context,
+                             @Nonnull final AsyncIterator<KeyValue> iterator,
+                             int prefixLength,
+                             @Nonnull final CursorLimitManager limitManager,
+                             int valuesLimit) {
         super(context.getExecutor(), iterator);
 
         this.context = context;
@@ -183,9 +182,8 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
         private byte[] highBytes = null;
         private EndpointType lowEndpoint = null;
         private EndpointType highEndpoint = null;
-        private byte[] hopInfo;
 
-        private Builder(@Nonnull Subspace subspace) {
+        protected Builder(@Nonnull Subspace subspace) {
             this.subspace = subspace;
         }
 
@@ -222,12 +220,7 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
 
             // Handle the continuation and then turn the endpoints into one byte array on the
             // left (inclusive) and another on the right (exclusive).
-            int prefixLength = subspace.pack().length;
-            while ((prefixLength < lowBytes.length) &&
-                   (prefixLength < highBytes.length) &&
-                   (lowBytes[prefixLength] == highBytes[prefixLength])) {
-                prefixLength++;
-            }
+            int prefixLength = calculatePrefixLength();
 
             final boolean reverse = scanProperties.isReverse();
             if (continuation != null) {
@@ -268,17 +261,8 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             }
 
             final AsyncIterator<KeyValue> iterator;
-            Transaction transaction = context.ensureActive();
-//            ReadTransaction transaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
-            if (hopInfo == null) {
-                iterator = transaction
-                        .getRange(begin, end, limit, reverse, streamingMode)
-                        .iterator();
-            } else {
-                iterator = transaction
-                        .getRangeAndHop(begin, end, hopInfo, limit, reverse, streamingMode)
-                        .iterator();
-            }
+            ReadTransaction transaction = context.readTransaction(scanProperties.getExecuteProperties().getIsolationLevel().isSnapshot());
+            iterator = scanRange(transaction, begin, end, limit, reverse, streamingMode);
 
             final CursorLimitManager limitManager = new CursorLimitManager(context, scanProperties);
             final int valuesLimit = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
@@ -336,9 +320,39 @@ public class KeyValueCursor extends AsyncIteratorCursor<KeyValue> implements Bas
             return this;
         }
 
-        public Builder setHopInfo(@Nullable byte[] hopInfo) {
-            this.hopInfo = hopInfo;
-            return this;
+        /**
+         * Perform the actual operation that generates the cursor that scans the range.
+         * @param transaction the transaction to operate on
+         * @param begin the start of the scan range
+         * @param end the end of the scan range
+         * @param limit the scan limit
+         * @param reverse whether the scan is in reverse order
+         * @param streamingMode the streaming mode
+         * @return an iterator over the range or key/values from the DB
+         */
+        protected AsyncIterator<KeyValue> scanRange(@Nonnull ReadTransaction transaction,
+                                                    @Nonnull KeySelector begin,
+                                                    @Nonnull KeySelector end,
+                                                    int limit, boolean reverse,
+                                                    @Nonnull StreamingMode streamingMode) {
+            return transaction
+                    .getRange(begin, end, limit, reverse, streamingMode)
+                    .iterator();
+        }
+
+        /**
+         * Calculate the key prefix length for the returned values. This will be used to derive the primary key used in
+         * the calculated continuation.
+         * @return the length of the key prefix length
+         */
+        protected int calculatePrefixLength() {
+            int prefixLength = subspace.pack().length;
+            while ((prefixLength < lowBytes.length) &&
+                   (prefixLength < highBytes.length) &&
+                   (lowBytes[prefixLength] == highBytes[prefixLength])) {
+                prefixLength++;
+            }
+            return prefixLength;
         }
     }
 }

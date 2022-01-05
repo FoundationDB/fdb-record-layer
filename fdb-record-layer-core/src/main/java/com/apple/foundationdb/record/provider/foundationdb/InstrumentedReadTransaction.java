@@ -242,8 +242,8 @@ abstract class InstrumentedReadTransaction<T extends ReadTransaction> implements
     }
 
     @Override
-    public AsyncIterable<KeyValue> getRangeAndHop(final KeySelector begin, final KeySelector end, final byte[] rangeHop, final int limit, final boolean isReverse, final StreamingMode streamingMode) {
-        return underlying.getRangeAndHop(begin, end, rangeHop, limit, isReverse, streamingMode);
+    public AsyncIterable<KeyValue> getRangeAndFlatMap(final KeySelector begin, final KeySelector end, final byte[] rangeHop, final int limit, final boolean isReverse, final StreamingMode streamingMode) {
+        return underlying.getRangeAndFlatMap(begin, end, rangeHop, limit, isReverse, streamingMode);
     }
 
     @Override

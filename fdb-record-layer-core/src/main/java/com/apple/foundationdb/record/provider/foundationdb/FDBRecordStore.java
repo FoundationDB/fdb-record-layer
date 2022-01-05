@@ -1215,9 +1215,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         return scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
     }
 
-    protected <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
-                                                                                              final byte[] continuation, final ScanProperties scanProperties) {
-
+    protected RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetchInternal(final Index index, final IndexScanType scanType, final TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+                                                                                final byte[] continuation, final ScanProperties scanProperties) {
         Subspace recordSubspace = recordsSubspace();
         IndexMaintainer indexMaintainer = getIndexMaintainer(index);
         Subspace indexSubspace = indexMaintainer.getIndexSubspace();
@@ -1228,11 +1227,18 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         }
-        RecordCursor<FDBIndexedRecord<M>> result = indexMaintainer
-                .scanIndexPrefetch(scanType, range, hopInfo.pack(), continuation, scanProperties);
+        RecordCursor<FDBIndexedRawRecord<Message>> records = indexMaintainer.scanIndexPrefetch(scanType, range, hopInfo.pack(), recordSubspace, continuation, scanProperties);
 
-        // TODO: What's missing? Deserialize the blob from the record part of the result
-        return result;
+        return records.mapPipelined(indexedRawRecord -> {
+            final RecordMetaData metaData = metaDataProvider.getRecordMetaData();
+            final Optional<CompletableFuture<FDBRecordVersion>> versionFutureOptional = Optional.empty();
+            // TODO: Do we still support old version format?
+//            if (useOldVersionFormat()) {
+//                versionFutureOptional = loadRecordVersionAsync(primaryKey);
+//            }
+            CompletableFuture<FDBStoredRecord<Message>> storedRecord = deserializeRecord(serializer, indexedRawRecord.getRawRecord(), metaData, versionFutureOptional);
+            return storedRecord.thenApply(rec -> new FDBIndexedRecord<>(indexedRawRecord.getIndexEntry(), rec));
+        }, 1);
     }
 
     /**

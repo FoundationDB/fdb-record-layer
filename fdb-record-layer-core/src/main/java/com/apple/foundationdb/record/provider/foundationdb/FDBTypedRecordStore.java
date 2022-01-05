@@ -170,7 +170,7 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
     }
 
     @Override
-    public RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
+    public RecordCursor<FDBIndexedRecord<Message>> scanIndexPrefetch(Index index, IndexScanType scanType, TupleRange range, @Nullable final KeyExpression commonPrimaryKey,
                                                                byte[] continuation, ScanProperties scanProperties, ExecuteState state) {
         return untypedStore.scanIndexPrefetchInternal(index, scanType, range, commonPrimaryKey, continuation, scanProperties);
     }

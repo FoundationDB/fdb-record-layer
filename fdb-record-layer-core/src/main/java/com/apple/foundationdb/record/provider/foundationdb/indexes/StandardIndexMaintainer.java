@@ -42,6 +42,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexRecordFunction;
 import com.apple.foundationdb.record.metadata.Key;
@@ -51,17 +52,22 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyWithValueExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBExceptions;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexableRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBIndexedRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRawRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredSizes;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintenanceFilter;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperation;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOperationResult;
+import com.apple.foundationdb.record.provider.foundationdb.IndexPrefetchRangeKeyValueCursor;
 import com.apple.foundationdb.record.provider.foundationdb.KeyValueCursor;
+import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.ByteArrayUtil;
@@ -133,20 +139,19 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
         });
     }
 
-    public <M extends Message> RecordCursor<FDBIndexedRecord<M>> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, final byte[] continuation, final ScanProperties scanProperties) {
-        final RecordCursor<KeyValue> keyValues = KeyValueCursor.Builder.withSubspace(state.indexSubspace)
+    public <M extends Message> RecordCursor<FDBIndexedRawRecord<M>> scanIndexPrefetch(final IndexScanType scanType, final TupleRange range, final byte[] hopInfo, Subspace recordSubspace, final byte[] continuation, final ScanProperties scanProperties) {
+        final RecordCursor<KeyValue> keyValues = IndexPrefetchRangeKeyValueCursor.Builder.newBuilder(state.indexSubspace, hopInfo, recordSubspace)
                 .setContext(state.context)
                 .setRange(range)
                 .setContinuation(continuation)
                 .setScanProperties(scanProperties)
-                .setHopInfo(hopInfo)
                 .build();
-        return keyValues.map(kv -> {
-            state.store.countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES,
-                    kv);
-            return unpackIndexPrefetchRecord(kv);
+        SplitHelper.SizeInfo sizeInfo = new SplitHelper.SizeInfo(); // ??
+        RecordCursor<FDBRawRecord> unplitRecordCursor = new SplitHelper.KeyValueUnsplitter(state.context, recordSubspace, keyValues, false, sizeInfo, scanProperties);
+        return unplitRecordCursor.map(record -> {
+            // state.store.countKeyValue(FDBStoreTimer.Counts.LOAD_INDEX_KEY, FDBStoreTimer.Counts.LOAD_INDEX_KEY_BYTES, FDBStoreTimer.Counts.LOAD_INDEX_VALUE_BYTES, kv);
+            return unpackIndexPrefetchRecord(state.index, record);
         });
-
     }
 
     /**
@@ -171,22 +176,11 @@ public abstract class StandardIndexMaintainer extends IndexMaintainer {
     }
 
     @Nonnull
-    protected <M extends Message> FDBIndexedRecord<M> unpackKeyValueToIndexRecord(@Nonnull final KeyValue kv) {
-        return unpackKeyValueToIndexRecord(state.indexSubspace, kv);
-    }
-
-    @Nonnull
-    protected <M extends Message> FDBIndexedRecord<M> unpackKeyValueToIndexRecord(@Nonnull final Subspace subspace, @Nonnull final KeyValue kv) {
-        // TODO probably return FDBDereferencedIndexRecord that contains the index key/value and the rest as one blob to be parsed later.
-        IndexEntry indexEntry = new IndexEntry(state.index, unpackKey(subspace, kv), decodeValue(kv.getValue()));
-        FDBStoredRecord<M> storedRecord = null;
-        return new FDBIndexedRecord<>(indexEntry, storedRecord);
-    }
-
-    @Nonnull
-    protected <M extends Message> FDBIndexedRecord<M> unpackIndexPrefetchRecord(@Nonnull final KeyValue kv) {
-        IndexEntry indexEntry = new IndexEntry(state.index, Tuple.fromBytes(kv.getKey()), null);
-        return new FDBIndexedRecord<>(indexEntry, null);
+    protected <M extends Message> FDBIndexedRawRecord<M> unpackIndexPrefetchRecord(@Nonnull final Index index, @Nonnull final FDBRawRecord rawRecord) {
+        // For now, we do not get the index keys from the FDB call, so we can't populate the index entry. This should be
+        // fixed in future versions of the FDB API.
+        IndexEntry indexEntry = new IndexEntry(index, TupleHelpers.EMPTY, TupleHelpers.EMPTY);
+        return new FDBIndexedRawRecord<>(indexEntry, rawRecord);
     }
 
     /**
