@@ -149,7 +149,7 @@ public enum LogMessageKeys {
     RESULT,
     INDEXER_CURR_RETRY,
     INDEXER_MAX_RETRIES,
-    DIRECTOY,
+    DIRECTORY,
     SOURCE_INDEX,
     SOURCE_FILE,
     CONTINUED_BUILD,
@@ -229,7 +229,7 @@ public enum LogMessageKeys {
     CACHED_STATE,
     READ_STATE,
     SHARED_READ_VERSION,
-    MUTATION,
+    MUTATION("state_mutation"),
 
     // query plan
     PLAN,

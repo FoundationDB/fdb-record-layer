@@ -37,7 +37,7 @@ public class NoSuchDirectoryException extends RecordCoreException {
         super("No such directory");
 
         addLogInfo(
-                LogMessageKeys.DIRECTOY, rootDirectory.toPathString(),
+                LogMessageKeys.DIRECTORY, rootDirectory.toPathString(),
                 LogMessageKeys.SUBDIRECTORY, subdir);
     }
 }
