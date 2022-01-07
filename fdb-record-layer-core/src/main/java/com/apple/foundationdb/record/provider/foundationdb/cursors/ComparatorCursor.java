@@ -370,9 +370,9 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     /**
      * An internal class that is never equal to anything (other than itself).
      */
-    private static class Unequal implements Comparable {
+    private static class Unequal implements Comparable<Object> {
         @Override
-        public int compareTo(final Object o) {
+        public int compareTo(@Nonnull final Object o) {
             if (this == o) {
                 return 0;
             } else {
