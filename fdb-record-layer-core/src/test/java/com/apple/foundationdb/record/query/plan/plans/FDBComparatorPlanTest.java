@@ -400,10 +400,11 @@ public class FDBComparatorPlanTest extends FDBRecordStoreQueryTestBase {
         KeyExpression keyExpression = Key.Expressions.fromDescriptor(comparisonKey);
         RecordQueryPlan planUnderTest = RecordQueryComparatorPlan.from(plan(query1, query2), keyExpression, 0);
 
-        // For now, we can't compare keys that evaluate to multiple values and so the execution fails.
-        assertThrows(RecordCoreException.class, () -> querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
+        // Repeated keys will return the reference result but log an error
+        int count = querySimpleRecordStore(NO_HOOK, planUnderTest, EvaluationContext::empty,
                 record -> assertThat(record.getNumValue2(), is(1)),
-                context -> assertDiscardedAtMost(134, context)));
+                context -> assertDiscardedAtMost(134, context));
+        assertEquals(33, count);
     }
 
     @Nonnull
