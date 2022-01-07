@@ -1,7 +1,16 @@
 FROM centos:7
-LABEL version=6.3.12-1
+LABEL version=6.3.16-1
 
-RUN yum install -y which initscripts rsync net-tools passwd https://www.foundationdb.org/downloads/6.3.12/rhel7/installers/foundationdb-clients-6.3.12-1.el7.x86_64.rpm https://www.foundationdb.org/downloads/6.3.12/rhel7/installers/foundationdb-server-6.3.12-1.el7.x86_64.rpm
+RUN yum install -y \
+    which \
+    initscripts \
+    rsync \
+    net-tools \
+    passwd \
+    https://github.com/apple/foundationdb/releases/download/6.3.16/foundationdb-clients-6.3.16-1.el7.x86_64.rpm \
+    https://github.com/apple/foundationdb/releases/download/6.3.16/foundationdb-server-6.3.16-1.el7.x86_64.rpm && \
+    yum clean all && \
+    rm -rf /var/cache/yum
 
 USER root
 

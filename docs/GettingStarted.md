@@ -18,7 +18,7 @@ To keep the guide simple, we will not cover:
 
 Install Java JDK for version 8 or above; for this demo we are using JDK `1.8.0_181`.
 
-Install FoundationDB [here](https://www.foundationdb.org/download/).
+Install FoundationDB [here](https://github.com/apple/foundationdb/releases).
 Once it is installed you should verify that you can run FDB and connect to it using `fdbcli`:
 
 ```bash

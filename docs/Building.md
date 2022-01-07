@@ -16,7 +16,7 @@ Before contributing to the Record Layer, please see the [contribution guide](htt
     
 1. *(Skip if you are not interested in running the tests.)*\
  Install FDB on your development machine. The latest FDB binaries can be found on
-the [FoundationDB website](https://www.foundationdb.org/download/).
+the [GitHub](https://github.com/apple/foundationdb/releases).
 
 1. Install and launch [IntelliJ IDEA](https://www.jetbrains.com/idea/). This document is based on Version 2020.2.3.
 

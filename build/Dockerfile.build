@@ -1,9 +1,19 @@
 FROM centos:7
-LABEL version=0.0.16
+LABEL version=0.0.17
 
-RUN yum install -y java-11-openjdk-devel python git unzip wget which time
-RUN yum install -y https://www.foundationdb.org/downloads/6.3.12/rhel7/installers/foundationdb-clients-6.3.12-1.el7.x86_64.rpm nmap
-RUN yum install -y https://www.foundationdb.org/downloads/6.3.12/rhel7/installers/foundationdb-server-6.3.12-1.el7.x86_64.rpm nmap
+RUN yum install -y \
+    git \
+    java-11-openjdk-devel \
+    nmap \
+    python \
+    time \
+    unzip \
+    wget \
+    which \
+    https://github.com/apple/foundationdb/releases/download/6.3.16/foundationdb-clients-6.3.16-1.el7.x86_64.rpm \
+    https://github.com/apple/foundationdb/releases/download/6.3.16/foundationdb-server-6.3.16-1.el7.x86_64.rpm && \
+    yum clean all && \
+    rm -rf /var/cache/yum
 
 RUN mkdir -p /usr/local/bin
 COPY fdb_create_cluster_file.bash /usr/local/bin/fdb_create_cluster_file.bash
