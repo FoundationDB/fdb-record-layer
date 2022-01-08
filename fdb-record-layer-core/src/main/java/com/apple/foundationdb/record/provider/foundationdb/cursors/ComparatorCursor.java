@@ -30,7 +30,6 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.google.common.base.Suppliers;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -378,6 +377,16 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
             } else {
                 return 1;
             }
+        }
+
+        @Override
+        public int hashCode() {
+            return super.hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            return super.equals(o);
         }
     }
 }
