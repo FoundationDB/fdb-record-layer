@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
@@ -46,6 +47,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
@@ -161,13 +163,16 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
 
     @Override
     protected RecordLayerSchema getSchema() {
-        return (RecordLayerSchema) table.getSchema();
+        return table.getSchema();
     }
 
     @Override
-    protected RecordCursor<IndexEntry> openScan(FDBRecordStore store, TupleRange range, ScanProperties props) {
+    protected RecordCursor<IndexEntry> openScan(FDBRecordStore store, TupleRange range,
+                                                @Nullable Continuation continuation, ScanProperties props) {
         //TODO(bfines) get scan type from Options and/or ScanProperties
-        return store.scanIndex(index, IndexScanType.BY_VALUE, range, null, props);
+        assert continuation == null || continuation instanceof ContinuationImpl;
+        return store.scanIndex(index, IndexScanType.BY_VALUE, range,
+                continuation == null ? null : continuation.getBytes(), props);
     }
 
     @Override

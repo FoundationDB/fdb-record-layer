@@ -30,6 +30,7 @@ import com.apple.foundationdb.record.query.plan.QueryPlanResult;
 import com.apple.foundationdb.record.query.plan.QueryPlanner;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.temp.CascadesPlanner;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
@@ -71,25 +72,27 @@ public class QueryScannable implements Scannable {
     }
 
     @Override
-    public Scanner<KeyValue> openScan(@Nonnull Transaction t,
-                                      @Nullable NestableTuple startKey,
-                                      @Nullable NestableTuple endKey,
-                                      @Nonnull QueryProperties scanOptions) throws RelationalException {
+    public ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction,
+                                                @Nullable NestableTuple startKey,
+                                                @Nullable NestableTuple endKey,
+                                                @Nullable Continuation continuation,
+                                                @Nonnull QueryProperties scanOptions) throws RelationalException {
         if (!isExplain) {
+            assert continuation == null || continuation instanceof ContinuationImpl;
             final FDBRecordStore fdbRecordStore = schema.loadStore();
-            //TODO(bfines) deal with continuations
             final RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(fdbRecordStore,
-                    EvaluationContext.empty(), null, ExecuteProperties.newBuilder().build());
+                    EvaluationContext.empty(),
+                    continuation == null ? null : continuation.getBytes(), ExecuteProperties.newBuilder().build());
 
-            return CursorScanner.create(cursor, messageFDBQueriedRecord -> {
+            return RecordLayerIterator.create(cursor, messageFDBQueriedRecord -> {
                 Message record = messageFDBQueriedRecord.getRecord();
                 return new ImmutableKeyValue(new EmptyTuple(), new MessageTuple(record));
             }, true);
         } else {
-            return new IteratorScanner<>(Stream.of(plan.toString())
+            return new ResumableIteratorImpl<>(Stream.of(plan.toString())
                     .map((Function<String, KeyValue>) s -> new ImmutableKeyValue(EmptyTuple.INSTANCE, new ValueTuple(s)))
                     .iterator(),
-                    false);
+                    continuation);
         }
     }
 

@@ -20,5 +20,68 @@
 
 package com.apple.foundationdb.relational.api;
 
+import javax.annotation.Nullable;
+
 public interface Continuation {
+
+    Continuation END = new Continuation() {
+        @Nullable
+        @Override
+        public byte[] getBytes() {
+            return null;
+        }
+
+        @Override
+        public boolean atBeginning() {
+            return false;
+        }
+
+        @Override
+        public boolean atEnd() {
+            return true;
+        }
+    };
+
+    Continuation BEGIN = new Continuation() {
+        @Nullable
+        @Override
+        public byte[] getBytes() {
+            return null;
+        }
+
+        @Override
+        public boolean atBeginning() {
+            return true;
+        }
+
+        @Override
+        public boolean atEnd() {
+            return false;
+        }
+    };
+
+    Continuation EMPTY_SET = new Continuation() {
+        @Nullable
+        @Override
+        public byte[] getBytes() {
+            return null;
+        }
+
+        @Override
+        public boolean atBeginning() {
+            return true;
+        }
+
+        @Override
+        public boolean atEnd() {
+            return true;
+        }
+    };
+
+    @Nullable
+    byte[] getBytes();
+
+    boolean atBeginning();
+
+    boolean atEnd();
 }

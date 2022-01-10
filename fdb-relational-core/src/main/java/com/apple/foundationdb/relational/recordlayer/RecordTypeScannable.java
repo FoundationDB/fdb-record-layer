@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
@@ -37,11 +38,11 @@ import java.util.function.Function;
 public abstract class RecordTypeScannable<CursorT> implements Scannable {
 
     @Override
-    public final Scanner<KeyValue> openScan(@Nonnull Transaction t,
-                                            @Nullable NestableTuple startKey,
-                                            @Nullable NestableTuple endKey,
-                                            @Nonnull QueryProperties scanProperties) throws RelationalException {
-        //TODO(bfines) this will need to be rewired to support continuations
+    public final ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction,
+                                                      @Nullable NestableTuple startKey,
+                                                      @Nullable NestableTuple endKey,
+                                                      @Nullable Continuation continuation,
+                                                      @Nonnull QueryProperties scanProperties) throws RelationalException {
         TupleRange range;
         if (startKey == null) {
             if (endKey == null) {
@@ -60,14 +61,15 @@ public abstract class RecordTypeScannable<CursorT> implements Scannable {
         FDBRecordStore store = getSchema().loadStore();
         //TODO(bfines) get the type index for this
         ScanProperties props = QueryPropertiesUtils.getScanProperties(scanProperties);
-        final RecordCursor<CursorT> cursor = openScan(store, range, props);
-        return CursorScanner.create(cursor, keyValueTransform(), supportsMessageParsing());
+        final RecordCursor<CursorT> cursor = openScan(store, range, continuation, props);
+        return RecordLayerIterator.create(cursor, keyValueTransform(), supportsMessageParsing());
     }
 
     /* ****************************************************************************************************************/
     /* abstract methods */
 
-    protected abstract RecordCursor<CursorT> openScan(FDBRecordStore store, TupleRange range, ScanProperties props);
+    protected abstract RecordCursor<CursorT> openScan(FDBRecordStore store, TupleRange range,
+                                                      @Nullable Continuation continuation, ScanProperties props);
 
     protected abstract RecordLayerSchema getSchema();
 

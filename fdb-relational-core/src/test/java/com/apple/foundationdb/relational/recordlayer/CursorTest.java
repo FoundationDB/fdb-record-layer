@@ -27,8 +27,11 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.RecordTypeBuilder;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.DatabaseConnection;
+import com.apple.foundationdb.relational.api.OperationOption;
 import com.apple.foundationdb.relational.api.Options;
+import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Statement;
 import com.apple.foundationdb.relational.api.TableScan;
 import com.apple.foundationdb.relational.api.Relational;
@@ -47,6 +50,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public class CursorTest {
 
@@ -79,35 +83,181 @@ public class CursorTest {
     }
 
     @Test
-    public void canIterateOverAllResults() throws InvalidProtocolBufferException {
+    public void canIterateOverAllResults() {
+        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+            // 1/2 scan all records
+            List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
+            try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
+                    Options.create())) {
+                while (resultSet.next()) {
+                    Assertions.assertTrue(resultSet.supportsMessageParsing());
+                    Message m = resultSet.parseMessage();
+                    Restaurant.RestaurantRecord r = null;
+                    try {
+                        r = Restaurant.RestaurantRecord.parseFrom(m.toByteArray());
+                    } catch (InvalidProtocolBufferException e) {
+                        Assertions.fail("failed to parse ");
+                    }
+                    actual.add(r);
+                }
+            }
+            // 2/2 make sure we've received everything
+            Collection<Restaurant.RestaurantRecord> expected = ImmutableList.copyOf(records);
+            Assertions.assertEquals(expected.size(), actual.size());
+            Assertions.assertTrue(actual.containsAll(expected)); // no dups
+        });
+    }
+
+    @Test
+    public void canIterateWithContinuation() {
+        havingInsertedRecordsDo(10, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+            // 1/2 scan all records
+            List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
+            RelationalResultSet resultSet = null;
+            try {
+                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord")
+                        .setScanProperties(QueryProperties.newBuilder().setRowLimit(1).build()).build();
+                resultSet = s.executeScan(scan, Options.create());
+                while (true) {
+                    while (resultSet.next()) {
+                        Assertions.assertTrue(resultSet.supportsMessageParsing());
+                        Message m = resultSet.parseMessage();
+                        Restaurant.RestaurantRecord r = null;
+                        try {
+                            r = Restaurant.RestaurantRecord.parseFrom(m.toByteArray());
+                        } catch (InvalidProtocolBufferException e) {
+                            Assertions.fail("failed to parse ");
+                        }
+                        actual.add(r);
+                    }
+                    if (resultSet.terminatedEarly()) {
+                        resultSet.close();
+                        resultSet = s.executeScan(scan,
+                                Options.create().withOption(OperationOption.continuation(resultSet.getContinuation())));
+                    } else {
+                        resultSet.close();
+                        break;
+                    }
+                }
+            } finally {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+            }
+            // 2/2 make sure we've received everything
+            Collection<Restaurant.RestaurantRecord> expected = ImmutableList.copyOf(records);
+            Assertions.assertEquals(expected.size(), actual.size());
+            Assertions.assertTrue(actual.containsAll(expected)); // no dups
+        });
+    }
+
+    @Test
+    public void continuationOnEdgesOfRecordCollection() {
+
+        havingInsertedRecordsDo(3, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+            RelationalResultSet resultSet = null;
+            try {
+                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+                resultSet = s.executeScan(scan, Options.create());
+
+                // get continuation before iterating on the result set (should point to the first record).
+                Continuation beginContinuation = resultSet.getContinuation();
+
+                resultSet.next();
+                Restaurant.RestaurantRecord firstRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+                // get continuation at the first (should point to the second record).
+                Continuation firstContinuation = resultSet.getContinuation();
+
+                resultSet.next();
+                Restaurant.RestaurantRecord secondRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+                // get continuation at the second element (should point to third).
+                Continuation secondContinuation = resultSet.getContinuation();
+
+                resultSet.next();
+                Restaurant.RestaurantRecord lastRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+                // get continuation at the last record (should point to FINISHED).
+                Continuation lastContinuation = resultSet.getContinuation();
+
+                // verify
+                Restaurant.RestaurantRecord resumedFirstRecord = readFirstRecordWithContinuation(s, beginContinuation);
+                Assertions.assertEquals(firstRecord, resumedFirstRecord);
+
+                Restaurant.RestaurantRecord resumedSecondRecord = readFirstRecordWithContinuation(s, firstContinuation);
+                Assertions.assertEquals(secondRecord, resumedSecondRecord);
+
+                Restaurant.RestaurantRecord resumedThirdRecord = readFirstRecordWithContinuation(s, secondContinuation);
+                Assertions.assertEquals(lastRecord, resumedThirdRecord);
+
+                Assertions.assertNull(lastContinuation.getBytes());
+                Assertions.assertTrue(lastContinuation.atEnd());
+
+            } catch (InvalidProtocolBufferException e) {
+                Assertions.fail("failed to parse ");
+            } finally {
+
+
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+            }
+        });
+    }
+
+    @Test
+    public void continuationOnEmptyCollection() {
+        havingInsertedRecordsDo(0, (Iterable<Restaurant.RestaurantRecord> records, Statement s) -> {
+            RelationalResultSet resultSet = null;
+            try {
+                TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+                resultSet = s.executeScan(scan, Options.create());
+                Continuation continuation = resultSet.getContinuation();
+                Assertions.assertNull(continuation.getBytes());
+                Assertions.assertTrue(continuation.atEnd());
+                Assertions.assertTrue(continuation.atBeginning());
+                Assertions.assertFalse(resultSet.next());
+            } finally {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
+            }
+        });
+    }
+
+    // helper methods
+
+    private void havingInsertedRecordsDo(int numRecords,
+                                         BiConsumer<Iterable<Restaurant.RestaurantRecord>, Statement> test) {
         try (DatabaseConnection conn = Relational.connect(URI.create("rlsc:embed:/insert_test"), Options.create())) {
             conn.setSchema("main");
             conn.beginTransaction();
             try (Statement s = conn.createStatement()) {
 
-                // 1/3 add all records to table insert_test.main.Restaurant.RestaurantRecord
-                Iterable<Restaurant.RestaurantRecord> records = Utils.generateRestaurantRecords(10);
+                // 1/2 add all records to table insert_test.main.Restaurant.RestaurantRecord
+                Iterable<Restaurant.RestaurantRecord> records = Utils.generateRestaurantRecords(numRecords);
                 int count = s.executeInsert("RestaurantRecord", records, Options.create());
-                Assertions.assertEquals(10, count);
+                Assertions.assertEquals(numRecords, count);
 
-                // 2/3 scan all records
-                List<Restaurant.RestaurantRecord> actual = new ArrayList<>();
-                try (RelationalResultSet resultSet = s.executeScan(TableScan.newBuilder().withTableName("RestaurantRecord").build(),
-                        Options.create())) {
-                    while (resultSet.next()) {
-                        Assertions.assertTrue(resultSet.supportsMessageParsing());
-                        Message m = resultSet.parseMessage();
-                        Restaurant.RestaurantRecord r = Restaurant.RestaurantRecord.parseFrom(m.toByteArray());
-                        actual.add(r);
-                    }
-                }
-
-                // 3/3 make sure we've received everything
-                Collection<Restaurant.RestaurantRecord> expected = ImmutableList.copyOf(records);
-                Assertions.assertEquals(expected.size(), actual.size());
-                Assertions.assertTrue(actual.containsAll(expected)); // no dups
+                // 2/2 test logic follows
+                test.accept(records, s);
             }
         }
+    }
+
+    private Restaurant.RestaurantRecord readFirstRecordWithContinuation(Statement s, Continuation c) {
+        RelationalResultSet resultSet = null;
+        try {
+            TableScan scan = TableScan.newBuilder().withTableName("RestaurantRecord").build();
+            resultSet = s.executeScan(scan, Options.create().withOption(OperationOption.continuation(c)));
+            resultSet.next();
+            return Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
+        } catch (InvalidProtocolBufferException e) {
+            Assertions.fail("failed to parse ");
+        } finally {
+            if(resultSet != null) {
+                resultSet.close();
+            }
+        }
+        return null;
     }
 
 }

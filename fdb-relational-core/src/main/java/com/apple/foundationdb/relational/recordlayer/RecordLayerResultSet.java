@@ -39,39 +39,40 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
     protected final RecordStoreConnection sourceConnection;
 
     protected final Scannable scannable;
-    protected Continuation lastContinuation = null;
+    protected Continuation continuation;
 
     protected final QueryProperties scanProperties;
 
     private final String[] fieldNames;
 
-    private Scanner<KeyValue> currentCursor;
+    private ResumableIterator<KeyValue> currentCursor;
 
     private KeyValue currentRow;
 
     public RecordLayerResultSet(Scannable scannable, NestableTuple start, NestableTuple end,
-                                RecordStoreConnection sourceConnection, QueryProperties scanProperties) {
+                                RecordStoreConnection sourceConnection, QueryProperties scanProperties,
+                                Continuation continuation) {
         this.scannable = scannable;
         this.startKey = start;
         this.endKey = end;
         this.sourceConnection = sourceConnection;
         this.fieldNames = scannable.getFieldNames();
         this.scanProperties = scanProperties;
+        this.continuation = continuation;
     }
-
 
     @Override
     public boolean next() throws RelationalException {
         currentRow = null;
         if (currentCursor == null) {
-            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, scanProperties);
+            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, continuation, scanProperties);
         }
+
         if (!currentCursor.hasNext()) {
             return false;
         }
 
         currentRow = currentCursor.next();
-        lastContinuation = currentCursor.continuation();
         return true;
     }
 
@@ -151,5 +152,18 @@ public class RecordLayerResultSet extends AbstractRecordLayerResultSet {
             return parseMessage().getDescriptorForType().getFields().size();
         }
         return currentRow.key().getNumFields() + currentRow.value().getNumFields();
+    }
+
+    @Override
+    public boolean terminatedEarly() {
+        return currentCursor.terminatedEarly();
+    }
+
+    @Override
+    public Continuation getContinuation() {
+        if (currentCursor == null) {
+            currentCursor = scannable.openScan(sourceConnection.transaction, startKey, endKey, continuation, scanProperties);
+        }
+        return currentCursor.getContinuation();
     }
 }

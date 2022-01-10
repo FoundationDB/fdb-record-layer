@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.RecordTypeKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
@@ -39,6 +40,7 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -153,9 +155,9 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
     }
 
     @Override
-    protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range, ScanProperties props) {
+    protected RecordCursor<FDBStoredRecord<Message>> openScan(FDBRecordStore store, TupleRange range, @Nullable Continuation continuation, ScanProperties props) {
         RecordType type = loadRecordType();
-        return store.scanRecords(range, null, props).filter(record -> type.equals(record.getRecordType()));
+        return store.scanRecords(range, continuation == null ? null : continuation.getBytes(), props).filter(record -> type.equals(record.getRecordType()));
     }
 
     @Override

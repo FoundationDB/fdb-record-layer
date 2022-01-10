@@ -30,18 +30,19 @@ import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.ResolvedKeySpacePath;
 import com.apple.foundationdb.record.util.TriFunction;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.ImmutableKeyValue;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
-import com.apple.foundationdb.relational.recordlayer.CursorScanner;
+import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.EmptyTuple;
 import com.apple.foundationdb.relational.recordlayer.KeyBuilder;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
 import com.apple.foundationdb.relational.recordlayer.Scannable;
-import com.apple.foundationdb.relational.recordlayer.Scanner;
+import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.TupleUtils;
 
 import javax.annotation.Nonnull;
@@ -80,8 +81,8 @@ public class DirectoryScannable implements Scannable {
     }
 
     @Override
-    public Scanner<KeyValue> openScan(@Nonnull Transaction t, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey, @Nonnull QueryProperties scanOptions) throws RelationalException {
-        FDBRecordContext ctx = t.unwrap(FDBRecordContext.class);
+    public ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction, @Nullable NestableTuple startKey, @Nullable NestableTuple endKey, @Nullable Continuation continuation, @Nonnull QueryProperties scanOptions) throws RelationalException {
+        FDBRecordContext ctx = transaction.unwrap(FDBRecordContext.class);
         //TODO(bfines) add continuation here
         final KeySpacePath prefixPath = KeySpaceUtils.uriToPath(prefix, keySpace);
         KeySpaceDirectory ksd = prefixPath.getDirectory();
@@ -109,7 +110,7 @@ public class DirectoryScannable implements Scannable {
             return TupleUtils.toRelationalTuple(tuple);
         });
 
-        return CursorScanner.create(mappedCursor, value -> new ImmutableKeyValue(new EmptyTuple(), directoryTransform.apply(value)), false);
+        return RecordLayerIterator.create(mappedCursor, value -> new ImmutableKeyValue(new EmptyTuple(), directoryTransform.apply(value)), false);
     }
 
     private RecordCursor<ResolvedKeySpacePath> listDirectory(KeySpacePath path, @Nullable String subdirName, FDBRecordContext ctx) {

@@ -70,7 +70,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
             String schema = fullSchemaPath.substring(lastSlashIdx + 1);
             return TupleUtils.toRelationalTuple(new Tuple().add(db).add(schema));
         });
-        return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT);
+        return new RecordLayerResultSet(scannable, null, null, conn, QueryProperties.DEFAULT, null);
     }
 
     @Override
@@ -78,7 +78,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
     public RelationalResultSet getTables(@Nonnull String schema) throws RelationalException {
         final Set<String> strings = conn.frl.loadSchema(schema, Options.create()).listTables();
         return new RecordLayerResultSet(new IterableScannable<>(strings,
-                s -> new ImmutableKeyValue(new EmptyTuple(), new ValueTuple(s)), new String[]{}, new String[]{"NAME"}), null, null, conn, QueryProperties.DEFAULT);
+                s -> new ImmutableKeyValue(new EmptyTuple(), new ValueTuple(s)), new String[]{}, new String[]{"NAME"}), null, null, conn, QueryProperties.DEFAULT, null);
     }
 
     @Override
@@ -94,7 +94,7 @@ public class RecordLayerMetaData implements RelationalDatabaseMetaData {
             data.add(new ImmutableKeyValue(EmptyTuple.INSTANCE, TupleUtils.toRelationalTuple(dataTuple)));
         });
 
-        return new RecordLayerResultSet(new IterableScannable<>(data, keyValue -> keyValue, new String[]{}, new String[]{"NAME", "INDEX", "TYPE", "OPTIONS"}), null, null, conn, QueryProperties.DEFAULT);
+        return new RecordLayerResultSet(new IterableScannable<>(data, keyValue -> keyValue, new String[]{}, new String[]{"NAME", "INDEX", "TYPE", "OPTIONS"}), null, null, conn, QueryProperties.DEFAULT, null);
     }
 
     @Nonnull

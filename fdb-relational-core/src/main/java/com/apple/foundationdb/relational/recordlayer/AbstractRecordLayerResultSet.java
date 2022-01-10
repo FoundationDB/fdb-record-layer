@@ -189,7 +189,8 @@ public abstract class AbstractRecordLayerResultSet implements RelationalResultSe
 
 
     /* ****************************************************************************************************************/
-    /* private helper methods*/
+    /* protected helper methods*/
+
     protected abstract int getPosition(String fieldName);
 
     protected abstract String[] getFieldNames();

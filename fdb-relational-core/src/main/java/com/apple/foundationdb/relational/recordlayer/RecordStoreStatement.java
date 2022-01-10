@@ -43,9 +43,11 @@ import com.google.protobuf.Message;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class RecordStoreStatement implements Statement {
@@ -109,7 +111,7 @@ public class RecordStoreStatement implements Statement {
         }
 
         final QueryScannable scannable = new QueryScannable(conn, conn.frl.loadSchema(query.getSchema(), options), recQueryBuilder.build(), queryColumns.toArray(new String[0]), query.isExplain());
-        return new RecordLayerResultSet(scannable, null, null, conn, query.getQueryOptions());
+        return new RecordLayerResultSet(scannable, null, null, conn, query.getQueryOptions(), options.getOption(OperationOption.CONTINUATION_NAME, null));
     }
 
     @Override
@@ -128,7 +130,8 @@ public class RecordStoreStatement implements Statement {
         NestableTuple start = scan.getStartKey().isEmpty() ? null : keyBuilder.buildKey(scan.getStartKey(), true, true);
         NestableTuple end = scan.getEndKey().isEmpty() ? null : keyBuilder.buildKey(scan.getEndKey(), true, true);
 
-        return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties());
+        return new RecordLayerResultSet(source, start, end, conn, scan.getScanProperties(),
+                options.getOption(OperationOption.CONTINUATION_NAME, null));
     }
 
     @Override
@@ -148,7 +151,16 @@ public class RecordStoreStatement implements Statement {
         NestableTuple tuple = source.getKeyBuilder().buildKey(key.toMap(), true, true);
 
         final KeyValue keyValue = source.get(conn.transaction, tuple, queryProperties);
-        return new KeyValueResultSet(keyValue, table.getFieldNames(), true);
+
+        Iterable<KeyValue> iterable = toIterable(keyValue == null ? Collections.emptyIterator() : List.of(keyValue).iterator());
+        Scannable scannable = new IterableScannable<>(iterable, Function.identity(), new String[]{}, table.getFieldNames());
+        return new RecordLayerResultSet(
+                scannable,
+                new EmptyTuple(),
+                new EmptyTuple(),
+                conn,
+                queryProperties,
+                options.getOption(OperationOption.CONTINUATION_NAME, null));
     }
 
     @Override
@@ -300,6 +312,10 @@ public class RecordStoreStatement implements Statement {
             source = table;
         }
         return source;
+    }
+
+    private static <T> Iterable<T> toIterable(Iterator<T> it) {
+        return () -> it;
     }
 
 }

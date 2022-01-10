@@ -111,7 +111,7 @@ public class OperationOption<T> {
     public static final String RETRY_COUNT = "retry.limit";
 
     public static final String RETRY_POLICY = "retry.policy";
-    private static final String CONTINUATION_NAME = "continuation";
+    public static final String CONTINUATION_NAME = "continuation";
 
     public static final String FORCE_VERIFY_DDL = "ddl.forceVerify";
 

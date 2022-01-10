@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.relational.recordlayer;
 
+import com.apple.foundationdb.relational.api.Continuation;
 import com.apple.foundationdb.relational.api.KeyValue;
 import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
@@ -32,7 +33,7 @@ import javax.annotation.Nullable;
 import java.util.function.Function;
 
 /**
- * A Scannable which moves over an Iterable.
+ * A {@code Scannable} which moves over an {@code Iterable}.
  *
  * @param <T> the type of the iterator which is iterated over
  */
@@ -58,19 +59,21 @@ public class IterableScannable<T> implements Scannable {
         return "iterator";
     }
 
+    @Nonnull
     @Override
-    public Scanner<KeyValue> openScan(@Nonnull Transaction t,
-                                      @Nullable NestableTuple startKey,
-                                      @Nullable NestableTuple endKey,
-                                      @Nonnull QueryProperties scanOptions) throws RelationalException {
-        return new IteratorScanner<>(Iterators.transform(iterable.iterator(), transform::apply), false);
+    public ResumableIterator<KeyValue> openScan(@Nonnull Transaction transaction,
+                                                @Nullable NestableTuple startKey,
+                                                @Nullable NestableTuple endKey,
+                                                @Nullable Continuation continuation,
+                                                @Nonnull QueryProperties scanOptions) throws RelationalException {
+        return new ResumableIteratorImpl<>(Iterators.transform(iterable.iterator(), transform::apply), continuation);
     }
 
     @Override
     public KeyValue get(@Nonnull Transaction t,
                         @Nonnull NestableTuple key,
                         @Nonnull QueryProperties scanOptions) throws RelationalException {
-        Scanner<KeyValue> kvs = openScan(t, key, key, scanOptions);
+        ResumableIterator<KeyValue> kvs = openScan(t, key, key, null, scanOptions);
         while (kvs.hasNext()) {
             final KeyValue next = kvs.next();
             if (next.key().equals(key)) {

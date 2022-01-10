@@ -28,7 +28,7 @@ import com.apple.foundationdb.relational.api.exceptions.InvalidCursorStateExcept
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.AbstractRecordLayerResultSet;
 import com.apple.foundationdb.relational.recordlayer.Scannable;
-import com.apple.foundationdb.relational.recordlayer.Scanner;
+import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 
 public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     private final Scannable systemScannable;
@@ -38,7 +38,7 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     private final String[] fields;
 
     private boolean nextCalled = false;
-    private Scanner<KeyValue> currentScanner;
+    private ResumableIterator<KeyValue> currentScanner;
     private Continuation currentContinuation;
     private KeyValue nextKeyValue;
 
@@ -70,17 +70,14 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
     public boolean next() throws RelationalException {
         nextCalled = true;
         if (currentScanner == null) {
-            // Options opts = options;
-            // if(currentContinuation!=null){
-            //   opts = options.withOption(OperationOption.continuation(currentContinuation));
-            // }
-            currentScanner = systemScannable.openScan(txn,null,null,options);
+            // TODO (yhatem) discuss how to implement metadata query continuations
+            currentScanner = systemScannable.openScan(txn,null,null, null, options);
         }
         boolean hasNext =  currentScanner.hasNext();
         if (hasNext) {
             nextKeyValue = currentScanner.next();
         } else {
-            currentContinuation = null;
+            currentContinuation = currentScanner.getContinuation();
         }
         return hasNext;
     }
@@ -113,6 +110,16 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
             throw new InvalidCursorStateException("Iterator was not advanced or has terminated");
         }
         return nextKeyValue.keyColumnCount() + nextKeyValue.value().getNumFields();
+    }
+
+    @Override
+    public boolean terminatedEarly() {
+        return currentScanner.terminatedEarly();
+    }
+
+    @Override
+    public Continuation getContinuation() {
+        return currentContinuation;
     }
 
     @Override

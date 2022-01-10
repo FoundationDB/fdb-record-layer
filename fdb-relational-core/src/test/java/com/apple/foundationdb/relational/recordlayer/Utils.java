@@ -86,7 +86,7 @@ public class Utils {
     }
 
     private static <T> Iterable<T> generateList(int count, Supplier<T> supplier) {
-        assert count > 0;
+        assert count >= 0;
 
         List<T> result = new ArrayList<>();
 

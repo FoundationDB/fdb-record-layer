@@ -122,5 +122,26 @@ public interface RelationalResultSet extends AutoCloseable {
      * @return the number of fields at the current cursor position.
      */
     int getNumFields();
+
+    /**
+     * Indicates whether no more rows were returned because of an early termination or not.
+     * An early termination could occur due to hitting some internal boundary (e.g. transaction
+     * timeout), or a user-configured boundary (see {@code QueryProperties} for more information).
+     *
+     * If this method returns true, you can retrieve a {@code Continuation} via {@code getContinuation}
+     * method and use it for creating a new {@code RelationalResultSet} which will continue returning
+     * the rows starting where this result set left off.
+     *
+     * @return {@code true} if there are still some rows but can not be retrieved any more due to
+     * hitting an internal or user-configured boundary condition, otherwise {@code false}.
+     */
+    boolean terminatedEarly();
+
+    /**
+     * A {@code Continuation} that can be used for retrieving the rest of the rows.
+     *
+     * @return  A {@code Continuation} that can be used for retrieving the rest of the rows.
+     */
+    Continuation getContinuation();
 }
 
