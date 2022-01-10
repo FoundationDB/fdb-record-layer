@@ -540,6 +540,10 @@ public class TopologicalSort {
         if (partialOrder.size() == 0) {
             return ImmutableList.of();
         }
+        
+        if (partialOrder.size() < targetPermutation.size()) {
+            return ImmutableList.of();
+        }
 
         final var domainMap =
                 partialOrder.getSet()

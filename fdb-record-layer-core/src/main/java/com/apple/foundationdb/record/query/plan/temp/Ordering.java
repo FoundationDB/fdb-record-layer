@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.combinatorics.PartialOrder;
 import com.apple.foundationdb.record.query.combinatorics.TopologicalSort;
 import com.apple.foundationdb.record.query.expressions.Comparisons.Comparison;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -40,6 +41,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BinaryOperator;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.StreamSupport;
 
 /**
@@ -98,12 +100,16 @@ public class Ordering {
 
     private final boolean isDistinct;
 
+    @Nonnull
+    private final Supplier<PartialOrder<KeyPart>> partialOrderSupplier;
+
     public Ordering(@Nonnull final SetMultimap<KeyExpression, Comparison> equalityBoundKeyMap,
                     @Nonnull final List<KeyPart> orderingKeyParts,
                     final boolean isDistinct) {
         this.orderingKeyParts = ImmutableList.copyOf(orderingKeyParts);
         this.equalityBoundKeyMap = ImmutableSetMultimap.copyOf(equalityBoundKeyMap);
         this.isDistinct = isDistinct;
+        this.partialOrderSupplier = Suppliers.memoize(this::computePartialOrder);
     }
 
     /**
@@ -153,6 +159,11 @@ public class Ordering {
         return Objects.hash(getEqualityBoundKeys(), getOrderingKeyParts(), isDistinct());
     }
 
+    @Nonnull
+    public PartialOrder<KeyPart> toPartialOrder() {
+        return partialOrderSupplier.get();
+    }
+
     /**
      * Method to compute the {@link PartialOrder} representing this {@link Ordering}.
      *
@@ -184,11 +195,20 @@ public class Ordering {
      * @return a {@link PartialOrder} for this ordering
      */
     @Nonnull
-    public PartialOrder<KeyPart> toPartialOrder() {
+    private PartialOrder<KeyPart> computePartialOrder() {
         return PartialOrder.<KeyPart>builder()
                 .addListWithDependencies(this.getOrderingKeyParts())
                 .addAll(equalityBoundKeyMap.keySet().stream().map(KeyPart::of).collect(ImmutableSet.toImmutableSet()))
                 .build();
+    }
+
+    @Nonnull
+    public static boolean satisfiesRequestedOrdering(@Nonnull Ordering providedOrdering,
+                                                     @Nonnull RequestedOrdering requestedOrdering) {
+        return satisfiesKeyPartsOrdering(providedOrdering.toPartialOrder(),
+                requestedOrdering.getOrderingKeyParts(),
+                Function.identity())
+                .isPresent();
     }
 
     @Nonnull

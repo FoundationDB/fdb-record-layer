@@ -55,6 +55,7 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
@@ -68,6 +69,8 @@ import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 
 /**
  * A property that determines whether the expression may produce duplicate entries. If the given expression is a
@@ -325,12 +328,23 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
             final ImmutableList.Builder<KeyPart> resultKeyPartBuilder = ImmutableList.builder();
             final List<KeyExpression> normalizedComparisonKeys = comparisonKey.normalizeKeyForPositions();
             for (final KeyExpression normalizedKeyExpression : normalizedComparisonKeys) {
-                if (resultEqualityBoundKeyMap.containsKey(normalizedKeyExpression)) {
-                    resultEqualityBoundKeyMap.removeAll(normalizedKeyExpression);
-                }
                 resultKeyPartBuilder.add(KeyPart.of(normalizedKeyExpression, inUnionPlan.isReverse()));
             }
 
+            final var sourceAliases =
+                    inUnionPlan.getInSources()
+                            .stream()
+                            .map(inSource -> CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))
+                            .collect(ImmutableSet.toImmutableSet());
+
+            for (final var entry : equalityBoundKeyMap.entries()) {
+                final var correlatedTo = entry.getValue().getCorrelatedTo();
+
+                if (correlatedTo.stream().anyMatch(sourceAliases::contains)) {
+                    resultEqualityBoundKeyMap.removeAll(entry.getKey());
+                }
+            }
+            
             return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), childOrdering.isDistinct()));
         } else {
             return Optional.empty();

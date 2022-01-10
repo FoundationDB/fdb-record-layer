@@ -81,8 +81,10 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
             logicalUnionExpression(all(forEachQuantifierOverRef(references(unionLegPlansMatcher))));
 
     @Nonnull
+    private static final BindingMatcher<Quantifier.ForEach> unionForEachQuantifierMatcher = forEachQuantifier(unionExpressionMatcher);
+    @Nonnull
     private static final BindingMatcher<LogicalDistinctExpression> root =
-            logicalDistinctExpression(exactly(forEachQuantifier(unionExpressionMatcher)));
+            logicalDistinctExpression(exactly(unionForEachQuantifierMatcher));
 
     public ImplementDistinctUnionRule() {
         super(root, ImmutableSet.of(OrderingAttribute.ORDERING));
@@ -107,6 +109,7 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
 
         final PlannerBindings bindings = call.getBindings();
 
+        final Quantifier.ForEach unionForEachQuantifier = bindings.get(unionForEachQuantifierMatcher);
         final List<? extends Collection<? extends RecordQueryPlan>> plansByQuantifier = bindings.getAll(unionLegPlansMatcher);
 
         // group each leg's plans by their provided ordering
@@ -141,7 +144,11 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
                 final Optional<Ordering> combinedOrderingOptional =
                         OrderingProperty.deriveForUnionFromOrderings(orderingOptionals, requestedOrdering, Ordering::intersectEqualityBoundKeys);
+                pushInterestingOrders(call, unionForEachQuantifier, orderingOptionals, requestedOrdering);
                 if (combinedOrderingOptional.isEmpty()) {
+                    //
+                    // Push interesting orders down the appropriate quantifiers.
+                    //
                     continue;
                 }
 
@@ -178,6 +185,26 @@ public class ImplementDistinctUnionRule extends PlannerRule<LogicalDistinctExpre
                         .collect(ImmutableList.toImmutableList());
 
                 call.yield(call.ref(RecordQueryUnionPlan.fromQuantifiers(newQuantifiers, comparisonKey, true)));
+            }
+        }
+    }
+
+    private void pushInterestingOrders(@Nonnull PlannerRuleCall call,
+                                       @Nonnull final Quantifier unionForEachQuantifier,
+                                       @Nonnull final ImmutableList<Optional<Ordering>> providedOrderingOptionals,
+                                       @Nonnull final RequestedOrdering requestedOrdering) {
+        final var unionRef = unionForEachQuantifier.getRangesOver();
+        for (Optional<Ordering> providedOrderingOptional : providedOrderingOptionals) {
+            final var providedOrdering =
+                    providedOrderingOptional.orElseThrow(() -> new IllegalStateException("optional must not be empty"));
+
+            if (Ordering.satisfiesRequestedOrdering(providedOrdering, requestedOrdering)) {
+                final var innerRequestedOrdering =
+                        new RequestedOrdering(providedOrdering.getOrderingKeyParts(),
+                                providedOrdering.isDistinct()
+                                ? RequestedOrdering.Distinctness.DISTINCT
+                                : RequestedOrdering.Distinctness.PRESERVE_DISTINCTNESS);
+                call.pushRequirement(unionRef, OrderingAttribute.ORDERING, ImmutableSet.of(innerRequestedOrdering));
             }
         }
     }

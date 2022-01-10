@@ -28,8 +28,10 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.SortedInParameterSource;
 import com.apple.foundationdb.record.query.plan.plans.SortedInValuesSource;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.IdentityBiMap;
+import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.LinkedIdentitySet;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
 import com.apple.foundationdb.record.query.plan.temp.OrderingAttribute;
@@ -46,6 +48,7 @@ import com.apple.foundationdb.record.query.plan.temp.properties.OrderingProperty
 import com.apple.foundationdb.record.query.predicates.LiteralValue;
 import com.apple.foundationdb.record.query.predicates.QuantifiedColumnValue;
 import com.apple.foundationdb.record.query.predicates.Value;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -73,7 +76,7 @@ import static com.apple.foundationdb.record.query.plan.temp.rules.PushInterestin
  * A rule that implements a SELECT over a VALUES and a correlated subexpression as a {@link RecordQueryInUnionPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings("PMD.TooManyStaticImports")
+@SuppressWarnings({"PMD.TooManyStaticImports", "java:S4738"})
 public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
@@ -85,7 +88,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         super(root, ImmutableSet.of(OrderingAttribute.ORDERING));
     }
 
-    @SuppressWarnings({"unchecked", "java:S135"})
+    @SuppressWarnings("java:S135")
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final var context = call.getContext();
@@ -109,6 +112,10 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         }
 
         final var explodeQuantifiers = bindings.get(explodeQuantifiersMatcher);
+        if (explodeQuantifiers.isEmpty()) {
+            return;
+        }
+
         final var explodeAliasToQuantifierMap = Quantifiers.aliasToQuantifierMap(explodeQuantifiers);
         final var explodeAliases = explodeAliasToQuantifierMap.keySet();
         final var innerQuantifierOptional =
@@ -152,132 +159,17 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
 
         for (final Map.Entry<Ordering, ImmutableList<RecordQueryPlan>> providedOrderingEntry : groupedByOrdering.entrySet()) {
             final var providedOrdering = providedOrderingEntry.getKey();
-            final var equalityBoundKeyMap = providedOrdering.getEqualityBoundKeyMap();
 
-            final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
             for (final RequestedOrdering requestedOrdering : requestedOrderings) {
-                final var requestedOrderingKeyParts = requestedOrdering.getOrderingKeyParts();
-
-                final var sourcesBuilder = ImmutableList.<InSource>builder();
-
-                for (final var requestedOrderingKeyPart : requestedOrderingKeyParts) {
-                    final var comparisons = equalityBoundKeyMap.get(requestedOrderingKeyPart.getNormalizedKeyExpression());
-                    if (comparisons.isEmpty()) {
-                        return;
-                    }
-
-                    final var comparisonsCorrelatedTo = comparisons.stream()
-                            .flatMap(comparison -> comparison.getCorrelatedTo().stream())
-                            .collect(ImmutableSet.toImmutableSet());
-
-                    if (comparisonsCorrelatedTo.size() > 1) {
-                        return;
-                    }
-
-                    if (Sets.intersection(comparisonsCorrelatedTo, explodeAliases).isEmpty()) {
-                        //
-                        // This case covers comparisons such as  a = <literal> or a = <correlation> where
-                        // <correlation> is anchored above and therefore this comparison causes an equality-bound
-                        // expression.
-                        //
-                        // Example: requested ordering: a, b, c
-                        //          ins: a explodes over (1, 2)
-                        //               c explodes over ('x', 'y')
-                        //          plan has equality-bound expressions over a, b, c
-                        //
-                        continue;
-                    }
-
-                    final var explodeAlias = Iterables.getOnlyElement(comparisonsCorrelatedTo);
-
-                    //
-                    // The quantifier still has to be available for us to choose from.
-                    //
-                    if (!availableExplodeAliases.contains(explodeAlias)) {
-                        return;
-                    }
-
-                    //
-                    // We need to find the one quantifier over an explode expression that we can use to establish
-                    // the requested order.
-                    //
-                    final var explodeQuantifier =
-                            Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
-                    final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
-
-                    //
-                    // At this point we have a bound key expression that matches the requested order at this position,
-                    // and we have our hands on a particular explode expression leading us directly do the in source.
-                    //
-
-                    final var explodeResultValues = explodeExpression.getResultValues();
-                    if (explodeResultValues.size() != 1) {
-                        return;
-                    }
-                    final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
-
-                    final InSource inSource;
-                    if (explodeValue instanceof LiteralValue<?>) {
-                        final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
-                        if (literalValue instanceof List<?>) {
-                            inSource = new SortedInValuesSource(
-                                    CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                                    (List<Object>)literalValue,
-                                    requestedOrderingKeyPart.isReverse());
-                        } else {
-                            return;
-                        }
-                    } else if (explodeValue instanceof QuantifiedColumnValue) {
-                        inSource = new SortedInParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                                ((QuantifiedColumnValue)explodeValue).getAlias().getId(),
-                                requestedOrderingKeyPart.isReverse());
-                    } else {
-                        return;
-                    }
-                    availableExplodeAliases.remove(explodeAlias);
-                    sourcesBuilder.add(inSource);
+                final ImmutableList<InSource> sources =
+                        getInSourcesForRequestedOrdering(explodeAliasToQuantifierMap,
+                                explodeAliases,
+                                quantifierToExplodeBiMap,
+                                providedOrdering,
+                                requestedOrdering);
+                if (sources.isEmpty()) {
+                    continue;
                 }
-
-                //
-                // We may still have some explodes available that we don't have a particular order requirement for.
-                // Create unsorted sources for these 'left-overs'.
-                //
-                for (final var explodeAlias : availableExplodeAliases) {
-                    final var explodeQuantifier =
-                            Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
-                    final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
-
-                    final var explodeResultValues = explodeExpression.getResultValues();
-                    if (explodeResultValues.size() != 1) {
-                        return;
-                    }
-                    final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
-
-                    final InSource inSource;
-                    if (explodeValue instanceof LiteralValue<?>) {
-                        final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
-                        if (literalValue instanceof List<?>) {
-                            inSource = new InValuesSource(
-                                    CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                                    (List<Object>)literalValue);
-                        } else {
-                            return;
-                        }
-                    } else if (explodeValue instanceof QuantifiedColumnValue) {
-                        inSource = new InParameterSource(
-                                CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
-                                ((QuantifiedColumnValue)explodeValue).getAlias().getId());
-                    } else {
-                        return;
-                    }
-                    sourcesBuilder.add(inSource);
-                }
-
-                //
-                // We can finally build the sources and based on those a right-deep plan starting from the last
-                // (most inner) source moving outward.
-                //
-                final var sources = sourcesBuilder.build();
                 final var reverseSources = Lists.reverse(sources);
 
                 GroupExpressionRef<RecordQueryPlan> newInnerPlanReference = GroupExpressionRef.from(providedOrderingEntry.getValue());
@@ -289,6 +181,164 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                 call.yield(newInnerPlanReference);
             }
         }
+    }
+
+    @Nonnull
+    @SuppressWarnings("unchecked")
+    private ImmutableList<InSource> getInSourcesForRequestedOrdering(@Nonnull final Map<CorrelationIdentifier, Quantifier> explodeAliasToQuantifierMap,
+                                                                     @Nonnull final Set<CorrelationIdentifier> explodeAliases,
+                                                                     @Nonnull final IdentityBiMap<Quantifier.ForEach, ExplodeExpression> quantifierToExplodeBiMap,
+                                                                     @Nonnull final Ordering providedInnerOrdering,
+                                                                     @Nonnull final RequestedOrdering requestedOrdering) {
+        final var availableExplodeAliases = Sets.newLinkedHashSet(explodeAliases);
+
+        final var requestedOrderingKeyParts = requestedOrdering.getOrderingKeyParts();
+        final var sourcesBuilder = ImmutableList.<InSource>builder();
+        final var resultOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+        final var innerOrderingKeyParts = providedInnerOrdering.getOrderingKeyParts();
+        final var innerEqualityBoundKeyMap = providedInnerOrdering.getEqualityBoundKeyMap();
+        final var resultOrderingEqualityBoundKeyMap  =
+                HashMultimap.create(innerEqualityBoundKeyMap);
+
+        for (final var requestedOrderingKeyPart : requestedOrderingKeyParts) {
+            if (availableExplodeAliases.isEmpty()) {
+                //
+                // Available explode aliases have been depleted. We can just break with what we have.
+                //
+                break;
+            }
+
+            final var comparisons = innerEqualityBoundKeyMap.get(requestedOrderingKeyPart.getNormalizedKeyExpression());
+            if (comparisons.isEmpty()) {
+                return ImmutableList.of();
+            }
+
+            final var comparisonsCorrelatedTo = comparisons.stream()
+                    .flatMap(comparison -> comparison.getCorrelatedTo().stream())
+                    .collect(ImmutableSet.toImmutableSet());
+
+            if (comparisonsCorrelatedTo.size() > 1) {
+                return ImmutableList.of();
+            }
+
+            if (Sets.intersection(comparisonsCorrelatedTo, explodeAliases).isEmpty()) {
+                //
+                // This case covers comparisons such as  a = <literal> or a = <correlation> where
+                // <correlation> is anchored above and therefore this comparison causes an equality-bound
+                // expression.
+                //
+                // Example: requested ordering: a, b, c
+                //          ins: a explodes over (1, 2)
+                //               c explodes over ('x', 'y')
+                //          plan has equality-bound expressions over a, b, c
+                //
+                continue;
+            }
+
+            final var explodeAlias = Iterables.getOnlyElement(comparisonsCorrelatedTo);
+
+            //
+            // The quantifier still has to be available for us to choose from.
+            //
+            if (!availableExplodeAliases.contains(explodeAlias)) {
+                return ImmutableList.of();
+            }
+
+            //
+            // We need to find the one quantifier over an explode expression that we can use to establish
+            // the requested order.
+            //
+            final var explodeQuantifier =
+                    Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
+            final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+
+            //
+            // At this point we have a bound key expression that matches the requested order at this position,
+            // and we have our hands on a particular explode expression leading us directly do the in source.
+            //
+
+            final var explodeResultValues = explodeExpression.getResultValues();
+            if (explodeResultValues.size() != 1) {
+                return ImmutableList.of();
+            }
+            final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
+
+            final InSource inSource;
+            if (explodeValue instanceof LiteralValue<?>) {
+                final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+                if (literalValue instanceof List<?>) {
+                    inSource = new SortedInValuesSource(
+                            CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                            (List<Object>)literalValue,
+                            requestedOrderingKeyPart.isReverse());
+                } else {
+                    return ImmutableList.of();
+                }
+            } else if (explodeValue instanceof QuantifiedColumnValue) {
+                inSource = new SortedInParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                        ((QuantifiedColumnValue)explodeValue).getAlias().getId(),
+                        requestedOrderingKeyPart.isReverse());
+            } else {
+                return ImmutableList.of();
+            }
+            availableExplodeAliases.remove(explodeAlias);
+            sourcesBuilder.add(inSource);
+
+            resultOrderingEqualityBoundKeyMap.removeAll(requestedOrderingKeyPart.getNormalizedKeyExpression());
+            resultOrderingKeyPartsBuilder.add(requestedOrderingKeyPart);
+        }
+
+        if (availableExplodeAliases.isEmpty()) {
+            //
+            // All available explode aliases have been depleted. Create an ordering and check against the requested
+            // ordering.
+            //
+            resultOrderingKeyPartsBuilder.addAll(innerOrderingKeyParts);
+            final var resultOrdering = new Ordering(resultOrderingEqualityBoundKeyMap, resultOrderingKeyPartsBuilder.build(), providedInnerOrdering.isDistinct());
+            return Ordering.satisfiesRequestedOrdering(resultOrdering, requestedOrdering)
+                   ? sourcesBuilder.build()
+                   : ImmutableList.of();
+        } else {
+            //
+            // We may still have some explodes available that we don't have a particular order requirement for.
+            // Create unsorted sources for these 'left-overs'.
+            //
+            for (final var explodeAlias : availableExplodeAliases) {
+                final var explodeQuantifier =
+                        Objects.requireNonNull(explodeAliasToQuantifierMap.get(explodeAlias));
+                final var explodeExpression = Objects.requireNonNull(quantifierToExplodeBiMap.getUnwrapped(explodeQuantifier));
+
+                final var explodeResultValues = explodeExpression.getResultValues();
+                if (explodeResultValues.size() != 1) {
+                    return ImmutableList.of();
+                }
+                final var explodeValue = Iterables.getOnlyElement(explodeResultValues);
+
+                final InSource inSource;
+                if (explodeValue instanceof LiteralValue<?>) {
+                    final Object literalValue = ((LiteralValue<?>)explodeValue).getLiteralValue();
+                    if (literalValue instanceof List<?>) {
+                        inSource = new InValuesSource(
+                                CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                                (List<Object>)literalValue);
+                    } else {
+                        return ImmutableList.of();
+                    }
+                } else if (explodeValue instanceof QuantifiedColumnValue) {
+                    inSource = new InParameterSource(CORRELATION.bindingName(explodeQuantifier.getAlias().getId()),
+                            ((QuantifiedColumnValue)explodeValue).getAlias().getId());
+                } else {
+                    return ImmutableList.of();
+                }
+                sourcesBuilder.add(inSource);
+            }
+        }
+
+        //
+        // We can finally build the sources and based on those a right-deep plan starting from the last
+        // (most inner) source moving outward.
+        //
+        return sourcesBuilder.build();
     }
 
     private static IdentityBiMap<Quantifier.ForEach, ExplodeExpression> computeQuantifierToExplodeMap(@Nonnull final Collection<? extends Quantifier.ForEach> quantifiers,

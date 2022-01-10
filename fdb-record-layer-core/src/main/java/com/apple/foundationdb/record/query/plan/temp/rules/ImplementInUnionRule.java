@@ -53,12 +53,13 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Iterators;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -113,6 +114,10 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         }
 
         final var explodeQuantifiers = bindings.get(explodeQuantifiersMatcher);
+        if (explodeQuantifiers.isEmpty()) {
+            return;
+        }
+
         final var explodeAliases = Quantifiers.aliases(explodeQuantifiers);
         final var innerQuantifierOptional =
                 findInnerQuantifier(selectExpression,
@@ -253,23 +258,29 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         return resultMap;
     }
 
-    @SuppressWarnings("java:S135")
     private static Optional<Ordering> orderingForInUnion(@Nonnull Ordering providedOrdering,
                                                          @Nonnull RequestedOrdering requestedOrdering,
                                                          @Nonnull Set<KeyExpression> innerBoundExpressions) {
-        final Iterator<KeyPart> requestedOrderingIterator = requestedOrdering.getOrderingKeyParts().iterator();
+        final var availableInnerBoundExpressions = Sets.newHashSet(innerBoundExpressions);
+        final var providedKeyPartIterator = Iterators.peekingIterator(providedOrdering.getOrderingKeyParts().iterator());
         final ImmutableList.Builder<KeyPart> resultingOrderingKeyPartBuilder = ImmutableList.builder();
-        for (final KeyPart providedKeyPart : providedOrdering.getOrderingKeyParts()) {
-            var toBeAdded = providedKeyPart;
-            while (requestedOrderingIterator.hasNext()) {
-                final var requiredKeyPart = requestedOrderingIterator.next();
-                if (requiredKeyPart.equals(providedKeyPart)) {
-                    break;
-                } else if (innerBoundExpressions.contains(requiredKeyPart.getNormalizedKeyExpression())) {
-                    resultingOrderingKeyPartBuilder.add(KeyPart.of(requiredKeyPart.getNormalizedKeyExpression(), requiredKeyPart.isReverse()));
-                } else {
-                    toBeAdded = null;
-                    break;
+
+        for (final var requestedKeyPart : requestedOrdering.getOrderingKeyParts()) {
+            KeyPart toBeAdded = null;
+            if (providedKeyPartIterator.hasNext()) {
+                final var providedKeyPart = providedKeyPartIterator.peek();
+
+                if (requestedKeyPart.equals(providedKeyPart)) {
+                    toBeAdded = providedKeyPart;
+                    providedKeyPartIterator.next();
+                }
+            }
+
+            if (toBeAdded == null) {
+                final var requestedKeyExpression = requestedKeyPart.getNormalizedKeyExpression();
+                if (innerBoundExpressions.contains(requestedKeyExpression)) {
+                    toBeAdded = requestedKeyPart;
+                    availableInnerBoundExpressions.remove(requestedKeyExpression);
                 }
             }
 
@@ -278,6 +289,22 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
             } else {
                 return Optional.empty();
             }
+        }
+
+        //
+        // Skip all inner bound expressions that are still available. We could potentially add them here, however,
+        // doing so will be adverse to any hopes of getting an in-join planned as the provided orderings for IN-JOIN
+        // and IN-UNION should be compatible if possible when created in their respective Implement... rules.
+        //
+        //availableInnerBoundExpressions.forEach(availableInnerBoundExpression ->
+        //        resultingOrderingKeyPartBuilder.add(KeyPart.of(availableInnerBoundExpression, false)));
+
+        //
+        // For all provided parts that are left-overs.
+        //
+        while (providedKeyPartIterator.hasNext()) {
+            final var providedKeyPart = providedKeyPartIterator.next();
+            resultingOrderingKeyPartBuilder.add(providedKeyPart);
         }
 
         final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap = HashMultimap.create(providedOrdering.getEqualityBoundKeyMap());

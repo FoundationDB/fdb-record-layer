@@ -810,6 +810,10 @@ public class CascadesPlanner implements QueryPlanner {
 
         protected void executeRuleCall(@Nonnull CascadesRuleCall ruleCall) {
             ruleCall.run();
+
+            //
+            // Handle produced artifacts (through yield...() calls)
+            //
             for (final PartialMatch newPartialMatch : ruleCall.getNewPartialMatches()) {
                 taskStack.push(new AdjustMatch(getContext(), getGroup(), getExpression(), newPartialMatch));
             }
@@ -818,8 +822,21 @@ public class CascadesPlanner implements QueryPlanner {
                 exploreExpressionAndOptimizeInputs(getContext(), getGroup(), newExpression, true);
             }
 
-            for (final ExpressionRef<? extends RelationalExpression> reference : ruleCall.getReferencesWithPushedRequirements()) {
-                taskStack.push(new ExploreGroup(context, reference));
+            final var referencesWithPushedRequirements = ruleCall.getReferencesWithPushedRequirements();
+            if (!referencesWithPushedRequirements.isEmpty()) {
+                //
+                // There are two distinct cases:
+                // (1) the rule is a pre-order rule -- we can assume that all other rules rooted at this expression
+                //     will follow after the exploration of the subgraph .
+                // (2) the rule is not a pre-order rule -- we need to push a new task onto the stack after the
+                //     re-exploration using the newly pushed requirement.
+                //
+                if (!(rule instanceof PlannerRule.PreOrderRule)) {
+                    taskStack.push(this);
+                }
+                for (final ExpressionRef<? extends RelationalExpression> reference : referencesWithPushedRequirements) {
+                    taskStack.push(new ExploreGroup(context, reference));
+                }
             }
         }
 
