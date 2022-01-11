@@ -1,9 +1,9 @@
 /*
- * RecordQueryChooserPlan.java
+ * RecordQueryChooserPlanBase.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ import java.util.stream.Stream;
  * Subclasses of this base class will select, at runtime, one or more plans to execute from the list of optional children
  * held in this base class.
  * The invariant enforced by this base class is that all child plans are similar in the sense that they provide results
- * that are interchangeable: The same result set, in a compatible order (if one is specified).
+ * that are interchangeable: the same result set, in a compatible order (if one is specified).
  * Selecting one plan over the other will not have an impact on the client receiving the results.
  */
 public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithChildren {
@@ -63,7 +63,7 @@ public abstract class RecordQueryChooserPlanBase implements RecordQueryPlanWithC
             throw new RecordCoreArgumentException("children of chooser plan do not all have same value for reverse field");
         }
         this.reverse = firstReverse;
-        // Since all child plans are assumed to return the same Values, pick the first one to flow the values back.
+        // Create a list of values that capture all the given sub-plans
         this.resultValuesSupplier = Suppliers.memoize(this::calculateChildrenValues);
     }
 

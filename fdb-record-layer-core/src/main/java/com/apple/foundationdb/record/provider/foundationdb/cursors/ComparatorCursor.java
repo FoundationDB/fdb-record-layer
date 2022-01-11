@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
-import com.google.common.base.Suppliers;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,7 +124,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
 
     /**
      * Create a comparator cursor from several compatibly-ordered cursors.
-     * The returned cursor will the reference results for the reference cursor, preserving order.
+     * The returned cursor will return the reference results for the reference cursor, preserving order.
      * All cursors must return elements in the same order.
      * Additionally, if the comparison key function evaluates to the same value when applied
      * to two elements (possibly from different cursors), then those two elements
@@ -151,7 +150,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
      * @param planStringSupplier function to return the cursor plan's hash (for logging purposes)
      * @param planHashSupplier function to return the cursor plan's string (for logging purposes)
      *
-     * @return a cursor containing all records in all child cursors
+     * @return a cursor that contains the same records as the reference cursor (Note the side effect of logging comparison errors).
      */
     @Nonnull
     public static <T> ComparatorCursor<T> create(
@@ -169,10 +168,10 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
     /**
      * Calculate and return the reason the cursor returns a no-next result. At this point, it is assumed that the
      * {@link #computeNextResultStates} method has finished and the cursor has stopped. This can be because all
-     * sub-cursors are exhausted, or otherwise they all have non-exhaustion reason. Calculate the weakest reason
+     * sub-cursors are exhausted; otherwise they will all have non-exhaustion reasons. Calculate the strongest reason
      * and return it so that continuation can pick up from that point.
      *
-     * @return the weakest reason for stopping
+     * @return the strongest reason for stopping
      */
     @Override
     @Nonnull

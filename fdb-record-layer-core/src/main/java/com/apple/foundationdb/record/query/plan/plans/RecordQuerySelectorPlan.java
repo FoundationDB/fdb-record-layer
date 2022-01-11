@@ -3,7 +3,7 @@
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -65,9 +65,9 @@ import java.util.stream.Collectors;
  * A {@link RecordQueryChooserPlanBase} that selects one of its children to be executed.
  * This plan can be used to allow the planner to have a few optional plans to be executed where the decision on which
  * one actually gets run is deferred to execution time.
- * The selector can be used with a given lambda that selects among the plans, and as a convenience, a relative priority
- * selector is also provided. The relative priority selector takes a list of priorities (each associated with a plan)
- * and selects a plan at random with relative priority as given by the priority of the plan.
+ * The selector can be used with a given lambda that selects among the plans, and as a convenience, a relative probability
+ * selector is also provided. The relative probability selector takes a list of probabilities (each associated with a plan)
+ * and selects a plan at random with relative probability as given by the probability associated with the plan.
  */
 public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     public static final Logger LOGGER = LoggerFactory.getLogger(RecordQuerySelectorPlan.class);
@@ -82,25 +82,25 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
     }
 
     /**
-     * Factory method that takes in a list of relative priorities and created a selection policy based on the priorities.
+     * Factory method that takes in a list of relative probabilities and created a selection policy based on them.
      *
      * @param children the list of subplans
-     * @param relativePlanPriorities a list (of the same length as the children) that determines the relative
-     * priority for selecting the plan. Sum of all the priorities must be 1.0
+     * @param relativePlanProbabilities a list (of the same length as the children) that determines the relative
+     * probability for selecting the plan. Sum of all the probabilities must be 100.
      * @return newly created plan
      */
-    public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final List<Integer> relativePlanPriorities) {
-        if (children.size() != relativePlanPriorities.size()) {
-            throw new RecordCoreArgumentException("Number of plans and number of relative priorities should be the same");
+    public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final List<Integer> relativePlanProbabilities) {
+        if (children.size() != relativePlanProbabilities.size()) {
+            throw new RecordCoreArgumentException("Number of plans and number of relative probabilities should be the same");
         }
-        return RecordQuerySelectorPlan.from(children, new RelativePriorityPlanSelector(relativePlanPriorities));
+        return RecordQuerySelectorPlan.from(children, new RelativeProbabilityPlanSelector(relativePlanProbabilities));
     }
 
     /**
      * Factory method that takes in a {@link PlanSelector}.
      *
      * @param children the list of subplans
-     * @param planSelector the plan selector to use priority for selecting the plan. Sum of all the priorities must be 1.0
+     * @param planSelector the plan selector to use
      * @return newly created plan
      */
     public static RecordQuerySelectorPlan from(@Nonnull List<? extends RecordQueryPlan> children, @Nonnull final PlanSelector planSelector) {
@@ -207,7 +207,7 @@ public class RecordQuerySelectorPlan extends RecordQueryChooserPlanBase {
             // Continuation overrides the lambda selection.
             return (int)continuation.getSelectedPlanIndex();
         } else {
-            // Select a plan according to the relative priorities
+            // Select a plan using the plan selector
             return planSelector.selectPlan(getChildren());
         }
     }

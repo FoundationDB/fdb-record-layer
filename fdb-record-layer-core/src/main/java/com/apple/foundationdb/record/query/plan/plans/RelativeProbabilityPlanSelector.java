@@ -1,9 +1,9 @@
 /*
- * RelativePriority.java
+ * RelativeProbabilityPlanSelector.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,60 +32,60 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * A utility class to implement an algorithm to make a random selection based off of relative priorities.
- * The priorities are given in the list of priorities (to the constructor) and the selector chooses a number (between
- * 0 and the priorities.size - 1), where the chance for a given selection to be picked being relative to its value.
- * The relative priorities are given as % points: they should all add up to 100.
+ * A utility class to implement an algorithm to make a random selection based off of relative probabilities.
+ * The probabilities are given in the list to the constructor, and the selector chooses a number (between
+ * 0 and the probabilities.size - 1), where the chance for a given selection to be picked being relative to its value.
+ * The relative probabilities are given as % points: they should all add up to 100.
  * For example, with the given list having {50, 35, 15}, at 50% the selector will pick #0, at 35% #1 and at 15%, #2.
  */
-public class RelativePriorityPlanSelector implements PlanSelector {
-    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Relative-Priority-Plan-Selector");
+public class RelativeProbabilityPlanSelector implements PlanSelector {
+    private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Relative-Probability-Plan-Selector");
     @Nonnull
-    List<Integer> priorities;
+    List<Integer> probabilities;
     @Nonnull
     Random random;
 
     /**
-     * Create a new priority selector with the given priority list.
-     * @param priorities the list of priorities. These should all add up to 100.
+     * Create a new probability selector with the given probabilities list.
+     * @param probabilities the list of probabilities. These should all add up to 100.
      */
-    public RelativePriorityPlanSelector(@Nonnull final List<Integer> priorities) {
-        this(priorities, ThreadLocalRandom.current());
+    public RelativeProbabilityPlanSelector(@Nonnull final List<Integer> probabilities) {
+        this(probabilities, ThreadLocalRandom.current());
     }
 
     @VisibleForTesting
-    RelativePriorityPlanSelector(@Nonnull final List<Integer> priorities, @Nonnull final Random random) {
-        if (priorities.isEmpty()) {
-            throw new RecordCoreArgumentException("Priority selector should have at least one priority");
+    RelativeProbabilityPlanSelector(@Nonnull final List<Integer> probabilities, @Nonnull final Random random) {
+        if (probabilities.isEmpty()) {
+            throw new RecordCoreArgumentException("Probability selector should have at least one probability");
         }
-        this.priorities = List.copyOf(priorities);
+        this.probabilities = List.copyOf(probabilities);
         this.random = random;
-        int sumAll = this.priorities.stream().mapToInt(Integer::intValue).sum();
+        int sumAll = this.probabilities.stream().mapToInt(Integer::intValue).sum();
         if (sumAll != 100) {
-            throw new RecordCoreArgumentException("Priorities should all add up to 100");
+            throw new RecordCoreArgumentException("Probabilities should all add up to 100");
         }
     }
 
     @Override
     public int selectPlan(@Nonnull final List<RecordQueryPlan> plans) {
         int rand = random.nextInt(100) + 1;
-        int sum = priorities.get(0);
+        int sum = probabilities.get(0);
         int index = 0;
         while (sum < rand) {
-            sum += priorities.get(++index);
+            sum += probabilities.get(++index);
         }
         return index;
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
-        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, priorities);
+        return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, probabilities);
     }
 
     @Override
     public String toString() {
-        return "RelativePriorityPlanSelector{" +
-               "priorities=" + priorities +
+        return "RelativeProbabilityPlanSelector{" +
+               "probabilities=" + probabilities +
                '}';
     }
 
@@ -97,12 +97,12 @@ public class RelativePriorityPlanSelector implements PlanSelector {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        final RelativePriorityPlanSelector that = (RelativePriorityPlanSelector)o;
-        return priorities.equals(that.priorities);
+        final RelativeProbabilityPlanSelector that = (RelativeProbabilityPlanSelector)o;
+        return probabilities.equals(that.probabilities);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(priorities);
+        return Objects.hash(probabilities);
     }
 }

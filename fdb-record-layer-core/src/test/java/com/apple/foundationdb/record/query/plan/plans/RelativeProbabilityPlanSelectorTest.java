@@ -1,9 +1,9 @@
 /*
- * RelativePriorityTest.java
+ * RelativeProbabilityPlanSelectorTest.java
  *
  * This source file is part of the FoundationDB open source project
  *
- * Copyright 2015-2021 Apple Inc. and the FoundationDB project authors
+ * Copyright 2015-2022 Apple Inc. and the FoundationDB project authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,38 +28,38 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Random;
 
-public class RelativePriorityPlanSelectorTest {
+public class RelativeProbabilityPlanSelectorTest {
     @Test
     void testSelectRandom() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(60));
+        RelativeProbabilityPlanSelector classUnderTest = new RelativeProbabilityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(60));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(1, selectedIndex);
     }
 
     @Test
     void testSelectRandomZero() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(0));
+        RelativeProbabilityPlanSelector classUnderTest = new RelativeProbabilityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(0));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(0, selectedIndex);
     }
 
     @Test
     void testSelectRandomOne() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(99));
+        RelativeProbabilityPlanSelector classUnderTest = new RelativeProbabilityPlanSelector(Arrays.asList(20, 50, 30), new MockRandom(99));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(2, selectedIndex);
     }
 
     @Test
     void testSelectRandomOnePriority() {
-        RelativePriorityPlanSelector classUnderTest = new RelativePriorityPlanSelector(Collections.singletonList(100), new MockRandom(50));
+        RelativeProbabilityPlanSelector classUnderTest = new RelativeProbabilityPlanSelector(Collections.singletonList(100), new MockRandom(50));
         int selectedIndex = classUnderTest.selectPlan(Collections.emptyList());
         Assertions.assertEquals(0, selectedIndex);
     }
 
     @Test
     void testEmpty() throws Exception {
-        Assertions.assertThrows(RecordCoreArgumentException.class, () -> new RelativePriorityPlanSelector(Collections.emptyList(), new MockRandom(50)));
+        Assertions.assertThrows(RecordCoreArgumentException.class, () -> new RelativeProbabilityPlanSelector(Collections.emptyList(), new MockRandom(50)));
     }
 
     private static class MockRandom extends Random {
