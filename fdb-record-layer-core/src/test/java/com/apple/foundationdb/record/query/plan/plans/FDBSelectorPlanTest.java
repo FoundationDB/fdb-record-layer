@@ -158,7 +158,6 @@ public class FDBSelectorPlanTest extends FDBRecordStoreQueryTestBase {
         assertThat(result.getNoNextReason(), is(RecordCursor.NoNextReason.SOURCE_EXHAUSTED));
     }
 
-
     @DualPlannerTest
     void testPlanValues() throws Throwable {
         complexQuerySetup(NO_HOOK);
