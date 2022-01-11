@@ -45,7 +45,7 @@ public class SortedInValuesSource extends InValuesSource {
 
     @Override
     public boolean isReverse() {
-        return false;
+        return isReverse;
     }
 
     @Override

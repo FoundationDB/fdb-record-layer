@@ -169,16 +169,12 @@ public class SplitSelectExtractIndependentQuantifiersRule extends PlannerRule<Se
             return false;
         }
 
-        if (selectExpression
+        return selectExpression
                 .getResultValues()
                 .stream()
-                .anyMatch(value ->
+                .noneMatch(value ->
                         value.narrowMaybe(QuantifiedValue.class)
                                 .filter(quantifiedValue -> !explodeAliases.contains(quantifiedValue.getAlias()))
-                                .isEmpty())) {
-            return false;
-        }
-
-        return true;
+                                .isEmpty());
     }
 }

@@ -296,8 +296,6 @@ public class ImplementInUnionRule extends PlannerRule<SelectExpression> {
         // doing so will be adverse to any hopes of getting an in-join planned as the provided orderings for IN-JOIN
         // and IN-UNION should be compatible if possible when created in their respective Implement... rules.
         //
-        //availableInnerBoundExpressions.forEach(availableInnerBoundExpression ->
-        //        resultingOrderingKeyPartBuilder.add(KeyPart.of(availableInnerBoundExpression, false)));
 
         //
         // For all provided parts that are left-overs.

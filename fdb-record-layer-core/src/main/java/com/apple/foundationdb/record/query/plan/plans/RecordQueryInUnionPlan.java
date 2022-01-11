@@ -192,7 +192,9 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
-                        NodeInfo.IN_UNION_OPERATOR);
+                        NodeInfo.IN_UNION_OPERATOR,
+                        ImmutableList.of("COMPARE BY {{comparisonKey}}"),
+                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString())));
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,

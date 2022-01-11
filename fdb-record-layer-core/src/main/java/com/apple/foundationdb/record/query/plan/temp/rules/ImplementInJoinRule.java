@@ -76,7 +76,7 @@ import static com.apple.foundationdb.record.query.plan.temp.rules.PushInterestin
  * A rule that implements a SELECT over a VALUES and a correlated subexpression as a {@link RecordQueryInUnionPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-@SuppressWarnings({"PMD.TooManyStaticImports", "java:S4738"})
+@SuppressWarnings({"PMD.TooManyStaticImports", "java:S4738", "java:S3776"})
 public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
     private static final BindingMatcher<ExplodeExpression> explodeExpressionMatcher = explodeExpression();
     private static final CollectionMatcher<Quantifier.ForEach> explodeQuantifiersMatcher = some(forEachQuantifier(explodeExpressionMatcher));
@@ -200,14 +200,8 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         final var resultOrderingEqualityBoundKeyMap  =
                 HashMultimap.create(innerEqualityBoundKeyMap);
 
-        for (final var requestedOrderingKeyPart : requestedOrderingKeyParts) {
-            if (availableExplodeAliases.isEmpty()) {
-                //
-                // Available explode aliases have been depleted. We can just break with what we have.
-                //
-                break;
-            }
-
+        for (var i = 0; i < requestedOrderingKeyParts.size() && !availableExplodeAliases.isEmpty(); i++) {
+            final var requestedOrderingKeyPart = requestedOrderingKeyParts.get(i);
             final var comparisons = innerEqualityBoundKeyMap.get(requestedOrderingKeyPart.getNormalizedKeyExpression());
             if (comparisons.isEmpty()) {
                 return ImmutableList.of();

@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
+import com.apple.foundationdb.record.query.plan.temp.expressions.ExplodeExpression;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -31,9 +32,14 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * Helper class to describe an IN-list for physical {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
+ * IN lists can be based on values or other outer bindings through the use of parameter names or correlations.
+ * This class is more or less a physical counterpart of a {@link Quantifier} ranging over an {@link ExplodeExpression}.
+ */
 public abstract class InSource implements PlanHashable {
     @SuppressWarnings("unchecked")
-    private static final Comparator<Object> VALUE_COMPARATOR = (o1, o2) -> ((Comparable)o1).compareTo((Comparable)o2);
+    private static final Comparator<Object> VALUE_COMPARATOR = Comparator.comparing(Comparable.class::cast);
 
     @Nonnull
     private final String bindingName;
@@ -65,6 +71,8 @@ public abstract class InSource implements PlanHashable {
     public abstract RecordQueryInJoinPlan toInJoinPlan(@Nonnull final Quantifier.Physical innerQuantifier);
 
     public int baseHash(@Nonnull final PlanHashKind hashKind, @Nonnull ObjectPlanHash objectPlanHash) {
+        // TODO We should really use objectPlanHash here, too, but it seems doing so will change a lot
+        //      of plan hashes.
         return objectPlanHash.planHash(hashKind);
     }
 
