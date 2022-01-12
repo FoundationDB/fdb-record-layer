@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorIterator;
+import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordMetaData;
 import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestHelpers;
@@ -53,7 +54,11 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -70,7 +75,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase {
     protected void setupSimpleRecordStore(RecordMetaDataHook recordMetaDataHook,
-                                        BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord)
+                                          BiConsumer<Integer, TestRecords1Proto.MySimpleRecord.Builder> buildRecord)
             throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, recordMetaDataHook);
@@ -114,6 +119,52 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
         }
     }
 
+    /**
+     * A query execution utility that can handle continuations. This is very similar to the above {@link #querySimpleRecordStore}
+     * with the additional support for {@link ExecuteProperties} and continuation.
+     * This method returns the last result encountered. In the case where the row limit was encountered, this would be the one
+     * result that contains the continuation that should be used on the next call.
+     * @param recordMetaDataHook Metadata hook to invoke while opening store
+     * @param plan the plan to execute
+     * @param contextSupplier provider method to get execution context
+     * @param continuation execution continuation
+     * @param executeProperties execution properties to pass into the execute method
+     * @param checkNumRecords Consumer that verifies correct number of records returned
+     * @param checkRecord Consumer that asserts every record retrieved
+     * @param checkDiscarded Consumer that asserts the number of discarded records
+     * @return the last result from the cursor
+     * @throws Throwable any thrown exception, or its cause if the exception is a {@link ExecutionException}
+     */
+    protected RecordCursorResult<FDBQueriedRecord<Message>> querySimpleRecordStoreWithContinuation(@Nonnull RecordMetaDataHook recordMetaDataHook,
+                                                                                                   @Nonnull RecordQueryPlan plan,
+                                                                                                   @Nonnull Supplier<EvaluationContext> contextSupplier,
+                                                                                                   @Nullable byte[] continuation,
+                                                                                                   @Nonnull ExecuteProperties executeProperties,
+                                                                                                   @Nonnull Consumer<Integer> checkNumRecords,
+                                                                                                   @Nonnull Consumer<TestRecords1Proto.MySimpleRecord.Builder> checkRecord,
+                                                                                                   @Nonnull Consumer<FDBRecordContext> checkDiscarded)
+            throws Throwable {
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, recordMetaDataHook);
+            AtomicInteger i = new AtomicInteger(0);
+            CompletableFuture<RecordCursorResult<FDBQueriedRecord<Message>>> lastResult;
+            RecordCursor<FDBQueriedRecord<Message>> cursor = plan.execute(recordStore, contextSupplier.get(), continuation, executeProperties);
+            lastResult = cursor.forEachResult(result -> {
+                TestRecords1Proto.MySimpleRecord.Builder myrec = TestRecords1Proto.MySimpleRecord.newBuilder();
+                myrec.mergeFrom(result.get().getRecord());
+                checkRecord.accept(myrec);
+                i.incrementAndGet();
+            });
+            lastResult.get();
+            checkNumRecords.accept(i.get());
+            checkDiscarded.accept(context);
+            clearStoreCounter(context); // TODO a hack until this gets refactored properly
+            return lastResult.get();
+        } catch (ExecutionException ex) {
+            throw ex.getCause();
+        }
+    }
+
     protected void complexQuerySetup(RecordMetaDataHook hook) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
@@ -126,7 +177,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
                 recBuilder.setNumValue2(i % 3);
                 recBuilder.setNumValue3Indexed(i % 5);
 
-                for (int j = 0; j < i % 10; j++)  {
+                for (int j = 0; j < i % 10; j++) {
                     recBuilder.addRepeater(j);
                 }
                 recordStore.saveRecord(recBuilder.build());
@@ -258,7 +309,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void setupRecordsWithHeader(RecordMetaDataHook recordMetaDataHook,
-                                        BiConsumer<Integer, TestRecordsWithHeaderProto.MyRecord.Builder> buildRecord) throws Exception {
+                                          BiConsumer<Integer, TestRecordsWithHeaderProto.MyRecord.Builder> buildRecord) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
 
@@ -272,19 +323,19 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan, byte[] continuation, int limit,
-                                        TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
+                                          TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
         queryRecordsWithHeader(recordMetaDataHook, plan, continuation, limit, handleResults, context -> { });
     }
 
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan, byte[] continuation, int limit,
-                                        TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults,
-                                        TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
+                                          TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults,
+                                          TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
             final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = recordStore.executeQuery(plan, continuation, ExecuteProperties.newBuilder()
-                    .setReturnedRowLimit(limit)
-                    .build())
+                            .setReturnedRowLimit(limit)
+                            .build())
                     .map(r -> TestRecordsWithHeaderProto.MyRecord.newBuilder().mergeFrom(r.getRecord()));
             handleResults.accept(cursor);
             checkDiscarded.accept(context);
@@ -293,13 +344,13 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
     }
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
-                                        TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
+                                          TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults) throws Exception {
         queryRecordsWithHeader(recordMetaDataHook, plan, handleResults, context -> { });
     }
 
     protected void queryRecordsWithHeader(RecordMetaDataHook recordMetaDataHook, RecordQueryPlan plan,
-                                        TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults,
-                                        TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
+                                          TestHelpers.DangerousConsumer<RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder>> handleResults,
+                                          TestHelpers.DangerousConsumer<FDBRecordContext> checkDiscarded) throws Exception {
         try (FDBRecordContext context = openContext()) {
             openRecordWithHeader(context, recordMetaDataHook);
             final RecordCursor<TestRecordsWithHeaderProto.MyRecord.Builder> cursor = recordStore.executeQuery(plan)
@@ -401,7 +452,7 @@ public abstract class FDBRecordStoreQueryTestBase extends FDBRecordStoreTestBase
 
     protected void setOptimizeForIndexFilters(boolean shouldOptimizeForIndexFilters) {
         assertTrue(planner instanceof RecordQueryPlanner);
-        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner) planner;
+        RecordQueryPlanner recordQueryPlanner = (RecordQueryPlanner)planner;
         recordQueryPlanner.setConfiguration(recordQueryPlanner.getConfiguration()
                 .asBuilder()
                 .setOptimizeForIndexFilters(shouldOptimizeForIndexFilters)

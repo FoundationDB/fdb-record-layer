@@ -191,6 +191,10 @@ public class FDBStoreTimer extends StoreTimer {
         QUERY_DISTINCT("compare query records for distinct"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedPrimaryKeyDistinctPlan} as part of executing a query. */
         QUERY_PK_DISTINCT("compare record primary key for distinct"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan} as part of executing a query. */
+        QUERY_SELECTOR("execute one iteration of selected plan"),
+        /** The amount of time spent in {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan} as part of executing a query. */
+        QUERY_COMPARATOR("execute multiple plans and compare results"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardDirectoryOperation}. */
         TIME_WINDOW_LEADERBOARD_GET_DIRECTORY("leaderboard get directory"),
         /** The amount of time spent in {@link com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowLeaderboardWindowUpdate}. */
@@ -600,6 +604,16 @@ public class FDBStoreTimer extends StoreTimer {
         QUERY_AGGREGATE_GROUPS("number of aggregate groups", false),
         /** The max size of aggregate group created by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryStreamingAggregatePlan}. */
         QUERY_AGGREGATE_GROUP_MAX_SIZE("max size of aggregate group", false),
+        /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
+        PLAN_COMPARATOR("number of comparator plans", false),
+        /** The number of query plans that include a {@link com.apple.foundationdb.record.query.plan.plans.RecordQuerySelectorPlan}. */
+        PLAN_SELECTOR("number of selector plans", false),
+        /** The number of matching records by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
+        QUERY_COMPARATOR_MATCH("number of records matched", false),
+        /** The number of comparison failures by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
+        QUERY_COMPARATOR_MISMATCH("number of record comparison mismatched", false),
+        /** The number of comparisons made by {@link com.apple.foundationdb.record.query.plan.plans.RecordQueryComparatorPlan}. */
+        QUERY_COMPARATOR_COMPARED("number of comparisons", false),
         /** The number of times the read version was taken from the cache of the last seen version. */
         SET_READ_VERSION_TO_LAST_SEEN("set read version to last seen version", false),
         /** The number of records scanned by {@link OnlineIndexer}. */

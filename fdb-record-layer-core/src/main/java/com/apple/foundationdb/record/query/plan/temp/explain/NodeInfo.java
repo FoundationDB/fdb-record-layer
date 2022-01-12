@@ -169,6 +169,16 @@ public class NodeInfo {
             NodeIcon.COMPUTATION_OPERATOR,
             "Streaming Aggregate",
             "A streaming aggregate operator accumulates values from its input and applies a function to produce new values (e.g. SUM, MAX). It also groups the inputs by its grouping parameters.");
+    public static final NodeInfo COMPARATOR_OPERATOR = new NodeInfo(
+            "ComparatorOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "Comparator",
+            "A Comparator operator iterates through all of its children and compares their results, asserting that they are all the same.");
+    public static final NodeInfo SELECTOR_OPERATOR = new NodeInfo(
+            "SelectorOperator",
+            NodeIcon.COMPUTATION_OPERATOR,
+            "Selector",
+            "A Selector operator selects one child to run as the selected plan.");
 
     private final String id;
     private final String iconId;
