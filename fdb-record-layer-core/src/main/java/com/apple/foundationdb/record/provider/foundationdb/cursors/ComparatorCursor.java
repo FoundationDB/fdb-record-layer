@@ -24,6 +24,7 @@ import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.logging.KeyValueLogMessage;
 import com.apple.foundationdb.record.logging.LogMessageKeys;
+import com.apple.foundationdb.record.metadata.Key;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
@@ -117,7 +118,7 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
             @Nonnull final Supplier<String> planStringSupplier,
             @Nonnull final Supplier<Integer> planHashSupplier) {
         return create(
-                (S rec) -> comparisonKey.evaluateSingleton(rec).toTupleAppropriateList(),
+                (S rec) -> evaluateKey(comparisonKey, rec),
                 cursorFunctions, continuation, store.getTimer(),
                 referencePlanIndex, planStringSupplier, planHashSupplier);
     }
@@ -263,6 +264,31 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
         return cursorStates;
     }
 
+    /**
+     * The evaluation function that evaluates the comparison key over a record to return the key value.
+     * For the most part, this function evaluates to something similar to {@link KeyExpression#evaluateSingleton(FDBRecord)}.
+     * IN the case of nested repeated fields, though, this function will return a value that will *always fail*
+     * comparison.
+     * The reason is, in the cases of nested repeated fields, we cannot yet perform proper comparison since we don't
+     * yet have the ability to compare multiple keys for equality.
+     *
+     * @param comparisonKey the key to apply to the record
+     * @param rec the record in question
+     * @param <M> the type of encoding for the record
+     * @param <S> the type of record
+     *
+     * @return the result of applying the key to the record, for the purpose of comparison to other records
+     */
+    @Nonnull
+    private static <M extends Message, S extends FDBRecord<M>> List<Object> evaluateKey(final @Nonnull KeyExpression comparisonKey, final S rec) {
+        final List<Key.Evaluated> keys = comparisonKey.evaluate(rec);
+        if (keys.size() != 1) {
+            return Collections.singletonList(new Unequal());
+        } else {
+            return keys.get(0).toTupleAppropriateList();
+        }
+    }
+
     private boolean compareAllStates(final List<KeyedMergeCursorState<T>> cursorStates) {
         final long startTime = System.nanoTime();
 
@@ -340,6 +366,30 @@ public class ComparatorCursor<T> extends MergeCursor<T, T, KeyedMergeCursorState
                         LogMessageKeys.PLAN, planStringSupplier.get());
                 logger.error(message.toString());
             }
+        }
+    }
+
+    /**
+     * An internal class that is never equal to anything (other than itself).
+     */
+    private static class Unequal implements Comparable<Object> {
+        @Override
+        public int compareTo(@Nonnull final Object o) {
+            if (this == o) {
+                return 0;
+            } else {
+                return 1;
+            }
+        }
+
+        @Override
+        public int hashCode() {
+            return super.hashCode();
+        }
+
+        @Override
+        public boolean equals(final Object o) {
+            return super.equals(o);
         }
     }
 }
