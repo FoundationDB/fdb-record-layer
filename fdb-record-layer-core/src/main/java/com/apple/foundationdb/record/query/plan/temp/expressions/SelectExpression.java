@@ -230,6 +230,12 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
 
         final ImmutableSet<CorrelationIdentifier> matchedCorrelatedTo = matchedCorrelatedToBuilder.build();
 
+        if (getQuantifiers()
+                .stream()
+                .anyMatch(quantifier -> quantifier instanceof Quantifier.ForEach && !partialMatchMap.containsKeyUnwrapped(quantifier))) {
+            return ImmutableList.of();
+        }
+
         final boolean allNonMatchedQuantifiersIndependent =
                 getQuantifiers()
                         .stream()
@@ -287,15 +293,9 @@ public class SelectExpression implements RelationalExpressionWithChildren, Relat
         }
 
         for (final QueryPredicate predicate : getPredicates()) {
-            final Set<CorrelationIdentifier> correlatedTo =
-                    predicate.getCorrelatedTo();
-
-            // TODO join predicates
-            if (correlatedTo.size() == 1) {
-                final Set<PredicateMapping> impliedMappingsForPredicate =
-                        predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
-                predicateMappingsBuilder.add(impliedMappingsForPredicate);
-            }
+            final Set<PredicateMapping> impliedMappingsForPredicate =
+                    predicate.findImpliedMappings(aliasMap, otherSelectExpression.getPredicates());
+            predicateMappingsBuilder.add(impliedMappingsForPredicate);
         }
 
         //

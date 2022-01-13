@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexScanType;
@@ -210,8 +211,11 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     public void in() throws Exception {
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
                 new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE,
-                        new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "in_num")), Collections.emptySet()), false),
-                        "in_num", Arrays.asList(2, 4), false, false);
+                        new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "in_num")), Collections.emptySet()),
+                        false),
+                "in_num",
+                Bindings.Internal.IN,
+                Arrays.asList(2, 4), false, false);
         compareSkipsAndCursors(plan);
     }
 

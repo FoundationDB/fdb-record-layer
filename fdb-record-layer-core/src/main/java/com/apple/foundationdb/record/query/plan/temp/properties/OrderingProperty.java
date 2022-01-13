@@ -29,6 +29,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIntersectionPlan;
@@ -38,6 +39,7 @@ import com.apple.foundationdb.record.query.plan.plans.RecordQueryPredicatesFilte
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryScanPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryUnorderedUnionPlan;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.ExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.KeyPart;
 import com.apple.foundationdb.record.query.plan.temp.Ordering;
@@ -53,6 +55,7 @@ import com.apple.foundationdb.record.query.predicates.FieldValue;
 import com.apple.foundationdb.record.query.predicates.ValuePredicate;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
@@ -66,6 +69,8 @@ import java.util.Optional;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static com.apple.foundationdb.record.Bindings.Internal.CORRELATION;
 
 /**
  * A property that determines whether the expression may produce duplicate entries. If the given expression is a
@@ -137,6 +142,8 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
                     Ordering::intersectEqualityBoundKeys);
         } else if (expression instanceof RecordQueryInUnionPlan) {
             return deriveForInUnionFromOrderings(childResults, (RecordQueryInUnionPlan)expression);
+        } else if (expression instanceof RecordQueryInJoinPlan) {
+            return deriveForInJoinFromOrderings(childResults, (RecordQueryInJoinPlan)expression);
         } else if (expression instanceof RecordQueryPredicatesFilterPlan) {
             return deriveForPredicatesFilterFromOrderings(childResults, (RecordQueryPredicatesFilterPlan)expression);
         } else {
@@ -313,7 +320,7 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
                                                                    @Nonnull final RecordQueryInUnionPlan inUnionPlan) {
         final Optional<Ordering> childOrderingOptional = Iterables.getOnlyElement(orderingOptionals);
         if (childOrderingOptional.isPresent()) {
-            final Ordering childOrdering = childOrderingOptional.get();
+            final var childOrdering = childOrderingOptional.get();
             final SetMultimap<KeyExpression, Comparisons.Comparison> equalityBoundKeyMap = childOrdering.getEqualityBoundKeyMap();
             final KeyExpression comparisonKey = inUnionPlan.getComparisonKey();
 
@@ -321,13 +328,79 @@ public class OrderingProperty implements PlannerProperty<Optional<Ordering>> {
             final ImmutableList.Builder<KeyPart> resultKeyPartBuilder = ImmutableList.builder();
             final List<KeyExpression> normalizedComparisonKeys = comparisonKey.normalizeKeyForPositions();
             for (final KeyExpression normalizedKeyExpression : normalizedComparisonKeys) {
-                if (resultEqualityBoundKeyMap.containsKey(normalizedKeyExpression)) {
-                    resultEqualityBoundKeyMap.removeAll(normalizedKeyExpression);
-                }
                 resultKeyPartBuilder.add(KeyPart.of(normalizedKeyExpression, inUnionPlan.isReverse()));
             }
 
+            final var sourceAliases =
+                    inUnionPlan.getInSources()
+                            .stream()
+                            .map(inSource -> CorrelationIdentifier.of(CORRELATION.identifier(inSource.getBindingName())))
+                            .collect(ImmutableSet.toImmutableSet());
+
+            for (final var entry : equalityBoundKeyMap.entries()) {
+                final var correlatedTo = entry.getValue().getCorrelatedTo();
+
+                if (correlatedTo.stream().anyMatch(sourceAliases::contains)) {
+                    resultEqualityBoundKeyMap.removeAll(entry.getKey());
+                }
+            }
+            
             return Optional.of(new Ordering(resultEqualityBoundKeyMap, resultKeyPartBuilder.build(), childOrdering.isDistinct()));
+        } else {
+            return Optional.empty();
+        }
+    }
+
+    @SuppressWarnings("java:S135")
+    public static Optional<Ordering> deriveForInJoinFromOrderings(@Nonnull final List<Optional<Ordering>> orderingOptionals,
+                                                                  @Nonnull final RecordQueryInJoinPlan inJoinPlan) {
+        final Optional<Ordering> childOrderingOptional = Iterables.getOnlyElement(orderingOptionals);
+        if (childOrderingOptional.isPresent()) {
+            final var childOrdering = childOrderingOptional.get();
+            final var equalityBoundKeyMap = childOrdering.getEqualityBoundKeyMap();
+            final var inSource = inJoinPlan.getInSource();
+            final CorrelationIdentifier inAlias = inJoinPlan.getInAlias();
+
+            final SetMultimap<KeyExpression, Comparisons.Comparison> resultEqualityBoundKeyMap =
+                    HashMultimap.create(equalityBoundKeyMap);
+            KeyExpression inKeyExpression = null;
+            for (final var entry : equalityBoundKeyMap.entries()) {
+                // TODO we only look for the first entry that matches. That is enough for the in-to-join case,
+                //      however, it is possible that more than one different key expressions are equality-bound
+                //      by this in. That would constitute to more than one concurrent order which we cannot
+                //      express at the moment (we need the PartialOrder approach for that).
+                final var comparison = entry.getValue();
+                final var correlatedTo = comparison.getCorrelatedTo();
+                if (correlatedTo.size() != 1) {
+                    continue;
+                }
+
+                if (inAlias.equals(Iterables.getOnlyElement(correlatedTo))) {
+                    inKeyExpression = entry.getKey();
+                    resultEqualityBoundKeyMap.removeAll(inKeyExpression);
+                    break;
+                }
+            }
+
+            if (inKeyExpression == null || !inSource.isSorted()) {
+                //
+                // This can only really happen if the inSource is not sorted.
+                // We can only propagate equality-bound information. Everything related to order and
+                // distinctness is lost.
+                //
+                return Optional.of(new Ordering(resultEqualityBoundKeyMap, ImmutableList.of(), false));
+            }
+
+            //
+            // Prepend the existing order with the key expression we just found.
+            //
+            final var resultOrderingKeyPartsBuilder = ImmutableList.<KeyPart>builder();
+            resultOrderingKeyPartsBuilder.add(KeyPart.of(inKeyExpression, inSource.isReverse()));
+            resultOrderingKeyPartsBuilder.addAll(childOrdering.getOrderingKeyParts());
+
+            return Optional.of(new Ordering(resultEqualityBoundKeyMap,
+                    resultOrderingKeyPartsBuilder.build(),
+                    childOrdering.isDistinct()));
         } else {
             return Optional.empty();
         }

@@ -72,7 +72,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     @Nonnull
     protected final Quantifier.Physical inner;
     @Nonnull
-    private final List<? extends InValuesSource> valuesSources;
+    private final List<? extends InSource> valuesSources;
     @Nonnull
     private final KeyExpression comparisonKey;
     private final boolean reverse;
@@ -81,7 +81,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     public RecordQueryInUnionPlan(@Nonnull final Quantifier.Physical inner,
-                                  @Nonnull final List<? extends InValuesSource> valuesSources,
+                                  @Nonnull final List<? extends InSource> valuesSources,
                                   @Nonnull final KeyExpression comparisonKey, final boolean reverse,
                                   final int maxNumberOfValuesAllowed) {
         this.inner = inner;
@@ -93,7 +93,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     }
 
     public RecordQueryInUnionPlan(@Nonnull final RecordQueryPlan inner,
-                                  @Nonnull final List<? extends InValuesSource> valuesSources,
+                                  @Nonnull final List<? extends InSource> valuesSources,
                                   @Nonnull final KeyExpression comparisonKey, final boolean reverse,
                                   final int maxNumberOfValuesAllowed) {
         this(Quantifier.physical(GroupExpressionRef.of(inner)), valuesSources, comparisonKey, reverse, maxNumberOfValuesAllowed);
@@ -122,7 +122,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     }
 
     @Nonnull
-    public List<? extends InValuesSource> getValuesSources() {
+    public List<? extends InSource> getInSources() {
         return valuesSources;
     }
 
@@ -192,7 +192,9 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     public PlannerGraph rewritePlannerGraph(@Nonnull final List<? extends PlannerGraph> childGraphs) {
         final PlannerGraph.Node root =
                 new PlannerGraph.OperatorNodeWithInfo(this,
-                        NodeInfo.IN_UNION_OPERATOR);
+                        NodeInfo.IN_UNION_OPERATOR,
+                        ImmutableList.of("COMPARE BY {{comparisonKey}}"),
+                        ImmutableMap.of("comparisonKey", Attribute.gml(comparisonKey.toString())));
         final PlannerGraph graphForInner = Iterables.getOnlyElement(childGraphs);
         final PlannerGraph.DataNodeWithInfo valuesNode =
                 new PlannerGraph.DataNodeWithInfo(NodeInfo.VALUES_DATA,
@@ -277,166 +279,11 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
                getChild();
     }
 
-    public abstract static class InValuesSource implements PlanHashable {
-        @Nonnull
-        private final String bindingName;
-        
-        protected InValuesSource(@Nonnull final String bindingName) {
-            this.bindingName = bindingName;
-        }
-        
-        @Nonnull
-        public String getBindingName() {
-            return bindingName;
-        }
-
-        protected abstract int size(@Nonnull EvaluationContext context);
-
-        @Nonnull
-        protected abstract List<Object> getValues(@Nonnull EvaluationContext context);
-
-        public int baseHash(@Nonnull final PlanHashKind hashKind, @Nonnull ObjectPlanHash objectPlanHash) {
-            return objectPlanHash.planHash(hashKind);
-        }
-    }
-
-    public static class InValues extends InValuesSource {
-        @Nonnull
-        private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("In-Values");
-
-        @Nonnull
-        private final List<Object> values;
-
-        public InValues(@Nonnull String bindingName, @Nonnull final List<Object> values) {
-            super(bindingName);
-            this.values = values;
-        }
-
-        @Nonnull
-        public List<Object> getValues() {
-            return values;
-        }
-
-        @Nonnull
-        @Override
-        protected List<Object> getValues(@Nonnull final EvaluationContext context) {
-            return values;
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            if (hashKind == PlanHashKind.STRUCTURAL_WITHOUT_LITERALS) {
-                return baseHash(hashKind, OBJECT_PLAN_HASH_IN_VALUES_SOURCE);
-            } else {
-                return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_IN_VALUES_SOURCE), values);
-            }
-        }
-
-        @Override
-        protected int size(@Nonnull final EvaluationContext context) {
-            return values.size();
-        }
-
-        @Nonnull
-        @Override
-        public String toString() {
-            return getBindingName() + " IN " + values;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            final InValues inValues = (InValues)o;
-            if (!getBindingName().equals(inValues.getBindingName())) {
-                return false;
-            }
-            return values.equals(inValues.values);
-        }
-
-        @Override
-        public int hashCode() {
-            return values.hashCode();
-        }
-    }
-
-    public static class InParameter extends InValuesSource {
-        @Nonnull
-        private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE = new ObjectPlanHash("In-Parameter");
-
-        @Nonnull
-        private final String parameterName;
-
-        public InParameter(@Nonnull String bindingName, @Nonnull final String parameterName) {
-            super(bindingName);
-            this.parameterName = parameterName;
-        }
-
-        @Nonnull
-        public String getParameterName() {
-            return parameterName;
-        }
-
-        @Override
-        public int planHash(@Nonnull final PlanHashKind hashKind) {
-            return PlanHashable.objectsPlanHash(hashKind, baseHash(hashKind, OBJECT_PLAN_HASH_IN_PARAMETER_SOURCE), parameterName);
-        }
-
-        @Override
-        protected int size(@Nonnull final EvaluationContext context) {
-            return getValues(context).size();
-        }
-
-        @Nonnull
-        @Override
-        @SuppressWarnings("unchecked")
-        protected List<Object> getValues(@Nonnull final EvaluationContext context) {
-            final List<Object> binding = (List<Object>)context.getBinding(parameterName);
-            if (binding == null) {
-                return Collections.emptyList();
-            } else {
-                return binding;
-            }
-        }
-
-        @Nonnull
-        @Override
-        public String toString() {
-            return getBindingName() + " IN $" + parameterName;
-        }
-
-        @Override
-        public boolean equals(final Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            final InParameter inParameter = (InParameter)o;
-            if (!getBindingName().equals(inParameter.getBindingName())) {
-                return false;
-            }
-            return parameterName.equals(inParameter.parameterName);
-        }
-
-        @Override
-        public int hashCode() {
-            return parameterName.hashCode();
-        }
-    }
-
     @Override
     public int getComplexity() {
         int complexity = getInnerPlan().getComplexity();
-        for (InValuesSource values : valuesSources) {
-            if (values instanceof InValues) {
+        for (InSource values : valuesSources) {
+            if (values instanceof InValuesSource) {
                 complexity *= values.size(EvaluationContext.EMPTY);
             }
         }
@@ -445,7 +292,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
 
     protected int getValuesSize(@Nonnull EvaluationContext context) {
         int size = 1;
-        for (InValuesSource values : valuesSources) {
+        for (InSource values : valuesSources) {
             size *= values.size(context);
         }
         return size;
@@ -454,7 +301,7 @@ public class RecordQueryInUnionPlan implements RecordQueryPlanWithChild, RecordQ
     @Nonnull
     protected List<EvaluationContext> getValuesContexts(@Nonnull EvaluationContext context) {
         List<EvaluationContext> parents = Collections.singletonList(context);
-        for (InValuesSource values : valuesSources) {
+        for (InSource values : valuesSources) {
             final List<EvaluationContext> children = new ArrayList<>();
             for (EvaluationContext parent : parents) {
                 for (Object value : values.getValues(parent)) {

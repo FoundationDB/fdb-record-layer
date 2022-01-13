@@ -39,16 +39,20 @@ import com.apple.foundationdb.record.query.expressions.OneOfThemWithComponent;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.PlanOrderingKey;
+import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.InSource;
+import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
-import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
+import com.google.common.collect.ImmutableList;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -269,7 +273,7 @@ public class InExtractor {
     }
 
     @Nonnull
-    public List<RecordQueryInUnionPlan.InValuesSource> unionSources() {
+    public List<InSource> unionSources() {
         return inClauses.stream().map(InClause::unionSource).collect(Collectors.toList());
     }
 
@@ -288,7 +292,7 @@ public class InExtractor {
 
         protected abstract RecordQueryPlan wrap(RecordQueryPlan inner);
 
-        protected abstract RecordQueryInUnionPlan.InValuesSource unionSource();
+        protected abstract InSource unionSource();
     }
 
     static class InValuesClause extends InClause {
@@ -302,12 +306,17 @@ public class InExtractor {
 
         @Override
         protected RecordQueryPlan wrap(RecordQueryPlan inner) {
-            return new RecordQueryInValuesJoinPlan(inner, bindingName, values, sortValues, sortReverse);
+            return new RecordQueryInValuesJoinPlan(inner,
+                    bindingName,
+                    Bindings.Internal.IN,
+                    values == null ? ImmutableList.of() : values,
+                    sortValues,
+                    sortReverse);
         }
 
         @Override
-        protected RecordQueryInUnionPlan.InValuesSource unionSource() {
-            return new RecordQueryInUnionPlan.InValues(bindingName, values);
+        protected InSource unionSource() {
+            return new InValuesSource(bindingName, Objects.requireNonNullElse(values, ImmutableList.of()));
         }
     }
 
@@ -322,12 +331,17 @@ public class InExtractor {
 
         @Override
         protected RecordQueryPlan wrap(RecordQueryPlan inner) {
-            return new RecordQueryInParameterJoinPlan(inner, bindingName, parameterName, sortValues, sortReverse);
+            return new RecordQueryInParameterJoinPlan(inner,
+                    bindingName,
+                    Bindings.Internal.IN,
+                    parameterName,
+                    sortValues,
+                    sortReverse);
         }
 
         @Override
-        protected RecordQueryInUnionPlan.InValuesSource unionSource() {
-            return new RecordQueryInUnionPlan.InParameter(bindingName, parameterName);
+        protected InSource unionSource() {
+            return new InParameterSource(bindingName, parameterName);
         }
     }
 }

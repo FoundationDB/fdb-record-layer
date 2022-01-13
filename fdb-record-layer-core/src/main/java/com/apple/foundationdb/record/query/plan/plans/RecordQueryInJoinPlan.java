@@ -21,6 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -31,20 +32,19 @@ import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
+import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
 import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.predicates.Value;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.base.Suppliers;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -52,28 +52,44 @@ import java.util.function.Supplier;
  */
 @API(API.Status.INTERNAL)
 public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild {
-
-    @SuppressWarnings("unchecked")
-    protected static final Comparator<Object> VALUE_COMPARATOR = (o1, o2) -> ((Comparable)o1).compareTo((Comparable)o2);
-
     @Nonnull
     protected final Quantifier.Physical inner;
     @Nonnull
-    private final Supplier<List<? extends Value>> resultValuesSupplier;
+    protected final InSource inSource;
+
+    /**
+     * The use of this field is to distinguish old-planner use of this plan object versus cascades planner use.
+     * If created by the heuristic recursive descent planner (the old planner), it is expected that the binding it
+     * creates for the evaluation of the inner is participating in the plan hash. Unfortunately, this cannot be
+     * done when using the Cascades planner as the planner uses identifiers that are not stable across plannings.
+     *
+     * The binding internal has to be set to either {@link Bindings.Internal#IN} if the object is created by the old
+     * planner of to {@link Bindings.Internal#CORRELATION} if the object is created by the new planner.
+     */
     @Nonnull
-    protected final String bindingName;
-    protected final boolean sortValuesNeeded;
-    protected final boolean sortReverse;
+    protected final Bindings.Internal internal;
+
+    @Nonnull
+    private final Supplier<List<? extends Value>> resultValuesSupplier;
 
     protected RecordQueryInJoinPlan(@Nonnull final Quantifier.Physical inner,
-                                    @Nonnull final String bindingName,
-                                    final boolean sortValuesNeeded,
-                                    final boolean sortReverse) {
+                                    @Nonnull final InSource inSource,
+                                    @Nonnull final Bindings.Internal internal) {
+        Verify.verify(internal == Bindings.Internal.IN || internal == Bindings.Internal.CORRELATION);
         this.inner = inner;
-        this.bindingName = bindingName;
-        this.sortValuesNeeded = sortValuesNeeded;
-        this.sortReverse = sortReverse;
+        this.inSource = inSource;
+        this.internal = internal;
         this.resultValuesSupplier = Suppliers.memoize(inner::getFlowedValues);
+    }
+
+    @Nonnull
+    public InSource getInSource() {
+        return inSource;
+    }
+
+    @Nonnull
+    public CorrelationIdentifier getInAlias() {
+        return CorrelationIdentifier.of(internal.identifier(inSource.getBindingName()));
     }
 
     @Nonnull
@@ -83,15 +99,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
         return RecordCursor.flatMapPipelined(
-                outerContinuation -> {
-                    final List<Object> values = getValues(context);
-                    if (values == null) {
-                        return RecordCursor.empty(store.getExecutor());
-                    } else {
-                        return RecordCursor.fromList(store.getExecutor(), values, outerContinuation);
-                    }
-                },
-                (outerValue, innerContinuation) -> getInnerPlan().executePlan(store, context.withBinding(bindingName, outerValue),
+                outerContinuation -> RecordCursor.fromList(store.getExecutor(), getValues(context), outerContinuation),
+                (outerValue, innerContinuation) -> getInnerPlan().executePlan(store, context.withBinding(inSource.getBindingName(), outerValue),
                         innerContinuation, executeProperties.clearSkipAndLimit()),
                 outerObject -> Tuple.from(ScanComparisons.toTupleItem(outerObject)).pack(),
                 continuation,
@@ -110,10 +119,6 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
         return getInnerPlan();
     }
 
-    public boolean isSorted() {
-        return sortValuesNeeded;
-    }
-
     @Nonnull
     @Override
     public List<? extends Quantifier> getQuantifiers() {
@@ -122,8 +127,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Override
     public boolean isReverse() {
-        if (sortValuesNeeded) {
-            return sortReverse;
+        if (inSource.isSorted()) {
+            return inSource.isReverse();
         } else {
             throw new RecordCoreException("RecordQueryInJoinPlan does not have well defined reverse-ness");
         }
@@ -144,10 +149,8 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
         if (getClass() != otherExpression.getClass()) {
             return false;
         }
-        final RecordQueryInJoinPlan other = (RecordQueryInJoinPlan) otherExpression;
-        return bindingName.equals(other.bindingName) &&
-               sortValuesNeeded == other.sortValuesNeeded &&
-               sortReverse == other.sortReverse;
+        final RecordQueryInJoinPlan other = (RecordQueryInJoinPlan)otherExpression;
+        return inSource.equals(other.inSource);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -163,7 +166,7 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(bindingName, sortValuesNeeded, sortReverse);
+        return inSource.hashCode();
     }
 
     /**
@@ -176,30 +179,38 @@ public abstract class RecordQueryInJoinPlan implements RecordQueryPlanWithChild 
      * @param hashables the rest of the subclass' hashable parameters (if any)
      * @return the plan hash value calculated
      */
+    @SuppressWarnings("fallthrough")
     protected int basePlanHash(@Nonnull final PlanHashKind hashKind, ObjectPlanHash baseHash, Object... hashables) {
         switch (hashKind) {
             case LEGACY:
-                return getInnerPlan().planHash(hashKind) + bindingName.hashCode() + (sortValuesNeeded ? 1 : 0) + (sortReverse ? 1 : 0);
+                if (internal == Bindings.Internal.IN) {
+                    return getInnerPlan().planHash(hashKind) +
+                           inSource.getBindingName().hashCode() +
+                           (inSource.isSorted() ? 1 : 0) +
+                           (inSource.isReverse() ? 1 : 0);
+                }
+                // fall through
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, baseHash, getInnerPlan(), bindingName, sortValuesNeeded, sortReverse, hashables);
+                if (internal == Bindings.Internal.IN) {
+                    return PlanHashable.objectsPlanHash(hashKind,
+                            baseHash,
+                            getInnerPlan(),
+                            inSource.getBindingName(),
+                            inSource.isSorted(),
+                            inSource.isReverse(),
+                            hashables);
+                }
+                return PlanHashable.objectsPlanHash(hashKind, baseHash, getInnerPlan(), inSource, hashables);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
     }
 
-    @Nullable
-    protected List<Object> sortValues(@Nullable List<Object> values) {
-        if (values == null || values.size() < 2 || !sortValuesNeeded) {
-            return values;
-        }
-        List<Object> copy = new ArrayList<>(values);
-        copy.sort(sortReverse ? VALUE_COMPARATOR.reversed() : VALUE_COMPARATOR);
-        return copy;
+    @Nonnull
+    protected List<Object> getValues(EvaluationContext context) {
+        return inSource.getValues(context);
     }
-
-    @Nullable
-    protected abstract List<Object> getValues(EvaluationContext context);
 
     @Override
     public int getComplexity() {

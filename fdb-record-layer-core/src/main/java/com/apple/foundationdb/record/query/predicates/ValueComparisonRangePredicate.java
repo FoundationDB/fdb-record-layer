@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.PredicateMultiMap.PredicateMapping;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.Message;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
@@ -198,6 +199,15 @@ public abstract class ValueComparisonRangePredicate implements PredicateWithValu
         @Nonnull
         public ComparisonRange getComparisonRange() {
             return comparisonRange;
+        }
+
+        @Nonnull
+        @Override
+        public Set<CorrelationIdentifier> getCorrelatedToWithoutChildren() {
+            return ImmutableSet.<CorrelationIdentifier>builder()
+                    .addAll(super.getCorrelatedToWithoutChildren())
+                    .addAll(comparisonRange.getCorrelatedTo())
+                    .build();
         }
 
         @Nullable

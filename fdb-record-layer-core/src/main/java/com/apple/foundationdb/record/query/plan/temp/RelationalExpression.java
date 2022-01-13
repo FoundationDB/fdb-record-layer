@@ -284,6 +284,19 @@ public interface RelationalExpression extends Correlated<RelationalExpression> {
         return !Iterables.isEmpty(boundMatchIterable);
     }
 
+    @Nonnull
+    default <E extends RelationalExpression> E narrow(@Nonnull Class<E> narrowedClass) {
+        return narrowedClass.cast(this);
+    }
+
+    @Nonnull
+    default <E extends RelationalExpression> Optional<E> narrowMaybe(@Nonnull Class<E> narrowedClass) {
+        if (narrowedClass.isInstance(this)) {
+            return Optional.of(narrowedClass.cast(this));
+        }
+        return Optional.empty();
+    }
+
     /**
      * Find matches between this expression and another given expression under the bindings
      * given by the {@link AliasMap} passed in.

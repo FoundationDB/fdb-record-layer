@@ -63,6 +63,7 @@ import com.apple.foundationdb.record.query.plan.planning.FilterSatisfiedMask;
 import com.apple.foundationdb.record.query.plan.planning.InExtractor;
 import com.apple.foundationdb.record.query.plan.planning.RankComparisons;
 import com.apple.foundationdb.record.query.plan.planning.TextScanPlanner;
+import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
@@ -512,7 +513,7 @@ public class RecordQueryPlanner implements QueryPlanner {
             if (comparisonKey == null) {
                 return null;
             }
-            final List<RecordQueryInUnionPlan.InValuesSource> valuesSources = inExtractor.unionSources();
+            final List<InSource> valuesSources = inExtractor.unionSources();
             final RecordQueryPlan union = new RecordQueryInUnionPlan(scoredPlan.plan, valuesSources, comparisonKey, planContext.query.isSortReverse(), getConfiguration().getAttemptFailedInJoinAsUnionMaxSize());
             return new ScoredPlan(scoredPlan.score, union);
         }

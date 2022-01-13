@@ -21,7 +21,7 @@
 package com.apple.foundationdb.record.query.plan.plans;
 
 import com.apple.foundationdb.annotation.API;
-import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
@@ -29,7 +29,6 @@ import com.apple.foundationdb.record.query.plan.temp.AliasMap;
 import com.apple.foundationdb.record.query.plan.temp.CorrelationIdentifier;
 import com.apple.foundationdb.record.query.plan.temp.GroupExpressionRef;
 import com.apple.foundationdb.record.query.plan.temp.Quantifier;
-import com.apple.foundationdb.record.query.plan.temp.RelationalExpression;
 import com.apple.foundationdb.record.query.plan.temp.explain.Attribute;
 import com.apple.foundationdb.record.query.plan.temp.explain.NodeInfo;
 import com.apple.foundationdb.record.query.plan.temp.explain.PlannerGraph;
@@ -39,9 +38,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -52,49 +49,56 @@ import java.util.Set;
 public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     private static final ObjectPlanHash BASE_HASH = new ObjectPlanHash("Record-Query-In-Parameter-Join-Plan");
 
-    private final String externalBinding;
-
-    public RecordQueryInParameterJoinPlan(final RecordQueryPlan plan,
-                                          final String bindingName,
-                                          final String externalBinding,
+    public RecordQueryInParameterJoinPlan(@Nonnull final RecordQueryPlan plan,
+                                          @Nonnull final String bindingName,
+                                          @Nonnull final Bindings.Internal internal,
+                                          @Nonnull final String externalBinding,
                                           final boolean sortValues,
                                           final boolean sortReverse) {
         this(Quantifier.physical(GroupExpressionRef.of(plan)),
                 bindingName,
+                internal,
                 externalBinding,
                 sortValues,
                 sortReverse);
     }
 
-    public RecordQueryInParameterJoinPlan(final Quantifier.Physical inner,
-                                          final String bindingName,
-                                          final String externalBinding,
+    public RecordQueryInParameterJoinPlan(@Nonnull final Quantifier.Physical inner,
+                                          @Nonnull final String bindingName,
+                                          @Nonnull final Bindings.Internal internal,
+                                          @Nonnull final String externalBinding,
                                           final boolean sortValues,
                                           final boolean sortReverse) {
-        super(inner, bindingName, sortValues, sortReverse);
-        this.externalBinding = externalBinding;
+        this(inner,
+                sortValues
+                ? new SortedInParameterSource(bindingName, externalBinding, sortReverse)
+                : new InParameterSource(bindingName, externalBinding),
+                internal);
     }
 
+    public RecordQueryInParameterJoinPlan(@Nonnull final Quantifier.Physical inner,
+                                          @Nonnull final InSource inSource,
+                                          @Nonnull final Bindings.Internal internal) {
+        super(inner, inSource, internal);
+    }
 
-    @Override
-    @Nullable
-    @SuppressWarnings("unchecked")
-    protected List<Object> getValues(EvaluationContext context) {
-        return sortValues((List)context.getBinding(externalBinding));
+    @Nonnull
+    private InParameterSource inParameterSource() {
+        return (InParameterSource)inSource;
     }
 
     public String getExternalBinding() {
-        return externalBinding;
+        return inParameterSource().getParameterName();
     }
 
     @Override
     public String toString() {
         StringBuilder str = new StringBuilder(getInnerPlan().toString());
-        str.append(" WHERE ").append(bindingName)
-                .append(" IN $").append(externalBinding);
-        if (sortValuesNeeded) {
+        str.append(" WHERE ").append(inSource.getBindingName())
+                .append(" IN $").append(inParameterSource().getParameterName());
+        if (inSource.isSorted()) {
             str.append(" SORTED");
-            if (sortReverse) {
+            if (inSource.isReverse()) {
                 str.append(" DESC");
             }
         }
@@ -112,45 +116,34 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
     public RecordQueryInParameterJoinPlan rebaseWithRebasedQuantifiers(@Nonnull final AliasMap translationMap,
                                                                        @Nonnull final List<Quantifier> rebasedQuantifiers) {
         return new RecordQueryInParameterJoinPlan(Iterables.getOnlyElement(rebasedQuantifiers).narrow(Quantifier.Physical.class),
-                bindingName,
-                externalBinding,
-                sortValuesNeeded,
-                sortReverse);
+                inSource,
+                internal);
     }
 
     @Nonnull
     @Override
     public RecordQueryPlanWithChild withChild(@Nonnull final RecordQueryPlan child) {
-        return new RecordQueryInParameterJoinPlan(child, bindingName, externalBinding, sortValuesNeeded, sortReverse);
+        return new RecordQueryInParameterJoinPlan(Quantifier.physical(GroupExpressionRef.of(child)), inSource, internal);
     }
 
     @Override
-    public boolean equalsWithoutChildren(@Nonnull RelationalExpression otherExpression,
-                                         @Nonnull final AliasMap equivalencesMap) {
-        if (this == otherExpression) {
-            return true;
-        }
-        return super.equalsWithoutChildren(otherExpression, equivalencesMap) &&
-               externalBinding.equals(((RecordQueryInParameterJoinPlan)otherExpression).externalBinding);
-    }
-
-    @Override
-    public int hashCodeWithoutChildren() {
-        return Objects.hash(super.hashCodeWithoutChildren(), externalBinding);
-    }
-
-    @Override
+    @SuppressWarnings("fallthrough")
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return super.basePlanHash(hashKind, BASE_HASH) + externalBinding.hashCode();
+                if (internal == Bindings.Internal.IN) {
+                    return super.basePlanHash(hashKind, BASE_HASH) + inParameterSource().getParameterName().hashCode();
+                }
+                // fall through
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return super.basePlanHash(hashKind, BASE_HASH, externalBinding);
+                if (internal == Bindings.Internal.IN) {
+                    return super.basePlanHash(hashKind, BASE_HASH, inParameterSource().getParameterName());
+                }
+                return super.basePlanHash(hashKind, BASE_HASH);
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
-
     }
 
     @Override
@@ -177,7 +170,7 @@ public class RecordQueryInParameterJoinPlan extends RecordQueryInJoinPlan {
                 new PlannerGraph.LogicalOperatorNodeWithInfo(this,
                         NodeInfo.TABLE_FUNCTION_OPERATOR,
                         ImmutableList.of("EXPLODE({{externalBinding}})"),
-                        ImmutableMap.of("externalBinding", Attribute.gml(externalBinding)));
+                        ImmutableMap.of("externalBinding", Attribute.gml(inParameterSource().getParameterName())));
         final PlannerGraph.Edge fromExplodeEdge = new PlannerGraph.Edge();
         return PlannerGraph.builder(root)
                 .addGraph(graphForInner)

@@ -55,10 +55,10 @@ public class LinkedIdentityMap<K, V> extends AbstractMap<K, V> {
 
     @Nonnull
     private Set<Entry<K, V>> computeEntrySet() {
-        return new AbstractSet<Entry<K, V>>() {
+        return new AbstractSet<>() {
             @Override
             public Iterator<Entry<K, V>> iterator() {
-                return new Iterator<Entry<K, V>>() {
+                return new Iterator<>() {
                     private final Iterator<Entry<Equivalence.Wrapper<K>, V>> iterator = map.entrySet().iterator();
 
                     @Override

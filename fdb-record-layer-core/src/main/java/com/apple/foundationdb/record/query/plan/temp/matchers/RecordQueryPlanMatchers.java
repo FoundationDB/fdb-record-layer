@@ -24,9 +24,13 @@ import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.InParameterSource;
+import com.apple.foundationdb.record.query.plan.plans.InValuesSource;
+import com.apple.foundationdb.record.query.plan.plans.InSource;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryCoveringIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFetchFromPartialRecordPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryFilterPlan;
+import com.apple.foundationdb.record.query.plan.plans.RecordQueryInJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInParameterJoinPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInUnionPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryInValuesJoinPlan;
@@ -160,6 +164,21 @@ public class RecordQueryPlanMatchers {
     @Nonnull
     public static BindingMatcher<RecordQueryIndexPlan> indexPlan() {
         return ofTypeOwning(RecordQueryIndexPlan.class, CollectionMatcher.empty());
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInJoinPlan> inJoin(@Nonnull final BindingMatcher<? extends Quantifier> downstream) {
+        return ofTypeOwning(RecordQueryInJoinPlan.class, any(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInJoinPlan> inJoinPlan(@Nonnull final BindingMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInJoinPlan.class, all(downstream));
+    }
+
+    @Nonnull
+    public static BindingMatcher<RecordQueryInJoinPlan> inJoinPlan(@Nonnull final CollectionMatcher<? extends RecordQueryPlan> downstream) {
+        return childrenPlans(RecordQueryInJoinPlan.class, downstream);
     }
 
     @Nonnull
@@ -447,29 +466,29 @@ public class RecordQueryPlanMatchers {
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan> inUnionValuesSources(@Nonnull CollectionMatcher<? extends RecordQueryInUnionPlan.InValuesSource> downstream) {
+    public static BindingMatcher<RecordQueryInUnionPlan> inUnionValuesSources(@Nonnull CollectionMatcher<? extends InSource> downstream) {
         return typedWithDownstream(RecordQueryInUnionPlan.class,
-                Extractor.of(RecordQueryInUnionPlan::getValuesSources, name -> "valuesSources(" + name + ")"),
+                Extractor.of(RecordQueryInUnionPlan::getInSources, name -> "valuesSources(" + name + ")"),
                 downstream);
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan.InValuesSource> inUnionBindingName(@Nonnull String bindingName) {
-        return typedWithDownstream(RecordQueryInUnionPlan.InValuesSource.class,
-                Extractor.of(RecordQueryInUnionPlan.InValuesSource::getBindingName, name -> "bindingName(" + name + ")"),
+    public static BindingMatcher<InSource> inUnionBindingName(@Nonnull String bindingName) {
+        return typedWithDownstream(InSource.class,
+                Extractor.of(InSource::getBindingName, name -> "bindingName(" + name + ")"),
                 PrimitiveMatchers.equalsObject(bindingName));
     }
 
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan.InValues> inUnionInValues(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
-        return typedWithDownstream(RecordQueryInUnionPlan.InValues.class,
+    public static BindingMatcher<InValuesSource> inUnionInValues(@Nonnull BindingMatcher<? extends Collection<?>> downstream) {
+        return typedWithDownstream(InValuesSource.class,
                 Extractor.of(plan -> Objects.requireNonNull(plan.getValues()), name -> "values(" + name + ")"),
                 downstream);
     }
     
     @Nonnull
-    public static BindingMatcher<RecordQueryInUnionPlan.InParameter> inUnionInParameter(@Nonnull BindingMatcher<String> downstream) {
-        return typedWithDownstream(RecordQueryInUnionPlan.InParameter.class,
+    public static BindingMatcher<InParameterSource> inUnionInParameter(@Nonnull BindingMatcher<String> downstream) {
+        return typedWithDownstream(InParameterSource.class,
                 Extractor.of(plan -> Objects.requireNonNull(plan.getParameterName()), name -> "parameter(" + name + ")"),
                 downstream);
     }

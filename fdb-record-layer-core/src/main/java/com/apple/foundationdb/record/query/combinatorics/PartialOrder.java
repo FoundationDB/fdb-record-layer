@@ -285,6 +285,18 @@ public class PartialOrder<T> {
             this.dependencyMapBuilder = ImmutableSetMultimap.builder();
         }
 
+        public Builder<T> add(@Nonnull final T element) {
+            setBuilder.add(element);
+            return this;
+        }
+
+        public Builder<T> addDependency(@Nonnull final T targetElement, final T sourceElement) {
+            setBuilder.add(sourceElement);
+            setBuilder.add(targetElement);
+            dependencyMapBuilder.put(targetElement, sourceElement);
+            return this;
+        }
+
         public Builder<T> addAll(@Nonnull final Iterable<T> additionalElements) {
             setBuilder.addAll(additionalElements);
             return this;
