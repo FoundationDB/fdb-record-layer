@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -30,6 +31,13 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 
+/**
+ * Helper class which represents a specialized {@link InSource} whose input is a list of literal values.
+ * The logic in this class is agnostic about a potential intrinsic sorted-ness of the elements in the list.
+ * If reasoning about sorted-ness is a requirement for a use case, {@link SortedInValuesSource} is preferable.
+ * This source is used by {@link RecordQueryInJoinPlan}s and {@link RecordQueryInUnionPlan}s.
+ */
+@API(API.Status.INTERNAL)
 public class InValuesSource extends InSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("In-Values");

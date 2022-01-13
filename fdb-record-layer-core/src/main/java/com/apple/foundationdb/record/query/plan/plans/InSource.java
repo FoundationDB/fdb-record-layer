@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
@@ -37,6 +38,7 @@ import java.util.List;
  * IN lists can be based on values or other outer bindings through the use of parameter names or correlations.
  * This class is more or less a physical counterpart of a {@link Quantifier} ranging over an {@link ExplodeExpression}.
  */
+@API(API.Status.INTERNAL)
 public abstract class InSource implements PlanHashable {
     @SuppressWarnings("unchecked")
     private static final Comparator<Object> VALUE_COMPARATOR = Comparator.comparing(Comparable.class::cast);

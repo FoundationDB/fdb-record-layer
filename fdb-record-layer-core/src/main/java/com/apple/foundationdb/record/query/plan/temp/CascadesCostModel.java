@@ -252,13 +252,13 @@ public class CascadesCostModel implements Comparator<RelationalExpression> {
 
     /**
      * This comparator compares the left expression which must be of type {@link RecordQueryInUnionPlan} or
-     * {@link RecordQueryInJoinPlan} and only returns and indication that the other plan is considered preferable
+     * {@link RecordQueryInJoinPlan} and only returns an indication that the other plan is considered preferable
      * or that this plan and the other plan are comparable. It never returns that the in-plan should be preferable.
      * The reasoning behind this is to avoid plans that were generated out of an IN-transformation that wasn't able
      * to translate the rewritten equality into an index search argument (SARG).
      * @param leftExpression this expression
      * @param rightExpression other expression
-     * @return {@code OptionalInt.empty()} is the comparator is unable to compare the two expressions handed in. That
+     * @return {@code OptionalInt.empty()} if the comparator is unable to compare the two expressions handed in. That
      *         happens if the left expression is not an in-plan (see {@link #isInPlan(RelationalExpression)}). If the
      *         left expression is an in-plan it returns {@code OptionalInt.of(1)} (pick other) if none of the
      *         in-arguments are sargs underneath the in-plan and {@code OptionalInt.of(1)} if at least one of the

@@ -81,7 +81,7 @@ import static com.apple.foundationdb.record.query.plan.temp.matchers.RelationalE
  *        {@link RecordQueryInValuesJoinPlan} and {@link RecordQueryInParameterJoinPlan}.
  */
 @API(API.Status.EXPERIMENTAL)
-public class PushInJoinFilterThroughFetchRule<P extends RecordQueryInJoinPlan> extends PlannerRule<P> {
+public class PushInJoinThroughFetchRule<P extends RecordQueryInJoinPlan> extends PlannerRule<P> {
     @Nonnull
     private static final BindingMatcher<RecordQueryPlan> innerPlanMatcher = anyPlan();
     @Nonnull
@@ -96,7 +96,7 @@ public class PushInJoinFilterThroughFetchRule<P extends RecordQueryInJoinPlan> e
         return ofTypeOwning(planClass, any(quantifierOverFetchMatcher));
     }
 
-    public PushInJoinFilterThroughFetchRule(@Nonnull final Class<P> planClass) {
+    public PushInJoinThroughFetchRule(@Nonnull final Class<P> planClass) {
         super(root(planClass));
     }
 

@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 
@@ -27,6 +28,14 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Helper class which represents a specialized {@link InSource} whose input is a list of literal values.
+ * The logic in this class enforces the order of the elements in the list by explicitly sorting them at planning time.
+ * If reasoning about sorted-ness is not a requirement for a use case, {@link InValuesSource} is preferable.
+ * This source is only used by {@link RecordQueryInJoinPlan}s as {@link RecordQueryInUnionPlan} establishes order via
+ * an explicit comparison key.
+ */
+@API(API.Status.INTERNAL)
 public class SortedInValuesSource extends InValuesSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_IN_VALUES_SOURCE = new ObjectPlanHash("Sorted-In-Values");

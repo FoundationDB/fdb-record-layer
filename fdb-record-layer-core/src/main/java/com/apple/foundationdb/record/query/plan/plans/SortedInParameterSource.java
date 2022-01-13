@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.query.plan.plans;
 
+import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.annotation.SpotBugsSuppressWarnings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ObjectPlanHash;
@@ -30,6 +31,14 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Helper class which represents a specialized {@link InSource} whose input is an outer binding (a parameter).
+ * The logic in this class enforces the order of the elements in the list by explicitly sorting them at execution time.
+ * If reasoning about sorted-ness is not a requirement for a use case, {@link InParameterSource} is preferable.
+ * This source is only used by {@link RecordQueryInJoinPlan}s as {@link RecordQueryInUnionPlan} establishes order via
+ * an explicit comparison key.
+ */
+@API(API.Status.INTERNAL)
 public class SortedInParameterSource extends InParameterSource {
     @Nonnull
     private static final ObjectPlanHash OBJECT_PLAN_HASH_SORTED_IN_PARAMETER_SOURCE = new ObjectPlanHash("Sorted-In-Parameter");

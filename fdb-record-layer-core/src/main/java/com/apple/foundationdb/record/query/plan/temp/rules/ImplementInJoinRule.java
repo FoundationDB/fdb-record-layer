@@ -100,12 +100,7 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
         }
 
         final var requestedOrderings = requestedOrderingsOptional.get();
-
-        final var commonPrimaryKey = context.getCommonPrimaryKey();
-        if (commonPrimaryKey == null) {
-            return;
-        }
-
+        
         final var selectExpression = bindings.get(root);
         if (!selectExpression.getPredicates().isEmpty()) {
             return;
@@ -222,9 +217,12 @@ public class ImplementInJoinRule extends PlannerRule<SelectExpression> {
                 // expression.
                 //
                 // Example: requested ordering: a, b, c
-                //          ins: a explodes over (1, 2)
+                //          INs: a explodes over (1, 2)
                 //               c explodes over ('x', 'y')
-                //          plan has equality-bound expressions over a, b, c
+                //          inner plan has equality-bound expressions over a, b, c
+                //
+                // b is not among the INs, but it is bound via equality somehow. That binding can be a constant or
+                // another correlation that is anchored above the current SELECT.
                 //
                 continue;
             }
