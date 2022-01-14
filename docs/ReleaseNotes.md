@@ -24,19 +24,25 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Chooser and Comparator plans [(Issue #1471)](https://github.com/FoundationDB/fdb-record-layer/issues/1471)
-* **Feature** Handle Comparator plan with keys that resolve to repeated fields [(Issue #1501)](https://github.com/FoundationDB/fdb-record-layer/issues/1501)
+* **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** As part of a refactoring of log keys, the log key `LogMessageKeys.ORIGINAL_DATA_SIZE` now displays as `original_data_size` instead of `original_data-size` and a typo has been fixed in the name of `LogMessageKeys.DIRECTORY` (from `DIRECTOY`) [(Issue #1500)](https://github.com/FoundationDB/fdb-record-layer/issues/1500)
+* **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 
 // end next release
 -->
+
+### 3.1.228.0
+
+* **Feature** Chooser and Comparator plans [(Issue #1471)](https://github.com/FoundationDB/fdb-record-layer/issues/1471)
+* **Feature** Handle Comparator plan with keys that resolve to repeated fields [(Issue #1501)](https://github.com/FoundationDB/fdb-record-layer/issues/1501)
+* **Breaking change** As part of a refactoring of log keys, the log key `LogMessageKeys.ORIGINAL_DATA_SIZE` now displays as `original_data_size` instead of `original_data-size` and a typo has been fixed in the name of `LogMessageKeys.DIRECTORY` (from `DIRECTOY`) [(Issue #1500)](https://github.com/FoundationDB/fdb-record-layer/issues/1500)
 
 ### 3.1.227.0
 
