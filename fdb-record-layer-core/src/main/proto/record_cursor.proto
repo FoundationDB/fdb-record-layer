@@ -121,3 +121,9 @@ message ComparatorContinuation {
     }
     repeated CursorState child_state = 1;
 }
+
+message LuceneSpellcheckIndexContinuation {
+    required string key = 1;
+    required uint64 walue = 2;
+    required bytes payload = 3;
+}

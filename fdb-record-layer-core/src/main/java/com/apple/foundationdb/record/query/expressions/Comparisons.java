@@ -558,6 +558,7 @@ public class Comparisons {
         FULL_TEXT_LUCENE_QUERY,
         FULL_TEXT_LUCENE_QUERY_HIGHLIGHT,
         FULL_TEXT_LUCENE_AUTO_COMPLETE,
+        FULL_TEXT_LUCENE_SPELLCHECK,
         @API(API.Status.EXPERIMENTAL)
         SORT(false);
 

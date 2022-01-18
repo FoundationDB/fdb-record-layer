@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
+import com.apple.foundationdb.record.query.plan.plans.QueryResult;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.google.protobuf.Message;
 
@@ -136,6 +137,18 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
             plan.setCreatesDuplicates();
         }
         return plan;
+    }
+
+    @Nonnull
+    @Override
+    public <M extends Message> RecordCursor<QueryResult> executePlan(@Nonnull final FDBRecordStoreBase<M> store,
+                                                                     @Nonnull final EvaluationContext context,
+                                                                     @Nullable final byte[] continuation,
+                                                                     @Nonnull final ExecuteProperties executeProperties) {
+        if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
+
+        }
+        return super.executePlan(store, context, continuation, executeProperties);
     }
 
     @Nonnull
