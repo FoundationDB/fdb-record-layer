@@ -130,7 +130,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Verify.verify(range.getLow() != null);
         Verify.verify(scanType == IndexScanType.BY_LUCENE
                       || scanType == IndexScanType.BY_LUCENE_FULL_TEXT
-                      || scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE);
+                      || scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE
+                      || scanType == IndexScanType.BY_LUCENE_SPELLCHECK);
 
         if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE) {
             if (!autoCompleteEnabled) {
@@ -143,6 +144,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             }
             return new LuceneAutoCompleteResultCursor(getSuggester(Tuple.fromStream(range.getLow().stream().skip(1))),
                     range.getLow().getString(0), executor, scanProperties, state, highlightForAutoCompleteIfEnabled);
+        }
+
+        if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
+            if (continuation != null) {
+                throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
+            }
+            return new LuceneSpellcheckResultCursor(range.getLow().getString(0), executor, scanProperties, state);
         }
 
         try {

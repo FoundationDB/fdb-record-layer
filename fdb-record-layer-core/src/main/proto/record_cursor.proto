@@ -127,3 +127,9 @@ message LuceneAutoCompleteIndexContinuation {
     required uint64 value = 2;
     optional bytes payload = 3;
 }
+
+message LuceneSpellcheckIndexContinuation {
+    required string key = 1;
+    required uint64 walue = 2;
+    required bytes payload = 3;
+}

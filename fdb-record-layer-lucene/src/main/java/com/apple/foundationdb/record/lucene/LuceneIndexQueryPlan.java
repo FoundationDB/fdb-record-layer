@@ -162,15 +162,16 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                     .addLogInfo(LogMessageKeys.INDEX_NAME, indexName);
         }
 
-        if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE) {
+        if (scanType == IndexScanType.BY_LUCENE_SPELLCHECK) {
+
+        } if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE){
             final RecordType recordType = recordTypes.iterator().next();
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor
                     .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName, getToPartialRecord(index, recordType), scanType))
                     .map(QueryResult::of);
-        } else {
-            return super.executePlan(store, context, continuation, executeProperties);
         }
+        return super.executePlan(store, context, continuation, executeProperties);
     }
 
     /**

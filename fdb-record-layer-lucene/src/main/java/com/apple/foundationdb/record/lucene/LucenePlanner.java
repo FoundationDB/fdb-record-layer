@@ -132,6 +132,11 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (comparison.getType().equals(Comparisons.Type.FULL_TEXT_LUCENE_AUTO_COMPLETE)) {
             return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_AUTO_COMPLETE, comparison, false, null, groupingComparisons);
         }
+        // Set the scan type to spellcheck so the query plan can identify what to do in the executePlan function.
+        if (comparison.getType().equals(Comparisons.Type.FULL_TEXT_LUCENE_SPELLCHECK)){
+            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_SPELLCHECK, comparison, false, null, groupingComparisons, this.service);
+        }
+
         if (filter.multiFieldSearch) {
             return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_FULL_TEXT, comparison, false, null, groupingComparisons);
         }
