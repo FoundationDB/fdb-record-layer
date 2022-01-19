@@ -20,21 +20,29 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.ByteArrayContinuation;
 import com.apple.foundationdb.record.IndexEntry;
+import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.RecordCursor;
+import com.apple.foundationdb.record.RecordCursorContinuation;
+import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
-import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
+import com.apple.foundationdb.tuple.Tuple;
+import com.google.protobuf.ByteString;
+import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.search.suggest.Lookup;
-import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
@@ -45,30 +53,63 @@ public class LuceneSpellcheckResultCursor implements BaseCursor<IndexEntry> {
     private final Executor executor;
     @Nonnull
     private final IndexMaintainerState state;
-    @Nullable
-    private final FDBStoreTimer timer;
-    private int limit;
-    @Nullable
-    private List<Lookup.LookupResult> lookupResults = null;
-    private int currentPosition;
+    private final int limit;
     @Nonnull
-    private final String searchTerm;
+    private final String wordToSpellCheck;
+    @Nonnull
+    private final SpellChecker spellchecker;
+
     @Nullable
-    private final String fieldName;
-    private final AnalyzingInfixSuggester suggester;
+    private List<Lookup.LookupResult> spellcheckSuggestions = null;
+    private int currentPosition = 0;
 
-    public LuceneSpellcheckResultCursor(final AnalyzingInfixSuggester suggester, final String value, final Executor executor, final ScanProperties scanProperties, final IndexMaintainerState state) {
-        this.suggester = suggester;
+    public LuceneSpellcheckResultCursor(@Nonnull final SpellChecker spellchecker,
+                                        @Nonnull final String value,
+                                        @Nonnull final Executor executor,
+                                        final ScanProperties scanProperties,
+                                        @Nonnull final IndexMaintainerState state) {
+        this.spellchecker = spellchecker;
+        this.wordToSpellCheck = value;
         this.executor = executor;
-        this.searchTerm = value;
-
-
+        this.state = state;
+        this.limit = Math.min(
+                scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
+                state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
-        return null;
+        CompletableFuture<Lookup.LookupResult> spellcheckResult = CompletableFuture.supplyAsync( () -> {
+            if (spellcheckSuggestions == null) {
+                try {
+                    spellcheck();
+                } catch (IOException e) {
+                    throw new RecordCoreException("Spellcheck suggestions lookup failure", e);
+                }
+            }
+            return currentPosition < spellcheckSuggestions.size() ? spellcheckSuggestions.get(currentPosition) : null;
+                }, executor);
+        return spellcheckResult.thenApply(r -> {
+            if (r == null) {
+                return RecordCursorResult.exhausted();
+            } else {
+                if (r.payload == null) {
+                    throw new RecordCoreException("Empty payload of lookup result for lucene spellcheck suggestions");
+                }
+                IndexEntry indexEntry = new IndexEntry(state.index, Tuple.from(r.key), Tuple.from(r.payload.utf8ToString(), r.value));
+                return RecordCursorResult.withNextValue(indexEntry, continuationHelper(spellcheckSuggestions.get(currentPosition++)));
+            }
+        });
+    }
+
+    @Nonnull
+    private static RecordCursorContinuation continuationHelper(@Nonnull Lookup.LookupResult lookupResult) {
+        RecordCursorProto.LuceneSpellcheckIndexContinuation.Builder continuationBuilder =
+                RecordCursorProto.LuceneSpellcheckIndexContinuation.newBuilder().setKey((String) lookupResult.key);
+        continuationBuilder.setValue(lookupResult.value);
+        continuationBuilder.setPayload(ByteString.copyFrom(lookupResult.payload.bytes));
+        return ByteArrayContinuation.fromNullable(continuationBuilder.build().toByteArray());
     }
 
     @Override
@@ -79,15 +120,21 @@ public class LuceneSpellcheckResultCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     @Override
     public Executor getExecutor() {
-        return null;
+        return executor;
     }
 
     @Override
     public boolean accept(@Nonnull final RecordCursorVisitor visitor) {
-        return false;
+        visitor.visitEnter(this);
+        return visitor.visitLeave(this);
     }
 
-    private void spellcheck() {
+    private void spellcheck() throws IOException {
+        if (spellcheckSuggestions != null) {
+            return;
+        }
+        long startTime = System.nanoTime();
+        //spellcheckSuggestions = spellchecker.suggestSimilar(wordToSpellCheck, limit);
 
     }
 }

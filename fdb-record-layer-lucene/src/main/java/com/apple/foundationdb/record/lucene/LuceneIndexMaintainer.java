@@ -64,6 +64,7 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,12 +94,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     protected static final String PRIMARY_KEY_FIELD_NAME = "p"; // TODO: Need to find reserved names..
     private static final String PRIMARY_KEY_SEARCH_NAME = "s"; // TODO: Need to find reserved names..
     private final Executor executor;
+    @Nullable
+    private final SpellChecker spellchecker; // TODO(arnaud) make this follow a boolean parameter
 
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer) {
         super(state);
         this.executor = executor;
         this.indexAnalyzer = indexAnalyzer;
         this.queryAnalyzer = queryAnalyzer;
+        try {
+            this.spellchecker = new SpellChecker(DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync(state, new Tuple()).getDirectory());
+        } catch (IOException ex) {
+            throw new RecordCoreException("Cannot initialize the spellchecker", ex);
+        }
     }
 
     /**
@@ -125,7 +133,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             if (continuation != null) {
                 throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
             }
-            return new LuceneSpellcheckResultCursor(range.getLow().getString(0), executor, scanProperties, state);
+            return new LuceneSpellcheckResultCursor(spellchecker, range.getLow().getString(0), executor, scanProperties, state);
         }
         try {
             // This cannot work with nested documents the way that we currently use them. BlockJoin will be essential for this
