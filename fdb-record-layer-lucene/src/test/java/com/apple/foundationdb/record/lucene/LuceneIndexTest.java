@@ -131,6 +131,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
 
+    private static final Index SPELLCHECK_LUCENE_INDEX = new Index(
+            "spellcheck_index",
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            LuceneIndexTypes.LUCENE,
+            Collections.emptyMap());
+
     private static final List<KeyExpression> keys = List.of(
             field("key"),
             function(LuceneFunctionNames.LUCENE_TEXT, field("value")),
@@ -250,10 +256,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void simpleInsertAndSearch() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT, TupleRange.allOf(Tuple.from("Vision")), null, ScanProperties.FORWARD_SCAN);
@@ -269,10 +272,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void simpleInsertAndSearchNumFDBFetches() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT, TupleRange.allOf(Tuple.from("Vision")), null, ScanProperties.FORWARD_SCAN);
@@ -289,10 +289,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testContinuation() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1624L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1625L, ENGINEER_JOKE, 2));
@@ -314,10 +311,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testNullValue() throws ExecutionException, InterruptedException {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, 2));
             recordStore.saveRecord(createSimpleDocument(1632L, ENGINEER_JOKE, 2));
             RecordCursor<IndexEntry> recordCursor = recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -333,10 +327,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testLimit() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             for (int i = 0; i < 200; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
@@ -352,10 +343,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testSkip() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             for (int i = 0; i < 50; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
@@ -371,10 +359,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testSkipWithLimit() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             for (int i = 0; i < 50; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
@@ -390,10 +375,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testLimitWithContinuation() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             for (int i = 0; i < 200; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
@@ -414,10 +396,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testLimitNeedsMultipleScans() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             for (int i = 0; i < 800; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
@@ -435,10 +414,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testSkipOverMaxPageSize() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             for (int i = 0; i < 251; i++) {
                 recordStore.saveRecord(createSimpleDocument(1623L + i, ENGINEER_JOKE, 2));
             }
@@ -456,10 +432,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testNestedFieldSearch() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
-            });
+            rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX);
             recordStore.saveRecord(createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
             recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase",  1));
             RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("entry_value:Vision", "sampleTextSong")), null, ScanProperties.FORWARD_SCAN);
@@ -473,10 +446,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testGroupedRecordSearch() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
-            });
+            rebuildIndexMetaData(context, MAP_DOC, MAP_ON_VALUE_INDEX);
             recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
             RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("entry_value:Vision", "sampleTextPhrase")), null, ScanProperties.FORWARD_SCAN);
             assertEquals(1, indexEntries.getCount().join());
@@ -489,10 +459,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testMultipleFieldSearch() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
-            });
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
             recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
             recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
             assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -506,10 +473,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testFuzzySearchWithDefaultEdit2() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
-            });
+            rebuildIndexMetaData(context, COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES);
             recordStore.saveRecord(createComplexDocument(1623L, ENGINEER_JOKE, "john_leach@apple.com", 2));
             recordStore.saveRecord(createComplexDocument(1547L, WAYLON, "hering@gmail.com", 2));
             assertEquals(1, recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -523,10 +487,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void simpleInsertDeleteAndSearch() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1624L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 2));
@@ -543,10 +504,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testCommit() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -558,10 +516,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             commit(context);
         }
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
                     TupleRange.allOf(Tuple.from("Vision")), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
@@ -573,10 +528,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void testRollback() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1623L, ENGINEER_JOKE, 2));
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             assertEquals(1, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
@@ -588,10 +540,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             context.ensureActive().cancel();
         }
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             recordStore.saveRecord(createSimpleDocument(1547L, WAYLON, 1));
             assertEquals(0, recordStore.scanIndex(SIMPLE_TEXT_SUFFIXES, IndexScanType.BY_LUCENE_FULL_TEXT,
                     TupleRange.allOf(Tuple.from("Vision")), null, ScanProperties.FORWARD_SCAN)
@@ -609,10 +558,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     void testDataLoad() {
         FDBRecordContext context = openContext();
         for (int i = 0; i < 2000; i++) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SIMPLE_TEXT_SUFFIXES);
             String[] randomWords = generateRandomWords(500);
             final TestRecordsTextProto.SimpleDocument dylan = TestRecordsTextProto.SimpleDocument.newBuilder()
                     .setDocId(i)
@@ -632,10 +578,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void scanWithSynonymIndex() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_LUCENE_INDEX);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, SYNONYM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
             assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
                             TupleRange.allOf(Tuple.from("hullo record layer")), null, ScanProperties.FORWARD_SCAN)
@@ -665,10 +608,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void scanWithNgramIndex() {
         try (FDBRecordContext context = openContext()) {
-            openRecordStore(context, metaDataBuilder -> {
-                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-                metaDataBuilder.addIndex(SIMPLE_DOC, NGRAM_LUCENE_INDEX);
-            });
+            rebuildIndexMetaData(context, SIMPLE_DOC, NGRAM_LUCENE_INDEX);
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
             assertEquals(1, recordStore.scanIndex(NGRAM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
                             TupleRange.allOf(Tuple.from("hello record layer")), null, ScanProperties.FORWARD_SCAN)
@@ -822,7 +762,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
 
             Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
-            Message entry = (Message) message.getRepeatedField(entryDescriptor, 0);
+            Message entry = (Message)message.getRepeatedField(entryDescriptor, 0);
 
             Descriptors.FieldDescriptor keyDescriptor = entryDescriptor.getMessageType().findFieldByName("key");
             Descriptors.FieldDescriptor valueDescriptor = entryDescriptor.getMessageType().findFieldByName("value");
@@ -833,6 +773,31 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
             assertEntriesAndSegmentInfoStoredInCompoundFile(DirectoryCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE), Tuple.from("sampleTextPhrase")),
                     context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void spellCheck() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            addIndexAndSaveRecordForSpellcheck(context);
+            List<IndexEntry> results = recordStore.scanIndex(SPELLCHECK_LUCENE_INDEX,
+                    IndexScanType.BY_LUCENE_SPELLCHECK,
+                    TupleRange.allOf(Tuple.from("keyboad")),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            assertEquals(1, results.size());
+            IndexEntry result = results.get(0);
+            assertEquals("keyboard", result.getKey().get(0));
+            assertEquals("text", result.getValue().get(0));
+        }
+    }
+
+    private void addIndexAndSaveRecordForSpellcheck(@Nonnull FDBRecordContext context) {
+        rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_LUCENE_INDEX);
+        long docId = 1623L;
+        for (String word : List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable")) {
+            recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
         }
     }
 
@@ -958,5 +923,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         Descriptors.FieldDescriptor textDescriptor = recordDescriptor.findFieldByName(fieldName);
 
         assertEquals(expectedSuggestion, message.getField(textDescriptor));
+    }
+
+    private void rebuildIndexMetaData(final FDBRecordContext context, final String simpleDoc, final Index simpleTextSuffixes) {
+        openRecordStore(context, metaDataBuilder -> {
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.addIndex(simpleDoc, simpleTextSuffixes);
+        });
     }
 }

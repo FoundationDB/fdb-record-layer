@@ -69,6 +69,7 @@ import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester;
+import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,6 +103,9 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
     private final boolean autoCompleteEnabled;
     private final boolean highlightForAutoCompleteIfEnabled;
 
+    @Nullable
+    private final SpellChecker spellchecker; // TODO(arnaud) make this follow a boolean parameter
+
     public LuceneIndexMaintainer(@Nonnull final IndexMaintainerState state, @Nonnull Executor executor, @Nonnull Analyzer indexAnalyzer, @Nonnull Analyzer queryAnalyzer) {
         super(state);
         this.executor = executor;
@@ -109,6 +113,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         this.queryAnalyzer = queryAnalyzer;
         this.autoCompleteEnabled = state.index.getBooleanOption(IndexOptions.AUTO_COMPLETE_ENABLED, false);
         this.highlightForAutoCompleteIfEnabled = state.index.getBooleanOption(IndexOptions.AUTO_COMPLETE_HIGHLIGHT, false);
+        try {
+            this.spellchecker = new SpellChecker(DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync(state, new Tuple()).getDirectory());
+        } catch (IOException ex) {
+            throw new RecordCoreException("Cannot initialize the spellchecker", ex);
+        }
     }
 
     /**
@@ -150,7 +159,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             if (continuation != null) {
                 throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
             }
-            return new LuceneSpellcheckResultCursor(range.getLow().getString(0), executor, scanProperties, state);
+            return new LuceneSpellcheckResultCursor(spellchecker, range.getLow().getString(0), executor, scanProperties, state);
         }
 
         try {
