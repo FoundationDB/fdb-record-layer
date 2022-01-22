@@ -195,12 +195,12 @@ public class FDBDirectory extends Directory {
         FDBLuceneFileReference fileReference = this.fileReferenceCache.getIfPresent(name);
         if (fileReference == null) {
             return context.instrument(FDBStoreTimer.Events.LUCENE_GET_FILE_REFERENCE, context.ensureActive().get(metaSubspace.pack(name))
-                    .thenApplyAsync((value) -> {
-                        final FDBLuceneFileReference fetchedref = FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(value));
-                        if (fetchedref != null) {
-                            this.fileReferenceCache.put(name, fetchedref);
+                    .thenApply((value) -> {
+                        final FDBLuceneFileReference fetchedRef = FDBLuceneFileReference.parseFromBytes(LuceneSerializer.decode(value));
+                        if (fetchedRef != null) {
+                            this.fileReferenceCache.put(name, fetchedRef);
                         }
-                        return fetchedref;
+                        return fetchedRef;
                     }), System.nanoTime());
         } else {
             return CompletableFuture.completedFuture(fileReference);
