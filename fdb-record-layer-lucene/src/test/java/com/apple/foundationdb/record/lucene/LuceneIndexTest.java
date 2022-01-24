@@ -789,8 +789,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, results.size());
             IndexEntry result = results.get(0);
             assertEquals("keyboard", result.getKey().get(0));
-            assertEquals("text", result.getValue().get(0));// TODO: let indexEntry return the field value along
+            assertEquals("text", result.getValue().get(0));
+
+            List<IndexEntry> results2 = recordStore.scanIndex(SPELLCHECK_LUCENE_INDEX,
+                    IndexScanType.BY_LUCENE_SPELLCHECK,
+                    TupleRange.allOf(Tuple.from("text:keyboad")),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+            assertEquals(1, results.size());
+            IndexEntry result2 = results.get(0);
+            assertEquals("keyboard", result.getKey().get(0));
+            assertEquals("text", result.getValue().get(0));
         }
+
+
     }
 
     private void addIndexAndSaveRecordForSpellcheck(@Nonnull FDBRecordContext context) {

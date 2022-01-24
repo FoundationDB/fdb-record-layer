@@ -155,13 +155,25 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
         }
         long startTime = System.nanoTime();
         indexReader = getIndexReader();
-        for (String field : fields) {
-            List<SuggestWord> suggestedWords = Lists.newArrayList(spellchecker.suggestSimilar(new Term(field, wordToSpellCheck), limit, indexReader));
+        if (wordToSpellCheck.contains(":")) {
+            String[] splits = wordToSpellCheck.split(":");
+            //TODO: validate single field and value, aka splits size = 2
+            String field = splits[0];
+            String key = splits[1];
+            List<SuggestWord> suggestedWords = Lists.newArrayList(spellchecker.suggestSimilar(new Term(field, key), limit, indexReader));
             List<IndexEntry> entries = suggestedWords.stream().map(s -> {
                 return new IndexEntry(state.index, Tuple.from(s.string), Tuple.from(field));
             }).collect(Collectors.toList());
             spellcheckSuggestions.addAll(entries);
+        } else {
+            for (String field : fields) {
+                List<SuggestWord> suggestedWords = Lists.newArrayList(spellchecker.suggestSimilar(new Term(field, wordToSpellCheck), limit, indexReader));
+                List<IndexEntry> entries = suggestedWords.stream().map(s -> {
+                    return new IndexEntry(state.index, Tuple.from(s.string), Tuple.from(field));
+                }).collect(Collectors.toList());
+                spellcheckSuggestions.addAll(entries);
 
+            }
         }
         //TODO add metric via timer.
     }
