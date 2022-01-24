@@ -109,9 +109,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
 
-    private static final Index SPELLCHECK_LUCENE_INDEX = new Index(
+    private static final Index SPELLCHECK_INDEX = new Index(
             "spellcheck_index",
             function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            LuceneIndexTypes.LUCENE,
+            Collections.emptyMap());
+
+    private static final Index SPELLCHECK_INDEX_COMPLEX = new Index(
+            "spellcheck_index_complex",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
             Collections.emptyMap());
 
@@ -616,8 +622,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void spellCheckHelper(@Nonnull String query, Map<String, String> expectedSuggestions) throws ExecutionException, InterruptedException {
-        List<IndexEntry> suggestions = recordStore.scanIndex(SPELLCHECK_LUCENE_INDEX,
+    private void spellCheckHelper(final Index index, @Nonnull String query, Map<String, String> expectedSuggestions) throws ExecutionException, InterruptedException {
+        List<IndexEntry> suggestions = recordStore.scanIndex(index,
                 IndexScanType.BY_LUCENE_SPELLCHECK,
                 TupleRange.allOf(Tuple.from(query)),
                 null,
@@ -635,25 +641,25 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void spellCheck() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_LUCENE_INDEX);
+            rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_INDEX);
             long docId = 1623L;
             for (String word : List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps")) {
                 recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
             }
-            spellCheckHelper("keyboad", Map.of("keyboard", "text"));
-            spellCheckHelper("text:keyboad", Map.of("keyboard", "text"));
-            spellCheckHelper("helo", Map.of(
+            spellCheckHelper(SPELLCHECK_INDEX, "keyboad", Map.of("keyboard", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX, "text:keyboad", Map.of("keyboard", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX, "helo", Map.of(
                     "hello", "text",
                     "helm", "text",
                     "help", "text",
                     "helms", "text",
                     "helps", "text"
                     ));
-            spellCheckHelper("hello", Map.of());
-            spellCheckHelper("mous", Map.of("mouse", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX, "hello", Map.of());
+            spellCheckHelper(SPELLCHECK_INDEX, "mous", Map.of("mouse", "text"));
 
             assertThrows(RecordCoreException.class,
-                    () -> spellCheckHelper("wrongField:helo", Map.of()),
+                    () -> spellCheckHelper(SPELLCHECK_INDEX, "wrongField:helo", Map.of()),
                     "Invalid field name in Lucene index query");
         }
     }
@@ -661,24 +667,24 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     @Test
     void spellCheckComplexDocument() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            rebuildIndexMetaData(context, COMPLEX_DOC, SPELLCHECK_LUCENE_INDEX);
+            rebuildIndexMetaData(context, COMPLEX_DOC, SPELLCHECK_INDEX_COMPLEX);
             long docId = 1623L;
             List<String> text = List.of("beaver", "leopard");
             List<String> text2 = List.of("beavers", "lizards");
             for (int i = 0; i < text.size(); ++i) {
                 recordStore.saveRecord(createComplexDocument(docId++, text.get(i), text2.get(i), 1));
             }
-            spellCheckHelper("baver", Map.of("beaver", "text", "beavers", "text2"));
-            spellCheckHelper("text:baver", Map.of("beaver", "text"));
-            spellCheckHelper("text2:baver", Map.of("beaver", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "baver", Map.of("beaver", "text", "beavers", "text2"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:baver", Map.of("beaver", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:baver", Map.of("beaver", "text"));
 
-            spellCheckHelper("lepard", Map.of("leopard", "text"));
-            spellCheckHelper("text:lepard", Map.of("leopard", "text"));
-            spellCheckHelper("text2:lepard", Map.of());
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lepard", Map.of("leopard", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lepard", Map.of("leopard", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lepard", Map.of());
 
-            spellCheckHelper("lizerds", Map.of("lizards", "text"));
-            spellCheckHelper("text:lizerds", Map.of());
-            spellCheckHelper("text2:lizerds", Map.of("lizards", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lizerds", Map.of("lizards", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lizerds", Map.of());
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", Map.of("lizards", "text"));
         }
     }
 
@@ -727,10 +733,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
-    private void rebuildIndexMetaData(final FDBRecordContext context, final String simpleDoc, final Index simpleTextSuffixes) {
+    private void rebuildIndexMetaData(final FDBRecordContext context, final String document, final Index index) {
         openRecordStore(context, metaDataBuilder -> {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
-            metaDataBuilder.addIndex(simpleDoc, simpleTextSuffixes);
+            metaDataBuilder.addIndex(document, index);
         });
     }
 }
