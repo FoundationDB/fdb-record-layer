@@ -86,6 +86,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -835,7 +836,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
         assertEquals(expectedSuggestions.size(), suggestions.size());
         for (int i = 0 ; i < expectedSuggestions.size(); ++i) {
-            assertThat(expectedSuggestions.get(i), equalTo(suggestions.get(i)));
+            assertThat(suggestions.get(i).getKey().get(0), equalTo(expectedSuggestions.get(i).getKey()));
+            assertThat(suggestions.get(i).getValue().get(0), equalTo(expectedSuggestions.get(i).getValue()));
         }
     }
 
@@ -870,8 +872,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, SPELLCHECK_INDEX_COMPLEX);
             long docId = 1623L;
-            List<String> text = List.of("beaver", "leopard", "hello", "help", "helm");
-            List<String> text2 = List.of("beavers", "lizards", "hell", "helps", "helms");
+            List<String> text = List.of("beaver", "leopard", "hello", "help", "helm", "boat", "road", "fowl", "foot");
+            List<String> text2 = List.of("beavers", "lizards", "hell", "helps", "helms", "boot", "read", "fowl", "fool");
+            assertThat(text2, hasSize(text.size()));
             for (int i = 0; i < text.size(); ++i) {
                 recordStore.saveRecord(createComplexDocument(docId++, text.get(i), text2.get(i), 1));
             }
@@ -887,19 +890,27 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lizerds", List.of());
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", List.of(Pair.of("lizards", "text2")));
 
+            // Apply the limit of 5 fields so do not return "helms" which has a lower score than the rest
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "hela", List.of(
-                    Pair.of("", "text"),
-                    Pair.of("a", "text"),
-                    Pair.of("b", "text"),
-                    Pair.of("c", "text"),
-                    Pair.of("d", "text")));
+                    Pair.of("hell", "text2"),
+                    Pair.of("helm", "text"),
+                    Pair.of("help", "text"),
+                    Pair.of("hello", "text"),
+                    Pair.of("helms", "text2")));
 
+            // Same score and same frequency, this is sorted by field name
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "bost", List.of(
+                    Pair.of("boat", "text"),
+                    Pair.of("boot", "text2")));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "rlad", List.of(
+                    Pair.of("read", "text2"),
+                    Pair.of("road", "text")));
 
-            // Exceed the limit when combining different fields
-
-            // combine frequencies of different text fields
-
-            // somethign else ?
+            // Same score but different frequency, priority to the more frequent item
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "foml", List.of(
+                    Pair.of("fowl", "text"),
+                    Pair.of("fool", "text2"),
+                    Pair.of("foot", "text")));
         }
     }
 

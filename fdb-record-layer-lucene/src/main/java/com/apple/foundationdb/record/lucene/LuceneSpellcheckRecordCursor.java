@@ -32,11 +32,6 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LogMessageKeys;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -56,12 +51,18 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync;
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
+import static java.util.Comparator.comparing;
+import static java.util.stream.Collectors.collectingAndThen;
+import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.reducing;
 
 public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
@@ -167,35 +168,58 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
         if (spellcheckSuggestions != null) {
             return;
         }
-        Multimap<String, Pair<String, SuggestWord>> suggestionResultsMap = HashMultimap.create();
         long startTime = System.nanoTime();
         IndexReader indexReader = getIndexReader();
+
+        List<Suggestion> suggestionResults = new ArrayList<>();
         for (String field : fields) {
             Arrays.stream(spellchecker.suggestSimilar(new Term(field, wordToSpellCheck), limit, indexReader))
-                    .map(suggestion -> ImmutablePair.of(field, suggestion))
-                    .forEach(fieldAndSuggestion -> suggestionResultsMap.put(fieldAndSuggestion.getRight().string, fieldAndSuggestion));
+                    .map(suggestion -> new Suggestion(field, suggestion))
+                    .forEach(suggestionResults::add);
         }
-        List<Pair<String, SuggestWord>> suggestionResultsList = new ArrayList<>();
-        for (String suggestionKey : suggestionResultsMap.keys()) {
-            int frequency = suggestionResultsMap.get(suggestionKey).stream().map(s -> s.getRight().freq).reduce(0, Integer::sum);
-            Pair<String, SuggestWord> element = suggestionResultsMap.get(suggestionKey).stream().;
-            SuggestWord suggestWord = new SuggestWord();
-            suggestWord.freq = frequency;
-            suggestWord.score = element.getRight().score;
-            suggestWord.string = element.getRight().string;
-            suggestionResultsList.add(Pair.of(element.getLeft(), suggestWord));
-        }
-        spellcheckSuggestions = suggestionResultsList.stream()
-                .sorted(Comparator.comparing(o -> o.getRight().score).thenComparing(o -> o.getRight().freq).thenComparing(o -> o.getRight().string))
-
-                //.limit(limit)
-                //.map(suggestion -> new IndexEntry(state.index, Tuple.from(suggestion.getRight().string), Tuple.from(suggestion.getLeft())))
+        spellcheckSuggestions = suggestionResults.stream()
+                .collect(Collectors.toMap(
+                        suggestion -> suggestion.suggestWord.string,
+                        Function.identity(),
+                        LuceneSpellcheckRecordCursor::mergeTwoSuggestWords))
+                .values()
+                .stream()
+                .sorted(comparing((Suggestion s) -> s.suggestWord.score).reversed()
+                                .thenComparing(comparing((Suggestion s) -> s.suggestWord.freq).reversed())
+                                .thenComparing(s -> s.suggestWord.string))
+                .limit(limit)
+                .map(suggestion -> new IndexEntry(
+                        state.index,
+                        Tuple.from(suggestion.suggestWord.string),
+                        Tuple.from(suggestion.indexField)))
                 .collect(Collectors.toList());
-
-
-        // hello text 5x
-        // hello text 2x    hello text1 3x    score 0.5
-        // help text 2x     help text1 3x     score 0.5
         //TODO add metric via timer.
+    }
+
+    private static class Suggestion {
+        final String indexField;
+        final SuggestWord suggestWord;
+
+        public Suggestion(final String indexField, final SuggestWord suggestWord) {
+            this.indexField = indexField;
+            this.suggestWord = suggestWord;
+        }
+    }
+
+    private static Suggestion mergeTwoSuggestWords(Suggestion a, Suggestion b) {
+        int freq = a.suggestWord.freq + b.suggestWord.freq;
+        String field;
+        if (a.suggestWord.freq == b.suggestWord.freq) {
+            field = a.indexField.compareTo(b.indexField) < 0 ? a.indexField : b.indexField;
+        } else if (a.suggestWord.freq > b.suggestWord.freq) {
+            field = a.indexField;
+        } else {
+            field = b.indexField;
+        }
+        SuggestWord newSuggestWord = new SuggestWord();
+        newSuggestWord.freq = freq;
+        newSuggestWord.score = a.suggestWord.score;
+        newSuggestWord.string = a.suggestWord.string;
+        return new Suggestion(field, newSuggestWord);
     }
 }
