@@ -36,6 +36,9 @@ public enum LogMessageKeys {
     SESSION_ID,
     EXISTING_SESSION,
     EXISTING_SESSION_EXPIRE_TIME,
+
+    FIELD_NAME,
+    INDEX_FIELDS,
     ;
 
     private final String logKey;

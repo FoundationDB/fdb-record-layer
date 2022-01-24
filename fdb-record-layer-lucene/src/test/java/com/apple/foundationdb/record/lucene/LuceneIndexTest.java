@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -76,7 +77,11 @@ import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIn
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasKey;
 
 /**
  * Tests for {@code LUCENE} type indexes.
@@ -622,7 +627,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         for (IndexEntry suggestion : suggestions) {
             String key = (String)suggestion.getKey().get(0);
             String value = (String)suggestion.getValue().get(0);
-            assertTrue(expectedSuggestions.containsKey(key));
+            assertThat(expectedSuggestions, hasKey(key));
             assertEquals(expectedSuggestions.get(key), value);
         }
     }
@@ -645,9 +650,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     "helps", "text"
                     ));
             spellCheckHelper("hello", Map.of());
-            spellCheckHelper("wrongField:helo", Map.of());
             spellCheckHelper("mous", Map.of("mouse", "text"));
-            spellCheckHelper("hous", Map.of("house", "text"));
+
+            assertThrows(RecordCoreException.class,
+                    () -> spellCheckHelper("wrongField:helo", Map.of()),
+                    "Invalid field name in Lucene index query");
         }
     }
 

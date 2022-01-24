@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.util.LogMessageKeys;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.index.DirectoryReader;
@@ -45,6 +46,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -64,7 +66,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     private final String wordToSpellCheck;
     @Nonnull
-    private DirectSpellChecker spellchecker;
+    private final DirectSpellChecker spellchecker;
 
     @Nullable
     private List<IndexEntry> spellcheckSuggestions = null;
@@ -80,7 +82,19 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                                         final ScanProperties scanProperties,
                                         @Nonnull final IndexMaintainerState state,
                                         @Nullable Tuple groupingKey, final String[] fieldNames) {
-        this.wordToSpellCheck = value;
+        if (value.contains(":")) {
+            String[] fieldAndWord = value.split(":", 2);
+            if (Arrays.stream(fieldNames).noneMatch(name -> name.equals(fieldAndWord[0]))) {
+                throw new RecordCoreException("Invalid field name in Lucene index query")
+                        .addLogInfo(LogMessageKeys.FIELD_NAME, fieldAndWord[0])
+                        .addLogInfo(LogMessageKeys.INDEX_FIELDS, fieldNames);
+            }
+            fields = new String[] {fieldAndWord[0]};
+            wordToSpellCheck = fieldAndWord[1];
+        } else {
+            fields = fieldNames;
+            wordToSpellCheck = value;
+        }
         this.executor = executor;
         this.state = state;
         this.limit = Math.min(
@@ -88,6 +102,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
         this.groupingKey = groupingKey;
         this.fields = fieldNames;
+        this.spellchecker = new DirectSpellChecker();
     }
 
     @Nonnull
@@ -143,37 +158,16 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private void spellcheck() throws IOException {
-        //TODO: This also needs to check if the current position is past the spellchecker size.
-        if (spellcheckSuggestions != null && currentPosition < spellcheckSuggestions.size()) {
+        if (spellcheckSuggestions != null) {
             return;
         }
-        if (spellcheckSuggestions == null) {
-            spellcheckSuggestions = new ArrayList<>();
-        }
-        if (spellchecker == null) {
-            spellchecker = new DirectSpellChecker();
-        }
+        spellcheckSuggestions = new ArrayList<>();
         long startTime = System.nanoTime();
         indexReader = getIndexReader();
-        if (wordToSpellCheck.contains(":")) {
-            String[] splits = wordToSpellCheck.split(":");
-            //TODO: validate single field and value, aka splits size = 2
-            String field = splits[0];
-            String key = splits[1];
-            List<SuggestWord> suggestedWords = Lists.newArrayList(spellchecker.suggestSimilar(new Term(field, key), limit, indexReader));
-            List<IndexEntry> entries = suggestedWords.stream().map(s -> {
-                return new IndexEntry(state.index, Tuple.from(s.string), Tuple.from(field));
-            }).collect(Collectors.toList());
-            spellcheckSuggestions.addAll(entries);
-        } else {
-            for (String field : fields) {
-                List<SuggestWord> suggestedWords = Lists.newArrayList(spellchecker.suggestSimilar(new Term(field, wordToSpellCheck), limit, indexReader));
-                List<IndexEntry> entries = suggestedWords.stream().map(s -> {
-                    return new IndexEntry(state.index, Tuple.from(s.string), Tuple.from(field));
-                }).collect(Collectors.toList());
-                spellcheckSuggestions.addAll(entries);
-
-            }
+        for (String field : fields) {
+            Arrays.stream(spellchecker.suggestSimilar(new Term(field, wordToSpellCheck), limit, indexReader))
+                    .map(suggestion -> new IndexEntry(state.index, Tuple.from(suggestion.string), Tuple.from(field)))
+                    .forEach(spellcheckSuggestions::add);
         }
         //TODO add metric via timer.
     }
