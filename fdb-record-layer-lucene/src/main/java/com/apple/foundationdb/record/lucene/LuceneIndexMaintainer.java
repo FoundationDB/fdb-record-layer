@@ -159,7 +159,8 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             if (continuation != null) {
                 throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
             }
-            return new LuceneSpellcheckResultCursor(spellchecker, range.getLow().getString(0), executor, scanProperties, state);
+            return new LuceneSpellcheckRecordCursor(range.getLow().getString(0), executor,
+                    scanProperties, state, Tuple.fromStream(range.getLow().stream().skip(1)));
         }
 
         try {
