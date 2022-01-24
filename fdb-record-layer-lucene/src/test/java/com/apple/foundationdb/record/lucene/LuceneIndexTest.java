@@ -76,7 +76,6 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -676,15 +675,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "baver", Map.of("beaver", "text", "beavers", "text2"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:baver", Map.of("beaver", "text"));
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:baver", Map.of("beaver", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:baver", Map.of("beavers", "text2"));
 
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lepard", Map.of("leopard", "text"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lepard", Map.of("leopard", "text"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lepard", Map.of());
 
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lizerds", Map.of("lizards", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lizerds", Map.of("lizards", "text2"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lizerds", Map.of());
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", Map.of("lizards", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", Map.of("lizards", "text2"));
         }
     }
 

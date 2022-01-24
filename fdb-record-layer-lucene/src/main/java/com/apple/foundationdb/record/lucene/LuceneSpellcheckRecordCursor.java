@@ -101,7 +101,6 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
         this.groupingKey = groupingKey;
-        this.fields = fieldNames;
         this.spellchecker = new DirectSpellChecker();
     }
 
