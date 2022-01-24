@@ -63,6 +63,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
@@ -74,6 +75,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -609,66 +611,67 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    private void spellCheckHelper(@Nonnull String query, Map<String, String> expectedSuggestions) throws ExecutionException, InterruptedException {
+        List<IndexEntry> suggestions = recordStore.scanIndex(SPELLCHECK_LUCENE_INDEX,
+                IndexScanType.BY_LUCENE_SPELLCHECK,
+                TupleRange.allOf(Tuple.from(query)),
+                null,
+                ScanProperties.FORWARD_SCAN).asList().get();
+
+        assertEquals(expectedSuggestions.size(), suggestions.size());
+        for (IndexEntry suggestion : suggestions) {
+            String key = (String)suggestion.getKey().get(0);
+            String value = (String)suggestion.getValue().get(0);
+            assertTrue(expectedSuggestions.containsKey(key));
+            assertEquals(expectedSuggestions.get(key), value);
+        }
+    }
+
     @Test
     void spellCheck() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            addIndexAndSaveRecordForSpellcheck(context);
-            List<IndexEntry> results = recordStore.scanIndex(SPELLCHECK_LUCENE_INDEX,
-                    IndexScanType.BY_LUCENE_SPELLCHECK,
-                    TupleRange.allOf(Tuple.from("keyboad")),
-                    null,
-                    ScanProperties.FORWARD_SCAN).asList().get();
-
-            assertEquals(1, results.size());
-            IndexEntry result = results.get(0);
-            assertEquals("keyboard", result.getKey().get(0));
-            assertEquals("text", result.getValue().get(0));
-
-            List<IndexEntry> results2 = recordStore.scanIndex(SPELLCHECK_LUCENE_INDEX,
-                    IndexScanType.BY_LUCENE_SPELLCHECK,
-                    TupleRange.allOf(Tuple.from("text:keyboad")),
-                    null,
-                    ScanProperties.FORWARD_SCAN).asList().get();
-            assertEquals(1, results.size());
-            IndexEntry result2 = results.get(0);
-            assertEquals("keyboard", result.getKey().get(0));
-            assertEquals("text", result.getValue().get(0));
-        }
-
-
-    }
-
-    private void addIndexAndSaveRecordForSpellcheck(@Nonnull FDBRecordContext context) {
-        rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_LUCENE_INDEX);
-        long docId = 1623L;
-        for (String word : List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable")) {
-            recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
+            rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_LUCENE_INDEX);
+            long docId = 1623L;
+            for (String word : List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps")) {
+                recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
+            }
+            spellCheckHelper("keyboad", Map.of("keyboard", "text"));
+            spellCheckHelper("text:keyboad", Map.of("keyboard", "text"));
+            spellCheckHelper("helo", Map.of(
+                    "hello", "text",
+                    "helm", "text",
+                    "help", "text",
+                    "helms", "text",
+                    "helps", "text"
+                    ));
+            spellCheckHelper("hello", Map.of());
+            spellCheckHelper("wrongField:helo", Map.of());
+            spellCheckHelper("mous", Map.of("mouse", "text"));
+            spellCheckHelper("hous", Map.of("house", "text"));
         }
     }
 
     @Test
-    void spellCheckMultipleMatches() throws Exception {
+    void spellCheckComplexDocument() throws Exception {
         try (FDBRecordContext context = openContext()) {
-            addIndexAndSaveRecordForSpellcheckMultiple(context);
-            List<IndexEntry> results = recordStore.scanIndex(SPELLCHECK_LUCENE_INDEX,
-                    IndexScanType.BY_LUCENE_SPELLCHECK,
-                    TupleRange.allOf(Tuple.from("helo")),
-                    null,
-                    ScanProperties.FORWARD_SCAN).asList().get();
-            assertEquals(5, results.size());
-            assertEquals("hello", results.get(0).getKey().get(0));
-            assertEquals("helm", results.get(1).getKey().get(0));
-            assertEquals("help", results.get(2).getKey().get(0));
-            assertEquals("helms", results.get(3).getKey().get(0));
-            assertEquals("helps", results.get(4).getKey().get(0));
-        }
-    }
+            rebuildIndexMetaData(context, COMPLEX_DOC, SPELLCHECK_LUCENE_INDEX);
+            long docId = 1623L;
+            List<String> text = List.of("beaver", "leopard");
+            List<String> text2 = List.of("beavers", "lizards");
+            for (int i = 0; i < text.size(); ++i) {
+                recordStore.saveRecord(createComplexDocument(docId++, text.get(i), text2.get(i), 1));
+            }
+            spellCheckHelper("baver", Map.of("beaver", "text", "beavers", "text2"));
+            spellCheckHelper("text:baver", Map.of("beaver", "text"));
+            spellCheckHelper("text2:baver", Map.of("beaver", "text"));
 
-    private void addIndexAndSaveRecordForSpellcheckMultiple(@Nonnull FDBRecordContext context) {
-        rebuildIndexMetaData(context, SIMPLE_DOC, SPELLCHECK_LUCENE_INDEX);
-        long docId = 1623L;
-        for (String word : List.of("hello", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps")) {
-            recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
+            spellCheckHelper("lepard", Map.of("leopard", "text"));
+            spellCheckHelper("text:lepard", Map.of("leopard", "text"));
+            spellCheckHelper("text2:lepard", Map.of());
+
+            spellCheckHelper("lizerds", Map.of("lizards", "text"));
+            spellCheckHelper("text:lizerds", Map.of());
+            spellCheckHelper("text2:lizerds", Map.of("lizards", "text"));
         }
     }
 
