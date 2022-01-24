@@ -61,6 +61,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.IndexFileNames;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -84,6 +85,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
+import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -824,7 +826,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
 
-    private void spellCheckHelper(final Index index, @Nonnull String query, Map<String, String> expectedSuggestions) throws ExecutionException, InterruptedException {
+    private void spellCheckHelper(final Index index, @Nonnull String query, List<Pair<String, String>> expectedSuggestions) throws ExecutionException, InterruptedException {
         List<IndexEntry> suggestions = recordStore.scanIndex(index,
                 IndexScanType.BY_LUCENE_SPELLCHECK,
                 TupleRange.allOf(Tuple.from(query)),
@@ -832,11 +834,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 ScanProperties.FORWARD_SCAN).asList().get();
 
         assertEquals(expectedSuggestions.size(), suggestions.size());
-        for (IndexEntry suggestion : suggestions) {
-            String key = (String)suggestion.getKey().get(0);
-            String value = (String)suggestion.getValue().get(0);
-            assertThat(expectedSuggestions, hasKey(key));
-            assertEquals(expectedSuggestions.get(key), value);
+        for (int i = 0 ; i < expectedSuggestions.size(); ++i) {
+            assertThat(expectedSuggestions.get(i), equalTo(suggestions.get(i)));
         }
     }
 
@@ -848,20 +847,20 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (String word : List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps")) {
                 recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
             }
-            spellCheckHelper(SPELLCHECK_INDEX, "keyboad", Map.of("keyboard", "text"));
-            spellCheckHelper(SPELLCHECK_INDEX, "text:keyboad", Map.of("keyboard", "text"));
-            spellCheckHelper(SPELLCHECK_INDEX, "helo", Map.of(
-                    "hello", "text",
-                    "helm", "text",
-                    "help", "text",
-                    "helms", "text",
-                    "helps", "text"
+            spellCheckHelper(SPELLCHECK_INDEX, "keyboad", List.of(Pair.of("keyboard", "text")));
+            spellCheckHelper(SPELLCHECK_INDEX, "text:keyboad", List.of(Pair.of("keyboard", "text")));
+            spellCheckHelper(SPELLCHECK_INDEX, "helo", List.of(
+                    Pair.of("hello", "text"),
+                    Pair.of("helm", "text"),
+                    Pair.of("help", "text"),
+                    Pair.of("helms", "text"),
+                    Pair.of("helps", "text")
                     ));
-            spellCheckHelper(SPELLCHECK_INDEX, "hello", Map.of());
-            spellCheckHelper(SPELLCHECK_INDEX, "mous", Map.of("mouse", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX, "hello", List.of());
+            spellCheckHelper(SPELLCHECK_INDEX, "mous", List.of(Pair.of("mouse", "text")));
 
             assertThrows(RecordCoreException.class,
-                    () -> spellCheckHelper(SPELLCHECK_INDEX, "wrongField:helo", Map.of()),
+                    () -> spellCheckHelper(SPELLCHECK_INDEX, "wrongField:helo", List.of()),
                     "Invalid field name in Lucene index query");
         }
     }
@@ -871,22 +870,36 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, SPELLCHECK_INDEX_COMPLEX);
             long docId = 1623L;
-            List<String> text = List.of("beaver", "leopard");
-            List<String> text2 = List.of("beavers", "lizards");
+            List<String> text = List.of("beaver", "leopard", "hello", "help", "helm");
+            List<String> text2 = List.of("beavers", "lizards", "hell", "helps", "helms");
             for (int i = 0; i < text.size(); ++i) {
                 recordStore.saveRecord(createComplexDocument(docId++, text.get(i), text2.get(i), 1));
             }
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "baver", Map.of("beaver", "text", "beavers", "text2"));
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:baver", Map.of("beaver", "text"));
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:baver", Map.of("beavers", "text2"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "baver", List.of(Pair.of("beaver", "text"), Pair.of("beavers", "text2")));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:baver", List.of(Pair.of("beaver", "text")));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:baver", List.of(Pair.of("beavers", "text2")));
 
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lepard", Map.of("leopard", "text"));
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lepard", Map.of("leopard", "text"));
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lepard", Map.of());
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lepard", List.of(Pair.of("leopard", "text")));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lepard", List.of(Pair.of("leopard", "text")));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lepard", List.of());
 
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lizerds", Map.of("lizards", "text2"));
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lizerds", Map.of());
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", Map.of("lizards", "text2"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lizerds", List.of(Pair.of("lizards", "text2")));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lizerds", List.of());
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", List.of(Pair.of("lizards", "text2")));
+
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "hela", List.of(
+                    Pair.of("", "text"),
+                    Pair.of("a", "text"),
+                    Pair.of("b", "text"),
+                    Pair.of("c", "text"),
+                    Pair.of("d", "text")));
+
+
+            // Exceed the limit when combining different fields
+
+            // combine frequencies of different text fields
+
+            // somethign else ?
         }
     }
 
