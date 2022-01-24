@@ -129,19 +129,19 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
         Verify.verify(scanType == IndexScanType.BY_LUCENE ||
                       scanType == IndexScanType.BY_LUCENE_FULL_TEXT ||
                       scanType == IndexScanType.BY_LUCENE_SPELLCHECK);
+        String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
         if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
             if (continuation != null) {
                 throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
             }
             return new LuceneSpellcheckRecordCursor(range.getLow().getString(0), executor,
-                    scanProperties, state, Tuple.fromStream(range.getLow().stream().skip(1)));
+                    scanProperties, state, Tuple.fromStream(range.getLow().stream().skip(1)), fieldNames);
         }
         try {
             // This cannot work with nested documents the way that we currently use them. BlockJoin will be essential for this
             // functionality in this way.
             QueryParser parser;
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
-                String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
                 parser = new MultiFieldQueryParser(fieldNames, queryAnalyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
             } else {
