@@ -31,6 +31,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
@@ -43,8 +44,11 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync;
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
@@ -63,18 +67,19 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     private DirectSpellChecker spellchecker;
 
     @Nullable
-    private SuggestWord[] spellcheckSuggestions = null;
+    private List<IndexEntry> spellcheckSuggestions = null;
     private int currentPosition = 0;
     @Nullable
     private Tuple groupingKey;
     private IndexReader indexReader;
+    private String[] fields;
 
 
     public LuceneSpellcheckRecordCursor(@Nonnull final String value,
                                         @Nonnull final Executor executor,
                                         final ScanProperties scanProperties,
                                         @Nonnull final IndexMaintainerState state,
-                                        @Nullable Tuple groupingKey) {
+                                        @Nullable Tuple groupingKey, final String[] fieldNames) {
         this.wordToSpellCheck = value;
         this.executor = executor;
         this.state = state;
@@ -82,12 +87,13 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 scanProperties.getExecuteProperties().getReturnedRowLimitOrMax(),
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
         this.groupingKey = groupingKey;
+        this.fields = fieldNames;
     }
 
     @Nonnull
     @Override
     public CompletableFuture<RecordCursorResult<IndexEntry>> onNext() {
-        CompletableFuture<String> spellcheckResult = CompletableFuture.supplyAsync( () -> {
+        CompletableFuture<IndexEntry> spellcheckResult = CompletableFuture.supplyAsync( () -> {
             if (spellcheckSuggestions == null) {
                 try {
                     spellcheck();
@@ -95,22 +101,21 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                     throw new RecordCoreException("Spellcheck suggestions lookup failure", e);
                 }
             }
-            return currentPosition < spellcheckSuggestions.length ? spellcheckSuggestions[currentPosition].string : null;
+            return currentPosition < spellcheckSuggestions.size() ? spellcheckSuggestions.get(currentPosition) : null;
                 }, executor);
         return spellcheckResult.thenApply(r -> {
             if (r == null) {
                 return RecordCursorResult.exhausted();
             } else {
-                IndexEntry entry = new IndexEntry(state.index, Tuple.from(r), Tuple.from(r));
-                return RecordCursorResult.withNextValue(entry, continuationHelper(spellcheckSuggestions[currentPosition++]));
+                return RecordCursorResult.withNextValue(r, continuationHelper(spellcheckSuggestions.get(currentPosition++)));
             }
         });
     }
 
     @Nonnull
-    private RecordCursorContinuation continuationHelper(@Nonnull SuggestWord lookupResult) {
+    private RecordCursorContinuation continuationHelper(@Nonnull IndexEntry lookupResult) {
         RecordCursorProto.LuceneSpellcheckIndexContinuation.Builder continuationBuilder =
-                RecordCursorProto.LuceneSpellcheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.string));
+                RecordCursorProto.LuceneSpellcheckIndexContinuation.newBuilder().setValue(ByteString.copyFromUtf8(lookupResult.toString()));
         continuationBuilder.setLocation(currentPosition);
         return ByteArrayContinuation.fromNullable(continuationBuilder.build().toByteArray());
     }
@@ -138,15 +143,26 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     }
 
     private void spellcheck() throws IOException {
-        if (spellcheckSuggestions != null) {
+        //TODO: This also needs to check if the current position is past the spellchecker size.
+        if (spellcheckSuggestions != null && currentPosition < spellcheckSuggestions.size()) {
             return;
+        }
+        if (spellcheckSuggestions == null) {
+            spellcheckSuggestions = new ArrayList<>();
         }
         if (spellchecker == null) {
             spellchecker = new DirectSpellChecker();
         }
         long startTime = System.nanoTime();
         indexReader = getIndexReader();
-        spellcheckSuggestions = spellchecker.suggestSimilar(new Term("text", wordToSpellCheck), limit, indexReader);
+        for (String field : fields) {
+            List<SuggestWord> suggestedWords = Lists.newArrayList(spellchecker.suggestSimilar(new Term(field, wordToSpellCheck), limit, indexReader));
+            List<IndexEntry> entries = suggestedWords.stream().map(s -> {
+                return new IndexEntry(state.index, Tuple.from(s.string), Tuple.from(field));
+            }).collect(Collectors.toList());
+            spellcheckSuggestions.addAll(entries);
+
+        }
         //TODO add metric via timer.
     }
 }

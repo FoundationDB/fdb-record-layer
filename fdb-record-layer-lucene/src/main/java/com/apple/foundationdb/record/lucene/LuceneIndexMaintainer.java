@@ -137,6 +137,7 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull ScanProperties scanProperties) {
         LOG.trace("scan scanType={}", scanType);
         Verify.verify(range.getLow() != null);
+<<<<<<< HEAD
         Verify.verify(scanType == IndexScanType.BY_LUCENE
                       || scanType == IndexScanType.BY_LUCENE_FULL_TEXT
                       || scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE
@@ -155,12 +156,13 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                     range.getLow().getString(0), executor, scanProperties, state, highlightForAutoCompleteIfEnabled);
         }
 
+        String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
         if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
             if (continuation != null) {
                 throw new RecordCoreArgumentException("Spellcheck does not currently support continuation scanning");
             }
             return new LuceneSpellcheckRecordCursor(range.getLow().getString(0), executor,
-                    scanProperties, state, Tuple.fromStream(range.getLow().stream().skip(1)));
+                    scanProperties, state, Tuple.fromStream(range.getLow().stream().skip(1)), fieldNames);
         }
 
         try {
@@ -168,7 +170,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             // functionality in this way.
             QueryParser parser;
             if (scanType == IndexScanType.BY_LUCENE_FULL_TEXT) {
-                String[] fieldNames = indexTextFields(state.index, state.store.getRecordMetaData());
                 parser = new MultiFieldQueryParser(fieldNames, queryAnalyzer);
                 parser.setDefaultOperator(QueryParser.Operator.OR);
             } else {

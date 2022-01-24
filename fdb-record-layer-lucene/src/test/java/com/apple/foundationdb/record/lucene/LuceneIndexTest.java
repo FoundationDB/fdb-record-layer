@@ -789,7 +789,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals(1, results.size());
             IndexEntry result = results.get(0);
             assertEquals("keyboard", result.getKey().get(0));
-            //assertEquals("text", result.getValue().get(0));// TODO: let indexEntry return the field value along
+            assertEquals("text", result.getValue().get(0));// TODO: let indexEntry return the field value along
         }
     }
 
