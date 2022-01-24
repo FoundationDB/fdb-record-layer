@@ -137,7 +137,6 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
                                          @Nonnull ScanProperties scanProperties) {
         LOG.trace("scan scanType={}", scanType);
         Verify.verify(range.getLow() != null);
-<<<<<<< HEAD
         Verify.verify(scanType == IndexScanType.BY_LUCENE
                       || scanType == IndexScanType.BY_LUCENE_FULL_TEXT
                       || scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE
