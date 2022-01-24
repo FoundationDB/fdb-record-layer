@@ -708,6 +708,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     Pair.of("fowl", "text"),
                     Pair.of("fool", "text2"),
                     Pair.of("foot", "text")));
+
+            // TODO add tests for grouping
         }
     }
 

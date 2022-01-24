@@ -221,6 +221,7 @@ public class FDBStoreTimer extends StoreTimer {
         LUCENE_GET_FILE_REFERENCE("lucene get file references"),
         /** Number of documents returned from a single Lucene Index Scan. */
         LUCENE_INDEX_SCAN("lucene search returned documents"),
+        LUCENE_SPELLCHECK_SCAN("lucene search returned spellcheck suggestions"),
         /** Total lifetime of a transaction. */
         TRANSACTION_TIME("transaction time")
         ;
@@ -686,6 +687,8 @@ public class FDBStoreTimer extends StoreTimer {
         LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
+        /** Matched spellchecker suggestions returned from lucene spellchecker suggestion lookup. **/
+        LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS("lucene scan matched spellchecker suggestions", false),
         /** Count of commits that failed for any reason. */
         COMMITS_FAILED("commits failed", false),
         /** Count failed due to conflict. */

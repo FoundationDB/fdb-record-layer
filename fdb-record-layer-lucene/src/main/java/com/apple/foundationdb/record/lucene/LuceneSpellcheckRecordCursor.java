@@ -29,12 +29,11 @@ import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.RecordCursorVisitor;
 import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.cursors.BaseCursor;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LogMessageKeys;
 import com.google.protobuf.ByteString;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
@@ -48,10 +47,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Function;
@@ -60,9 +56,6 @@ import java.util.stream.Collectors;
 import static com.apple.foundationdb.record.lucene.DirectoryCommitCheckAsync.getOrCreateDirectoryCommitCheckAsync;
 import static com.apple.foundationdb.record.lucene.IndexWriterCommitCheckAsync.getIndexWriterCommitCheckAsync;
 import static java.util.Comparator.comparing;
-import static java.util.stream.Collectors.collectingAndThen;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.reducing;
 
 public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
@@ -76,12 +69,14 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     private final String wordToSpellCheck;
     @Nonnull
     private final DirectSpellChecker spellchecker;
+    @Nullable
+    private final FDBStoreTimer timer;
 
     @Nullable
     private List<IndexEntry> spellcheckSuggestions = null;
     private int currentPosition = 0;
     @Nullable
-    private Tuple groupingKey;
+    private final Tuple groupingKey;
     private final String[] fields;
 
 
@@ -89,7 +84,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                                         @Nonnull final Executor executor,
                                         final ScanProperties scanProperties,
                                         @Nonnull final IndexMaintainerState state,
-                                        @Nullable Tuple groupingKey, final String[] fieldNames) {
+                                        @Nullable Tuple groupingKey,
+                                        final String[] fieldNames) {
         if (value.contains(":")) {
             String[] fieldAndWord = value.split(":", 2);
             if (Arrays.stream(fieldNames).noneMatch(name -> name.equals(fieldAndWord[0]))) {
@@ -110,6 +106,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 state.context.getPropertyStorage().getPropertyValue(LuceneRecordContextProperties.LUCENE_SPELLCHECK_SEARCH_UPPER_LIMIT));
         this.groupingKey = groupingKey;
         this.spellchecker = new DirectSpellChecker();
+        this.timer = state.context.getTimer();
     }
 
     @Nonnull
@@ -144,7 +141,6 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
     @Override
     public void close() {
-
     }
 
     @Nonnull
@@ -193,7 +189,10 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                         Tuple.from(suggestion.suggestWord.string),
                         Tuple.from(suggestion.indexField)))
                 .collect(Collectors.toList());
-        //TODO add metric via timer.
+        if (timer != null) {
+            timer.recordSinceNanoTime(FDBStoreTimer.Events.LUCENE_SPELLCHECK_SCAN, startTime);
+            timer.increment(FDBStoreTimer.Counts.LUCENE_SCAN_SPELLCHECKER_SUGGESTIONS, spellcheckSuggestions.size());
+        }
     }
 
     private static class Suggestion {
