@@ -878,15 +878,15 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             }
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "baver", Map.of("beaver", "text", "beavers", "text2"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:baver", Map.of("beaver", "text"));
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:baver", Map.of("beaver", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:baver", Map.of("beavers", "text2"));
 
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lepard", Map.of("leopard", "text"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lepard", Map.of("leopard", "text"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lepard", Map.of());
 
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lizerds", Map.of("lizards", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "lizerds", Map.of("lizards", "text2"));
             spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text:lizerds", Map.of());
-            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", Map.of("lizards", "text"));
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "text2:lizerds", Map.of("lizards", "text2"));
         }
     }
 
