@@ -872,8 +872,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             rebuildIndexMetaData(context, COMPLEX_DOC, SPELLCHECK_INDEX_COMPLEX);
             long docId = 1623L;
-            List<String> text = List.of("beaver", "leopard", "hello", "help", "helm", "boat", "road", "fowl", "foot");
-            List<String> text2 = List.of("beavers", "lizards", "hell", "helps", "helms", "boot", "read", "fowl", "fool");
+            List<String> text = List.of("beaver", "leopard", "hello", "help", "helm", "boat", "road", "fowl", "foot", "tare", "tire");
+            List<String> text2 = List.of("beavers", "lizards", "hell", "helps", "helms", "boot", "read", "fowl", "fool", "tire", "tire");
             assertThat(text2, hasSize(text.size()));
             for (int i = 0; i < text.size(); ++i) {
                 recordStore.saveRecord(createComplexDocument(docId++, text.get(i), text2.get(i), 1));
@@ -911,6 +911,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     Pair.of("fowl", "text"),
                     Pair.of("fool", "text2"),
                     Pair.of("foot", "text")));
+            // Same, but this time, getRight() should be text2 because tire was more frequent in text2 than text
+            spellCheckHelper(SPELLCHECK_INDEX_COMPLEX, "tbre", List.of(
+                    Pair.of("tire", "text2"),
+                    Pair.of("tare", "text")));
 
             // TODO add tests for grouping
         }
