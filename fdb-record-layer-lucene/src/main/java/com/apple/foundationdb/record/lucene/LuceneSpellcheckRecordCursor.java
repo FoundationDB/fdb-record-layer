@@ -121,7 +121,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 }
             }
             return currentPosition < spellcheckSuggestions.size() ? spellcheckSuggestions.get(currentPosition) : null;
-                }, executor);
+        }, executor);
         return spellcheckResult.thenApply(r -> {
             if (r == null) {
                 return RecordCursorResult.exhausted();
