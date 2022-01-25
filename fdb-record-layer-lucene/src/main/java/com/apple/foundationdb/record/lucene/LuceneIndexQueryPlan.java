@@ -145,9 +145,9 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                                                                      @Nonnull final EvaluationContext context,
                                                                      @Nullable final byte[] continuation,
                                                                      @Nonnull final ExecuteProperties executeProperties) {
-        if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
-            // TODO We need special handling for LUCENE SPELLCHECK
-        }
+        //if (scanType.equals(IndexScanType.BY_LUCENE_SPELLCHECK)) {
+        //    // TODO We need special handling for LUCENE SPELLCHECK
+        //}
         return super.executePlan(store, context, continuation, executeProperties);
     }
 
