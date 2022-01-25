@@ -32,11 +32,8 @@ import com.apple.foundationdb.record.cursors.BaseCursor;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.util.LogMessageKeys;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.SetMultimap;
 import com.google.protobuf.ByteString;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
@@ -53,9 +50,8 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
@@ -163,6 +159,42 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
         return writerCheck == null ? DirectoryReader.open(getOrCreateDirectoryCommitCheckAsync(state, groupingKey).getDirectory()) : DirectoryReader.open(writerCheck.indexWriter);
     }
 
+    /**
+     * Reduces the SuggestWords returned over the fields to a single SuggestWord with the field it appears the most in.
+     * In the case of a tie the first field it appeared in takes precedence.
+     * @param results - never empty due to the fact that the suggested word needs to appear somewhere for it to be
+     *     suggested at all.
+     * @return a single pair of String which is the field it most occurs in and SuggestWord that contains the total
+     *     frequency over the queried fields, the score of the match, the suggested string
+     */
+    private Pair<String, SuggestWord> reduceSuggestedResults(List<Pair<String, SuggestWord>> results) {
+        SuggestWord finalSuggestion = new SuggestWord();
+        int highestFreq = 0;
+        String mostFreqField = results.get(0).getLeft();
+        finalSuggestion.string = results.get(0).getRight().string;
+        finalSuggestion.score = results.get(0).getRight().score;
+        finalSuggestion.freq = 0;
+        for (Pair<String, SuggestWord> suggestion : results) {
+            finalSuggestion.freq += suggestion.getRight().freq;
+            if (highestFreq < suggestion.getRight().freq) mostFreqField = suggestion.getLeft();
+        }
+        return ImmutablePair.of(mostFreqField, finalSuggestion);
+    }
+
+    /**
+     * A comparison function which reverses the sorting order. We want the list sorted high -> low.
+     * @param s1
+     * @param s2
+     * @return the comparison between the pairs of suggested words.
+     */
+    private int compareSuggestWords(Pair<String, SuggestWord> s1, Pair<String, SuggestWord> s2) {
+        int compareResult = Float.compare(s2.getRight().score, s1.getRight().score);
+        if (compareResult != 1) return compareResult;
+        compareResult = Integer.compare(s2.getRight().freq, s1.getRight().freq);
+        if (compareResult != 1) return compareResult;
+        return s1.getLeft().compareTo(s2.getLeft());
+    }
+
     private void spellcheck() throws IOException {
         if (spellcheckSuggestions != null) {
             return;
@@ -177,22 +209,15 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
         }
         List<Pair<String, SuggestWord>> suggestionResultsList = new ArrayList<>();
         for (String suggestionKey : suggestionResultsMap.keys()) {
-            int frequency = suggestionResultsMap.get(suggestionKey).stream().map(s -> s.getRight().freq).reduce(0, Integer::sum);
-            Pair<String, SuggestWord> element = suggestionResultsMap.get(suggestionKey).stream().;
-            SuggestWord suggestWord = new SuggestWord();
-            suggestWord.freq = frequency;
-            suggestWord.score = element.getRight().score;
-            suggestWord.string = element.getRight().string;
-            suggestionResultsList.add(Pair.of(element.getLeft(), suggestWord));
+            suggestionResultsList.add(reduceSuggestedResults(List.copyOf(suggestionResultsMap.get(suggestionKey))));
         }
+        suggestionResultsList.sort(this::compareSuggestWords);
+//        Collections.reverse(suggestionResultsList);
         spellcheckSuggestions = suggestionResultsList.stream()
-                .sorted(Comparator.comparing(o -> o.getRight().score).thenComparing(o -> o.getRight().freq).thenComparing(o -> o.getRight().string))
-
-                //.limit(limit)
-                //.map(suggestion -> new IndexEntry(state.index, Tuple.from(suggestion.getRight().string), Tuple.from(suggestion.getLeft())))
+                .limit(limit)
+                .map(suggestion -> new IndexEntry(state.index, Tuple.from(suggestion.getRight().string),
+                        Tuple.from(suggestion.getLeft())))
                 .collect(Collectors.toList());
-
-
         // hello text 5x
         // hello text 2x    hello text1 3x    score 0.5
         // help text 2x     help text1 3x     score 0.5
