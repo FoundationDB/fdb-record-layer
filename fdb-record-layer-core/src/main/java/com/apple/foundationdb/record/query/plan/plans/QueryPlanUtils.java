@@ -54,7 +54,7 @@ public class QueryPlanUtils {
         final RecordType recordType = metaData.getRecordType(recordTypeName);
         final Index index = metaData.getIndex(indexName);
         final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
-        boolean hasPrimaryKey = scanType != IndexScanType.BY_GROUP && scanType != IndexScanType.BY_LUCENE_AUTO_COMPLETE;
+        boolean hasPrimaryKey = scanType != IndexScanType.BY_GROUP && scanType != IndexScanType.BY_LUCENE_AUTO_COMPLETE && scanType != IndexScanType.BY_LUCENE_SPELLCHECK;
         return indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M) toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey);
     }
 }

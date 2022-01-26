@@ -42,6 +42,7 @@ public enum LogMessageKeys {
     CALLING_LINE,
     FUTURE_COMPLETED,
     SCAN_PROPERTIES,
+    SCAN_TYPE,
     READ_VERSION,
     OLD,
     NEW,

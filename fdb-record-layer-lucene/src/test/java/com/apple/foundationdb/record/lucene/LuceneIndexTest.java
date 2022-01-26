@@ -774,7 +774,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             IndexEntry indexEntry = indexEntries.get(0);
 
             Descriptors.Descriptor recordDescriptor = TestRecordsTextProto.MapDocument.getDescriptor();
-            IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, fdbRecord.getRecordType());
+            IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(
+                    MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, fdbRecord.getRecordType(), IndexScanType.BY_LUCENE_AUTO_COMPLETE);
             Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
 
             Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
@@ -825,7 +826,41 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
 
     }
+    @Test
+    void searchForSpellcheckForGroupedRecord() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
+            });
+            FDBStoredRecord<Message> fdbRecord = recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
+            List<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX,
+                    IndexScanType.BY_LUCENE_SPELLCHECK,
+                    TupleRange.allOf(Tuple.from("value:Visin", "sampleTextPhrase")),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
 
+            assertEquals(1, indexEntries.size());
+            IndexEntry indexEntry = indexEntries.get(0);
+
+            Descriptors.Descriptor recordDescriptor = TestRecordsTextProto.MapDocument.getDescriptor();
+            IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(
+                    MAP_ON_VALUE_INDEX, fdbRecord.getRecordType(), IndexScanType.BY_LUCENE_SPELLCHECK);
+            Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
+
+            Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
+            Message entry = (Message) message.getRepeatedField(entryDescriptor, 0);
+
+            Descriptors.FieldDescriptor keyDescriptor = entryDescriptor.getMessageType().findFieldByName("key");
+            Descriptors.FieldDescriptor valueDescriptor = entryDescriptor.getMessageType().findFieldByName("value");
+
+            assertEquals("sampleTextPhrase", entry.getField(keyDescriptor));
+            assertEquals("Vision", entry.getField(valueDescriptor));
+
+//            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+//            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE).subspace(Tuple.from("sampleTextPhrase")), context, "_0.cfs", true);
+        }
+    }
 
     private void spellCheckHelper(final Index index, @Nonnull String query, List<Pair<String, String>> expectedSuggestions) throws ExecutionException, InterruptedException {
         List<IndexEntry> suggestions = recordStore.scanIndex(index,
@@ -1035,12 +1070,10 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
     private void assertDocumentPartialRecordFromIndexEntry(@Nonnull RecordType recordType, @Nonnull IndexEntry indexEntry,
                                                            @Nonnull String expectedSuggestion, @Nonnull String fieldName) {
-        Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
-
-        Message message = LuceneIndexQueryPlan.getToPartialRecord(indexEntry.getIndex(), recordType)
-                .toRecord(recordDescriptor, indexEntry);
+        Descriptors.Descriptor recordDescriptor = TestRecordsTextProto.SimpleDocument.getDescriptor();
+        IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(SIMPLE_TEXT_WITH_AUTO_COMPLETE, recordType, IndexScanType.BY_LUCENE_AUTO_COMPLETE);
+        Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
         Descriptors.FieldDescriptor textDescriptor = recordDescriptor.findFieldByName(fieldName);
-
         assertEquals(expectedSuggestion, message.getField(textDescriptor));
     }
 

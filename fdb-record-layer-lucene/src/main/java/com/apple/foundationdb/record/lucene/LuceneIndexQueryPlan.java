@@ -162,13 +162,15 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
                     .addLogInfo(LogMessageKeys.INDEX_NAME, indexName);
         }
 
-        if (scanType == IndexScanType.BY_LUCENE_SPELLCHECK) {
-
-        } if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE){
+        if (scanType == IndexScanType.BY_LUCENE_AUTO_COMPLETE || scanType == IndexScanType.BY_LUCENE_SPELLCHECK){
+            if (recordTypes.size() != 1) {
+                throw new RecordCoreException("No lucene index should span multiple record types");
+            }
             final RecordType recordType = recordTypes.iterator().next();
             final RecordCursor<IndexEntry> entryRecordCursor = executeEntries(store, context, continuation, executeProperties);
             return entryRecordCursor
-                    .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName, getToPartialRecord(index, recordType), scanType))
+                    .map(QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordType.getName(), indexName,
+                            getToPartialRecord(index, recordType, scanType), scanType))
                     .map(QueryResult::of);
         }
         return super.executePlan(store, context, continuation, executeProperties);
@@ -179,7 +181,9 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
      * The partial record contains the suggestion in the field where it is indexed from, and the grouping keys if there are any.
      */
     @VisibleForTesting
-    public static IndexKeyValueToPartialRecord getToPartialRecord(@Nonnull Index index, @Nonnull RecordType recordType) {
+    public static IndexKeyValueToPartialRecord getToPartialRecord(@Nonnull Index index,
+                                                                  @Nonnull RecordType recordType,
+                                                                  @Nonnull IndexScanType scanType) {
         final IndexKeyValueToPartialRecord.Builder builder = IndexKeyValueToPartialRecord.newBuilder(recordType);
 
         KeyExpression root = index.getRootExpression();
@@ -192,9 +196,10 @@ public class LuceneIndexQueryPlan extends RecordQueryIndexPlan {
 
         builder.addRequiredMessageFields();
         if (!builder.isValid(true)) {
-            throw new RecordCoreException("Missing required field for auto complete result record")
+            throw new RecordCoreException("Missing required field for result record")
                     .addLogInfo(LogMessageKeys.INDEX_NAME, index.getName())
-                    .addLogInfo(LogMessageKeys.RECORD_TYPE, recordType.getName());
+                    .addLogInfo(LogMessageKeys.RECORD_TYPE, recordType.getName())
+                    .addLogInfo(LogMessageKeys.SCAN_TYPE, scanType);
         }
 
         builder.addRegularCopier(new LuceneIndexKeyValueToPartialRecordUtils.LuceneAutoCompleteCopier());

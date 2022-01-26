@@ -96,6 +96,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
             fields = new String[] {fieldAndWord[0]};
             wordToSpellCheck = fieldAndWord[1];
         } else {
+            // TODO in a grouped document this doesn't work because the field names all include the grouping key
             fields = fieldNames;
             wordToSpellCheck = value;
         }
