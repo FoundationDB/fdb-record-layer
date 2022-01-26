@@ -169,21 +169,26 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
         List<Suggestion> suggestionResults = new ArrayList<>();
         for (String field : fields) {
+            //collect all suggestions across all given fields or across all fields depending on user options.
             Arrays.stream(spellchecker.suggestSimilar(new Term(field, wordToSpellCheck), limit, indexReader))
                     .map(suggestion -> new Suggestion(field, suggestion))
                     .forEach(suggestionResults::add);
         }
         spellcheckSuggestions = suggestionResults.stream()
+                //Merge matching suggestions from different
                 .collect(Collectors.toMap(
                         suggestion -> suggestion.suggestWord.string,
                         Function.identity(),
+                        // TODO: For arnaud, are we checking for a merge on ALL suggested words against eachother?
                         LuceneSpellcheckRecordCursor::mergeTwoSuggestWords))
                 .values()
                 .stream()
+                // Sort the suggested words from large to small by score then by frequency then by the field.
                 .sorted(comparing((Suggestion s) -> s.suggestWord.score).reversed()
                                 .thenComparing(comparing((Suggestion s) -> s.suggestWord.freq).reversed())
                                 .thenComparing(s -> s.suggestWord.string))
                 .limit(limit)
+                // Map the words from suggestions to index entries.
                 .map(suggestion -> new IndexEntry(
                         state.index,
                         Tuple.from(suggestion.suggestWord.string),
@@ -209,11 +214,11 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
         int freq = a.suggestWord.freq + b.suggestWord.freq;
         String field;
         if (a.suggestWord.freq == b.suggestWord.freq) {
+            // select the field based on string comparison
             field = a.indexField.compareTo(b.indexField) < 0 ? a.indexField : b.indexField;
-        } else if (a.suggestWord.freq > b.suggestWord.freq) {
-            field = a.indexField;
         } else {
-            field = b.indexField;
+            // select the field with the highest frequency of the suggested word.
+            field = a.suggestWord.freq > b.suggestWord.freq ? a.indexField : b.indexField;
         }
         SuggestWord newSuggestWord = new SuggestWord();
         newSuggestWord.freq = freq;
