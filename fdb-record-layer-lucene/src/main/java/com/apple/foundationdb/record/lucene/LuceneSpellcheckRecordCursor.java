@@ -88,7 +88,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                                         final String[] fieldNames) {
         if (value.contains(":")) {
             String[] fieldAndWord = value.split(":", 2);
-            if (Arrays.stream(fieldNames).noneMatch(name -> name.equals(fieldAndWord[0]))) {
+            // only check the validity of the field if the documents are not grouped.
+            if (groupingKey.size() == 0 && Arrays.stream(fieldNames).noneMatch(name -> name.equals(fieldAndWord[0]))) {
                 throw new RecordCoreException("Invalid field name in Lucene index query")
                         .addLogInfo(LogMessageKeys.FIELD_NAME, fieldAndWord[0])
                         .addLogInfo(LogMessageKeys.INDEX_FIELDS, fieldNames);
@@ -192,7 +193,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 // Map the words from suggestions to index entries.
                 .map(suggestion -> new IndexEntry(
                         state.index,
-                        Tuple.from(suggestion.suggestWord.string),
+                        Tuple.from(suggestion.indexField, suggestion.suggestWord.string),
                         Tuple.from(suggestion.indexField)))
                 .collect(Collectors.toList());
         if (timer != null) {
