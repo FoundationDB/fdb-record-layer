@@ -293,6 +293,11 @@ public class LuceneIndexMaintainer extends StandardIndexMaintainer {
             throw new RecordCoreException("Issue deleting old index keys", "oldRecord", oldRecord, e);
         }
 
+        //TODO: SonarQube cannot identify that if the newRecord is null then the newRecordFields will be empty.
+        // There's actually no possibility of a NPE here. (line 304/306)
+        if (newRecord == null) {
+            return AsyncUtil.DONE;
+        }
         // update new
         try {
             for (Map.Entry<Tuple, List<LuceneDocumentFromRecord.DocumentField>> entry : newRecordFields.entrySet()) {
