@@ -74,7 +74,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
@@ -94,7 +93,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasKey;
 
 /**
  * Tests for {@code LUCENE} type indexes.
@@ -826,6 +824,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
 
 
     }
+
     @Test
     void searchForSpellcheckForGroupedRecord() throws Exception {
         try (FDBRecordContext context = openContext()) {
@@ -857,8 +856,8 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             assertEquals("sampleTextPhrase", entry.getField(keyDescriptor));
             assertEquals("Vision", entry.getField(valueDescriptor));
 
-//            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
-//            assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE).subspace(Tuple.from("sampleTextPhrase")), context, "_0.cfs", true);
+            // assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            // assertEntriesAndSegmentInfoStoredInCompoundFile(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE).subspace(Tuple.from("sampleTextPhrase")), context, "_0.cfs", true);
         }
     }
 

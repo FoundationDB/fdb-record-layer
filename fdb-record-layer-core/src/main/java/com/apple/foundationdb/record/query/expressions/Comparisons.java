@@ -1922,8 +1922,8 @@ public class Comparisons {
             this.query = query;
             this.type = type;
             if (type != Type.FULL_TEXT_LUCENE_QUERY
-                && type != Type.FULL_TEXT_LUCENE_AUTO_COMPLETE
-                && type != Type.FULL_TEXT_LUCENE_SPELLCHECK) {
+                    && type != Type.FULL_TEXT_LUCENE_AUTO_COMPLETE
+                    && type != Type.FULL_TEXT_LUCENE_SPELLCHECK) {
                 throw new RecordCoreException("Invalid type for lucene comparison: " + type.name());
             }
         }

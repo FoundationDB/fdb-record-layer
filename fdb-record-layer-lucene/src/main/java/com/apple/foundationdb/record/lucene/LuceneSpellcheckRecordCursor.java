@@ -39,8 +39,8 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.spell.DirectSpellChecker;
 import org.apache.lucene.search.spell.SuggestWord;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,7 +59,8 @@ import static java.util.Comparator.comparing;
 
 public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellcheckRecordCursor.class);
+    // TODO: log some stuff.
+    // private static final Logger LOGGER = LoggerFactory.getLogger(LuceneSpellcheckRecordCursor.class);
     @Nonnull
     private final Executor executor;
     @Nonnull
@@ -123,7 +124,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                 }
             }
             return currentPosition < spellcheckSuggestions.size() ? spellcheckSuggestions.get(currentPosition) : null;
-                }, executor);
+        }, executor);
         return spellcheckResult.thenApply(r -> {
             if (r == null) {
                 return RecordCursorResult.exhausted();
