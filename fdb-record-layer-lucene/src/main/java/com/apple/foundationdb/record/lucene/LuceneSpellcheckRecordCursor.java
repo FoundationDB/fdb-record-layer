@@ -78,7 +78,7 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
     private int currentPosition = 0;
     @Nullable
     private final Tuple groupingKey;
-    private final String[] fields;
+    private final List<String> fields;
 
 
     public LuceneSpellcheckRecordCursor(@Nonnull final String value,
@@ -95,11 +95,11 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
                         .addLogInfo(LogMessageKeys.FIELD_NAME, fieldAndWord[0])
                         .addLogInfo(LogMessageKeys.INDEX_FIELDS, fieldNames);
             }
-            fields = new String[] {fieldAndWord[0]};
+            fields = List.of(fieldAndWord[0]);
             wordToSpellCheck = fieldAndWord[1];
         } else {
             // TODO in a grouped document this doesn't work because the field names all include the grouping key
-            fields = fieldNames;
+            fields = List.of(fieldNames);
             wordToSpellCheck = value;
         }
         this.executor = executor;
