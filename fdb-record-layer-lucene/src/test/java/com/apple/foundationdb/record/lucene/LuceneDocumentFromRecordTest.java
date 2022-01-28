@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +39,8 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Unit tests of conversion of records to grouped documents.
@@ -54,6 +57,16 @@ class LuceneDocumentFromRecordTest {
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(textField("text", "some text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion");
+        Message partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        Descriptors.FieldDescriptor textField = recordDescriptor.findFieldByName("text");
+        assertTrue(partialMsg.hasField(textField));
+        assertEquals("suggestion", partialMsg.getField(textField));
     }
 
     @Test
@@ -67,6 +80,21 @@ class LuceneDocumentFromRecordTest {
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group"));
         assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(2));
+        Message partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        Descriptors.FieldDescriptor textField = recordDescriptor.findFieldByName("text");
+        assertTrue(partialMsg.hasField(textField));
+        assertEquals("suggestion", partialMsg.getField(textField));
+
+        // The group field is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor groupField = recordDescriptor.findFieldByName("group");
+        assertTrue(partialMsg.hasField(groupField));
+        assertEquals(2L, partialMsg.getField(groupField));
     }
 
     @Test
@@ -82,6 +110,16 @@ class LuceneDocumentFromRecordTest {
                         textField("text", "some text"),
                         textField("text", "other text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.MultiDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(2));
+        Message partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        Descriptors.FieldDescriptor textField = recordDescriptor.findFieldByName("text");
+        assertTrue(partialMsg.getRepeatedFieldCount(textField) == 1);
+        assertEquals("suggestion", partialMsg.getRepeatedField(textField, 0));
     }
 
     @Test
@@ -105,6 +143,26 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(10, "tag1"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100)),
                         Tuple.from(10, "tag2"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.ComplexDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(10, "tag1"));
+        Message partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        Descriptors.FieldDescriptor textField = recordDescriptor.findFieldByName("text");
+        assertTrue(partialMsg.hasField(textField));
+        assertEquals("suggestion", partialMsg.getField(textField));
+
+        // The group field is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor groupField = recordDescriptor.findFieldByName("group");
+        assertTrue(partialMsg.hasField(groupField));
+        assertEquals(10L, partialMsg.getField(groupField));
+
+        // The tag field is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor tagField = recordDescriptor.findFieldByName("tag");
+        assertTrue(partialMsg.getRepeatedFieldCount(tagField) == 1);
+        assertEquals("tag1", partialMsg.getRepeatedField(tagField, 0));
     }
 
     @Test
@@ -122,6 +180,20 @@ class LuceneDocumentFromRecordTest {
                         stringField("entry_key", "k2"),
                         textField("entry_value", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_value", "suggestion");
+        Message partialMsg = builder.build();
+
+        Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
+        assertTrue(partialMsg.getRepeatedFieldCount(entryField) == 1);
+
+        // The suggestion is supposed to show up in value field within entry sub-message
+        TestRecordsTextProto.MapDocument.Entry entry = (TestRecordsTextProto.MapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+        Descriptors.FieldDescriptor valueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("value");
+        assertTrue(entry.hasField(valueField));
+        assertEquals("suggestion", entry.getField(valueField));
     }
 
     @Test
@@ -139,6 +211,20 @@ class LuceneDocumentFromRecordTest {
                         textField("k1", "v1"),
                         textField("k2", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "k1", "suggestion");
+        Message partialMsg = builder.build();
+
+        Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
+        assertTrue(partialMsg.getRepeatedFieldCount(entryField) == 1);
+
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
+        TestRecordsTextProto.MapDocument.Entry entry = (TestRecordsTextProto.MapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+        Descriptors.FieldDescriptor valueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("value");
+        assertTrue(entry.hasField(valueField));
+        assertEquals("suggestion", entry.getField(valueField));
     }
 
     @Test
@@ -158,6 +244,25 @@ class LuceneDocumentFromRecordTest {
                         textField("k1", "v10"),
                         textField("k2", "v20"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "k1", "suggestion", Tuple.from(20));
+        Message partialMsg = builder.build();
+
+        Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
+        assertTrue(partialMsg.getRepeatedFieldCount(entryField) == 1);
+
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
+        TestRecordsTextProto.MapDocument.Entry entry = (TestRecordsTextProto.MapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+        Descriptors.FieldDescriptor valueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("value");
+        assertTrue(entry.hasField(valueField));
+        assertEquals("suggestion", entry.getField(valueField));
+
+        // The group field is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor groupField = recordDescriptor.findFieldByName("group");
+        assertTrue(partialMsg.hasField(groupField));
+        assertEquals(20L, partialMsg.getField(groupField));
     }
 
     @Test
@@ -179,6 +284,34 @@ class LuceneDocumentFromRecordTest {
                 Tuple.from(30, "r1"), ImmutableList.of(textField("value", "val"), textField("second_value", "2val"), textField("third_value", "3val")),
                 Tuple.from(30, "r2"), ImmutableList.of(textField("value", "nval"), textField("second_value", "2nval"), textField("third_value", "3nval"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "value", "suggestion", Tuple.from(30, "r1"));
+        Message partialMsg = builder.build();
+
+        Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
+        assertTrue(partialMsg.getRepeatedFieldCount(entryField) == 1);
+
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
+        TestRecordsTextProto.MapDocument.Entry entry = (TestRecordsTextProto.MapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+        Descriptors.FieldDescriptor valueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("value");
+        assertTrue(entry.hasField(valueField));
+        assertEquals("suggestion", entry.getField(valueField));
+
+        // The second_value field is not supposed to be populated
+        Descriptors.FieldDescriptor secondValueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("second_value");
+        assertFalse(entry.hasField(secondValueField));
+
+        // The key field within repeated entry sub-message is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor keyField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("key");
+        assertTrue(entry.hasField(keyField));
+        assertEquals("r1", entry.getField(keyField));
+
+        // The group field is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor groupField = recordDescriptor.findFieldByName("group");
+        assertTrue(partialMsg.hasField(groupField));
+        assertEquals(30L, partialMsg.getField(groupField));
     }
 
     @Test
@@ -199,6 +332,34 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(40, "en"), ImmutableList.of(textField("value", "first"), textField("second_value", "second"), textField("text2", "extra")),
                         Tuple.from(40, "de"), ImmutableList.of(textField("value", "erste"), textField("second_value", "zweite"), textField("text2", "extra"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "second_value", "suggestion", Tuple.from(40, "en"));
+        Message partialMsg = builder.build();
+
+        Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
+        assertTrue(partialMsg.getRepeatedFieldCount(entryField) == 1);
+
+        // The suggestion is supposed to show up in second_value field within repeated entry sub-message
+        TestRecordsTextProto.MapDocument.Entry entry = (TestRecordsTextProto.MapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+        Descriptors.FieldDescriptor secondValueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("second_value");
+        assertTrue(entry.hasField(secondValueField));
+        assertEquals("suggestion", entry.getField(secondValueField));
+
+        // The value field is not supposed to be populated
+        Descriptors.FieldDescriptor valueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("value");
+        assertFalse(entry.hasField(valueField));
+
+        // The key field within repeated entry sub-message is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor keyField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("key");
+        assertTrue(entry.hasField(keyField));
+        assertEquals("en", entry.getField(keyField));
+
+        // The group field is supposed to be populated because it is part of grouping key
+        Descriptors.FieldDescriptor groupField = recordDescriptor.findFieldByName("group");
+        assertTrue(partialMsg.hasField(groupField));
+        assertEquals(40L, partialMsg.getField(groupField));
     }
 
     private static FDBRecord<Message> unstoredRecord(Message message) {
