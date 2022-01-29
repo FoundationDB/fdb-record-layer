@@ -58,9 +58,9 @@ public class LuceneDocumentFromRecord {
             if (root instanceof GroupingKeyExpression) {
                 GroupingKeyExpression group = (GroupingKeyExpression)root;
                 getGroupedFields(Collections.singletonList(group.getWholeKey()), 0, 0,
-                        group.getGroupingCount(), TupleHelpers.EMPTY, rec, rec.getRecord(), result);
+                        group.getGroupingCount(), TupleHelpers.EMPTY, rec, rec.getRecord(), result, null);
             } else {
-                result.put(TupleHelpers.EMPTY, getFields(root, rec, rec.getRecord()));
+                result.put(TupleHelpers.EMPTY, getFields(root, rec, rec.getRecord(), null));
             }
         }
         return result;
@@ -72,7 +72,8 @@ public class LuceneDocumentFromRecord {
     protected static <M extends Message> void getGroupedFields(@Nonnull List<KeyExpression> keys, int keyIndex, int keyPosition,
                                                                int groupingCount, @Nonnull Tuple groupPrefix,
                                                                @Nonnull FDBRecord<M> rec, @Nonnull Message message,
-                                                               @Nonnull Map<Tuple, List<DocumentField>> result) {
+                                                               @Nonnull Map<Tuple, List<DocumentField>> result,
+                                                               @Nullable String fieldNamePrefix) {
         if (keyIndex >= keys.size()) {
             return;
         }
@@ -88,13 +89,13 @@ public class LuceneDocumentFromRecord {
                 }
                 getGroupedFields(keys, keyIndex + 1, keyPosition + key.getColumnSize(),
                         groupingCount, wholeGroup,
-                        rec, message, result);
+                        rec, message, result, fieldNamePrefix);
             }
             return;
         }
         if (groupingCount <= keyPosition) {
             // Entirely in the grouped portion: add fields to groups.
-            List<DocumentField> fields = getFields(key, rec, message);
+            List<DocumentField> fields = getFields(key, rec, message, fieldNamePrefix);
             for (Map.Entry<Tuple, List<DocumentField>> entry: result.entrySet()) {
                 if (TupleHelpers.isPrefix(groupPrefix, entry.getKey())) {
                     entry.getValue().addAll(fields);
@@ -103,28 +104,30 @@ public class LuceneDocumentFromRecord {
         // Grouping ends in the middle of this key: break it apart.
         } else if (key instanceof NestingKeyExpression) {
             NestingKeyExpression nesting = (NestingKeyExpression)key;
+            final String parentFieldName = nesting.getParent().getFieldName();
             for (Key.Evaluated value : nesting.getParent().evaluateMessage(rec, message)) {
                 final Message submessage = (Message) value.toList().get(0);
                 getGroupedFields(Collections.singletonList(nesting.getChild()), 0, keyPosition,
-                        groupingCount, groupPrefix, rec, submessage, result);
+                        groupingCount, groupPrefix, rec, submessage, result,
+                        fieldNamePrefix == null ? parentFieldName : fieldNamePrefix + "_" + parentFieldName);
             }
         } else if (key instanceof ThenKeyExpression) {
             ThenKeyExpression then = (ThenKeyExpression)key;
             getGroupedFields(then.getChildren(), 0, keyPosition,
-                    groupingCount, groupPrefix, rec, message, result);
+                    groupingCount, groupPrefix, rec, message, result, fieldNamePrefix);
         } else {
             throw new RecordCoreException("Cannot split key for document grouping: " + key);
         }
         // Continue with remaining keys.
         getGroupedFields(keys, keyIndex + 1, keyPosition + key.getColumnSize(),
-                groupingCount, groupPrefix, rec, message, result);
+                groupingCount, groupPrefix, rec, message, result, fieldNamePrefix);
     }
 
     @Nonnull
-    public static <M extends Message> List<DocumentField> getFields(@Nonnull KeyExpression expression,
-                                                                    @Nonnull FDBRecord<M> rec, @Nonnull Message message) {
+    public static <M extends Message> List<DocumentField> getFields(@Nonnull KeyExpression expression, @Nonnull FDBRecord<M> rec,
+                                                                    @Nonnull Message message, @Nullable String fieldNamePrefix) {
         final DocumentFieldList<FDBRecordSource<M>> fields = new DocumentFieldList<>();
-        LuceneIndexExpressions.getFields(expression, new FDBRecordSource<>(rec, message), fields);
+        LuceneIndexExpressions.getFields(expression, new FDBRecordSource<>(rec, message), fields, fieldNamePrefix);
         return fields.getFields();
     }
 

@@ -432,7 +432,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             });
             recordStore.saveRecord(createComplexMapDocument(1623L, ENGINEER_JOKE, "sampleTextSong", 2));
             recordStore.saveRecord(createComplexMapDocument(1547L, WAYLON, "sampleTextPhrase",  1));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("value:Vision", "sampleTextSong")), null, ScanProperties.FORWARD_SCAN);
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("entry_value:Vision", "sampleTextSong")), null, ScanProperties.FORWARD_SCAN);
             assertEquals(1, indexEntries.getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
@@ -448,7 +448,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX);
             });
             recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
-            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("value:Vision", "sampleTextPhrase")), null, ScanProperties.FORWARD_SCAN);
+            RecordCursor<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX, IndexScanType.BY_LUCENE, TupleRange.allOf(Tuple.from("entry_value:Vision", "sampleTextPhrase")), null, ScanProperties.FORWARD_SCAN);
             assertEquals(1, indexEntries.getCount().join());
             assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LOAD_SCAN_ENTRY).getCount());
 
