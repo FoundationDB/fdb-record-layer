@@ -65,6 +65,10 @@ public class LuceneQueryComponent implements QueryComponent, ComponentWithCompar
         this(new Comparisons.LuceneComparison(query), fields, multiField);
     }
 
+    public LuceneQueryComponent(String query, List<String> fields, boolean multiField, Comparisons.Type type) {
+        this(new Comparisons.LuceneComparison(query, type), fields, multiField);
+    }
+
     private LuceneQueryComponent(Comparisons.LuceneComparison comparison, List<String> fields, boolean multiFieldSearch) {
         this.comparison = comparison;
         this.fields = fields;

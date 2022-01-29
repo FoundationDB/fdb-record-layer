@@ -124,6 +124,30 @@ public class IndexOptions {
      */
     public static final String NGRAM_TOKEN_EDGES_ONLY = "ngramTokenEdgesOnly";
     /**
+     * Whether indexed for auto complete search.
+     */
+    public static final String AUTO_COMPLETE_ENABLED = "autoCompleteEnabled";
+    /**
+     * The type of auto complete blender to transform the weight after search to take into account the position of the searched term into the indexed text.
+     */
+    public static final String AUTO_COMPLETE_BLENDER_TYPE = "autoCompleteBlenderType";
+    /**
+     * The number factor to multiply the number of searched elements for auto complete blender.
+     */
+    public static final String AUTO_COMPLETE_BLENDER_NUM_FACTOR = "autoCompleteBlenderNumFactor";
+    /**
+     * The minimum number of leading characters before prefix query is used for auto complete.
+     */
+    public static final String AUTO_COMPLETE_MIN_PREFIX_SIZE = "autoCompleteMinPrefixSize";
+    /**
+     * The exponent to use for auto complete when the blender type is POSITION_EXPONENTIAL_RECIPROCAL.
+     */
+    public static final String AUTO_COMPLETE_BLENDER_EXPONENT = "autoCompleteBlenderExponent";
+    /**
+     * Whether highlight suggest query in suggestions.
+     */
+    public static final String AUTO_COMPLETE_HIGHLIGHT = "autoCompleteHighlight";
+    /**
      * If {@code "true"}, a {@link IndexTypes#TEXT} index will add a conflict range for the whole index to keep the commit size down at the expense of more conflicts.
      */
     @API(API.Status.EXPERIMENTAL)

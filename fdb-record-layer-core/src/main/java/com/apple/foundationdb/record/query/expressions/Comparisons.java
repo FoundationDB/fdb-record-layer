@@ -1911,9 +1911,18 @@ public class Comparisons {
 
         @Nonnull
         private final String query;
+        private final Type type;
 
         public LuceneComparison(@Nonnull String query) {
+            this(query, Type.FULL_TEXT_LUCENE_QUERY);
+        }
+
+        public LuceneComparison(@Nonnull String query, @Nonnull Type type) {
             this.query = query;
+            this.type = type;
+            if (type != Type.FULL_TEXT_LUCENE_QUERY && type != Type.FULL_TEXT_LUCENE_AUTO_COMPLETE) {
+                throw new RecordCoreException("Invalid type for lucene comparison: " + type.name());
+            }
         }
 
         @Nonnull
@@ -1937,7 +1946,7 @@ public class Comparisons {
         @Nonnull
         @Override
         public Type getType() {
-            return Type.FULL_TEXT_LUCENE_QUERY;
+            return type;
         }
 
         @Nullable

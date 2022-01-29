@@ -221,6 +221,8 @@ public class FDBStoreTimer extends StoreTimer {
         LUCENE_GET_FILE_REFERENCE("lucene get file references"),
         /** Number of documents returned from a single Lucene Index Scan. */
         LUCENE_INDEX_SCAN("lucene search returned documents"),
+        /** Number of suggestions returned from a single Lucene Auto Complete Scan. */
+        LUCENE_AUTO_COMPLETE_SUGGESTIONS_SCAN("lucene search returned auto complete suggestions"),
         /** Total lifetime of a transaction. */
         TRANSACTION_TIME("transaction time")
         ;
@@ -686,6 +688,8 @@ public class FDBStoreTimer extends StoreTimer {
         LUCENE_WRITE_FILE_REFERENCE("lucene write file reference" ,false),
         /** Matched documents returned from lucene index reader scans. **/
         LUCENE_SCAN_MATCHED_DOCUMENTS("lucene scan matched documents", false),
+        /** Matched auto complete suggestions returned from lucene auto complete suggestion lookup. **/
+        LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS("lucene scan matched auto complete suggestions", false),
         /** Count of commits that failed for any reason. */
         COMMITS_FAILED("commits failed", false),
         /** Count failed due to conflict. */

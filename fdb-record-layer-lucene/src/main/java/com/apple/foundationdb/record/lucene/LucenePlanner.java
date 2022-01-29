@@ -132,6 +132,10 @@ public class LucenePlanner extends RecordQueryPlanner {
         if (filterMask != null) {
             filterMask.setSatisfied(true);
         }
+
+        if (comparison.getType().equals(Comparisons.Type.FULL_TEXT_LUCENE_AUTO_COMPLETE)) {
+            return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_AUTO_COMPLETE, comparison, false, null, groupingComparisons, this.service);
+        }
         if (filter.multiFieldSearch) {
             return new LuceneIndexQueryPlan(index.getName(), IndexScanType.BY_LUCENE_FULL_TEXT, comparison, false, null, groupingComparisons, this.service);
         }

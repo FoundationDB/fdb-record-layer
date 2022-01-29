@@ -121,3 +121,9 @@ message ComparatorContinuation {
     }
     repeated CursorState child_state = 1;
 }
+
+message LuceneAutoCompleteIndexContinuation {
+    required string key = 1;
+    required uint64 value = 2;
+    optional bytes payload = 3;
+}

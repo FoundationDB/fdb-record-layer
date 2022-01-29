@@ -49,6 +49,8 @@ public class IndexScanType implements PlanHashable {
     public static final IndexScanType BY_LUCENE = new IndexScanType("BY_LUCENE");
     @Nonnull
     public static final IndexScanType BY_LUCENE_FULL_TEXT = new IndexScanType("BY_LUCENE_FULL_TEXT");
+    @Nonnull
+    public static final IndexScanType BY_LUCENE_AUTO_COMPLETE = new IndexScanType("BY_LUCENE_AUTO_COMPLETE");
 
     private final String name;
 

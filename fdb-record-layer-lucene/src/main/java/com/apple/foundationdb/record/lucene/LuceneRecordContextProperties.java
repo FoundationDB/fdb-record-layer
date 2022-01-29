@@ -20,6 +20,7 @@
 
 package com.apple.foundationdb.record.lucene;
 
+import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
@@ -42,4 +43,19 @@ public final class LuceneRecordContextProperties {
      * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
      */
     public static final RecordLayerPropertyKey<Boolean> LUCENE_INDEX_ENCRYPTION_ENABLED = RecordLayerPropertyKey.booleanPropertyKey("com.apple.foundationdb.record.lucene.encryptionEnabled", false);
+
+    /**
+     * A defined {@link RecordLayerPropertyKey} for Integer type to control the number of suggestions to look up.
+     * The number to use is the minimum of this value and the one configured by the {@link ScanProperties}. So this one is an upper limit.
+     * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
+     * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
+     */
+    public static final RecordLayerPropertyKey<Integer> LUCENE_AUTO_COMPLETE_SEARCH_LIMITATION = RecordLayerPropertyKey.integerPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteSearchLimitation", 10);
+
+    /**
+     * A defined {@link RecordLayerPropertyKey} for Long type to control the default weight for each new suggestion when indexing.
+     * It is used as a key to get the property value from {@link RecordLayerPropertyStorage#getPropertyValue(RecordLayerPropertyKey)}.
+     * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
+     */
+    public static final RecordLayerPropertyKey<Long> LUCENE_AUTO_COMPLETE_DEFAULT_WEIGHT = RecordLayerPropertyKey.longPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteDefaultWeight", 100L);
 }

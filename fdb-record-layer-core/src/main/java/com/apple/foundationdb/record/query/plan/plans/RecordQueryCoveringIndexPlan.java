@@ -29,8 +29,6 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.metadata.Index;
-import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
@@ -50,7 +48,6 @@ import com.apple.foundationdb.record.query.predicates.Value;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 
 import javax.annotation.Nonnull;
@@ -103,12 +100,7 @@ public class RecordQueryCoveringIndexPlan implements RecordQueryPlanWithNoChildr
     @SuppressWarnings("unchecked")
     @API(API.Status.INTERNAL)
     public <M extends Message> Function<IndexEntry, FDBQueriedRecord<M>> indexEntryToQueriedRecord(final @Nonnull FDBRecordStoreBase<M> store) {
-        final RecordMetaData metaData = store.getRecordMetaData();
-        final RecordType recordType = metaData.getRecordType(recordTypeName);
-        final Index index = metaData.getIndex(getIndexName());
-        final Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
-        boolean hasPrimaryKey = getScanType() != IndexScanType.BY_GROUP;
-        return indexEntry -> store.coveredIndexQueriedRecord(index, indexEntry, recordType, (M)toRecord.toRecord(recordDescriptor, indexEntry), hasPrimaryKey);
+        return QueryPlanUtils.getCoveringIndexEntryToPartialRecordFunction(store, recordTypeName, getIndexName(), toRecord, getScanType());
     }
 
     @Nonnull
