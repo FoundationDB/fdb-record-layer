@@ -176,8 +176,8 @@ class LuceneDocumentFromRecordTest {
                                 function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")),
                                 function(LuceneFunctionNames.LUCENE_TEXT, field("third_value"))))), 3);
         assertEquals(ImmutableMap.of(
-                Tuple.from(30, "r1"), ImmutableList.of(textField("value", "val"), textField("second_value", "2val"), textField("third_value", "3val")),
-                Tuple.from(30, "r2"), ImmutableList.of(textField("value", "nval"), textField("second_value", "2nval"), textField("third_value", "3nval"))),
+                Tuple.from(30, "r1"), ImmutableList.of(textField("entry_value", "val"), textField("entry_second_value", "2val"), textField("entry_third_value", "3val")),
+                Tuple.from(30, "r2"), ImmutableList.of(textField("entry_value", "nval"), textField("entry_second_value", "2nval"), textField("entry_third_value", "3nval"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
@@ -196,8 +196,8 @@ class LuceneDocumentFromRecordTest {
                 field("entry", KeyExpression.FanType.FanOut).nest(concat(field("key"), function(LuceneFunctionNames.LUCENE_TEXT, field("value")), function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")))),
                 function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))), 3);
         assertEquals(ImmutableMap.of(
-                        Tuple.from(40, "en"), ImmutableList.of(textField("value", "first"), textField("second_value", "second"), textField("text2", "extra")),
-                        Tuple.from(40, "de"), ImmutableList.of(textField("value", "erste"), textField("second_value", "zweite"), textField("text2", "extra"))),
+                        Tuple.from(40, "en"), ImmutableList.of(textField("entry_value", "first"), textField("entry_second_value", "second"), textField("text2", "extra")),
+                        Tuple.from(40, "de"), ImmutableList.of(textField("entry_value", "erste"), textField("entry_second_value", "zweite"), textField("text2", "extra"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
     }
 
