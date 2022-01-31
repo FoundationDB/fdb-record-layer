@@ -36,6 +36,8 @@ import com.apple.foundationdb.record.lucene.directory.FDBDirectory;
 import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
+import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzerRegistryImpl;
+import com.apple.foundationdb.record.lucene.synonym.SynonymSetConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -62,6 +64,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
 import org.apache.lucene.index.IndexFileNames;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -71,6 +74,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -135,7 +139,16 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     IndexOptions.TEXT_TOKEN_MAX_SIZE, "5"));
 
     private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
-            ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME));
+            ImmutableMap.of(
+                    IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
+                    IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, SynonymSetConfig.DEFAULT.getName()));
+
+    private static final String COMBINED_SYNONYM_SETS = "COMBINED_SYNONYM_SETS";
+
+    private static final Index SYNONYM_LUCENE_COMBINED_SETS_INDEX = new Index("synonym_combined_sets_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(
+                    IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
+                    IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, COMBINED_SYNONYM_SETS));
 
     private static final Index SPELLCHECK_INDEX = new Index(
             "spellcheck_index",
@@ -588,6 +601,12 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         context.close();
     }
 
+    private String matchAll(String... words) {
+        return "text:(" +
+               Arrays.stream(words).map(word -> "+\"" + word + "\"").collect(Collectors.joining(" AND ")) +
+               ")";
+    }
+
     @Test
     void scanWithSynonymIndex() {
         try (FDBRecordContext context = openContext()) {
@@ -603,17 +622,41 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             // "hullo" is synonym of "hello"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
             assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from("text:(+\"hullo\" AND +\"record\" AND +\"layer\")")), null, ScanProperties.FORWARD_SCAN)
+                            TupleRange.allOf(Tuple.from(matchAll("hullo", "record", "layer"))), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             // it doesn't match due to the "recor"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
             assertEquals(0, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from("text:(+\"hullo\" AND +\"recor\" AND +\"layer\")")), null, ScanProperties.FORWARD_SCAN)
+                            TupleRange.allOf(Tuple.from(matchAll("hullo", "recor", "layer"))), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
             // "hullo" is synonym of "hello", and "show" is synonym of "record"
             recordStore.saveRecord(createSimpleDocument(1623L, "Hello record layer", 1));
             assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
-                            TupleRange.allOf(Tuple.from("text:(+\"hullo\" AND +\"show\" AND +\"layer\")")), null, ScanProperties.FORWARD_SCAN)
+                            TupleRange.allOf(Tuple.from(matchAll("hullo", "show", "layer"))), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+        }
+    }
+
+    @Test
+    void scanWithCombinedSetsSynonymIndex() {
+        // The COMBINED_SYNONYM_SETS adds this extra line to our synonym set:
+        // 'synonym', 'nonsynonym'
+        SynonymSetConfig testConfig = new SynonymSetConfig(
+                COMBINED_SYNONYM_SETS,
+                List.of(SynonymSetConfig.DEFAULT.getFileNames().get(0), "test.txt"));
+        SynonymAnalyzerRegistryImpl.instance().register(new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, testConfig));
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_LUCENE_INDEX);
+                metaDataBuilder.addIndex(SIMPLE_DOC, SYNONYM_LUCENE_COMBINED_SETS_INDEX);
+            });
+            recordStore.saveRecord(createSimpleDocument(1623L, "synonym is fun", 1));
+            assertEquals(0, recordStore.scanIndex(SYNONYM_LUCENE_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from(matchAll("nonsynonym", "is", "fun"))), null, ScanProperties.FORWARD_SCAN)
+                    .getCount().join());
+            assertEquals(1, recordStore.scanIndex(SYNONYM_LUCENE_COMBINED_SETS_INDEX, IndexScanType.BY_LUCENE_FULL_TEXT,
+                            TupleRange.allOf(Tuple.from(matchAll("nonsynonym", "is", "fun"))), null, ScanProperties.FORWARD_SCAN)
                     .getCount().join());
         }
     }
@@ -829,7 +872,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             for (String word : List.of("hello", "monitor", "keyboard", "mouse", "trackpad", "cable", "help", "elmo", "elbow", "helps", "helm", "helms", "gulps")) {
                 recordStore.saveRecord(createSimpleDocument(docId++, word, 1));
             }
-            
+
             CompletableFuture<List<IndexEntry>> resultsI = recordStore.scanIndex(SPELLCHECK_INDEX,
                     IndexScanType.BY_LUCENE_SPELLCHECK,
                     TupleRange.allOf(Tuple.from("keyboad")),
@@ -1125,7 +1168,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
             metaDataBuilder.addIndex(SIMPLE_DOC, highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE);
         });
-        
+
         // Write 8 texts and 6 of them contain the key "good"
         recordStore.saveRecord(createSimpleDocument(1623L, "Good morning", 1));
         recordStore.saveRecord(createSimpleDocument(1624L, "Good afternoon", 1));

@@ -85,7 +85,7 @@ public class LuceneAnalyzerRegistryImpl implements LuceneAnalyzerRegistry {
     public Pair<Analyzer, Analyzer> getLuceneAnalyzerPair(@Nonnull Index index) {
         final String name = index.getOption(IndexOptions.TEXT_ANALYZER_NAME_OPTION);
         // TODO: Get rid of the condition after OR operator, after having all analyzers registered with this registry
-        if (name == null || !registry.keySet().contains(name)) {
+        if (name == null || !registry.containsKey(name)) {
             final Analyzer standardAnalyzer = new StandardAnalyzer();
             return Pair.of(standardAnalyzer, standardAnalyzer);
         } else {
