@@ -70,3 +70,19 @@ message RecordTypeUnion {
     optional MapDocument _MapDocument = 3;
     optional MultiDocument _MultiDocument = 4;
 }
+
+message NestedMapDocument {
+    optional int64 doc_id = 1 [(field).primary_key = true];
+    message SubEntry {
+        optional string value = 2;
+        optional string second_value = 3;
+        optional string third_value = 4;
+    }
+    message Entry {
+        optional string key = 1;
+        optional SubEntry sub_entry = 2;
+    }
+    repeated Entry entry = 2;
+    optional int64 group = 3;
+    optional string text2 = 4;
+}

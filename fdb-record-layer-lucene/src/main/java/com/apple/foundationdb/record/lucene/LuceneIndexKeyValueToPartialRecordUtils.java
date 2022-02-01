@@ -31,10 +31,13 @@ import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * A utility class to build a partial record for an auto-complete suggestion value, with grouping keys if there exist.
@@ -54,32 +57,136 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                                           @Nonnull String suggestion, @Nonnull Tuple groupingKey) {
         final KeyExpression expression = root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getWholeKey() : root;
         LuceneIndexExpressions.getFieldsRecursively(expression, new PartialRecordBuildSource(null, descriptor, builder),
-                (source, fieldName, value, type, stored, fieldNamePrefix, suffixOverride, groupingKeyIndex) -> {
+                (source, fieldName, value, type, stored, overriddenKeyRanges, groupingKeyIndex) -> {
                     if (groupingKeyIndex > - 1) {
                         if (groupingKeyIndex > groupingKey.size() - 1) {
                             throw new RecordCoreException("Invalid grouping value tuple given a grouping key")
                                     .addLogInfo(LogMessageKeys.VALUE, groupingKey.toString());
                         }
-                        source.buildMessage(groupingKey.get(groupingKeyIndex), (String) value);
-                    } else if (type.equals(LuceneIndexExpressions.DocumentFieldType.TEXT) && fieldNameMatch(fieldName, luceneField, fieldNamePrefix, suffixOverride)) {
-                        source.buildMessage(suggestion, (String) value);
+                        source.buildMessage(groupingKey.get(groupingKeyIndex), (String) value, null, null, false);
+                    } else if (type.equals(LuceneIndexExpressions.DocumentFieldType.TEXT)) {
+                        buildIfFieldNameMatch(source, fieldName, luceneField, overriddenKeyRanges, suggestion, (String) value);
                     }
                 },
-                null, 0, root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getGroupingCount() : 0);
+                null, 0, root instanceof GroupingKeyExpression ? ((GroupingKeyExpression) root).getGroupingCount() : 0, new ArrayList<>());
     }
 
-    private static boolean fieldNameMatch(@Nonnull String traversedFieldName, @Nonnull String givenFieldName,
-                                          @Nullable String fieldNamePrefix, boolean suffixOverride) {
+    private static void buildIfFieldNameMatch(@Nonnull PartialRecordBuildSource source, @Nonnull String concatenatedFieldPath, @Nonnull String givenFieldName,
+                                                 @Nonnull List<Integer> overriddenKeyRanges, @Nonnull String suggestion, @Nonnull String protoFieldName) {
         // If field is not overridden, the names have to match exactly
-        if (!suffixOverride) {
-            return traversedFieldName.equals(givenFieldName);
+        if (overriddenKeyRanges.isEmpty()) {
+            if (concatenatedFieldPath.equals(givenFieldName)) {
+                source.buildMessage(suggestion, protoFieldName, null, null, true);
+            }
+            return;
         }
-        // If field is overridden by a LUCENE_FIELD_NAME function, and there is a field name prefix, the given name should have same prefix to match
-        if (fieldNamePrefix != null) {
-            return givenFieldName.startsWith(fieldNamePrefix);
+        // They can still be equal if some keys are mapped to fixed value or NULL
+        if (concatenatedFieldPath.equals(givenFieldName)) {
+            source.buildMessage(suggestion, protoFieldName, null, null, true);
+            return;
         }
-        // Field is overridden by a LUCENE_FIELD_NAME function, and there is no field name prefix, so we assume the field match if the schema is reasonable
-        return true;
+
+        Pair<List<String>, List<String>> pair = getOriginalAndMappedFieldElements(concatenatedFieldPath, overriddenKeyRanges);
+        final List<String> fixedFieldNames = pair.getLeft();
+        final List<String> dynamicFieldNames = pair.getRight();
+
+        // If the given field name contain all the fixed names from the path, we conclude that it matches
+        String fieldName = givenFieldName;
+        for (String fixedField : fixedFieldNames) {
+            int index = fieldName.indexOf(fixedField);
+            if (index < 0) {
+                return;
+            }
+            fieldName = fieldName.substring(index + fixedField.length());
+        }
+
+        // If the given field name matches with the generated field path, then to find the customized key for the Lucene field from given Lucene field name
+        String customizedKeyForLuceneField;
+        String mappedKeyField = dynamicFieldNames.get(dynamicFieldNames.size() - 1);
+        if (fixedFieldNames.isEmpty()) {
+            customizedKeyForLuceneField = givenFieldName;
+        } else if (fixedFieldNames.size() == 1) {
+            final String lastOriginalField = fixedFieldNames.get(fixedFieldNames.size() - 1);
+            if (givenFieldName.endsWith(lastOriginalField)) {
+                if (dynamicFieldNames.size() == 1) {
+                    customizedKeyForLuceneField = givenFieldName.substring(0, givenFieldName.lastIndexOf(lastOriginalField) - 1);
+                } else {
+                    int index = 0;
+                    while (index <= givenFieldName.lastIndexOf(lastOriginalField) - 1) {
+                        if (givenFieldName.charAt(index) == concatenatedFieldPath.charAt(index)) {
+                            index++;
+                        } else {
+                            break;
+                        }
+                    }
+                    customizedKeyForLuceneField = givenFieldName.substring(index, givenFieldName.lastIndexOf(lastOriginalField) - 1);
+                }
+            } else {
+                customizedKeyForLuceneField = givenFieldName.substring(givenFieldName.lastIndexOf(lastOriginalField) + lastOriginalField.length() + 1);
+            }
+        } else {
+            final String penultimateOriginalField = fixedFieldNames.get(fixedFieldNames.size() - 2);
+            final String lastOriginalField = fixedFieldNames.get(fixedFieldNames.size() - 1);
+            if (givenFieldName.endsWith(lastOriginalField)) {
+                if (penultimateOriginalField.equals(lastOriginalField)) {
+                    int endIndex = givenFieldName.lastIndexOf(lastOriginalField) - 1;
+                    int startIndex = givenFieldName.substring(0, endIndex).lastIndexOf(penultimateOriginalField) + penultimateOriginalField.length() + 1;
+                    customizedKeyForLuceneField = givenFieldName.substring(startIndex, endIndex);
+                } else {
+                    int startIndex = givenFieldName.lastIndexOf(penultimateOriginalField) + penultimateOriginalField.length() + 1;
+                    int endIndex = givenFieldName.lastIndexOf(lastOriginalField) - 1;
+                    customizedKeyForLuceneField = givenFieldName.substring(startIndex, endIndex);
+                }
+            } else {
+                customizedKeyForLuceneField = givenFieldName.substring(givenFieldName.lastIndexOf(lastOriginalField) + lastOriginalField.length() + 1);
+            }
+        }
+        
+        source.buildMessage(suggestion, protoFieldName, customizedKeyForLuceneField, mappedKeyField, true);
+    }
+
+
+    /**
+     * Get the list of fixed field names and that of the dynamic field names, given the entire concatenated field name.
+     * @param entireFieldName the entire concatenated field name
+     * @param overriddenKeyRanges the position ranges of the dynamic field names within the entire field name
+     * @return a pair of the list of fixed names and that of the dynamic ones
+     */
+    private static Pair<List<String>, List<String>> getOriginalAndMappedFieldElements(@Nonnull String entireFieldName,
+                                                                                      @Nonnull List<Integer> overriddenKeyRanges) {
+        int size = overriddenKeyRanges.size();
+        final List<String> fixedFieldNames = new ArrayList<>();
+        final List<String> dynamicFieldNames = new ArrayList<>();
+        if (overriddenKeyRanges.get(0) > 0) {
+            int startIndex = 0;
+            int endIndex = overriddenKeyRanges.get(0) > entireFieldName.length() - 1 ? entireFieldName.length() : overriddenKeyRanges.get(0) - 1;
+            if (endIndex >= startIndex) {
+                fixedFieldNames.add(entireFieldName.substring(startIndex, endIndex));
+            }
+        }
+        for (int i = 0; i < size - 1; i = i + 2) {
+            boolean keyIsNull = overriddenKeyRanges.get(i) == overriddenKeyRanges.get(i + 1);
+            if (keyIsNull) {
+                dynamicFieldNames.add("");
+            } else {
+                dynamicFieldNames.add(entireFieldName.substring(overriddenKeyRanges.get(i), overriddenKeyRanges.get(i + 1)));
+            }
+            if (i < size - 3) {
+                int startIndex = overriddenKeyRanges.get(i + 1) == 0 ? overriddenKeyRanges.get(i + 1) : overriddenKeyRanges.get(i + 1) + 1;
+                int endIndex = overriddenKeyRanges.get(i + 2) == entireFieldName.length() ? overriddenKeyRanges.get(i + 2) : overriddenKeyRanges.get(i + 2) - 1;
+                if (endIndex >= startIndex) {
+                    fixedFieldNames.add(entireFieldName.substring(startIndex, endIndex));
+                }
+            }
+        }
+        if (overriddenKeyRanges.get(size - 1) < entireFieldName.length()) {
+            int startIndex = overriddenKeyRanges.get(size - 1) == 0 ? overriddenKeyRanges.get(size - 1) : overriddenKeyRanges.get(size - 1) + 1;
+            if (entireFieldName.length() >= startIndex) {
+                fixedFieldNames.add(entireFieldName.substring(startIndex));
+            }
+        }
+
+        return Pair.of(fixedFieldNames, dynamicFieldNames);
     }
 
     /**
@@ -94,6 +201,7 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
         private final Descriptors.FieldDescriptor fieldDescriptor;
         @Nonnull
         private final Message.Builder builder;
+        private boolean hasBeenBuilt = false;
 
         PartialRecordBuildSource(@Nullable PartialRecordBuildSource parent, @Nonnull Descriptors.Descriptor descriptor, @Nonnull Message.Builder builder) {
             this.parent = parent;
@@ -126,11 +234,18 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             return Collections.singletonList(fieldExpression.getFieldName());
         }
 
-        public Message buildMessage(@Nonnull Object value, String field) {
-            return buildMessage(value, descriptor.findFieldByName(field));
+        public void buildMessage(@Nonnull Object value, @Nonnull String field, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
+            if (hasBeenBuilt()) {
+                return;
+            }
+            buildMessage(value, descriptor.findFieldByName(field), customizedKey, mappedKeyField, forLuceneField);
         }
 
-        private Message buildMessage(@Nonnull Object value, Descriptors.FieldDescriptor subFieldDescriptor) {
+        private void buildMessage(@Nonnull Object value, Descriptors.FieldDescriptor subFieldDescriptor, @Nullable String customizedKey, @Nullable String mappedKeyField, boolean forLuceneField) {
+            final Descriptors.FieldDescriptor mappedKeyFieldDescriptor = mappedKeyField == null ? null : descriptor.findFieldByName(mappedKeyField);
+            if (mappedKeyFieldDescriptor != null) {
+                builder.setField(mappedKeyFieldDescriptor, customizedKey);
+            }
             if (subFieldDescriptor.isRepeated()) {
                 if (builder.getRepeatedFieldCount(subFieldDescriptor) > 0) {
                     Message.Builder subBuilder = builder.newBuilderForField(subFieldDescriptor);
@@ -145,11 +260,22 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
                 builder.setField(subFieldDescriptor, value);
             }
 
-            if (parent == null) {
-                return builder.build();
-            } else {
-                return parent.buildMessage(builder.build(), this.fieldDescriptor);
+            if (parent != null) {
+                parent.buildMessage(builder.build(), this.fieldDescriptor, mappedKeyFieldDescriptor == null ? customizedKey : null, mappedKeyFieldDescriptor == null ? mappedKeyField : null, forLuceneField);
             }
+            if (forLuceneField) {
+                this.hasBeenBuilt = true;
+            }
+        }
+
+        private boolean hasBeenBuilt() {
+            if (this.hasBeenBuilt) {
+                return true;
+            }
+            if (this.parent != null) {
+                return this.parent.hasBeenBuilt;
+            }
+            return false;
         }
 
     }

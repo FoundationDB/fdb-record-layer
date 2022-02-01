@@ -220,8 +220,14 @@ class LuceneDocumentFromRecordTest {
         Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
         assertEquals(1, partialMsg.getRepeatedFieldCount(entryField));
 
-        // The suggestion is supposed to show up in value field within repeated entry sub-message
         TestRecordsTextProto.MapDocument.Entry entry = (TestRecordsTextProto.MapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+
+        // The k1 is supposed to show up in the key field within repeated entry sub-message
+        Descriptors.FieldDescriptor keyField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("key");
+        assertTrue(entry.hasField(keyField));
+        assertEquals("k1", entry.getField(keyField));
+
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
         Descriptors.FieldDescriptor valueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("value");
         assertTrue(entry.hasField(valueField));
         assertEquals("suggestion", entry.getField(valueField));
@@ -253,8 +259,14 @@ class LuceneDocumentFromRecordTest {
         Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
         assertEquals(1, partialMsg.getRepeatedFieldCount(entryField));
 
-        // The suggestion is supposed to show up in value field within repeated entry sub-message
         TestRecordsTextProto.MapDocument.Entry entry = (TestRecordsTextProto.MapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+
+        // The k1 is supposed to show up in the key field within repeated entry sub-message
+        Descriptors.FieldDescriptor keyField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("key");
+        assertTrue(entry.hasField(keyField));
+        assertEquals("k1", entry.getField(keyField));
+
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
         Descriptors.FieldDescriptor valueField = TestRecordsTextProto.MapDocument.Entry.getDescriptor().findFieldByName("value");
         assertTrue(entry.hasField(valueField));
         assertEquals("suggestion", entry.getField(valueField));
@@ -360,6 +372,93 @@ class LuceneDocumentFromRecordTest {
         Descriptors.FieldDescriptor groupField = recordDescriptor.findFieldByName("group");
         assertTrue(partialMsg.hasField(groupField));
         assertEquals(40L, partialMsg.getField(groupField));
+    }
+
+    @Test
+    void mapWithSubMessage() {
+        TestRecordsTextProto.NestedMapDocument message = TestRecordsTextProto.NestedMapDocument.newBuilder()
+                .setDocId(5)
+                .addEntry(TestRecordsTextProto.NestedMapDocument.Entry.newBuilder().setKey("k1").setSubEntry(TestRecordsTextProto.NestedMapDocument.SubEntry.newBuilder().setValue("testValue").build()).build())
+                .build();
+        KeyExpression index = field("entry", KeyExpression.FanType.FanOut)
+                .nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                        concat(field("sub_entry").nest(concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")))),
+                                field("key"))));
+        FDBRecord<Message> record = unstoredRecord(message);
+
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
+                        textField("entry_k1_value", "testValue"))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.NestedMapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_k1_value", "suggestion");
+        Message partialMsg = builder.build();
+
+        Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
+        assertEquals(1, partialMsg.getRepeatedFieldCount(entryField));
+
+        // The k1 is supposed to be populated for the key field under entry
+        TestRecordsTextProto.NestedMapDocument.Entry entry = (TestRecordsTextProto.NestedMapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+        Descriptors.FieldDescriptor keyField = TestRecordsTextProto.NestedMapDocument.Entry.getDescriptor().findFieldByName("key");
+        assertTrue(entry.hasField(keyField));
+        assertEquals("k1", entry.getField(keyField));
+
+        Descriptors.FieldDescriptor subEntryField = entryField.getMessageType().findFieldByName("sub_entry");
+        assertTrue(entry.hasField(subEntryField));
+
+        // The suggestion is supposed to show up in value field within sub-entry
+        TestRecordsTextProto.NestedMapDocument.SubEntry subEntry = entry.getSubEntry();
+        Descriptors.FieldDescriptor valueField = TestRecordsTextProto.NestedMapDocument.SubEntry.getDescriptor().findFieldByName("value");
+        assertTrue(subEntry.hasField(valueField));
+        assertEquals("suggestion", subEntry.getField(valueField));
+    }
+
+    /**
+     * When a schema leads an ambiguity of the parsed path given a concatenated Lucene field, the first path that satisfies the given field will be selected and the correct one could be ignored.
+     * In this test, because both the path {entry -> sub_entry -> value} and {entry -> sub_entry -> second_value} could match with the given Lucene field "entry_k1_second_value",
+     * and in the first path the key is "k1_second" and in the second one the key is "k1".
+     * There is no more information to tell which is the expected one so we just pick up the first one to build the partial record.
+     * TODO: Predicate the potential ambiguity when loading a schema and reject it
+     */
+    @Test
+    void mapWithSubMessageWithAmbiguity() {
+        TestRecordsTextProto.NestedMapDocument message = TestRecordsTextProto.NestedMapDocument.newBuilder()
+                .setDocId(5)
+                .addEntry(TestRecordsTextProto.NestedMapDocument.Entry.newBuilder().setKey("k1").setSubEntry(TestRecordsTextProto.NestedMapDocument.SubEntry.newBuilder().setSecondValue("testValue").build()).build())
+                .build();
+        KeyExpression index = field("entry", KeyExpression.FanType.FanOut)
+                .nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                        concat(field("sub_entry").nest(concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")))),
+                                field("key"))));
+        FDBRecord<Message> record = unstoredRecord(message);
+
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
+                        textField("entry_k1_second_value", "testValue"))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        Message.Builder builder = TestRecordsTextProto.NestedMapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_k1_second_value", "suggestion");
+        Message partialMsg = builder.build();
+
+        Descriptors.FieldDescriptor entryField = recordDescriptor.findFieldByName("entry");
+        assertEquals(1, partialMsg.getRepeatedFieldCount(entryField));
+
+        // The k1_second is supposed to be populated for the key field under entry
+        TestRecordsTextProto.NestedMapDocument.Entry entry = (TestRecordsTextProto.NestedMapDocument.Entry) partialMsg.getRepeatedField(entryField, 0);
+        Descriptors.FieldDescriptor keyField = TestRecordsTextProto.NestedMapDocument.Entry.getDescriptor().findFieldByName("key");
+        assertTrue(entry.hasField(keyField));
+        assertEquals("k1_second", entry.getField(keyField));
+
+        Descriptors.FieldDescriptor subEntryField = entryField.getMessageType().findFieldByName("sub_entry");
+        assertTrue(entry.hasField(subEntryField));
+
+        // The suggestion is supposed to show up in value field within sub-entry, instead of second_value
+        TestRecordsTextProto.NestedMapDocument.SubEntry subEntry = entry.getSubEntry();
+        Descriptors.FieldDescriptor valueField = TestRecordsTextProto.NestedMapDocument.SubEntry.getDescriptor().findFieldByName("value");
+        assertTrue(subEntry.hasField(valueField));
+        assertEquals("suggestion", subEntry.getField(valueField));
     }
 
     private static FDBRecord<Message> unstoredRecord(Message message) {

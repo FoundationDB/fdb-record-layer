@@ -181,7 +181,7 @@ public class LuceneDocumentFromRecord {
 
         @Override
         public void addField(@Nonnull T source, @Nonnull final String fieldName, @Nullable final Object value, LuceneIndexExpressions.DocumentFieldType type,
-                             final boolean stored, @Nullable String fieldNamePrefix, boolean suffixOverride, int groupingKeyIndex) {
+                             final boolean stored, @Nonnull List<Integer> overriddenKeyRanges, int groupingKeyIndex) {
             fields.add(new DocumentField(fieldName, value, type, stored));
         }
     }
