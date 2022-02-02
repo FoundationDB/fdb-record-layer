@@ -625,14 +625,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                     .setText(randomWords[1])
                     .setGroup(2)
                     .build();
-            try {
-                recordStore.saveRecord(dylan);
-            } catch (Exception ex) {
-                System.out.println("***********************************Index number****************************************");
-                System.out.println("i=" + String.valueOf(i));
-                System.out.println("***************************************************************************************");
-                throw ex;
-            }
+            recordStore.saveRecord(dylan);
             if ((i + 1) % 50 == 0) {
                 commit(context);
                 context = openContext();
