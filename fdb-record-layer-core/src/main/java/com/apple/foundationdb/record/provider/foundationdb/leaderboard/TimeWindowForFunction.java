@@ -22,6 +22,7 @@ package com.apple.foundationdb.record.provider.foundationdb.leaderboard;
 
 import com.apple.foundationdb.annotation.API;
 import com.apple.foundationdb.record.EvaluationContext;
+import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
@@ -36,7 +37,7 @@ import java.util.Collections;
  * Additional function arguments for time window.
  */
 @API(API.Status.EXPERIMENTAL)
-public class TimeWindowForFunction {
+public class TimeWindowForFunction implements PlanHashable {
 
     private final int leaderboardType;
     private final long leaderboardTimestamp;
@@ -105,10 +106,23 @@ public class TimeWindowForFunction {
     }
 
     @Override
+    public int planHash(@Nonnull final PlanHashKind hashKind) {
+        return PlanHashable.objectsPlanHash(hashKind, leaderboardType, leaderboardTimestamp, leaderboardTypeParameter, leaderboardTimestampParameter);
+    }
+
+    @Nonnull
+    public String leaderboardTypeString() {
+        return leaderboardTypeParameter == null ? Integer.toString(leaderboardType) : ("$" + leaderboardTypeParameter);
+    }
+
+    @Nonnull
+    public String leaderboardTimestampString() {
+        return leaderboardTimestampParameter == null ? Long.toString(leaderboardTimestamp) : ("$" + leaderboardTimestampParameter);
+    }
+
+    @Override
     public String toString() {
-        return
-                (leaderboardTypeParameter == null ? Integer.toString(leaderboardType) : ("$" + leaderboardTypeParameter)) + "," +
-                (leaderboardTimestampParameter == null ? Long.toString(leaderboardTimestamp) : ("$" + leaderboardTimestampParameter));
+        return leaderboardTypeString() + "," + leaderboardTimestampString();
     }
 
     @Override

@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
 import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowRecordFunction;
+import com.apple.foundationdb.record.provider.foundationdb.leaderboard.TimeWindowScanComparisons;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndComponent;
@@ -1417,8 +1418,7 @@ public class RecordQueryPlanner implements QueryPlanner {
                                      @Nonnull ScanComparisons scanComparisons) {
         IndexScanParameters scanParameters;
         if (rank.getFunction().getName().equals(FunctionNames.TIME_WINDOW_RANK)) {
-            scanParameters = new IndexScanComparisons(IndexScanType.BY_TIME_WINDOW,
-                    ((TimeWindowRecordFunction<?>) rank.getFunction()).getTimeWindow().prependLeaderboardKeys(scanComparisons));
+            scanParameters = new TimeWindowScanComparisons(((TimeWindowRecordFunction<?>) rank.getFunction()).getTimeWindow(), scanComparisons);
         } else {
             scanParameters = new IndexScanComparisons(IndexScanType.BY_RANK, scanComparisons);
         }

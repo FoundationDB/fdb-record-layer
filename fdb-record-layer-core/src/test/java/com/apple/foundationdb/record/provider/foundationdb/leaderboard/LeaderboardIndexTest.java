@@ -50,6 +50,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexOrphanBehavior;
 import com.apple.foundationdb.record.provider.foundationdb.TestKeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.RankedSetHashFunctions;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
@@ -202,22 +203,29 @@ public class LeaderboardIndexTest extends FDBTestBase {
                                     rebuild));
         }
 
-        public RecordCursor<Message> scanIndex(IndexScanType type, TupleRange range) {
-            return recordStore.scanIndexRecords("LeaderboardIndex", type, range, null, ScanProperties.FORWARD_SCAN).map(FDBIndexedRecord::getRecord);
+        public RecordCursor<Message> scanIndexByRank(TupleRange range) {
+            return recordStore.scanIndexRecords("LeaderboardIndex", IndexScanType.BY_RANK, range, null, ScanProperties.FORWARD_SCAN).map(FDBIndexedRecord::getRecord);
         }
 
-        public RecordCursor<Message> scanIndex(IndexScanType type, TupleRange range, boolean reverse) {
-            return recordStore.scanIndexRecords("LeaderboardIndex", type, range, null,
-                    new ScanProperties(ExecuteProperties.SERIAL_EXECUTE, reverse))
+        public RecordCursor<Message> scanIndexByScore(TupleRange range, boolean reverse) {
+            return recordStore.scanIndexRecords("LeaderboardIndex", IndexScanType.BY_VALUE, range, null,
+                            new ScanProperties(ExecuteProperties.SERIAL_EXECUTE, reverse))
                     .map(FDBIndexedRecord::getRecord);
         }
 
-        public RecordCursor<Message> scanIndex(IndexScanType type, TupleRange range, int limit) {
-            return recordStore.scanIndexRecords("LeaderboardIndex", type, range, null,
-                    new ScanProperties(ExecuteProperties.newBuilder()
-                            .setReturnedRowLimit(limit)
-                            .setIsolationLevel(IsolationLevel.SERIALIZABLE)
-                            .build()))
+        public RecordCursor<Message> scanIndexByTimeWindow(TimeWindowScanRange range) {
+            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex("LeaderboardIndex"), range, null, ScanProperties.FORWARD_SCAN),
+                            IndexOrphanBehavior.ERROR)
+                    .map(FDBIndexedRecord::getRecord);
+        }
+
+        public RecordCursor<Message> scanIndexByTimeWindowWithLimit(TimeWindowScanRange range, int limit) {
+            return recordStore.fetchIndexRecords(recordStore.scanIndex(metaData.getIndex("LeaderboardIndex"), range, null,
+                                    new ScanProperties(ExecuteProperties.newBuilder()
+                                            .setReturnedRowLimit(limit)
+                                            .setIsolationLevel(IsolationLevel.SERIALIZABLE)
+                                            .build())),
+                            IndexOrphanBehavior.ERROR)
                     .map(FDBIndexedRecord::getRecord);
         }
 
@@ -450,32 +458,32 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.openRecordStore(context, false);
 
             assertEquals(Arrays.asList("achilles", "hector", "helen", "hecuba", "patroclus"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, TupleRange.ALL)
+                    leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
             TupleRange top_2 = new TupleRange(Tuple.from(0), Tuple.from(1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, top_2)
+                    leaderboards.scanIndexByRank(top_2)
                             .map(leaderboards::getName).asList().join());
 
             TupleRange no_2 = TupleRange.allOf(Tuple.from(1));
             assertEquals(Arrays.asList("hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, no_2)
+                    leaderboards.scanIndexByRank(no_2)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange ten_units = TupleRange.allOf(Tuple.from(TEN_UNITS, 10101));
+            TimeWindowScanRange ten_units = new TimeWindowScanRange(TEN_UNITS, 10101, TupleRange.ALL);
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, ten_units)
+                    leaderboards.scanIndexByTimeWindow(ten_units)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange five_units = TupleRange.allOf(Tuple.from(FIVE_UNITS, 10102));
+            TimeWindowScanRange five_units = new TimeWindowScanRange(FIVE_UNITS, 10102, TupleRange.ALL);
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, five_units)
+                    leaderboards.scanIndexByTimeWindow(five_units)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange five_units_2 = TupleRange.allOf(Tuple.from(FIVE_UNITS, 10107));
+            TimeWindowScanRange five_units_2 = new TimeWindowScanRange(FIVE_UNITS, 10107, TupleRange.ALL);
             assertEquals(Arrays.asList("hector", "achilles"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, five_units_2)
+                    leaderboards.scanIndexByTimeWindow(five_units_2)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec = leaderboards.findByName("helen");
@@ -493,36 +501,36 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
             TupleRange score_300_1000 = new TupleRange(Tuple.from(300), Tuple.from(1000), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_EXCLUSIVE);
             assertEquals(Arrays.asList("helen", "hecuba", "achilles"),
-                    leaderboards.scanIndex(IndexScanType.BY_VALUE, score_300_1000, true)
+                    leaderboards.scanIndexByScore(score_300_1000, true)
                             .map(leaderboards::getName).asList().join());
 
             assertEquals(Arrays.asList("patroclus", "helen", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, TupleRange.ALL)
+                    leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
             TupleRange top_2 = new TupleRange(Tuple.from(0), Tuple.from(1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
             assertEquals(Arrays.asList("patroclus", "helen"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, top_2)
+                    leaderboards.scanIndexByRank(top_2)
                             .map(leaderboards::getName).asList().join());
 
             TupleRange no_2 = TupleRange.allOf(Tuple.from(1));
             assertEquals(Arrays.asList("helen"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, no_2)
+                    leaderboards.scanIndexByRank(no_2)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange ten_units = TupleRange.allOf(Tuple.from(TEN_UNITS, 10101));
+            TimeWindowScanRange ten_units = new TimeWindowScanRange(TEN_UNITS, 10101, TupleRange.ALL);
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, ten_units)
+                    leaderboards.scanIndexByTimeWindow(ten_units)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange five_units = TupleRange.allOf(Tuple.from(FIVE_UNITS, 10102));
+            TimeWindowScanRange five_units = new TimeWindowScanRange(FIVE_UNITS, 10102, TupleRange.ALL);
             assertEquals(Arrays.asList("hector", "achilles"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, five_units)
+                    leaderboards.scanIndexByTimeWindow(five_units)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange five_units_2 = TupleRange.allOf(Tuple.from(FIVE_UNITS, 10106));
+            TimeWindowScanRange five_units_2 = new TimeWindowScanRange(FIVE_UNITS, 10106, TupleRange.ALL);
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, five_units_2)
+                    leaderboards.scanIndexByTimeWindow(five_units_2)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec = leaderboards.findByName("helen");
@@ -548,35 +556,35 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
             TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
             TupleRange top_2 = new TupleRange(Tuple.from("game-1", 0), Tuple.from("game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
             assertEquals(Arrays.asList("patroclus", "hecuba"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, top_2)
+                    leaderboards.scanIndexByRank(top_2)
                             .map(leaderboards::getName).asList().join());
 
             TupleRange no_2 = TupleRange.allOf(Tuple.from("game-1", 1));
             assertEquals(Arrays.asList("hecuba"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, no_2)
+                    leaderboards.scanIndexByRank(no_2)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange ten_units = TupleRange.allOf(Tuple.from(TEN_UNITS, 10100, "game-1"));
+            TimeWindowScanRange ten_units = new TimeWindowScanRange(TEN_UNITS, 10100, TupleRange.allOf(Tuple.from("game-1")));
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, ten_units)
+                    leaderboards.scanIndexByTimeWindow(ten_units)
                             .map(leaderboards::getName).asList().join());
             assertEquals(Arrays.asList("achilles"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, ten_units, 1)
+                    leaderboards.scanIndexByTimeWindowWithLimit(ten_units, 1)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange top_2_ten_units = new TupleRange(Tuple.from(TEN_UNITS, 10102, "game-1", 0), Tuple.from(TEN_UNITS, 10102, "game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+            TimeWindowScanRange top_2_ten_units = new TimeWindowScanRange(TEN_UNITS, 10102, new TupleRange(Tuple.from("game-1", 0), Tuple.from("game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE));
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, top_2_ten_units)
+                    leaderboards.scanIndexByTimeWindow(top_2_ten_units)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange top_2_five_units = new TupleRange(Tuple.from(FIVE_UNITS, 10100, "game-1", 0), Tuple.from(FIVE_UNITS, 10100, "game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+            TimeWindowScanRange top_2_five_units = new TimeWindowScanRange(FIVE_UNITS, 10100, new TupleRange(Tuple.from("game-1", 0), Tuple.from("game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE));
             assertEquals(Arrays.asList("hector", "achilles"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, top_2_five_units)
+                    leaderboards.scanIndexByTimeWindow(top_2_five_units)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("patroclus");
@@ -648,7 +656,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
                             leaderboards.queryTimeWindowRank("l1", "l2").lessThanOrEquals(2L)))
                     .build();
             RecordQueryPlan plan2 = leaderboards.planQuery(query2);
-            assertEquals("Index(LeaderboardIndex [EQUALS $l1, EQUALS $l2, EQUALS game-1, [LESS_THAN_OR_EQUALS 2]] BY_TIME_WINDOW)", plan2.toString());
+            assertEquals("Index(LeaderboardIndex ([game-1, null],[game-1, 2]]@$l1,$l2 BY_TIME_WINDOW)", plan2.toString());
 
             final EvaluationContext evaluationContext1 = EvaluationContext.newBuilder()
                     .setBinding("l1", FIVE_UNITS)
@@ -789,7 +797,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.openRecordStore(context, false);
 
             assertEquals(Arrays.asList("patroclus", "helen", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, TupleRange.ALL)
+                    leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
@@ -811,7 +819,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.recordStore.saveRecord(recordBuilder.build());
 
             assertEquals(Arrays.asList("patroclus", "helen", "hecuba", "hector", "achilles"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, TupleRange.ALL)
+                    leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
@@ -829,7 +837,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.addScores("achilles", "game-1", 350, 10108, 669);
                 
             assertEquals(Arrays.asList("patroclus", "helen", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, TupleRange.ALL)
+                    leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
@@ -847,7 +855,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.recordStore.deleteRecord(Tuple.from("patroclus"));
                 
             assertEquals(Arrays.asList("helen", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, TupleRange.ALL)
+                    leaderboards.scanIndexByRank(TupleRange.ALL)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("helen");
@@ -870,7 +878,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.openRecordStore(context, false);
 
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
@@ -892,7 +900,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.recordStore.saveRecord(recordBuilder.build());
 
             assertEquals(Arrays.asList("patroclus", "hecuba", "hector", "achilles"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
@@ -910,7 +918,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.addScores("achilles", "game-1", 350, 10108, 669);
                 
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
@@ -928,7 +936,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.recordStore.deleteRecord(Tuple.from("patroclus"));
                 
             assertEquals(Arrays.asList("hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec1 = leaderboards.findByName("hecuba");
@@ -962,12 +970,12 @@ public class LeaderboardIndexTest extends FDBTestBase {
             leaderboards.openRecordStore(context, false);
             TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
             assertEquals(Collections.emptyList(),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange ten_units = TupleRange.allOf(Tuple.from(TEN_UNITS, 10100, "game-1"));
+            TimeWindowScanRange ten_units = new TimeWindowScanRange(TEN_UNITS, 10100, TupleRange.allOf(Tuple.from("game-1")));
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, ten_units)
+                    leaderboards.scanIndexByTimeWindow(ten_units)
                             .map(leaderboards::getName).asList().join());
 
             final FDBStoredRecord<Message> rec = leaderboards.findByName("achilles");
@@ -1044,12 +1052,12 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
             TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
             assertEquals(Arrays.asList("achilles", "hector", "hecuba", "patroclus"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange top_2_ten_units = new TupleRange(Tuple.from(TEN_UNITS, 10100, "game-1", 0), Tuple.from(TEN_UNITS, 10100, "game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+            TimeWindowScanRange top_2_ten_units = new TimeWindowScanRange(TEN_UNITS, 10100, new TupleRange(Tuple.from("game-1", 0), Tuple.from("game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE));
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, top_2_ten_units)
+                    leaderboards.scanIndexByTimeWindow(top_2_ten_units)
                             .map(leaderboards::getName).asList().join());
         }
 
@@ -1070,12 +1078,12 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
             TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
 
-            TupleRange top_2_ten_units = new TupleRange(Tuple.from(TEN_UNITS, 10100, "game-1", 0), Tuple.from(TEN_UNITS, 10100, "game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE);
+            TimeWindowScanRange top_2_ten_units = new TimeWindowScanRange(TEN_UNITS, 10100, new TupleRange(Tuple.from("game-1", 0), Tuple.from("game-1", 1), EndpointType.RANGE_INCLUSIVE, EndpointType.RANGE_INCLUSIVE));
             assertEquals(Arrays.asList("achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_TIME_WINDOW, top_2_ten_units)
+                    leaderboards.scanIndexByTimeWindow(top_2_ten_units)
                             .map(leaderboards::getName).asList().join());
         }
     }
@@ -1121,7 +1129,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
 
             TupleRange game_1 = TupleRange.allOf(Tuple.from("game-1"));
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector", "helen"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
         }
     }
@@ -1153,7 +1161,7 @@ public class LeaderboardIndexTest extends FDBTestBase {
             assertEquals(highScoreFirst ?
                          Arrays.asList("patroclus", "hecuba", "achilles", "hector") :
                          Arrays.asList("achilles", "hector", "hecuba", "patroclus"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
         }
     }
@@ -1184,19 +1192,19 @@ public class LeaderboardIndexTest extends FDBTestBase {
             TupleRange game_2 = TupleRange.allOf(Tuple.from("game-2"));
 
             assertEquals(Arrays.asList("patroclus", "hecuba", "achilles", "hector"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
             assertEquals(Arrays.asList("helen"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_2)
+                    leaderboards.scanIndexByRank(game_2)
                             .map(leaderboards::getName).asList().join());
 
             leaderboards.recordStore.deleteRecordsWhere(Query.field("game_id").equalsValue("game-1"));
 
             assertEquals(Collections.emptyList(),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_1)
+                    leaderboards.scanIndexByRank(game_1)
                             .map(leaderboards::getName).asList().join());
             assertEquals(Arrays.asList("helen"),
-                    leaderboards.scanIndex(IndexScanType.BY_RANK, game_2)
+                    leaderboards.scanIndexByRank(game_2)
                             .map(leaderboards::getName).asList().join());
         }
     }
