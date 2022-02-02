@@ -21,6 +21,8 @@
 package com.apple.foundationdb.record.query.plan.temp.rules;
 
 import com.apple.foundationdb.annotation.API;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRule;
 import com.apple.foundationdb.record.query.plan.temp.PlannerRuleCall;
@@ -48,10 +50,10 @@ public class ImplementIndexScanRule extends PlannerRule<IndexScanExpression> {
     @Override
     public void onMatch(@Nonnull PlannerRuleCall call) {
         final IndexScanExpression logical = call.get(root);
+        final IndexScanParameters scan = new IndexScanComparisons(logical.getScanType(), logical.scanComparisons());
         call.yield(call.ref(new RecordQueryIndexPlan(Objects.requireNonNull(
                 logical.getIndexName()),
-                logical.getScanType(),
-                logical.scanComparisons(),
+                scan,
                 logical.isReverse())));
     }
 }

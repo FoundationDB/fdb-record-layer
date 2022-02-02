@@ -22,7 +22,6 @@ package com.apple.foundationdb.record.provider.foundationdb.limits;
 
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
@@ -43,12 +42,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.provider.foundationdb.SplitHelper;
 import com.apple.foundationdb.record.provider.foundationdb.cursors.ProbableIntersectionCursor;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.plan.RecordQueryPlanner;
-import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.plans.QueryPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryIndexPlan;
 import com.apple.foundationdb.record.query.plan.plans.RecordQueryPlan;
@@ -361,8 +361,9 @@ public class FDBRecordStoreScanLimitTest extends FDBRecordStoreLimitTestBase {
     @ParameterizedTest
     @ValueSource(ints = {2, 5, 10, 20}) // for this test, the scan limit must divide 100
     public void testExecuteStateReset(int scanLimit) throws Exception {
+        final IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
+                fullValueScan, false);
         ExecuteProperties properties = ExecuteProperties.newBuilder().setScannedRecordsLimit(scanLimit).build();
 
         try (FDBRecordContext context = openContext()) {

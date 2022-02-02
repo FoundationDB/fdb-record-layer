@@ -256,7 +256,8 @@ public class RecordTypeKeyTest extends FDBRecordStoreQueryTestBase {
                     new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, 2),
                     new RecordTypeKeyComparison("MySimpleRecord").getComparison()
             ), Collections.emptySet());
-            RecordQueryPlan plan = new RecordQueryIndexPlan(index.getName(), IndexScanType.BY_VALUE, comparison, false);
+            IndexScanParameters scan = IndexScanComparisons.byValue(comparison);
+            RecordQueryPlan plan = new RecordQueryIndexPlan(index.getName(), scan, false);
 
             assertEquals(recs.subList(1, 2), recordStore.executeQuery(query)
                     .map(FDBQueriedRecord::getStoredRecord).asList().join());

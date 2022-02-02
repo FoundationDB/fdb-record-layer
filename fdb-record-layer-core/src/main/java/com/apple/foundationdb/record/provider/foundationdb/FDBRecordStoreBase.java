@@ -822,6 +822,18 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
     /**
      * Scan the entries in an index.
      * @param index the index to scan
+     * @param scanBounds the scan to preform
+     * @param continuation any continuation from a previous scan
+     * @param scanProperties skip, limit and other scan properties
+     * @return a cursor that will scan the index, picking up at continuation, and honoring the given scan properties
+     */
+    @Nonnull
+    RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanBounds scanBounds, @Nullable byte[] continuation,
+                                       @Nonnull ScanProperties scanProperties);
+
+    /**
+     * Scan the entries in an index.
+     * @param index the index to scan
      * @param scanType the type of scan to perform
      * @param range range to scan
      * @param continuation any continuation from a previous scan
@@ -829,9 +841,11 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a cursor that will scan the index, picking up at continuation, and honoring the given scan properties
      */
     @Nonnull
-    RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
-                                       @Nonnull TupleRange range, @Nullable byte[] continuation,
-                                       @Nonnull ScanProperties scanProperties);
+    default RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
+                                               @Nonnull TupleRange range, @Nullable byte[] continuation,
+                                               @Nonnull ScanProperties scanProperties) {
+        return scanIndex(index, new IndexScanRange(scanType, range), continuation, scanProperties);
+    }
 
     /**
      * Scan the records pointed to by an index.

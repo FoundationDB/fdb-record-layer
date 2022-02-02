@@ -42,7 +42,6 @@ import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.ExecuteState;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IndexEntry;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.IndexState;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.MutableRecordStoreState;
@@ -1198,17 +1197,15 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
 
     @Override
     @Nonnull
-    public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanType scanType,
-                                              @Nonnull TupleRange range,
-                                              @Nullable byte[] continuation,
-                                              @Nonnull ScanProperties scanProperties) {
+    public RecordCursor<IndexEntry> scanIndex(@Nonnull Index index, @Nonnull IndexScanBounds scanBounds,
+                                              @Nullable byte[] continuation, @Nonnull ScanProperties scanProperties) {
         if (!isIndexReadable(index)) {
             throw new ScanNonReadableIndexException("Cannot scan non-readable index",
                     LogMessageKeys.INDEX_NAME, index.getName(),
                     subspaceProvider.logKey(), subspaceProvider.toString(context));
         }
         RecordCursor<IndexEntry> result = getIndexMaintainer(index)
-                .scan(scanType, range, continuation, scanProperties);
+                .scan(scanBounds, continuation, scanProperties);
         return context.instrument(FDBStoreTimer.Events.SCAN_INDEX_KEYS, result);
     }
 

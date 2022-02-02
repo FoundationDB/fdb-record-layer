@@ -29,11 +29,13 @@ import com.apple.foundationdb.record.ObjectPlanHash;
 import com.apple.foundationdb.record.PlanHashable;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordMetaData;
-import com.apple.foundationdb.record.TupleRange;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanBounds;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.plan.AvailableFields;
 import com.apple.foundationdb.record.query.plan.ScanComparisons;
 import com.apple.foundationdb.record.query.plan.temp.AliasMap;
@@ -71,44 +73,38 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Nonnull
     protected final String indexName;
     @Nonnull
-    protected final IndexScanType scanType;
-    @Nonnull
-    protected final ScanComparisons comparisons;
+    protected final IndexScanParameters scanParameters;
     protected final boolean reverse;
     protected final boolean strictlySorted;
     @Nonnull
     private final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional;
 
-    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull IndexScanType scanType, @Nonnull final ScanComparisons comparisons, final boolean reverse) {
-        this(indexName, scanType, comparisons, reverse, false);
+    public RecordQueryIndexPlan(@Nonnull final String indexName, @Nonnull final IndexScanParameters scanParameters, final boolean reverse) {
+        this(indexName, scanParameters, reverse, false);
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
-                                @Nonnull final IndexScanType scanType,
-                                @Nonnull final ScanComparisons comparisons,
+                                @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted) {
-        this(indexName, scanType, comparisons, reverse, strictlySorted, Optional.empty());
+        this(indexName, scanParameters, reverse, strictlySorted, Optional.empty());
     }
 
     public RecordQueryIndexPlan(@Nonnull final String indexName,
-                                @Nonnull final IndexScanType scanType,
-                                @Nonnull final ScanComparisons comparisons,
+                                @Nonnull final IndexScanParameters scanParameters,
                                 final boolean reverse,
                                 final boolean strictlySorted,
                                 @Nonnull final ValueIndexScanMatchCandidate matchCandidate) {
-        this(indexName, scanType, comparisons, reverse, strictlySorted, Optional.of(matchCandidate));
+        this(indexName, scanParameters, reverse, strictlySorted, Optional.of(matchCandidate));
     }
 
     private RecordQueryIndexPlan(@Nonnull final String indexName,
-                                 @Nonnull IndexScanType scanType,
-                                 @Nonnull final ScanComparisons comparisons,
+                                 @Nonnull final IndexScanParameters scanParameters,
                                  final boolean reverse,
                                  final boolean strictlySorted,
                                  @Nonnull final Optional<ValueIndexScanMatchCandidate> matchCandidateOptional) {
         this.indexName = indexName;
-        this.scanType = scanType;
-        this.comparisons = comparisons;
+        this.scanParameters = scanParameters;
         this.reverse = reverse;
         this.strictlySorted = strictlySorted;
         this.matchCandidateOptional = matchCandidateOptional;
@@ -118,9 +114,9 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public <M extends Message> RecordCursor<IndexEntry> executeEntries(@Nonnull FDBRecordStoreBase<M> store, @Nonnull EvaluationContext context,
                                                                        @Nullable byte[] continuation, @Nonnull ExecuteProperties executeProperties) {
-        final TupleRange range = comparisons.toTupleRange(store, context);
+        final IndexScanBounds scanBounds = scanParameters.bind(store, context);
         final RecordMetaData metaData = store.getRecordMetaData();
-        return store.scanIndex(metaData.getIndex(indexName), scanType, range, continuation, executeProperties.asScanProperties(reverse));
+        return store.scanIndex(metaData.getIndex(indexName), scanBounds, continuation, executeProperties.asScanProperties(reverse));
     }
 
     @Nonnull
@@ -130,15 +126,14 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     @Nonnull
-    @Override
-    public ScanComparisons getComparisons() {
-        return comparisons;
+    public IndexScanParameters getScanParameters() {
+        return scanParameters;
     }
 
     @Nonnull
     @Override
     public IndexScanType getScanType() {
-        return scanType;
+        return scanParameters.getScanType();
     }
 
     @Override
@@ -170,7 +165,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public int maxCardinality(@Nonnull RecordMetaData metaData) {
         final Index index = metaData.getIndex(indexName);
-        if (index.isUnique() && comparisons.isEquality() && comparisons.size() == index.getColumnSize()) {
+        if (index.isUnique() && scanParameters.isUnique(index)) {
             return 1;
         } else {
             return UNKNOWN_MAX_CARDINALITY;
@@ -190,7 +185,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public RecordQueryIndexPlan strictlySorted() {
-        return new RecordQueryIndexPlan(indexName, scanType, comparisons, reverse, true);
+        return new RecordQueryIndexPlan(indexName, scanParameters, reverse, true);
     }
 
     @Override
@@ -208,8 +203,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     @Override
     public RecordQueryIndexPlan rebase(@Nonnull final AliasMap translationMap) {
         return new RecordQueryIndexPlan(getIndexName(),
-                getScanType(),
-                getComparisons(),
+                getScanParameters(),
                 isReverse(),
                 isStrictlySorted(),
                 matchCandidateOptional);
@@ -240,8 +234,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         return reverse == that.reverse &&
                strictlySorted == that.strictlySorted &&
                Objects.equals(indexName, that.indexName) &&
-               Objects.equals(scanType, that.scanType) &&
-               Objects.equals(comparisons, that.comparisons);
+               Objects.equals(scanParameters, that.scanParameters);
     }
 
     @SuppressWarnings("EqualsWhichDoesntCheckParameterClass")
@@ -257,17 +250,23 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
 
     @Override
     public int hashCodeWithoutChildren() {
-        return Objects.hash(indexName, scanType, comparisons, reverse, strictlySorted);
+        return Objects.hash(indexName, scanParameters, reverse, strictlySorted);
     }
 
     @Override
     public int planHash(@Nonnull final PlanHashKind hashKind) {
         switch (hashKind) {
             case LEGACY:
-                return indexName.hashCode() + scanType.planHash(hashKind) + comparisons.planHash(hashKind) + (reverse ? 1 : 0);
+                return indexName.hashCode() + scanParameters.planHash(hashKind) + (reverse ? 1 : 0);
             case FOR_CONTINUATION:
             case STRUCTURAL_WITHOUT_LITERALS:
-                return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanType, comparisons, reverse, strictlySorted);
+                if (scanParameters instanceof IndexScanComparisons) {
+                    // Keep hash stable for change in representation.
+                    // TODO: If there is another event that changes hashes or they become less critical in tests, this can be removed.
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, getScanType(), getComparisons(), reverse, strictlySorted);
+                } else {
+                    return PlanHashable.objectsPlanHash(hashKind, BASE_HASH, indexName, scanParameters, reverse, strictlySorted);
+                }
             default:
                 throw new UnsupportedOperationException("Hash kind " + hashKind.name() + " is not supported");
         }
@@ -288,17 +287,24 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
     }
 
     protected void appendScanDetails(StringBuilder str) {
-        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
-        final String range = tupleRange == null ? comparisons.toString() : tupleRange.toString();
-        str.append(indexName).append(" ").append(range);
-        if (scanType != IndexScanType.BY_VALUE) {
-            str.append(" ").append(scanType);
+        str.append(indexName).append(" ").append(scanParameters.getScanDetails());
+        if (scanParameters.getScanType() != IndexScanType.BY_VALUE) {
+            str.append(" ").append(scanParameters.getScanType());
         }
         if (reverse) {
             str.append(" REVERSE");
         }
     }
 
+    @Nonnull
+    @Override
+    public ScanComparisons getComparisons() {
+        if (scanParameters instanceof IndexScanComparisons) {
+            return ((IndexScanComparisons)scanParameters).getComparisons();
+        } else {
+            return ScanComparisons.EMPTY;
+        }
+    }
 
     @Override
     public int getComplexity() {
@@ -316,8 +322,6 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
                                                 @Nonnull final NodeInfo nodeInfo,
                                                 @Nonnull final List<String> additionalDetails,
                                                 @Nonnull final Map<String, Attribute> additionalAttributeMap) {
-        @Nullable final TupleRange tupleRange = comparisons.toTupleRangeWithoutContext();
-
         final ImmutableList.Builder<String> detailsBuilder = ImmutableList.builder();
         final ImmutableMap.Builder<String, Attribute> attributeMapBuilder = ImmutableMap.builder();
 
@@ -326,19 +330,7 @@ public class RecordQueryIndexPlan implements RecordQueryPlanWithNoChildren, Reco
         attributeMapBuilder
                 .putAll(additionalAttributeMap);
 
-        if (scanType != IndexScanType.BY_VALUE) {
-            detailsBuilder.add("scan type: {{scanType}}");
-            attributeMapBuilder.put("scanType", Attribute.gml(scanType.toString()));
-        }
-
-        if (tupleRange != null) {
-            detailsBuilder.add("range: " + tupleRange.getLowEndpoint().toString(false) + "{{low}}, {{high}}" + tupleRange.getHighEndpoint().toString(true));
-            attributeMapBuilder.put("low", Attribute.gml(tupleRange.getLow() == null ? "-∞" : tupleRange.getLow().toString()));
-            attributeMapBuilder.put("high", Attribute.gml(tupleRange.getHigh() == null ? "∞" : tupleRange.getHigh().toString()));
-        } else {
-            detailsBuilder.add("comparisons: {{comparisons}}");
-            attributeMapBuilder.put("comparisons", Attribute.gml(comparisons.toString()));
-        }
+        scanParameters.getPlannerGraphDetails(detailsBuilder, attributeMapBuilder);
 
         if (reverse) {
             detailsBuilder.add("direction: {{direction}}");

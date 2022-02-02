@@ -23,7 +23,6 @@ package com.apple.foundationdb.record.provider.foundationdb;
 import com.apple.foundationdb.record.Bindings;
 import com.apple.foundationdb.record.EvaluationContext;
 import com.apple.foundationdb.record.ExecuteProperties;
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorResult;
 import com.apple.foundationdb.record.TestRecords1Proto;
@@ -153,10 +152,9 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
     }
 
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
-        return new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
-                new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
-                        Collections.emptySet()),
-                false);
+        IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
+                        Collections.emptySet()));
+        return new RecordQueryIndexPlan(indexName, scan, false);
     }
 
     private KeyExpression primaryKey() {
@@ -189,30 +187,27 @@ public class QueryPlanCursorTest extends FDBRecordStoreTestBase {
 
     @Test
     public void indexRange() throws Exception {
-        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE,
-                new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
+        final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
                         new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 2),
-                        new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))),
-                false);
+                        new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))));
+        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, false);
         compareSkipsAndCursors(plan);
     }
 
     @Test
     public void reverse() throws Exception {
-        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE,
-                new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
+        final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Collections.emptyList(), ImmutableSet.of(
                         new Comparisons.SimpleComparison(Comparisons.Type.GREATER_THAN, 2),
-                        new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))),
-                true);
+                        new Comparisons.SimpleComparison(Comparisons.Type.LESS_THAN, 4))));
+        final RecordQueryPlan plan = new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, true);
         compareSkipsAndCursors(plan);
     }
 
     @Test
     public void in() throws Exception {
+        final IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "in_num")), Collections.emptySet()));
         final RecordQueryPlan plan = new RecordQueryInValuesJoinPlan(
-                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", IndexScanType.BY_VALUE,
-                        new ScanComparisons(Arrays.asList(new Comparisons.ParameterComparison(Comparisons.Type.EQUALS, "in_num")), Collections.emptySet()),
-                        false),
+                new RecordQueryIndexPlan("MySimpleRecord$num_value_3_indexed", scan, false),
                 "in_num",
                 Bindings.Internal.IN,
                 Arrays.asList(2, 4), false, false);

@@ -20,11 +20,12 @@
 
 package com.apple.foundationdb.record.provider.foundationdb.limits;
 
-import com.apple.foundationdb.record.IndexScanType;
 import com.apple.foundationdb.record.TestRecords1Proto;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanComparisons;
+import com.apple.foundationdb.record.provider.foundationdb.IndexScanParameters;
 import com.apple.foundationdb.record.query.expressions.Comparisons;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -80,10 +81,9 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
     }
 
     private RecordQueryPlan indexPlanEquals(String indexName, Object value) {
-        return new RecordQueryIndexPlan(indexName, IndexScanType.BY_VALUE,
-                new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
-                        Collections.emptySet()),
-                false);
+        IndexScanParameters scan = IndexScanComparisons.byValue(new ScanComparisons(Arrays.asList(new Comparisons.SimpleComparison(Comparisons.Type.EQUALS, value)),
+                        Collections.emptySet()));
+        return new RecordQueryIndexPlan(indexName, scan, false);
     }
 
     private KeyExpression primaryKey() {
@@ -92,8 +92,9 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
 
     public Stream<Arguments> plans(boolean fail) {
         RecordQueryPlan scanPlan = new RecordQueryScanPlan(ScanComparisons.EMPTY, false);
+        IndexScanParameters fullValueScan = IndexScanComparisons.byValue();
         RecordQueryPlan indexPlan = new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                IndexScanType.BY_VALUE, ScanComparisons.EMPTY, false);
+                fullValueScan, false);
         QueryComponent filter = Query.field("str_value_indexed").equalsValue("odd");
         QueryComponent middleFilter = Query.and(
                 Query.field("rec_no").greaterThan(24L),
@@ -103,8 +104,7 @@ public class FDBRecordStoreLimitTestBase extends FDBRecordStoreTestBase {
         return Stream.of(
                 Arguments.of("full record scan", fail, scanPlan),
                 Arguments.of("simple index scan", fail, indexPlan),
-                Arguments.of("reverse index scan", fail, new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed",
-                        IndexScanType.BY_VALUE, ScanComparisons.EMPTY, true)),
+                Arguments.of("reverse index scan", fail, new RecordQueryIndexPlan("MySimpleRecord$str_value_indexed", fullValueScan, true)),
                 Arguments.of("filter on scan plan", fail, new RecordQueryFilterPlan(scanPlan, filter)),
                 Arguments.of("filter on index plan", fail, new RecordQueryFilterPlan(indexPlan, filter)),
                 Arguments.of("type filter on scan plan", fail, new RecordQueryTypeFilterPlan(scanPlan, Collections.singletonList("MySimpleRecord"))),
