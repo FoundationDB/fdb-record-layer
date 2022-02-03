@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.provider.foundationdb.properties;
 import com.apple.foundationdb.annotation.API;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
@@ -39,12 +40,12 @@ import java.util.function.Supplier;
 public final class RecordLayerPropertyKey<T> {
     @Nonnull
     private final String name;
-    @Nonnull
+    @Nullable
     private final T defaultValue;
     @Nonnull
     private final Class<T> type;
 
-    private RecordLayerPropertyKey(@Nonnull final String name, @Nonnull T defaultValue, @Nonnull Class<T> type) {
+    public RecordLayerPropertyKey(@Nonnull final String name, @Nullable T defaultValue, @Nonnull Class<T> type) {
         this.name = name;
         this.defaultValue = defaultValue;
         this.type = type;
@@ -65,7 +66,7 @@ public final class RecordLayerPropertyKey<T> {
         return type;
     }
 
-    @Nonnull
+    @Nullable
     public T getDefaultValue() {
         return defaultValue;
     }
@@ -92,7 +93,7 @@ public final class RecordLayerPropertyKey<T> {
         return Objects.hashCode(name);
     }
 
-    public static RecordLayerPropertyKey<Boolean> booleanPropertyKey(@Nonnull final String name, @Nonnull final boolean defaultValue) {
+    public static RecordLayerPropertyKey<Boolean> booleanPropertyKey(@Nonnull final String name, final boolean defaultValue) {
         return new RecordLayerPropertyKey<>(name, defaultValue, Boolean.class);
     }
 
@@ -100,15 +101,15 @@ public final class RecordLayerPropertyKey<T> {
         return new RecordLayerPropertyKey<>(name, defaultValue, String.class);
     }
 
-    public static RecordLayerPropertyKey<Integer> integerPropertyKey(@Nonnull final String name, @Nonnull final int defaultValue) {
+    public static RecordLayerPropertyKey<Integer> integerPropertyKey(@Nonnull final String name, final int defaultValue) {
         return new RecordLayerPropertyKey<>(name, defaultValue, Integer.class);
     }
 
-    public static RecordLayerPropertyKey<Long> longPropertyKey(@Nonnull final String name, @Nonnull final long defaultValue) {
+    public static RecordLayerPropertyKey<Long> longPropertyKey(@Nonnull final String name, final long defaultValue) {
         return new RecordLayerPropertyKey<>(name, defaultValue, Long.class);
     }
 
-    public static RecordLayerPropertyKey<Double> doublePropertyKey(@Nonnull final String name, @Nonnull final double defaultValue) {
+    public static RecordLayerPropertyKey<Double> doublePropertyKey(@Nonnull final String name, final double defaultValue) {
         return new RecordLayerPropertyKey<>(name, defaultValue, Double.class);
     }
 }

@@ -26,27 +26,17 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.concurrent.ExecutorService;
 
 /**
- * A light wrapper class that supports passing through a designated executor service and sort expression
- * to the LuceneRecordCursor. Due to the recordCursor being wrapped by the store timer
- * instrumentation method the two need to be passed through.
+ * A light wrapper class that supports passing through a sort expression to the LuceneRecordCursor.
  */
 public class LuceneScanProperties extends ScanProperties {
 
     private final KeyExpression sort;
-    private final ExecutorService service;
 
-    public LuceneScanProperties(@Nonnull final ExecuteProperties executeProperties, @Nullable KeyExpression sort,
-                                @Nullable ExecutorService service, boolean reverse) {
+    public LuceneScanProperties(@Nonnull final ExecuteProperties executeProperties, @Nullable KeyExpression sort, boolean reverse) {
         super(executeProperties, reverse);
         this.sort = sort;
-        this.service = service;
-    }
-
-    public ExecutorService getService() {
-        return service;
     }
 
     public KeyExpression getSort() {

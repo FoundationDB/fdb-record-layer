@@ -73,7 +73,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -243,14 +242,9 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Override
-    public FDBRecordContext openContext() {
-        final FDBRecordContextConfig config = FDBRecordContextConfig.newBuilder()
-                .setTimer(timer)
-                .setMdcContext(ImmutableMap.of("uuid", UUID.randomUUID().toString()))
-                .setSaveOpenStackTrace(true)
-                .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true).build())
-                .build();
-        return fdb.openContext(config);
+    protected FDBRecordContextConfig.Builder contextConfig() {
+        return super.contextConfig()
+                .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_INDEX_COMPRESSION_ENABLED, true).build());
     }
 
     @Test

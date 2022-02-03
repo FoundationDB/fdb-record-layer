@@ -36,7 +36,9 @@ import com.apple.foundationdb.record.provider.common.text.AllSuffixesTextTokeniz
 import com.apple.foundationdb.record.provider.common.text.TextSamples;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
+import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfig;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
+import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 import com.apple.foundationdb.record.provider.foundationdb.query.FDBRecordStoreQueryTestBase;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.LuceneQueryComponent;
@@ -62,8 +64,12 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -86,8 +92,10 @@ import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.typeFi
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.union;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.unorderedUnion;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -144,6 +152,8 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     private static final Index MAP_AND_FIELD_ON_LUCENE_INDEX = new Index("MapField$values", concat(mainExpression, field("doc_id")), IndexTypes.LUCENE);
     private static final Index MAP_ON_LUCENE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(mainExpression, 1), IndexTypes.LUCENE);
 
+    private ExecutorService executorService = null;
+
     @Override
     public void setupPlanner(@Nullable PlannableIndexTypes indexTypes) {
         if (useRewritePlanner) {
@@ -157,20 +167,14 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
                         Sets.newHashSet(IndexTypes.LUCENE)
                 );
             }
-            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer(), null);
+            planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer());
         }
     }
 
-    public void plannerWithThreading(@Nullable PlannableIndexTypes indexTypes, @Nullable ExecutorService service) {
-        if (indexTypes == null) {
-            indexTypes = new PlannableIndexTypes(
-                    Sets.newHashSet(IndexTypes.VALUE, IndexTypes.VERSION),
-                    Sets.newHashSet(IndexTypes.RANK, IndexTypes.TIME_WINDOW_LEADERBOARD),
-                    Sets.newHashSet(IndexTypes.TEXT),
-                    Sets.newHashSet(IndexTypes.LUCENE)
-            );
-        }
-        planner = new LucenePlanner(recordStore.getRecordMetaData(), recordStore.getRecordStoreState(), indexTypes, recordStore.getTimer(), service);
+    @Override
+    protected FDBRecordContextConfig.Builder contextConfig() {
+        return super.contextConfig()
+                .setRecordContextProperties(RecordLayerPropertyStorage.newBuilder().addProp(LuceneRecordContextProperties.LUCENE_EXECUTOR_SERVICE, (Supplier<ExecutorService>)() -> executorService).build());
     }
 
     protected void openRecordStoreWithNgramIndex(FDBRecordContext context, boolean edgesOnly, int minSize, int maxSize) {
@@ -647,10 +651,10 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
     @Test
     public void threadedLuceneScanDoesntBreakPlannerAndSearch() throws Exception {
         initializeFlat();
-        ForkJoinPool service = new ForkJoinPool(10);
+        CountingThreadFactory threadFactory = new CountingThreadFactory();
+        executorService = Executors.newFixedThreadPool(10, threadFactory);
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context);
-            plannerWithThreading(null, service);
             final QueryComponent filter1 = new LuceneQueryComponent("*:*", Lists.newArrayList("text"), false);
             RecordQuery query = RecordQuery.newBuilder()
                     .setRecordType(TextIndexTestUtils.SIMPLE_DOC)
@@ -659,6 +663,20 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
             setDeferFetchAfterUnionAndIntersection(false);
             RecordQueryPlan plan = planner.plan(query);
             List<Long> primaryKeys = recordStore.executeQuery(plan).map(FDBQueriedRecord::getPrimaryKey).map(t -> t.getLong(0)).asList().get();
+            assertThat(threadFactory.threadCounts, aMapWithSize(greaterThan(0)));
+        }
+    }
+
+    static class CountingThreadFactory implements ThreadFactory {
+        final Map<String, Integer> threadCounts = new ConcurrentHashMap<>();
+        final ThreadFactory delegate = Executors.defaultThreadFactory();
+
+        @Override
+        public Thread newThread(Runnable r) {
+            return delegate.newThread(() -> {
+                threadCounts.merge(Thread.currentThread().getName(), 1, Integer::sum);
+                r.run();
+            });
         }
     }
 

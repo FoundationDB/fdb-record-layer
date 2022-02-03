@@ -44,7 +44,6 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
-import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.IOUtils;
@@ -75,7 +74,7 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     @Nonnull
     private final Executor executor;
     @Nullable
-    private ExecutorService executorService = null;
+    private final ExecutorService executorService;
     @Nonnull
     private final CursorLimitManager limitManager;
     @Nullable
@@ -99,12 +98,14 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
     //TODO: once we fix the available fields logic for lucene to take into account which fields are
     // stored there should be no need to pass in a list of fields, or we could only pass in the store field values.
     LuceneRecordCursor(@Nonnull Executor executor,
+                       @Nullable ExecutorService executorService,
                        @Nonnull ScanProperties scanProperties,
                        @Nonnull final IndexMaintainerState state, Query query,
                        byte[] continuation, List<KeyExpression> fields,
                        @Nullable Tuple groupingKey) {
         this.state = state;
         this.executor = executor;
+        this.executorService = executorService;
         this.limitManager = new CursorLimitManager(state.context, scanProperties);
         this.limitRemaining = scanProperties.getExecuteProperties().getReturnedRowLimitOrMax();
         this.timer = state.context.getTimer();
@@ -123,13 +124,6 @@ class LuceneRecordCursor implements BaseCursor<IndexEntry> {
         }
         this.fields = fields;
         this.groupingKey = groupingKey;
-        if (scanProperties instanceof LuceneScanProperties) {
-            KeyExpression keyExpression = ((LuceneScanProperties)scanProperties).getSort();
-            if (keyExpression != null) {
-                this.sort = new Sort(new SortField(keyExpression.toKeyExpression().getField().getFieldName(), SortField.Type.STRING));
-            }
-            this.executorService = ((LuceneScanProperties)scanProperties).getService();
-        }
     }
 
     @Nonnull

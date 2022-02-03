@@ -24,6 +24,7 @@ import com.apple.foundationdb.record.ScanProperties;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyKey;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
 
+import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
 
 /**
@@ -58,4 +59,9 @@ public final class LuceneRecordContextProperties {
      * Call {@link RecordLayerPropertyKey#buildValue(Supplier)} with a supplier if you want to override this property with a value other than default.
      */
     public static final RecordLayerPropertyKey<Long> LUCENE_AUTO_COMPLETE_DEFAULT_WEIGHT = RecordLayerPropertyKey.longPropertyKey("com.apple.foundationdb.record.lucene.autoCompleteDefaultWeight", 100L);
+
+    /**
+     * An {@link ExecutorService} to use for parallel execution in {@link LuceneRecordCursor}.
+     */
+    public static final RecordLayerPropertyKey<ExecutorService> LUCENE_EXECUTOR_SERVICE = new RecordLayerPropertyKey<>("com.apple.foundationdb.record.lucene.executorService", null, ExecutorService.class);
 }
