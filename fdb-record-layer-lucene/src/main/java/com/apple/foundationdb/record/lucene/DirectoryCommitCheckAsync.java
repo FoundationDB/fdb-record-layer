@@ -27,13 +27,13 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.IndexMaintainerState;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
@@ -101,11 +101,30 @@ public class DirectoryCommitCheckAsync implements FDBRecordContext.CommitCheckAs
         }
     }
 
+    /**
+     * Get a new instance for {@link DirectoryCommitCheckAsync} and its underlying {@link Directory} for auto-complete suggestions index.
+     * This is needed because {@link org.apache.lucene.search.suggest.analyzing.AnalyzingInfixSuggester}
+     * needs its directory to be private to it, and have same lifecycle with it.
+     */
     @Nonnull
-    private static Subspace getReaderSubspace(@Nonnull final IndexMaintainerState state, @Nullable final Tuple groupingKey) {
+    public static DirectoryCommitCheckAsync getNewDirectoryCommitCheckAsyncForSuggestions(@Nonnull final IndexMaintainerState state, @Nonnull Tuple groupingKey) {
+        return new DirectoryCommitCheckAsync(getSuggestionIndexSubspace(state, groupingKey), state.context);
+    }
+
+    @Nonnull
+    private static Subspace getReaderSubspace(@Nonnull final IndexMaintainerState state, @Nonnull final Tuple groupingKey) {
         return state.indexSubspace.subspace(groupingKey).subspace(Tuple.from("r"));
     }
 
+    @Nonnull
+    private static Subspace getSuggestionIndexSubspace(@Nonnull final IndexMaintainerState state, @Nonnull final Tuple groupingKey) {
+        return getSuggestionIndexSubspace(state.indexSubspace, groupingKey);
+    }
 
+    @VisibleForTesting
+    @Nonnull
+    public static Subspace getSuggestionIndexSubspace(@Nonnull final Subspace indexSubspace, @Nonnull final Tuple groupingKey) {
+        return indexSubspace.subspace(groupingKey).subspace(Tuple.from("s"));
+    }
 }
 

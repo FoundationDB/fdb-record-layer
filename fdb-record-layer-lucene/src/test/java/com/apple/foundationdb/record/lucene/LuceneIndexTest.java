@@ -23,6 +23,7 @@ package com.apple.foundationdb.record.lucene;
 import com.apple.foundationdb.record.ExecuteProperties;
 import com.apple.foundationdb.record.IndexEntry;
 import com.apple.foundationdb.record.IndexScanType;
+import com.apple.foundationdb.record.RecordCoreArgumentException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordCursorProto;
 import com.apple.foundationdb.record.RecordMetaData;
@@ -37,6 +38,7 @@ import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.RecordType;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
@@ -46,12 +48,18 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContextConfi
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
 import com.apple.foundationdb.record.provider.foundationdb.FDBStoreTimer;
+import com.apple.foundationdb.record.provider.foundationdb.FDBStoredRecord;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils;
 import com.apple.foundationdb.record.provider.foundationdb.properties.RecordLayerPropertyStorage;
+import com.apple.foundationdb.record.query.plan.IndexKeyValueToPartialRecord;
 import com.apple.foundationdb.subspace.Subspace;
 import com.apple.foundationdb.tuple.Tuple;
+import com.apple.foundationdb.tuple.TupleHelpers;
 import com.apple.test.Tags;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
+import com.google.protobuf.Message;
 import org.apache.lucene.index.IndexFileNames;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Tag;
@@ -60,11 +68,14 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -73,6 +84,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.COMPLEX_DOC;
 import static com.apple.foundationdb.record.provider.foundationdb.indexes.TextIndexTestUtils.SIMPLE_DOC;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -88,10 +100,29 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
 
+    private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE = new Index("Simple_with_auto_complete",
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.AUTO_COMPLETE_ENABLED, "true",
+                    IndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
+
+    private static final Index SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT = new Index("Simple_with_auto_complete",
+            function(LuceneFunctionNames.LUCENE_TEXT, field("text")),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.AUTO_COMPLETE_ENABLED, "true",
+                    IndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3",
+                    IndexOptions.AUTO_COMPLETE_HIGHLIGHT, "true"));
+
     private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES = new Index("Complex$text_multipleIndexes",
             concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
             LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_TOKENIZER_NAME_OPTION, AllSuffixesTextTokenizer.NAME));
+
+    private static final Index COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE = new Index("Complex$text_multipleIndexes",
+            concat(function(LuceneFunctionNames.LUCENE_TEXT, field("text")), function(LuceneFunctionNames.LUCENE_TEXT, field("text2"))),
+            LuceneIndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.AUTO_COMPLETE_ENABLED, "true",
+                    IndexOptions.AUTO_COMPLETE_MIN_PREFIX_SIZE, "3"));
 
     private static final Index NGRAM_LUCENE_INDEX = new Index("ngram_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(IndexOptions.TEXT_ANALYZER_NAME_OPTION, NgramAnalyzer.NgramAnalyzerFactory.ANALYZER_NAME,
@@ -108,6 +139,11 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             function(LuceneFunctionNames.LUCENE_TEXT, field("third_value")));
 
     private static final Index MAP_ON_VALUE_INDEX = new Index("Map$entry-value", new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3), IndexTypes.LUCENE);
+
+    private static final Index MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE = new Index("Map_with_auto_complete$entry-value",
+            new GroupingKeyExpression(field("entry", KeyExpression.FanType.FanOut).nest(concat(keys)), 3),
+            IndexTypes.LUCENE,
+            ImmutableMap.of(IndexOptions.AUTO_COMPLETE_ENABLED, "true"));
 
     private static final String ENGINEER_JOKE = "A software engineer, a hardware engineer, and a departmental manager were driving down a steep mountain road when suddenly the brakes on their car failed. The car careened out of control down the road, bouncing off the crash barriers, ground to a halt scraping along the mountainside. The occupants were stuck halfway down a mountain in a car with no brakes. What were they to do?" +
                                                 "'I know,' said the departmental manager. 'Let's have a meeting, propose a Vision, formulate a Mission Statement, define some Goals, and by a process of Continuous Improvement find a solution to the Critical Problems, and we can be on our way.'" +
@@ -668,6 +704,144 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
         }
     }
 
+    @Test
+    void searchForAutoComplete() throws Exception {
+        searchForAutoCompleteAndAssert("good", true, false);
+    }
+
+    @Test
+    void searchForAutoCompleteWithoutFieldWithoutTerm() throws Exception {
+        assertThrows(RecordCoreArgumentException.class,
+                () -> searchForAutoCompleteAndAssert("", true, false),
+                "Invalid query for auto-complete search");
+    }
+
+    @Test
+    void searchForAutoCompleteWithPrefix() throws Exception {
+        searchForAutoCompleteAndAssert("goo", true, false);
+    }
+
+    @Test
+    void searchForAutoCompleteWithHighlight() throws Exception {
+        searchForAutoCompleteAndAssert("good", true, true);
+    }
+
+    @Test
+    void searchForAutoCompleteCrossingMultipleFields() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(COMPLEX_DOC, COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE);
+            });
+
+            // Write 8 texts and 6 of them contain the key "good"
+            recordStore.saveRecord(createComplexDocument(1623L, "Good morning", "", 1));
+            recordStore.saveRecord(createComplexDocument(1624L, "Good afternoon", "", 1));
+            recordStore.saveRecord(createComplexDocument(1625L, "good evening", "", 1));
+            recordStore.saveRecord(createComplexDocument(1626L, "Good night", "", 1));
+            recordStore.saveRecord(createComplexDocument(1627L, "", "That's really good!", 1));
+            recordStore.saveRecord(createComplexDocument(1628L, "", "I'm good", 1));
+            recordStore.saveRecord(createComplexDocument(1629L, "", "Hello Record Layer", 1));
+            RecordType recordType = recordStore.saveRecord(createComplexDocument(1630L, "", "Hello FoundationDB!", 1)).getRecordType();
+
+            List<IndexEntry> results = recordStore.scanIndex(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE,
+                    IndexScanType.BY_LUCENE_AUTO_COMPLETE,
+                    TupleRange.allOf(Tuple.from("good")),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            results.stream().forEach(i -> assertDocumentPartialRecordFromIndexEntry(recordType, i,
+                    (String) i.getKey().get(i.getKeySize() - 1),
+                    (String) i.getKey().get(i.getKeySize() - 2)));
+
+            assertEquals(6, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEntriesAndSegmentInfoStoredInCompoundFile(DirectoryCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(COMPLEX_MULTIPLE_TEXT_INDEXES_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
+                    context, "_0.cfs", true);
+
+            // Assert the count of suggestions
+            assertEquals(6, results.size());
+
+            // Assert the suggestions' keys
+            List<String> suggestions = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 1)).collect(Collectors.toList());
+            assertEquals(ImmutableList.of("good evening", "Good night", "Good morning", "Good afternoon", "I'm good", "That's really good!"), suggestions);
+
+            // Assert the corresponding field for the suggestions
+            List<String> fields = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 2)).collect(Collectors.toList());
+            assertEquals(ImmutableList.of("text", "text", "text", "text", "text2", "text2"), fields);
+
+            // Assert the suggestions are sorted according to their values, which are determined by the position of the term into the indexed text
+            List<Long> values = results.stream().map(i -> (Long) i.getValue().get(0)).collect(Collectors.toList());
+            List<Long> valuesSorted = new ArrayList<>(values);
+            Collections.sort(valuesSorted, Collections.reverseOrder());
+            assertEquals(valuesSorted, values);
+            assertEquals(values.get(0), values.get(1));
+            assertEquals(values.get(1), values.get(2));
+            assertEquals(values.get(2), values.get(3));
+            assertTrue(values.get(3) > values.get(4));
+            assertTrue(values.get(4) > values.get(5));
+        }
+    }
+
+    @Test
+    void searchForAutoCompleteWithContinueTyping() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            addIndexAndSaveRecordForAutoComplete(context, false);
+            List<IndexEntry> results = recordStore.scanIndex(SIMPLE_TEXT_WITH_AUTO_COMPLETE,
+                    IndexScanType.BY_LUCENE_AUTO_COMPLETE,
+                    TupleRange.allOf(Tuple.from("good mor")),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            // Assert only 1 suggestion returned
+            assertEquals(1, results.size());
+
+            // Assert the suggestion's key and field
+            IndexEntry result = results.get(0);
+            assertEquals("Good morning", result.getKey().get(result.getKeySize() - 1));
+            assertEquals("text", result.getKey().get(result.getKeySize() - 2));
+
+            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEntriesAndSegmentInfoStoredInCompoundFile(DirectoryCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
+                    context, "_0.cfs", true);
+        }
+    }
+
+    @Test
+    void searchForAutoCompleteForGroupedRecord() throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            openRecordStore(context, metaDataBuilder -> {
+                metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+                metaDataBuilder.addIndex(MAP_DOC, MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE);
+            });
+            FDBStoredRecord<Message> fdbRecord = recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
+            List<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE,
+                    IndexScanType.BY_LUCENE_AUTO_COMPLETE,
+                    TupleRange.allOf(Tuple.from("Vision", "sampleTextPhrase")),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            assertEquals(1, indexEntries.size());
+            IndexEntry indexEntry = indexEntries.get(0);
+
+            Descriptors.Descriptor recordDescriptor = TestRecordsTextProto.MapDocument.getDescriptor();
+            IndexKeyValueToPartialRecord toPartialRecord = LuceneIndexQueryPlan.getToPartialRecord(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE, fdbRecord.getRecordType());
+            Message message = toPartialRecord.toRecord(recordDescriptor, indexEntry);
+
+            Descriptors.FieldDescriptor entryDescriptor = recordDescriptor.findFieldByName("entry");
+            Message entry = (Message) message.getRepeatedField(entryDescriptor, 0);
+
+            Descriptors.FieldDescriptor keyDescriptor = entryDescriptor.getMessageType().findFieldByName("key");
+            Descriptors.FieldDescriptor valueDescriptor = entryDescriptor.getMessageType().findFieldByName("value");
+
+            assertEquals("sampleTextPhrase", entry.getField(keyDescriptor));
+            assertEquals(ENGINEER_JOKE, entry.getField(valueDescriptor));
+
+            assertEquals(1, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEntriesAndSegmentInfoStoredInCompoundFile(DirectoryCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(MAP_ON_VALUE_INDEX_WITH_AUTO_COMPLETE), Tuple.from("sampleTextPhrase")),
+                    context, "_0.cfs", true);
+        }
+    }
+
     private static String[] generateRandomWords(int numberOfWords) {
         assert numberOfWords > 0 : "Number of words have to be greater than 0";
         StringBuilder builder = new StringBuilder();
@@ -711,5 +885,84 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
                 }
             }
         }
+    }
+
+    private void searchForAutoCompleteAndAssert(String query, boolean matches, boolean highlight) throws Exception {
+        try (FDBRecordContext context = openContext()) {
+            final RecordType recordType = addIndexAndSaveRecordForAutoComplete(context, highlight);
+            List<IndexEntry> results = recordStore.scanIndex(highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE,
+                    IndexScanType.BY_LUCENE_AUTO_COMPLETE,
+                    TupleRange.allOf(Tuple.from(query)),
+                    null,
+                    ScanProperties.FORWARD_SCAN).asList().get();
+
+            if (!matches) {
+                // Assert no suggestions
+                assertTrue(results.isEmpty());
+                return;
+            }
+
+            // Assert the count of suggestions
+            assertEquals(6, results.size());
+
+            // Assert the suggestions' keys
+            List<String> suggestions = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 1)).collect(Collectors.toList());
+            if (highlight) {
+                assertEquals(ImmutableList.of("<b>good</b> evening", "<b>Good</b> night", "<b>Good</b> morning", "<b>Good</b> afternoon", "I'm <b>good</b>", "That's really <b>good</b>!"), suggestions);
+            } else {
+                assertEquals(ImmutableList.of("good evening", "Good night", "Good morning", "Good afternoon", "I'm good", "That's really good!"), suggestions);
+            }
+
+            // Assert the corresponding field for the suggestions
+            List<String> fields = results.stream().map(i -> (String) i.getKey().get(i.getKeySize() - 2)).collect(Collectors.toList());
+            assertEquals(ImmutableList.of("text", "text", "text", "text", "text", "text"), fields);
+
+            // Assert the suggestions are sorted according to their values, which are determined by the position of the term into the indexed text
+            List<Long> values = results.stream().map(i -> (Long) i.getValue().get(0)).collect(Collectors.toList());
+            List<Long> valuesSorted = new ArrayList<>(values);
+            Collections.sort(valuesSorted, Collections.reverseOrder());
+            assertEquals(valuesSorted, values);
+            assertEquals(values.get(0), values.get(1));
+            assertEquals(values.get(1), values.get(2));
+            assertEquals(values.get(2), values.get(3));
+            assertTrue(values.get(3) > values.get(4));
+            assertTrue(values.get(4) > values.get(5));
+
+            results.stream().forEach(i -> assertDocumentPartialRecordFromIndexEntry(recordType, i,
+                    (String) i.getKey().get(i.getKeySize() - 1),
+                    (String) i.getKey().get(i.getKeySize() - 2)));
+
+            assertEquals(6, context.getTimer().getCounter(FDBStoreTimer.Counts.LUCENE_SCAN_MATCHED_AUTO_COMPLETE_SUGGESTIONS).getCount());
+            assertEntriesAndSegmentInfoStoredInCompoundFile(DirectoryCommitCheckAsync.getSuggestionIndexSubspace(recordStore.indexSubspace(SIMPLE_TEXT_WITH_AUTO_COMPLETE), TupleHelpers.EMPTY),
+                    context, "_0.cfs", true);
+        }
+    }
+
+    private RecordType addIndexAndSaveRecordForAutoComplete(@Nonnull FDBRecordContext context, boolean highlight) {
+        openRecordStore(context, metaDataBuilder -> {
+            metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
+            metaDataBuilder.addIndex(SIMPLE_DOC, highlight ? SIMPLE_TEXT_WITH_AUTO_COMPLETE_WITH_HIGHLIGHT : SIMPLE_TEXT_WITH_AUTO_COMPLETE);
+        });
+        
+        // Write 8 texts and 6 of them contain the key "good"
+        recordStore.saveRecord(createSimpleDocument(1623L, "Good morning", 1));
+        recordStore.saveRecord(createSimpleDocument(1624L, "Good afternoon", 1));
+        recordStore.saveRecord(createSimpleDocument(1625L, "good evening", 1));
+        recordStore.saveRecord(createSimpleDocument(1626L, "Good night", 1));
+        recordStore.saveRecord(createSimpleDocument(1627L, "That's really good!", 1));
+        recordStore.saveRecord(createSimpleDocument(1628L, "I'm good", 1));
+        recordStore.saveRecord(createSimpleDocument(1629L, "Hello Record Layer", 1));
+        return recordStore.saveRecord(createSimpleDocument(1630L, "Hello FoundationDB!", 1)).getRecordType();
+    }
+
+    private void assertDocumentPartialRecordFromIndexEntry(@Nonnull RecordType recordType, @Nonnull IndexEntry indexEntry,
+                                                           @Nonnull String expectedSuggestion, @Nonnull String fieldName) {
+        Descriptors.Descriptor recordDescriptor = recordType.getDescriptor();
+
+        Message message = LuceneIndexQueryPlan.getToPartialRecord(indexEntry.getIndex(), recordType)
+                .toRecord(recordDescriptor, indexEntry);
+        Descriptors.FieldDescriptor textDescriptor = recordDescriptor.findFieldByName(fieldName);
+
+        assertEquals(expectedSuggestion, message.getField(textDescriptor));
     }
 }

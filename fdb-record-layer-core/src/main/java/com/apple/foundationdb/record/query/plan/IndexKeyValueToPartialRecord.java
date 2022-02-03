@@ -88,7 +88,7 @@ public class IndexKeyValueToPartialRecord {
         KEY, VALUE
     }
 
-    interface Copier {
+    public interface Copier {
         void copy(@Nonnull Descriptors.Descriptor recordDescriptor, @Nonnull Message.Builder recordBuilder,
                   @Nonnull IndexEntry kv);
     }
@@ -219,6 +219,10 @@ public class IndexKeyValueToPartialRecord {
         return new Builder(recordType);
     }
 
+    public static Builder newBuilder(@Nonnull Descriptors.Descriptor recordDescriptor) {
+        return new Builder(recordDescriptor);
+    }
+
     /**
      * A builder for {@link IndexKeyValueToPartialRecord}.
      */
@@ -229,6 +233,7 @@ public class IndexKeyValueToPartialRecord {
         private final Map<String, FieldCopier> fields;
         @Nonnull
         private final Map<String, Builder> nestedBuilders;
+        private List<Copier> regularCopiers = new ArrayList<>();
 
         private Builder(@Nonnull RecordType recordType) {
             this(recordType.getDescriptor());
@@ -311,12 +316,17 @@ public class IndexKeyValueToPartialRecord {
             }
             return true;
         }
+
+        public void addRegularCopier(@Nonnull Copier copier) {
+            this.regularCopiers.add(copier);
+        }
         
         public IndexKeyValueToPartialRecord build() {
             List<Copier> copiers = new ArrayList<>(fields.values());
             for (Map.Entry<String, Builder> entry : nestedBuilders.entrySet()) {
                 copiers.add(new MessageCopier(entry.getKey(), entry.getValue().build()));
             }
+            copiers.addAll(regularCopiers);
             return new IndexKeyValueToPartialRecord(copiers);
         }
     }

@@ -28,6 +28,7 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecord;
 import com.apple.foundationdb.tuple.Tuple;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +39,7 @@ import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.function;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.value;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Unit tests of conversion of records to grouped documents.
@@ -54,6 +56,15 @@ class LuceneDocumentFromRecordTest {
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text"));
         assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(textField("text", "some text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion");
+        TestRecordsTextProto.SimpleDocument partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        assertEquals("suggestion", partialMsg.getText());
     }
 
     @Test
@@ -67,6 +78,17 @@ class LuceneDocumentFromRecordTest {
         KeyExpression index = function(LuceneFunctionNames.LUCENE_TEXT, field("text")).groupBy(field("group"));
         assertEquals(ImmutableMap.of(Tuple.from(2), ImmutableList.of(textField("text", "more text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.SimpleDocument.Builder builder = TestRecordsTextProto.SimpleDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(2));
+        TestRecordsTextProto.SimpleDocument partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        assertEquals("suggestion", partialMsg.getText());
+        // The group field is supposed to be populated because it is part of grouping key
+        assertEquals(2L, partialMsg.getGroup());
     }
 
     @Test
@@ -82,6 +104,16 @@ class LuceneDocumentFromRecordTest {
                         textField("text", "some text"),
                         textField("text", "other text"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.MultiDocument.Builder builder = TestRecordsTextProto.MultiDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(2));
+        TestRecordsTextProto.MultiDocument partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        assertEquals(1, partialMsg.getTextCount());
+        assertEquals("suggestion", partialMsg.getText(0));
     }
 
     @Test
@@ -105,6 +137,20 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(10, "tag1"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100)),
                         Tuple.from(10, "tag2"), ImmutableList.of(textField("text", "first text"), textField("text2", "second text"), intField("score", 100))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.ComplexDocument.Builder builder = TestRecordsTextProto.ComplexDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "text", "suggestion", Tuple.from(10, "tag1"));
+        TestRecordsTextProto.ComplexDocument partialMsg = builder.build();
+
+        // The suggestion is supposed to show up in text field
+        assertEquals("suggestion", partialMsg.getText());
+        // The group field is supposed to be populated because it is part of grouping key
+        assertEquals(10L, partialMsg.getGroup());
+        // The tag field is supposed to be populated because it is part of grouping key
+        assertEquals(1, partialMsg.getTagCount());
+        assertEquals("tag1", partialMsg.getTag(0));
     }
 
     @Test
@@ -122,6 +168,17 @@ class LuceneDocumentFromRecordTest {
                         stringField("entry_key", "k2"),
                         textField("entry_value", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_value", "suggestion");
+        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+
+        assertEquals(1, partialMsg.getEntryCount());
+        TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
+        assertEquals("suggestion", entry.getValue());
     }
 
     @Test
@@ -139,6 +196,19 @@ class LuceneDocumentFromRecordTest {
                         textField("k1", "v1"),
                         textField("k2", "v2"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "k1", "suggestion");
+        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+
+        assertEquals(1, partialMsg.getEntryCount());
+        TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
+        // The k1 is supposed to show up in the key field within repeated entry sub-message
+        assertEquals("k1", entry.getKey());
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
+        assertEquals("suggestion", entry.getValue());
     }
 
     @Test
@@ -158,6 +228,23 @@ class LuceneDocumentFromRecordTest {
                         textField("k1", "v10"),
                         textField("k2", "v20"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "k1", "suggestion", Tuple.from(20));
+        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+
+        assertEquals(1, partialMsg.getEntryCount());
+        TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
+
+        // The k1 is supposed to show up in the key field within repeated entry sub-message
+        assertEquals("k1", entry.getKey());
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
+        assertEquals("suggestion", entry.getValue());
+
+        // The group field is supposed to be populated because it is part of grouping key
+        assertEquals(20L, partialMsg.getGroup());
     }
 
     @Test
@@ -179,6 +266,25 @@ class LuceneDocumentFromRecordTest {
                 Tuple.from(30, "r1"), ImmutableList.of(textField("entry_value", "val"), textField("entry_second_value", "2val"), textField("entry_third_value", "3val")),
                 Tuple.from(30, "r2"), ImmutableList.of(textField("entry_value", "nval"), textField("entry_second_value", "2nval"), textField("entry_third_value", "3nval"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_value", "suggestion", Tuple.from(30, "r1"));
+        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+
+        assertEquals(1, partialMsg.getEntryCount());
+        TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
+
+        // The suggestion is supposed to show up in value field within repeated entry sub-message
+        assertEquals("suggestion", entry.getValue());
+        // The second_value field is not supposed to be populated
+        assertFalse(entry.hasSecondValue());
+        // The key field within repeated entry sub-message is supposed to be populated because it is part of grouping key
+        assertEquals("r1", entry.getKey());
+
+        // The group field is supposed to be populated because it is part of grouping key
+        assertEquals(30L, partialMsg.getGroup());
     }
 
     @Test
@@ -199,6 +305,100 @@ class LuceneDocumentFromRecordTest {
                         Tuple.from(40, "en"), ImmutableList.of(textField("entry_value", "first"), textField("entry_second_value", "second"), textField("text2", "extra")),
                         Tuple.from(40, "de"), ImmutableList.of(textField("entry_value", "erste"), textField("entry_second_value", "zweite"), textField("text2", "extra"))),
                 LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.MapDocument.Builder builder = TestRecordsTextProto.MapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_second_value", "suggestion", Tuple.from(40, "en"));
+        TestRecordsTextProto.MapDocument partialMsg = builder.build();
+
+        assertEquals(1, partialMsg.getEntryCount());
+        TestRecordsTextProto.MapDocument.Entry entry = partialMsg.getEntry(0);
+
+        // The suggestion is supposed to show up in second_value field within repeated entry sub-message
+        assertEquals("suggestion", entry.getSecondValue());
+        // The value field is not supposed to be populated
+        assertFalse(entry.hasValue());
+        // The key field within repeated entry sub-message is supposed to be populated because it is part of grouping key
+        assertEquals("en", entry.getKey());
+
+        // The group field is supposed to be populated because it is part of grouping key
+        assertEquals(40L, partialMsg.getGroup());
+    }
+
+    @Test
+    void mapWithSubMessage() {
+        TestRecordsTextProto.NestedMapDocument message = TestRecordsTextProto.NestedMapDocument.newBuilder()
+                .setDocId(5)
+                .addEntry(TestRecordsTextProto.NestedMapDocument.Entry.newBuilder().setKey("k1").setSubEntry(TestRecordsTextProto.NestedMapDocument.SubEntry.newBuilder().setValue("testValue").build()).build())
+                .build();
+        KeyExpression index = field("entry", KeyExpression.FanType.FanOut)
+                .nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                        concat(field("sub_entry").nest(concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")))),
+                                field("key"))));
+        FDBRecord<Message> record = unstoredRecord(message);
+
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
+                        textField("entry_k1_value", "testValue"))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.NestedMapDocument.Builder builder = TestRecordsTextProto.NestedMapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_k1_value", "suggestion");
+        TestRecordsTextProto.NestedMapDocument partialMsg = builder.build();
+
+        assertEquals(1, partialMsg.getEntryCount());
+        TestRecordsTextProto.NestedMapDocument.Entry entry = partialMsg.getEntry(0);
+
+        // The k1 is supposed to be populated for the key field within entry
+        assertEquals("k1", entry.getKey());
+
+        // The suggestion is supposed to show up in value field within sub-entry, and the second_value is not populated
+        TestRecordsTextProto.NestedMapDocument.SubEntry subEntry = entry.getSubEntry();
+        assertEquals("suggestion", subEntry.getValue());
+        assertFalse(subEntry.hasSecondValue());
+    }
+
+    /**
+     * When a schema leads an ambiguity of the parsed path given a concatenated Lucene field, the first path that satisfies the given field will be selected and the correct one could be ignored.
+     * In this test, because both the path {entry -> sub_entry -> value} and {entry -> sub_entry -> second_value} could match with the given Lucene field "entry_k1_second_value",
+     * and in the first path the key is "k1_second" and in the second one the key is "k1".
+     * There is no more information to tell which is the expected one so we just pick up the first one to build the partial record.
+     * TODO: Predicate the potential ambiguity when loading a schema and reject it
+     */
+    @Test
+    void mapWithSubMessageWithAmbiguity() {
+        TestRecordsTextProto.NestedMapDocument message = TestRecordsTextProto.NestedMapDocument.newBuilder()
+                .setDocId(5)
+                .addEntry(TestRecordsTextProto.NestedMapDocument.Entry.newBuilder().setKey("k1").setSubEntry(TestRecordsTextProto.NestedMapDocument.SubEntry.newBuilder().setSecondValue("testValue").build()).build())
+                .build();
+        KeyExpression index = field("entry", KeyExpression.FanType.FanOut)
+                .nest(function(LuceneFunctionNames.LUCENE_FIELD_NAME,
+                        concat(field("sub_entry").nest(concat(function(LuceneFunctionNames.LUCENE_TEXT, field("value")), function(LuceneFunctionNames.LUCENE_TEXT, field("second_value")))),
+                                field("key"))));
+        FDBRecord<Message> record = unstoredRecord(message);
+
+        assertEquals(ImmutableMap.of(Tuple.from(), ImmutableList.of(
+                        textField("entry_k1_second_value", "testValue"))),
+                LuceneDocumentFromRecord.getRecordFields(index, record));
+
+        // Build the partial record message for suggestion
+        Descriptors.Descriptor recordDescriptor = message.getDescriptorForType();
+        TestRecordsTextProto.NestedMapDocument.Builder builder = TestRecordsTextProto.NestedMapDocument.newBuilder();
+        LuceneIndexKeyValueToPartialRecordUtils.buildPartialRecord(index, recordDescriptor, builder, "entry_k1_second_value", "suggestion");
+        TestRecordsTextProto.NestedMapDocument partialMsg = builder.build();
+
+        assertEquals(1, partialMsg.getEntryCount());
+        TestRecordsTextProto.NestedMapDocument.Entry entry = partialMsg.getEntry(0);
+
+        // The k1_second is supposed to be populated for the key field under entry
+        assertEquals("k1_second", entry.getKey());
+
+        // The suggestion is supposed to show up in value field within sub-entry, instead of second_value
+        TestRecordsTextProto.NestedMapDocument.SubEntry subEntry = entry.getSubEntry();
+        assertEquals("suggestion", subEntry.getValue());
+        assertFalse(subEntry.hasSecondValue());
     }
 
     private static FDBRecord<Message> unstoredRecord(Message message) {
