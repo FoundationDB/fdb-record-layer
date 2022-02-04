@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TestHelpers;
@@ -35,6 +36,8 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -49,6 +52,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -351,10 +355,129 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
+    /**
+     * Verify that disabled aggregate indexes are not used by the planner.
+     * Verify that re-enabling those indexes allows the planner to use them.
+     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
+     */
+    @Test
+    void queryAggregateWithFilteredIndex() throws Exception {
+        Index sumIndex = new Index("value3sum", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
+        Index maxIndex = new Index("value3max", field("num_value_3_indexed").ungrouped(), IndexTypes.MAX_EVER_TUPLE);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord", sumIndex);
+            metaData.addIndex("MySimpleRecord", maxIndex);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            // test filtered
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+
+            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
+            recordStore.saveRecord(recBuilder.build());
+            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
+            recordStore.saveRecord(recBuilder.build());
+
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), null),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.FALSE).get(),
+                    "sum(Field { 'num_value_3_indexed' None} group 1)");
+
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), null),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.FALSE).get(),
+                    "max_ever(Field { 'num_value_3_indexed' None} group 1)");
+
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // test unfiltered
+            openSimpleRecordStore(context, hook);
+            assertEquals(142L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get().getLong(0));
+            assertEquals(100L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get().getLong(0));
+
+
+            assertEquals(142L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.TRUE).get().getLong(0));
+            assertEquals(100L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.TRUE).get().getLong(0));
+        }
+    }
+
     public static void assertThrowsAggregateFunctionNotSupported(Executable executable, String aggregateFunction) {
         final AggregateFunctionNotSupportedException e = assertThrows(AggregateFunctionNotSupportedException.class, executable);
         assertEquals("Aggregate function requires appropriate index", e.getMessage());
         assertEquals(aggregateFunction, e.getLogInfo().get(LogMessageKeys.FUNCTION.toString()).toString());
+    }
+
+    @Test
+    public void snapshotRecordCountFiltered() throws Exception {
+        Index onType = new Index("onType",
+                new GroupingKeyExpression(Key.Expressions.empty(), 0),
+                IndexTypes.COUNT);
+        Index byType = new Index("byType",
+                new GroupingKeyExpression(Key.Expressions.recordType(), 0),
+                IndexTypes.COUNT);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addUniversalIndex(byType);
+            metaData.addIndex("MySimpleRecord", onType);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            // test filtered
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+
+            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
+            recordStore.saveRecord(recBuilder.build());
+            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
+            recordStore.saveRecord(recBuilder.build());
+
+            assertThrows(RecordCoreException.class, () -> recordStore.getSnapshotRecordCountForRecordType(
+                    "MySimpleRecord", IndexQueryabilityFilter.FALSE));
+
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType(
+                    "MySimpleRecord", IndexQueryabilityFilter.TRUE).get());
+
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType(
+                    "MySimpleRecord", new IndexQueryabilityFilter() {
+                        @Override
+                        public boolean isQueryable(@Nonnull final Index index) {
+                            return index.getName().equals("onType");
+                        }
+
+                        @Override
+                        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+                            return 17;
+                        }
+                    }).get());
+
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType(
+                    "MySimpleRecord", new IndexQueryabilityFilter() {
+                        @Override
+                        public boolean isQueryable(@Nonnull final Index index) {
+                            return index.getName().equals("byType");
+                        }
+
+                        @Override
+                        public int queryHash(@Nonnull final QueryHashKind hashKind) {
+                            return 18;
+                        }
+                    }).get());
+            commit(context);
+        }
     }
 
     /**

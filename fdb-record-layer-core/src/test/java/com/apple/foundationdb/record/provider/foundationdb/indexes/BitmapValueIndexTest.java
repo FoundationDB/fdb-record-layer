@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -66,6 +67,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -551,7 +553,8 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                             Query.field("num_value_3").equalsValue(4)))
                     .setRequiredResults(Collections.singletonList(field("nested").nest(field("entry", FanOut).nest("num_value"))))
                     .build();
-            final RecordQueryPlan queryPlan =  ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, bitmap_value_nested_num_by_str)
+            final RecordQueryPlan queryPlan =  ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
+                            recordQuery, bitmap_value_nested_num_by_str, IndexQueryabilityFilter.DEFAULT)
                     .orElseGet(() -> fail("Cannot plan query"));
             assertThat(queryPlan, compositeBitmap(hasToString("[0] BITAND [1]"), Arrays.asList(
                     coveringIndexScan(indexScan(allOf(indexName("nested_num_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[1, 3, odd],[1, 3, odd]]"))))),
@@ -606,6 +609,38 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                         Query.field("str_value").equalsValue("odd"),
                         Query.not(Query.field("num_value_2").equalsValue(3))));
             });
+        }
+    }
+
+    @Test
+    public void filterIndexSelection() {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            saveRecords(100, 200);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            setupPlanner(null);
+            final RecordQuery recordQuery = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.and(
+                        Query.field("str_value").equalsValue("odd"),
+                        Query.field("num_value_2").equalsValue(3)))
+                    .setRequiredResults(Collections.singletonList(field("rec_no")))
+                    .build();
+            final RecordQueryPlan queryPlan = ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
+                            recordQuery, BITMAP_VALUE_REC_NO_BY_STR, IndexQueryabilityFilter.TRUE)
+                    .orElseGet(() -> fail("Cannot plan query"));
+            assertThat(queryPlan,
+                    coveringIndexScan(indexScan(allOf(
+                            indexName("rec_no_by_str_num2"),
+                            indexScanType(IndexScanType.BY_GROUP),
+                            bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))));
+            assertEquals(1188586655, queryPlan.planHash());
+            assertEquals(Optional.empty(),
+                    ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
+                            recordQuery, BITMAP_VALUE_REC_NO_BY_STR, IndexQueryabilityFilter.FALSE));
         }
     }
 
@@ -670,7 +705,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                 .setFilter(filter)
                 .setRequiredResults(Collections.singletonList(field("rec_no")))
                 .build();
-        return ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, functionCall)
+        return ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, functionCall, IndexQueryabilityFilter.DEFAULT)
                 .orElseGet(() -> fail("Cannot plan query"));
     }
 

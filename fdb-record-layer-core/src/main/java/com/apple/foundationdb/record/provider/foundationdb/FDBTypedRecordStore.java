@@ -45,6 +45,7 @@ import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.common.TypedRecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -230,6 +231,13 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
+    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
+                                                                       @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+        return untypedStore.getSnapshotRecordCountForRecordType(recordTypeName, indexQueryabilityFilter);
+    }
+
+    @Nonnull
+    @Override
     public <T> CompletableFuture<T> evaluateIndexRecordFunction(@Nonnull EvaluationContext evaluationContext, @Nonnull IndexRecordFunction<T> function, @Nonnull FDBRecord<M> rec) {
         return untypedStore.evaluateTypedIndexRecordFunction(evaluationContext, function, rec);
     }
@@ -242,8 +250,22 @@ public class FDBTypedRecordStore<M extends Message> implements FDBRecordStoreBas
 
     @Nonnull
     @Override
-    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames, @Nonnull IndexAggregateFunction aggregateFunction, @Nonnull TupleRange range, @Nonnull IsolationLevel isolationLevel) {
+    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
+                                                              @Nonnull IndexAggregateFunction aggregateFunction,
+                                                              @Nonnull TupleRange range,
+                                                              @Nonnull IsolationLevel isolationLevel) {
         return untypedStore.evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel);
+    }
+
+    @Nonnull
+    @Override
+    public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
+                                                              @Nonnull IndexAggregateFunction aggregateFunction,
+                                                              @Nonnull TupleRange range,
+                                                              @Nonnull IsolationLevel isolationLevel,
+                                                              @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+        return untypedStore.evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel,
+                indexQueryabilityFilter);
     }
 
     @Nonnull

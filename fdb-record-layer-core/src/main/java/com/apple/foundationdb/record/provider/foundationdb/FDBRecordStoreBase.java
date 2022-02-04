@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -1413,7 +1414,23 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete to the number of records
      */
     @Nonnull
-    CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName);
+    default CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return getSnapshotRecordCountForRecordType(recordTypeName, IndexQueryabilityFilter.TRUE);
+    }
+
+    /**
+     * Get the number of records in the record store of the given record type.
+     *
+     * The record type must have a {@code COUNT} index defined for it.
+     * @param recordTypeName record type for which to count records
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning
+     * @return a future that will complete to the number of records
+     */
+    @Nonnull
+    CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
+                                                                @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
 
     default CompletableFuture<Long> getSnapshotRecordUpdateCount() {
         return getSnapshotRecordUpdateCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY);
@@ -1545,10 +1562,32 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete with the result of evaluating the aggregate
      */
     @Nonnull
+    default CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
+                                                               @Nonnull IndexAggregateFunction aggregateFunction,
+                                                               @Nonnull TupleRange range,
+                                                               @Nonnull IsolationLevel isolationLevel) {
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel,
+                IndexQueryabilityFilter.TRUE);
+    }
+
+    /**
+     * Evaluate an {@link IndexAggregateFunction} against a range of the store.
+     * @param recordTypeNames record types for which to find a matching index
+     * @param aggregateFunction the function to evaluate
+     * @param range the range of records (group) for which to evaluate
+     * @param isolationLevel whether to use snapshot reads
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning. This will not be
+     * consulted if the aggregateFunction already has an index
+     * @return a future that will complete with the result of evaluating the aggregate
+     */
+    @Nonnull
     CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
                                                        @Nonnull IndexAggregateFunction aggregateFunction,
                                                        @Nonnull TupleRange range,
-                                                       @Nonnull IsolationLevel isolationLevel);
+                                                       @Nonnull IsolationLevel isolationLevel,
+                                                       @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
 
     /**
      * Get a query result record from a stored record.

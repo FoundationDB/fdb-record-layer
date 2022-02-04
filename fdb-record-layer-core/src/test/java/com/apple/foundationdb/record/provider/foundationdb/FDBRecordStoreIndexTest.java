@@ -63,6 +63,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression.FanType;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.common.StoreTimer;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.InvalidIndexEntry;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.tuple.Tuple;
 import com.apple.foundationdb.tuple.TupleHelpers;
@@ -305,7 +306,8 @@ public class FDBRecordStoreIndexTest extends FDBRecordStoreTestBase {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context, hook);
 
-            final Optional<IndexAggregateFunction> boundSubtotal = IndexFunctionHelper.bindAggregateFunction(recordStore, subtotal, allTypes);
+            final Optional<IndexAggregateFunction> boundSubtotal = IndexFunctionHelper.bindAggregateFunction(recordStore,
+                    subtotal, allTypes, IndexQueryabilityFilter.DEFAULT);
             assertTrue(boundSubtotal.isPresent(), "should find a suitable index");
             assertEquals("sum", boundSubtotal.get().getIndex());
 

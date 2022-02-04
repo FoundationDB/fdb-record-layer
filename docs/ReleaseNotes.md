@@ -25,11 +25,15 @@ This version of the Record Layer changes the Java source and target compatibilit
 * **Performance** Improvement 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Performance** Improvement 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Feature** Feature 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Feature** Expose IndexQueryabilityFilter for Aggregate planning [(Issue #1520)](https://github.com/FoundationDB/fdb-record-layer/issues/1520)
 * **Feature** Feature 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Feature** Feature 5 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
-* **Breaking change** Change 1 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
+* **Breaking change** As part of [(Issue #1520)](https://github.com/FoundationDB/fdb-record-layer/issues/1520) implementers
+of `FDBRecordStoreBase` need to implement a new overload of `getSnapshotRecordCountForRecordType` and `evaluateAggregateFunction`
+that takes an `IndexQueryabilityFilter`. In addition some methods on `IndexFunctionHelper` and `ComposedBitmapIndexAggregate`
+now take an `IndexQueryabilityFilter`; to preserve backwards compatibility, if all indexes are valid,
+`IndexQueryabilityFilter.TRUE` can be used.
 * **Breaking change** Change 2 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 3 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)
 * **Breaking change** Change 4 [(Issue #NNN)](https://github.com/FoundationDB/fdb-record-layer/issues/NNN)

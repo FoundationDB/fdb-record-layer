@@ -78,6 +78,7 @@ import com.apple.foundationdb.record.provider.common.DynamicMessageRecordSeriali
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.RecordQuery;
@@ -1628,10 +1629,12 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     }
 
     @Override
-    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
+    public CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
+                                                                       @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
         // A COUNT index on this record type.
         IndexAggregateFunction aggregateFunction = IndexFunctionHelper.count(EmptyKeyExpression.EMPTY);
-        Optional<IndexMaintainer> indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.singletonList(recordTypeName));
+        Optional<IndexMaintainer> indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this,
+                aggregateFunction, Collections.singletonList(recordTypeName), indexQueryabilityFilter);
         if (indexMaintainer.isPresent()) {
             return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.ALL, IsolationLevel.SNAPSHOT)
                     .thenApply(tuple -> tuple.getLong(0));
@@ -1640,7 +1643,8 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
         // In fact, any COUNT index by record type that applied to this record type would work, no matter what other
         // types it applied to.
         aggregateFunction = IndexFunctionHelper.count(Key.Expressions.recordType());
-        indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, Collections.emptyList());
+        indexMaintainer = IndexFunctionHelper.indexMaintainerForAggregateFunction(this,
+                aggregateFunction, Collections.emptyList(), indexQueryabilityFilter);
         if (indexMaintainer.isPresent()) {
             RecordType recordType = getRecordMetaData().getRecordType(recordTypeName);
             return indexMaintainer.get().evaluateAggregateFunction(aggregateFunction, TupleRange.allOf(recordType.getRecordTypeKeyTuple()), IsolationLevel.SNAPSHOT)
@@ -1703,8 +1707,10 @@ public class FDBRecordStore extends FDBStoreBase implements FDBRecordStoreBase<M
     public CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
                                                               @Nonnull IndexAggregateFunction aggregateFunction,
                                                               @Nonnull TupleRange range,
-                                                              @Nonnull IsolationLevel isolationLevel) {
-        return IndexFunctionHelper.indexMaintainerForAggregateFunction(this, aggregateFunction, recordTypeNames)
+                                                              @Nonnull IsolationLevel isolationLevel,
+                                                              @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+        return IndexFunctionHelper.indexMaintainerForAggregateFunction(this,
+                        aggregateFunction, recordTypeNames, indexQueryabilityFilter)
                 .orElseThrow(() ->
                         new AggregateFunctionNotSupportedException("Aggregate function requires appropriate index",
                                 LogMessageKeys.FUNCTION, aggregateFunction,

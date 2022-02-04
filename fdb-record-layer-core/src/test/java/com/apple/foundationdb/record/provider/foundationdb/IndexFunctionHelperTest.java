@@ -20,9 +20,20 @@
 
 package com.apple.foundationdb.record.provider.foundationdb;
 
+import com.apple.foundationdb.record.metadata.Index;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
+import com.apple.foundationdb.record.metadata.IndexAggregateFunctionCall;
+import com.apple.foundationdb.record.metadata.IndexTypes;
 import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
+import com.apple.test.Tags;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concat;
 import static com.apple.foundationdb.record.metadata.Key.Expressions.concatenateFields;
@@ -34,7 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Tests for {@link IndexFunctionHelper}.
  */
-public class IndexFunctionHelperTest {
+@Tag(Tags.RequiresFDB)
+public class IndexFunctionHelperTest extends FDBRecordStoreTestBase {
 
     @Test
     public void groupSubKeysBasic() {
@@ -95,4 +107,53 @@ public class IndexFunctionHelperTest {
         assertEquals(IndexFunctionHelper.getGroupingKey(count), IndexFunctionHelper.getGroupingKey(sum));
     }
 
+    @Test
+    void filterIndexForBindAggregateFunctionCall() {
+        final GroupingKeyExpression group = concat(field("str_value_indexed"), field("num_value_2")).group(1);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord", new Index("filtered_sum_value2",
+                    group,
+                    Index.EMPTY_VALUE, IndexTypes.SUM, Map.of()));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+            final IndexAggregateFunctionCall indexAggregateFunctionCall =
+                    new IndexAggregateFunctionCall("sum", group);
+            final Optional<IndexAggregateFunction> expected = Optional.of(new IndexAggregateFunction("sum", group, "filtered_sum_value2"));
+            assertEquals(expected,
+                    IndexFunctionHelper.bindAggregateFunctionCall(recordStore, indexAggregateFunctionCall, List.of("MySimpleRecord"),
+                            IndexQueryabilityFilter.TRUE));
+            assertEquals(Optional.empty(),
+                    IndexFunctionHelper.bindAggregateFunctionCall(recordStore, indexAggregateFunctionCall, List.of("MySimpleRecord"),
+                            IndexQueryabilityFilter.FALSE));
+            commit(context);
+        }
+    }
+
+    @Test
+    void filterIndexForBindAggregateFunction() {
+        final GroupingKeyExpression group = concat(field("str_value_indexed"), field("num_value_2")).group(1);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord", new Index("filtered_sum_value2",
+                    group,
+                    Index.EMPTY_VALUE, IndexTypes.SUM, Map.of()));
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+            final IndexAggregateFunction indexAggregateFunction =
+                    new IndexAggregateFunction("sum", group, null);
+            final Optional<IndexAggregateFunction> expected = Optional.of(new IndexAggregateFunction("sum", group, "filtered_sum_value2"));
+            assertEquals(expected,
+                    IndexFunctionHelper.bindAggregateFunction(recordStore, indexAggregateFunction, List.of("MySimpleRecord"),
+                            IndexQueryabilityFilter.TRUE));
+            assertEquals(Optional.empty(),
+                    IndexFunctionHelper.bindAggregateFunction(recordStore, indexAggregateFunction, List.of("MySimpleRecord"),
+                            IndexQueryabilityFilter.FALSE));
+            commit(context);
+        }
+    }
 }
