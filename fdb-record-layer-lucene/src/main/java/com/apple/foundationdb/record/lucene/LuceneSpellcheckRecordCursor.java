@@ -91,8 +91,8 @@ public class LuceneSpellcheckRecordCursor implements BaseCursor<IndexEntry> {
             String[] fieldAndWord = value.split(":", 2);
             // only check the validity of the field if the documents are not grouped.
             if (groupingKey != null
-                && groupingKey.size() == 0
-                && Arrays.stream(fieldNames).noneMatch(name -> name.equals(fieldAndWord[0]))) {
+                    && groupingKey.size() == 0
+                    && Arrays.stream(fieldNames).noneMatch(name -> name.equals(fieldAndWord[0]))) {
                 throw new RecordCoreException("Invalid field name in Lucene index query")
                         .addLogInfo(LogMessageKeys.FIELD_NAME, fieldAndWord[0])
                         .addLogInfo(LogMessageKeys.INDEX_FIELDS, fieldNames);

@@ -88,8 +88,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.collection.IsCollectionWithSize.hasSize;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -835,7 +833,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
             FDBStoredRecord<Message> fdbRecord = recordStore.saveRecord(createMultiEntryMapDoc(1623L, ENGINEER_JOKE, "sampleTextPhrase", WAYLON, "sampleTextSong", 2));
             List<IndexEntry> indexEntries = recordStore.scanIndex(MAP_ON_VALUE_INDEX,
                     IndexScanType.BY_LUCENE_SPELLCHECK,
-                    TupleRange.allOf(Tuple.from("value:Visin", "sampleTextPhrase")),
+                    TupleRange.allOf(Tuple.from("Visin", "sampleTextPhrase")),
                     null,
                     ScanProperties.FORWARD_SCAN).asList().get();
 
