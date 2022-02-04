@@ -289,7 +289,7 @@ public class LuceneIndexExpressions {
                                 : fieldNamePrefix.length() + 1);
         overriddenKeyRanges.add(fieldNamePrefix == null
                                 ? ((fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? 0 : fieldNameSuffix.length())
-                                : (fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? fieldNamePrefix.length() : fieldNamePrefix.length() + fieldNameSuffix.length() + 1);
+                                : (fieldNameSuffix == null || fieldNameSuffix.isEmpty()) ? fieldNamePrefix.length() + 1 : fieldNamePrefix.length() + fieldNameSuffix.length() + 1);
     }
 
     private static void removedLastOverriddenKeyRange(@Nonnull List<Integer> overriddenKeyRanges) {

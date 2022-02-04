@@ -97,6 +97,9 @@ public class LuceneIndexKeyValueToPartialRecordUtils {
             if (index < 0) {
                 return;
             }
+            if (index + fixedField.length() < fieldName.length() && fieldName.charAt(index + fixedField.length()) != '_') {
+                return;
+            }
             fieldName = fieldName.substring(index + fixedField.length());
         }
 
