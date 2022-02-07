@@ -32,6 +32,7 @@ import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.IndexAggregateGroupKeys;
 import com.apple.foundationdb.record.provider.foundationdb.IndexFunctionHelper;
 import com.apple.foundationdb.record.provider.foundationdb.indexes.BitmapValueIndexMaintainer;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.AndOrComponent;
@@ -95,16 +96,19 @@ public class ComposedBitmapIndexAggregate {
      * @param planner a query planner to use to construct the plans
      * @param query a query providing target record type, filter, and required fields
      * @param indexAggregateFunctionCall the function call giving the desired position and grouping
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning
      * @return an {@code Optional} query plan or {@code Optional.empty} if planning is not possible
      */
     @Nonnull
     public static Optional<RecordQueryPlan> tryPlan(@Nonnull RecordQueryPlanner planner,
                                                     @Nonnull RecordQuery query,
-                                                    @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall) {
+                                                    @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall,
+                                                    @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
         if (query.getFilter() == null || query.getSort() != null) {
             return Optional.empty();
         }
-        return tryBuild(planner, query.getRecordTypes(), indexAggregateFunctionCall, query.getFilter())
+        return tryBuild(
+                planner, query.getRecordTypes(), indexAggregateFunctionCall, query.getFilter(), indexQueryabilityFilter)
                 .flatMap(p -> p.tryPlan(planner, query.toBuilder()));
     }
 
@@ -147,13 +151,15 @@ public class ComposedBitmapIndexAggregate {
      * @param recordTypeNames the record types on which the indexes are defined
      * @param indexAggregateFunctionCall the function giving the desired position and grouping
      * @param filter conditions on the groups and position
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning
      * @return an {@code Optional} composed bitmap or {@code Optional.empty} if there conditions could not be satisfied
      */
     @Nonnull
     public static Optional<ComposedBitmapIndexAggregate> tryBuild(@Nonnull QueryPlanner planner,
                                                                   @Nonnull Collection<String> recordTypeNames,
                                                                   @Nonnull IndexAggregateFunctionCall indexAggregateFunctionCall,
-                                                                  @Nonnull QueryComponent filter) {
+                                                                  @Nonnull QueryComponent filter,
+                                                                  @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
         // The filters that are common to all the composed index queries.
         // They can be equality conditions on the common group prefix (as specified by indexAggregateFunctionCall)
         // or inequalities on the position.
@@ -166,7 +172,8 @@ public class ComposedBitmapIndexAggregate {
             return Optional.empty();
         }
         Builder builder = new Builder(planner, recordTypeNames, commonFilters, indexAggregateFunctionCall);
-        return builder.tryBuild(indexFilters.size() > 1 ? Query.and(indexFilters) : indexFilters.get(0))
+        return builder.tryBuild(indexFilters.size() > 1 ? Query.and(indexFilters) : indexFilters.get(0),
+                        indexQueryabilityFilter)
             .map(ComposedBitmapIndexAggregate::new);
     }
 
@@ -300,15 +307,16 @@ public class ComposedBitmapIndexAggregate {
         }
 
         @Nonnull
-        Optional<Node> tryBuild(@Nonnull QueryComponent indexFilter) {
+        Optional<Node> tryBuild(@Nonnull QueryComponent indexFilter,
+                                @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
             if (indexFilter instanceof ComponentWithComparison) {
-                return indexScan(indexFilter);
+                return indexScan(indexFilter, indexQueryabilityFilter);
             }
             if (indexFilter instanceof AndOrComponent) {
                 final AndOrComponent andOrComponent = (AndOrComponent) indexFilter;
                 List<Node> childNodes = new ArrayList<>(andOrComponent.getChildren().size());
                 for (QueryComponent child : andOrComponent.getChildren()) {
-                    Optional<Node> childNode = tryBuild(child);
+                    Optional<Node> childNode = tryBuild(child, indexQueryabilityFilter);
                     if (!childNode.isPresent()) {
                         return Optional.empty();
                     }
@@ -318,16 +326,17 @@ public class ComposedBitmapIndexAggregate {
                 return Optional.of(new OperatorNode(operator, childNodes));
             }
             if (indexFilter instanceof NotComponent) {
-                return tryBuild(((NotComponent) indexFilter).getChild())
+                return tryBuild(((NotComponent) indexFilter).getChild(), indexQueryabilityFilter)
                         .map(childNode -> new OperatorNode(OperatorNode.Operator.NOT, Collections.singletonList(childNode)));
             }
             return Optional.empty();
         }
 
         @Nonnull
-        Optional<Node> indexScan(@Nonnull QueryComponent indexFilter) {
+        Optional<Node> indexScan(@Nonnull QueryComponent indexFilter,
+                                 @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
             if (bitmapIndexes == null) {
-                bitmapIndexes = findBitmapIndexes(indexAggregateFunctionCall.getFunctionName());
+                bitmapIndexes = findBitmapIndexes(indexAggregateFunctionCall.getFunctionName(), indexQueryabilityFilter);
                 if (bitmapIndexes.isEmpty()) {
                     return Optional.empty();
                 }
@@ -352,7 +361,6 @@ public class ComposedBitmapIndexAggregate {
             // (https://github.com/FoundationDB/fdb-record-layer/issues/1056)
             final GroupingKeyExpression groupKey = indexAggregateFunctionCall.getGroupingKeyExpression();
             final int groupedCount = groupKey.getGroupedCount();
-            final int wholeCount = groupKey.getColumnSize();
             int afterSpliceCount = groupedCount;
             if (groupKey.getWholeKey() instanceof ThenKeyExpression) {
                 final List<KeyExpression> thenChildren = ((ThenKeyExpression)groupKey.getWholeKey()).getChildren();
@@ -363,33 +371,13 @@ public class ComposedBitmapIndexAggregate {
                     afterSpliceCount += thenChildren.get(--childPosition).getColumnSize();
                 }
             }
-            final ThenKeyExpression splicedKey;
-            if (afterSpliceCount == groupedCount) {
-                // Preferred position at end of grouping keys.
-                splicedKey = Key.Expressions.concat(groupKey.getGroupingSubKey(), indexKey, groupKey.getGroupedSubKey());
-            } else {
-                final KeyExpression wholeKey = groupKey.getWholeKey();
-                final int splicePoint = wholeCount - afterSpliceCount;
-                if (splicePoint == 0) {
-                    splicedKey = Key.Expressions.concat(indexKey, wholeKey);
-                } else {
-                    splicedKey = Key.Expressions.concat(wholeKey.getSubKey(0, splicePoint), indexKey, wholeKey.getSubKey(splicePoint, wholeCount));
-                }
-            }
+            final ThenKeyExpression splicedKey = insertKey(indexKey, groupKey, afterSpliceCount);
             GroupingKeyExpression fullKey = splicedKey.group(groupedCount);
             Index index = bitmapIndexes.get(fullKey);
             if (index == null) {
                 return Optional.empty();
             }
-            final QueryComponent fullFilter;
-            if (groupFilters.isEmpty()) {
-                fullFilter = indexFilter;
-            } else {
-                List<QueryComponent> allFilters = new ArrayList<>(groupFilters.size() + 1);
-                allFilters.addAll(groupFilters);
-                allFilters.add(indexFilter);
-                fullFilter = Query.and(allFilters);
-            }
+            final QueryComponent fullFilter = andFilters(groupFilters, indexFilter);
             // Allow conditions on the position field as well.
             final KeyExpression fullOperand = new GroupingKeyExpression(fullKey.getWholeKey(), 0);
             return IndexAggregateGroupKeys.conditionsToGroupKeys(fullOperand, fullFilter)
@@ -401,7 +389,44 @@ public class ComposedBitmapIndexAggregate {
         }
 
         @Nonnull
-        Map<KeyExpression, Index> findBitmapIndexes(@Nonnull String aggregateFunction) {
+        private ThenKeyExpression insertKey(final @Nonnull KeyExpression indexKey,
+                                            final @Nonnull GroupingKeyExpression groupKey,
+                                            final int position) {
+            final int wholeCount = groupKey.getColumnSize();
+            final int groupedCount = groupKey.getGroupedCount();
+            final ThenKeyExpression splicedKey;
+            if (position == groupedCount) {
+                // Preferred position at end of grouping keys.
+                splicedKey = Key.Expressions.concat(groupKey.getGroupingSubKey(), indexKey, groupKey.getGroupedSubKey());
+            } else {
+                final KeyExpression wholeKey = groupKey.getWholeKey();
+                final int splicePoint = wholeCount - position;
+                if (splicePoint == 0) {
+                    splicedKey = Key.Expressions.concat(indexKey, wholeKey);
+                } else {
+                    splicedKey = Key.Expressions.concat(wholeKey.getSubKey(0, splicePoint), indexKey, wholeKey.getSubKey(splicePoint, wholeCount));
+                }
+            }
+            return splicedKey;
+        }
+
+        private static QueryComponent andFilters(final @Nonnull List<QueryComponent> groupFilters,
+                                                 final @Nonnull QueryComponent indexFilter) {
+            final QueryComponent fullFilter;
+            if (groupFilters.isEmpty()) {
+                fullFilter = indexFilter;
+            } else {
+                List<QueryComponent> allFilters = new ArrayList<>(groupFilters.size() + 1);
+                allFilters.addAll(groupFilters);
+                allFilters.add(indexFilter);
+                fullFilter = Query.and(allFilters);
+            }
+            return fullFilter;
+        }
+
+        @Nonnull
+        Map<KeyExpression, Index> findBitmapIndexes(@Nonnull String aggregateFunction,
+                                                    @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
             final String indexType;
             if (BitmapValueIndexMaintainer.AGGREGATE_FUNCTION_NAME.equals(aggregateFunction)) {
                 indexType = IndexTypes.BITMAP_VALUE;
@@ -412,6 +437,7 @@ public class ComposedBitmapIndexAggregate {
             return IndexFunctionHelper.indexesForRecordTypes(planner.getRecordMetaData(), recordTypeNames)
                     .filter(index -> index.getType().equals(indexType))
                     .filter(recordStoreState::isReadable)
+                    .filter(indexQueryabilityFilter::isQueryable)
                     .collect(Collectors.toMap(Index::getRootExpression, Function.identity()));
         }
 

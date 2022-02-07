@@ -51,6 +51,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.common.RecordSerializer;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
 import com.apple.foundationdb.record.provider.foundationdb.storestate.FDBRecordStoreStateCache;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.ParameterRelationshipGraph;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -1403,7 +1404,26 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete to the number of records
      */
     @Nonnull
-    CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value);
+    default CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return getSnapshotRecordCount(key, value, IndexQueryabilityFilter.TRUE);
+    }
+
+    /**
+     * Get the number of records in a portion of the record store determined by a group key expression.
+     *
+     * There must be a suitably grouped, readable {@code COUNT} type index defined, that is not filtered by
+     * {@code indexQueryabilityFilter}, or a suitable record count key on the metadata.
+     * @param key the grouping key expression
+     * @param value the value of {@code key} to match
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning. If there is a
+     * record count key, that may be used, and will not be checked against this filter.
+     * @return a future that will complete to the number of records
+     */
+    @Nonnull
+    CompletableFuture<Long> getSnapshotRecordCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
+                                                   @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
 
     /**
      * Get the number of records in the record store of the given record type.
@@ -1413,14 +1433,40 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete to the number of records
      */
     @Nonnull
-    CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName);
+    default CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName) {
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return getSnapshotRecordCountForRecordType(recordTypeName, IndexQueryabilityFilter.TRUE);
+    }
+
+    /**
+     * Get the number of records in the record store of the given record type.
+     *
+     * The record type must have a readable {@code COUNT} index defined for it, that is not excluded by the
+     * {@code indexQueryabilityFilter}.
+     * @param recordTypeName record type for which to count records
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning.
+     * @return a future that will complete to the number of records
+     */
+    @Nonnull
+    CompletableFuture<Long> getSnapshotRecordCountForRecordType(@Nonnull String recordTypeName,
+                                                                @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
 
     default CompletableFuture<Long> getSnapshotRecordUpdateCount() {
         return getSnapshotRecordUpdateCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY);
     }
 
     default CompletableFuture<Long> getSnapshotRecordUpdateCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value) {
-        return evaluateAggregateFunction(Collections.emptyList(), IndexFunctionHelper.countUpdates(key), value, IsolationLevel.SNAPSHOT)
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return getSnapshotRecordUpdateCount(key, value, IndexQueryabilityFilter.TRUE);
+    }
+
+    default CompletableFuture<Long> getSnapshotRecordUpdateCount(@Nonnull KeyExpression key, @Nonnull Key.Evaluated value,
+                                                                 @Nonnull IndexQueryabilityFilter indexQueryabilityFilter) {
+        return evaluateAggregateFunction(
+                Collections.emptyList(), IndexFunctionHelper.countUpdates(key), TupleRange.allOf(value.toTuple()),
+                IsolationLevel.SNAPSHOT, indexQueryabilityFilter)
                 .thenApply(tuple -> tuple.getLong(0));
     }
 
@@ -1545,10 +1591,32 @@ public interface FDBRecordStoreBase<M extends Message> extends RecordMetaDataPro
      * @return a future that will complete with the result of evaluating the aggregate
      */
     @Nonnull
+    default CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
+                                                               @Nonnull IndexAggregateFunction aggregateFunction,
+                                                               @Nonnull TupleRange range,
+                                                               @Nonnull IsolationLevel isolationLevel) {
+        // Using IndexQueryabilityFilter.TRUE probably isn't ideal here, but is used to preserve backwards
+        // compatibility
+        return evaluateAggregateFunction(recordTypeNames, aggregateFunction, range, isolationLevel,
+                IndexQueryabilityFilter.TRUE);
+    }
+
+    /**
+     * Evaluate an {@link IndexAggregateFunction} against a range of the store.
+     * @param recordTypeNames record types for which to find a matching index
+     * @param aggregateFunction the function to evaluate
+     * @param range the range of records (group) for which to evaluate
+     * @param isolationLevel whether to use snapshot reads
+     * @param indexQueryabilityFilter a filter to restrict which indexes can be used when planning. This will not be
+     * consulted if the aggregateFunction already has a readable index
+     * @return a future that will complete with the result of evaluating the aggregate
+     */
+    @Nonnull
     CompletableFuture<Tuple> evaluateAggregateFunction(@Nonnull List<String> recordTypeNames,
                                                        @Nonnull IndexAggregateFunction aggregateFunction,
                                                        @Nonnull TupleRange range,
-                                                       @Nonnull IsolationLevel isolationLevel);
+                                                       @Nonnull IsolationLevel isolationLevel,
+                                                       @Nonnull IndexQueryabilityFilter indexQueryabilityFilter);
 
     /**
      * Get a query result record from a stored record.

@@ -36,6 +36,7 @@ import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.NestingKeyExpression;
 import com.apple.foundationdb.record.metadata.expressions.ThenKeyExpression;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.google.common.base.Verify;
 import com.apple.foundationdb.record.query.QueryToKeyMatcher;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -101,9 +102,11 @@ public class IndexFunctionHelper {
                 .min(Comparator.comparing(i -> i.state.index.getColumnSize()));
     }
 
-    public static Optional<IndexMaintainer> indexMaintainerForAggregateFunction(@Nonnull FDBRecordStore store,
-                                                                                @Nonnull IndexAggregateFunction function,
-                                                                                @Nonnull List<String> recordTypeNames) {
+    public static Optional<IndexMaintainer> indexMaintainerForAggregateFunction(
+            @Nonnull FDBRecordStore store,
+            @Nonnull IndexAggregateFunction function,
+            @Nonnull List<String> recordTypeNames,
+            @Nonnull IndexQueryabilityFilter indexFilter) {
         if (function.getIndex() != null) {
             final Index index = store.getRecordMetaData().getIndex(function.getIndex());
             if (store.getRecordStoreState().isReadable(index)) {
@@ -112,6 +115,7 @@ public class IndexFunctionHelper {
         }
         return indexesForRecordTypes(store, recordTypeNames)
                 .filter(store::isIndexReadable)
+                .filter(indexFilter::isQueryable)
                 .map(store::getIndexMaintainer)
                 .filter(i -> i.canEvaluateAggregateFunction(function))
                 // Prefer the one that does it in the fewest number of columns, because that will mean less rolling-up.
@@ -126,15 +130,19 @@ public class IndexFunctionHelper {
      * @param store the store containing the record types
      * @param functionCall an {@link IndexAggregateFunctionCall}
      * @param recordTypeNames the names of the record types for which indexes need to be considered
+     * @param indexFilter a filter to restrict which indexes can be used when planning
      * @return an optional of a bound {@link IndexAggregateFunction} and a {@link IndexMaintainer} if a matching index
      *         was found, {@code Optional.empty()} otherwise.
      */
-    protected static Optional<Pair<IndexAggregateFunction, IndexMaintainer>> bindIndexForPermutableAggregateFunctionCall(@Nonnull FDBRecordStore store,
-                                                                                                                         @Nonnull IndexAggregateFunctionCall functionCall,
-                                                                                                                         @Nonnull List<String> recordTypeNames) {
+    protected static Optional<Pair<IndexAggregateFunction, IndexMaintainer>> bindIndexForPermutableAggregateFunctionCall(
+            @Nonnull FDBRecordStore store,
+            @Nonnull IndexAggregateFunctionCall functionCall,
+            @Nonnull List<String> recordTypeNames,
+            @Nonnull IndexQueryabilityFilter indexFilter) {
         Verify.verify(functionCall.isGroupingPermutable());
         return indexesForRecordTypes(store, recordTypeNames)
                 .filter(store::isIndexReadable)
+                .filter(indexFilter::isQueryable)
                 .flatMap(index ->
                         functionCall.enumerateIndexAggregateFunctionCandidates(index.getName())
                                 .flatMap(indexAggregateFunction -> {
@@ -300,8 +308,9 @@ public class IndexFunctionHelper {
 
     public static Optional<IndexAggregateFunction> bindAggregateFunction(@Nonnull FDBRecordStore store,
                                                                          @Nonnull IndexAggregateFunction function,
-                                                                         @Nonnull List<String> recordTypeNames) {
-        return indexMaintainerForAggregateFunction(store, function, recordTypeNames)
+                                                                         @Nonnull List<String> recordTypeNames,
+                                                                         @Nonnull IndexQueryabilityFilter indexFilter) {
+        return indexMaintainerForAggregateFunction(store, function, recordTypeNames, indexFilter)
                 .map(i -> function.cloneWithIndex(i.state.index.getName()));
     }
 
@@ -309,22 +318,24 @@ public class IndexFunctionHelper {
      * (Public) method to bind an {@link IndexAggregateFunctionCall} to an index resulting in an
      * {@link IndexAggregateFunction} if successful.
      *
-     * See {@link #bindIndexForPermutableAggregateFunctionCall(FDBRecordStore, IndexAggregateFunctionCall, List)} for details.
+     * See {@link #bindIndexForPermutableAggregateFunctionCall(FDBRecordStore, IndexAggregateFunctionCall, List, IndexQueryabilityFilter)} for details.
      *
      * @param store the store containing the record types
      * @param functionCall an {@link IndexAggregateFunctionCall}
      * @param recordTypeNames the names of the record types for which indexes need to be considered
+     * @param indexFilter a filter used to restrict candidate indexes
      * @return an optional of a bound {@link IndexAggregateFunction} if a matching index
      *         was found, {@code Optional.empty()} otherwise.
      */
     public static Optional<IndexAggregateFunction> bindAggregateFunctionCall(@Nonnull FDBRecordStore store,
                                                                              @Nonnull IndexAggregateFunctionCall functionCall,
-                                                                             @Nonnull List<String> recordTypeNames) {
+                                                                             @Nonnull List<String> recordTypeNames,
+                                                                             @Nonnull IndexQueryabilityFilter indexFilter) {
         if (functionCall.isGroupingPermutable()) {
-            return bindIndexForPermutableAggregateFunctionCall(store, functionCall, recordTypeNames)
+            return bindIndexForPermutableAggregateFunctionCall(store, functionCall, recordTypeNames, indexFilter)
                     .map(Pair::getLeft);
         } else {
-            return bindAggregateFunction(store, functionCall.toIndexAggregateFunction(null), recordTypeNames);
+            return bindAggregateFunction(store, functionCall.toIndexAggregateFunction(null), recordTypeNames, indexFilter);
         }
     }
 

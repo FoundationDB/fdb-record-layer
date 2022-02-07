@@ -46,6 +46,7 @@ import com.apple.foundationdb.record.metadata.expressions.KeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStoreTestBase;
+import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
 import com.apple.foundationdb.record.query.RecordQuery;
 import com.apple.foundationdb.record.query.expressions.Query;
 import com.apple.foundationdb.record.query.expressions.QueryComponent;
@@ -66,6 +67,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -92,10 +94,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * Tests for {@code BITMAP_VALUE} type indexes.
  */
 @Tag(Tags.RequiresFDB)
-public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
+class BitmapValueIndexTest extends FDBRecordStoreTestBase {
 
     @Test
-    public void basic() {
+    void basic() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -125,7 +127,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void aggregateFunction() {
+    void aggregateFunction() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -156,7 +158,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void nonPrimaryKey() {
+    void nonPrimaryKey() {
         final RecordMetaDataHook num_by_num3_hook = metadata -> {
             metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
                               new Index("num_by_num3",
@@ -182,7 +184,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void uniquenessViolationChecked() {
+    void uniquenessViolationChecked() {
         final RecordMetaDataHook num_by_num3_hook_not_unique = metadata -> {
             metadata.removeIndex("MySimpleRecord$num_value_unique");
             metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
@@ -210,7 +212,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void uniquenessViolationNotChecked() {
+    void uniquenessViolationNotChecked() {
         final RecordMetaDataHook num_by_num3_hook_not_unique = metadata -> {
             metadata.removeIndex("MySimpleRecord$num_value_unique");
             metadata.addIndex(metadata.getRecordType("MySimpleRecord"),
@@ -276,7 +278,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void andQuery() {
+    void andQuery() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -306,7 +308,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void andQueryPosition() {
+    void andQueryPosition() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -337,7 +339,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void andOrQuery() {
+    void andOrQuery() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -369,7 +371,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void andOrQueryWithContinuation() {
+    void andOrQueryWithContinuation() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -404,7 +406,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void andOrQueryWithDuplicate() {
+    void andOrQueryWithDuplicate() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -440,7 +442,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void andNotQuery() {
+    void andNotQuery() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -470,7 +472,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void nonOverlappingOrQuery() {
+    void nonOverlappingOrQuery() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             for (int recNo = 100; recNo < 200; recNo++) {
@@ -512,7 +514,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void nestedAndQuery() {
+    void nestedAndQuery() {
         final KeyExpression num_by_str = field("nested").nest(field("entry", FanOut).nest(concatenateFields("str_value", "num_value")));
         final GroupingKeyExpression nested_num_by_str = concat(field("num_value_1"), num_by_str).group(1);
         final KeyExpression nested_num_by_str_num2 = concat(field("num_value_1"), field("num_value_2"), num_by_str).group(1);
@@ -551,7 +553,8 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                             Query.field("num_value_3").equalsValue(4)))
                     .setRequiredResults(Collections.singletonList(field("nested").nest(field("entry", FanOut).nest("num_value"))))
                     .build();
-            final RecordQueryPlan queryPlan =  ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, bitmap_value_nested_num_by_str)
+            final RecordQueryPlan queryPlan =  ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
+                            recordQuery, bitmap_value_nested_num_by_str, IndexQueryabilityFilter.DEFAULT)
                     .orElseGet(() -> fail("Cannot plan query"));
             assertThat(queryPlan, compositeBitmap(hasToString("[0] BITAND [1]"), Arrays.asList(
                     coveringIndexScan(indexScan(allOf(indexName("nested_num_by_str_num2"), indexScanType(IndexScanType.BY_GROUP), bounds(hasTupleString("[[1, 3, odd],[1, 3, odd]]"))))),
@@ -568,7 +571,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void singleQuery() {
+    void singleQuery() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -592,7 +595,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    public void negatedQuery() {
+    void negatedQuery() {
         try (FDBRecordContext context = openContext()) {
             createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
             saveRecords(100, 200);
@@ -606,6 +609,38 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                         Query.field("str_value").equalsValue("odd"),
                         Query.not(Query.field("num_value_2").equalsValue(3))));
             });
+        }
+    }
+
+    @Test
+    void filterIndexSelection() {
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            saveRecords(100, 200);
+            commit(context);
+        }
+        try (FDBRecordContext context = openContext()) {
+            createOrOpenRecordStore(context, metaData(REC_NO_BY_STR_NUMS_HOOK));
+            setupPlanner(null);
+            final RecordQuery recordQuery = RecordQuery.newBuilder()
+                    .setRecordType("MySimpleRecord")
+                    .setFilter(Query.and(
+                        Query.field("str_value").equalsValue("odd"),
+                        Query.field("num_value_2").equalsValue(3)))
+                    .setRequiredResults(Collections.singletonList(field("rec_no")))
+                    .build();
+            final RecordQueryPlan queryPlan = ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
+                            recordQuery, BITMAP_VALUE_REC_NO_BY_STR, IndexQueryabilityFilter.TRUE)
+                    .orElseGet(() -> fail("Cannot plan query"));
+            assertThat(queryPlan,
+                    coveringIndexScan(indexScan(allOf(
+                            indexName("rec_no_by_str_num2"),
+                            indexScanType(IndexScanType.BY_GROUP),
+                            bounds(hasTupleString("[[odd, 3],[odd, 3]]"))))));
+            assertEquals(1188586655, queryPlan.planHash());
+            assertEquals(Optional.empty(),
+                    ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner,
+                            recordQuery, BITMAP_VALUE_REC_NO_BY_STR, IndexQueryabilityFilter.FALSE));
         }
     }
 
@@ -670,7 +705,7 @@ public class BitmapValueIndexTest extends FDBRecordStoreTestBase {
                 .setFilter(filter)
                 .setRequiredResults(Collections.singletonList(field("rec_no")))
                 .build();
-        return ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, functionCall)
+        return ComposedBitmapIndexAggregate.tryPlan((RecordQueryPlanner)planner, recordQuery, functionCall, IndexQueryabilityFilter.DEFAULT)
                 .orElseGet(() -> fail("Cannot plan query"));
     }
 

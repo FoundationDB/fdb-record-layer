@@ -25,6 +25,7 @@ import com.apple.foundationdb.record.AggregateFunctionNotSupportedException;
 import com.apple.foundationdb.record.FunctionNames;
 import com.apple.foundationdb.record.IsolationLevel;
 import com.apple.foundationdb.record.PlanHashable;
+import com.apple.foundationdb.record.RecordCoreException;
 import com.apple.foundationdb.record.RecordCursor;
 import com.apple.foundationdb.record.RecordStoreState;
 import com.apple.foundationdb.record.TestHelpers;
@@ -35,6 +36,9 @@ import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexAggregateFunction;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
+import com.apple.foundationdb.record.metadata.Key;
+import com.apple.foundationdb.record.metadata.expressions.EmptyKeyExpression;
+import com.apple.foundationdb.record.metadata.expressions.GroupingKeyExpression;
 import com.apple.foundationdb.record.provider.foundationdb.FDBQueriedRecord;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.query.IndexQueryabilityFilter;
@@ -49,9 +53,13 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.apple.foundationdb.record.metadata.Key.Expressions.field;
 import static com.apple.foundationdb.record.query.plan.match.PlanMatchers.bounds;
@@ -80,7 +88,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @DualPlannerTest
-    public void queryWithWriteOnly() throws Exception {
+    void queryWithWriteOnly() throws Exception {
         RecordQuery query = RecordQuery.newBuilder()
                 .setRecordType("MySimpleRecord")
                 .setFilter(Query.field("num_value_3_indexed").greaterThanOrEquals(5))
@@ -158,7 +166,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
      */
     @DualPlannerTest
-    public void queryWithDisabled() throws Exception {
+    void queryWithDisabled() throws Exception {
         try (FDBRecordContext context = openContext()) {
             openSimpleRecordStore(context);
             recordStore.markIndexDisabled("MySimpleRecord$str_value_indexed").get();
@@ -243,11 +251,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             RangeSet rangeSet = new RangeSet(recordStore.indexRangeSubspace(sumIndex));
             rangeSet.insertRange(context.ensureActive(), Tuple.from(1000).pack(), Tuple.from(1500).pack(), true).get();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
 
             assertThrowsAggregateFunctionNotSupported(() ->
                             recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
@@ -307,11 +312,8 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
             recordStore.markIndexDisabled("value3sum").join();
             recordStore.markIndexDisabled("value3max").join();
 
-            TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
-            recBuilder.setRecNo(1066).setNumValue3Indexed(42);
-            recordStore.saveRecord(recBuilder.build());
-            recBuilder.clear().setRecNo(1776).setNumValue3Indexed(100);
-            recordStore.saveRecord(recBuilder.build());
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
 
             assertThrowsAggregateFunctionNotSupported(() ->
                             recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
@@ -351,17 +353,145 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         }
     }
 
-    public static void assertThrowsAggregateFunctionNotSupported(Executable executable, String aggregateFunction) {
-        final AggregateFunctionNotSupportedException e = assertThrows(AggregateFunctionNotSupportedException.class, executable);
-        assertEquals("Aggregate function requires appropriate index", e.getMessage());
-        assertEquals(aggregateFunction, e.getLogInfo().get(LogMessageKeys.FUNCTION.toString()).toString());
+    /**
+     * Verify that disabled aggregate indexes are not used by the planner.
+     * Verify that re-enabling those indexes allows the planner to use them.
+     * TODO: Abstract out common code in queryWithWriteOnly, queryWithDisabled, queryAggregateWithWriteOnly and queryAggregateWithDisabled (https://github.com/FoundationDB/fdb-record-layer/issues/4)
+     */
+    @Test
+    void queryAggregateWithFilteredIndex() throws Exception {
+        Index sumIndex = new Index("value3sum", field("num_value_3_indexed").ungrouped(), IndexTypes.SUM);
+        Index maxIndex = new Index("value3max", field("num_value_3_indexed").ungrouped(), IndexTypes.MAX_EVER_TUPLE);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addIndex("MySimpleRecord", sumIndex);
+            metaData.addIndex("MySimpleRecord", maxIndex);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            // test filtered
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
+
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), null),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.FALSE).get(),
+                    "sum(Field { 'num_value_3_indexed' None} group 1)");
+
+            assertThrowsAggregateFunctionNotSupported(() ->
+                            recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), null),
+                                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.FALSE).get(),
+                    "max_ever(Field { 'num_value_3_indexed' None} group 1)");
+
+            commit(context);
+        }
+
+        try (FDBRecordContext context = openContext()) {
+            // test unfiltered
+            openSimpleRecordStore(context, hook);
+            assertEquals(142L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get().getLong(0));
+            assertEquals(100L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE).get().getLong(0));
+
+
+            assertEquals(142L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.SUM, sumIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.TRUE).get().getLong(0));
+            assertEquals(100L, recordStore.evaluateAggregateFunction(Collections.singletonList("MySimpleRecord"),
+                    new IndexAggregateFunction(FunctionNames.MAX_EVER, maxIndex.getRootExpression(), null),
+                    TupleRange.ALL, IsolationLevel.SERIALIZABLE, IndexQueryabilityFilter.TRUE).get().getLong(0));
+        }
+    }
+
+    @Test
+    void snapshotRecordCountForRecordTypeFiltered() throws Exception {
+        Index onType = new Index("onType", emptyGroupedKeyExpression(), IndexTypes.COUNT);
+        Index byType = new Index("byType",
+                new GroupingKeyExpression(Key.Expressions.recordType(), 0),
+                IndexTypes.COUNT);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addUniversalIndex(byType);
+            metaData.addIndex("MySimpleRecord", onType);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            // test filtered
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
+
+            assertFilteredCount(2, filter -> recordStore.getSnapshotRecordCountForRecordType(
+                    "MySimpleRecord", filter));
+
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord",
+                    createIndexFilter(17, index -> index.getName().equals("onType"))).get());
+
+            assertEquals(2, recordStore.getSnapshotRecordCountForRecordType("MySimpleRecord",
+                    createIndexFilter(18, index -> index.getName().equals("byType"))).get());
+        }
+    }
+
+    @Test
+    void snapshotRecordCountFiltered() throws Exception {
+        Index countIndex = new Index("countIndex", emptyGroupedKeyExpression(), IndexTypes.COUNT);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addUniversalIndex(countIndex);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            // test filtered
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
+            recordStore.saveRecord(TestRecords1Proto.MyOtherRecord.newBuilder()
+                    .setRecNo(2203)
+                    .setNumValue3Indexed(55).build());
+
+            assertFilteredCount(3,
+                    filter -> recordStore.getSnapshotRecordCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, filter));
+        }
+    }
+
+    @Test
+    void snapshotUpdateCountFiltered() throws Exception {
+        Index countIndex = new Index("countUpdateIndex", emptyGroupedKeyExpression(), IndexTypes.COUNT_UPDATES);
+        RecordMetaDataHook hook = metaData -> {
+            metaData.addUniversalIndex(countIndex);
+        };
+
+        try (FDBRecordContext context = openContext()) {
+            // test filtered
+            openSimpleRecordStore(context, hook);
+            recordStore.deleteAllRecords();
+
+            saveSimpleRecord(1066, 42);
+            saveSimpleRecord(1776, 100);
+
+            assertFilteredCount(2,
+                    filter -> recordStore.getSnapshotRecordUpdateCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, filter));
+            // update the first record saved
+            saveSimpleRecord(1066, 59);
+            assertFilteredCount(3,
+                    filter -> recordStore.getSnapshotRecordUpdateCount(EmptyKeyExpression.EMPTY, Key.Evaluated.EMPTY, filter));
+        }
     }
 
     /**
      * Verify that queries do not use prohibited indexes.
      */
     @DualPlannerTest
-    public void queryAllowedIndexes() {
+    void queryAllowedIndexes() {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.addIndex("MySimpleRecord", new Index("limited_str_value_index", field("str_value_indexed"),
@@ -449,7 +579,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * Verify that queries can override prohibited indexes explicitly.
      */
     @DualPlannerTest
-    public void queryAllowedUniversalIndex() {
+    void queryAllowedUniversalIndex() {
         RecordMetaDataHook hook = metaData ->
                 metaData.addUniversalIndex(
                         new Index("universal_num_value_2", field("num_value_2"),
@@ -496,7 +626,7 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
      * If both allowed indexes and a queryability filter are set, verify that the planner uses the allowed indexes.
      */
     @DualPlannerTest
-    public void indexQueryabilityFilter() {
+    void indexQueryabilityFilter() {
         RecordMetaDataHook hook = metaData -> {
             metaData.removeIndex("MySimpleRecord$str_value_indexed");
             metaData.addIndex("MySimpleRecord", new Index("limited_str_value_index", field("str_value_indexed"),
@@ -555,5 +685,44 @@ public class FDBRestrictedIndexQueryTest extends FDBRecordStoreQueryTestBase {
         assertEquals(-1573180774, plan2.planHash(PlanHashable.PlanHashKind.LEGACY));
         assertEquals(994464666, plan2.planHash(PlanHashable.PlanHashKind.FOR_CONTINUATION));
         assertEquals(-1531627068, plan2.planHash(PlanHashable.PlanHashKind.STRUCTURAL_WITHOUT_LITERALS));
+    }
+
+    @Nonnull
+    private GroupingKeyExpression emptyGroupedKeyExpression() {
+        return new GroupingKeyExpression(Key.Expressions.empty(), 0);
+    }
+
+    private void saveSimpleRecord(final int recNo, final int value3Indexed) {
+        TestRecords1Proto.MySimpleRecord.Builder recBuilder = TestRecords1Proto.MySimpleRecord.newBuilder();
+        recBuilder.setRecNo(recNo).setNumValue3Indexed(value3Indexed);
+        recordStore.saveRecord(recBuilder.build());
+    }
+
+    public static void assertThrowsAggregateFunctionNotSupported(Executable executable, String aggregateFunction) {
+        final AggregateFunctionNotSupportedException e = assertThrows(AggregateFunctionNotSupportedException.class, executable);
+        assertEquals("Aggregate function requires appropriate index", e.getMessage());
+        assertEquals(aggregateFunction, e.getLogInfo().get(LogMessageKeys.FUNCTION.toString()).toString());
+    }
+
+    private void assertFilteredCount(final int expected,
+                                     Function<IndexQueryabilityFilter, CompletableFuture<Long>> getCount)
+            throws InterruptedException, java.util.concurrent.ExecutionException {
+        assertThrows(RecordCoreException.class, () -> getCount.apply(IndexQueryabilityFilter.FALSE));
+        assertEquals(expected, getCount.apply(IndexQueryabilityFilter.TRUE).get());
+    }
+
+    @Nonnull
+    private IndexQueryabilityFilter createIndexFilter(final int queryHash, final Predicate<Index> isQueryable) {
+        return new IndexQueryabilityFilter() {
+            @Override
+            public boolean isQueryable(@Nonnull final Index index) {
+                return isQueryable.test(index);
+            }
+
+            @Override
+            public int queryHash(@Nonnull final QueryHashKind hashKind) {
+                return queryHash;
+            }
+        };
     }
 }
