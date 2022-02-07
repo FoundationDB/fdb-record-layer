@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.api.exceptions;
 
 public class OperationUnsupportedException extends RelationalException {
+    private static final long serialVersionUID = 1L;
+
     public OperationUnsupportedException(String message) {
         super(message, ErrorCode.UNSUPPORTED_OPERATION);
     }

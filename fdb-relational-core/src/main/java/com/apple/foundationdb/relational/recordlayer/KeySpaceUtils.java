@@ -46,16 +46,14 @@ public final class KeySpaceUtils {
     public static String toPathString(KeySpacePath path) {
         String uriPath = "";
         while (path != null) {
-            switch (path.getDirectory().getKeyType()) {
-                case NULL:
-                    uriPath = "/" + uriPath;
-                    break;
-                default:
-                    if (uriPath.length() > 0) {
-                        uriPath = path.getValue().toString() + "/" + uriPath;
-                    } else {
-                        uriPath = path.getValue().toString();
-                    }
+            if (path.getDirectory().getKeyType() == KeySpaceDirectory.KeyType.NULL) {
+                uriPath = "/" + uriPath;
+            } else {
+                if (uriPath.length() > 0) {
+                    uriPath = path.getValue().toString() + "/" + uriPath;
+                } else {
+                    uriPath = path.getValue().toString();
+                }
             }
             path = path.getParent();
         }
@@ -129,7 +127,9 @@ public final class KeySpaceUtils {
             current = current.getSubdirectory(directory.getName());
         }
         if (current.isLeaf() || current.getSubdirectories().stream().noneMatch(dr -> dr.getName().equals(schemaId))) {
-            current = addSchemaDirectory(current, schemaId);
+            // this assignment has side effects, which is why we're doing it
+            // TODO(bfines) this is probably not how we should be dealing with this
+            addSchemaDirectory(current, schemaId);
         }
         return keySpace;
     }

@@ -56,6 +56,7 @@ final class ContinuationImpl implements Continuation {
         return !atEnd && this.continuationBytes == null;
     }
 
+    @Override
     public boolean atEnd() {
         return atEnd;
     }

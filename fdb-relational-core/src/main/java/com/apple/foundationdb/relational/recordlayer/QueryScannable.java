@@ -37,6 +37,7 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.protobuf.Message;
 
@@ -50,19 +51,18 @@ import javax.annotation.Nullable;
  * A Scannable that plans and executes a query.
  */
 public class QueryScannable implements Scannable {
-    private final RecordStoreConnection conn;
     private final RecordLayerSchema schema;
     private final RecordQueryPlan plan;
 
     private final String[] expectedFieldNames;
     private final boolean isExplain;
 
-    public QueryScannable(RecordStoreConnection conn,
-                          RecordLayerSchema schema,
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2",
+            justification = "internal implemenation should have proper useage")
+    public QueryScannable(RecordLayerSchema schema,
                           RecordQuery recordQuery,
                           String[] expectedFieldNames,
                           boolean isExplain) {
-        this.conn = conn;
         this.schema = schema;
         this.expectedFieldNames = expectedFieldNames;
         this.isExplain = isExplain;
@@ -104,11 +104,15 @@ public class QueryScannable implements Scannable {
     }
 
     @Override
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP",
+            justification = "class is internal implementation, this shouldn't escape proper usage")
     public String[] getFieldNames() {
         return expectedFieldNames;
     }
 
     @Override
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP",
+            justification = "class is internal implementation, this shouldn't escape proper usage")
     public String[] getKeyFieldNames() {
         //Query results are never returned in the key
         return new String[]{};

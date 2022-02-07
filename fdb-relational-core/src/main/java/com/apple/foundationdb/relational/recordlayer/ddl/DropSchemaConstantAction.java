@@ -24,7 +24,6 @@ import com.apple.foundationdb.record.provider.foundationdb.FDBRecordContext;
 import com.apple.foundationdb.record.provider.foundationdb.FDBRecordStore;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpace;
 import com.apple.foundationdb.record.provider.foundationdb.keyspace.KeySpacePath;
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.KeySpaceUtils;
@@ -35,13 +34,11 @@ import java.net.URI;
 public class DropSchemaConstantAction implements ConstantAction {
     private final URI schemaUrl;
     private final MutableRecordMetaDataStore metaDataStore;
-    private final Options options;
     private final KeySpace keySpace;
 
-    public DropSchemaConstantAction(URI schemaUrl, KeySpace keySpace, MutableRecordMetaDataStore metaDataStore, Options options) {
+    public DropSchemaConstantAction(URI schemaUrl, KeySpace keySpace, MutableRecordMetaDataStore metaDataStore) {
         this.schemaUrl = schemaUrl;
         this.metaDataStore = metaDataStore;
-        this.options = options;
         this.keySpace = keySpace;
     }
 

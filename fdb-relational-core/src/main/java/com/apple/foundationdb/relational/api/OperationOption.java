@@ -30,6 +30,16 @@ import java.util.function.Predicate;
  * @param <T> the type of the value held in the operation.
  */
 public class OperationOption<T> {
+    public static final String TIMEOUT_POLICY_NAME = "timeout.policy";
+    public static final String INDEX_HINT_NAME = "use.index";
+    public static final String RETRY_COUNT = "retry.limit";
+
+    public static final String RETRY_POLICY = "retry.policy";
+    public static final String CONTINUATION_NAME = "continuation";
+
+    public static final String FORCE_VERIFY_DDL = "ddl.forceVerify";
+
+    public static final String SCHEMA_EXISTENCE_CHECK = "schema.existenceCheck";
 
     /**
      * A policy for how to deal with timeouts that occur in the middle of a query. In general,
@@ -103,17 +113,6 @@ public class OperationOption<T> {
     T getValue() {
         return value;
     }
-
-    public static final String TIMEOUT_POLICY_NAME = "timeout.policy";
-    public static final String INDEX_HINT_NAME = "use.index";
-    public static final String RETRY_COUNT = "retry.limit";
-
-    public static final String RETRY_POLICY = "retry.policy";
-    public static final String CONTINUATION_NAME = "continuation";
-
-    public static final String FORCE_VERIFY_DDL = "ddl.forceVerify";
-
-    public static final String SCHEMA_EXISTENCE_CHECK = "schema.existenceCheck";
 
     static OperationOption<Predicate<RelationalException>> retryPolicy(Predicate<RelationalException> predicate) {
         return new OperationOption<>(RETRY_POLICY, predicate);

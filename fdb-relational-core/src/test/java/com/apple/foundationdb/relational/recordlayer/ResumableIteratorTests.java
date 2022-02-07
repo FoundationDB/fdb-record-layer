@@ -48,7 +48,7 @@ public class ResumableIteratorTests {
     @Test
     public void testContinuationOnDifferentCollections() {
         List<Integer> list = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-        List<String> list2 = Arrays.asList("a", "b", "c", "d", "e", "f");
+        final List<String> list2 = Arrays.asList("a", "b", "c", "d", "e", "f");
 
         ResumableIteratorImpl<Integer> testIt = new ResumableIteratorImpl<>(list.listIterator(), null);
         advanceIterator(testIt, 3);

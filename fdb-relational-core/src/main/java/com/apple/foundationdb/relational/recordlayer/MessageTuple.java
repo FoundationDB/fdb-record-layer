@@ -39,6 +39,7 @@ public class MessageTuple extends AbstractTuple {
         return message.getField(message.getDescriptorForType().getFields().get(position));
     }
 
+    @SuppressWarnings("unchecked")
     public <M extends Message> M parseMessage() {
         return (M) message;
     }

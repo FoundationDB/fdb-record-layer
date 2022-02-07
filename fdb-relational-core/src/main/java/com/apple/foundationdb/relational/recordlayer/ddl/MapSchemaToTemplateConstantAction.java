@@ -20,7 +20,6 @@
 
 package com.apple.foundationdb.relational.recordlayer.ddl;
 
-import com.apple.foundationdb.relational.api.Options;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
 import com.apple.foundationdb.relational.recordlayer.catalog.MutableRecordMetaDataStore;
@@ -31,16 +30,13 @@ public class MapSchemaToTemplateConstantAction implements ConstantAction {
     private final URI schemaUrl;
     private final String templateId;
     private final MutableRecordMetaDataStore metaDataStore;
-    private final Options constantActionOptions;
 
     public MapSchemaToTemplateConstantAction(URI schemaUrl,
                                              String templateId,
-                                             MutableRecordMetaDataStore metaDataStore,
-                                             Options constantActionOptions) {
+                                             MutableRecordMetaDataStore metaDataStore) {
         this.schemaUrl = schemaUrl;
         this.templateId = templateId;
         this.metaDataStore = metaDataStore;
-        this.constantActionOptions = constantActionOptions;
     }
 
     @Override

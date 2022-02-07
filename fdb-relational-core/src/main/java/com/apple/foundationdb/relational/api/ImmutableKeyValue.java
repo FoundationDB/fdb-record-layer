@@ -57,7 +57,7 @@ public class ImmutableKeyValue implements KeyValue {
             return false;
         }
         ImmutableKeyValue that = (ImmutableKeyValue) o;
-        return key.equals(that.key);
+        return key.equalTo(that.key);
     }
 
     @Override

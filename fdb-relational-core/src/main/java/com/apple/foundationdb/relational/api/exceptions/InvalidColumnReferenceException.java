@@ -21,7 +21,8 @@
 package com.apple.foundationdb.relational.api.exceptions;
 
 public class InvalidColumnReferenceException extends RelationalException {
-    private static String MESSAGE_PREFIX_FOR_INVALID_POSITION_NUMBER = "Invalid column position number: ";
+    public static final long serialVersionUID = 1L;
+    private static final String MESSAGE_PREFIX_FOR_INVALID_POSITION_NUMBER = "Invalid column position number: ";
 
     public InvalidColumnReferenceException(String message) {
         super(message, ErrorCode.INVALID_COLUMN_REFERENCE);

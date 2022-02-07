@@ -21,15 +21,18 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 import com.apple.foundationdb.relational.api.RelationalResultSetMetaData;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 public class RecordResultSetMetaData implements RelationalResultSetMetaData {
     private final String[] fieldNames;
 
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "internal class, shouldn't escape proper usage")
     public RecordResultSetMetaData(String[] fieldNames) {
         this.fieldNames = fieldNames;
     }
 
     @Override
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "internal class, shouldn't escape proper usage")
     public String[] getColumns() {
         return fieldNames;
     }

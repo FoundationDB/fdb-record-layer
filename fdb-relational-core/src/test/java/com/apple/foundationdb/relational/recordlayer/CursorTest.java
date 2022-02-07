@@ -167,12 +167,12 @@ public class CursorTest {
                 resultSet.next();
                 Restaurant.RestaurantRecord firstRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
                 // get continuation at the first (should point to the second record).
-                Continuation firstContinuation = resultSet.getContinuation();
+                final Continuation firstContinuation = resultSet.getContinuation();
 
                 resultSet.next();
                 Restaurant.RestaurantRecord secondRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());
                 // get continuation at the second element (should point to third).
-                Continuation secondContinuation = resultSet.getContinuation();
+                final Continuation secondContinuation = resultSet.getContinuation();
 
                 resultSet.next();
                 Restaurant.RestaurantRecord lastRecord = Restaurant.RestaurantRecord.parseFrom(resultSet.parseMessage().toByteArray());

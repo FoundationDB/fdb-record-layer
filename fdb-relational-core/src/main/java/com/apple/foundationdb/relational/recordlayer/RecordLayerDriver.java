@@ -75,8 +75,4 @@ public class RecordLayerDriver implements RelationalDriver {
         // return url.startsWith(engine.getScheme());
     }
 
-    /* private helper methods */
-    private int parseFormatVersion(URI url, Options connectionOptions) {
-        return 1;
-    }
 }

@@ -44,6 +44,7 @@ import com.apple.foundationdb.relational.recordlayer.RecordLayerIterator;
 import com.apple.foundationdb.relational.recordlayer.ResumableIterator;
 import com.apple.foundationdb.relational.recordlayer.Scannable;
 import com.apple.foundationdb.relational.recordlayer.TupleUtils;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import java.net.URI;
 import java.util.List;
@@ -74,6 +75,7 @@ public class DirectoryScannable implements Scannable {
         this(keySpace, prefix, new String[]{"path"}, directoryTransform);
     }
 
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2", justification = "Internal class expects proper usage")
     public DirectoryScannable(KeySpace keySpace, URI prefix, String[] fieldNames, Function<NestableTuple, NestableTuple> directoryTransform) {
         this.keySpace = keySpace;
         this.prefix = prefix;
@@ -157,6 +159,7 @@ public class DirectoryScannable implements Scannable {
     }
 
     @Override
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP", justification = "Internal class expects proper usage")
     public String[] getFieldNames() {
         return this.fieldNames;
     }

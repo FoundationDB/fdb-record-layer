@@ -81,13 +81,13 @@ public class RecordLayerConstantActionFactory implements ConstantActionFactory {
     @Nonnull
     @Override
     public ConstantAction getDropSchemaConstantAction(@Nonnull URI schemaUrl, @Nonnull Options options) {
-        return new DropSchemaConstantAction(schemaUrl, baseKeySpace, metaDataStore, options);
+        return new DropSchemaConstantAction(schemaUrl, baseKeySpace, metaDataStore);
     }
 
     @Nonnull
     @Override
     public ConstantAction getMapSchemaToTemplateConstantAction(@Nonnull URI schemaUrl, @Nonnull String templateId, Options constantActionOptions) {
-        return new MapSchemaToTemplateConstantAction(schemaUrl, templateId, metaDataStore, constantActionOptions);
+        return new MapSchemaToTemplateConstantAction(schemaUrl, templateId, metaDataStore);
     }
 
     public static class Builder {

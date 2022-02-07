@@ -53,7 +53,7 @@ public abstract class RecordTypeScannable<CursorT> implements Scannable {
             }
         } else if (endKey == null) {
             range = TupleRange.between(TupleUtils.toFDBTuple(startKey), null);
-        } else if (hasConstantValueForPrimaryKey() && startKey.equals(endKey)) {
+        } else if (hasConstantValueForPrimaryKey() && startKey.equalTo(endKey)) {
             range = TupleRange.allOf(TupleUtils.toFDBTuple(startKey));
         } else {
             range = TupleRange.between(TupleUtils.toFDBTuple(startKey), TupleUtils.toFDBTuple(endKey));

@@ -135,6 +135,7 @@ public class RecordStoreConnection implements DatabaseConnection {
         return new RecordLayerMetaData(this, frl.getKeySpace());
     }
 
+    @Override
     public void beginTransaction(@Nullable TransactionConfig config) {
         if (!inActiveTransaction()) {
             transaction = new RecordContextTransaction(fdbDb.openContext(getFDBRecordContextConfig(config == null ? this.transactionConfig : config, frl.getStoreTimer())));

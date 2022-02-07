@@ -126,6 +126,7 @@ public class RecordLayerDatabase implements RelationalDatabase {
         schemas.clear();
     }
 
+    @SuppressWarnings("PMD.PreserveStackTrace") //we actually do, the PMD linter just doesn't seem to be able to tell
     FDBRecordStore loadStore(@Nonnull FDBRecordContext txn, @Nonnull String storeName, @Nonnull FDBRecordStoreBase.StoreExistenceCheck existenceCheck) {
         //TODO(bfines) error handling if this store doesn't exist
 

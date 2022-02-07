@@ -56,12 +56,10 @@ import javax.annotation.Nullable;
 
 public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements Index {
     private final com.apple.foundationdb.record.metadata.Index index;
-    private final RecordStoreConnection conn;
     private final RecordTypeTable table;
 
-    public RecordStoreIndex(com.apple.foundationdb.record.metadata.Index index, RecordTypeTable table, RecordStoreConnection conn) {
+    public RecordStoreIndex(com.apple.foundationdb.record.metadata.Index index, RecordTypeTable table) {
         this.index = index;
-        this.conn = conn;
         this.table = table;
     }
 
@@ -84,8 +82,8 @@ public class RecordStoreIndex extends RecordTypeScannable<IndexEntry> implements
     @Override
     public KeyValue get(@Nonnull Transaction t, @Nonnull NestableTuple key, @Nonnull QueryProperties queryProperties) throws RelationalException {
         FDBRecordStore store = getSchema().loadStore();
-        final ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(queryProperties);
-        scanProperties.getExecuteProperties().setReturnedRowLimit(1);
+        ScanProperties scanProperties = QueryPropertiesUtils.getScanProperties(queryProperties);
+        scanProperties = new ScanProperties(scanProperties.getExecuteProperties().setReturnedRowLimit(1), scanProperties.isReverse());
         final RecordCursorIterator<IndexEntry> indexEntryRecordCursor = store.scanIndex(index, IndexScanType.BY_VALUE, TupleRange.allOf(TupleUtils.toFDBTuple(key)), null, scanProperties).asIterator();
         IndexEntry entry;
         if (!indexEntryRecordCursor.hasNext()) {

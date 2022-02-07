@@ -53,18 +53,6 @@ public class SystemDatabaseResultSet extends AbstractRecordLayerResultSet {
         this.commitOnClose = commitOnClose;
     }
 
-    public SystemDatabaseResultSet(Transaction txn,
-                                   Scannable directoryScannable,
-                                   QueryProperties options,
-                                   String[] fields,
-                                   boolean commitOnClose) {
-        this.txn = txn;
-        this.systemScannable = directoryScannable;
-        this.options = options;
-        this.fields = fields;
-        this.commitOnClose = commitOnClose;
-    }
-
     @Override
     public boolean next() throws RelationalException {
         nextCalled = true;

@@ -1,5 +1,5 @@
 /*
- * InternalErrorException.java
+ * package-info.java
  *
  * This source file is part of the FoundationDB open source project
  *
@@ -18,16 +18,4 @@
  * limitations under the License.
  */
 
-package com.apple.foundationdb.relational.api.exceptions;
-
-public class InternalErrorException extends RelationalException {
-    private static final int serialVersionUID = 1;
-
-    public InternalErrorException(String message) {
-        super(message, ErrorCode.INTERNAL_ERROR);
-    }
-
-    public InternalErrorException(String message, Throwable cause) {
-        super(message, ErrorCode.INTERNAL_ERROR, cause);
-    }
-}
+package com.apple.foundationdb.relational.util;

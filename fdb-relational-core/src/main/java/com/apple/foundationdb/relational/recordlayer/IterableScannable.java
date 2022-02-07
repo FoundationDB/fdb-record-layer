@@ -26,6 +26,7 @@ import com.apple.foundationdb.relational.api.NestableTuple;
 import com.apple.foundationdb.relational.api.QueryProperties;
 import com.apple.foundationdb.relational.api.Transaction;
 import com.apple.foundationdb.relational.api.exceptions.RelationalException;
+import com.apple.foundationdb.relational.util.SpotBugsSuppressWarnings;
 
 import com.google.common.collect.Iterators;
 
@@ -45,6 +46,8 @@ public class IterableScannable<T> implements Scannable {
     private final String[] keyFieldNames;
     private final String[] fieldNames;
 
+    @SpotBugsSuppressWarnings(value = "EI_EXPOSE_REP2",
+            justification = "internal implementation class, proper usage is expected")
     public IterableScannable(@Nonnull Iterable<T> iterable,
                              @Nonnull Function<T, KeyValue> transform,
                              @Nonnull String[] keyFieldNames,
@@ -78,18 +81,20 @@ public class IterableScannable<T> implements Scannable {
         ResumableIterator<KeyValue> kvs = openScan(t, key, key, null, scanOptions);
         while (kvs.hasNext()) {
             final KeyValue next = kvs.next();
-            if (next.key().equals(key)) {
+            if (next.key().equalTo(key)) {
                 return next;
             }
         }
         return null;
     }
 
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     @Override
     public String[] getFieldNames() {
         return fieldNames;
     }
 
+    @SpotBugsSuppressWarnings("EI_EXPOSE_REP")
     @Override
     public String[] getKeyFieldNames() {
         return keyFieldNames;

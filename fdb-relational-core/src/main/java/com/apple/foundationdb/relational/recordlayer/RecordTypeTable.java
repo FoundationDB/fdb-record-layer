@@ -123,7 +123,7 @@ public class RecordTypeTable extends RecordTypeScannable<FDBStoredRecord<Message
 
     @Override
     public Set<Index> getAvailableIndexes() {
-        return loadRecordType().getIndexes().stream().map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index, this, conn)).collect(Collectors.toSet());
+        return loadRecordType().getIndexes().stream().map((Function<com.apple.foundationdb.record.metadata.Index, Index>) index -> new RecordStoreIndex(index, this)).collect(Collectors.toSet());
     }
 
     @Override

@@ -48,7 +48,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Tests for our basic ability to get Table and Database Metadata from the Connection
+ * Tests for our basic ability to get Table and Database Metadata from the Connection.
  */
 public class BasicMetadataTest {
     @RegisterExtension
@@ -108,7 +108,7 @@ public class BasicMetadataTest {
             while (tables.next()) {
                 retTableNames.add(tables.getString("NAME"));
             }
-            List<String>expected = Arrays.asList("RestaurantRecord", "RestaurantReviewer");
+            List<String> expected = Arrays.asList("RestaurantRecord", "RestaurantReviewer");
             Assertions.assertEquals(expected.size(), retTableNames.size(), "Did not return the expected number of tables!");
             for (String table :expected) {
                 Assertions.assertTrue(retTableNames.contains(table), "Did not contain table <" + table + "> in returned results!");

@@ -115,7 +115,7 @@ public interface NestableTuple {
 
     Object getObject(int position);
 
-    default boolean equals(NestableTuple other) {
+    default boolean equalTo(NestableTuple other) {
         if (other == null) {
             return false;
         }

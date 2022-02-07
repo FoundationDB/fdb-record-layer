@@ -21,7 +21,7 @@
 package com.apple.foundationdb.relational.recordlayer;
 
 public class EmptyTuple extends AbstractTuple {
-    public static EmptyTuple INSTANCE = new EmptyTuple();
+    public static final EmptyTuple INSTANCE = new EmptyTuple();
 
     @Override
     public int getNumFields() {

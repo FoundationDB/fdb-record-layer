@@ -43,10 +43,11 @@ class FDBTuple extends AbstractTuple {
      * @param copy the tuple to copy
      */
     FDBTuple(@Nonnull NestableTuple copy) {
-        this.tuple = new Tuple();
+        Tuple t = new Tuple();
         for (int i = 0; i < copy.getNumFields(); i++) {
-            this.tuple.addObject(copy.getObject(i));
+            t = t.addObject(copy.getObject(i));
         }
+        this.tuple = t;
     }
 
     void setTuple(Tuple t) {

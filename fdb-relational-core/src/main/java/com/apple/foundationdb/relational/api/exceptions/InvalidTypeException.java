@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api.exceptions;
 
 public class InvalidTypeException extends RelationalException {
+    private static final long serialVersionUID = 1L;
 
     public InvalidTypeException(String message) {
         super(message, ErrorCode.CANNOT_CONVERT_TYPE);

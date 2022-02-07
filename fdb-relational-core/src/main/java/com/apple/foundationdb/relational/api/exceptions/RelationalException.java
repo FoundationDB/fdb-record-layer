@@ -21,6 +21,7 @@
 package com.apple.foundationdb.relational.api.exceptions;
 
 public class RelationalException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
     private final ErrorCode errorCode;
 
     public RelationalException(String message, ErrorCode errorCode) {

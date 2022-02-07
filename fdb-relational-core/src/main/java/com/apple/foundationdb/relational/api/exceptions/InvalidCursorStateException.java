@@ -21,6 +21,8 @@
 package com.apple.foundationdb.relational.api.exceptions;
 
 public class InvalidCursorStateException extends RelationalException {
+    private static final long serialVersionUID = 1L;
+
     public InvalidCursorStateException(String message) {
         super(message, ErrorCode.INVALID_CURSOR_STATE);
     }

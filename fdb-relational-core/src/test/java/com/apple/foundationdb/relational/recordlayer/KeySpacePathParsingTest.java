@@ -138,7 +138,7 @@ public class KeySpacePathParsingTest {
     }
 
     @Test
-    void canParseURIs() {
+    void canParseUris() {
         /*
          * Explicitly tests that KeySpacePaths can correctly be parsed from URIs
          */

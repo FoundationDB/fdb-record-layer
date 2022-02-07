@@ -79,11 +79,13 @@ public final class RecordLayerCatalog implements Catalog {
         return new SystemDatabaseResultSet(txn, new DirectoryScannable(keySpace), QueryProperties.DEFAULT, false);
     }
 
+    @Override
     @Nonnull
     public SchemaTemplate getSchemaTemplate(@Nonnull String templateId) throws RelationalException {
         return metaDataStore.loadTemplate(templateId);
     }
 
+    @Override
     @Nonnull
     public RelationalDatabase getDatabase(@Nonnull URI dbUrl) throws RelationalException {
         KeySpacePath dbPath = KeySpaceUtils.uriToPath(dbUrl, keySpace);

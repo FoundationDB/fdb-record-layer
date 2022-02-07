@@ -104,14 +104,14 @@ public class RecordStoreStatement implements Statement {
         }
 
         RecordQuery.Builder recQueryBuilder = RecordQuery.newBuilder().setRecordType(table.getName());
-        if (queryCols.size() > 0) {
+        if (!queryCols.isEmpty()) {
             recQueryBuilder.setRequiredResults(queryCols);
         }
         if (query.getWhereClause() != null) {
             recQueryBuilder.setFilter(WhereClauseUtils.convertClause(query.getWhereClause()));
         }
 
-        final QueryScannable scannable = new QueryScannable(conn, conn.frl.loadSchema(query.getSchema(), options), recQueryBuilder.build(), queryColumns.toArray(new String[0]), query.isExplain());
+        final QueryScannable scannable = new QueryScannable(conn.frl.loadSchema(query.getSchema(), options), recQueryBuilder.build(), queryColumns.toArray(new String[0]), query.isExplain());
         return new RecordLayerResultSet(scannable, null, null, conn, query.getQueryOptions(), options.getOption(OperationOption.CONTINUATION_NAME, null));
     }
 

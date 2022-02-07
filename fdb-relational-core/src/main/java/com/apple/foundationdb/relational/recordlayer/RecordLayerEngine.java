@@ -31,7 +31,7 @@ import com.apple.foundationdb.relational.recordlayer.catalog.RecordLayerCatalog;
 import com.apple.foundationdb.relational.recordlayer.ddl.ConstantActionFactory;
 import com.apple.foundationdb.relational.recordlayer.ddl.RecordLayerConstantActionFactory;
 
-import javax.annotation.Nullable;
+import javax.annotation.Nonnull;
 
 /**
  * A holder object for all the dependencies that need to be implemented by users.
@@ -40,14 +40,6 @@ import javax.annotation.Nullable;
  * these interfaces.
  */
 public class RecordLayerEngine {
-    private final DatabaseLocator databaseFinder;
-    private final MutableRecordMetaDataStore metaDataStore;
-    private final FDBRecordStoreBase.UserVersionChecker userVersionChecker;
-    private final SerializerRegistry serializerRegistry;
-    private final KeySpace keySpace;
-    @Nullable
-    private final FDBStoreTimer storeTimer;
-
     /*Internal objects*/
     private final Catalog catalog;
     private final ConstantActionFactory constantActionFactory;
@@ -58,13 +50,7 @@ public class RecordLayerEngine {
                              FDBRecordStoreBase.UserVersionChecker userVersionChecker,
                              SerializerRegistry serializerRegistry,
                              KeySpace keySpace,
-                             @Nullable FDBStoreTimer storeTimer) {
-        this.databaseFinder = databaseFinder;
-        this.metaDataStore = metaDataStore;
-        this.userVersionChecker = userVersionChecker;
-        this.serializerRegistry = serializerRegistry;
-        this.keySpace = keySpace;
-        this.storeTimer = storeTimer;
+                             @Nonnull FDBStoreTimer storeTimer) {
 
         this.catalog = new RecordLayerCatalog.Builder()
                 .setDatabaseLocator(databaseFinder)
