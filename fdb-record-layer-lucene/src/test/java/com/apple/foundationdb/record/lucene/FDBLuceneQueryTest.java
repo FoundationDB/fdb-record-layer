@@ -27,7 +27,6 @@ import com.apple.foundationdb.record.RecordMetaDataBuilder;
 import com.apple.foundationdb.record.TestRecordsTextProto;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
-import com.apple.foundationdb.record.lucene.synonym.SynonymSetConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -191,7 +190,7 @@ public class FDBLuceneQueryTest extends FDBRecordStoreQueryTestBase {
         final Index ngramIndex = new Index("Complex$text_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), IndexTypes.LUCENE,
                 ImmutableMap.of(
                         IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
-                        IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, SynonymSetConfig.DEFAULT.getName()));
+                        IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, SynonymAnalyzer.DEFAULT_SYNONYM_SET));
         openRecordStore(context, store -> { }, ngramIndex);
     }
 

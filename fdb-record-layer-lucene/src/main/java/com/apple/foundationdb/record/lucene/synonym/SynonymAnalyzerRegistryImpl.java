@@ -59,8 +59,8 @@ public class SynonymAnalyzerRegistryImpl implements SynonymAnalyzerRegistry {
     @Nonnull
     private static Map<String, SynonymAnalyzer> initRegistry() {
         final Map<String, SynonymAnalyzer> registry = new HashMap<>();
-        registry.put(SynonymSetConfig.DEFAULT.getName(),
-                new SynonymAnalyzer(STOP_WORDS, SynonymSetConfig.DEFAULT));
+        registry.put(SynonymAnalyzer.DEFAULT_SYNONYM_SET,
+                new SynonymAnalyzer(STOP_WORDS));
         return registry;
     }
 
@@ -77,7 +77,7 @@ public class SynonymAnalyzerRegistryImpl implements SynonymAnalyzerRegistry {
     @Override
     @SuppressWarnings("PMD.CompareObjectsWithEquals")
     public synchronized void register(@Nonnull final SynonymAnalyzer analyzer) {
-        String name = analyzer.getConfig().getName();
+        String name = analyzer.getName();
         SynonymAnalyzer oldAnalyzer = registry.putIfAbsent(name, analyzer);
         // If there was an already registered and the old analyzer isn't the same as
         // the new one, throw an error

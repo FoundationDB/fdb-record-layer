@@ -21,12 +21,11 @@
 package com.apple.foundationdb.record.lucene.synonym;
 
 import com.apple.foundationdb.record.RecordCoreException;
+import com.apple.foundationdb.record.logging.LogMessageKeys;
 import com.apple.foundationdb.record.lucene.LuceneAnalyzerFactory;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.google.auto.service.AutoService;
-import com.google.common.collect.Iterators;
-import com.google.common.io.Closer;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.LowerCaseFilter;
@@ -45,9 +44,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.SequenceInputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.util.Objects;
 
 /**
  * The analyzer for index with synonym enabled.
@@ -56,14 +55,20 @@ import java.text.ParseException;
  */
 public class SynonymAnalyzer extends StopwordAnalyzerBase {
     @Nonnull
+    public static final String DEFAULT_SYNONYM_SET = "EN_US";
+
+    @Nonnull
+    private static final String DEFAULT_SYNONYM_SET_SOURCE_FILE = "wn_s.txt";
+
+    @Nonnull
     private final SynonymMap synonymMap;
 
     @Nonnull
-    private final SynonymSetConfig synonymSetConfig;
+    private final String name;
 
     @Nonnull
-    public SynonymSetConfig getConfig() {
-        return synonymSetConfig;
+    public String getName() {
+        return name;
     }
 
     @Nullable
@@ -72,13 +77,19 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
     }
 
     public SynonymAnalyzer(@Nullable CharArraySet stopwords) {
-        this(stopwords, SynonymSetConfig.DEFAULT);
+        super(stopwords);
+        this.name = DEFAULT_SYNONYM_SET;
+        try (InputStream is = openDefaultFile()) {
+            this.synonymMap = buildSynonymMap(new InputStreamReader(Objects.requireNonNull(is), StandardCharsets.UTF_8));
+        } catch (IOException ex) {
+            throw new RecordCoreException("Failed to parse wordnet for synonym analyzer", ex);
+        }
     }
 
-    public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull SynonymSetConfig synonymSetConfig) {
+    public SynonymAnalyzer(@Nullable CharArraySet stopwords, @Nonnull String name, @Nonnull InputStreamReader synonymStream) {
         super(stopwords);
-        this.synonymSetConfig = synonymSetConfig;
-        this.synonymMap = buildSynonymMap();
+        this.name = name;
+        this.synonymMap = buildSynonymMap(synonymStream);
     }
 
     @Override
@@ -101,12 +112,8 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         return synonymMap;
     }
 
-    private SynonymMap buildSynonymMap() {
-        try (Closer closer = Closer.create()) {
-            InputStream is = new SequenceInputStream(Iterators.asEnumeration(
-                    synonymSetConfig.getFileNames().stream()
-                            .map(fileName -> closer.register(Thread.currentThread().getContextClassLoader().getResourceAsStream(fileName)))
-                            .iterator()));
+    private SynonymMap buildSynonymMap(final InputStreamReader synonymStream) {
+        try {
             SynonymMap.Parser parser = new SolrSynonymParser(true, true, new Analyzer() {
                 @Override
                 protected TokenStreamComponents createComponents(String fieldName) {
@@ -116,7 +123,7 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
                     return new TokenStreamComponents(src, tok);
                 }
             });
-            parser.parse(new InputStreamReader(is, StandardCharsets.UTF_8));
+            parser.parse(synonymStream);
             return parser.build();
         } catch (IOException | ParseException ex) {
             throw new RecordCoreException("Failed to parse wordnet for synonym analyzer", ex);
@@ -146,9 +153,23 @@ public class SynonymAnalyzer extends StopwordAnalyzerBase {
         public Analyzer getQueryAnalyzer(@Nonnull Index index, @Nonnull Analyzer indexAnalyzer) {
             String name = index.getOption(IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION);
             if (name == null) {
-                name = SynonymSetConfig.DEFAULT.getName();
+                name = DEFAULT_SYNONYM_SET;
             }
             return SynonymAnalyzerRegistryImpl.instance().getAnalyzer(name);
         }
+    }
+
+    @Nonnull
+    public static InputStream openFile(@Nonnull String file) {
+        InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(file);
+        if (stream == null) {
+            throw new RecordCoreException("Synonym file not found").addLogInfo(LogMessageKeys.FILE_NAME, file);
+        }
+        return stream;
+    }
+
+    @Nonnull
+    public static InputStream openDefaultFile() {
+        return openFile(DEFAULT_SYNONYM_SET_SOURCE_FILE);
     }
 }

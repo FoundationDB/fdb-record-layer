@@ -37,7 +37,6 @@ import com.apple.foundationdb.record.lucene.directory.FDBLuceneFileReference;
 import com.apple.foundationdb.record.lucene.ngram.NgramAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzer;
 import com.apple.foundationdb.record.lucene.synonym.SynonymAnalyzerRegistryImpl;
-import com.apple.foundationdb.record.lucene.synonym.SynonymSetConfig;
 import com.apple.foundationdb.record.metadata.Index;
 import com.apple.foundationdb.record.metadata.IndexOptions;
 import com.apple.foundationdb.record.metadata.IndexTypes;
@@ -73,6 +72,10 @@ import org.junit.jupiter.api.Test;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.SequenceInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -141,7 +144,7 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     private static final Index SYNONYM_LUCENE_INDEX = new Index("synonym_index", function(LuceneFunctionNames.LUCENE_TEXT, field("text")), LuceneIndexTypes.LUCENE,
             ImmutableMap.of(
                     IndexOptions.TEXT_ANALYZER_NAME_OPTION, SynonymAnalyzer.SynonymAnalyzerFactory.ANALYZER_NAME,
-                    IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, SynonymSetConfig.DEFAULT.getName()));
+                    IndexOptions.TEXT_SYNONYM_SET_NAME_OPTION, SynonymAnalyzer.DEFAULT_SYNONYM_SET));
 
     private static final String COMBINED_SYNONYM_SETS = "COMBINED_SYNONYM_SETS";
 
@@ -638,13 +641,19 @@ public class LuceneIndexTest extends FDBRecordStoreTestBase {
     }
 
     @Test
-    void scanWithCombinedSetsSynonymIndex() {
+    void scanWithCombinedSetsSynonymIndex() throws IOException {
         // The COMBINED_SYNONYM_SETS adds this extra line to our synonym set:
         // 'synonym', 'nonsynonym'
-        SynonymSetConfig testConfig = new SynonymSetConfig(
-                COMBINED_SYNONYM_SETS,
-                List.of(SynonymSetConfig.DEFAULT.getFileNames().get(0), "test.txt"));
-        SynonymAnalyzerRegistryImpl.instance().register(new SynonymAnalyzer(EnglishAnalyzer.ENGLISH_STOP_WORDS_SET, testConfig));
+        try (InputStream is1 = SynonymAnalyzer.openDefaultFile();
+                InputStream is2 = SynonymAnalyzer.openFile("test.txt");
+                InputStream is = new SequenceInputStream(is1, is2)) {
+            SynonymAnalyzer analyzer = new SynonymAnalyzer(
+                    EnglishAnalyzer.ENGLISH_STOP_WORDS_SET,
+                    COMBINED_SYNONYM_SETS,
+                    new InputStreamReader(is, StandardCharsets.UTF_8)
+            );
+            SynonymAnalyzerRegistryImpl.instance().register(analyzer);
+        }
         try (FDBRecordContext context = openContext()) {
             openRecordStore(context, metaDataBuilder -> {
                 metaDataBuilder.removeIndex(TextIndexTestUtils.SIMPLE_DEFAULT_NAME);
